@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>まゆみ助産院 ご来院スタンプQRコード</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700&family=Zen+Old+Mincho:wght@400;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --sage: #8a9e7e;
+      --sage-dark: #5a7a4e;
+      --sage-light: #b5c9a8;
+      --cream: #fdf8f0;
+      --warm-white: #fefcf8;
+      --brown: #7a5c3e;
+      --blush: #e8c9b5;
+      --text-dark: #3d2e1e;
+      --text-light: #9a8070;
+      --border: rgba(122, 92, 62, 0.13);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Serif JP', serif;
+      background: var(--cream);
+      color: var(--text-dark);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: var(--warm-white);
+      border-radius: 24px;
+      padding: 40px 36px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 8px 40px rgba(60, 40, 20, 0.10);
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .logo-mark {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(145deg, var(--sage-light), var(--sage-dark));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 2px 10px rgba(90, 122, 78, .3);
+    }
+
+    .logo-text {
+      font-family: 'Zen Old Mincho', serif;
+      font-size: 20px;
+      color: var(--text-dark);
+      letter-spacing: .06em;
+    }
+
+    .subtitle {
+      font-size: 11px;
+      color: var(--text-light);
+      letter-spacing: .15em;
+      margin-bottom: 28px;
+    }
+
+    .qr-wrap {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 0 auto 24px;
+      width: 220px;
+      height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 16px rgba(60, 40, 20, 0.08);
+      border: 1px solid var(--border);
+    }
+
+    #qrCanvas {
+      border-radius: 8px;
+    }
+
+    .scan-label {
+      font-size: 12px;
+      color: var(--text-light);
+      margin-bottom: 20px;
+      letter-spacing: .06em;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+
+    .url-label {
+      font-size: 11px;
+      color: var(--text-light);
+      margin-bottom: 8px;
+      letter-spacing: .08em;
+    }
+
+    .url-box {
+      background: var(--cream);
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 10.5px;
+      color: var(--brown);
+      word-break: break-all;
+      line-height: 1.6;
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+
+    .url-box:hover {
+      background: var(--blush);
+    }
+
+    .copy-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--sage), var(--sage-dark));
+      color: white;
+      border: none;
+      border-radius: 20px;
+      padding: 10px 28px;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      cursor: pointer;
+      letter-spacing: .08em;
+      box-shadow: 0 4px 14px rgba(90, 122, 78, .28);
+      transition: all .2s;
+      margin-bottom: 8px;
+    }
+
+    .copy-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 7px 20px rgba(90, 122, 78, .35);
+    }
+
+    .copy-msg {
+      font-size: 11px;
+      color: var(--sage-dark);
+      height: 16px;
+      transition: opacity .3s;
+    }
+
+    .note {
+      margin-top: 20px;
+      font-size: 10.5px;
+      color: var(--text-light);
+      line-height: 1.8;
+      background: rgba(232, 201, 181, .2);
+      border-radius: 10px;
+      padding: 12px 14px;
+      text-align: left;
+    }
+
+    .note strong {
+      color: var(--brown);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <div class="logo-wrap">
+      <div class="logo-mark">🌿</div>
+      <div class="logo-text">まゆみ助産院</div>
+    </div>
+    <div class="subtitle">ご来院スタンプ追加用QRコード</div>
+
+    <div class="qr-wrap" id="qrWrap">
+    </div>
+    <div class="scan-label">📱 スマートフォンでQRコードをスキャン</div>
+
+    <div class="divider"></div>
+
+    <div class="url-label">またはURLを直接シェア</div>
+    <div class="url-box" onclick="copyUrl()">
+      https://kaleidoscopic-pony-b29d6f.netlify.app
+    </div>
+    <button class="copy-btn" onclick="copyUrl()">URLをコピー</button>
+    <div class="copy-msg" id="copyMsg"></div>
+
+    <div class="note">
+      <strong>📌 スタッフの方へ</strong><br>
+      ご来院されたお客様に、このQRコードを<br>
+      スマートフォン等のカメラで読み取っていただいてください。<br>
+      <br>
+      ※お客様が事前に「まゆみ助産院アプリ」でプロフィール登録を済ませていると、自動でスタンプが1つ追加されます。
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    const APP_URL = 'https://kaleidoscopic-pony-b29d6f.netlify.app/?action=add_stamp';
+
+    function drawQR() {
+      const qrWrap = document.getElementById('qrWrap');
+      qrWrap.innerHTML = '';
+      new QRCode(qrWrap, {
+        text: APP_URL,
+        width: 180,
+        height: 180,
+        colorDark: "#1a1a1a",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+
+    function copyUrl() {
+      const url = 'https://kaleidoscopic-pony-b29d6f.netlify.app/?action=add_stamp';
+      navigator.clipboard.writeText(url).then(() => {
+        const msg = document.getElementById('copyMsg');
+        msg.textContent = '✅ コピーしました！';
+        setTimeout(() => msg.textContent = '', 2000);
+      }).catch(() => {
+        // フォールバック
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        const msg = document.getElementById('copyMsg');
+        msg.textContent = '✅ コピーしました！';
+        setTimeout(() => msg.textContent = '', 2000);
+      });
+    }
+
+    drawQR();
+  </script>
+</body>
+
+</html>

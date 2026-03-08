@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>まゆみ助産院 管理ダッシュボード</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sage: #8a9e7e;
+      --sage-light: #b5c9a8;
+      --sage-dark: #5a7a4e;
+      --cream: #fdf8f0;
+      --warm-white: #fefcf8;
+      --text-dark: #3d2e1e;
+      --text-mid: #6b5040;
+      --text-light: #9a8070;
+      --border: rgba(122, 92, 62, 0.15);
+      --bg-gray: #f5f5f5;
+      --danger: #c0392b;
+      --primary: #1a4a73;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Noto Serif JP', serif;
+      background: var(--bg-gray);
+      color: var(--text-dark);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* 上部ヘッダー */
+    header {
+      background: var(--sage-dark);
+      color: #fff;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      z-index: 10;
+    }
+    header h1 {
+      font-family: 'Zen Old Mincho', serif;
+      font-size: 18px;
+      margin: 0;
+    }
+    .settings-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    /* レイアウト */
+    .app-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* サイドバー (PC・タブレット用) */
+    .sidebar {
+      width: 220px;
+      background: var(--warm-white);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+    .nav-item {
+      padding: 15px 20px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.2s;
+    }
+    .nav-item:hover { background: var(--cream); }
+    .nav-item.active {
+      background: var(--sage-light);
+      color: var(--sage-dark);
+      border-left: 4px solid var(--sage-dark);
+    }
+
+    /* メインコンテンツ */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: var(--bg-gray);
+    }
+
+    .page { display: none; }
+    .page.active { display: block; }
+    
+    h2 {
+      font-family: 'Zen Old Mincho', serif;
+      font-size: 20px;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--sage);
+    }
+
+    /* カードデザイン */
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .card-title {
+      font-size: 16px; font-weight: bold; margin-bottom: 15px; display:flex; align-items:center; gap: 8px; border-bottom: 1px dashed var(--border); padding-bottom: 8px;
+    }
+
+    /* テーブル */
+    .table-wrapper {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 600px;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background: var(--cream);
+      font-weight: 500;
+      color: var(--text-mid);
+    }
+    tr:hover { background: #fafafa; }
+    
+    select, input, textarea {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+      width: 100%;
+    }
+    
+    button.btn {
+      background: var(--sage);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+    button.btn:hover { background: var(--sage-dark); }
+    button.btn:disabled { background: #ccc; cursor: not-allowed; }
+    button.btn-outline {
+      background: transparent;
+      border: 1px solid var(--sage);
+      color: var(--sage);
+    }
+    
+    /* フォーム */
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-size: 13px; margin-bottom: 5px; color: var(--text-mid); font-weight: bold;}
+    
+    /* 画像プレビュー */
+    #imagePreview, #prodImagePreview {
+      max-width: 100%;
+      max-height: 200px;
+      display: none;
+      margin-top: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* スマホ用下部ナビ */
+    .bottom-nav {
+      display: none;
+      background: white;
+      border-top: 1px solid var(--border);
+    }
+    
+    /* トースト・モーダル */
+    .toast {
+      position: fixed;
+      bottom: -50px; left: 50%;
+      transform: translateX(-50%);
+      background: #333; color: #fff;
+      padding: 10px 20px; border-radius: 20px;
+      font-size: 13px; transition: bottom 0.3s;
+      z-index: 1000;
+    }
+    .toast.show { bottom: 20px; }
+
+    .modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center; justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: white; padding: 20px;
+      border-radius: 8px; width: 100%; max-width: 450px;
+      max-height: 90vh; overflow-y: auto;
+    }
+
+    /* レスポンシブ */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .bottom-nav {
+        display: flex;
+        justify-content: space-around;
+        padding: 10px 0;
+        padding-bottom: env(safe-area-inset-bottom, 10px);
+      }
+      .bottom-nav-item {
+        text-align: center;
+        font-size: 11px;
+        color: var(--text-mid);
+        cursor: pointer;
+        flex: 1;
+      }
+      .bottom-nav-item.active { color: var(--sage-dark); font-weight: bold; }
+      .bottom-icon { font-size: 20px; display: block; margin-bottom: 2px; }
+      .main-content { padding: 15px; padding-bottom: 60px; }
+    }
+    
+    /* ユーティリティ */
+    .flex { display: flex; gap: 10px; align-items: center; }
+    .space-between { justify-content: space-between; }
+    .mb-2 { margin-bottom: 10px; }
+    .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; background: #eee; }
+    .badge.active { background: #e8f5e9; color: #2e7d32; }
+    .badge.cancel { background: #ffebee; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>まゆみ助産院 管理画面</h1>
+    <button class="settings-btn" onclick="openSettings()">⚙ 初期設定</button>
+  </header>
+
+  <div class="app-container">
+    <!-- サイドバー (PC/iPad用) -->
+    <aside class="sidebar">
+      <div class="nav-item active" onclick="switchPage('orders', this)">
+        <span>📦</span>注文管理
+      </div>
+      <div class="nav-item" onclick="switchPage('blogs', this)">
+        <span>📢</span>ブログ作成
+      </div>
+      <div class="nav-item" onclick="switchPage('products', this)">
+        <span>🌿</span>商品管理
+      </div>
+      <div class="nav-item" onclick="switchPage('calendar', this)">
+        <span>📅</span>カレンダー
+      </div>
+      <div class="nav-item" onclick="switchPage('users', this)">
+        <span>👥</span>会員管理
+      </div>
+      <div class="nav-item" onclick="switchPage('analytics', this)">
+        <span>📊</span>データ分析
+      </div>
+    </aside>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+      
+      <!-- === 注文管理ページ === -->
+      <section id="page-orders" class="page active">
+        <div class="flex space-between mb-2">
+          <h2>注文一覧</h2>
+          <div class="flex">
+            <label style="font-size:12px; display:flex; align-items:center; gap:5px; margin-right:10px;">
+              <input type="checkbox" id="showAllOrders" onchange="loadAdminOrders()" style="width:14px; height:14px;"> 受取済も含めて表示
+            </label>
+            <button type="button" class="btn" style="background:var(--danger); margin-right:8px;" onclick="bulkDelete('ORDERS')">🗑 一括削除</button>
+            <button class="btn btn-outline" onclick="loadAdminOrders()">🔄 更新</button>
+          </div>
+        </div>
+        <div class="card table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('ORDERS', this.checked)"></th>
+                <th>日時</th>
+                <th>会員ID / 名前</th>
+                <th>商品 (個数)</th>
+                <th>ステータス</th>
+                <th>受取確認</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="ordersList">
+              <tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- === ブログ・お知らせ作成ページ === -->
+      <section id="page-blogs" class="page">
+        <h2>新しいお知らせ・ブログ投稿</h2>
+        <div class="card">
+          <form id="blogForm" onsubmit="submitBlog(event)">
+            <input type="hidden" id="blogRowIdx" value="">
+            <div class="form-group">
+              <label>日付</label>
+              <input type="date" id="blogDate" required>
+            </div>
+            <div class="form-group">
+              <label>タイトル</label>
+              <input type="text" id="blogTitle" placeholder="例：夏の産後ヨガ体験会" required>
+            </div>
+            
+            <div class="form-group">
+              <label>★画像をアップロード（スマホのライブラリから選択可能）</label>
+              <input type="file" id="blogImageFile" accept="image/jpeg, image/png, image/gif, image/webp" onchange="previewImage(event)">
+              <img id="imagePreview" alt="プレビュー">
+            </div>
+
+            <div class="flex mb-2">
+              <div class="form-group" style="flex:1;">
+                <label>カテゴリ</label>
+                <select id="blogCategory">
+                  <option value="お知らせ">お知らせ</option>
+                  <option value="ブログ">ブログ</option>
+                  <option value="休診情報">休診情報</option>
+                  <option value="イベント">イベント</option>
+                  <option value="商品情報">商品情報</option>
+                </select>
+              </div>
+              <div class="form-group" style="width:100px;">
+                <label>アイコン</label>
+                <input type="text" id="blogIcon" value="📢" placeholder="絵文字">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>本文</label>
+              <textarea id="blogBody" rows="5" placeholder="お知らせの内容を入力..."></textarea>
+            </div>
+            <button type="submit" id="blogSubmitBtn" class="btn" style="width: 100%; font-size: 15px; padding: 12px;">🌟 この内容で投稿する</button>
+            <button type="button" id="blogCancelEditBtn" class="btn btn-outline" style="width: 100%; margin-top: 10px; display: none;" onclick="cancelBlogEdit()">キャンセル</button>
+          </form>
+        </div>
+
+        <div class="flex space-between mb-2" style="margin-top:40px;">
+          <h2>投稿済み記事一覧</h2>
+          <div class="flex">
+            <button type="button" class="btn" style="background:var(--danger); margin-right:8px;" onclick="bulkDelete('BLOG')">🗑 一括削除</button>
+            <button class="btn btn-outline" onclick="loadAdminBlogs()">🔄 更新</button>
+          </div>
+        </div>
+        <div class="card table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('BLOG', this.checked)"></th>
+                <th>日付</th>
+                <th>カテゴリ</th>
+                <th>タイトル</th>
+                <th>公開状況</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="blogsList">
+              <tr><td colspan="6" style="text-align:center;">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- === 商品管理ページ === -->
+      <section id="page-products" class="page">
+        <div class="flex space-between mb-2">
+          <h2>商品マスター管理</h2>
+          <div class="flex">
+            <button type="button" class="btn" style="background:var(--danger); margin-right:8px;" onclick="bulkDelete('PRODUCTS')">🗑 一括削除</button>
+            <button class="btn btn-outline" onclick="loadAdminProducts()">🔄 更新</button>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div id="productFormTitle" class="card-title">✨ 新しい商品を追加する</div>
+          <form id="productForm" onsubmit="submitProduct(event)">
+            <input type="hidden" id="prodRowIdx" value="">
+            <div class="flex mb-2">
+              <div class="form-group" style="flex:1;">
+                <label>カテゴリ</label>
+                <input type="text" id="prodCat" placeholder="例：よもぎ茶" required>
+              </div>
+              <div class="form-group" style="flex:2;">
+                <label>商品名</label>
+                <input type="text" id="prodName" placeholder="例：よもぎ茶（100パック）" required>
+              </div>
+            </div>
+            <div class="flex mb-2">
+              <div class="form-group" style="flex:1;">
+                <label>販売価格(円)</label>
+                <input type="number" id="prodPrice" placeholder="例：3000" required>
+              </div>
+              <div class="form-group" style="flex:1;">
+                <label>仕入値(円)</label>
+                <input type="number" id="prodCost" placeholder="利益計算用 例：1000" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>★画像（アイコン）をアップロード（スマホのライブラリから選択可能）</label>
+              <input type="file" id="prodImageFile" accept="image/jpeg, image/png, image/gif, image/webp" onchange="previewProdImage(event)">
+              <img id="prodImagePreview" alt="プレビュー">
+            </div>
+            <div class="form-group" style="margin-bottom: 20px;">
+              <label>背景色 (カラーパッドから選択)</label>
+              <div class="flex">
+                <input type="color" id="prodBg" value="#d4e8c8" style="width: 60px; height: 40px; padding: 2px; cursor: pointer;">
+                <span style="font-size: 12px; color: var(--text-light);">※商品一覧の背景色になります</span>
+              </div>
+            </div>
+            <button type="submit" id="prodSubmitBtn" class="btn" style="width: 100%;">商品を追加する</button>
+            <button type="button" id="prodCancelEditBtn" class="btn btn-outline" style="width: 100%; margin-top: 10px; display: none;" onclick="cancelProdEdit()">キャンセル</button>
+          </form>
+        </div>
+
+        <h3 style="margin-top:30px; margin-bottom:10px; font-size: 16px;">商品一覧 (価格変更・公開終了の操作)</h3>
+        <div class="card table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('PRODUCTS', this.checked)"></th>
+                <th>画像</th>
+                <th>カテゴリ</th>
+                <th>商品名</th>
+                <th>価格(円)</th>
+                <th>公開設定</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="productsList">
+              <tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- === 会員管理ページ === -->
+      <section id="page-users" class="page">
+        <div class="flex space-between mb-2">
+          <h2>会員一覧</h2>
+          <div class="flex">
+            <button class="btn btn-outline" onclick="loadAdminUsers()">🔄 更新</button>
+          </div>
+        </div>
+        
+        <div class="card table-wrapper">
+          <div class="card-title">📣 全員へPush通知を送信</div>
+          <div style="padding: 10px; background: var(--cream); border-radius: 8px; margin-bottom: 20px;">
+            <p style="font-size: 12px; color: var(--text-mid); margin-bottom: 10px;">
+              Push通知を許可しているすべてのユーザーのスマートフォンに通知を送信します。
+            </p>
+            <div class="form-group">
+              <label>通知タイトル</label>
+              <input type="text" id="pushTitle" placeholder="例：新しいブログを公開しました！" value="まゆみ助産院">
+            </div>
+            <div class="form-group">
+              <label>通知本文</label>
+              <textarea id="pushBody" rows="2" placeholder="通知の内容を入力してください..."></textarea>
+            </div>
+            <button class="btn" style="width: 100%; font-size: 15px; padding: 12px;" onclick="sendBroadcastPush()">🚀 通知を一斉送信する</button>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px;">アイコン</th>
+                <th>ID</th>
+                <th>登録/更新日時</th>
+                <th>氏名</th>
+                <th>電話番号</th>
+                <th>Push</th>
+                <th>メモ</th>
+              </tr>
+            </thead>
+            <tbody id="usersList">
+              <tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- === カレンダー管理ページ === -->
+      <section id="page-calendar" class="page">
+        <div class="flex space-between mb-2">
+          <h2>カレンダー管理</h2>
+          <div class="flex">
+            <button type="button" class="btn" style="background:var(--danger); margin-right:8px;" onclick="bulkDelete('CALENDAR')">🗑 一括削除</button>
+            <button class="btn btn-outline" onclick="loadAdminCalendar()">🔄 更新</button>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div id="calendarFormTitle" class="card-title">✨ 新しいイベントを追加する</div>
+          <form id="calendarForm" onsubmit="submitCalendar(event)">
+            <input type="hidden" id="calRowIdx" value="">
+            <div class="flex mb-2">
+              <div class="form-group" style="flex:1;">
+                <label>日付選択</label>
+                <div class="flex">
+                  <input type="date" id="calDate">
+                  <button type="button" class="btn primary" style="margin-left:8px; padding:0 15px; white-space:nowrap;" onclick="addSelectedDate()">追加</button>
+                </div>
+              </div>
+              <div id="selectedDatesArea" class="form-group" style="flex:1; margin-left:10px;">
+                <label>選択中の日付</label>
+                <div id="selectedDatesList" style="display:flex; flex-wrap:wrap; gap:4px; min-height:38px; padding:4px; border:1px solid var(--border); border-radius:8px; background:#fff;">
+                  <span style="font-size:12px; color:var(--text-light); padding:4px;">日付を選択して追加してください</span>
+                </div>
+              </div>
+              <div class="form-group" style="flex:2;">
+                <label>イベント名</label>
+                <input type="text" id="calTitle" placeholder="例：産後ヨガ教室" required>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 20px;">
+              <label>詳細</label>
+              <textarea id="calDesc" rows="3" placeholder="10:00〜11:30 定員5名様など..."></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label>★画像（フライヤー・写真など）をアップロード（スマホのライブラリから選択可能）</label>
+              <input type="file" id="calImageFile" accept="image/jpeg, image/png, image/gif, image/webp" onchange="previewCalImage(event)">
+              <img id="calImagePreview" alt="プレビュー" style="max-width: 100%; max-height: 200px; display: none; margin-top: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+              <label>カラー設定</label>
+              <div class="flex">
+                <input type="color" id="calColor" value="#e57373" style="width: 60px; height: 40px; padding: 2px; cursor: pointer;">
+                <span style="font-size: 12px; color: var(--text-light);">※カレンダー上の表示色になります。例：休診日(赤系 #e57373)、ヨガ(ピンク系 #f48fb1)</span>
+              </div>
+            </div>
+            <button type="submit" id="calSubmitBtn" class="btn" style="width: 100%;">イベントを追加する</button>
+            <button type="button" id="calCancelEditBtn" class="btn btn-outline" style="width: 100%; margin-top: 10px; display: none;" onclick="cancelCalendarEdit()">キャンセル</button>
+          </form>
+        </div>
+
+        <h3 style="margin-top:30px; margin-bottom:10px; font-size: 16px;">イベント一覧</h3>
+        <div class="card table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('CALENDAR', this.checked)"></th>
+                <th>画像</th>
+                <th>日付</th>
+                <th>イベント名</th>
+                <th>詳細</th>
+                <th>カラー</th>
+                <th>公開設定</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="calendarList">
+              <tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      
+      <!-- === データ分析ページ === -->
+      <section id="page-analytics" class="page">
+        <div class="flex space-between mb-2">
+          <h2>データ分析</h2>
+          <div class="flex">
+            <button class="btn btn-outline" onclick="loadAnalytics()">🔄 更新</button>
+          </div>
+        </div>
+        
+        <div class="card mb-2">
+          <div class="card-title">💰 収益サマリー (月別)</div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr id="profitHeader">
+                  <th>項目</th>
+                </tr>
+              </thead>
+              <tbody id="profitBody">
+                <tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📦 商品別販売数</div>
+          <div class="table-wrapper">
+            <table id="analyticsTable">
+              <thead>
+                <tr id="analyticsHeader">
+                  <th>商品名</th>
+                </tr>
+              </thead>
+              <tbody id="analyticsBody">
+                <tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- スマホ用ボトムナビ -->
+  <nav class="bottom-nav">
+    <div class="bottom-nav-item active" onclick="switchPage('orders', this)">
+      <span class="bottom-icon">📦</span>注文
+    </div>
+    <div class="bottom-nav-item" onclick="switchPage('blogs', this)">
+      <span class="bottom-icon">📢</span>ブログ
+    </div>
+    <div class="bottom-nav-item" onclick="switchPage('products', this)">
+      <span class="bottom-icon">🌿</span>商品
+    </div>
+    <div class="bottom-nav-item" onclick="switchPage('calendar', this)">
+      <span class="bottom-icon">📅</span>カレ
+    </div>
+    <div class="bottom-nav-item" onclick="switchPage('users', this)">
+      <span class="bottom-icon">👥</span>会員
+    </div>
+    <div class="bottom-nav-item" onclick="switchPage('analytics', this)">
+      <span class="bottom-icon">📊</span>分析
+    </div>
+  </nav>
+
+  <!-- URL設定モーダル -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 15px;">🔧 初期設定</h3>
+      <p style="font-size:12px; margin-bottom:15px; color:var(--text-mid);">お客様用アプリと同じGoogle Apps ScriptのURL（デプロイURL）を入力してください。</p>
+      <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/..." style="margin-bottom: 15px;">
+      <div class="flex">
+        <button class="btn" onclick="saveSettings()" style="flex:1;">保存</button>
+        <button class="btn btn-outline" onclick="document.getElementById('settingsModal').classList.remove('active')" style="flex:1;">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let GAS_URL = localStorage.getItem('MAYUMI_GAS_URL') || '';
+    let allBlogs = [];
+    let allProducts = [];
+    let allCalendarEvents = [];
+
+    document.getElementById('blogDate').valueAsDate = new Date();
+    document.getElementById('calDate').valueAsDate = new Date();
+
+    window.onload = () => {
+      if (!GAS_URL) {
+        openSettings();
+      } else {
+        loadAdminOrders();
+      }
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    // --- 一括削除・選択関連の新しい機能 ---
+    function toggleSelectAll(type, isChecked) {
+      try {
+        const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : 'order-sel'));
+        document.querySelectorAll('.' + cls).forEach(el => el.checked = isChecked);
+      } catch (err) {
+        console.error('Error in toggleSelectAll:', err);
+      }
+    }
+
+    async function bulkDelete(type) {
+      try {
+        const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : 'order-sel'));
+        const checkboxes = document.querySelectorAll(`.${cls}:checked`);
+        
+        if (checkboxes.length === 0) {
+          alert('削除する項目を選択してください。');
+          return;
+        }
+
+        const count = checkboxes.length;
+        let label = '';
+        if (type === 'BLOG') label = '件のブログ記事';
+        else if (type === 'PRODUCTS') label = '件の商品';
+        else if (type === 'CALENDAR') label = '件のイベント';
+        else label = '件の注文履歴';
+        
+        if (!confirm(`${count}${label}を削除しますか？\nこの操作は元に戻せません。`)) return;
+
+        showToast('一括削除中...');
+        let res;
+        if (type === 'ORDERS') {
+          const orderIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-id'));
+          res = await apiRequest('', { type: 'deleteOrders', orderIds: orderIds }, true);
+        } else {
+          const rowIndices = Array.from(checkboxes).map(cb => cb.getAttribute('data-idx'));
+          res = await apiRequest('', { type: 'deleteRows', sheet: type, rowIndices: rowIndices }, true);
+        }
+
+        if (res && res.status === 'ok') {
+          showToast(`${count}${label}を削除しました`);
+          if (type === 'BLOG') loadAdminBlogs();
+          else if (type === 'PRODUCTS') loadAdminProducts();
+          else if (type === 'CALENDAR') loadAdminCalendar();
+          else loadAdminOrders();
+        } else {
+          const errMsg = res ? (res.message || 'ステータスが不適切です') : 'レスポンスがありません';
+          showToast('削除に失敗しました: ' + errMsg);
+        }
+      } catch (err) {
+        console.error('Critical error in bulkDelete:', err);
+        showToast('エラーが発生しました: ' + err.message);
+      }
+    }
+
+    function openSettings() {
+      document.getElementById('gasUrlInput').value = GAS_URL;
+      document.getElementById('settingsModal').classList.add('active');
+    }
+    
+    function saveSettings() {
+      const url = document.getElementById('gasUrlInput').value.trim();
+      if(url) {
+        GAS_URL = url;
+        localStorage.setItem('MAYUMI_GAS_URL', GAS_URL);
+        document.getElementById('settingsModal').classList.remove('active');
+        showToast('設定を保存しました');
+        loadAdminOrders();
+      }
+    }
+
+    function switchPage(pageId, navEl) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + pageId).classList.add('active');
+      
+      document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(n => n.classList.remove('active'));
+      
+      const index = Array.from(navEl.parentElement.children).indexOf(navEl);
+      document.querySelectorAll('.sidebar .nav-item')[index].classList.add('active');
+      document.querySelectorAll('.bottom-nav .bottom-nav-item')[index].classList.add('active');
+
+      if(pageId === 'orders') loadAdminOrders();
+      if(pageId === 'blogs') loadAdminBlogs();
+      if(pageId === 'products') loadAdminProducts();
+      if(pageId === 'calendar') loadAdminCalendar();
+      if(pageId === 'users') loadAdminUsers();
+      if(pageId === 'analytics') loadAnalytics();
+    }
+
+    async function loadAdminUsers() {
+      const tbody = document.getElementById('usersList');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+      
+      const res = await apiRequest('getAdminUsers');
+      if (res && res.status === 'ok') {
+        const users = res.users || [];
+        if (users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">登録されている会員はいません</td></tr>';
+          return;
+        }
+        
+        let html = '';
+        users.forEach(u => {
+          html += `
+            <tr>
+              <td style="text-align:center;">
+                <img src="${u.avatarUrl || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2NjIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI1Ii8+PHBhdGggZD0iTTIwIDIxYThIDRhMTEuNSAxMS41IDAgMCAxIDE2IDB6Ii8+PC9zdmc+'}" alt="icon" style="width:32px;height:32px;border-radius:50%;object-fit:cover;background:#f5f5f5;">
+              </td>
+              <td>${u.memberId || ''}</td>
+              <td style="font-size:11px;color:#666;">${u.timestamp || ''}</td>
+              <td style="font-weight:bold;">${u.name || ''}</td>
+              <td>${u.phone || ''}</td>
+              <td style="text-align:center;">${u.pushEnabled ? '🔔' : 'ー'}</td>
+              <td>${u.memo || ''}</td>
+            </tr>
+          `;
+        });
+        tbody.innerHTML = html;
+      } else {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:red;">会員情報の取得に失敗しました</td></tr>';
+      }
+    }
+
+    async function loadAnalytics() {
+      const tbody = document.getElementById('analyticsBody');
+      const pbody = document.getElementById('profitBody');
+      if(!tbody || !pbody) return;
+      
+      tbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
+      pbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
+      
+      const res = await apiRequest('getAnalytics');
+      if (res && res.status === 'ok') {
+        renderAnalytics(res);
+      } else {
+        const err = '<tr><td colspan="1" style="text-align:center; color:red;">データ取得に失敗しました</td></tr>';
+        tbody.innerHTML = err;
+        pbody.innerHTML = err;
+      }
+    }
+
+    function renderAnalytics(res) {
+      const header = document.getElementById('analyticsHeader');
+      const tbody = document.getElementById('analyticsBody');
+      const pheader = document.getElementById('profitHeader');
+      const pbody = document.getElementById('profitBody');
+      
+      // 共通：ヘッダー（月）の生成
+      const headerHtml = '<th>項目 / 月</th>' + res.months.map(m => `<th style="text-align:center;">${m}</th>`).join('');
+      header.innerHTML = headerHtml.replace('項目', '商品名');
+      pheader.innerHTML = headerHtml;
+      
+      // 収益サマリー
+      pbody.innerHTML = '';
+      const financialRows = [
+        { label: '総売上 (円)', key: 'sales' },
+        { label: '総原価 (円)', key: 'cost' },
+        { label: '純利益 (円)', key: 'profit', style: 'color:var(--primary); font-weight:bold;' }
+      ];
+      
+      financialRows.forEach(row => {
+        let trHtml = `<td><b style="${row.style || ''}">${row.label}</b></td>`;
+        res.months.forEach(m => {
+          const val = (res.matrix[m] && res.matrix[m][row.key]) || 0;
+          trHtml += `<td style="text-align:center; ${row.style || ''}">${val.toLocaleString()}</td>`;
+        });
+        const tr = document.createElement('tr');
+        tr.innerHTML = trHtml;
+        pbody.appendChild(tr);
+      });
+      
+      // 商品別
+      tbody.innerHTML = '';
+      if (res.products.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${res.months.length + 1}" style="text-align:center;">データがありません</td></tr>`;
+        return;
+      }
+      
+      res.products.forEach(p => {
+        const tr = document.createElement('tr');
+        let trHtml = `<td><b>${p}</b></td>`;
+        res.months.forEach(m => {
+          const qty = (res.matrix[m] && res.matrix[m].products && res.matrix[m].products[p]) || 0;
+          trHtml += `<td style="text-align:center;">${qty || '-'}</td>`;
+        });
+        tr.innerHTML = trHtml;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function apiRequest(action, data = null, isPost = false) {
+      if (!GAS_URL) {
+        showToast('⚙ 初期設定からGASのURLを設定してください');
+        return null;
+      }
+      try {
+        let url = GAS_URL;
+        let options = { redirect: "follow" }; // GASのリダイレクト対応
+        
+        if (isPost) {
+          options.method = 'POST';
+          options.body = JSON.stringify(data);
+          options.headers = { 'Content-Type': 'text/plain' }; // CORSエラー回避
+        } else {
+          url += '?action=' + action;
+          if (data) url += '&data=' + encodeURIComponent(JSON.stringify(data));
+        }
+
+        const res = await fetch(url, options);
+        return await res.json();
+      } catch (e) {
+        console.error(e);
+        showToast('通信エラーが発生しました: ' + e.message);
+        return null;
+      }
+    }
+
+    /* === 注文管理 === */
+    async function loadAdminOrders() {
+      const showAll = document.getElementById('showAllOrders').checked;
+      const tbody = document.getElementById('ordersList');
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
+      const res = await apiRequest('getAdminOrders', { showAll: showAll });
+      if(res && res.status === 'ok') {
+        renderOrders(res.orders);
+      } else {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">データ取得に失敗しました</td></tr>';
+      }
+    }
+
+    function renderOrders(orders) {
+      const tbody = document.getElementById('ordersList');
+      tbody.innerHTML = '';
+      if(orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">注文データがありません</td></tr>';
+        return;
+      }
+      orders.forEach(o => {
+        const tr = document.createElement('tr');
+        
+        // 受取済みの場合は背景色を少し変える
+        if (o.checked) tr.style.background = '#f9f9f9';
+
+        tr.innerHTML = `
+          <td><input type="checkbox" class="order-sel" data-id="${o.orderId}"></td>
+          <td style="font-size:11px;">${new Date(o.date).toLocaleDateString('ja-JP')}</td>
+          <td>
+            <div style="font-size:12px; font-weight:bold;">${o.memberId || '-'}</div>
+            <div style="font-size:11px; color:var(--text-mid);">${o.customerName}</div>
+          </td>
+          <td style="font-size:12px; white-space:pre-line;">${o.itemName}</td>
+          <td>
+            <select id="status_${o.orderId}" style="padding:4px; font-size:12px;">
+              <option value="未受取" ${o.status==='未受取'?'selected':''}>未受取</option>
+              <option value="受取済" ${o.status==='受取済'?'selected':''}>受取済</option>
+            </select>
+          </td>
+          <td style="text-align:center;">
+            <input type="checkbox" id="check_${o.orderId}" ${o.checked ? 'checked' : ''} style="width:16px; height:16px;">
+          </td>
+          <td>
+            <div class="flex" style="gap:5px;">
+              <button class="btn" style="padding:5px 8px; font-size:11px;" onclick="saveOrder('${o.orderId}')">更新</button>
+              <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); border:none; border-radius:4px; cursor:pointer;" onclick="deleteOrder('${o.orderId}')">🗑</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function deleteOrder(orderId) {
+      if (!confirm('この注文履歴を削除しますか？\nこの操作は元に戻せません。')) return;
+      showToast('削除中...');
+      const res = await apiRequest('', { type: 'deleteOrders', orderIds: [orderId] }, true);
+      if (res && res.status === 'ok') {
+        showToast('注文履歴を削除しました');
+        loadAdminOrders();
+      } else {
+        showToast('削除に失敗しました');
+      }
+    }
+
+    async function saveOrder(orderId) {
+      const status = document.getElementById(`status_${orderId}`).value;
+      const checked = document.getElementById(`check_${orderId}`).checked;
+      
+      showToast('更新中...');
+      const res = await apiRequest('', { type: 'updateOrder', orderId: orderId, status: status, checked: checked }, true);
+      if(res && res.status === 'ok') {
+        if(checked) {
+          showToast('受取確認済み — 一覧から削除しました');
+          loadAdminOrders(); // 一覧を再読み込み
+        } else {
+          showToast('注文情報を更新しました');
+        }
+      } else {
+        showToast('更新に失敗しました');
+      }
+    }
+
+    // 画像をBase64に変換する関数（圧縮やリサイズは行わず元のサイズのまま）
+    function processImage(file, callback) {
+      if (!file.type || !file.type.match(/image.*/)) {
+        alert('画像ファイルを選択してください(JPG, PNG等)。');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        callback(event.target.result, file.type);
+      };
+      reader.onerror = function() {
+        alert('ファイルの読み込みに失敗しました。');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    let selectedImageBase64 = null;
+    let selectedImageMime = null;
+    let selectedImageName = null;
+
+    function previewImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const img = document.getElementById('imagePreview');
+      img.style.display = 'block';
+
+      processImage(file, function(dataUrl, mimeType) {
+        img.src = dataUrl;
+        selectedImageMime = mimeType;
+        selectedImageName = file.name;
+        selectedImageBase64 = dataUrl.split(',')[1];
+      });
+    }
+
+    let prodImageBase64 = null;
+    let prodImageMime = null;
+    let prodImageName = null;
+
+    function previewProdImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const img = document.getElementById('prodImagePreview');
+      img.style.display = 'block';
+
+      processImage(file, function(dataUrl, mimeType) {
+        img.src = dataUrl;
+        prodImageMime = mimeType;
+        prodImageName = file.name;
+        prodImageBase64 = dataUrl.split(',')[1];
+      });
+    }
+
+    let calImageBase64 = null;
+    let calImageMime = null;
+    let calImageName = null;
+
+    function previewCalImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const img = document.getElementById('calImagePreview');
+      img.style.display = 'block';
+
+      processImage(file, function(dataUrl, mimeType) {
+        img.src = dataUrl;
+        calImageMime = mimeType;
+        calImageName = file.name;
+        calImageBase64 = dataUrl.split(',')[1];
+      });
+    }
+
+    async function submitBlog(e) {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+
+      showToast('アップロード・投稿処理中...');
+
+      // 1. まず画像があればアップロードする
+      let imageUrl = '';
+      if (selectedImageBase64) {
+        btn.innerText = '画像をアップロード中...';
+        const imgRes = await apiRequest('', {
+          type: 'uploadImage',
+          filename: selectedImageName,
+          mimeType: selectedImageMime,
+          base64: selectedImageBase64
+        }, true);
+        
+        if (imgRes && imgRes.status === 'ok') {
+          imageUrl = imgRes.url;
+        } else {
+          const errMsg = imgRes ? (imgRes.message || JSON.stringify(imgRes)) : '通信エラー';
+          alert('🚨 画像のアップロードに失敗しました。\n\n【原因】\n' + errMsg + '\n\n【よくある原因】\n・GASのURLが古い（⚙初期設定から最新のURLに入れ直してください）\n・通信環境が不安定\n\n今回は文章のみ投稿します。');
+          showToast('画像のアップロードに失敗しました。');
+        }
+      } else {
+        const fileInput = document.getElementById('blogImageFile');
+        if (fileInput.files.length > 0) {
+           alert('画像がまだ準備できていません（圧縮処理中か読み込みエラー）。\nもう一度画像を選択し直すか、数秒待ってからボタンを押してください。');
+           btn.disabled = false;
+           btn.innerText = '🌟 この内容で投稿する';
+           return;
+        }
+      }
+
+      // 2. ブログ情報を投稿する
+      const rowIdx = document.getElementById('blogRowIdx').value;
+      btn.innerText = 'データを保存中...';
+      const payload = {
+        type: rowIdx ? 'updateBlog' : 'addBlog',
+        rowIdx: rowIdx,
+        date: document.getElementById('blogDate').value,
+        title: document.getElementById('blogTitle').value,
+        category: document.getElementById('blogCategory').value,
+        icon: document.getElementById('blogIcon').value,
+        image: imageUrl,
+        body: document.getElementById('blogBody').value
+      };
+
+      const res = await apiRequest('', payload, true);
+      btn.disabled = false;
+      btn.innerText = '🌟 この内容で投稿する';
+
+      if(res && res.status === 'ok') {
+        showToast(rowIdx ? 'ブログを更新しました！' : 'お知らせを投稿しました！ 🎉');
+        cancelBlogEdit(); // フォームのリセットとモード戻し
+        selectedImageBase64 = null;
+        loadAdminBlogs();
+      } else {
+        showToast('投稿に失敗しました');
+      }
+    }
+
+    async function loadAdminBlogs() {
+      const tbody = document.getElementById('blogsList');
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">読み込み中...</td></tr>';
+      const res = await apiRequest('getAdminBlogs');
+      if(res && res.status === 'ok') {
+        allBlogs = res.blogs;
+        tbody.innerHTML = '';
+        res.blogs.forEach(b => {
+          tbody.innerHTML += `
+            <tr>
+              <td><input type="checkbox" class="blog-sel" data-idx="${b.rowIdx}"></td>
+              <td>${b.date}</td>
+              <td><span class="badge">${b.category}</span></td>
+              <td>${b.title}</td>
+              <td>
+                <select id="b_status_${b.rowIdx}" onchange="updateBlogStatus(${b.rowIdx}, this.value)">
+                  <option value="公開" ${b.status==='公開'?'selected':''}>公開</option>
+                  <option value="非公開" ${b.status==='非公開'?'selected':''}>非公開</option>
+                </select>
+              </td>
+              <td>
+                <div class="flex" style="gap:5px;">
+                  <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editBlog(${b.rowIdx})">📝</button>
+                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteBlog(${b.rowIdx}, '${b.title.replace(/'/g, "\\'")}')">🗑</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+      }
+    }
+
+    async function updateBlogStatus(rowIdx, status) {
+      showToast('設定を変更しています...');
+      await apiRequest('', { type: 'updateRecordStatus', sheet: 'BLOG', rowIdx: rowIdx, status: status }, true);
+      showToast('公開設定を変更しました');
+    }
+
+    function editBlog(rowIdx) {
+      const b = allBlogs.find(item => item.rowIdx === rowIdx);
+      if (!b) return;
+      
+      document.getElementById('blogRowIdx').value = b.rowIdx;
+      document.getElementById('blogDate').value = b.date;
+      document.getElementById('blogTitle').value = b.title;
+      document.getElementById('blogCategory').value = b.category;
+      document.getElementById('blogIcon').value = b.icon;
+      document.getElementById('blogBody').value = b.body;
+      
+      document.getElementById('blogSubmitBtn').innerText = '📝 修正して保存する';
+      document.getElementById('blogCancelEditBtn').style.display = 'block';
+      
+      document.getElementById('page-blogs').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelBlogEdit() {
+      document.getElementById('blogRowIdx').value = '';
+      document.getElementById('blogForm').reset();
+      document.getElementById('blogDate').valueAsDate = new Date();
+      document.getElementById('blogSubmitBtn').innerText = '🌟 この内容で投稿する';
+      document.getElementById('blogCancelEditBtn').style.display = 'none';
+      document.getElementById('imagePreview').style.display = 'none';
+      selectedImageBase64 = null;
+    }
+
+    /* === 商品管理 === */
+    async function submitProduct(e) {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+
+      showToast('アップロード・保存処理中...');
+
+      // 1. 画像アップロード処理
+      let prodIconUrl = '';
+      if (prodImageBase64) {
+        btn.innerText = '画像をアップロード中...';
+        const imgRes = await apiRequest('', {
+          type: 'uploadImage',
+          filename: prodImageName,
+          mimeType: prodImageMime,
+          base64: prodImageBase64
+        }, true);
+        
+        if (imgRes && imgRes.status === 'ok') {
+          prodIconUrl = imgRes.url;
+        } else {
+          const errMsg = imgRes ? (imgRes.message || JSON.stringify(imgRes)) : '通信エラー';
+          alert('🚨 アイコンのアップロードに失敗しました。\n\n【原因】\n' + errMsg + '\n\nアイコンなしで登録します。');
+          showToast('アイコンなしで登録します。');
+        }
+      } else {
+        const fileInput = document.getElementById('prodImageFile');
+        if (fileInput.files.length > 0) {
+           alert('画像がまだ準備できていません（圧縮処理中か読み込みエラー）。\nもう一度画像を選択し直すか、数秒待ってからボタンを押してください。');
+           btn.disabled = false;
+           btn.innerText = '商品を追加する';
+           return;
+        }
+      }
+
+      btn.innerText = '商品データを保存中...';
+      const rowIdx = document.getElementById('prodRowIdx').value;
+
+      const payload = {
+        type: rowIdx ? 'updateProduct' : 'addProduct',
+        rowIdx: rowIdx,
+        category: document.getElementById('prodCat').value,
+        name: document.getElementById('prodName').value,
+        price: Number(document.getElementById('prodPrice').value),
+        costPrice: Number(document.getElementById('prodCost').value),
+        icon: prodIconUrl, // URLを渡す
+        bg: document.getElementById('prodBg').value
+      };
+
+      const res = await apiRequest('', payload, true);
+      btn.disabled = false;
+      btn.innerText = '商品を追加する';
+
+      if(res && res.status === 'ok') {
+        showToast(rowIdx ? '商品情報を更新しました！' : '新しい商品を追加しました！ 🎉');
+        cancelProdEdit();
+        loadAdminProducts();
+        prodImageBase64 = null;
+        // 背景色を初期カラーに戻す
+        document.getElementById('prodBg').value = '#d4e8c8';
+      } else {
+        showToast('追加に失敗しました。');
+      }
+    }
+
+    async function loadAdminProducts() {
+      const tbody = document.getElementById('productsList');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+      const res = await apiRequest('getAdminProducts');
+      if(res && res.status === 'ok') {
+        allProducts = res.products;
+        tbody.innerHTML = '';
+        res.products.forEach(p => {
+          let iconHtml = '';
+          if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
+            iconHtml = `<img src="${p.icon}" style="width:40px; height:40px; object-fit:cover; border-radius:4px;">`;
+          } else {
+            iconHtml = `<span style="font-size:20px;">${p.icon || '🌿'}</span>`;
+          }
+
+          tbody.innerHTML += `
+            <tr>
+              <td><input type="checkbox" class="product-sel" data-idx="${p.rowIdx}"></td>
+              <td style="text-align:center;">${iconHtml}</td>
+              <td>${p.category}</td>
+              <td>${p.name}</td>
+              <td>
+                <input type="number" id="p_price_${p.rowIdx}" value="${p.price}" style="width:80px;">
+              </td>
+              <td>
+                <select id="p_status_${p.rowIdx}">
+                  <option value="公開" ${p.status==='公開'?'selected':''}>公開</option>
+                  <option value="非公開" ${p.status==='非公開'?'selected':''}>非公開</option>
+                </select>
+              </td>
+              <td>
+                <div class="flex" style="gap:4px;">
+                  <button class="btn" style="padding:5px 10px; font-size:11px;" onclick="editProduct(${p.rowIdx})">📝</button>
+                  <button class="btn" style="padding:5px 10px; font-size:11px;" onclick="saveProduct(${p.rowIdx})">保存</button>
+                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteProduct(${p.rowIdx}, '${p.name.replace(/'/g, "\\'")}')">🗑</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+      }
+    }
+
+    function editProduct(rowIdx) {
+      const p = allProducts.find(item => item.rowIdx === rowIdx);
+      if (!p) return;
+      
+      document.getElementById('prodRowIdx').value = p.rowIdx;
+      document.getElementById('prodCat').value = p.category;
+      document.getElementById('prodName').value = p.name;
+      document.getElementById('prodPrice').value = p.price;
+      document.getElementById('prodCost').value = ''; // 仕入値は再設定が必要
+      document.getElementById('prodBg').value = p.bg;
+      
+      document.getElementById('productFormTitle').innerText = '📝 商品を編集する';
+      document.getElementById('prodSubmitBtn').innerText = '📝 修正を保存する';
+      document.getElementById('prodCancelEditBtn').style.display = 'block';
+      
+      document.getElementById('page-products').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelProdEdit() {
+      document.getElementById('prodRowIdx').value = '';
+      document.getElementById('productForm').reset();
+      document.getElementById('productFormTitle').innerText = '✨ 新しい商品を追加する';
+      document.getElementById('prodSubmitBtn').innerText = '商品を追加する';
+      document.getElementById('prodCancelEditBtn').style.display = 'none';
+      document.getElementById('prodImagePreview').style.display = 'none';
+      document.getElementById('prodBg').value = '#d4e8c8';
+      prodImageBase64 = null;
+    }
+
+    async function saveProduct(rowIdx) {
+      const price = document.getElementById(`p_price_${rowIdx}`).value;
+      const status = document.getElementById(`p_status_${rowIdx}`).value;
+      
+      showToast('商品を更新中...');
+      const res = await apiRequest('', { type: 'updateProduct', rowIdx: rowIdx, price: price, status: status }, true);
+      if(res && res.status === 'ok') {
+        showToast('商品情報を更新しました');
+      } else {
+        showToast('更新に失敗しました');
+      }
+    }
+
+    async function deleteBlog(rowIdx, title) {
+      if (!confirm('「' + title + '」を削除しますか？\nこの操作は元に戻せません。')) return;
+      showToast('削除中...');
+      const res = await apiRequest('', { type: 'deleteRow', sheet: 'BLOG', rowIdx: rowIdx }, true);
+      if (res && res.status === 'ok') {
+        showToast('ブログを削除しました');
+        loadAdminBlogs();
+      } else {
+        showToast('削除に失敗しました');
+      }
+    }
+
+    async function deleteProduct(rowIdx, name) {
+      if (!confirm('「' + name + '」を削除しますか？\nこの操作は元に戻せません。')) return;
+      showToast('削除中...');
+      const res = await apiRequest('', { type: 'deleteRow', sheet: 'PRODUCTS', rowIdx: rowIdx }, true);
+      if (res && res.status === 'ok') {
+        showToast('商品を削除しました');
+        loadAdminProducts();
+      } else {
+        showToast('削除に失敗しました');
+      }
+    }
+
+    /* === カレンダー管理 === */
+    let selectedDates = [];
+
+    function addSelectedDate() {
+      const dateVal = document.getElementById('calDate').value;
+      if (!dateVal) {
+        showToast('日付を選択してください');
+        return;
+      }
+      if (selectedDates.includes(dateVal)) {
+        showToast('その日付は既に追加されています');
+        return;
+      }
+      selectedDates.push(dateVal);
+      // 日付順にソート
+      selectedDates.sort();
+      renderSelectedDates();
+    }
+
+    function removeSelectedDate(date) {
+      selectedDates = selectedDates.filter(d => d !== date);
+      renderSelectedDates();
+    }
+
+    function renderSelectedDates() {
+      const listDiv = document.getElementById('selectedDatesList');
+      if (selectedDates.length === 0) {
+        listDiv.innerHTML = '<span style="font-size:12px; color:var(--text-light); padding:4px;">日付を選択して追加してください</span>';
+        return;
+      }
+      listDiv.innerHTML = selectedDates.map(d => `
+        <div style="background:var(--sage); color:#fff; font-size:11px; padding:2px 8px; border-radius:12px; display:flex; align-items:center; gap:4px;">
+          ${d}
+          <span style="cursor:pointer; font-weight:bold;" onclick="removeSelectedDate('${d}')">×</span>
+        </div>
+      `).join('');
+    }
+
+    async function submitCalendar(e) {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+
+      showToast('イベント保存処理中...');
+      
+      // 画像アップロード処理
+      let calImageUrl = '';
+      if (calImageBase64) {
+        btn.innerText = '画像をアップロード中...';
+        const imgRes = await apiRequest('', {
+          type: 'uploadImage',
+          filename: calImageName,
+          mimeType: calImageMime,
+          base64: calImageBase64
+        }, true);
+        
+        if (imgRes && imgRes.status === 'ok') {
+          calImageUrl = imgRes.url;
+        } else {
+          const errMsg = imgRes ? (imgRes.message || JSON.stringify(imgRes)) : '通信エラー';
+          alert('🚨 画像のアップロードに失敗しました。\n\n【原因】\n' + errMsg + '\n\n画像なしで登録します。');
+          showToast('画像なしで登録します。');
+        }
+      } else {
+        const fileInput = document.getElementById('calImageFile');
+        if (fileInput.files.length > 0) {
+           alert('画像がまだ準備できていません（圧縮処理中か読み込みエラー）。\nもう一度画像を選択し直すか、数秒待ってからボタンを押してください。');
+           btn.disabled = false;
+           btn.innerText = 'イベントを追加する';
+           return;
+        }
+      }
+
+      btn.innerText = 'データを保存中...';
+      const rowIdx = document.getElementById('calRowIdx').value;
+
+      const payload = {
+        type: rowIdx ? 'updateCalendar' : 'addCalendar',
+        rowIdx: rowIdx,
+        date: document.getElementById('calDate').value,
+        dates: rowIdx ? [] : selectedDates, // 追加時のみ複数日付を送信
+        title: document.getElementById('calTitle').value,
+        desc: document.getElementById('calDesc').value,
+        color: document.getElementById('calColor').value,
+        image: calImageUrl
+      };
+
+      // 追加モードで日付が1つも選択されていない場合
+      if (!rowIdx && selectedDates.length === 0 && !payload.date) {
+        alert('日付を少なくとも1つ選択（追加）してください。');
+        btn.disabled = false;
+        btn.innerText = 'イベントを追加する';
+        return;
+      }
+
+      const res = await apiRequest('', payload, true);
+      btn.disabled = false;
+      btn.innerText = 'イベントを追加する';
+
+      if(res && res.status === 'ok') {
+        showToast(rowIdx ? 'イベント情報を更新しました！' : '新しいイベントを追加しました！ 🎉');
+        cancelCalendarEdit();
+        loadAdminCalendar();
+        calImageBase64 = null;
+      } else {
+        showToast('追加に失敗しました。');
+      }
+    }
+
+    async function loadAdminCalendar() {
+      const tbody = document.getElementById('calendarList');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+      const res = await apiRequest('getAdminCalendar');
+      if(res && res.status === 'ok') {
+        allCalendarEvents = res.events;
+        tbody.innerHTML = '';
+        res.events.forEach(c => {
+          let imgHtml = '';
+          if (c.image && (c.image.startsWith('http') || c.image.startsWith('data:'))) {
+            imgHtml = `<img src="${c.image}" style="width:40px; height:40px; object-fit:cover; border-radius:4px; cursor:pointer;" onclick="window.open('${c.image}', '_blank')">`;
+          } else {
+            imgHtml = `<span style="font-size:12px; color:var(--text-light);">なし</span>`;
+          }
+
+          tbody.innerHTML += `
+            <tr>
+              <td><input type="checkbox" class="cal-sel" data-idx="${c.rowIdx}"></td>
+              <td style="text-align:center;">${imgHtml}</td>
+              <td>${c.date}</td>
+              <td style="font-weight:bold;">${c.title}</td>
+              <td style="font-size:11px;">${c.desc.replace(/\\n/g, '<br>')}</td>
+              <td>
+                <div style="width:20px; height:20px; border-radius:10px; background-color:${c.color};" title="${c.color}"></div>
+              </td>
+              <td>
+                <select id="c_status_${c.rowIdx}" onchange="updateCalendarStatus(${c.rowIdx}, this.value)">
+                  <option value="公開" ${c.status==='公開'?'selected':''}>公開</option>
+                  <option value="非公開" ${c.status==='非公開'?'selected':''}>非公開</option>
+                </select>
+              </td>
+              <td>
+                <div class="flex" style="gap:4px;">
+                  <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editCalendar(${c.rowIdx})">📝</button>
+                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteCalendar(${c.rowIdx}, '${c.title.replace(/'/g, "\\'")}')">🗑</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+      }
+    }
+
+    function editCalendar(rowIdx) {
+      const c = allCalendarEvents.find(item => item.rowIdx === rowIdx);
+      if (!c) return;
+      
+      document.getElementById('calRowIdx').value = c.rowIdx;
+      document.getElementById('calDate').value = c.date;
+      document.getElementById('selectedDatesArea').style.display = 'none'; // 編集時はリスト非表示
+      document.getElementById('calTitle').value = c.title;
+      document.getElementById('calDesc').value = c.desc;
+      document.getElementById('calColor').value = c.color;
+      
+      document.getElementById('calendarFormTitle').innerText = '📝 イベントを編集する';
+      document.getElementById('calSubmitBtn').innerText = '📝 修正を保存する';
+      document.getElementById('calCancelEditBtn').style.display = 'block';
+      
+      document.getElementById('page-calendar').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelCalendarEdit() {
+      document.getElementById('calRowIdx').value = '';
+      document.getElementById('calendarForm').reset();
+      selectedDates = [];
+      renderSelectedDates();
+      document.getElementById('selectedDatesArea').style.display = 'block';
+      document.getElementById('calendarFormTitle').innerText = '✨ 新しいイベントを追加する';
+      document.getElementById('calSubmitBtn').innerText = 'イベントを追加する';
+      document.getElementById('calCancelEditBtn').style.display = 'none';
+      document.getElementById('calDate').valueAsDate = new Date();
+      document.getElementById('calColor').value = '#e57373';
+      document.getElementById('calImagePreview').style.display = 'none';
+      calImageBase64 = null;
+    }
+
+    async function updateCalendarStatus(rowIdx, status) {
+      showToast('設定を変更しています...');
+      await apiRequest('', { type: 'updateRecordStatus', sheet: 'CALENDAR', rowIdx: rowIdx, status: status }, true);
+      showToast('公開設定を変更しました');
+    }
+
+    async function deleteCalendar(rowIdx, title) {
+      if (!confirm('「' + title + '」を削除しますか？\nこの操作は元に戻せません。')) return;
+      showToast('削除中...');
+      const res = await apiRequest('', { type: 'deleteRow', sheet: 'CALENDAR', rowIdx: rowIdx }, true);
+      if (res && res.status === 'ok') {
+        showToast('イベントを削除しました');
+        loadAdminCalendar();
+      } else {
+        showToast('削除に失敗しました');
+      }
+    }
+
+    async function sendBroadcastPush() {
+      const title = document.getElementById('pushTitle').value.trim();
+      const body = document.getElementById('pushBody').value.trim();
+      if (!title || !body) {
+        alert('タイトルと本文を入力してください');
+        return;
+      }
+      if (!confirm('全ての通知許可済みユーザーに配信しますか？')) return;
+
+      showToast('Push通知を送信中...');
+      const res = await apiRequest('', { type: 'broadcastPush', title, body }, true);
+      if (res && res.status === 'ok') {
+        showToast('送信完了しました！');
+        document.getElementById('pushBody').value = '';
+      } else {
+        alert('送信エラー: ' + (res ? res.message : '不明なエラー'));
+      }
+    }
+  </script>
+</body>
+</html>
