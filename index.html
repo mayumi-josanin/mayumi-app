@@ -14,11 +14,11 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=Zen+Old+Mincho:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap"
     rel="stylesheet" media="print" onload="this.media='all'">
-  <!-- 🚀 OneSignal SDK: 最速で読み込み・初期化 -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" async></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(function(OneSignal) {
+      window.OneSignalRef = OneSignal;
       OneSignal.init({
         appId: "4a6f574f-1475-4b5e-869e-e7619689b696",
         allowLocalhostAsSecureOrigin: true,
@@ -2997,9 +2997,7 @@
         orderId: orderId,
         time: ts
       });
-      cart = []; selectedPay = null;
-      document.getElementById('pay-paypay').classList.remove('on');
-      document.getElementById('pay-cash').classList.remove('on');
+      cart = [];
       updateCartUI();
       document.getElementById('orderCompleteMsg').innerHTML = `お支払い：${payLabel}<br><br>ご来院時にスタッフにお声がけください。`;
       openModal('orderCompleteModal');
@@ -3134,8 +3132,8 @@
     // OneSignalの状態監視
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(function(OneSignal) {
+      window.OneSignalRef = OneSignal;
       if (OneSignal.Notifications && OneSignal.Notifications.permission) {
-        // ブラウザ許可済み → サブスクリプション状態で判定
         const opted = OneSignal.User.PushSubscription.optedIn;
         localStorage.setItem('push_enabled', opted ? 'true' : 'false');
         updatePushUI(opted ? 'on' : 'off');
@@ -3157,28 +3155,27 @@
     async function togglePush() {
       // SDKの準備を待つ
       for (let i = 0; i < 30; i++) {
-        if (window.OneSignal && OneSignal.Notifications) break;
+        if (window.OneSignalRef && window.OneSignalRef.Notifications) break;
         await new Promise(r => setTimeout(r, 100));
       }
 
-      if (!window.OneSignal || !OneSignal.Notifications) {
+      const OS = window.OneSignalRef;
+      if (!OS || !OS.Notifications) {
         showToast('もう一度ボタンを押してください');
         return;
       }
 
       // 既にブラウザ許可済みの場合 → opt-in / opt-out を切り替え
-      if (OneSignal.Notifications.permission) {
-        const isOn = OneSignal.User.PushSubscription.optedIn;
+      if (OS.Notifications.permission) {
+        const isOn = OS.User.PushSubscription.optedIn;
         if (isOn) {
-          // 無効にする
           if (confirm('プッシュ通知をオフにしますか？')) {
-            await OneSignal.User.PushSubscription.optOut();
+            await OS.User.PushSubscription.optOut();
             updatePushUI('off');
             showToast('通知をオフにしました');
           }
         } else {
-          // 再有効化
-          await OneSignal.User.PushSubscription.optIn();
+          await OS.User.PushSubscription.optIn();
           updatePushUI('on');
           showToast('有効化しました！ ✅');
         }
@@ -3187,7 +3184,7 @@
 
       // 未許可 → 許可を求める
       try {
-        await OneSignal.Notifications.requestPermission();
+        await OS.Notifications.requestPermission();
         updatePushUI('on');
         showToast('有効化しました！ ✅');
       } catch (e) { console.error(e); }
