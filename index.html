@@ -2396,7 +2396,7 @@
     async function getFromGAS(action, params) {
       if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return null;
       try {
-        let url = GAS_URL + '?action=' + action;
+        let url = GAS_URL + '?action=' + action + '&t=' + Date.now();
         if (params) url += '&data=' + encodeURIComponent(JSON.stringify(params));
         const res = await fetch(url);
         return await res.json();
