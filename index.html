@@ -2389,7 +2389,7 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzT_BIU2bFyTM7cTefMWKHM8yy8sGnMI4RJzS5YBi5ExwxE1e4irmMKUTl0Ib_yH3KXcw/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwkySYt1BxOvzvxsviIS1auxi9PcJbxPom1NxR8X6eGjgr-fTYX17D5Vb98WuJ97R7X-Q/exec';
 
     // GASからデータ取得（doGet対応）
     // action: 'getNews' | 'getProducts'
@@ -3129,12 +3129,18 @@
       }
     }
 
-    // OneSignalの状態監視
+    // 起動時にlocalStorageから通知ボタンの状態を即座に復元
+    (function () {
+      var saved = localStorage.getItem('push_enabled');
+      if (saved === 'true') updatePushUI('on');
+    })();
+
+    // OneSignalの状態監視（SDK読み込み後に実際の状態と同期）
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(function (OneSignal) {
       window.OneSignalRef = OneSignal;
       if (OneSignal.Notifications && OneSignal.Notifications.permission) {
-        const opted = OneSignal.User.PushSubscription.optedIn;
+        var opted = OneSignal.User.PushSubscription.optedIn;
         localStorage.setItem('push_enabled', opted ? 'true' : 'false');
         updatePushUI(opted ? 'on' : 'off');
       }
@@ -3145,7 +3151,7 @@
         }
       });
       OneSignal.User.PushSubscription.addEventListener("change", function (e) {
-        const isOn = e.current.optedIn;
+        var isOn = e.current.optedIn;
         localStorage.setItem('push_enabled', isOn ? 'true' : 'false');
         updatePushUI(isOn ? 'on' : 'off');
       });
@@ -3153,7 +3159,6 @@
 
     // 通知の有効/無効を切り替え
     async function togglePush() {
-      // SDKの準備を待つ
       for (let i = 0; i < 30; i++) {
         if (window.OneSignalRef && window.OneSignalRef.Notifications) break;
         await new Promise(r => setTimeout(r, 100));
@@ -3165,26 +3170,27 @@
         return;
       }
 
-      // 既にブラウザ許可済みの場合 → opt-in / opt-out を切り替え
       if (OS.Notifications.permission) {
         const isOn = OS.User.PushSubscription.optedIn;
         if (isOn) {
           if (confirm('プッシュ通知をオフにしますか？')) {
             await OS.User.PushSubscription.optOut();
+            localStorage.setItem('push_enabled', 'false');
             updatePushUI('off');
             showToast('通知をオフにしました');
           }
         } else {
           await OS.User.PushSubscription.optIn();
+          localStorage.setItem('push_enabled', 'true');
           updatePushUI('on');
           showToast('有効化しました！ ✅');
         }
         return;
       }
 
-      // 未許可 → 許可を求める
       try {
         await OS.Notifications.requestPermission();
+        localStorage.setItem('push_enabled', 'true');
         updatePushUI('on');
         showToast('有効化しました！ ✅');
       } catch (e) { console.error(e); }
@@ -3205,6 +3211,7 @@
         btn.disabled = false;
       }
     }
+
 
     // 更新バッジの制御
     function updateNavBadges() {
@@ -3541,7 +3548,7 @@
         // 前回取得から1分以上経過していたら再取得
         if (elapsed > 60000) {
           lastFetchTime = Date.now();
-          Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]).catch(function () {});
+          Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]).catch(function () { });
         }
       }
     });
