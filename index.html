@@ -3132,52 +3132,77 @@
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     OneSignalDeferred.push(function(OneSignal) {
       if (OneSignal.Notifications && OneSignal.Notifications.permission) {
-        localStorage.setItem('push_enabled', 'true');
-        updatePushUI(true);
+        // ブラウザ許可済み → サブスクリプション状態で判定
+        const opted = OneSignal.User.PushSubscription.optedIn;
+        localStorage.setItem('push_enabled', opted ? 'true' : 'false');
+        updatePushUI(opted ? 'on' : 'off');
       }
       OneSignal.Notifications.addEventListener("permissionChange", function(perm) {
         if (perm) {
           localStorage.setItem('push_enabled', 'true');
-          updatePushUI(true);
+          updatePushUI('on');
         }
+      });
+      OneSignal.User.PushSubscription.addEventListener("change", function(e) {
+        const isOn = e.current.optedIn;
+        localStorage.setItem('push_enabled', isOn ? 'true' : 'false');
+        updatePushUI(isOn ? 'on' : 'off');
       });
     });
 
-    // 通知許可フロー (ボタンを1回押すだけ)
+    // 通知の有効/無効を切り替え
     async function togglePush() {
-      // 既に許可済み
-      if (window.OneSignal && OneSignal.Notifications && OneSignal.Notifications.permission) {
-        showToast('通知はすでに有効です 🔔');
-        updatePushUI(true);
-        return;
-      }
-
-      // SDKの準備を待つ（3秒まで、お客様には見せない）
+      // SDKの準備を待つ
       for (let i = 0; i < 30; i++) {
         if (window.OneSignal && OneSignal.Notifications) break;
         await new Promise(r => setTimeout(r, 100));
       }
 
-      if (window.OneSignal && OneSignal.Notifications) {
-        try {
-          await OneSignal.Notifications.requestPermission();
-          updatePushUI(true);
-          showToast('有効化しました！ ✅');
-        } catch (e) { console.error(e); }
-      } else {
+      if (!window.OneSignal || !OneSignal.Notifications) {
         showToast('もう一度ボタンを押してください');
+        return;
       }
+
+      // 既にブラウザ許可済みの場合 → opt-in / opt-out を切り替え
+      if (OneSignal.Notifications.permission) {
+        const isOn = OneSignal.User.PushSubscription.optedIn;
+        if (isOn) {
+          // 無効にする
+          if (confirm('プッシュ通知をオフにしますか？')) {
+            await OneSignal.User.PushSubscription.optOut();
+            updatePushUI('off');
+            showToast('通知をオフにしました');
+          }
+        } else {
+          // 再有効化
+          await OneSignal.User.PushSubscription.optIn();
+          updatePushUI('on');
+          showToast('有効化しました！ ✅');
+        }
+        return;
+      }
+
+      // 未許可 → 許可を求める
+      try {
+        await OneSignal.Notifications.requestPermission();
+        updatePushUI('on');
+        showToast('有効化しました！ ✅');
+      } catch (e) { console.error(e); }
     }
 
-    function updatePushUI(enabled) {
+    function updatePushUI(state) {
       const btn = document.getElementById('push-btn');
-      if (btn) {
-        if (enabled) {
-          btn.textContent = '有効化済み ✅';
-          btn.classList.add('secondary');
-          btn.classList.remove('primary');
-          btn.disabled = true;
-        }
+      if (!btn) return;
+      if (state === 'on') {
+        btn.textContent = '通知オン 🔔（タップでオフ）';
+        btn.classList.add('secondary');
+        btn.classList.remove('primary');
+        btn.disabled = false;
+      } else {
+        btn.textContent = '許可する';
+        btn.classList.add('primary');
+        btn.classList.remove('secondary');
+        btn.disabled = false;
       }
     }
 
