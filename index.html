@@ -2839,13 +2839,7 @@
     async function refreshAppData() {
       showToast('最新情報を取得しています...');
       try {
-        const data = await getFromGAS('getInitialData');
-        if (data && data.status === 'ok') {
-          if (data.news && data.news.news) { blogItems = data.news.news; renderBlogList('homeNewsList', 3); renderBlogList('blogPageList', 999); updateNavBadges(); }
-          if (data.products && data.products.products) { productItems = data.products.products; renderProducts(); }
-          if (data.calendar && data.calendar.events) { calendarEvents = data.calendar.events; renderCalendar(); }
-          if (data.pushNotices && data.pushNotices.notices) { pushNotices = data.pushNotices.notices; updateNavBadges(); }
-        }
+        await Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]);
         showToast('最新情報に更新しました！');
       } catch (e) {
         console.error('refreshAppData error:', e);
@@ -3112,7 +3106,7 @@
         document.getElementById('badge-blog').style.display = 'none';
       }
       if (name === 'calendar') {
-        const calCount = calendarEvents ? calendarEvents.length : 0;
+        const calCount = calendarData ? calendarData.length : 0;
         localStorage.setItem('last_seen_calendar_count', calCount.toString());
         document.getElementById('badge-calendar').style.display = 'none';
       }
@@ -3530,7 +3524,7 @@
           // GASの各関数は { status:'ok', news/products/events/notices: [...] } を返す
           if (data.news && data.news.news) { blogItems = data.news.news; renderBlogList('homeNewsList', 3); renderBlogList('blogPageList', 999); updateNavBadges(); }
           if (data.products && data.products.products) { productItems = data.products.products; renderProducts(); }
-          if (data.calendar && data.calendar.events) { calendarEvents = data.calendar.events; renderCalendar(); }
+          if (data.calendar && data.calendar.events) { calendarData = data.calendar.events; renderCalendar(); }
           if (data.pushNotices && data.pushNotices.notices) { pushNotices = data.pushNotices.notices; updateNavBadges(); }
         } else {
           loadBlog();
