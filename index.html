@@ -2841,10 +2841,10 @@
       try {
         const data = await getFromGAS('getInitialData');
         if (data && data.status === 'ok') {
-          if (data.news) { blogItems = data.news; renderBlogList('blogPageList', 999); }
-          if (data.products) { productItems = data.products; renderProducts(); }
-          if (data.calendar) { calendarEvents = data.calendar; renderCalendar(); }
-          if (data.pushNotices) { pushNotices = data.pushNotices; updateNavBadges(); }
+          if (data.news && data.news.news) { blogItems = data.news.news; renderBlogList('homeNewsList', 3); renderBlogList('blogPageList', 999); updateNavBadges(); }
+          if (data.products && data.products.products) { productItems = data.products.products; renderProducts(); }
+          if (data.calendar && data.calendar.events) { calendarEvents = data.calendar.events; renderCalendar(); }
+          if (data.pushNotices && data.pushNotices.notices) { pushNotices = data.pushNotices.notices; updateNavBadges(); }
         }
         showToast('最新情報に更新しました！');
       } catch (e) {
@@ -3527,12 +3527,12 @@
       // 2. データフェッチをバックグラウンドで開始 (画面をブロックしない)
       getFromGAS('getInitialData').then(data => {
         if (data && data.status === 'ok') {
-          if (data.news) { blogItems = data.news; renderBlogList('blogPageList', 999); }
-          if (data.products) { productItems = data.products; renderProducts(); }
-          if (data.calendar) { calendarEvents = data.calendar; renderCalendar(); }
-          if (data.pushNotices) { pushNotices = data.pushNotices; updateNavBadges(); }
+          // GASの各関数は { status:'ok', news/products/events/notices: [...] } を返す
+          if (data.news && data.news.news) { blogItems = data.news.news; renderBlogList('homeNewsList', 3); renderBlogList('blogPageList', 999); updateNavBadges(); }
+          if (data.products && data.products.products) { productItems = data.products.products; renderProducts(); }
+          if (data.calendar && data.calendar.events) { calendarEvents = data.calendar.events; renderCalendar(); }
+          if (data.pushNotices && data.pushNotices.notices) { pushNotices = data.pushNotices.notices; updateNavBadges(); }
         } else {
-          // 失敗時ののみ個別フェッチを試みる
           loadBlog();
           loadProducts();
           loadCalendar();
