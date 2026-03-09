@@ -3533,6 +3533,19 @@
     }
     initApp();
 
+    // アプリ再表示時にデータを自動更新（タスクキル後の再起動対応）
+    let lastFetchTime = Date.now();
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        const elapsed = Date.now() - lastFetchTime;
+        // 前回取得から1分以上経過していたら再取得
+        if (elapsed > 60000) {
+          lastFetchTime = Date.now();
+          Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]).catch(function () {});
+        }
+      }
+    });
+
     // PWA Service Worker 登録
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
