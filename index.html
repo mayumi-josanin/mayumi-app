@@ -17,7 +17,7 @@
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" async></script>
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(function(OneSignal) {
+    OneSignalDeferred.push(function (OneSignal) {
       window.OneSignalRef = OneSignal;
       OneSignal.init({
         appId: "4a6f574f-1475-4b5e-869e-e7619689b696",
@@ -2389,7 +2389,7 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyNDjwWRa5_1Opi62rCvcBrrYkcFRS_8PVDHSqPaMnPdxpFT2Gcv1jF495uJhnhERUIiA/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzT_BIU2bFyTM7cTefMWKHM8yy8sGnMI4RJzS5YBi5ExwxE1e4irmMKUTl0Ib_yH3KXcw/exec';
 
     // GASからデータ取得（doGet対応）
     // action: 'getNews' | 'getProducts'
@@ -3021,13 +3021,13 @@
 
     function renderOrderHistoryUI() {
       const list = document.getElementById('orderHistoryList');
-      if (!_profile) { 
-        list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">プロフィールを登録すると履歴が表示されます</div>'; 
-        return; 
+      if (!_profile) {
+        list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">プロフィールを登録すると履歴が表示されます</div>';
+        return;
       }
-      if (!orders.length) { 
-        list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">注文履歴はありません</div>'; 
-        return; 
+      if (!orders.length) {
+        list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">注文履歴はありません</div>';
+        return;
       }
       list.innerHTML = '';
       orders.forEach(o => {
@@ -3131,20 +3131,20 @@
 
     // OneSignalの状態監視
     window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(function(OneSignal) {
+    OneSignalDeferred.push(function (OneSignal) {
       window.OneSignalRef = OneSignal;
       if (OneSignal.Notifications && OneSignal.Notifications.permission) {
         const opted = OneSignal.User.PushSubscription.optedIn;
         localStorage.setItem('push_enabled', opted ? 'true' : 'false');
         updatePushUI(opted ? 'on' : 'off');
       }
-      OneSignal.Notifications.addEventListener("permissionChange", function(perm) {
+      OneSignal.Notifications.addEventListener("permissionChange", function (perm) {
         if (perm) {
           localStorage.setItem('push_enabled', 'true');
           updatePushUI('on');
         }
       });
-      OneSignal.User.PushSubscription.addEventListener("change", function(e) {
+      OneSignal.User.PushSubscription.addEventListener("change", function (e) {
         const isOn = e.current.optedIn;
         localStorage.setItem('push_enabled', isOn ? 'true' : 'false');
         updatePushUI(isOn ? 'on' : 'off');
@@ -3514,7 +3514,7 @@
       checkFirstLaunch();
       updateStampUI();
       checkUrlParams();
-      
+
       // 2. データフェッチをバックグラウンドで開始 (画面をブロックしない)
       getFromGAS('getInitialData').then(data => {
         if (data && data.status === 'ok') {
