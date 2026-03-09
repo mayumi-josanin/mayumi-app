@@ -9,9 +9,11 @@
   <link rel="apple-touch-icon" href="icon.png">
   <link rel="icon" type="image/png" href="icon.png">
   <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=Zen+Old+Mincho:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap"
-    rel="stylesheet">
+    rel="stylesheet" media="print" onload="this.media='all'">
   <!-- 🚀 OneSignal SDK: 最速で読み込み・初期化 -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" async></script>
   <script>
@@ -2391,10 +2393,12 @@
 
     // GASからデータ取得（doGet対応）
     // action: 'getNews' | 'getProducts'
-    async function getFromGAS(action) {
+    async function getFromGAS(action, params) {
       if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return null;
       try {
-        const res = await fetch(GAS_URL + '?action=' + action + '&t=' + Date.now());
+        let url = GAS_URL + '?action=' + action;
+        if (params) url += '&data=' + encodeURIComponent(JSON.stringify(params));
+        const res = await fetch(url);
         return await res.json();
       } catch (e) { return null; }
     }
@@ -2835,11 +2839,17 @@
     async function refreshAppData() {
       showToast('最新情報を取得しています...');
       try {
-        await Promise.all([loadBlog(), loadProducts(), loadCalendar()]);
+        const data = await getFromGAS('getInitialData');
+        if (data && data.status === 'ok') {
+          if (data.news) { blogItems = data.news; renderBlogList('blogPageList', 999); }
+          if (data.products) { productItems = data.products; renderProducts(); }
+          if (data.calendar) { calendarEvents = data.calendar; renderCalendar(); }
+          if (data.pushNotices) { pushNotices = data.pushNotices; updateNavBadges(); }
+        }
         showToast('最新情報に更新しました！');
       } catch (e) {
         console.error('refreshAppData error:', e);
-        showToast('通信エラーが発生しました:' + e.message);
+        showToast('通信エラーが発生しました');
       }
     }
 
@@ -3124,7 +3134,6 @@
       if (name === 'blog') renderBlogList('blogPageList', 999);
       if (name === 'calendar') {
         renderCalendar();
-        loadCalendar();
       }
     }
 
@@ -3508,7 +3517,6 @@
       }
     }
 
-    // ===== 初期化 =====
     // ===== 初期化 (並列実行で高速化) =====
     function initApp() {
       // 1. 画面表示に影響しない処理を即座に実行
