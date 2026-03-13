@@ -14,16 +14,23 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=Zen+Old+Mincho:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap"
     rel="stylesheet" media="print" onload="this.media='all'">
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" async></script>
   <script>
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(function (OneSignal) {
-      window.OneSignalRef = OneSignal;
-      OneSignal.init({
-        appId: "4a6f574f-1475-4b5e-869e-e7619689b696",
-        allowLocalhostAsSecureOrigin: true,
+    // Capacitor環境（ネイティブアプリ）ではWeb用OneSignalを無効化
+    if (!window.location.href.includes('capacitor://') && !window.location.href.includes('http://localhost')) {
+      const script = document.createElement('script');
+      script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+      script.async = true;
+      document.head.appendChild(script);
+
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(function (OneSignal) {
+        window.OneSignalRef = OneSignal;
+        OneSignal.init({
+          appId: "4a6f574f-1475-4b5e-869e-e7619689b696",
+          allowLocalhostAsSecureOrigin: true,
+        });
       });
-    });
+    }
   </script>
   <style>
     :root {
@@ -1781,6 +1788,20 @@
     .blog-card:nth-child(3) {
       animation-delay: .10s
     }
+
+    .index-category-select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: #fff;
+      font-size: 14px;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239d5b5b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 16px;
+    }
   </style>
 </head>
 
@@ -2019,6 +2040,8 @@
     <div class="main">
       <div class="section" style="padding-top:20px;padding-bottom:24px">
         <h2 class="sec-title">🛒 物販ショップ</h2>
+
+        <!-- 商品カテゴリフィルタ削除 -->
         <div class="cat-label">🍵 よもぎ茶</div>
         <div id="grid-tea" class="shop-grid">
           <div class="shop-card" onclick="openProductModal(0)">
@@ -2111,12 +2134,39 @@
   <!-- ========== BLOG ========== -->
   <div id="page-blog" class="page">
     <div class="main">
-      <div class="section" style="padding-top:20px;padding-bottom:24px">
-        <h2 class="sec-title">📢 お知らせ・ブログ</h2>
-        <div id="blogPageList" class="blog-list">
+      <!-- お知らせセクション -->
+      <div class="section" style="padding-top:20px;padding-bottom:10px">
+        <h2 class="sec-title">📢 お知らせ</h2>
+
+        <!-- カテゴリフィルタ（お知らせ用） -->
+        <div class="category-filter-wrap" style="margin-bottom:15px;">
+          <select id="indexNewsCategoryFilter" class="index-category-select"
+            onchange="renderBlogList('newsPageList', 999, 'お知らせ')">
+            <option value="">全てのカテゴリ</option>
+          </select>
+        </div>
+
+        <div id="newsPageList" class="blog-list">
           <div class="loading-wrap">
             <div class="spinner"></div>
           </div>
+        </div>
+      </div>
+
+      <!-- ブログセクション -->
+      <div class="section" style="padding-top:10px;padding-bottom:24px">
+        <h2 class="sec-title">📝 ブログ</h2>
+
+        <!-- カテゴリフィルタ（ブログ用） -->
+        <div class="category-filter-wrap" style="margin-bottom:15px;">
+          <select id="indexBlogCategoryFilter" class="index-category-select"
+            onchange="renderBlogList('blogPageList', 999, 'ブログ')">
+            <option value="">全てのカテゴリ</option>
+          </select>
+        </div>
+
+        <div id="blogPageList" class="blog-list">
+          <!-- ブログ内容 -->
         </div>
       </div>
     </div>
@@ -2165,6 +2215,46 @@
         </div>
         <div class="cal-evt-list" id="calendar-events-list"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== アンケート画面 ===== -->
+  <div id="page-surveys" class="page">
+    <div class="header">
+      <div class="title">アンケート</div>
+    </div>
+    <div class="main" style="padding-top:20px;">
+      <div class="section">
+        <div style="background:var(--cream); padding:15px; border-radius:12px; margin-bottom:20px;">
+          <p style="font-size:13px; color:var(--text-mid); line-height:1.6;">
+            いつもまゆみ助産院をご利用いただきありがとうございます。<br>
+            以下のアンケートにご協力をお願いいたします。
+          </p>
+        </div>
+        <div id="surveysList">
+          <div style="text-align:center; padding:30px 0; color:var(--text-light);">読み込み中...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- フルスクリーンモーダル（アンケート回答用） -->
+  <div class="modal-bg" id="surveyAnswerModal" onclick="closeModal('surveyAnswerModal',event)">
+    <div class="modal-sheet" style="max-height:90vh; overflow-y:auto;" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <h3 id="surveyAnswerTitle" style="margin-bottom: 5px;" class="modal-title">アンケート</h3>
+      <p id="surveyAnswerDesc" style="font-size:12px; color:var(--text-mid); margin-bottom:20px;"></p>
+
+      <form id="surveyAnswerForm" onsubmit="submitSurveyResponse(event)">
+        <input type="hidden" id="currentSurveyId">
+        <div id="surveyQuestionsContainer"></div>
+        <div class="flex" style="margin-top: 25px; gap:10px; display:flex;">
+          <button type="submit" id="surveySubmitResponseBtn" class="btn primary"
+            style="flex:2; padding:12px; font-size:15px;">送信する</button>
+          <button type="button" class="btn secondary" onclick="closeModal('surveyAnswerModal')"
+            style="flex:1;">キャンセル</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -2272,8 +2362,10 @@
           class="nav-icon">🏠</span><span>ホーム</span></button>
       <button class="nav-btn" id="nav-stamp" onclick="switchPage('stamp')"><span
           class="nav-icon">🌿</span><span>スタンプ</span></button>
-      <button class="nav-btn" id="nav-shop" onclick="switchPage('shop')"><span
-          class="nav-icon">🛍</span><span>ショップ</span></button>
+      <button class="nav-btn" id="nav-shop" onclick="switchPage('shop')">
+        <span class="nav-badge" id="badge-shop"></span>
+        <span class="nav-icon">🛍</span><span>ショップ</span>
+      </button>
       <button class="nav-btn" id="nav-calendar" onclick="switchPage('calendar')">
         <span class="nav-badge" id="badge-calendar"></span>
         <span class="nav-icon">📅</span><span>カレンダー</span>
@@ -2281,6 +2373,10 @@
       <button class="nav-btn" id="nav-blog" onclick="switchPage('blog')">
         <span class="nav-badge" id="badge-blog"></span>
         <span class="nav-icon">📢</span><span>ブログ</span>
+      </button>
+      <button class="nav-btn" id="nav-surveys" onclick="switchPage('surveys')">
+        <span class="nav-badge" id="badge-surveys"></span>
+        <span class="nav-icon">📝</span><span>アンケ</span>
       </button>
       <button class="nav-btn" id="nav-mypage" onclick="switchPage('mypage')"><span
           class="nav-icon">👤</span><span>マイページ</span></button>
@@ -2389,7 +2485,7 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwkySYt1BxOvzvxsviIS1auxi9PcJbxPom1NxR8X6eGjgr-fTYX17D5Vb98WuJ97R7X-Q/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwmek9LV2cGgFuGeEGABU5P5PKazRR3qQC-bwJWaW0D6vurwMivRd84xxy-R-5qtMHT4w/exec';
 
     // GASからデータ取得（doGet対応）
     // action: 'getNews' | 'getProducts'
@@ -2478,6 +2574,7 @@
     let selectedPay = null, currentProdIdx = null, modalQty = 1;
     let cancelOrderId = null;
     let blogItems = [];
+    let categoryTypeMap = {}; // カテゴリ名 -> 分類 ('お知らせ' / 'ブログ')
 
     // ===== スタンプ =====
     function renderStampGrid(id, count) {
@@ -2713,14 +2810,59 @@
     // GASの getBlogNews レスポンス: { status:'ok', news:[{date,title,category,icon,body}] }
     async function loadBlog() {
       const data = await getFromGAS('getNews');
-      if (data && data.status === 'ok' && data.news && data.news.length > 0) {
-        blogItems = data.news;
+      if (data && data.status === 'ok') {
+        if (data.news && data.news.length > 0) {
+          blogItems = data.news;
+        } else {
+          blogItems = FALLBACK_BLOG;
+        }
+
+        // カテゴリセレクタの更新
+        if (data.categories && data.categories.length > 0) {
+          // マッピングを作成
+          categoryTypeMap = {};
+          data.categories.forEach(cat => {
+            const name = typeof cat === 'string' ? cat : cat.name;
+            const type = typeof cat === 'string' ? 'ブログ' : (cat.type || 'ブログ');
+            categoryTypeMap[name] = type;
+          });
+
+          const newsFilter = document.getElementById('indexNewsCategoryFilter');
+          const blogFilter = document.getElementById('indexBlogCategoryFilter');
+
+          let newsHtml = '<option value="">全てのカテゴリ</option>';
+          let blogHtml = '<option value="">全てのカテゴリ</option>';
+
+          data.categories.forEach(cat => {
+            const name = typeof cat === 'string' ? cat : cat.name;
+            const type = typeof cat === 'string' ? 'ブログ' : (cat.type || 'ブログ');
+
+            // お知らせフィルタにはマスタ登録された全てのカテゴリを表示するように変更
+            newsHtml += `<option value="${name}">${name}</option>`;
+            
+            if (type !== 'お知らせ') {
+              blogHtml += `<option value="${name}">${name}</option>`;
+            }
+          });
+
+          if (newsFilter) {
+            const current = newsFilter.value;
+            newsFilter.innerHTML = newsHtml;
+            if (current) newsFilter.value = current;
+          }
+          if (blogFilter) {
+            const current = blogFilter.value;
+            blogFilter.innerHTML = blogHtml;
+            if (current) blogFilter.value = current;
+          }
+        }
       } else {
         blogItems = FALLBACK_BLOG;
       }
-      renderBlogList('homeNewsList', 3);
+      renderBlogList('homeNewsList', 3, 'お知らせ');
       if (document.getElementById('page-blog').classList.contains('active')) {
-        renderBlogList('blogPageList', 999);
+        renderBlogList('newsPageList', 999, 'お知らせ');
+        renderBlogList('blogPageList', 999, 'ブログ');
       }
       updateNavBadges(); // バッジ更新
     }
@@ -2758,14 +2900,22 @@
     // ===== 商品マスタ動的取得 =====
     // GASの getProducts レスポンス: { status:'ok', products:[{category,name,price,icon,bg}] }
     // GASにデータがある場合のみ PRODUCTS 配列を上書き（画像データは保持）
+    // ===== 商品マスタ動的取得 =====
     async function loadProducts() {
-      const data = await getFromGAS('getProducts');
-      if (data && data.status === 'ok' && data.products && data.products.length > 0) {
-        // GASから取得した商品でPRODUCTSを更新（画像キーは名称一致で引き継ぎ、なければ'default'）
+      const resp = await Promise.all([
+        getFromGAS('getProducts'),
+        getFromGAS('getCategories')
+      ]);
+      const productData = resp[0];
+      const categoryData = resp[1];
+
+      // カテゴリセレクタの更新（SHOP用は削除）
+
+      if (productData && productData.status === 'ok' && productData.products) {
         const imgKeyMap = {};
         PRODUCTS.forEach(p => { imgKeyMap[p.name] = p.imgKey; });
 
-        const updated = data.products.map(p => ({
+        const updated = productData.products.map(p => ({
           name: p.name,
           price: p.price,
           category: p.category,
@@ -2773,73 +2923,76 @@
           bg: p.bg || 'c1',
           imgKey: imgKeyMap[p.name] || 'default'
         }));
-        // グローバル配列PRODUCTSを入れ替え
         PRODUCTS.splice(0, PRODUCTS.length, ...updated);
+        renderProducts();
+      }
+    }
 
-        // 各カテゴリーのコンテナID
-        const gridIds = ['grid-recommended', 'grid-tea', 'grid-bath', 'grid-soap-other', 'grid-pad'];
-        gridIds.forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.innerHTML = '';
+    function renderProducts() {
+      // カテゴリフィルタは削除されたため selectedCategory は常に空（＝全表示）とする
+      const selectedCategory = '';
+
+      const createProductCard = (p, idx) => {
+        const card = document.createElement('div');
+        card.className = 'shop-card';
+        card.setAttribute('onclick', `openProductModal(${idx})`);
+        let imgSrc = (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:')))
+          ? p.icon
+          : (PROD_IMAGES[p.imgKey] || `https://placehold.jp/24/c18151/ffffff/150x150.png?text=${encodeURIComponent(p.name)}`);
+
+        card.innerHTML = `
+          <div class="shop-img ${p.bg}">
+            <img src="${imgSrc}" alt="${p.name}">
+          </div>
+          <div class="shop-info">
+            <div class="shop-name">${p.name}</div>
+            <div class="shop-price">¥${p.price.toLocaleString()}<small>（税込）</small></div>
+          </div>
+        `;
+        return card;
+      };
+
+      // おすすめ商品（フィルタに関わらず上位4つ等、必要に応じて調整）
+      const recContainer = document.getElementById('grid-recommended');
+      if (recContainer) {
+        recContainer.innerHTML = '';
+        PRODUCTS.slice(0, 4).forEach((p, idx) => {
+          recContainer.appendChild(createProductCard(p, idx));
         });
+      }
 
-        // カテゴリーとコンテナの対応
-        const categoryMap = {
-          'よもぎ茶': 'grid-tea',
-          'よもぎ入浴剤': 'grid-bath',
-          '石鹸': 'grid-soap-other',
-          '冷え取りパット': 'grid-pad'
-        };
+      // カテゴリ別表示（フィルタリング対応）
+      const gridIds = ['grid-tea', 'grid-bath', 'grid-soap-other', 'grid-pad'];
+      gridIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
+      });
 
-        // 商品カード生成用ヘルパー
-        const createProductCard = (p, idx) => {
-          const card = document.createElement('div');
-          card.className = 'shop-card';
-          card.setAttribute('onclick', `openProductModal(${idx})`);
+      const categoryMap = {
+        'よもぎ茶': 'grid-tea',
+        'よもぎ入浴剤': 'grid-bath',
+        '石鹸': 'grid-soap-other',
+        '冷え取りパット': 'grid-pad'
+      };
 
-          // 画像ソースの決定: iconがURL(http/data)ならそれを優先、次にimgKeyMap、最後にプレースホルダ
-          let imgSrc = '';
-          if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
-            imgSrc = p.icon;
-          } else {
-            imgSrc = PROD_IMAGES[p.imgKey] || `https://placehold.jp/24/c18151/ffffff/150x150.png?text=${encodeURIComponent(p.name)}`;
-          }
-
-          card.innerHTML = `
-            <div class="shop-img ${p.bg}">
-              <img src="${imgSrc}" alt="${p.name}">
-            </div>
-            <div class="shop-info">
-              <div class="shop-name">${p.name}</div>
-              <div class="shop-price">¥${p.price.toLocaleString()}<small>（税込）</small></div>
-            </div>
-          `;
-          return card;
-        };
-
-        // おすすめ商品を表示（上位4つ）
-        const recContainer = document.getElementById('grid-recommended');
-        if (recContainer) {
-          PRODUCTS.slice(0, 4).forEach((p, idx) => {
-            recContainer.appendChild(createProductCard(p, idx));
-          });
-        }
-
-        // 各カテゴリーコンテナに投入
-        PRODUCTS.forEach((p, idx) => {
+      PRODUCTS.forEach((p, idx) => {
+        if (!selectedCategory || p.category === selectedCategory) {
           const containerId = categoryMap[p.category] || 'grid-soap-other';
           const container = document.getElementById(containerId);
           if (container) {
             container.appendChild(createProductCard(p, idx));
           }
-        });
-      }
+        }
+      });
+
+      // カテゴリラベルの表示/非表示制御（オプション）
+      // ...必要に応じて実装
     }
 
     async function refreshAppData() {
       showToast('最新情報を取得しています...');
       try {
-        await Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]);
+        await Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices(), loadSurveys()]);
         showToast('最新情報に更新しました！');
       } catch (e) {
         console.error('refreshAppData error:', e);
@@ -2847,13 +3000,38 @@
       }
     }
 
-    function renderBlogList(containerId, limit) {
+    function renderBlogList(containerId, limit, targetType) {
       const el = document.getElementById(containerId);
       if (!el) return;
-      const items = blogItems.slice(0, limit);
-      if (!items.length) { el.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:28px 0">お知らせはありません</div>'; return; }
+
+      let items = blogItems;
+      if (targetType === 'お知らせ') {
+        const filterCategory = document.getElementById('indexNewsCategoryFilter') ? document.getElementById('indexNewsCategoryFilter').value : '';
+        if (filterCategory) {
+          items = items.filter(item => item.category === filterCategory);
+        } else {
+          // 分類が「お知らせ」のものを表示
+          items = items.filter(item => categoryTypeMap[item.category] === 'お知らせ' || item.category === 'お知らせ');
+        }
+      } else {
+        // targetType === 'ブログ' または指定なし（デフォルトをブログ扱い）
+        const filterCategory = document.getElementById('indexBlogCategoryFilter') ? document.getElementById('indexBlogCategoryFilter').value : '';
+        if (filterCategory) {
+          items = items.filter(item => item.category === filterCategory);
+        } else {
+          // 分類が「ブログ」のもの（またはマッピングにない、且つ「お知らせ」ではないもの）を表示
+          items = items.filter(item => {
+            const type = categoryTypeMap[item.category];
+            // 明示的に「お知らせ」ではないものはブログ側に含める
+            return type === 'ブログ' || (!type && item.category !== 'お知らせ');
+          });
+        }
+      }
+
+      const displayItems = items.slice(0, limit);
+      if (!displayItems.length) { el.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:28px 0">お知らせはありません</div>'; return; }
       el.innerHTML = '';
-      items.forEach(item => {
+      displayItems.forEach(item => {
         const div = document.createElement('div');
         div.className = 'blog-card';
 
@@ -3094,6 +3272,160 @@
       showToast('キャンセルしました');
     }
 
+    // ===== アンケート =====
+    let availableSurveys = [];
+
+    async function loadSurveys() {
+      const data = await getFromGAS('getSurveys');
+      if (data && data.status === 'ok' && data.surveys) {
+        availableSurveys = data.surveys;
+        renderSurveysList();
+
+        // バッジ更新ロジック: 新しいアンケートがあるか
+        const lastSeenSurveyId = localStorage.getItem('last_seen_survey_id');
+        const latestSurveyId = availableSurveys.length > 0 ? availableSurveys[0].id : null;
+
+        const badge = document.getElementById('badge-surveys');
+        if (badge && latestSurveyId && latestSurveyId !== lastSeenSurveyId) {
+          const currentPage = document.querySelector('.page.active')?.id;
+          if (currentPage !== 'page-surveys') badge.style.display = 'block';
+        } else if (badge) {
+          badge.style.display = 'none';
+        }
+      }
+    }
+
+    function renderSurveysList() {
+      const list = document.getElementById('surveysList');
+      if (!list) return;
+
+      if (availableSurveys.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding:30px 0; color:var(--text-light); font-size:14px;">現在回答可能なアンケートはありません</div>';
+        return;
+      }
+
+      let html = '';
+      availableSurveys.forEach(s => {
+        html += `
+          <div class="card" style="margin-bottom:15px; border-left:4px solid var(--sage);" onclick="openSurvey('${s.id}')">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div>
+                <div style="font-weight:bold; font-size:15px; color:var(--text-dark); margin-bottom:5px;">${s.title}</div>
+                <div style="font-size:12px; color:var(--text-mid);">${s.description || 'アンケートにご協力ください。'}</div>
+              </div>
+              <div style="background:var(--cream); color:var(--sage-dark); font-size:11px; padding:4px 8px; border-radius:12px; font-weight:bold; white-space:nowrap;">
+                回答する ▶
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      list.innerHTML = html;
+    }
+
+    function openSurvey(id) {
+      if (!_profile) {
+        showToast('アンケートに回答するにはプロフィール登録が必要です');
+        openModal('setupModal');
+        return;
+      }
+
+      const survey = availableSurveys.find(s => s.id === id);
+      if (!survey) return;
+
+      document.getElementById('currentSurveyId').value = survey.id;
+      document.getElementById('surveyAnswerTitle').innerText = survey.title;
+      document.getElementById('surveyAnswerDesc').innerText = survey.description || '';
+
+      const container = document.getElementById('surveyQuestionsContainer');
+      container.innerHTML = '';
+
+      survey.questions.forEach((q, idx) => {
+        const qDiv = document.createElement('div');
+        qDiv.style.marginBottom = '20px';
+
+        let reqMark = q.required ? '<span style="color:var(--danger); font-size:10px; margin-left:5px;">必須</span>' : '';
+        let html = `<div style="font-weight:bold; font-size:14px; margin-bottom:8px; color:var(--text-dark);">Q${idx + 1}. ${q.title} ${reqMark}</div>`;
+
+        if (q.type === 'text') {
+          html += `<textarea name="${q.id}" rows="3" style="width:100%; border:1px solid #ddd; border-radius:4px; padding:10px; font-size:13px;" ${q.required ? 'required' : ''}></textarea>`;
+        } else if (q.type === 'radio') {
+          const options = q.options ? q.options.split(',').map(o => o.trim()) : [];
+          options.forEach(opt => {
+            html += `
+               <label style="display:block; margin-bottom:5px; font-size:13px;">
+                 <input type="radio" name="${q.id}" value="${opt}" ${q.required ? 'required' : ''} style="margin-right:8px;">${opt}
+               </label>
+             `;
+          });
+        } else if (q.type === 'checkbox') {
+          const options = q.options ? q.options.split(',').map(o => o.trim()) : [];
+          options.forEach(opt => {
+            html += `
+               <label style="display:block; margin-bottom:5px; font-size:13px;">
+                 <input type="checkbox" name="${q.id}[]" value="${opt}" style="margin-right:8px;">${opt}
+               </label>
+             `;
+          });
+        }
+        qDiv.innerHTML = html;
+        container.appendChild(qDiv);
+      });
+
+      // カスタムバリデーション (チェックボックスの必須チェック用)
+      document.getElementById('surveyAnswerForm').onsubmit = async function (e) {
+        e.preventDefault();
+
+        // 必須チェックボックスの検証
+        let isValid = true;
+        survey.questions.filter(q => q.type === 'checkbox' && q.required).forEach(q => {
+          const checked = document.querySelectorAll(`input[name="${q.id}[]"]:checked`);
+          if (checked.length === 0) {
+            isValid = false;
+            alert(`「Q. ${q.title}」は必須項目です。少なくとも1つ選択してください。`);
+          }
+        });
+
+        if (!isValid) return;
+
+        const btn = document.getElementById('surveySubmitResponseBtn');
+        btn.disabled = true;
+        btn.innerText = '送信中...';
+
+        const formData = new FormData(e.target);
+        const answers = {};
+
+        survey.questions.forEach(q => {
+          if (q.type === 'checkbox') {
+            answers[q.id] = formData.getAll(`${q.id}[]`);
+          } else {
+            answers[q.id] = formData.get(q.id);
+          }
+        });
+
+        const res = await postToGAS({
+          type: 'submitSurveyResponse',
+          surveyId: survey.id,
+          memberId: _profile.memberId,
+          memberName: _profile.name, // 追加
+          answers: answers
+        });
+
+        btn.disabled = false;
+        btn.innerText = '送信する';
+
+        if (res && res.status === 'ok') {
+          showToast('ご回答ありがとうございました！');
+          closeModal('surveyAnswerModal');
+          e.target.reset();
+        } else {
+          showToast('送信に失敗しました。時間をおいて再試行してください。');
+        }
+      };
+
+      openModal('surveyAnswerModal');
+    }
+
     // ===== モーダル / ページ / トースト =====
     function openModal(id) { document.getElementById(id).classList.add('open'); }
     function closeModal(id, e) { if (e && e.target !== document.getElementById(id)) return; document.getElementById(id).classList.remove('open'); }
@@ -3123,9 +3455,20 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
       if (name === 'cart') renderCart();
       if (name === 'mypage') renderOrderHistory();
-      if (name === 'blog') renderBlogList('blogPageList', 999);
+      if (name === 'blog') renderBlogList('blogPageList', 999, 'ブログ');
+      if (name === 'shop') {
+        localStorage.setItem('last_seen_product_hash', PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|'));
+        var sb = document.getElementById('badge-shop');
+        if (sb) sb.style.display = 'none';
+      }
       if (name === 'calendar') {
         renderCalendar();
+      }
+      if (name === 'surveys') {
+        const latestSurveyId = availableSurveys.length > 0 ? availableSurveys[0].id : null;
+        if (latestSurveyId) localStorage.setItem('last_seen_survey_id', latestSurveyId);
+        const sb = document.getElementById('badge-surveys');
+        if (sb) sb.style.display = 'none';
       }
     }
 
@@ -3257,20 +3600,36 @@
         calBadge.style.display = 'none';
       }
 
+      // ショップ商品の更新チェック
+      var shopBadge = document.getElementById('badge-shop');
+      if (shopBadge && PRODUCTS && PRODUCTS.length > 0) {
+        var lastSeenProductHash = localStorage.getItem('last_seen_product_hash');
+        var currentProductHash = PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|');
+        var currentPage2 = document.querySelector('.page.active')?.id;
+        if (lastSeenProductHash && lastSeenProductHash !== currentProductHash && currentPage2 !== 'page-shop') {
+          shopBadge.style.display = 'block';
+          totalCount++;
+        } else {
+          shopBadge.style.display = 'none';
+          localStorage.setItem('last_seen_product_hash', currentProductHash);
+        }
+      }
+
       // App Badge API (ホーム画面のアイコン通知数)
       if ('setAppBadge' in navigator) {
         if (totalCount > 0) {
-          navigator.setAppBadge(totalCount).catch(err => console.log('Badge error:', err));
+          navigator.setAppBadge(totalCount).catch(function (err) { console.log('Badge error:', err); });
         } else {
-          navigator.clearAppBadge().catch(err => console.log('Badge error:', err));
+          navigator.clearAppBadge().catch(function (err) { console.log('Badge error:', err); });
         }
       }
 
       // Push UIの初期状態回復
       if (localStorage.getItem('push_enabled') === 'true') {
-        updatePushUI(true);
+        updatePushUI('on');
       }
     }
+
     function showToast(msg) {
       const t = document.getElementById('toast');
       t.textContent = msg;
@@ -3517,26 +3876,40 @@
 
     // ===== 初期化 (並列実行で高速化) =====
     function initApp() {
-      // 1. 画面表示に影響しない処理を即座に実行
       checkFirstLaunch();
       updateStampUI();
       checkUrlParams();
 
-      // 2. データフェッチをバックグラウンドで開始 (画面をブロックしない)
-      getFromGAS('getInitialData').then(data => {
-        if (data && data.status === 'ok') {
-          // GASの各関数は { status:'ok', news/products/events/notices: [...] } を返す
-          if (data.news && data.news.news) { blogItems = data.news.news; renderBlogList('homeNewsList', 3); renderBlogList('blogPageList', 999); updateNavBadges(); }
-          if (data.products && data.products.products) { productItems = data.products.products; renderProducts(); }
-          if (data.calendar && data.calendar.events) { calendarData = data.calendar.events; renderCalendar(); }
-          if (data.pushNotices && data.pushNotices.notices) { pushNotices = data.pushNotices.notices; updateNavBadges(); }
-        } else {
-          loadBlog();
-          loadProducts();
-          loadCalendar();
-          loadPushNotices();
-        }
-      });
+      // Capacitor環境 (iOS/Androidネイティブアプリ) の場合の通知設定
+      if (window.Capacitor) {
+        import('@capacitor/push-notifications').then(({ PushNotifications }) => {
+          import('@capawesome/capacitor-badge').then(({ Badge }) => {
+            //権限をリクエスト
+            PushNotifications.requestPermissions().then(result => {
+              if (result.receive === 'granted') {
+                PushNotifications.register();
+              }
+            });
+
+            // 通知を受信した時にバッジを増やす
+            PushNotifications.addListener('pushNotificationReceived', async () => {
+              try {
+                const currentBadge = await Badge.get();
+                await Badge.set({ count: (currentBadge.count || 0) + 1 });
+              } catch (e) { console.error('Badge error:', e); }
+            });
+
+            // アプリを開いた時にバッジをクリア
+            Badge.clear();
+          });
+        }).catch(err => console.error('Capacitor import error:', err));
+      }
+
+      // データを並列で取得（確実に動作する個別ロード方式）
+      loadBlog();
+      loadProducts();
+      loadCalendar();
+      loadPushNotices();
     }
     initApp();
 
@@ -3768,6 +4141,64 @@
       animation: scanline 2.5s infinite linear;
     }
   </style>
+
+
+  <!-- Capacitor Native Features (Badge & Push via OneSignal API) -->
+  <script>
+    async function initNativeFeatures() {
+      if (!window.Capacitor) return;
+      
+      const { PushNotifications, Badge } = Capacitor.Plugins;
+
+      // Handle successful registration - send token to OneSignal REST API
+      // Native plugin has SPM issues in this environment, so we use API directly.
+      PushNotifications.addListener('registration', async (token) => {
+        try {
+          await fetch('https://onesignal.com/api/v1/players', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              app_id: "4a6f574f-1475-4b5e-869e-e7619689b696",
+              device_type: 0, // iOS
+              identifier: token.value,
+              language: 'ja'
+            })
+          });
+        } catch (e) {
+          console.error('OneSignal registration error:', e);
+        }
+      });
+
+      // Request permissions and register for push
+      try {
+        let permStatus = await PushNotifications.checkPermissions();
+        if (permStatus.receive === 'prompt') {
+          permStatus = await PushNotifications.requestPermissions();
+        }
+        if (permStatus.receive === 'granted') {
+          await PushNotifications.register();
+        }
+      } catch (e) {
+        console.error('Native push init error:', e);
+      }
+
+      // Update badge count when notification is received
+      PushNotifications.addListener('pushNotificationReceived', async () => {
+        try {
+          const current = await Badge.get();
+          await Badge.set({ count: (current.count || 0) + 1 });
+        } catch (e) {
+          console.error('Badge update error:', e);
+        }
+      });
+
+      // Clear badge when app starts
+      try {
+        await Badge.set({ count: 0 });
+      } catch (e) {}
+    }
+    document.addEventListener('DOMContentLoaded', initNativeFeatures);
+  </script>
 
 </body>
 
