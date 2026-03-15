@@ -35,12 +35,26 @@
         document.head.appendChild(script);
 
         window.OneSignalDeferred = window.OneSignalDeferred || [];
-        OneSignalDeferred.push(function (OneSignal) {
+        OneSignalDeferred.push(async function (OneSignal) {
           window.OneSignalRef = OneSignal;
-          addDebug('OneSignal: Initializing with Subfolder logic...');
+          addDebug('OneSignal: Starting Init (v3)...');
+          
+          // 既存のService Workerの衝突を解消
+          if ('serviceWorker' in navigator) {
+            try {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (let registration of registrations) {
+                if (!registration.active || !registration.active.scriptURL.includes('OneSignal')) {
+                  addDebug('SW: Unregistering conflicting worker: ' + registration.scope);
+                  await registration.unregister();
+                }
+              }
+            } catch (swErr) { addDebug('SW: Cleanup error: ' + swErr.message, 'err'); }
+          }
+
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            serviceWorkerPath: 'OneSignalSDKWorker.js', // 'mayumi-app/' を削除
+            serviceWorkerPath: 'OneSignalSDKWorker.js', 
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
