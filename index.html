@@ -37,17 +37,16 @@
         window.OneSignalDeferred = window.OneSignalDeferred || [];
         OneSignalDeferred.push(function (OneSignal) {
           window.OneSignalRef = OneSignal;
-          console.log('OneSignal: Executing OneSignal.init (v2-debug)');
+          addDebug('OneSignal: Initializing with Subfolder logic...');
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            serviceWorkerPath: 'mayumi-app/OneSignalSDKWorker.js', // GitHub sub-path を含める
+            serviceWorkerPath: 'mayumi-app/OneSignalSDKWorker.js', 
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
-            console.log('OneSignal: Initialization successful (v2-debug)');
+            addDebug('OneSignal: Init OK', 'ok');
           }).catch(e => {
-            console.error('OneSignal: Initialization failed (v2-debug):', e);
-            alert('通知の初期化に失敗しました。設定を確認してください。\n' + e.message);
+            addDebug('OneSignal: Init Failed: ' + e.message, 'err');
           });
         });
       } else {
@@ -107,6 +106,27 @@
       transition: opacity 0.6s ease, transform 0.6s ease;
       transform: translateY(20px);
     }
+
+    /* ===== DIAGNOSTIC DASHBOARD (Hidden by default) ===== */
+    .debug-panel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      color: #0f0;
+      font-family: monospace;
+      font-size: 10px;
+      padding: 10px;
+      z-index: 10000;
+      max-height: 200px;
+      overflow-y: auto;
+      pointer-events: none;
+      display: block; /* デバッグ中は表示 */
+    }
+    .debug-line { margin-bottom: 2px; }
+    .debug-err { color: #f55; }
+    .debug-ok { color: #5f5; }
 
     .onboarding-overlay.show {
       opacity: 1;
@@ -3797,6 +3817,45 @@
       });
     }
     */
+  </script>
+  <!-- DEBUG PANEL -->
+  <div class="debug-panel" id="debugPanel">
+    <div class="debug-line">--- PWA Diagnostic Start ---</div>
+    <div class="debug-line" id="dbg-ua"></div>
+    <div class="debug-line" id="dbg-href"></div>
+  </div>
+  <script>
+    function addDebug(msg, type) {
+      const panel = document.getElementById('debugPanel');
+      if (!panel) return;
+      const div = document.createElement('div');
+      div.className = 'debug-line' + (type ? ' debug-' + type : '');
+      div.textContent = '> ' + msg;
+      panel.appendChild(div);
+      panel.scrollTop = panel.scrollHeight;
+      console.log('DEBUG:', msg);
+    }
+    document.getElementById('dbg-ua').textContent = 'UA: ' + navigator.userAgent.substring(0, 50) + '...';
+    document.getElementById('dbg-href').textContent = 'URL: ' + window.location.href;
+    
+    // 定期的な購読状態チェック
+    setInterval(() => {
+      const OS = window.OneSignalRef;
+      if (OS && OS.User && OS.User.PushSubscription) {
+        const id = OS.User.PushSubscription.id;
+        const optedIn = OS.User.PushSubscription.optedIn;
+        const target = document.getElementById('dbg-status');
+        if (!target) {
+          const div = document.createElement('div');
+          div.id = 'dbg-status';
+          div.className = 'debug-line';
+          document.getElementById('debugPanel').appendChild(div);
+        }
+        document.getElementById('dbg-status').innerHTML = 
+          'SubID: ' + (id ? id.substring(0,8)+'...' : 'None') + 
+          ' | OptedIn: <span class="' + (optedIn ? 'debug-ok':'debug-err') + '">' + optedIn + '</span>';
+      }
+    }, 2000);
   </script>
   <!-- ONBOARDING SCREEN -->
   <div class="onboarding-overlay" id="onboardingScreen">
