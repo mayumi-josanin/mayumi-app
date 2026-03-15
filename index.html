@@ -39,6 +39,8 @@
           window.OneSignalRef = OneSignal;
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
+            serviceWorkerPath: 'OneSignalSDKWorker.js',
+            serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           });
         });
@@ -3818,7 +3820,8 @@
       }
     });
 
-    // PWA Service Worker 登録
+    // PWA Service Worker 登録 (OneSignalが管理するため、衝突を避けるためにコメントアウト)
+    /*
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('./sw.js').then(function (registration) {
@@ -3828,6 +3831,7 @@
         });
       });
     }
+    */
   </script>
   <!-- ONBOARDING SCREEN -->
   <div class="onboarding-overlay" id="onboardingScreen">
