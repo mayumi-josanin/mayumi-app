@@ -60,17 +60,22 @@
 
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            serviceWorkerPath: 'OneSignalSDKWorker.js',
+            serviceWorkerPath: 'OneSignalSDKWorker.js', 
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
             addDebug('OneSignal: Init OK', 'ok');
             setTimeout(() => {
               navigator.serviceWorker.getRegistrations().then(regs => {
+                regs.forEach(r => {
+                  const isActive = r.active ? 'Active' : (r.installing ? 'Installing' : 'Waiting');
+                  const script = r.active ? r.active.scriptURL.split('/').pop() : 'Unknown';
+                  addDebug('SW: ' + script + ' (' + isActive + ') @ ' + r.scope);
+                });
                 const hasOS = regs.some(r => r.active && r.active.scriptURL.includes('OneSignal'));
-                addDebug('SW Check: ' + (hasOS ? 'OneSignal SW Found' : 'No OneSignal SW'), hasOS ? 'ok' : 'err');
+                addDebug('SW Result: ' + (hasOS ? 'OneSignal OK' : 'OneSignal MISSING'), hasOS ? 'ok' : 'err');
               });
-            }, 2000);
+            }, 3000);
           }).catch(e => {
             addDebug('OneSignal: Init Failed: ' + e.message, 'err');
           });
