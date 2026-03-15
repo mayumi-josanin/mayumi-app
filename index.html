@@ -40,13 +40,14 @@
           console.log('OneSignal: Executing OneSignal.init (v2-debug)');
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            serviceWorkerPath: 'OneSignalSDKWorker.js', 
-            serviceWorkerParam: { scope: './' },
+            serviceWorkerPath: 'mayumi-app/OneSignalSDKWorker.js', // GitHub sub-path を含める
+            serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
             console.log('OneSignal: Initialization successful (v2-debug)');
           }).catch(e => {
             console.error('OneSignal: Initialization failed (v2-debug):', e);
+            alert('通知の初期化に失敗しました。設定を確認してください。\n' + e.message);
           });
         });
       } else {
