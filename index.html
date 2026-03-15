@@ -16,13 +16,21 @@
     rel="stylesheet" media="print" onload="this.media='all'">
   <script>
     // Capacitor環境（ネイティブアプリ）ではWeb用OneSignalを無効化
-    (function() {
+    (function () {
       const href = window.location.href;
       const ua = navigator.userAgent;
-      const isNative = href.startsWith('capacitor://') || 
-                       href.includes('localhost') ||
-                       ua.includes('Capacitor') ||
-                       window.Capacitor;
+      const isNative = href.startsWith('capacitor://') ||
+        href.includes('localhost') ||
+        ua.includes('Capacitor') ||
+        window.Capacitor;
+
+      // Global Error Logger for Diagnostic Panel
+      window.addEventListener('error', function (e) {
+        if (typeof addDebug === 'function') addDebug('GlobalErr: ' + e.message, 'err');
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        if (typeof addDebug === 'function') addDebug('PromiseErr: ' + e.reason, 'err');
+      });
 
       console.log('--- INDEX.HTML LOADED (v2-debug) ---');
       console.log('Native detection check:', { isNative, href, ua });
@@ -37,36 +45,32 @@
         window.OneSignalDeferred = window.OneSignalDeferred || [];
         OneSignalDeferred.push(async function (OneSignal) {
           window.OneSignalRef = OneSignal;
-          addDebug('OneSignal: Starting Init (v3)...');
-          
-          // 既存のService Workerの衝突を解消
+          addDebug('OneSignal: Starting Init (v4)...');
+
           if ('serviceWorker' in navigator) {
             try {
-              const registrations = await navigator.serviceWorker.getRegistrations();
-              for (let registration of registrations) {
-                if (!registration.active || !registration.active.scriptURL.includes('OneSignal')) {
-                  addDebug('SW: Unregistering conflicting worker: ' + registration.scope);
-                  await registration.unregister();
-                }
-              }
-            } catch (swErr) { addDebug('SW: Cleanup error: ' + swErr.message, 'err'); }
+              addDebug('SW: Manual registering OneSignalSDKWorker.js...');
+              // GitHub Pages のサブフォルダに合わせる
+              await navigator.serviceWorker.register('OneSignalSDKWorker.js', { scope: '/mayumi-app/' });
+              addDebug('SW: Manual registration successful', 'ok');
+            } catch (swErr) {
+              addDebug('SW: Manual registration Failed: ' + swErr.message, 'err');
+            }
           }
 
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            // GitHub Pages のドメインルートからの絶対パスを指定
-            serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js', 
+            serviceWorkerPath: 'OneSignalSDKWorker.js',
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
             addDebug('OneSignal: Init OK', 'ok');
-            // SWが正しく登録されているか確認
-            if ('serviceWorker' in navigator) {
+            setTimeout(() => {
               navigator.serviceWorker.getRegistrations().then(regs => {
                 const hasOS = regs.some(r => r.active && r.active.scriptURL.includes('OneSignal'));
                 addDebug('SW Check: ' + (hasOS ? 'OneSignal SW Found' : 'No OneSignal SW'), hasOS ? 'ok' : 'err');
               });
-            }
+            }, 2000);
           }).catch(e => {
             addDebug('OneSignal: Init Failed: ' + e.message, 'err');
           });
@@ -144,11 +148,21 @@
       max-height: 200px;
       overflow-y: auto;
       pointer-events: none;
-      display: block; /* デバッグ中は表示 */
+      display: block;
+      /* デバッグ中は表示 */
     }
-    .debug-line { margin-bottom: 2px; }
-    .debug-err { color: #f55; }
-    .debug-ok { color: #5f5; }
+
+    .debug-line {
+      margin-bottom: 2px;
+    }
+
+    .debug-err {
+      color: #f55;
+    }
+
+    .debug-ok {
+      color: #5f5;
+    }
 
     .onboarding-overlay.show {
       opacity: 1;
@@ -3202,7 +3216,7 @@
       }
       if (name === 'blog') renderBlogList('blogPageList', 999);
       if (name === 'shop') {
-        localStorage.setItem('last_seen_product_hash', PRODUCTS.map(function(p) { return p.name + '_' + p.price; }).join('|'));
+        localStorage.setItem('last_seen_product_hash', PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|'));
         var sb = document.getElementById('badge-shop');
         if (sb) sb.style.display = 'none';
       }
@@ -3284,7 +3298,7 @@
       var shopBadge = document.getElementById('badge-shop');
       if (shopBadge && PRODUCTS && PRODUCTS.length > 0) {
         var lastSeenProductHash = localStorage.getItem('last_seen_product_hash');
-        var currentProductHash = PRODUCTS.map(function(p) { return p.name + '_' + p.price; }).join('|');
+        var currentProductHash = PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|');
         var currentPage2 = document.querySelector('.page.active')?.id;
         if (lastSeenProductHash && lastSeenProductHash !== currentProductHash && currentPage2 !== 'page-shop') {
           shopBadge.style.display = 'block';
@@ -3298,9 +3312,9 @@
       // App Badge API (ホーム画面のアイコン通知数)
       if ('setAppBadge' in navigator) {
         if (totalCount > 0) {
-          navigator.setAppBadge(totalCount).catch(function(err) { console.log('Badge error:', err); });
+          navigator.setAppBadge(totalCount).catch(function (err) { console.log('Badge error:', err); });
         } else {
-          navigator.clearAppBadge().catch(function(err) { console.log('Badge error:', err); });
+          navigator.clearAppBadge().catch(function (err) { console.log('Badge error:', err); });
         }
       }
 
@@ -3609,13 +3623,13 @@
         try {
           let perm = await Push.checkPermissions();
           console.log('togglePush: current perm:', perm.receive);
-          
+
           if (perm.receive === 'granted') {
             alert('通知は既に許可されています。解除する場合はiPhoneの設定アプリから変更してください。');
             updatePushUI('on');
             return;
           }
-          
+
           perm = await Push.requestPermissions();
           if (perm.receive === 'granted') {
             await Push.register();
@@ -3677,7 +3691,7 @@
         } else {
           alert('通知が許可されませんでした。Safariの設定を確認してください。');
         }
-      } catch (e) { 
+      } catch (e) {
         console.error('togglePush Web error:', e);
         showToast('通知設定中にエラーが発生しました');
       }
@@ -3706,13 +3720,13 @@
       checkUrlParams();
 
       // Capacitor環境 (iOS/Androidネイティブアプリ) の場合の通知設定
-      (function() {
+      (function () {
         let retryCount = 0;
         const maxRetries = 50; // 5 seconds total
 
         async function attemptInit() {
           console.log('Native Features: Checking for Capacitor... (Retry: ' + retryCount + ')');
-          
+
           if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
             console.log('Native Features: Capacitor found! Initializing...');
             await runNativeInit();
@@ -3740,7 +3754,7 @@
                 test_type: 1 // Sandbox (Xcodeからのデバッグ実行時に必要)
               };
               console.log('OneSignal Registering Payload (v2-debug):', JSON.stringify(payload));
-              
+
               const response = await fetch('https://onesignal.com/api/v1/players', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -3760,7 +3774,7 @@
           try {
             let perm = await PushNotifications.checkPermissions();
             console.log('Current Native Perm:', perm.receive);
-            
+
             if (perm.receive === 'prompt') {
               console.log('Requesting Push Permissions...');
               perm = await PushNotifications.requestPermissions();
@@ -3771,7 +3785,7 @@
               await PushNotifications.register();
               console.log('Native Push Registration Call Sent');
             } else {
-               console.warn('Native Push Permission not granted.');
+              console.warn('Native Push Permission not granted.');
             }
           } catch (e) {
             console.error('Push Initialization Exception:', e);
@@ -3789,10 +3803,10 @@
             }
           });
 
-          try { 
-            await Badge.set({ count: 0 }); 
+          try {
+            await Badge.set({ count: 0 });
             console.log('Badge cleared on startup (v2-debug)');
-          } catch (e) {}
+          } catch (e) { }
         }
 
         // 実行開始
@@ -3817,7 +3831,7 @@
           lastFetchTime = Date.now();
           Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]).catch(function () { });
         }
-        
+
         // アプリ復帰時にバッジをクリア (iOS用)
         if (window.Capacitor) {
           import('@capawesome/capacitor-badge').then(({ Badge }) => {
@@ -3859,7 +3873,7 @@
     }
     document.getElementById('dbg-ua').textContent = 'UA: ' + navigator.userAgent.substring(0, 50) + '...';
     document.getElementById('dbg-href').textContent = 'URL: ' + window.location.href;
-    
+
     // 定期的な購読状態チェック
     setInterval(() => {
       const OS = window.OneSignalRef;
@@ -3873,9 +3887,9 @@
           div.className = 'debug-line';
           document.getElementById('debugPanel').appendChild(div);
         }
-        document.getElementById('dbg-status').innerHTML = 
-          'SubID: ' + (id ? id.substring(0,8)+'...' : 'None') + 
-          ' | OptedIn: <span class="' + (optedIn ? 'debug-ok':'debug-err') + '">' + optedIn + '</span>';
+        document.getElementById('dbg-status').innerHTML =
+          'SubID: ' + (id ? id.substring(0, 8) + '...' : 'None') +
+          ' | OptedIn: <span class="' + (optedIn ? 'debug-ok' : 'debug-err') + '">' + optedIn + '</span>';
       }
     }, 2000);
   </script>
