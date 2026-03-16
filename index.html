@@ -2485,6 +2485,7 @@
     let selectedPay = null, currentProdIdx = null, modalQty = 1;
     let cancelOrderId = null;
     let blogItems = [];
+    let isDataLoaded = false;
 
     // ===== スタンプ =====
     function renderStampGrid(id, count) {
@@ -2596,6 +2597,9 @@
       }
       calendarLoaded = true;
       renderCalendar();
+      if (document.getElementById('page-notices').classList.contains('active')) {
+        renderPushNotices();
+      }
       updateNavBadges(); // バッジ更新
     }
 
@@ -2729,6 +2733,9 @@
       if (document.getElementById('page-blog').classList.contains('active')) {
         renderBlogList('blogPageList', 999);
       }
+      if (document.getElementById('page-notices').classList.contains('active')) {
+        renderPushNotices();
+      }
       updateNavBadges(); // バッジ更新
     }
 
@@ -2749,21 +2756,92 @@
     function renderPushNotices() {
       const list = document.getElementById('noticeList');
       if (!list) return;
-      if (pushNotices.length === 0) {
+
+      // --- 全データソースを統合 ---
+      const items = [];
+
+      // 1) Push通知 (GAS)
+      pushNotices.forEach(n => {
+        items.push({
+          ts: n.date,          // タイムスタンプ (ms)
+          type: 'notice',
+          icon: '📢',
+          label: 'お知らせ',
+          title: n.title,
+          body: n.body || ''
+        });
+      });
+
+      // 2) ブログ (date: 'YYYY.MM.DD')
+      blogItems.forEach(b => {
+        const parts = (b.date || '').split('.');
+        const ts = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]).getTime() : 0;
+        items.push({
+          ts,
+          type: 'blog',
+          icon: '📝',
+          label: b.category || 'ブログ',
+          title: b.title,
+          body: b.body ? b.body.substring(0, 60) + (b.body.length > 60 ? '...' : '') : ''
+        });
+      });
+
+      // 3) カレンダー (date: 'YYYY-MM-DD')
+      calendarData.forEach(e => {
+        const ts = e.date ? new Date(e.date).getTime() : 0;
+        items.push({
+          ts,
+          type: 'calendar',
+          icon: '📅',
+          label: 'カレンダー',
+          title: e.title,
+          body: e.desc || ''
+        });
+      });
+
+      // 4) 商品 (PRODUCTS グローバル配列)
+      PRODUCTS.forEach(p => {
+        items.push({
+          ts: 0,   // 日付情報なし → 最下位に並ぶ
+          type: 'product',
+          icon: '🛒',
+          label: 'お買い物',
+          title: p.name,
+          body: '¥' + (p.price || 0).toLocaleString() + '（税込）'
+        });
+      });
+
+      // --- 日付の新しい順にソート ---
+      items.sort((a, b) => b.ts - a.ts);
+
+      if (items.length === 0) {
         list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light);">現在お知らせはありません。</div>';
         return;
       }
+
+      // --- 描画 ---
       let html = '';
-      pushNotices.forEach(n => {
-        const d = new Date(n.date);
-        const dateStr = d.getFullYear() + '.' + (d.getMonth() + 1).toString().padStart(2, '0') + '.' + d.getDate().toString().padStart(2, '0');
+      items.forEach(item => {
+        let dateStr = '';
+        if (item.ts > 0) {
+          const d = new Date(item.ts);
+          dateStr = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
+        }
+        const labelColors = {
+          notice:   '#c05621',
+          blog:     '#2f7a4d',
+          calendar: '#1565c0',
+          product:  '#6a1b9a'
+        };
+        const color = labelColors[item.type] || 'var(--sage-dark)';
         html += `
           <div class="blog-card" style="padding:16px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <span style="font-size:11px; color:var(--sage-dark); font-weight:700;">${dateStr}</span>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:12px; font-weight:700; color:${color}; background:${color}18; border-radius:12px; padding:2px 10px;">${item.icon} ${item.label}</span>
+              ${dateStr ? `<span style="font-size:11px; color:var(--text-light); margin-left:auto;">${dateStr}</span>` : ''}
             </div>
-            <div style="font-size:15px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">${n.title}</div>
-            <div style="font-size:13px; color:var(--text-mid); line-height:1.6;">${n.body}</div>
+            <div style="font-size:15px; font-weight:700; color:var(--text-dark); margin-bottom:4px;">${item.title}</div>
+            ${item.body ? `<div style="font-size:13px; color:var(--text-mid); line-height:1.6;">${item.body}</div>` : ''}
           </div>
         `;
       });
@@ -3204,34 +3282,41 @@
 
     // 更新バッジの制御
     function updateNavBadges() {
+      if (!isDataLoaded) return; // 初回ロード完了までバッジ更新をスキップ
       let totalCount = 0;
+      const currentPage = document.querySelector('.page.active')?.id;
 
       // お知らせ (Push) の未読チェック
       const noticeBadge = document.getElementById('badge-notices');
       if (noticeBadge && pushNotices.length > 0) {
         const latest = pushNotices[0];
         const lastSeenTime = Number(localStorage.getItem('last_seen_push_time') || 0);
-        const currentPage = document.querySelector('.page.active')?.id;
         if (latest.date > lastSeenTime && currentPage !== 'page-notices') {
           noticeBadge.style.display = 'block';
           totalCount++;
-        } else if (currentPage === 'page-notices') {
+        } else {
           noticeBadge.style.display = 'none';
-          localStorage.setItem('last_seen_push_time', latest.date.toString());
+          if (currentPage === 'page-notices') {
+            localStorage.setItem('last_seen_push_time', latest.date.toString());
+          }
         }
+      } else if (noticeBadge) {
+        noticeBadge.style.display = 'none';
       }
+
       // ブログの更新チェック
       const blogBadge = document.getElementById('badge-blog');
       if (blogBadge && blogItems && blogItems.length > 0) {
         const lastSeenHash = localStorage.getItem('last_seen_blog_hash');
-        const currentHash = blogItems.map(function(i) { return i.date + '_' + i.title; }).join('|');
-        const currentPage = document.querySelector('.page.active')?.id;
+        const currentHash = blogItems.map(function (i) { return i.date + '_' + i.title; }).join('|');
         if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-blog') {
           blogBadge.style.display = 'block';
           totalCount++;
-        } else if (currentPage === 'page-blog' || !lastSeenHash) {
+        } else {
           blogBadge.style.display = 'none';
-          localStorage.setItem('last_seen_blog_hash', currentHash);
+          if (currentPage === 'page-blog' || !lastSeenHash) {
+            localStorage.setItem('last_seen_blog_hash', currentHash);
+          }
         }
       }
 
@@ -3239,14 +3324,15 @@
       const calBadge = document.getElementById('badge-calendar');
       if (calBadge && calendarData && calendarData.length > 0) {
         const lastSeenHash = localStorage.getItem('last_seen_calendar_hash');
-        const currentHash = calendarData.map(function(i) { return i.date + '_' + i.title; }).join('|');
-        const currentPage = document.querySelector('.page.active')?.id;
+        const currentHash = calendarData.map(function (i) { return i.date + '_' + i.title; }).join('|');
         if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-calendar') {
           calBadge.style.display = 'block';
           totalCount++;
-        } else if (currentPage === 'page-calendar' || !lastSeenHash) {
+        } else {
           calBadge.style.display = 'none';
-          localStorage.setItem('last_seen_calendar_hash', currentHash);
+          if (currentPage === 'page-calendar' || !lastSeenHash) {
+            localStorage.setItem('last_seen_calendar_hash', currentHash);
+          }
         }
       }
 
@@ -3254,14 +3340,15 @@
       const shopBadge = document.getElementById('badge-shop');
       if (shopBadge && PRODUCTS && PRODUCTS.length > 0) {
         const lastSeenHash = localStorage.getItem('last_seen_product_hash');
-        const currentHash = PRODUCTS.map(function(p) { return p.name + '_' + p.price; }).join('|');
-        const currentPage = document.querySelector('.page.active')?.id;
+        const currentHash = PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|');
         if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-shop') {
           shopBadge.style.display = 'block';
           totalCount++;
-        } else if (currentPage === 'page-shop' || !lastSeenHash) {
+        } else {
           shopBadge.style.display = 'none';
-          localStorage.setItem('last_seen_product_hash', currentHash);
+          if (currentPage === 'page-shop' || !lastSeenHash) {
+            localStorage.setItem('last_seen_product_hash', currentHash);
+          }
         }
       }
 
@@ -3742,6 +3829,7 @@
         loadCalendar(),
         loadPushNotices()
       ]).then(() => {
+        isDataLoaded = true;
         updateNavBadges();
       }).catch(e => console.error('Initial load error:', e));
     }
@@ -3756,6 +3844,7 @@
         if (elapsed > 60000) {
           lastFetchTime = Date.now();
           Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]).then(() => {
+            isDataLoaded = true;
             updateNavBadges();
           }).catch(function () { });
         } else {
