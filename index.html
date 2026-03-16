@@ -14,15 +14,6 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=Zen+Old+Mincho:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap"
     rel="stylesheet" media="print" onload="this.media='all'">
-  <script>
-    // Global Error Logger for Diagnostic Panel
-    window.addEventListener('error', function (e) {
-      if (typeof addDebug === 'function') addDebug('GlobalErr: ' + e.message, 'err');
-    });
-    window.addEventListener('unhandledrejection', function (e) {
-      if (typeof addDebug === 'function') addDebug('PromiseErr: ' + e.reason, 'err');
-    });
-  </script>
   <style>
     :root {
       --cream: #fdf8f0;
@@ -76,37 +67,6 @@
       transform: translateY(20px);
     }
 
-    /* ===== DIAGNOSTIC DASHBOARD (Hidden by default) ===== */
-    .debug-panel {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      color: #0f0;
-      font-family: monospace;
-      font-size: 10px;
-      padding: 10px;
-      z-index: 10000;
-      max-height: 200px;
-      overflow-y: auto;
-      pointer-events: auto;
-      /* ボタンを押せるように変更 */
-      display: block;
-      /* デバッグ中は表示 */
-    }
-
-    .debug-line {
-      margin-bottom: 2px;
-    }
-
-    .debug-err {
-      color: #f55;
-    }
-
-    .debug-ok {
-      color: #5f5;
-    }
 
     .onboarding-overlay.show {
       opacity: 1;
@@ -3751,115 +3711,6 @@
     });
 
   </script>
-  <!-- DEBUG PANEL -->
-  <div class="debug-panel" id="debugPanel">
-    <div
-      style="display: flex; justify-content: space-between; border-bottom: 1px solid #5f5; margin-bottom: 5px; padding-bottom: 5px;">
-      <span>--- PWA Diagnostic Start (v6) ---</span>
-      <div>
-        <button onclick="location.reload()"
-          style="background: #555; color: #fff; border: none; font-size: 10px; padding: 2px 5px; cursor: pointer; margin-right: 5px;">Reload</button>
-        <button onclick="forceOneSignalSync()"
-          style="background: #0f0; color: #000; border: none; font-size: 10px; padding: 2px 5px; cursor: pointer;">Force
-          Sync</button>
-      </div>
-    </div>
-    <div class="debug-line" id="dbg-ua"></div>
-    <div class="debug-panel" id="debugPanel">
-      <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-        <span style="color:#fff;font-weight:bold;">--- PWA Diagnostic Start (v7) ---</span>
-        <div style="display:flex; gap:5px;">
-          <button onclick="localStorage.clear();sessionStorage.clear();location.reload();" style="background:#444;color:#fff;border:none;padding:2px 5px;font-size:9px;cursor:pointer;">Clear Cache</button>
-          <button id="fullResetBtn" style="background:#c0392b;color:#fff;border:none;padding:2px 5px;font-size:9px;cursor:pointer;">Full Reset & Reload</button>
-          <button onclick="location.reload()" style="background:#444;color:#fff;border:none;padding:2px 5px;font-size:9px;">Reload</button>
-          <button onclick="forceOneSignalSync()" style="background:#27ae60;color:#fff;border:none;padding:2px 5px;font-size:9px;">Force Sync</button>
-        </div>
-      </div>
-      <div id="dbg-ua" class="debug-line"></div>
-      <div id="dbg-href" class="debug-line" style="color:#aaa"></div>
-      <div id="dbg-status" class="debug-line" style="font-weight:bold;padding:4px 0;border-top:1px solid #336;border-bottom:1px solid #336;margin:4px 0;">SubID: Checking...</div>
-    </div>
-
-    <script>
-      // 1. Full Reset 処理
-      document.getElementById('fullResetBtn').onclick = async function() {
-        if(!confirm('全ての通知キャッシュと登録情報を初期化します。よろしいですか？')) return;
-        addDebug('Full Reset: Starting...');
-        try {
-          if ('serviceWorker' in navigator) {
-            const regs = await navigator.serviceWorker.getRegistrations();
-            for (let r of regs) { await r.unregister(); addDebug('SW Unregistered: ' + r.scope); }
-          }
-          if (window.OneSignalRef) {
-            await window.OneSignalRef.User.PushSubscription.optOut();
-            addDebug('OneSignal: Opted out.');
-          }
-          localStorage.clear();
-          addDebug('LocalStorage: Cleared.');
-          alert('初期化完了しました。ページをリロードします。再度「許可する」から登録してください。');
-          location.reload();
-        } catch(e) {
-          addDebug('Reset Error: ' + e.message, 'err');
-          alert('エラー: ' + e.message);
-        }
-      };
-
-      function addDebug(msg, type) {
-        const panel = document.getElementById('debugPanel');
-        if (!panel) return;
-        const div = document.createElement('div');
-        div.className = 'debug-line' + (type ? ' debug-' + type : '');
-        div.textContent = '> ' + msg;
-        panel.appendChild(div);
-        panel.scrollTop = panel.scrollHeight;
-        console.log('DEBUG:', msg);
-      }
-
-    async function forceOneSignalSync() {
-      const OS = window.OneSignalRef;
-      if (!OS) { addDebug('Sync: OneSignal not ready', 'err'); return; }
-      addDebug('Sync: Manually triggering optIn()...');
-      try {
-        await OS.User.PushSubscription.optIn();
-        addDebug('Sync: optIn() call sent', 'ok');
-        setTimeout(() => {
-          addDebug('Sync result: SubID=' + (OS.User.PushSubscription.id || 'None'));
-        }, 3000);
-      } catch (e) {
-        addDebug('Sync Error: ' + e.message, 'err');
-      }
-    }
-    function addDebug(msg, type) {
-      const panel = document.getElementById('debugPanel');
-      if (!panel) return;
-      const div = document.createElement('div');
-      div.className = 'debug-line' + (type ? ' debug-' + type : '');
-      div.textContent = '> ' + msg;
-      panel.appendChild(div);
-      panel.scrollTop = panel.scrollHeight;
-      console.log('DEBUG:', msg);
-    }
-    document.getElementById('dbg-ua').textContent = 'UA: ' + navigator.userAgent.substring(0, 50) + '...';
-    document.getElementById('dbg-href').textContent = 'URL: ' + window.location.href;
-
-    // 定期的な購読状態チェック
-    setInterval(() => {
-      const OS = window.OneSignalRef;
-      if (OS && OS.User && OS.User.PushSubscription) {
-        const id = OS.User.PushSubscription.id;
-        const optedIn = OS.User.PushSubscription.optedIn;
-        const target = document.getElementById('dbg-status');
-        if (!target) {
-          const div = document.createElement('div');
-          div.id = 'dbg-status';
-          div.className = 'debug-line';
-          document.getElementById('debugPanel').appendChild(div);
-        }
-        document.getElementById('dbg-status').innerHTML =
-          'SubID: ' + (id ? id.substring(0, 8) + '...' : 'None') +
-          ' | OptedIn: <span class="' + (optedIn ? 'debug-ok' : 'debug-err') + '">' + optedIn + '</span>';
-      }
-    }, 2000);
   </script>
 
   <script>
@@ -3872,8 +3723,6 @@
         window.Capacitor;
 
       if (!isNative) {
-        addDebug('OneSignal: Initialization Starting...');
-
         // 1. OneSignal SDK の読み込み
         const script = document.createElement('script');
         script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
@@ -3883,10 +3732,8 @@
         window.OneSignalDeferred = window.OneSignalDeferred || [];
         OneSignalDeferred.push(async function (OneSignal) {
           window.OneSignalRef = OneSignal;
-          addDebug('OneSignal: SDK loaded. Final Solution Starting...');
 
           // --- 1. OneSignal 初期化 (サブディレクトリ対応版) ---
-          addDebug('OneSignal: Initializing App...');
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
             // Dashboardの設定と連動させるためルート相対パスを指定
@@ -3894,24 +3741,16 @@
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
-            addDebug('OneSignal: Init Success!', 'ok');
+            console.log('OneSignal: Init Success!');
           }).catch(e => {
-            addDebug('OneSignal: Init Error: ' + e.message, 'err');
+            console.error('OneSignal: Init Error:', e);
           }).finally(() => {
-            // サービスワーカーの制御状態を確認
-            if (navigator.serviceWorker.controller) {
-              addDebug('Controller: Found (' + navigator.serviceWorker.controller.scriptURL.split('/').pop() + ')', 'ok');
-            } else {
-              addDebug('Controller: None (Refreshing may help)', 'err');
-            }
-
             // 15秒おきに ID が取れるまで粘り強くチェック
             const syncInterval = setInterval(async () => {
               const sub = OneSignal.User.PushSubscription;
               const perm = await OneSignal.Notifications.permission;
               
               if (sub.id) {
-                addDebug('Sync Result: SUCCESS! ID=' + sub.id, 'ok');
                 updatePushUI('on');
                 clearInterval(syncInterval);
                 return;
@@ -3919,11 +3758,10 @@
 
               if (perm) {
                 updatePushUI('on');
-                addDebug('Auto-Sync: Waiting for ID assignment...', 'err');
                 try {
                   await OneSignal.User.PushSubscription.optIn();
                 } catch(err) {
-                  addDebug('Sync Error: ' + err.message, 'err');
+                  console.error('OneSignal: Push sync error:', err);
                 }
               } else {
                 localStorage.setItem('push_enabled', 'false');
