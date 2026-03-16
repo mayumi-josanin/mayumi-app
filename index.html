@@ -3873,15 +3873,13 @@
           window.OneSignalRef = OneSignal;
           addDebug('OneSignal: SDK loaded. Starting Diagnostics...');
 
-          // --- DIAGNOSTIC: Try manual registration first to see the real browser error ---
+          // --- DIAGNOSTIC: Manual SW test (Now known to succeed) ---
           try {
             const swPath = 'OneSignalSDKWorker.js';
-            const swScope = '/mayumi-app/';
-            addDebug('SW Test: Registering ' + swPath + ' with scope ' + swScope);
-            const reg = await navigator.serviceWorker.register(swPath, { scope: swScope });
-            addDebug('SW Test: SUCCESS! Scope=' + reg.scope, 'ok');
+            await navigator.serviceWorker.register(swPath, { scope: '/mayumi-app/' });
+            addDebug('SW Test: SUCCESS!', 'ok');
           } catch (swErr) {
-            addDebug('SW Test: FAILED! ' + swErr.name + ': ' + swErr.message, 'err');
+            addDebug('SW Test: FAILED! ' + swErr.message, 'err');
           }
 
           addDebug('OneSignal: Initializing App...');
@@ -3895,14 +3893,23 @@
           }).catch(e => {
             addDebug('OneSignal: Init Error: ' + e.message, 'err');
           }).finally(() => {
+            // 少し長めに待ち、状態が安定してから同期を試みる
             setTimeout(async () => {
               const sub = OneSignal.User.PushSubscription;
-              addDebug('Final: ID=' + (sub.id || 'None') + ' | OptIn=' + sub.optedIn);
-              if (sub.optedIn && !sub.id) {
-                addDebug('Auto-Sync: Finalizing...');
-                try { await sub.optIn(); } catch(err) { addDebug('SyncErr: ' + err.message, 'err'); }
+              const perm = await OneSignal.Notifications.permission;
+              addDebug('Final: ID=' + (sub.id || 'None') + ' | Perm=' + perm);
+              
+              if (!sub.id && perm) {
+                addDebug('Auto-Sync: Forcing final subscription nudge...');
+                try {
+                  // IDがないが通知許可がある場合、強制的にoptInを呼び出してサーバーと同期させる
+                  await OneSignal.User.PushSubscription.optIn();
+                  addDebug('Auto-Sync: optIn() complete', 'ok');
+                } catch(err) {
+                  addDebug('SyncErr: ' + err.message, 'err');
+                }
               }
-            }, 6000);
+            }, 8000);
           });
         });
       }
