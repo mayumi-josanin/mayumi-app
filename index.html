@@ -36,7 +36,7 @@
 
       if (!isNative) {
         addDebug('PWA: Running Root-Fix Cleanup...');
-        
+
         // 1. 古いService Worker (sw.js等) を徹底的に削除
         if ('serviceWorker' in navigator) {
           try {
@@ -67,7 +67,7 @@
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
             // 【重要】OneSignal管理画面が github.io (ルート) を見ているため、
             // 登録ファイルの場所は「ルートから見たサブフォルダ内」として指定する
-            serviceWorkerPath: 'mayumi-app/OneSignalSDKWorker.js', 
+            serviceWorkerPath: 'mayumi-app/OneSignalSDKWorker.js',
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
@@ -80,10 +80,10 @@
               const hasSW = !!(navigator.serviceWorker.controller);
               addDebug('Final: ID=' + (sub.id || 'None'), sub.id ? 'ok' : 'err');
               addDebug('Final: OptIn=' + sub.optedIn + ' | SW=' + (hasSW ? 'Active' : 'NONE'), (sub.optedIn && hasSW) ? 'ok' : 'err');
-              
+
               if (sub.optedIn && !sub.id) {
                 addDebug('Auto-Sync: Finalizing registration...');
-                try { await sub.optIn(); } catch(err) { addDebug('SyncErr: ' + err.message, 'err'); }
+                try { await sub.optIn(); } catch (err) { addDebug('SyncErr: ' + err.message, 'err'); }
               }
             }, 5000);
           });
@@ -160,7 +160,8 @@
       z-index: 10000;
       max-height: 200px;
       overflow-y: auto;
-      pointer-events: auto; /* ボタンを押せるように変更 */
+      pointer-events: auto;
+      /* ボタンを押せるように変更 */
       display: block;
       /* デバッグ中は表示 */
     }
@@ -3869,11 +3870,15 @@
   </script>
   <!-- DEBUG PANEL -->
   <div class="debug-panel" id="debugPanel">
-    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #5f5; margin-bottom: 5px; padding-bottom: 5px;">
+    <div
+      style="display: flex; justify-content: space-between; border-bottom: 1px solid #5f5; margin-bottom: 5px; padding-bottom: 5px;">
       <span>--- PWA Diagnostic Start (v6) ---</span>
       <div>
-        <button onclick="location.reload()" style="background: #555; color: #fff; border: none; font-size: 10px; padding: 2px 5px; cursor: pointer; margin-right: 5px;">Reload</button>
-        <button onclick="forceOneSignalSync()" style="background: #0f0; color: #000; border: none; font-size: 10px; padding: 2px 5px; cursor: pointer;">Force Sync</button>
+        <button onclick="location.reload()"
+          style="background: #555; color: #fff; border: none; font-size: 10px; padding: 2px 5px; cursor: pointer; margin-right: 5px;">Reload</button>
+        <button onclick="forceOneSignalSync()"
+          style="background: #0f0; color: #000; border: none; font-size: 10px; padding: 2px 5px; cursor: pointer;">Force
+          Sync</button>
       </div>
     </div>
     <div class="debug-line" id="dbg-ua"></div>
@@ -3890,7 +3895,7 @@
         setTimeout(() => {
           addDebug('Sync result: SubID=' + (OS.User.PushSubscription.id || 'None'));
         }, 3000);
-      } catch(e) {
+      } catch (e) {
         addDebug('Sync Error: ' + e.message, 'err');
       }
     }
