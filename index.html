@@ -3871,12 +3871,23 @@
         window.OneSignalDeferred = window.OneSignalDeferred || [];
         OneSignalDeferred.push(async function (OneSignal) {
           window.OneSignalRef = OneSignal;
-          addDebug('OneSignal: SDK loaded. Attempting Init...');
+          addDebug('OneSignal: SDK loaded. Starting Diagnostics...');
 
+          // --- DIAGNOSTIC: Try manual registration first to see the real browser error ---
+          try {
+            const swPath = 'OneSignalSDKWorker.js';
+            const swScope = '/mayumi-app/';
+            addDebug('SW Test: Registering ' + swPath + ' with scope ' + swScope);
+            const reg = await navigator.serviceWorker.register(swPath, { scope: swScope });
+            addDebug('SW Test: SUCCESS! Scope=' + reg.scope, 'ok');
+          } catch (swErr) {
+            addDebug('SW Test: FAILED! ' + swErr.name + ': ' + swErr.message, 'err');
+          }
+
+          addDebug('OneSignal: Initializing App...');
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            // GitHub Pages の絶対パスで指定 (/ から始める)
-            serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js',
+            serviceWorkerPath: 'OneSignalSDKWorker.js', 
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
@@ -3886,16 +3897,10 @@
           }).finally(() => {
             setTimeout(async () => {
               const sub = OneSignal.User.PushSubscription;
-              addDebug('Final Result: SubID=' + (sub.id || 'None'), sub.id ? 'ok' : 'err');
-
+              addDebug('Final: ID=' + (sub.id || 'None') + ' | OptIn=' + sub.optedIn);
               if (sub.optedIn && !sub.id) {
-                addDebug('Auto-Sync: Ensuring subscription...');
-                try {
-                  await sub.optIn();
-                  addDebug('Auto-Sync: optIn() call sent');
-                } catch (syncErr) {
-                  addDebug('Sync Error: ' + syncErr.message, 'err');
-                }
+                addDebug('Auto-Sync: Finalizing...');
+                try { await sub.optIn(); } catch(err) { addDebug('SyncErr: ' + err.message, 'err'); }
               }
             }, 6000);
           });
