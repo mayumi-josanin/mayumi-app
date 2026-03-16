@@ -1791,7 +1791,9 @@
       </div>
       <div class="header-right">
         <div class="hdr-btn" onclick="refreshAppData()" title="最新情報に更新">🔄</div>
-        <div class="hdr-btn" onclick="switchPage('notices')" title="お知らせ一覧">📢<div class="cart-badge" id="badge-notices" style="display:none; width:8px; height:8px; top:2px; right:2px;"></div></div>
+        <div class="hdr-btn" onclick="switchPage('notices')" title="お知らせ一覧">📢<div class="cart-badge" id="badge-notices"
+            style="display:none; width:8px; height:8px; top:2px; right:2px;"></div>
+        </div>
         <div class="hdr-btn" onclick="switchPage('cart')">🛒<div class="cart-badge" id="cartBadge"></div>
         </div>
         <div class="hdr-btn" onclick="switchPage('mypage')">👤</div>
@@ -2102,9 +2104,37 @@
   <!-- ========== BLOG ========== -->
   <div id="page-blog" class="page">
     <div class="main">
-      <div class="section" style="padding-top:20px;padding-bottom:24px">
-        <h2 class="sec-title">📢 お知らせ・ブログ</h2>
-        <div id="blogPageList" class="blog-list">
+      <!-- お知らせセクション -->
+      <div class="section" style="padding-top:20px;padding-bottom:12px">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 class="sec-title" style="margin-bottom:0">📢 お知らせ</h2>
+          <select id="newsCategoryFilter" onchange="renderDividedBlogList()"
+            style="width:130px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
+            <option value="全て">カテゴリ: 全て</option>
+            <option value="お知らせ">お知らせ</option>
+            <option value="休診情報">休診情報</option>
+            <option value="イベント">イベント</option>
+            <option value="商品情報">商品情報</option>
+          </select>
+        </div>
+        <div id="newsPageList" class="blog-list" style="margin-top:12px">
+          <div class="loading-wrap">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ブログセクション -->
+      <div class="section" style="padding-top:12px;padding-bottom:24px; border-top: 1px dashed var(--border);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 class="sec-title" style="margin-bottom:0">📝 ブログ</h2>
+          <select id="blogCategoryFilter" onchange="renderDividedBlogList()"
+            style="width:130px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
+            <option value="全て">カテゴリ: 全て</option>
+            <option value="ブログ">ブログ</option>
+          </select>
+        </div>
+        <div id="blogPageList" class="blog-list" style="margin-top:12px">
           <div class="loading-wrap">
             <div class="spinner"></div>
           </div>
@@ -2211,8 +2241,14 @@
       </div>
 
       <div class="section" style="padding-top:20px">
-        <h2 class="sec-title">📝 アンケート</h2>
-        <div id="surveyList">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 class="sec-title" style="margin-bottom:0">📝 アンケート</h2>
+          <select id="surveyTitleFilter" onchange="renderSurveys()"
+            style="width:130px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
+            <option value="全て">アンケート名: 全て</option>
+          </select>
+        </div>
+        <div id="surveyList" style="margin-top:12px">
           <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">現在回答可能なアンケートはありません</div>
         </div>
       </div>
@@ -2385,7 +2421,8 @@
       <div id="surveyModalDesc" style="font-size:13px; color:var(--text-mid); margin-bottom:16px;"></div>
       <div id="surveyQuestionsContainer" style="max-height: 60vh; overflow-y: auto; padding-right: 4px;"></div>
       <div style="display:flex; gap:10px; margin-top:20px;">
-        <button class="btn primary" id="surveySubmitBtn" style="flex:1;" onclick="submitSurveyResponse()">回答を送信する</button>
+        <button class="btn primary" id="surveySubmitBtn" style="flex:1;"
+          onclick="submitSurveyResponse()">回答を送信する</button>
         <button class="btn secondary" style="flex:1;" onclick="closeModal('surveyModal')">キャンセル</button>
       </div>
     </div>
@@ -2488,10 +2525,10 @@
     ];
 
     const FALLBACK_BLOG = [
-      { date: '2025.06.15', category: 'お知らせ', icon: '🌷', title: '夏の産後ヨガ体験会開催のご案内', body: '今年の夏も産後ヨガ体験会を開催いたします。初めての方も大歓迎です。お気軽にご参加ください。' },
-      { date: '2025.06.10', category: 'ブログ', icon: '🍵', title: '授乳期にうれしい！おすすめハーブティー', body: '授乳中のママにぴったりのよもぎ茶をご紹介します。ノンカフェインで体を温める効果があります。' },
-      { date: '2025.06.05', category: '休診情報', icon: '📅', title: '6月22日（日）は臨時休診となります', body: '誠に恐れ入りますが、6月22日（日）は臨時休診とさせていただきます。ご不便をおかけして申し訳ございません。' },
-      { date: '2025.05.28', category: 'ブログ', icon: '🤱', title: '産後の骨盤ケア、いつから始める？', body: '産後の骨盤は出産の影響でゆるんだ状態。適切なタイミングと方法でケアを始めることが大切です。' },
+      { date: '2025.06.15', category: 'お知らせ', type: 'お知らせ', icon: '🌷', title: '夏の産後ヨガ体験会開催のご案内', body: '今年の夏も産後ヨガ体験会を開催いたします。初めての方も大歓迎です。お気軽にご参加ください。' },
+      { date: '2025.06.10', category: 'ブログ', type: 'ブログ', icon: '🍵', title: '授乳期にうれしい！おすすめハーブティー', body: '授乳中のママにぴったりのよもぎ茶をご紹介します。ノンカフェインで体を温める効果があります。' },
+      { date: '2025.06.05', category: '休診情報', type: 'お知らせ', icon: '📅', title: '6月22日（日）は臨時休診となります', body: '誠に恐れ入りますが、6月22日（日）は臨時休診とさせていただきます。ご不便をおかけして申し訳ございません。' },
+      { date: '2025.05.28', category: 'ブログ', type: 'ブログ', icon: '🤱', title: '産後の骨盤ケア、いつから始める？', body: '産後の骨盤は出産の影響でゆるんだ状態。適切なタイミングと方法でケアを始めることが大切です。' },
     ];
 
     // ===== 状態 =====
@@ -2753,7 +2790,7 @@
       }
       renderBlogList('homeNewsList', 3);
       if (document.getElementById('page-blog').classList.contains('active')) {
-        renderBlogList('blogPageList', 999);
+        renderDividedBlogList();
       }
       if (document.getElementById('page-notices').classList.contains('active')) {
         renderPushNotices();
@@ -2850,10 +2887,10 @@
           dateStr = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
         }
         const labelColors = {
-          notice:   '#c05621',
-          blog:     '#2f7a4d',
+          notice: '#c05621',
+          blog: '#2f7a4d',
           calendar: '#1565c0',
-          product:  '#6a1b9a'
+          product: '#6a1b9a'
         };
         const color = labelColors[item.type] || 'var(--sage-dark)';
         html += `
@@ -2981,10 +3018,10 @@
     // ブログ + カレンダー + 商品 + Push全部をまとめてハッシュ化。
     // これが変わる → 拡声器バッジを表示
     function computeNoticeListHash() {
-      const blogPart    = blogItems.map(i => i.date + '_' + i.title).join('|');
-      const calPart     = calendarData.map(i => i.date + '_' + i.title).join('|');
+      const blogPart = blogItems.map(i => i.date + '_' + i.title).join('|');
+      const calPart = calendarData.map(i => i.date + '_' + i.title).join('|');
       const productPart = PRODUCTS.map(p => p.name + '_' + p.price).join('|');
-      const noticePart  = pushNotices.map(n => n.date + '_' + n.title).join('|');
+      const noticePart = pushNotices.map(n => n.date + '_' + n.title).join('|');
       return [blogPart, calPart, productPart, noticePart].join('@@');
     }
 
@@ -2995,6 +3032,22 @@
       const data = await getFromGAS('getSurveys');
       if (data && data.status === 'ok' && data.surveys) {
         activeSurveys = data.surveys;
+
+        // プルダウンを更新
+        const select = document.getElementById('surveyTitleFilter');
+        if (select) {
+          const currentVal = select.value;
+          select.innerHTML = '<option value="全て">題名: 全て</option>';
+          activeSurveys.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = opt.textContent = s.title;
+            select.appendChild(opt);
+          });
+          if ([...select.options].some(o => o.value === currentVal)) {
+            select.value = currentVal;
+          }
+        }
+
         renderSurveys();
       }
     }
@@ -3002,12 +3055,19 @@
     function renderSurveys() {
       const container = document.getElementById('surveyList');
       if (!container) return;
-      if (activeSurveys.length === 0) {
+
+      const filterTitle = document.getElementById('surveyTitleFilter')?.value || '全て';
+      let items = activeSurveys;
+      if (filterTitle !== '全て') {
+        items = items.filter(s => s.title === filterTitle);
+      }
+
+      if (items.length === 0) {
         container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">現在回答可能なアンケートはありません</div>';
         return;
       }
       container.innerHTML = '';
-      activeSurveys.forEach(s => {
+      items.forEach(s => {
         const card = document.createElement('div');
         card.className = 'card';
         card.style.padding = '15px';
@@ -3031,7 +3091,7 @@
 
       document.getElementById('surveyModalTitle').innerText = currentSurvey.title;
       document.getElementById('surveyModalDesc').innerText = currentSurvey.description || '';
-      
+
       const container = document.getElementById('surveyQuestionsContainer');
       container.innerHTML = '';
 
@@ -3140,19 +3200,38 @@
       }
     }
 
-    function renderBlogList(containerId, limit) {
+    function renderBlogList(containerId, limit, filterType = null, filterCategory = '全て') {
       const el = document.getElementById(containerId);
       if (!el) return;
-      const items = blogItems.slice(0, limit);
-      if (!items.length) { el.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:28px 0">お知らせはありません</div>'; return; }
+
+      let items = blogItems;
+      if (filterType) {
+        items = items.filter(i => i.type === filterType);
+      }
+      if (filterCategory && filterCategory !== '全て') {
+        items = items.filter(i => i.category === filterCategory);
+      }
+
+      items = items.slice(0, limit);
+
+      if (!items.length) {
+        el.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:28px 0">記事がありません</div>';
+        return;
+      }
       el.innerHTML = '';
       items.forEach(item => {
         const div = document.createElement('div');
         div.className = 'blog-card';
 
         let imageHtml = '';
-        if (item.image) {
-          imageHtml = `<div style="margin-top: 8px; border-radius: 8px; overflow: hidden;"><img src="${item.image}" style="width: 100%; height: auto; display: block;" alt="Blog Image"></div>`;
+        const rawImageUrl = item.image || item.imageUrl || '';
+        if (rawImageUrl) {
+          let displayUrl = rawImageUrl;
+          if (displayUrl.includes('drive.google.com')) {
+            const idMatch = displayUrl.match(/id=([a-zA-Z0-9_-]+)/) || displayUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (idMatch) displayUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[1] + '&sz=w1000';
+          }
+          imageHtml = `<div style="margin-top: 8px; border-radius: 8px; overflow: hidden;"><img src="${displayUrl}" style="width: 100%; height: auto; display: block;" alt="Blog Image"></div>`;
         }
 
         let bodyHtml = '';
@@ -3173,6 +3252,13 @@
         div.onclick = () => openBlogDetail(item);
         el.appendChild(div);
       });
+    }
+
+    function renderDividedBlogList() {
+      const newsCat = document.getElementById('newsCategoryFilter')?.value || '全て';
+      const blogCat = document.getElementById('blogCategoryFilter')?.value || '全て';
+      renderBlogList('newsPageList', 999, 'お知らせ', newsCat);
+      renderBlogList('blogPageList', 999, 'ブログ', blogCat);
     }
     function openBlogDetail(item) {
       let detailImageHtml = '';
@@ -3392,12 +3478,12 @@
     function closeModal(id, e) { if (e && e.target !== document.getElementById(id)) return; document.getElementById(id).classList.remove('open'); }
     function switchPage(name) {
       if (name === 'blog') {
-        const hash = blogItems.map(function(i) { return i.date + '_' + i.title; }).join('|');
+        const hash = blogItems.map(function (i) { return i.date + '_' + i.title; }).join('|');
         localStorage.setItem('last_seen_blog_hash', hash);
         document.getElementById('badge-blog').style.display = 'none';
       }
       if (name === 'calendar') {
-        const hash = calendarData.map(function(i) { return i.date + '_' + i.title; }).join('|');
+        const hash = calendarData.map(function (i) { return i.date + '_' + i.title; }).join('|');
         localStorage.setItem('last_seen_calendar_hash', hash);
         document.getElementById('badge-calendar').style.display = 'none';
       }
@@ -3423,7 +3509,7 @@
         renderSurveys();
         if (typeof syncNativePushStatus === 'function') syncNativePushStatus();
       }
-      if (name === 'blog') renderBlogList('blogPageList', 999);
+      if (name === 'blog') renderDividedBlogList();
       if (name === 'shop') {
         localStorage.setItem('last_seen_product_hash', PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|'));
         var sb = document.getElementById('badge-shop');
