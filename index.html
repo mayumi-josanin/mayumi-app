@@ -150,6 +150,57 @@
       transform: scale(0.97);
     }
 
+    /* ===== SURVEY REFINEMENTS ===== */
+    .survey-option-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      color: var(--text-dark);
+      background: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 6px var(--shadow-soft);
+    }
+
+    .survey-option-box:active {
+      transform: scale(0.98);
+      background: #fdfdfd;
+    }
+
+    .survey-upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: #fafafa;
+      display: flex !important;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .survey-upload-area:hover {
+      background: #f0f4ee;
+      border-color: var(--sage);
+    }
+
+    .survey-upload-btn {
+      background: var(--sage);
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: bold;
+      pointer-events: none;
+    }
+
     /* ===== PROFILE SETUP MODAL ===== */
     .setup-overlay {
       display: none;
@@ -2111,10 +2162,6 @@
           <select id="newsCategoryFilter" onchange="renderDividedBlogList()"
             style="width:130px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
             <option value="全て">カテゴリ: 全て</option>
-            <option value="お知らせ">お知らせ</option>
-            <option value="休診情報">休診情報</option>
-            <option value="イベント">イベント</option>
-            <option value="商品情報">商品情報</option>
           </select>
         </div>
         <div id="newsPageList" class="blog-list" style="margin-top:12px">
@@ -2131,7 +2178,6 @@
           <select id="blogCategoryFilter" onchange="renderDividedBlogList()"
             style="width:130px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
             <option value="全て">カテゴリ: 全て</option>
-            <option value="ブログ">ブログ</option>
           </select>
         </div>
         <div id="blogPageList" class="blog-list" style="margin-top:12px">
@@ -2455,7 +2501,7 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzoO7LvIOdpb2_LH4tFqcqL_iRVjikDSowsjzsgPqdlm6fIBldNEz8lB_-tE59wM5NzUw/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwFpI4DIYl4pGsAJNex-ZN2JUOu1Oi0PBuQ3iIXw2S8gsFNCYP36B8HIaQ41b0P-PH_Lg/exec';
 
     // GASからデータ取得（doGet対応）
     // action: 'getNews' | 'getProducts'
@@ -2544,7 +2590,43 @@
     let selectedPay = null, currentProdIdx = null, modalQty = 1;
     let cancelOrderId = null;
     let blogItems = [];
+    let allBlogCategories = [];
     let isDataLoaded = false;
+
+    // ===== ブログカテゴリフィルタ同期 =====
+    function updateBlogCategoryFilters() {
+      const newsFilter = document.getElementById('newsCategoryFilter');
+      const blogFilter = document.getElementById('blogCategoryFilter');
+      if (!newsFilter || !blogFilter) return;
+
+      // 現在の選択を維持（可能であれば）
+      const currentNewsVal = newsFilter.value;
+      const currentBlogVal = blogFilter.value;
+
+      let newsHtml = '<option value="全て">カテゴリ: 全て</option>';
+      let blogHtml = '<option value="全て">カテゴリ: 全て</option>';
+
+      allBlogCategories.forEach(cat => {
+        const name = typeof cat === 'string' ? cat : (cat.name || '');
+        const type = typeof cat === 'string' ? 'ブログ' : (cat.type || 'ブログ');
+
+        const opt = `<option value="${name}">${name}</option>`;
+        if (type === 'お知らせ') {
+          newsHtml += opt;
+        } else {
+          blogHtml += opt;
+        }
+      });
+
+      newsFilter.innerHTML = newsHtml;
+      blogFilter.innerHTML = blogHtml;
+
+      // 以前の選択を復元（存在する場合）
+      const existsNews = Array.from(newsFilter.options).some(o => o.value === currentNewsVal);
+      if (existsNews) newsFilter.value = currentNewsVal;
+      const existsBlog = Array.from(blogFilter.options).some(o => o.value === currentBlogVal);
+      if (existsBlog) blogFilter.value = currentBlogVal;
+    }
 
     // ===== スタンプ =====
     function renderStampGrid(id, count) {
@@ -2784,9 +2866,25 @@
     async function loadBlog() {
       const data = await getFromGAS('getNews');
       if (data && data.status === 'ok' && data.news && data.news.length > 0) {
-        blogItems = data.news;
+        const categories = data.categories || [];
+        allBlogCategories = categories;
+        updateBlogCategoryFilters();
+
+        blogItems = data.news.map(item => {
+          const catObj = categories.find(c => c.name === item.category) || {};
+          // 管理画面と同様の推論ロジックで分類(type)を補完
+          item.type = catObj.type || (item.category === 'お知らせ' ? 'お知らせ' : (item.category === '休診情報' ? 'お知らせ' : 'ブログ'));
+          return item;
+        });
       } else {
         blogItems = FALLBACK_BLOG;
+        // フォールバック時は固定のカテゴリを設定
+        allBlogCategories = [
+          { name: 'お知らせ', type: 'お知らせ' },
+          { name: '休診情報', type: 'お知らせ' },
+          { name: 'ブログ', type: 'ブログ' }
+        ];
+        updateBlogCategoryFilters();
       }
       renderBlogList('homeNewsList', 3);
       if (document.getElementById('page-blog').classList.contains('active')) {
@@ -3037,7 +3135,7 @@
         const select = document.getElementById('surveyTitleFilter');
         if (select) {
           const currentVal = select.value;
-          select.innerHTML = '<option value="全て">題名: 全て</option>';
+          select.innerHTML = '<option value="全て">アンケート名: 全て</option>';
           activeSurveys.forEach(s => {
             const opt = document.createElement('option');
             opt.value = opt.textContent = s.title;
@@ -3102,22 +3200,58 @@
 
         if (q.type === 'text') {
           qDiv.innerHTML += `<textarea class="survey-answer-field" data-id="${q.id}" rows="3" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:14px;" placeholder="回答を入力してください"></textarea>`;
+        } else if (q.type === 'image') {
+          qDiv.innerHTML += `
+            <div class="survey-upload-area" id="uploadArea_${q.id}" onclick="document.getElementById('fileInput_${q.id}').click()">
+              <div class="upload-icon" style="font-size: 32px;">📸</div>
+              <div class="upload-text">写真をアップロード</div>
+              <div class="survey-upload-btn">ファイルを選択</div>
+              <input type="file" id="fileInput_${q.id}" class="survey-answer-file" data-id="${q.id}" accept="image/*" style="display:none;">
+            </div>
+            <div id="surveyPreview_${q.id}" style="margin-top:12px; display:none; position: relative; animation: fadeIn 0.3s;">
+              <img src="" style="width:100%; max-height:280px; object-fit: cover; border-radius:16px; border:2.5px solid #fff; box-shadow: 0 4px 15px var(--shadow-mid);">
+              <button onclick="clearSurveyImage('${q.id}')" style="position: absolute; top: -10px; right: -10px; background: #555; color: #fff; border: 2px solid #fff; border-radius: 50%; width: 28px; height: 28px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">×</button>
+            </div>`;
+
+          setTimeout(() => {
+            const input = document.getElementById(`fileInput_${q.id}`);
+            const area = document.getElementById(`uploadArea_${q.id}`);
+            if (input) {
+              input.onchange = (e) => {
+                const file = e.target.files[0];
+                const previewWrap = document.getElementById(`surveyPreview_${q.id}`);
+                if (file && previewWrap) {
+                  const reader = new FileReader();
+                  reader.onload = (re) => {
+                    previewWrap.querySelector('img').src = re.target.result;
+                    previewWrap.style.display = 'block';
+                    area.style.display = 'none';
+                  };
+                  reader.readAsDataURL(file);
+                }
+              };
+            }
+          }, 0);
         } else if (q.type === 'radio') {
-          const options = (q.options || '').split(',').map(o => o.trim());
+          const options = (q.options || '').includes('\n')
+            ? q.options.split('\n').map(o => o.trim()).filter(o => o)
+            : (q.options || '').split(',').map(o => o.trim()).filter(o => o);
           options.forEach(opt => {
             qDiv.innerHTML += `
-              <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:14px; color:var(--text-mid);">
-                <input type="radio" name="q_${q.id}" class="survey-answer-radio" data-id="${q.id}" value="${opt}" style="width:18px; height:18px;">
-                ${opt}
+              <label class="survey-option-box" data-q-id="${q.id}">
+                <input type="radio" name="q_${q.id}" class="survey-answer-radio" data-id="${q.id}" value="${opt}" onchange="updateSurveyBoxHighlights('${q.id}')">
+                <span>${opt}</span>
               </label>`;
           });
         } else if (q.type === 'checkbox') {
-          const options = (q.options || '').split(',').map(o => o.trim());
+          const options = (q.options || '').includes('\n')
+            ? q.options.split('\n').map(o => o.trim()).filter(o => o)
+            : (q.options || '').split(',').map(o => o.trim()).filter(o => o);
           options.forEach(opt => {
             qDiv.innerHTML += `
-              <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:14px; color:var(--text-mid);">
-                <input type="checkbox" class="survey-answer-check" data-id="${q.id}" value="${opt}" style="width:18px; height:18px;">
-                ${opt}
+              <label class="survey-option-box" data-q-id="${q.id}">
+                <input type="checkbox" class="survey-answer-check" data-id="${q.id}" value="${opt}" onchange="updateSurveyBoxHighlights('${q.id}')">
+                <span>${opt}</span>
               </label>`;
           });
         }
@@ -3127,36 +3261,95 @@
       openModal('surveyModal');
     }
 
+    // アンケート用画像リセット
+    function clearSurveyImage(qId) {
+      const input = document.getElementById(`fileInput_${qId}`);
+      if (input) input.value = '';
+      const previewWrap = document.getElementById(`surveyPreview_${qId}`);
+      if (previewWrap) previewWrap.style.display = 'none';
+      const area = document.getElementById(`uploadArea_${qId}`);
+      if (area) area.style.display = 'flex';
+    }
+
+    // アンケート選択肢のハイライト更新
+    function updateSurveyBoxHighlights(qId) {
+      const boxes = document.querySelectorAll(`[data-q-id="${qId}"]`);
+      boxes.forEach(box => {
+        const input = box.querySelector('input');
+        if (input && input.checked) {
+          box.style.borderColor = 'var(--sage)';
+          box.style.background = '#f0f4ee';
+          box.style.boxShadow = '0 0 0 1px var(--sage)';
+        } else {
+          box.style.borderColor = 'var(--border)';
+          box.style.background = '#fff';
+          box.style.boxShadow = '0 2px 6px var(--shadow-soft)';
+        }
+      });
+    }
+
     async function submitSurveyResponse() {
       if (!currentSurvey) return;
+
+      const btn = document.getElementById('surveySubmitBtn');
+      btn.disabled = true;
+      btn.innerText = '準備中...';
 
       const answers = {};
       let allRequiredFilled = true;
 
+      // 画像をBase64に変換するPromiseリスト
+      const imagePromises = [];
+
       currentSurvey.questions.forEach(q => {
-        let val = null;
         if (q.type === 'text') {
           const el = document.querySelector(`.survey-answer-field[data-id="${q.id}"]`);
-          val = el ? el.value.trim() : "";
+          const val = el ? el.value.trim() : "";
+          if (q.required && !val) allRequiredFilled = false;
+          answers[q.id] = { title: q.title, value: val };
         } else if (q.type === 'radio') {
           const el = document.querySelector(`.survey-answer-radio[data-id="${q.id}"]:checked`);
-          val = el ? el.value : "";
+          const val = el ? el.value : "";
+          if (q.required && !val) allRequiredFilled = false;
+          answers[q.id] = { title: q.title, value: val };
         } else if (q.type === 'checkbox') {
-          val = Array.from(document.querySelectorAll(`.survey-answer-check[data-id="${q.id}"]:checked`)).map(el => el.value);
-        }
+          const val = Array.from(document.querySelectorAll(`.survey-answer-check[data-id="${q.id}"]:checked`)).map(el => el.value);
+          if (q.required && val.length === 0) allRequiredFilled = false;
+          answers[q.id] = { title: q.title, value: val };
+        } else if (q.type === 'image') {
+          const el = document.querySelector(`.survey-answer-file[data-id="${q.id}"]`);
+          const file = el && el.files ? el.files[0] : null;
+          if (q.required && !file) allRequiredFilled = false;
 
-        if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
-          allRequiredFilled = false;
+          if (file) {
+            const p = new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                answers[q.id] = { title: q.title, value: e.target.result }; // Base64
+                resolve();
+              };
+              reader.readAsDataURL(file);
+            });
+            imagePromises.push(p);
+          } else {
+            answers[q.id] = { title: q.title, value: "" };
+          }
         }
-        answers[q.id] = { title: q.title, value: val };
       });
 
       if (!allRequiredFilled) {
         showToast('必須項目を入力してください');
+        btn.disabled = false;
+        btn.innerText = '回答を送信する';
         return;
       }
 
-      const btn = document.getElementById('surveySubmitBtn');
+      // すべての画像をBase64に変換完了するまで待つ
+      if (imagePromises.length > 0) {
+        btn.innerText = '画像処理中...';
+        await Promise.all(imagePromises);
+      }
+
       btn.disabled = true;
       btn.innerText = '送信中...';
 
