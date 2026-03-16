@@ -3850,7 +3850,6 @@
     }, 2000);
   </script>
 
-  <!-- OneSignal PWA Initialization (Relocated for better DOM access) -->
   <script>
     (async function () {
       const href = window.location.href;
@@ -3861,22 +3860,9 @@
         window.Capacitor;
 
       if (!isNative) {
-        addDebug('OneSignal: Relocated Script Starting...');
+        addDebug('OneSignal: Initialization Starting...');
 
-        // 1. 古い設定を掃除
-        if ('serviceWorker' in navigator) {
-          try {
-            const regs = await navigator.serviceWorker.getRegistrations();
-            for (let r of regs) {
-              if (r.scope.includes('mayumi-app')) {
-                addDebug('SW: Cleanup old scope: ' + r.scope);
-                await r.unregister();
-              }
-            }
-          } catch(e) {}
-        }
-
-        // 2. SDK読込
+        // 1. OneSignal SDK の読み込み
         const script = document.createElement('script');
         script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
         script.async = true;
@@ -3885,12 +3871,12 @@
         window.OneSignalDeferred = window.OneSignalDeferred || [];
         OneSignalDeferred.push(async function (OneSignal) {
           window.OneSignalRef = OneSignal;
-          addDebug('OneSignal: SDK loaded. Initializing...');
+          addDebug('OneSignal: SDK loaded. Attempting Init...');
 
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            // GitHub Pages のサブフォルダ設定
-            serviceWorkerPath: 'OneSignalSDKWorker.js', 
+            // GitHub Pages の絶対パスで指定 (/ から始める)
+            serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js',
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
@@ -3901,11 +3887,17 @@
             setTimeout(async () => {
               const sub = OneSignal.User.PushSubscription;
               addDebug('Final Result: SubID=' + (sub.id || 'None'), sub.id ? 'ok' : 'err');
+
               if (sub.optedIn && !sub.id) {
                 addDebug('Auto-Sync: Ensuring subscription...');
-                await sub.optIn();
+                try {
+                  await sub.optIn();
+                  addDebug('Auto-Sync: optIn() call sent');
+                } catch (syncErr) {
+                  addDebug('Sync Error: ' + syncErr.message, 'err');
+                }
               }
-            }, 5000);
+            }, 6000);
           });
         });
       }
