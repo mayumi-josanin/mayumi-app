@@ -3896,7 +3896,8 @@
           addDebug('OneSignal: Initializing App...');
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            serviceWorkerPath: 'https://mayumi-josanin.github.io/mayumi-app/OneSignalSDKWorker.js', 
+            // 手動テストで成功した相対パスに戻す
+            serviceWorkerPath: 'OneSignalSDKWorker.js', 
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
@@ -3911,11 +3912,14 @@
               
               if (sub.id) {
                 addDebug('Sync Result: SUCCESS! ID=' + sub.id, 'ok');
+                updatePushUI('on');
                 clearInterval(syncInterval);
                 return;
               }
 
               if (perm) {
+                // 許可はあるのにIDがない場合は、UIをオンにして optIn を試みる
+                updatePushUI('on');
                 addDebug('Auto-Sync: Missing ID but Perm=true. Retrying optIn...', 'err');
                 try {
                   await OneSignal.User.PushSubscription.optIn();
@@ -3926,13 +3930,13 @@
               } else {
                 localStorage.setItem('push_enabled', 'false');
                 updatePushUI('off');
-                addDebug('Auto-Reset: Permission lost. Resetting UI.');
+                addDebug('Auto-Reset: No permission. Resetting UI.');
                 clearInterval(syncInterval);
               }
             }, 10000);
 
-            // タイムアウト監視 (60秒で諦める)
-            setTimeout(() => clearInterval(syncInterval), 60000);
+            // タイムアウト監視 (90秒に延長)
+            setTimeout(() => clearInterval(syncInterval), 90000);
           });
 
           // イベントリスナーの集約
