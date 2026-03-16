@@ -2209,6 +2209,13 @@
           <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">注文履歴はありません</div>
         </div>
       </div>
+
+      <div class="section" style="padding-top:20px">
+        <h2 class="sec-title">📝 アンケート</h2>
+        <div id="surveyList">
+          <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">現在回答可能なアンケートはありません</div>
+        </div>
+      </div>
       <div class="section" style="padding-top:20px;padding-bottom:26px">
         <h2 class="sec-title">🔗 公式サイト・SNS</h2>
         <div class="sns-grid">
@@ -2369,6 +2376,21 @@
       <button class="btn secondary" onclick="closeScannerModal()">キャンセル</button>
     </div>
   </div>
+
+  <!-- SURVEY MODAL -->
+  <div class="modal-bg" id="surveyModal" onclick="closeModal('surveyModal', event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="surveyModalTitle">アンケート</div>
+      <div id="surveyModalDesc" style="font-size:13px; color:var(--text-mid); margin-bottom:16px;"></div>
+      <div id="surveyQuestionsContainer" style="max-height: 60vh; overflow-y: auto; padding-right: 4px;"></div>
+      <div style="display:flex; gap:10px; margin-top:20px;">
+        <button class="btn primary" id="surveySubmitBtn" style="flex:1;" onclick="submitSurveyResponse()">回答を送信する</button>
+        <button class="btn secondary" style="flex:1;" onclick="closeModal('surveyModal')">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- ========== NOTICES ========== -->
   <div id="page-notices" class="page">
@@ -2890,6 +2912,11 @@
         // グローバル配列PRODUCTSを入れ替え
         PRODUCTS.splice(0, PRODUCTS.length, ...updated);
 
+        // 商品更新後、お知らせページが開いている場合は即座に再描画
+        if (document.getElementById('page-notices').classList.contains('active')) {
+          renderPushNotices();
+        }
+
         // 各カテゴリーのコンテナID
         const gridIds = ['grid-recommended', 'grid-tea', 'grid-bath', 'grid-soap-other', 'grid-pad'];
         gridIds.forEach(id => {
@@ -2950,11 +2977,162 @@
       }
     }
 
+    // ===== お知らせ一覧用 統合ハッシュ =====
+    // ブログ + カレンダー + 商品 + Push全部をまとめてハッシュ化。
+    // これが変わる → 拡声器バッジを表示
+    function computeNoticeListHash() {
+      const blogPart    = blogItems.map(i => i.date + '_' + i.title).join('|');
+      const calPart     = calendarData.map(i => i.date + '_' + i.title).join('|');
+      const productPart = PRODUCTS.map(p => p.name + '_' + p.price).join('|');
+      const noticePart  = pushNotices.map(n => n.date + '_' + n.title).join('|');
+      return [blogPart, calPart, productPart, noticePart].join('@@');
+    }
+
+
+    // ===== アンケート機能 =====
+    let activeSurveys = [];
+    async function loadSurveys() {
+      const data = await getFromGAS('getSurveys');
+      if (data && data.status === 'ok' && data.surveys) {
+        activeSurveys = data.surveys;
+        renderSurveys();
+      }
+    }
+
+    function renderSurveys() {
+      const container = document.getElementById('surveyList');
+      if (!container) return;
+      if (activeSurveys.length === 0) {
+        container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">現在回答可能なアンケートはありません</div>';
+        return;
+      }
+      container.innerHTML = '';
+      activeSurveys.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.padding = '15px';
+        card.style.marginBottom = '12px';
+        card.style.border = '1px solid var(--border)';
+        card.style.background = 'var(--warm-white)';
+        card.style.borderRadius = '12px';
+        card.innerHTML = `
+          <div style="font-weight:bold; font-size:15px; margin-bottom:4px; color:var(--text-dark);">${s.title}</div>
+          <div style="font-size:12px; color:var(--text-mid); margin-bottom:12px;">${s.description || ''}</div>
+          <button class="btn primary" style="width:100%; font-size:12px; padding:10px; border-radius:8px;" onclick="openSurveyModal('${s.id}')">回答する</button>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    let currentSurvey = null;
+    function openSurveyModal(surveyId) {
+      currentSurvey = activeSurveys.find(s => String(s.id) === String(surveyId));
+      if (!currentSurvey) return;
+
+      document.getElementById('surveyModalTitle').innerText = currentSurvey.title;
+      document.getElementById('surveyModalDesc').innerText = currentSurvey.description || '';
+      
+      const container = document.getElementById('surveyQuestionsContainer');
+      container.innerHTML = '';
+
+      currentSurvey.questions.forEach((q, idx) => {
+        const qDiv = document.createElement('div');
+        qDiv.style.marginBottom = '20px';
+        qDiv.innerHTML = `<label style="display:block; font-size:14px; font-weight:bold; margin-bottom:8px; color:var(--text-dark);">${idx + 1}. ${q.title}${q.required ? ' <span style="color:var(--danger)">*</span>' : ''}</label>`;
+
+        if (q.type === 'text') {
+          qDiv.innerHTML += `<textarea class="survey-answer-field" data-id="${q.id}" rows="3" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:14px;" placeholder="回答を入力してください"></textarea>`;
+        } else if (q.type === 'radio') {
+          const options = (q.options || '').split(',').map(o => o.trim());
+          options.forEach(opt => {
+            qDiv.innerHTML += `
+              <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:14px; color:var(--text-mid);">
+                <input type="radio" name="q_${q.id}" class="survey-answer-radio" data-id="${q.id}" value="${opt}" style="width:18px; height:18px;">
+                ${opt}
+              </label>`;
+          });
+        } else if (q.type === 'checkbox') {
+          const options = (q.options || '').split(',').map(o => o.trim());
+          options.forEach(opt => {
+            qDiv.innerHTML += `
+              <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:14px; color:var(--text-mid);">
+                <input type="checkbox" class="survey-answer-check" data-id="${q.id}" value="${opt}" style="width:18px; height:18px;">
+                ${opt}
+              </label>`;
+          });
+        }
+        container.appendChild(qDiv);
+      });
+
+      openModal('surveyModal');
+    }
+
+    async function submitSurveyResponse() {
+      if (!currentSurvey) return;
+
+      const answers = {};
+      let allRequiredFilled = true;
+
+      currentSurvey.questions.forEach(q => {
+        let val = null;
+        if (q.type === 'text') {
+          const el = document.querySelector(`.survey-answer-field[data-id="${q.id}"]`);
+          val = el ? el.value.trim() : "";
+        } else if (q.type === 'radio') {
+          const el = document.querySelector(`.survey-answer-radio[data-id="${q.id}"]:checked`);
+          val = el ? el.value : "";
+        } else if (q.type === 'checkbox') {
+          val = Array.from(document.querySelectorAll(`.survey-answer-check[data-id="${q.id}"]:checked`)).map(el => el.value);
+        }
+
+        if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
+          allRequiredFilled = false;
+        }
+        answers[q.id] = { title: q.title, value: val };
+      });
+
+      if (!allRequiredFilled) {
+        showToast('必須項目を入力してください');
+        return;
+      }
+
+      const btn = document.getElementById('surveySubmitBtn');
+      btn.disabled = true;
+      btn.innerText = '送信中...';
+
+      const memberId = localStorage.getItem('member_id') || 'GUEST';
+      const payload = {
+        type: 'submitSurveyResponse',
+        surveyId: currentSurvey.id,
+        memberId: memberId,
+        answers: answers
+      };
+
+      try {
+        const res = await postToGAS(payload);
+        if (res && res.status === 'ok') {
+          showToast('回答を送信しました。ご協力ありがとうございました！');
+          closeModal('surveyModal');
+        } else {
+          showToast('送信に失敗しました。もう一度お試しください。');
+        }
+      } catch (e) {
+        console.error("Survey submission error:", e);
+        showToast('通信エラーが発生しました');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '回答を送信する';
+      }
+    }
+
     async function refreshAppData() {
       showToast('最新情報を取得しています...');
       try {
-        await Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]);
+        await Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices(), loadSurveys()]);
         updateNavBadges();
+        if (document.getElementById('page-notices').classList.contains('active')) {
+          renderPushNotices();
+        }
         showToast('最新情報に更新しました！');
       } catch (e) {
         console.error('refreshAppData error:', e);
@@ -3224,9 +3402,8 @@
         document.getElementById('badge-calendar').style.display = 'none';
       }
       if (name === 'notices') {
-        if (pushNotices.length > 0) {
-          localStorage.setItem('last_seen_push_time', pushNotices[0].date.toString());
-        }
+        // 拡声器ページを開いた山時点で統合ハッシュを保存 → バッジを溈ませる
+        localStorage.setItem('last_seen_notices_hash', computeNoticeListHash());
         document.getElementById('badge-notices').style.display = 'none';
         renderPushNotices();
       }
@@ -3243,6 +3420,7 @@
       if (name === 'cart') renderCart();
       if (name === 'mypage') {
         renderOrderHistory();
+        renderSurveys();
         if (typeof syncNativePushStatus === 'function') syncNativePushStatus();
       }
       if (name === 'blog') renderBlogList('blogPageList', 999);
@@ -3286,22 +3464,21 @@
       let totalCount = 0;
       const currentPage = document.querySelector('.page.active')?.id;
 
-      // お知らせ (Push) の未読チェック
+      // 拡声器（お知らせ全体）の未読チェック
+      // ブログ / カレンダー / 商品 / Pushのどれかで変更があればドットを表示
       const noticeBadge = document.getElementById('badge-notices');
-      if (noticeBadge && pushNotices.length > 0) {
-        const latest = pushNotices[0];
-        const lastSeenTime = Number(localStorage.getItem('last_seen_push_time') || 0);
-        if (latest.date > lastSeenTime && currentPage !== 'page-notices') {
+      if (noticeBadge) {
+        const currentNoticeHash = computeNoticeListHash();
+        const lastSeenNoticeHash = localStorage.getItem('last_seen_notices_hash') || '';
+        if (lastSeenNoticeHash && currentNoticeHash !== lastSeenNoticeHash && currentPage !== 'page-notices') {
           noticeBadge.style.display = 'block';
           totalCount++;
         } else {
           noticeBadge.style.display = 'none';
-          if (currentPage === 'page-notices') {
-            localStorage.setItem('last_seen_push_time', latest.date.toString());
+          if (currentPage === 'page-notices' || !lastSeenNoticeHash) {
+            localStorage.setItem('last_seen_notices_hash', currentNoticeHash);
           }
         }
-      } else if (noticeBadge) {
-        noticeBadge.style.display = 'none';
       }
 
       // ブログの更新チェック
@@ -3843,7 +4020,7 @@
         // 前回取得から1分以上経過していたら再取得
         if (elapsed > 60000) {
           lastFetchTime = Date.now();
-          Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]).then(() => {
+          Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices(), loadSurveys()]).then(() => {
             isDataLoaded = true;
             updateNavBadges();
           }).catch(function () { });
