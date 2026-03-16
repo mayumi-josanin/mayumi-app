@@ -2381,7 +2381,7 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwkySYt1BxOvzvxsviIS1auxi9PcJbxPom1NxR8X6eGjgr-fTYX17D5Vb98WuJ97R7X-Q/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbz5NwGtzGUvBIqRnqoVUd23yxREZC3OlUkDRek7RkkiW-qbklJ2DGWY9QIoKc4cVuwnQw/exec';
 
     // GASからデータ取得（doGet対応）
     // action: 'getNews' | 'getProducts'
@@ -3737,7 +3737,7 @@
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
             // Dashboardの設定と連動させるためルート相対パスを指定
-            serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js', 
+            serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js',
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
@@ -3749,7 +3749,7 @@
             const syncInterval = setInterval(async () => {
               const sub = OneSignal.User.PushSubscription;
               const perm = await OneSignal.Notifications.permission;
-              
+
               if (sub.id) {
                 updatePushUI('on');
                 clearInterval(syncInterval);
@@ -3760,7 +3760,7 @@
                 updatePushUI('on');
                 try {
                   await OneSignal.User.PushSubscription.optIn();
-                } catch(err) {
+                } catch (err) {
                   console.error('OneSignal: Push sync error:', err);
                 }
               } else {
