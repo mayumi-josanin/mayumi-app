@@ -1791,6 +1791,7 @@
       </div>
       <div class="header-right">
         <div class="hdr-btn" onclick="refreshAppData()" title="最新情報に更新">🔄</div>
+        <div class="hdr-btn" onclick="switchPage('notices')" title="お知らせ一覧">📢<div class="cart-badge" id="badge-notices" style="display:none; width:8px; height:8px; top:2px; right:2px;"></div></div>
         <div class="hdr-btn" onclick="switchPage('cart')">🛒<div class="cart-badge" id="cartBadge"></div>
         </div>
         <div class="hdr-btn" onclick="switchPage('mypage')">👤</div>
@@ -2369,6 +2370,20 @@
     </div>
   </div>
 
+  <!-- ========== NOTICES ========== -->
+  <div id="page-notices" class="page">
+    <div class="main">
+      <div class="section" style="padding-top:20px;padding-bottom:24px">
+        <h2 class="sec-title">📢 お知らせ一覧</h2>
+        <div id="noticeList" class="blog-list">
+          <div class="loading-wrap">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- BLOG DETAIL MODAL -->
   <div class="modal-bg" id="blogDetailModal" onclick="closeModal('blogDetailModal',event)">
     <div class="modal-sheet" onclick="event.stopPropagation()">
@@ -2721,19 +2736,48 @@
     let pushNotices = [];
     async function loadPushNotices() {
       const data = await getFromGAS('getPushNotices');
-      if (data && data.status === 'ok' && data.notices && data.notices.length > 0) {
+      if (data && data.status === 'ok' && data.notices) {
         pushNotices = data.notices;
         checkNewPushNotice();
+        if (document.getElementById('page-notices').classList.contains('active')) {
+          renderPushNotices();
+        }
       }
       updateNavBadges();
+    }
+
+    function renderPushNotices() {
+      const list = document.getElementById('noticeList');
+      if (!list) return;
+      if (pushNotices.length === 0) {
+        list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light);">現在お知らせはありません。</div>';
+        return;
+      }
+      let html = '';
+      pushNotices.forEach(n => {
+        const d = new Date(n.date);
+        const dateStr = d.getFullYear() + '.' + (d.getMonth() + 1).toString().padStart(2, '0') + '.' + d.getDate().toString().padStart(2, '0');
+        html += `
+          <div class="blog-card" style="padding:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span style="font-size:11px; color:var(--sage-dark); font-weight:700;">${dateStr}</span>
+            </div>
+            <div style="font-size:15px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">${n.title}</div>
+            <div style="font-size:13px; color:var(--text-mid); line-height:1.6;">${n.body}</div>
+          </div>
+        `;
+      });
+      list.innerHTML = html;
     }
 
     function checkNewPushNotice() {
       if (pushNotices.length === 0) return;
       const latest = pushNotices[0];
       const lastSeenTime = Number(localStorage.getItem('last_seen_push_time') || 0);
+      const lastNotifiedTime = Number(localStorage.getItem('last_notified_push_time') || 0);
 
-      if (latest.date > lastSeenTime) {
+      if (latest.date > lastSeenTime && latest.date > lastNotifiedTime) {
+        localStorage.setItem('last_notified_push_time', latest.date.toString());
         if (Notification.permission === 'granted') {
           try {
             const n = new Notification(latest.title, {
@@ -2832,6 +2876,7 @@
       showToast('最新情報を取得しています...');
       try {
         await Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]);
+        updateNavBadges();
         showToast('最新情報に更新しました！');
       } catch (e) {
         console.error('refreshAppData error:', e);
@@ -3100,11 +3145,15 @@
         localStorage.setItem('last_seen_calendar_hash', hash);
         document.getElementById('badge-calendar').style.display = 'none';
       }
-      if (name === 'home') {
+      if (name === 'notices') {
         if (pushNotices.length > 0) {
           localStorage.setItem('last_seen_push_time', pushNotices[0].date.toString());
-          updateNavBadges();
         }
+        document.getElementById('badge-notices').style.display = 'none';
+        renderPushNotices();
+      }
+      if (name === 'home') {
+        updateNavBadges();
       }
 
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -3158,11 +3207,17 @@
       let totalCount = 0;
 
       // お知らせ (Push) の未読チェック
-      if (pushNotices.length > 0) {
+      const noticeBadge = document.getElementById('badge-notices');
+      if (noticeBadge && pushNotices.length > 0) {
         const latest = pushNotices[0];
         const lastSeenTime = Number(localStorage.getItem('last_seen_push_time') || 0);
-        if (latest.date > lastSeenTime) {
+        const currentPage = document.querySelector('.page.active')?.id;
+        if (latest.date > lastSeenTime && currentPage !== 'page-notices') {
+          noticeBadge.style.display = 'block';
           totalCount++;
+        } else if (currentPage === 'page-notices') {
+          noticeBadge.style.display = 'none';
+          localStorage.setItem('last_seen_push_time', latest.date.toString());
         }
       }
       // ブログの更新チェック
@@ -3199,7 +3254,7 @@
       const shopBadge = document.getElementById('badge-shop');
       if (shopBadge && PRODUCTS && PRODUCTS.length > 0) {
         const lastSeenHash = localStorage.getItem('last_seen_product_hash');
-        const currentHash = PRODUCTS.map(function(p) { return p.name + '_' + p.price + '_' + p.description; }).join('|');
+        const currentHash = PRODUCTS.map(function(p) { return p.name + '_' + p.price; }).join('|');
         const currentPage = document.querySelector('.page.active')?.id;
         if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-shop') {
           shopBadge.style.display = 'block';
@@ -3681,10 +3736,14 @@
       })();
 
       // データを並列で取得（確実に動作する個別ロード方式）
-      loadBlog();
-      loadProducts();
-      loadCalendar();
-      loadPushNotices();
+      Promise.all([
+        loadBlog(),
+        loadProducts(),
+        loadCalendar(),
+        loadPushNotices()
+      ]).then(() => {
+        updateNavBadges();
+      }).catch(e => console.error('Initial load error:', e));
     }
     initApp();
 
@@ -3696,7 +3755,12 @@
         // 前回取得から1分以上経過していたら再取得
         if (elapsed > 60000) {
           lastFetchTime = Date.now();
-          Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]).catch(function () { });
+          Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices()]).then(() => {
+            updateNavBadges();
+          }).catch(function () { });
+        } else {
+          // 1分以内でもバッジの再チェック（未読状態の維持）
+          updateNavBadges();
         }
 
         // アプリ復帰時にバッジをクリア (iOS用)
