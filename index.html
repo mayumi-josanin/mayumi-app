@@ -67,22 +67,24 @@
           }).then(async () => {
             addDebug('OneSignal: Init OK', 'ok');
             
-            // 購読の最終確定処理 (SubIDが無い場合の対策)
+            // 購読の最終確定処理
             setTimeout(async () => {
               const sub = OneSignal.User.PushSubscription;
+              addDebug('Check Sub: optedIn=' + sub.optedIn + ', id=' + (sub.id || 'None'));
+              
               if (sub.optedIn && !sub.id) {
-                addDebug('OneSignal: SubID missing, finalising...');
-                await sub.optIn();
+                addDebug('OneSignal: SubID missing, retrying optIn()...');
+                try {
+                  await OneSignal.User.PushSubscription.optIn();
+                  addDebug('OneSignal: optIn() triggered');
+                } catch(e) {
+                  addDebug('OneSignal: optIn() Error: ' + e.message, 'err');
+                }
               }
               
               navigator.serviceWorker.getRegistrations().then(regs => {
-                regs.forEach(r => {
-                  const isActive = r.active ? 'Active' : (r.installing ? 'Installing' : 'Waiting');
-                  const script = r.active ? r.active.scriptURL.split('/').pop() : 'Unknown';
-                  addDebug('SW: ' + script + ' (' + isActive + ') @ ' + r.scope);
-                });
                 const hasOS = regs.some(r => r.active && r.active.scriptURL.includes('OneSignal'));
-                addDebug('SW Result: ' + (hasOS ? 'OneSignal OK' : 'OneSignal MISSING'), hasOS ? 'ok' : 'err');
+                addDebug('SW Check Final: ' + (hasOS ? 'OneSignal Found' : 'MISSING'), hasOS ? 'ok' : 'err');
               });
             }, 5000);
           }).catch(e => {
@@ -161,7 +163,7 @@
       z-index: 10000;
       max-height: 200px;
       overflow-y: auto;
-      pointer-events: none;
+      pointer-events: auto; /* ボタンを押せるように変更 */
       display: block;
       /* デバッグ中は表示 */
     }
@@ -3870,11 +3872,28 @@
   </script>
   <!-- DEBUG PANEL -->
   <div class="debug-panel" id="debugPanel">
-    <div class="debug-line">--- PWA Diagnostic Start ---</div>
+    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #5f5; margin-bottom: 5px; padding-bottom: 5px;">
+      <span>--- PWA Diagnostic Start (v5) ---</span>
+      <button onclick="forceOneSignalSync()" style="background: #0f0; color: #000; border: none; font-size: 10px; padding: 2px 5px; cursor: pointer;">Force Sync</button>
+    </div>
     <div class="debug-line" id="dbg-ua"></div>
     <div class="debug-line" id="dbg-href"></div>
   </div>
   <script>
+    async function forceOneSignalSync() {
+      const OS = window.OneSignalRef;
+      if (!OS) { addDebug('Sync: OneSignal not ready', 'err'); return; }
+      addDebug('Sync: Manually triggering optIn()...');
+      try {
+        await OS.User.PushSubscription.optIn();
+        addDebug('Sync: optIn() call sent', 'ok');
+        setTimeout(() => {
+          addDebug('Sync result: SubID=' + (OS.User.PushSubscription.id || 'None'));
+        }, 3000);
+      } catch(e) {
+        addDebug('Sync Error: ' + e.message, 'err');
+      }
+    }
     function addDebug(msg, type) {
       const panel = document.getElementById('debugPanel');
       if (!panel) return;
