@@ -70,13 +70,14 @@
             // 購読の最終確定処理
             setTimeout(async () => {
               const sub = OneSignal.User.PushSubscription;
-              addDebug('Check Sub: optedIn=' + sub.optedIn + ', id=' + (sub.id || 'None'));
+              addDebug('SubStat: OptIn=' + sub.optedIn + ' Token=' + (sub.token ? 'YES' : 'NO') + ' ID=' + (sub.id || 'None'));
+              addDebug('SW Controller: ' + (navigator.serviceWorker.controller ? 'Active' : 'NONE'));
               
               if (sub.optedIn && !sub.id) {
                 addDebug('OneSignal: SubID missing, retrying optIn()...');
                 try {
                   await OneSignal.User.PushSubscription.optIn();
-                  addDebug('OneSignal: optIn() triggered');
+                  addDebug('OneSignal: optIn() call sent');
                 } catch(e) {
                   addDebug('OneSignal: optIn() Error: ' + e.message, 'err');
                 }
@@ -86,7 +87,7 @@
                 const hasOS = regs.some(r => r.active && r.active.scriptURL.includes('OneSignal'));
                 addDebug('SW Check Final: ' + (hasOS ? 'OneSignal Found' : 'MISSING'), hasOS ? 'ok' : 'err');
               });
-            }, 5000);
+            }, 6000);
           }).catch(e => {
             addDebug('OneSignal: Init Failed: ' + e.message, 'err');
           });
@@ -3873,8 +3874,11 @@
   <!-- DEBUG PANEL -->
   <div class="debug-panel" id="debugPanel">
     <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #5f5; margin-bottom: 5px; padding-bottom: 5px;">
-      <span>--- PWA Diagnostic Start (v5) ---</span>
-      <button onclick="forceOneSignalSync()" style="background: #0f0; color: #000; border: none; font-size: 10px; padding: 2px 5px; cursor: pointer;">Force Sync</button>
+      <span>--- PWA Diagnostic Start (v6) ---</span>
+      <div>
+        <button onclick="location.reload()" style="background: #555; color: #fff; border: none; font-size: 10px; padding: 2px 5px; cursor: pointer; margin-right: 5px;">Reload</button>
+        <button onclick="forceOneSignalSync()" style="background: #0f0; color: #000; border: none; font-size: 10px; padding: 2px 5px; cursor: pointer;">Force Sync</button>
+      </div>
     </div>
     <div class="debug-line" id="dbg-ua"></div>
     <div class="debug-line" id="dbg-href"></div>
