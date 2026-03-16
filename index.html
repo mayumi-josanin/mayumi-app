@@ -15,83 +15,13 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=Zen+Old+Mincho:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap"
     rel="stylesheet" media="print" onload="this.media='all'">
   <script>
-    // Capacitor環境（ネイティブアプリ）ではWeb用OneSignalを無効化
-    (async function () {
-      const href = window.location.href;
-      const ua = navigator.userAgent;
-      const isNative = href.startsWith('capacitor://') ||
-        href.includes('localhost') ||
-        ua.includes('Capacitor') ||
-        window.Capacitor;
-
-      // Global Error Logger for Diagnostic Panel
-      window.addEventListener('error', function (e) {
-        if (typeof addDebug === 'function') addDebug('GlobalErr: ' + e.message, 'err');
-      });
-      window.addEventListener('unhandledrejection', function (e) {
-        if (typeof addDebug === 'function') addDebug('PromiseErr: ' + e.reason, 'err');
-      });
-
-      console.log('--- INDEX.HTML LOADED (vFinal-RootFix) ---');
-
-      if (!isNative) {
-        addDebug('PWA: Running Root-Fix Cleanup...');
-
-        // 1. 古いService Worker (sw.js等) を徹底的に削除
-        if ('serviceWorker' in navigator) {
-          try {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            for (let reg of registrations) {
-              // OneSignal 以外の、あるいは以前の誤ったスコープのSWを解除
-              addDebug('SW: Removing old registration: ' + reg.scope);
-              await reg.unregister();
-            }
-            addDebug('SW: Cleanup completed', 'ok');
-          } catch (e) {
-            addDebug('SW: Cleanup failed: ' + e.message, 'err');
-          }
-        }
-
-        // 2. OneSignal SDK の読み込み
-        const script = document.createElement('script');
-        script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
-        script.async = true;
-        document.head.appendChild(script);
-
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        OneSignalDeferred.push(async function (OneSignal) {
-          window.OneSignalRef = OneSignal;
-          addDebug('OneSignal: Initializing (Final Root-Fix)...');
-
-          OneSignal.init({
-            appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            // 【重要】OneSignal管理画面が github.io (ルート) を見ているため、
-            // 登録ファイルの場所は「ルートから見たサブフォルダ内」として指定する
-            serviceWorkerPath: 'mayumi-app/OneSignalSDKWorker.js',
-            serviceWorkerParam: { scope: '/mayumi-app/' },
-            allowLocalhostAsSecureOrigin: true,
-          }).then(() => {
-            addDebug('OneSignal: Init OK', 'ok');
-          }).catch(e => {
-            addDebug('OneSignal: Init Failed: ' + e.message, 'err');
-          }).finally(() => {
-            setTimeout(async () => {
-              const sub = OneSignal.User.PushSubscription;
-              const hasSW = !!(navigator.serviceWorker.controller);
-              addDebug('Final: ID=' + (sub.id || 'None'), sub.id ? 'ok' : 'err');
-              addDebug('Final: OptIn=' + sub.optedIn + ' | SW=' + (hasSW ? 'Active' : 'NONE'), (sub.optedIn && hasSW) ? 'ok' : 'err');
-
-              if (sub.optedIn && !sub.id) {
-                addDebug('Auto-Sync: Finalizing registration...');
-                try { await sub.optIn(); } catch (err) { addDebug('SyncErr: ' + err.message, 'err'); }
-              }
-            }, 5000);
-          });
-        });
-      } else {
-        console.log('OneSignal: Native environment detected, skipping Web SDK.');
-      }
-    })();
+    // Global Error Logger for Diagnostic Panel
+    window.addEventListener('error', function (e) {
+      if (typeof addDebug === 'function') addDebug('GlobalErr: ' + e.message, 'err');
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      if (typeof addDebug === 'function') addDebug('PromiseErr: ' + e.reason, 'err');
+    });
   </script>
   <style>
     :root {
@@ -3855,18 +3785,6 @@
       }
     });
 
-    // PWA Service Worker 登録 (OneSignalが管理するため、衝突を避けるためにコメントアウト)
-    /*
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('./sw.js').then(function (registration) {
-          console.log('SW registered:', registration.scope);
-        }).catch(function (err) {
-          console.log('SW registration failed:', err);
-        });
-      });
-    }
-    */
   </script>
   <!-- DEBUG PANEL -->
   <div class="debug-panel" id="debugPanel">
@@ -3930,6 +3848,68 @@
           ' | OptedIn: <span class="' + (optedIn ? 'debug-ok' : 'debug-err') + '">' + optedIn + '</span>';
       }
     }, 2000);
+  </script>
+
+  <!-- OneSignal PWA Initialization (Relocated for better DOM access) -->
+  <script>
+    (async function () {
+      const href = window.location.href;
+      const ua = navigator.userAgent;
+      const isNative = href.startsWith('capacitor://') ||
+        href.includes('localhost') ||
+        ua.includes('Capacitor') ||
+        window.Capacitor;
+
+      if (!isNative) {
+        addDebug('OneSignal: Relocated Script Starting...');
+
+        // 1. 古い設定を掃除
+        if ('serviceWorker' in navigator) {
+          try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            for (let r of regs) {
+              if (r.scope.includes('mayumi-app')) {
+                addDebug('SW: Cleanup old scope: ' + r.scope);
+                await r.unregister();
+              }
+            }
+          } catch(e) {}
+        }
+
+        // 2. SDK読込
+        const script = document.createElement('script');
+        script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+        script.async = true;
+        document.head.appendChild(script);
+
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(async function (OneSignal) {
+          window.OneSignalRef = OneSignal;
+          addDebug('OneSignal: SDK loaded. Initializing...');
+
+          OneSignal.init({
+            appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
+            // GitHub Pages のサブフォルダ設定
+            serviceWorkerPath: 'OneSignalSDKWorker.js', 
+            serviceWorkerParam: { scope: '/mayumi-app/' },
+            allowLocalhostAsSecureOrigin: true,
+          }).then(() => {
+            addDebug('OneSignal: Init Success!', 'ok');
+          }).catch(e => {
+            addDebug('OneSignal: Init Error: ' + e.message, 'err');
+          }).finally(() => {
+            setTimeout(async () => {
+              const sub = OneSignal.User.PushSubscription;
+              addDebug('Final Result: SubID=' + (sub.id || 'None'), sub.id ? 'ok' : 'err');
+              if (sub.optedIn && !sub.id) {
+                addDebug('Auto-Sync: Ensuring subscription...');
+                await sub.optIn();
+              }
+            }, 5000);
+          });
+        });
+      }
+    })();
   </script>
   <!-- ONBOARDING SCREEN -->
   <div class="onboarding-overlay" id="onboardingScreen">
