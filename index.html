@@ -3091,13 +3091,13 @@
     function closeModal(id, e) { if (e && e.target !== document.getElementById(id)) return; document.getElementById(id).classList.remove('open'); }
     function switchPage(name) {
       if (name === 'blog') {
-        const latestKey = blogItems && blogItems.length > 0 ? (blogItems[0].date + '_' + blogItems[0].title) : '';
-        if (latestKey) localStorage.setItem('last_seen_blog_key', latestKey);
+        const hash = blogItems.map(function(i) { return i.date + '_' + i.title; }).join('|');
+        localStorage.setItem('last_seen_blog_hash', hash);
         document.getElementById('badge-blog').style.display = 'none';
       }
       if (name === 'calendar') {
-        const latestKey = calendarData && calendarData.length > 0 ? (calendarData[0].date + '_' + calendarData[0].title) : '';
-        if (latestKey) localStorage.setItem('last_seen_calendar_key', latestKey);
+        const hash = calendarData.map(function(i) { return i.date + '_' + i.title; }).join('|');
+        localStorage.setItem('last_seen_calendar_hash', hash);
         document.getElementById('badge-calendar').style.display = 'none';
       }
       if (name === 'home') {
@@ -3167,48 +3167,46 @@
       }
       // ブログの更新チェック
       const blogBadge = document.getElementById('badge-blog');
-      if (blogItems && blogItems.length > 0) {
-        const lastSeenKey = localStorage.getItem('last_seen_blog_key');
-        const currentKey = blogItems[0].date + '_' + blogItems[0].title;
+      if (blogBadge && blogItems && blogItems.length > 0) {
+        const lastSeenHash = localStorage.getItem('last_seen_blog_hash');
+        const currentHash = blogItems.map(function(i) { return i.date + '_' + i.title; }).join('|');
         const currentPage = document.querySelector('.page.active')?.id;
-        if (lastSeenKey !== currentKey && currentPage !== 'page-blog') {
+        if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-blog') {
           blogBadge.style.display = 'block';
           totalCount++;
-        } else {
+        } else if (currentPage === 'page-blog' || !lastSeenHash) {
           blogBadge.style.display = 'none';
+          localStorage.setItem('last_seen_blog_hash', currentHash);
         }
-      } else {
-        blogBadge.style.display = 'none';
       }
 
       // カレンダーの更新チェック
       const calBadge = document.getElementById('badge-calendar');
-      if (calendarData && calendarData.length > 0) {
-        const lastSeenKey = localStorage.getItem('last_seen_calendar_key');
-        const currentKey = calendarData[0].date + '_' + calendarData[0].title;
+      if (calBadge && calendarData && calendarData.length > 0) {
+        const lastSeenHash = localStorage.getItem('last_seen_calendar_hash');
+        const currentHash = calendarData.map(function(i) { return i.date + '_' + i.title; }).join('|');
         const currentPage = document.querySelector('.page.active')?.id;
-        if (lastSeenKey !== currentKey && currentPage !== 'page-calendar') {
+        if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-calendar') {
           calBadge.style.display = 'block';
           totalCount++;
-        } else {
+        } else if (currentPage === 'page-calendar' || !lastSeenHash) {
           calBadge.style.display = 'none';
+          localStorage.setItem('last_seen_calendar_hash', currentHash);
         }
-      } else {
-        calBadge.style.display = 'none';
       }
 
       // ショップ商品の更新チェック
-      var shopBadge = document.getElementById('badge-shop');
+      const shopBadge = document.getElementById('badge-shop');
       if (shopBadge && PRODUCTS && PRODUCTS.length > 0) {
-        var lastSeenProductHash = localStorage.getItem('last_seen_product_hash');
-        var currentProductHash = PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|');
-        var currentPage2 = document.querySelector('.page.active')?.id;
-        if (lastSeenProductHash && lastSeenProductHash !== currentProductHash && currentPage2 !== 'page-shop') {
+        const lastSeenHash = localStorage.getItem('last_seen_product_hash');
+        const currentHash = PRODUCTS.map(function(p) { return p.name + '_' + p.price + '_' + p.description; }).join('|');
+        const currentPage = document.querySelector('.page.active')?.id;
+        if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-shop') {
           shopBadge.style.display = 'block';
           totalCount++;
-        } else {
+        } else if (currentPage === 'page-shop' || !lastSeenHash) {
           shopBadge.style.display = 'none';
-          localStorage.setItem('last_seen_product_hash', currentProductHash);
+          localStorage.setItem('last_seen_product_hash', currentHash);
         }
       }
 
