@@ -49,47 +49,37 @@
 
           if ('serviceWorker' in navigator) {
             try {
-              addDebug('SW: Manual registering OneSignalSDKWorker.js...');
               // GitHub Pages のサブフォルダに合わせる
-              await navigator.serviceWorker.register('OneSignalSDKWorker.js', { scope: '/mayumi-app/' });
-              addDebug('SW: Manual registration successful', 'ok');
+              // await navigator.serviceWorker.register('OneSignalSDKWorker.js', { scope: '/mayumi-app/' });
+              // addDebug('SW: Manual registration successful', 'ok');
+              addDebug('SW: Skipping manual register to avoid Init conflict');
             } catch (swErr) {
-              addDebug('SW: Manual registration Failed: ' + swErr.message, 'err');
+              addDebug('SW: Prep error: ' + swErr.message, 'err');
             }
           }
 
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            // GitHub Pages のサブフォルダを考慮した絶対パス
-            serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js', 
+            // フルパスURLで指定して強制的に見つけさせる
+            serviceWorkerPath: 'https://mayumi-josanin.github.io/mayumi-app/OneSignalSDKWorker.js', 
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
-          }).then(async () => {
+          }).then(() => {
             addDebug('OneSignal: Init OK', 'ok');
-            
-            // 購読の最終確定処理
-            setTimeout(async () => {
-              const sub = OneSignal.User.PushSubscription;
-              addDebug('SubStat: OptIn=' + sub.optedIn + ' Token=' + (sub.token ? 'YES' : 'NO') + ' ID=' + (sub.id || 'None'));
-              addDebug('SW Controller: ' + (navigator.serviceWorker.controller ? 'Active' : 'NONE'));
-              
-              if (sub.optedIn && !sub.id) {
-                addDebug('OneSignal: SubID missing, retrying optIn()...');
-                try {
-                  await OneSignal.User.PushSubscription.optIn();
-                  addDebug('OneSignal: optIn() call sent');
-                } catch(e) {
-                  addDebug('OneSignal: optIn() Error: ' + e.message, 'err');
-                }
-              }
-              
-              navigator.serviceWorker.getRegistrations().then(regs => {
-                const hasOS = regs.some(r => r.active && r.active.scriptURL.includes('OneSignal'));
-                addDebug('SW Check Final: ' + (hasOS ? 'OneSignal Found' : 'MISSING'), hasOS ? 'ok' : 'err');
-              });
-            }, 6000);
           }).catch(e => {
             addDebug('OneSignal: Init Failed: ' + e.message, 'err');
+          }).finally(() => {
+            setTimeout(async () => {
+              const sub = OneSignal.User.PushSubscription;
+              const hasSW = !!(navigator.serviceWorker.controller);
+              addDebug('Final: ID=' + (sub.id || 'None') + ' | Token=' + (sub.token ? 'YES' : 'NO'), sub.id ? 'ok' : 'err');
+              addDebug('Final: OptIn=' + sub.optedIn + ' | SW=' + (hasSW ? 'Active' : 'NONE'), hasSW ? 'ok' : 'err');
+              
+              if (sub.optedIn && !sub.id) {
+                addDebug('Auto-Sync: Retrying OptIn...');
+                try { await sub.optIn(); } catch(err) { addDebug('SyncErr: ' + err.message, 'err'); }
+              }
+            }, 6000);
           });
         });
       } else {
