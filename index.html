@@ -3184,13 +3184,12 @@
         btn.textContent = '通知オン 🔔（タップでオフ）';
         btn.classList.add('secondary');
         btn.classList.remove('primary');
-        btn.disabled = false;
       } else {
         btn.textContent = '許可する';
         btn.classList.add('primary');
         btn.classList.remove('secondary');
-        btn.disabled = false;
       }
+      btn.disabled = false;
     }
 
 
@@ -3512,31 +3511,11 @@
       }
     }
 
-    // OneSignalの状態監視（SDK読み込み後に実際の状態と同期）
+    // OneSignalの状態監視（後半の初期化ブロックでまとめて処理されるため、ここはコメントアウト）
+    /*
     window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(function (OneSignal) {
-      console.log('OneSignal: Deferred handler executing (v2-debug)');
-      window.OneSignalRef = OneSignal;
-      if (OneSignal.Notifications && OneSignal.Notifications.permission) {
-        var opted = OneSignal.User.PushSubscription.optedIn;
-        console.log('OneSignal: Current Push optedIn status:', opted);
-        localStorage.setItem('push_enabled', opted ? 'true' : 'false');
-        updatePushUI(opted ? 'on' : 'off');
-      }
-      OneSignal.Notifications.addEventListener("permissionChange", function (perm) {
-        console.log('OneSignal: Permission changed:', perm);
-        if (perm) {
-          localStorage.setItem('push_enabled', 'true');
-          updatePushUI('on');
-        }
-      });
-      OneSignal.User.PushSubscription.addEventListener("change", function (e) {
-        var isOn = e.current.optedIn;
-        console.log('OneSignal: Subscription changed, optedIn:', isOn);
-        localStorage.setItem('push_enabled', isOn ? 'true' : 'false');
-        updatePushUI(isOn ? 'on' : 'off');
-      });
-    });
+    OneSignalDeferred.push(function (OneSignal) { ... });
+    */
 
     // ネイティブ環境でのプッシュ状態同期
     async function syncNativePushStatus() {
@@ -3641,21 +3620,7 @@
       }
     }
 
-    function updatePushUI(state) {
-      const btn = document.getElementById('push-btn');
-      if (!btn) return;
-      if (state === 'on') {
-        btn.textContent = '通知オン 🔔（タップでオフ）';
-        btn.classList.add('secondary');
-        btn.classList.remove('primary');
-        btn.disabled = false;
-      } else {
-        btn.textContent = '許可する';
-        btn.classList.add('primary');
-        btn.classList.remove('secondary');
-        btn.disabled = false;
-      }
-    }
+    // ※ 重複定義のため削除（3180行目付近に集約）
 
     // ===== 初期化 (並列実行で高速化) =====
     function initApp() {
@@ -3873,7 +3838,7 @@
           window.OneSignalRef = OneSignal;
           addDebug('OneSignal: SDK loaded. Final Solution Starting...');
 
-          // --- 1. 手動登録でブラウザ側の準備を整える (既知の成功パターン) ---
+          // --- 1. 手動登録でブラウザ側の準備を整える ---
           try {
             await navigator.serviceWorker.register('OneSignalSDKWorker.js', { scope: '/mayumi-app/' });
             addDebug('SW Test: SUCCESS!', 'ok');
@@ -3884,7 +3849,6 @@
           addDebug('OneSignal: Initializing App...');
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            // サブフォルダ問題を解決するため、完全なURL（絶対パス）を指定する
             serviceWorkerPath: 'https://mayumi-josanin.github.io/mayumi-app/OneSignalSDKWorker.js', 
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
@@ -3893,20 +3857,24 @@
           }).catch(e => {
             addDebug('OneSignal: Init Error: ' + e.message, 'err');
           }).finally(() => {
-            // 状態が完全に安定するまで10秒待機
+            // 状態が完全に安定するまで待機
             setTimeout(async () => {
               const sub = OneSignal.User.PushSubscription;
               const perm = await OneSignal.Notifications.permission;
               addDebug('Final: ID=' + (sub.id || 'None') + ' | Perm=' + perm);
               
+              // 重要：ブラウザ側で許可がない場合、UIの状態もリセットする
+              if (!perm) {
+                localStorage.setItem('push_enabled', 'false');
+                updatePushUI('off');
+                addDebug('Auto-Reset: Browser permission is false. Reset UI.');
+              }
+              
               if (!sub.id && perm) {
                 addDebug('Auto-Sync: Forcing final subscription sync...');
                 try {
-                  // 無条件に optIn を呼び出し、OneSignal側に登録情報を強制送信する
                   await OneSignal.User.PushSubscription.optIn();
                   addDebug('Auto-Sync: optIn() call sent', 'ok');
-                  
-                  // 最後に数秒待って結果を表示
                   setTimeout(() => {
                     addDebug('Sync Result: ID=' + (OneSignal.User.PushSubscription.id || 'None'));
                   }, 5000);
@@ -3914,7 +3882,18 @@
                   addDebug('Sync Error: ' + err.message, 'err');
                 }
               }
-            }, 10000);
+            }, 8000);
+          });
+
+          // イベントリスナーの集約
+          OneSignal.Notifications.addEventListener("permissionChange", function (perm) {
+            if (perm) { localStorage.setItem('push_enabled', 'true'); updatePushUI('on'); }
+            else { localStorage.setItem('push_enabled', 'false'); updatePushUI('off'); }
+          });
+          OneSignal.User.PushSubscription.addEventListener("change", function (e) {
+            const isOn = e.current.optedIn;
+            localStorage.setItem('push_enabled', isOn ? 'true' : 'false');
+            updatePushUI(isOn ? 'on' : 'off');
           });
         });
       }
