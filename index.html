@@ -3871,12 +3871,11 @@
         window.OneSignalDeferred = window.OneSignalDeferred || [];
         OneSignalDeferred.push(async function (OneSignal) {
           window.OneSignalRef = OneSignal;
-          addDebug('OneSignal: SDK loaded. Starting Diagnostics...');
+          addDebug('OneSignal: SDK loaded. Final Solution Starting...');
 
-          // --- DIAGNOSTIC: Manual SW test (Now known to succeed) ---
+          // --- 1. 手動登録でブラウザ側の準備を整える (既知の成功パターン) ---
           try {
-            const swPath = 'OneSignalSDKWorker.js';
-            await navigator.serviceWorker.register(swPath, { scope: '/mayumi-app/' });
+            await navigator.serviceWorker.register('OneSignalSDKWorker.js', { scope: '/mayumi-app/' });
             addDebug('SW Test: SUCCESS!', 'ok');
           } catch (swErr) {
             addDebug('SW Test: FAILED! ' + swErr.message, 'err');
@@ -3885,7 +3884,8 @@
           addDebug('OneSignal: Initializing App...');
           OneSignal.init({
             appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            serviceWorkerPath: 'OneSignalSDKWorker.js', 
+            // サブフォルダ問題を解決するため、完全なURL（絶対パス）を指定する
+            serviceWorkerPath: 'https://mayumi-josanin.github.io/mayumi-app/OneSignalSDKWorker.js', 
             serviceWorkerParam: { scope: '/mayumi-app/' },
             allowLocalhostAsSecureOrigin: true,
           }).then(() => {
@@ -3893,23 +3893,28 @@
           }).catch(e => {
             addDebug('OneSignal: Init Error: ' + e.message, 'err');
           }).finally(() => {
-            // 少し長めに待ち、状態が安定してから同期を試みる
+            // 状態が完全に安定するまで10秒待機
             setTimeout(async () => {
               const sub = OneSignal.User.PushSubscription;
               const perm = await OneSignal.Notifications.permission;
               addDebug('Final: ID=' + (sub.id || 'None') + ' | Perm=' + perm);
               
               if (!sub.id && perm) {
-                addDebug('Auto-Sync: Forcing final subscription nudge...');
+                addDebug('Auto-Sync: Forcing final subscription sync...');
                 try {
-                  // IDがないが通知許可がある場合、強制的にoptInを呼び出してサーバーと同期させる
+                  // 無条件に optIn を呼び出し、OneSignal側に登録情報を強制送信する
                   await OneSignal.User.PushSubscription.optIn();
-                  addDebug('Auto-Sync: optIn() complete', 'ok');
+                  addDebug('Auto-Sync: optIn() call sent', 'ok');
+                  
+                  // 最後に数秒待って結果を表示
+                  setTimeout(() => {
+                    addDebug('Sync Result: ID=' + (OneSignal.User.PushSubscription.id || 'None'));
+                  }, 5000);
                 } catch(err) {
-                  addDebug('SyncErr: ' + err.message, 'err');
+                  addDebug('Sync Error: ' + err.message, 'err');
                 }
               }
-            }, 8000);
+            }, 10000);
           });
         });
       }
