@@ -1160,7 +1160,7 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzoO7LvIOdpb2_LH4tFqcqL_iRVjikDSowsjzsgPqdlm6fIBldNEz8lB_-tE59wM5NzUw/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwFpI4DIYl4pGsAJNex-ZN2JUOu1Oi0PBuQ3iIXw2S8gsFNCYP36B8HIaQ41b0P-PH_Lg/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -2495,6 +2495,7 @@
               <option value="text" ${q.type === 'text' ? 'selected' : ''}>テキスト（短文/長文）</option>
               <option value="radio" ${q.type === 'radio' ? 'selected' : ''}>単一選択（ラジオ）</option>
               <option value="checkbox" ${q.type === 'checkbox' ? 'selected' : ''}>複数選択（チェックボックス）</option>
+              <option value="image" ${q.type === 'image' ? 'selected' : ''}>画像添付</option>
             </select>
           </div>
           <div class="form-group">
@@ -2502,8 +2503,8 @@
             <input type="text" value="${q.title}" onchange="surveyQuestions[${idx}].title = this.value" placeholder="例：性別を教えてください" required>
           </div>
           <div class="form-group" id="qOptionsDiv_${idx}" style="${(q.type === 'radio' || q.type === 'checkbox') ? 'display:block;' : 'display:none;'}">
-            <label>選択肢 (カンマ「,」区切り)</label>
-            <input type="text" value="${q.options || ''}" onchange="surveyQuestions[${idx}].options = this.value" placeholder="男,女,その他">
+            <label>選択肢 (1行ずつ入力してください)</label>
+            <textarea rows="3" onchange="surveyQuestions[${idx}].options = this.value" placeholder="選択肢 A&#10;選択肢 B&#10;選択肢 C">${q.options || ''}</textarea>
           </div>
           <div class="form-group">
             <label style="display:inline-flex; align-items:center; gap:5px; font-weight:normal;">
@@ -2753,8 +2754,18 @@
 
           survey.questions.forEach(q => {
             let ans = r.answers[q.id];
-            if (Array.isArray(ans)) ans = ans.join(', ');
-            bodyHtml += `<td style="font-size:12px;">${ans || '-'}</td>`;
+            if (Array.isArray(ans)) {
+              ans = ans.join(', ');
+            }
+
+            let displayVal = ans || '-';
+            // Googleドライブの画像URL（直リンクまたは通常リンク）であれば画像として表示
+            if (ans && typeof ans === 'string' && (ans.includes('drive.google.com') || ans.startsWith('http'))) {
+              if (ans.match(/\.(jpeg|jpg|gif|png|webp)$/i) || ans.includes('export=view') || ans.includes('/uc?')) {
+                displayVal = `<a href="${ans}" target="_blank"><img src="${ans}" style="height:60px; width:60px; object-fit:cover; border-radius:4px; border:1px solid #ddd;" onerror="this.outerHTML='リンク先を確認'"></a>`;
+              }
+            }
+            bodyHtml += `<td style="font-size:12px;">${displayVal}</td>`;
           });
           bodyHtml += '</tr>';
         });
