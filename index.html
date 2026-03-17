@@ -1954,9 +1954,28 @@
         </div>
       </div>
 
-      <div class="section">
-        <h2 class="sec-title">📢 最新のお知らせ</h2>
+      <div class="section" style="padding-bottom:10px">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 class="sec-title" style="margin-bottom:0; flex:1">📢 最新のお知らせ</h2>
+          <div onclick="switchPage('blog')"
+            style="font-size:12px; color:var(--text-light); cursor:pointer; padding-bottom:0; margin-left:10px; white-space:nowrap;">
+            もっと見る ›</div>
+        </div>
         <div id="homeNewsList" class="blog-list">
+          <div class="loading-wrap">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 class="sec-title" style="margin-bottom:0; flex:1">📝 ブログ</h2>
+          <div onclick="switchPage('blog')"
+            style="font-size:12px; color:var(--text-light); cursor:pointer; padding-bottom:0; margin-left:10px; white-space:nowrap;">
+            もっと見る ›</div>
+        </div>
+        <div id="homeBlogList" class="blog-list">
           <div class="loading-wrap">
             <div class="spinner"></div>
           </div>
@@ -2287,6 +2306,14 @@
       </div>
 
       <div class="section" style="padding-top:20px">
+        <h2 class="sec-title">🎁 特典プレゼント一覧</h2>
+        <div id="earnedRewardsList">
+          <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">獲得した特典はありません</div>
+        </div>
+      </div>
+
+
+      <div class="section" style="padding-top:20px">
         <h2 class="sec-title">🔔 通知設定</h2>
         <div class="card"
           style="padding:15px; border-radius:12px; background:var(--warm-white); border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
@@ -2514,7 +2541,7 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzrWkHswMoAixn3FOnUJ6GenloxC23xgmGJBqr7_oKPAmSSMiE9JBnEWE_MoAAduN67lg/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzRAuf3KNgXmD5f1XFlMiA8SVnOhjzwhmDCQQAg5SpW_egN_KJLReEfRRCWNchrJjXAXg/exec';
 
     let USER_MENUS = [];
 
@@ -2601,6 +2628,10 @@
     try { stampCount = parseInt(localStorage.getItem('mayumi_stamp') || '0') || 0; } catch (e) { }
     let stampCardNum = 1;
     try { stampCardNum = parseInt(localStorage.getItem('mayumi_stamp_card') || '1') || 1; } catch (e) { }
+
+    let STAMP_REWARD_CONFIG = [];
+    let EARNED_REWARDS = [];
+    try { EARNED_REWARDS = JSON.parse(localStorage.getItem('mayumi_earned_rewards') || '[]'); } catch (e) { }
     let cart = [], orders = [];
     let selectedPay = null, currentProdIdx = null, modalQty = 1;
     let cancelOrderId = null;
@@ -2702,6 +2733,9 @@
       openModal('stampModal');
     }
     function startNewCard() {
+      // 達成したカード（現在のstampCardNum）に対する特典を付与
+      issueRewardForCard(stampCardNum);
+
       stampCount = 0;
       stampCardNum++;
       try {
@@ -2711,6 +2745,96 @@
       updateStampUI();
       closeModal('stampModal');
       showToast(`🌸 ${stampCardNum}枚目のスタンプカードを開始しました！`);
+    }
+
+    function issueRewardForCard(cardNum) {
+      if (!STAMP_REWARD_CONFIG || STAMP_REWARD_CONFIG.length === 0) return;
+
+      const config = STAMP_REWARD_CONFIG.find(r => r.cardNum === cardNum);
+      if (config) {
+        const now = new Date();
+        const expiryDate = new Date();
+        expiryDate.setMonth(expiryDate.getMonth() + config.validMonths);
+
+        EARNED_REWARDS.unshift({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          cardNum: cardNum,
+          rewardName: config.rewardName,
+          earnedDate: now.toISOString(),
+          expiryDate: expiryDate.toISOString(),
+          used: false
+        });
+
+        try {
+          localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
+        } catch (e) { }
+
+        renderEarnedRewards();
+      }
+    }
+
+    function renderEarnedRewards() {
+      const container = document.getElementById('earnedRewardsList');
+      if (!container) return;
+
+      if (EARNED_REWARDS.length === 0) {
+        container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">獲得した特典はありません</div>';
+        return;
+      }
+
+      let html = '';
+      const now = new Date();
+
+      EARNED_REWARDS.forEach(r => {
+        const expiry = new Date(r.expiryDate);
+        const isExpired = now > expiry;
+
+        let statusHtml = '';
+        let btnHtml = '';
+        let cardStyle = 'background:#fff; border:1px solid var(--primary); opacity:1;';
+
+        if (r.used) {
+          statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:#e0e0e0; color:#555;">使用済み</span>';
+          cardStyle = 'background:#f9f9f9; border:1px solid #ddd; opacity:0.6;';
+        } else if (isExpired) {
+          statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:#ffebee; color:#d32f2f;">期限切れ</span>';
+          cardStyle = 'background:#f9f9f9; border:1px solid #ddd; opacity:0.6;';
+        } else {
+          statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:var(--primary); color:#fff;">🎁 未使用</span>';
+          btnHtml = `<button class="btn primary" style="padding:6px 12px; font-size:12px; margin-top:10px;" onclick="useReward(${r.id})">使用する</button>`;
+        }
+
+        const earnedStr = new Date(r.earnedDate).toLocaleDateString('ja-JP');
+        const expiryStr = expiry.toLocaleDateString('ja-JP');
+
+        html += `
+          <div style="padding:16px; border-radius:16px; margin-bottom:12px; display:flex; flex-direction:column; box-shadow: 0 4px 12px rgba(0,0,0,0.05); ${cardStyle}">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <span style="font-weight:600; font-size:12px; color:var(--text-main); background:rgba(181, 201, 168, 0.2); padding:4px 10px; border-radius:100px;">${r.cardNum}枚目達成特典</span>
+              ${statusHtml}
+            </div>
+            <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:10px;">${r.rewardName}</div>
+            <div style="font-size:12px; color:var(--text-light); line-height:1.5; margin-bottom:12px;">獲得日: ${earnedStr} <br> 有効期限: ${expiryStr}まで</div>
+            ${btnHtml}
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function useReward(id) {
+      if (confirm('この特典を使用しますか？\n（スタッフの確認後に「OK」を押してください）')) {
+        const reward = EARNED_REWARDS.find(r => r.id === id);
+        if (reward) {
+          reward.used = true;
+          try {
+            localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
+          } catch (e) { }
+          renderEarnedRewards();
+          showToast('特典を使用済みにしました');
+        }
+      }
     }
 
 
@@ -2921,11 +3045,34 @@
       el.innerHTML = html;
     }
 
+    // ===== スタンプ特典設定 =====
+    async function loadStampRewards() {
+      const data = await getFromGAS('getStampRewards');
+      if (data && data.status === 'ok' && data.rewards) {
+        STAMP_REWARD_CONFIG = data.rewards;
+
+        // レトロアクティブな特典付与（過去に達成した分で、未付与のものがあれば付与する）
+        if (EARNED_REWARDS.length === 0 && stampCardNum > 1) {
+          let rewardsUpdated = false;
+          for (let i = 1; i < stampCardNum; i++) {
+            // Check if we already granted it
+            if (!EARNED_REWARDS.find(r => r.cardNum === i)) {
+              issueRewardForCard(i);
+              rewardsUpdated = true;
+            }
+          }
+        }
+        renderEarnedRewards();
+      }
+    }
     // ===== ブログ =====
     // GASの getBlogNews レスポンス: { status:'ok', news:[{date,title,category,icon,body}] }
     async function loadBlog() {
       const data = await getFromGAS('getNews');
-      if (data && data.status === 'ok' && data.news && data.news.length > 0) {
+      const containerNews = document.getElementById('homeNewsList');
+      const containerBlog = document.getElementById('homeBlogList');
+
+      if (data && data.status === 'ok' && data.news) {
         const categories = data.categories || [];
         allBlogCategories = categories;
         updateBlogCategoryFilters();
@@ -2937,8 +3084,8 @@
           return item;
         });
       } else {
-        blogItems = FALLBACK_BLOG;
-        // フォールバック時は固定のカテゴリを設定
+        // エラー時や取得不能時は空にする（または必要に応じてフォールバックを表示するが、ユーザーの要望により管理画面の内容を優先）
+        blogItems = [];
         allBlogCategories = [
           { name: 'お知らせ', type: 'お知らせ' },
           { name: '休診情報', type: 'お知らせ' },
@@ -2946,7 +3093,10 @@
         ];
         updateBlogCategoryFilters();
       }
-      renderBlogList('homeNewsList', 3);
+
+      renderBlogList('homeNewsList', 3, 'お知らせ');
+      renderBlogList('homeBlogList', 3, 'ブログ');
+
       if (document.getElementById('page-blog').classList.contains('active')) {
         renderDividedBlogList();
       }
@@ -3016,10 +3166,11 @@
         });
       });
 
-      // 4) 商品 (PRODUCTS グローバル配列)
+      // 4) 商品 (PRODUCTS グローバル配列) - ユーザーの要望によりお知らせ一覧からは削除
+      /*
       PRODUCTS.forEach(p => {
         items.push({
-          ts: 0,   // 日付情報なし → 最下位に並ぶ
+          ts: 0,
           type: 'product',
           icon: '🛒',
           label: 'お買い物',
@@ -3027,6 +3178,7 @@
           body: '¥' + (p.price || 0).toLocaleString() + '（税込）'
         });
       });
+      */
 
       // --- 日付の新しい順にソート ---
       items.sort((a, b) => b.ts - a.ts);
@@ -3181,9 +3333,8 @@
     function computeNoticeListHash() {
       const blogPart = blogItems.map(i => i.date + '_' + i.title).join('|');
       const calPart = calendarData.map(i => i.date + '_' + i.title).join('|');
-      const productPart = PRODUCTS.map(p => p.name + '_' + p.price).join('|');
       const noticePart = pushNotices.map(n => n.date + '_' + n.title).join('|');
-      return [blogPart, calPart, productPart, noticePart].join('@@');
+      return [blogPart, calPart, noticePart].join('@@');
     }
 
 
@@ -3259,7 +3410,10 @@
       currentSurvey.questions.forEach((q, idx) => {
         const qDiv = document.createElement('div');
         qDiv.style.marginBottom = '20px';
-        qDiv.innerHTML = `<label style="display:block; font-size:14px; font-weight:bold; margin-bottom:8px; color:var(--text-dark);">${idx + 1}. ${q.title}${q.required ? ' <span style="color:var(--danger)">*</span>' : ''}</label>`;
+        qDiv.innerHTML = `<label style="display:block; font-size:14px; font-weight:bold; margin-bottom:4px; color:var(--text-dark);">${idx + 1}. ${q.title}${q.required ? ' <span style="color:var(--danger)">*</span>' : ''}</label>`;
+        if (q.description) {
+          qDiv.innerHTML += `<div style="font-size:12px; color:var(--text-mid); margin-bottom:8px; line-height:1.4;">${q.description}</div>`;
+        }
 
         if (q.type === 'text') {
           qDiv.innerHTML += `<textarea class="survey-answer-field" data-id="${q.id}" rows="3" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:14px;" placeholder="回答を入力してください"></textarea>`;
@@ -4255,6 +4409,7 @@
     // ===== 初期化 (並列実行で高速化) =====
     function initApp() {
       checkFirstLaunch();
+      loadStampRewards();
       updateStampUI();
       checkUrlParams();
 
@@ -4357,7 +4512,8 @@
         loadBlog(),
         loadProducts(),
         loadCalendar(),
-        loadPushNotices()
+        loadPushNotices(),
+        loadStampRewards()
       ]).then(() => {
         isDataLoaded = true;
         updateNavBadges();
@@ -4373,7 +4529,7 @@
         // 前回取得から1分以上経過していたら再取得
         if (elapsed > 60000) {
           lastFetchTime = Date.now();
-          Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices(), loadSurveys()]).then(() => {
+          Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices(), loadSurveys(), loadStampRewards()]).then(() => {
             isDataLoaded = true;
             updateNavBadges();
           }).catch(function () { });
