@@ -11,6 +11,28 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <style>
+    .star-rating {
+      color: #fcc419;
+      font-size: 16px;
+    }
+
+    .review-text {
+      font-size: 12px;
+      color: var(--text-mid);
+      margin-top: 5px;
+      white-space: pre-wrap;
+    }
+
+    .reply-text {
+      font-size: 11px;
+      color: var(--sage-dark);
+      background: #f0f4ee;
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+  </style>
+  <style>
     :root {
       --sage: #8a9e7e;
       --sage-light: #b5c9a8;
@@ -400,6 +422,9 @@
       </div>
       <div class="nav-item" onclick="switchPage('category-master', this)">
         <span>🏷️</span>カテゴリ管理
+      </div>
+      <div class="nav-item" onclick="switchPage('stamp-rewards', this)">
+        <span>🎁</span>特典プレゼント
       </div>
     </aside>
 
@@ -1083,89 +1108,117 @@
             </tbody>
           </table>
         </div>
+      </section>
 
-        <!-- === データ分析ページ === -->
-        <section id="page-analytics" class="page">
-          <div class="flex space-between mb-2">
-            <h2>データ分析</h2>
-            <div class="flex">
-              <button class="btn btn-outline" onclick="loadAnalytics()">🔄 更新</button>
-            </div>
+      <!-- === データ分析ページ === -->
+      <section id="page-analytics" class="page">
+        <div class="flex space-between mb-2">
+          <h2>データ分析</h2>
+          <div class="flex">
+            <button class="btn btn-outline" onclick="loadAnalytics()">🔄 更新</button>
           </div>
+        </div>
 
-          <div class="card mb-2">
-            <div class="card-title">💰 収益サマリー (月別)</div>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr id="profitHeader">
-                    <th>項目</th>
-                  </tr>
-                </thead>
-                <tbody id="profitBody">
-                  <tr>
-                    <td colspan="1" style="text-align:center;">読み込み中...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+        <div class="card mb-2">
+          <div class="card-title">💰 収益サマリー (月別)</div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr id="profitHeader">
+                  <th>項目</th>
+                </tr>
+              </thead>
+              <tbody id="profitBody">
+                <tr>
+                  <td colspan="1" style="text-align:center;">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
+        </div>
 
-          <div class="card">
-            <div class="card-title">📦 商品別販売数</div>
-            <div class="table-wrapper">
-              <table id="analyticsTable">
-                <thead>
-                  <tr id="analyticsHeader">
-                    <th>商品名</th>
-                  </tr>
-                </thead>
-                <tbody id="analyticsBody">
-                  <tr>
-                    <td colspan="1" style="text-align:center;">読み込み中...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+        <div class="card">
+          <div class="card-title">📦 商品別販売数</div>
+          <div class="table-wrapper">
+            <table id="analyticsTable">
+              <thead>
+                <tr id="analyticsHeader">
+                  <th>商品名</th>
+                </tr>
+              </thead>
+              <tbody id="analyticsBody">
+                <tr>
+                  <td colspan="1" style="text-align:center;">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section id="page-category-master" class="page">
-          <h2>🏷️ カテゴリ管理</h2>
+      <section id="page-category-master" class="page">
+        <h2>🏷️ カテゴリ管理</h2>
 
-          <div class="card">
-            <div class="card-title">➕ 新規カテゴリ追加</div>
-            <div class="flex" style="gap:10px;">
-              <input type="text" id="newCategoryName" placeholder="例：健康情報" style="flex:1;">
-              <select id="newCategoryType"
-                style="width:120px; padding:8px; border:1px solid var(--border); border-radius:8px;">
-                <option value="ブログ">ブログ</option>
-                <option value="お知らせ">お知らせ</option>
-              </select>
-              <button class="btn" style="width:100px;" onclick="addCategory()">追加</button>
-            </div>
+        <div class="card">
+          <div class="card-title">➕ 新規カテゴリ追加</div>
+          <div class="flex" style="gap:10px;">
+            <input type="text" id="newCategoryName" placeholder="例：健康情報" style="flex:1;">
+            <select id="newCategoryType"
+              style="width:120px; padding:8px; border:1px solid var(--border); border-radius:8px;">
+              <option value="ブログ">ブログ</option>
+              <option value="お知らせ">お知らせ</option>
+            </select>
+            <button class="btn" style="width:100px;" onclick="addCategory()">追加</button>
           </div>
+        </div>
 
-          <div class="card">
-            <div class="card-title">📋 登録済みカテゴリ一覧</div>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>カテゴリ名</th>
-                    <th style="width:100px; text-align:center;">分類</th>
-                    <th style="width:80px; text-align:center;">操作</th>
-                  </tr>
-                </thead>
-                <tbody id="categoryListBody">
-                  <tr>
-                    <td colspan="3" style="text-align:center;">読み込み中...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+        <div class="card">
+          <div class="card-title">📋 登録済みカテゴリ一覧</div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>カテゴリ名</th>
+                  <th style="width:100px; text-align:center;">分類</th>
+                  <th style="width:80px; text-align:center;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="categoryListBody">
+                <tr>
+                  <td colspan="3" style="text-align:center;">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </section>
+        </div>
+      </section>
+
+      <!-- 特典プレゼント管理ページ -->
+      <section id="page-stamp-rewards" class="page">
+        <div class="flex space-between mb-2">
+          <h2>特典プレゼント（スタンプカード）管理</h2>
+          <button class="btn btn-outline" onclick="loadAdminStampRewards()">🔄 更新</button>
+        </div>
+        <div class="card" style="padding:20px;">
+          <table class="table" style="margin-top:0;">
+            <thead>
+              <tr>
+                <th>カード枚数</th>
+                <th>特典内容</th>
+                <th>有効期限</th>
+                <th style="width:120px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="stampRewardsList">
+              <tr>
+                <td colspan="4" style="text-align:center;">読み込み中...</td>
+              </tr>
+            </tbody>
+          </table>
+          <button class="btn primary" style="margin-top:20px;" onclick="editStampReward('', '', '6')">➕
+            新しい特典を追加</button>
+        </div>
+      </section>
 
     </main>
   </div>
@@ -1196,7 +1249,36 @@
     <div class="bottom-nav-item" onclick="switchPage('category-master', this)">
       <span class="bottom-icon">🏷️</span>カテゴリ
     </div>
+    <div class="bottom-nav-item" onclick="switchPage('stamp-rewards', this)">
+      <span class="bottom-icon">🎁</span>プレゼント
+    </div>
   </nav>
+
+  <!-- 特典プレゼント編集モーダル -->
+  <div id="stampRewardModal" class="modal">
+    <div class="modal-content" style="max-width:400px;">
+      <h3 id="stampRewardModalTitle" style="margin-top:0;">特典の設定</h3>
+      <form onsubmit="submitStampReward(event)">
+        <div class="form-group">
+          <label>スタンプカード（○枚目）</label>
+          <input type="number" id="stampRewardCardNum" class="form-control" placeholder="例: 1" required min="1">
+        </div>
+        <div class="form-group">
+          <label>特典内容</label>
+          <input type="text" id="stampRewardName" class="form-control" placeholder="例: ビジリス1回無料" required>
+        </div>
+        <div class="form-group">
+          <label>有効期限（ヶ月）</label>
+          <input type="number" id="stampRewardMonths" class="form-control" placeholder="例: 6" required min="1">
+          <p style="font-size:11px; color:#888; margin-top:5px;">※カード達成日から指定したヶ月数が有効期限となります</p>
+        </div>
+        <div class="flex" style="gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-outline" style="flex:1" onclick="closeStampRewardModal()">キャンセル</button>
+          <button type="submit" class="btn primary" style="flex:1">保存する</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- 回答一覧モーダル -->
   <div id="surveyResponsesModal" class="modal">
@@ -1302,7 +1384,7 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzrWkHswMoAixn3FOnUJ6GenloxC23xgmGJBqr7_oKPAmSSMiE9JBnEWE_MoAAduN67lg/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzRAuf3KNgXmD5f1XFlMiA8SVnOhjzwhmDCQQAg5SpW_egN_KJLReEfRRCWNchrJjXAXg/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -1455,6 +1537,7 @@
       if (pageId === 'analytics') loadAnalytics();
       if (pageId === 'menus') loadAdminMenus();
       if (pageId === 'category-master') loadCategoryMaster();
+      if (pageId === 'stamp-rewards') loadAdminStampRewards();
     }
 
     async function loadAdminUsers() {
@@ -1657,14 +1740,13 @@
 
       // --- 月のフィルタリング (2026年4月以降のみ表示) ---
       const filteredMonths = res.months.filter(m => {
-        // "2026/04" や "2026年4月" などの文字列から年月を抽出して判定
         const match = m.match(/(\d{4})[^\d]+(\d{1,2})/);
         if (match) {
           const year = parseInt(match[1], 10);
           const month = parseInt(match[2], 10);
           if (year > 2026) return true;
           if (year === 2026 && month >= 4) return true;
-          return false; // 2026年3月以前は除外
+          return false;
         }
         return true;
       });
@@ -2673,7 +2755,7 @@
 
     function addSurveyQuestion(data = null) {
       const id = Date.now().toString() + Math.floor(Math.random() * 1000);
-      const q = data || { id: id, type: 'text', title: '', options: '', required: false };
+      const q = data || { id: id, type: 'text', title: '', description: '', options: '', required: false };
       surveyQuestions.push(q);
       renderSurveyQuestions();
     }
@@ -2711,6 +2793,10 @@
           <div class="form-group">
             <label>質問文</label>
             <input type="text" value="${q.title}" onchange="surveyQuestions[${idx}].title = this.value" placeholder="例：性別を教えてください" required>
+          </div>
+          <div class="form-group">
+            <label>補足説明（任意）</label>
+            <textarea rows="1" onchange="surveyQuestions[${idx}].description = this.value" placeholder="例：当てはまるものを1つ選んでください">${q.description || ''}</textarea>
           </div>
           <div class="form-group" id="qOptionsDiv_${idx}" style="${(q.type === 'radio' || q.type === 'checkbox') ? 'display:block;' : 'display:none;'}">
             <label>選択肢 (1行ずつ入力してください)</label>
@@ -2770,7 +2856,7 @@
               <td>
                 <div class="flex" style="gap:5px;">
                   <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editSurvey(${s.rowIdx})">📝</button>
-                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteSurvey(${s.rowIdx}, '${s.title.replace(/'/g, "\\'")}')">🗑</button>
+                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteSurvey(${parseInt(s.rowIdx)}, '${s.title.replace(/'/g, "\\'")}')">🗑</button>
                 </div>
               </td>
             </tr>
@@ -2895,6 +2981,8 @@
         showToast('アンケートを削除しました');
         loadAdminSurveys();
       } else {
+        const msg = (res && res.message) ? res.message : '不明なエラー';
+        alert('削除に失敗しました: ' + msg);
         showToast('削除に失敗しました');
       }
     }
@@ -3186,13 +3274,13 @@
       if (!rowIdx) return;
       selectElement.disabled = true;
       showToast('保存中...');
-      
-      const res = await apiRequest('', { 
-        type: 'updateMenu', 
-        rowIdx: rowIdx, 
-        reservationStatus: newStatus 
+
+      const res = await apiRequest('', {
+        type: 'updateMenu',
+        rowIdx: rowIdx,
+        reservationStatus: newStatus
       }, true);
-      
+
       selectElement.disabled = false;
       if (res && res.status === 'ok') {
         showToast('更新しました');
@@ -3201,6 +3289,90 @@
         showToast('更新に失敗しました');
         // Reload to revert to original state
         loadAdminMenus();
+      }
+    }
+
+    // ========== 特典プレゼント（スタンプ）管理ロジック ==========
+
+    async function loadAdminStampRewards() {
+      const tbody = document.getElementById('stampRewardsList');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">読み込み中...</td></tr>';
+
+      const res = await apiRequest('getStampRewards');
+      if (res && res.status === 'ok') {
+        const rewards = res.rewards || [];
+        if (rewards.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">設定されている特典はありません</td></tr>';
+        } else {
+          // Sort by cardNum ascending
+          rewards.sort((a, b) => a.cardNum - b.cardNum);
+
+          let html = '';
+          rewards.forEach(r => {
+            html += `
+              <tr>
+                <td style="font-weight:bold;">${r.cardNum}枚目</td>
+                <td>${r.rewardName}</td>
+                <td>発行から${r.validMonths}ヶ月間</td>
+                <td>
+                  <div class="flex" style="gap:5px;">
+                    <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editStampReward(${r.cardNum}, '${r.rewardName.replace(/'/g, "\\'")}', ${r.validMonths})">📝 編集</button>
+                    <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger);" onclick="deleteStampReward(${r.cardNum})">🗑 削除</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          });
+          tbody.innerHTML = html;
+        }
+      } else {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">エラーが発生しました</td></tr>';
+      }
+    }
+
+    function editStampReward(cardNum, name, months) {
+      document.getElementById('stampRewardCardNum').value = cardNum;
+      document.getElementById('stampRewardName').value = name;
+      document.getElementById('stampRewardMonths').value = months;
+
+      // If editing existing, disable the cardNum field to prevent accidental PK changes
+      document.getElementById('stampRewardCardNum').disabled = !!cardNum;
+
+      document.getElementById('stampRewardModal').classList.add('active');
+    }
+
+    function closeStampRewardModal() {
+      document.getElementById('stampRewardModal').classList.remove('active');
+    }
+
+    async function submitStampReward(event) {
+      event.preventDefault();
+      const cardNum = document.getElementById('stampRewardCardNum').value;
+      const name = document.getElementById('stampRewardName').value;
+      const months = document.getElementById('stampRewardMonths').value;
+
+      if (!cardNum || !name || !months) {
+        alert('すべての項目を入力してください');
+        return;
+      }
+
+      showToast('保存中...');
+
+      const payload = {
+        type: 'saveStampReward',
+        cardNum: cardNum,
+        rewardName: name,
+        validMonths: months
+      };
+
+      const res = await apiRequest('', payload, true);
+      if (res && res.status === 'ok') {
+        showToast('特典を保存しました');
+        closeStampRewardModal();
+        loadAdminStampRewards();
+      } else {
+        showToast('保存に失敗しました');
       }
     }
 
@@ -3218,9 +3390,9 @@
         const cropImage = document.getElementById('cropImage');
         cropImage.src = e.target.result;
         document.getElementById('imageCropModal').style.display = 'flex';
-        
+
         if (cropper) cropper.destroy();
-        
+
         let aspectRatio = NaN; // Free crop by default
         if (type === 'blog') aspectRatio = NaN;
         if (type === 'prod') aspectRatio = 1; // Square for products
@@ -3251,7 +3423,7 @@
         maxHeight: 1200
       });
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      
+
       if (currentCropType === 'blog') {
         const img = document.getElementById('imagePreview');
         img.src = dataUrl;
@@ -3280,17 +3452,23 @@
       }
       closeCropModal();
     }
+
   </script>
 
   <!-- 画像クロップ用モーダル -->
-  <div id="imageCropModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:2000; flex-direction:column; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
-    <div style="width:100%; max-width:600px; height:60vh; background:#fff; border-radius:12px; overflow:hidden; display:flex; justify-content:center; align-items:center; position:relative;">
+  <div id="imageCropModal"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:2000; flex-direction:column; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div
+      style="width:100%; max-width:600px; height:60vh; background:#fff; border-radius:12px; overflow:hidden; display:flex; justify-content:center; align-items:center; position:relative;">
       <img id="cropImage" style="max-width:100%; max-height:100%; display:block;">
     </div>
     <div style="margin-top:20px; display:flex; gap:10px; width:100%; max-width:600px;">
-      <button class="btn btn-outline" style="flex:1; border-color:#fff; color:#fff;" onclick="closeCropModal()">キャンセル</button>
-      <button class="btn" style="flex:2; background:var(--sage); color:#fff; font-weight:600;" onclick="applyCrop()">トリミングして適用</button>
+      <button class="btn btn-outline" style="flex:1; border-color:#fff; color:#fff;"
+        onclick="closeCropModal()">キャンセル</button>
+      <button class="btn" style="flex:2; background:var(--sage); color:#fff; font-weight:600;"
+        onclick="applyCrop()">トリミングして適用</button>
     </div>
   </div>
 </body>
+
 </html>
