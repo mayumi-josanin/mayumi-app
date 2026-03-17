@@ -393,7 +393,6 @@
 
   <header>
     <h1>まゆみ助産院 管理画面</h1>
-    <button class="settings-btn" onclick="openSettings()">⚙ 初期設定</button>
   </header>
 
   <div class="app-container">
@@ -443,6 +442,8 @@
               <input type="checkbox" id="showAllOrders" onchange="loadAdminOrders()" style="width:14px; height:14px;">
               受取済も含めて表示
             </label>
+            <button type="button" class="btn" style="background:var(--primary); margin-right:8px;"
+              onclick="openOrderModal()">➕ 新規注文</button>
             <button type="button" class="btn" style="background:var(--danger); margin-right:8px;"
               onclick="bulkDelete('ORDERS')">🗑 一括削除</button>
             <button class="btn btn-outline" onclick="loadAdminOrders()">🔄 更新</button>
@@ -1313,23 +1314,6 @@
     </div>
   </div>
 
-  <!-- URL設定モーダル -->
-  <div id="settingsModal" class="modal">
-    <div class="modal-content">
-      <h3 style="margin-bottom: 15px;">🔧 初期設定</h3>
-      <p style="font-size:12px; margin-bottom:15px; color:var(--text-mid);">お客様用アプリと同じGoogle Apps
-        ScriptのURL（デプロイURL）を入力してください。</p>
-      <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/..."
-        style="margin-bottom: 15px;">
-      <div class="flex" style="gap: 10px;">
-        <button class="btn" onclick="saveSettings()" style="flex:1;">保存</button>
-        <button class="btn btn-outline" onclick="resetGasUrlToDefault()"
-          style="flex:1; border-color:var(--danger); color:var(--danger);">初期値リセット</button>
-        <button class="btn btn-outline" onclick="document.getElementById('settingsModal').classList.remove('active')"
-          style="flex:1;">閉じる</button>
-      </div>
-    </div>
-  </div>
 
   <!-- 会員編集モーダル -->
   <div id="userEditModal" class="modal">
@@ -1384,21 +1368,54 @@
     </div>
   </div>
 
+  <!-- 注文編集/新規作成モーダル -->
+  <div id="orderEditModal" class="modal">
+    <div class="modal-content">
+      <h3 id="orderModalTitle" style="margin-bottom: 15px;">📦 注文の編集</h3>
+      <form id="orderEditForm" onsubmit="submitOrder(event)">
+        <input type="hidden" id="editOrderId">
+        <div class="form-group">
+          <label>注文日</label>
+          <input type="date" id="editOrderDate" required>
+        </div>
+        <div class="form-group">
+          <label>お客様名</label>
+          <input type="text" id="editOrderCustomerName" placeholder="例：山田 花子" required>
+        </div>
+        <div class="form-group">
+          <label>会員ID（任意）</label>
+          <input type="text" id="editOrderMemberId" placeholder="例：M12345">
+        </div>
+        <div class="form-group">
+          <label>注文商品・内容</label>
+          <textarea id="editOrderItemName" rows="3" placeholder="例：よもぎ茶 x1" required></textarea>
+        </div>
+        <div class="form-group">
+          <label>ステータス</label>
+          <select id="editOrderStatus">
+            <option value="未受取">未受取</option>
+            <option value="受取済">受取済</option>
+          </select>
+        </div>
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="editOrderChecked" style="width: 18px; height: 18px;">
+          <label style="margin-bottom: 0;">受取確認済み（一覧から非表示にする）</label>
+        </div>
+        <div class="flex" style="margin-top: 20px; gap: 10px;">
+          <button type="submit" class="btn" style="flex: 2;">保存する</button>
+          <button type="button" class="btn btn-outline" style="flex: 1;"
+            onclick="document.getElementById('orderEditModal').classList.remove('active')">キャンセル</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="toast" class="toast"></div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzRAuf3KNgXmD5f1XFlMiA8SVnOhjzwhmDCQQAg5SpW_egN_KJLReEfRRCWNchrJjXAXg/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxNpiK0GBf96BldM-mBNy-6izk5RqaQjf4rMvf4CIvlkqdHw7sUEhOynm2pMg61MaZNRQ/exec';
 
-    // 複数の過去バージョンURLを強制的に最新にリセットする
-    const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
-    if (currentStored && (
-      currentStored.includes('AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww') ||
-      currentStored.includes('AKfycbzFi4hL2mSh8VjshupIulGGI3G6V0Q2A3na_6bPPBRcpS3sQMBecN3x93f5XuHuqZgtxQ')
-    )) {
-      localStorage.setItem('MAYUMI_GAS_URL', DEFAULT_GAS_URL);
-    }
-
-    let GAS_URL = localStorage.getItem('MAYUMI_GAS_URL') || DEFAULT_GAS_URL;
+    let GAS_URL = DEFAULT_GAS_URL;
     let allUsers = [];
     let allMenus = [];
     let allCategories = [];
@@ -1408,12 +1425,8 @@
     document.getElementById('calDate').valueAsDate = new Date();
 
     window.onload = () => {
-      if (!GAS_URL) {
-        openSettings();
-      } else {
-        loadAdminOrders();
-        loadCategoryMaster();
-      }
+      loadAdminOrders();
+      loadCategoryMaster();
     };
 
     function showToast(msg) {
@@ -1495,28 +1508,6 @@
       }
     }
 
-    function openSettings() {
-      document.getElementById('gasUrlInput').value = GAS_URL;
-      document.getElementById('settingsModal').classList.add('active');
-    }
-
-    function saveSettings() {
-      const url = document.getElementById('gasUrlInput').value.trim();
-      if (url) {
-        GAS_URL = url;
-        localStorage.setItem('MAYUMI_GAS_URL', GAS_URL);
-        document.getElementById('settingsModal').classList.remove('active');
-        showToast('設定を保存しました');
-        loadAdminOrders();
-      }
-    }
-
-    function resetGasUrlToDefault() {
-      if (confirm('GASのURLを初期値にリセットしてページを再読み込みしますか？')) {
-        localStorage.removeItem('MAYUMI_GAS_URL');
-        location.reload();
-      }
-    }
 
     function switchPage(pageId, navEl) {
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2014,13 +2005,16 @@
     }
 
     /* === 注文管理 === */
+    let allOrders = [];
+
     async function loadAdminOrders() {
       const showAll = document.getElementById('showAllOrders').checked;
       const tbody = document.getElementById('ordersList');
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
       const res = await apiRequest('getAdminOrders', { showAll: showAll });
       if (res && res.status === 'ok') {
-        renderOrders(res.orders);
+        allOrders = res.orders || [];
+        renderOrders(allOrders);
       } else {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">データ取得に失敗しました</td></tr>';
       }
@@ -2041,7 +2035,7 @@
 
         tr.innerHTML = `
           <td><input type="checkbox" class="order-sel" data-id="${o.orderId}"></td>
-          <td style="font-size:11px;">${new Date(o.date).toLocaleDateString('ja-JP')}</td>
+          <td style="font-size:11px;">${o.date ? new Date(o.date).toLocaleDateString('ja-JP') : '-'}</td>
           <td>
             <div style="font-size:12px; font-weight:bold;">${o.memberId || '-'}</div>
             <div style="font-size:11px; color:var(--text-mid);">${o.customerName}</div>
@@ -2058,6 +2052,7 @@
           </td>
           <td>
             <div class="flex" style="gap:5px;">
+              <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="openOrderModal('${o.orderId}')">📝</button>
               <button class="btn" style="padding:5px 8px; font-size:11px;" onclick="saveOrder('${o.orderId}')">更新</button>
               <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); border:none; border-radius:4px; cursor:pointer;" onclick="deleteOrder('${o.orderId}')">🗑</button>
             </div>
@@ -2065,6 +2060,63 @@
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    function openOrderModal(orderId = null) {
+      const modal = document.getElementById('orderEditModal');
+      const title = document.getElementById('orderModalTitle');
+      const form = document.getElementById('orderEditForm');
+
+      if (orderId) {
+        // 編集モード
+        title.innerText = '📦 注文の編集';
+        const o = allOrders.find(item => item.orderId === orderId);
+        if (!o) return;
+
+        document.getElementById('editOrderId').value = o.orderId;
+        document.getElementById('editOrderDate').value = o.date ? new Date(o.date).toISOString().split('T')[0] : '';
+        document.getElementById('editOrderCustomerName').value = o.customerName || '';
+        document.getElementById('editOrderMemberId').value = o.memberId || '';
+        document.getElementById('editOrderItemName').value = o.itemName || '';
+        document.getElementById('editOrderStatus').value = o.status || '未受取';
+        document.getElementById('editOrderChecked').checked = o.checked || false;
+      } else {
+        // 新規作成モード
+        title.innerText = '✨ 新規注文の作成';
+        form.reset();
+        document.getElementById('editOrderId').value = '';
+        document.getElementById('editOrderDate').valueAsDate = new Date();
+      }
+
+      modal.classList.add('active');
+    }
+
+    async function submitOrder(e) {
+      e.preventDefault();
+      const orderId = document.getElementById('editOrderId').value;
+      const isEdit = !!orderId;
+
+      const data = {
+        type: isEdit ? 'updateAdminOrder' : 'createOrder',
+        orderId: orderId,
+        date: document.getElementById('editOrderDate').value,
+        customerName: document.getElementById('editOrderCustomerName').value,
+        memberId: document.getElementById('editOrderMemberId').value,
+        itemName: document.getElementById('editOrderItemName').value,
+        status: document.getElementById('editOrderStatus').value,
+        checked: document.getElementById('editOrderChecked').checked
+      };
+
+      showToast(isEdit ? '注文を更新中...' : '注文を新規作成中...');
+      const res = await apiRequest('', data, true);
+
+      if (res && res.status === 'ok') {
+        showToast(isEdit ? '注文情報を更新しました' : '新規注文を作成しました');
+        document.getElementById('orderEditModal').classList.remove('active');
+        loadAdminOrders();
+      } else {
+        showToast('エラーが発生しました: ' + (res ? res.message : '不明'));
+      }
     }
 
     async function deleteOrder(orderId) {
