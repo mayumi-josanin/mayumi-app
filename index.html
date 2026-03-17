@@ -4635,7 +4635,7 @@
 
       container.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
 
-      const res = await apiRequest('getMenus');
+      const res = await getFromGAS('getMenus');
       if (res && res.status === 'ok') {
         const menus = res.menus || [];
         if (menus.length === 0) {
@@ -4646,16 +4646,16 @@
         let html = '';
         menus.forEach(m => {
           html += `
-            <div class="news-item" style="padding:0; overflow:hidden; border-radius:16px; margin-bottom:20px; box-shadow:0 4px 15px rgba(0,0,0,0.05);">
+            <div class="news-item" style="padding:0; overflow:hidden; border-radius:16px; margin-bottom:20px; box-shadow:0 8px 20px rgba(0,0,0,0.06); background:#fff; border:1px solid #f0ede8;">
               ${m.imageUrl ? `<img src="${m.imageUrl}" style="width:100%; height:200px; object-fit:cover; display:block;">` : ''}
-              <div style="padding:16px;">
-                <div style="display:flex; justify-content:space-between; align-items:start; gap:10px;">
-                  <h3 style="margin:0; font-size:18px; color:var(--text-main); flex:1;">${m.name}</h3>
-                  <span class="status-chip ${m.reservationStatus === '予約受付中' ? 's-pending' : 's-cancelled'}" style="margin:0; white-space:nowrap;">
+              <div style="padding:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:start; gap:10px; margin-bottom:10px;">
+                  <h3 style="margin:0; font-size:1.1rem; color:var(--text-main); flex:1; font-weight:700; line-height:1.4;">${m.name}</h3>
+                  <span class="status-chip ${m.reservationStatus === '予約受付中' ? 's-pending' : 's-cancelled'}" style="margin:0; white-space:nowrap; font-size:11px; padding:4px 8px; border-radius:6px;">
                     ${m.reservationStatus}
                   </span>
                 </div>
-                <div style="margin-top:10px; font-size:14px; color:var(--text-mid); line-height:1.6; white-space:pre-wrap;">${m.description || ''}</div>
+                <div style="font-size:14px; color:var(--text-mid); line-height:1.6; white-space:pre-wrap;">${m.description || ''}</div>
               </div>
             </div>
           `;
