@@ -440,6 +440,8 @@
               <input type="checkbox" id="showAllOrders" onchange="loadAdminOrders()" style="width:14px; height:14px;">
               受取済も含めて表示
             </label>
+            <button type="button" class="btn" style="background:var(--primary); margin-right:8px;"
+              onclick="openOrderModal()">➕ 新規注文</button>
             <button type="button" class="btn" style="background:var(--danger); margin-right:8px;"
               onclick="bulkDelete('ORDERS')">🗑 一括削除</button>
             <button class="btn btn-outline" onclick="loadAdminOrders()">🔄 更新</button>
@@ -739,15 +741,6 @@
             <div class="form-group">
               <label>通知タイトル</label>
               <input type="text" id="pushTitle" placeholder="例：新しいブログを公開しました！" value="まゆみ助産院">
-            </div>
-            <div class="form-group">
-              <label>配信対象</label>
-              <select id="pushTarget">
-                <option value="all">全配信（全員）</option>
-                <option value="妊娠中">妊娠中の方のみ</option>
-                <option value="産後">産後の方のみ</option>
-                <option value="その他">その他の方のみ</option>
-              </select>
             </div>
             <div class="form-group">
               <label>通知本文</label>
@@ -1327,6 +1320,61 @@
       </div>
     </div>
   </div>
+  <!-- 注文編集/新規作成モーダル -->
+  <div id="orderEditModal" class="modal">
+    <div class="modal-content">
+      <h3 id="orderModalTitle" style="margin-bottom: 15px;">📦 注文の編集</h3>
+      <form id="orderEditForm" onsubmit="submitOrder(event)">
+        <input type="hidden" id="editOrderId">
+        <div class="form-group">
+          <label>注文日</label>
+          <input type="date" id="editOrderDate" required>
+        </div>
+        <div class="form-group">
+          <label>お客様名</label>
+          <input type="text" id="editOrderCustomerName" placeholder="例：山田 花子" required>
+        </div>
+        <div class="form-group">
+          <label>会員ID（任意）</label>
+          <input type="text" id="editOrderMemberId" placeholder="例：M12345">
+        </div>
+        <div class="form-group">
+          <label>商品の追加</label>
+          <div class="flex" style="gap: 5px; margin-bottom: 10px;">
+            <select id="addOrderItemSelect" style="flex: 2;">
+              <option value="">商品を選択してください</option>
+            </select>
+            <input type="number" id="addOrderItemQty" value="1" min="1" style="flex: 1; width: 60px;">
+            <button type="button" class="btn" onclick="addItemToOrder()"
+              style="padding: 5px 10px; font-size: 12px; background: var(--sage);">追加</button>
+          </div>
+          <div id="selectedItemsList"
+            style="background: #fdfdfd; border: 1px solid #eee; border-radius: 8px; padding: 10px; min-height: 50px;">
+            <p style="color: #999; font-size: 12px; margin: 0; text-align: center;">商品が追加されていません</p>
+          </div>
+          <input type="hidden" id="editOrderItemName">
+        </div>
+        <div class="form-group">
+          <label>ステータス</label>
+          <select id="editOrderStatus">
+            <option value="未受取">未受取</option>
+            <option value="受取済">受取済</option>
+          </select>
+        </div>
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="editOrderChecked" style="width: 18px; height: 18px;">
+          <label style="margin-bottom: 0;">受取確認済み（一覧から非表示にする）</label>
+        </div>
+        <div class="flex" style="margin-top: 20px; gap: 10px;">
+          <button type="submit" class="btn" style="flex: 2;">保存する</button>
+          <button type="button" class="btn btn-outline" style="flex: 1;"
+            onclick="document.getElementById('orderEditModal').classList.remove('active')">キャンセル</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
 
   <!-- 会員編集モーダル -->
   <div id="userEditModal" class="modal">
@@ -1384,7 +1432,7 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxNpiK0GBf96BldM-mBNy-6izk5RqaQjf4rMvf4CIvlkqdHw7sUEhOynm2pMg61MaZNRQ/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzncb71ZVaIgtFifR3dKdM1nSs-seF5lzMs9PTqFH78gJu3qGTpQ3m7LXcsQa5yXADKtw/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -1410,6 +1458,7 @@
       } else {
         loadAdminOrders();
         loadCategoryMaster();
+        loadAdminProducts();
       }
     };
 
@@ -1440,7 +1489,8 @@
         const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : (type === 'PUSH' ? 'push-sel' : 'order-sel')));
         let checkboxes;
         if (btnElement) {
-          const tableWrap = btnElement.closest('.page').querySelector('.table-wrapper:has(.push-sel)') || btnElement.closest('.page').querySelector('.table-wrapper:has(input:checked)');
+          const page = btnElement.closest('.page');
+          const tableWrap = page ? page.querySelector('.table-wrapper') : null;
           if (tableWrap) {
             checkboxes = tableWrap.querySelectorAll(`.${cls}:checked`);
           } else {
@@ -1712,12 +1762,12 @@
       pbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
 
       // 1. 商品一覧（マスタ）のデータを取得して同期する（商品管理との連動）
-      if (typeof window.allProducts === 'undefined' || !window.allProducts) {
+      if (!allProducts || allProducts.length === 0) {
         const prodRes = await apiRequest('getAdminProducts');
         if (prodRes && prodRes.status === 'ok') {
-          window.allProducts = prodRes.products || [];
+          allProducts = prodRes.products || [];
         } else {
-          window.allProducts = [];
+          allProducts = [];
         }
       }
 
@@ -1753,9 +1803,9 @@
 
       // --- 商品リストの同期 (商品管理のデータを基準にする) ---
       let displayProducts = [];
-      if (typeof window.allProducts !== 'undefined' && window.allProducts.length > 0) {
+      if (allProducts && allProducts.length > 0) {
         // 商品管理画面に登録されている全ての商品名を取得（追加・削除に自動追従）
-        displayProducts = window.allProducts.map(p => p.name);
+        displayProducts = allProducts.map(p => p.name);
       } else {
         // 万が一取得できなかった場合のフォールバック
         displayProducts = res.products || [];
@@ -2011,13 +2061,19 @@
     }
 
     /* === 注文管理 === */
+    /* === 注文管理 === */
+    let allOrders = [];
+    let currentOrderItems = [];
+    let allProducts = [];
+
     async function loadAdminOrders() {
       const showAll = document.getElementById('showAllOrders').checked;
       const tbody = document.getElementById('ordersList');
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
       const res = await apiRequest('getAdminOrders', { showAll: showAll });
       if (res && res.status === 'ok') {
-        renderOrders(res.orders);
+        allOrders = res.orders || [];
+        renderOrders(allOrders);
       } else {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">データ取得に失敗しました</td></tr>';
       }
@@ -2038,7 +2094,7 @@
 
         tr.innerHTML = `
           <td><input type="checkbox" class="order-sel" data-id="${o.orderId}"></td>
-          <td style="font-size:11px;">${new Date(o.date).toLocaleDateString('ja-JP')}</td>
+          <td style="font-size:11px;">${o.date ? new Date(o.date).toLocaleDateString('ja-JP') : '-'}</td>
           <td>
             <div style="font-size:12px; font-weight:bold;">${o.memberId || '-'}</div>
             <div style="font-size:11px; color:var(--text-mid);">${o.customerName}</div>
@@ -2055,6 +2111,7 @@
           </td>
           <td>
             <div class="flex" style="gap:5px;">
+              <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="openOrderModal('${o.orderId}')">📝</button>
               <button class="btn" style="padding:5px 8px; font-size:11px;" onclick="saveOrder('${o.orderId}')">更新</button>
               <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); border:none; border-radius:4px; cursor:pointer;" onclick="deleteOrder('${o.orderId}')">🗑</button>
             </div>
@@ -2062,6 +2119,131 @@
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    function openOrderModal(orderId = null) {
+      const modal = document.getElementById('orderEditModal');
+      const title = document.getElementById('orderModalTitle');
+      const form = document.getElementById('orderEditForm');
+
+      const select = document.getElementById('addOrderItemSelect');
+      if (select) {
+        select.innerHTML = '<option value="">商品を選択してください</option>';
+        console.log('openOrderModal(admin.html): populating select. allProducts size:', allProducts ? allProducts.length : 'null');
+        if (Array.isArray(allProducts)) {
+          allProducts.forEach(p => {
+            if (p.status === '公開') {
+              const opt = document.createElement('option');
+              opt.value = p.name;
+              opt.dataset.price = p.price;
+              opt.innerText = `${p.name} (¥${Number(p.price).toLocaleString()})`;
+              select.appendChild(opt);
+            }
+          });
+        }
+      }
+
+      if (orderId) {
+        title.innerText = '📦 注文の編集';
+        const o = allOrders.find(item => item.orderId === orderId);
+        if (!o) return;
+
+        document.getElementById('editOrderId').value = o.orderId;
+        document.getElementById('editOrderDate').value = o.date ? new Date(o.date).toISOString().split('T')[0] : '';
+        document.getElementById('editOrderCustomerName').value = o.customerName || '';
+        document.getElementById('editOrderMemberId').value = o.memberId || '';
+        document.getElementById('editOrderStatus').value = o.status || '未受取';
+        document.getElementById('editOrderChecked').checked = o.checked || false;
+        currentOrderItems = (o.items || []).map(it => ({ name: it.name, qty: it.qty, price: it.price }));
+      } else {
+        title.innerText = '✨ 新規注文の作成';
+        form.reset();
+        document.getElementById('editOrderId').value = '';
+        document.getElementById('editOrderDate').valueAsDate = new Date();
+        currentOrderItems = [];
+      }
+
+      renderOrderItems();
+      modal.classList.add('active');
+    }
+
+    function addItemToOrder() {
+      const select = document.getElementById('addOrderItemSelect');
+      const qtyInput = document.getElementById('addOrderItemQty');
+      const productName = select.value;
+      const qty = parseInt(qtyInput.value);
+
+      if (!productName) { showToast('商品を選択してください'); return; }
+      if (qty < 1) { showToast('個数は1以上を指定してください'); return; }
+
+      const selectedOption = select.options[select.selectedIndex];
+      const price = parseInt(selectedOption.dataset.price) || 0;
+
+      const existing = currentOrderItems.find(it => it.name === productName);
+      if (existing) { existing.qty += qty; } else { currentOrderItems.push({ name: productName, qty: qty, price: price }); }
+
+      renderOrderItems();
+      qtyInput.value = 1;
+      select.value = '';
+    }
+
+    function removeItemFromOrder(index) {
+      currentOrderItems.splice(index, 1);
+      renderOrderItems();
+    }
+
+    function renderOrderItems() {
+      const list = document.getElementById('selectedItemsList');
+      if (currentOrderItems.length === 0) {
+        list.innerHTML = '<p style="color: #999; font-size: 12px; margin: 0; text-align: center;">商品が追加されていません</p>';
+        return;
+      }
+      let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
+      currentOrderItems.forEach((it, idx) => {
+        html += `
+          <li style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
+            <div style="font-size: 13px;">
+              <strong>${it.name}</strong><br>
+              <span style="color: #666;">¥${it.price.toLocaleString()} x ${it.qty} = ¥${(it.price * it.qty).toLocaleString()}</span>
+            </div>
+            <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: var(--danger);" onclick="removeItemFromOrder(${idx})">削除</button>
+          </li>
+        `;
+      });
+      html += '</ul>';
+      list.innerHTML = html;
+    }
+
+    async function submitOrder(e) {
+      e.preventDefault();
+      const orderId = document.getElementById('editOrderId').value;
+      const isEdit = !!orderId;
+
+      if (currentOrderItems.length === 0) { showToast('商品を追加してください'); return; }
+      const total = currentOrderItems.reduce((sum, it) => sum + (it.price * it.qty), 0);
+
+      const data = {
+        type: isEdit ? 'updateAdminOrder' : 'createOrder',
+        orderId: orderId,
+        date: document.getElementById('editOrderDate').value,
+        customerName: document.getElementById('editOrderCustomerName').value,
+        memberId: document.getElementById('editOrderMemberId').value,
+        items: currentOrderItems,
+        total: total,
+        status: document.getElementById('editOrderStatus').value,
+        checked: document.getElementById('editOrderChecked').checked
+      };
+
+      showToast(isEdit ? '注文を更新中...' : '注文を新規作成中...');
+      const res = await apiRequest('', data, true);
+      if (res && res.status === 'ok') {
+        const isDeleted = res.deleted || data.checked;
+        showToast(isDeleted ? '受取確認済み — 一覧から削除しました' : (isEdit ? '注文情報を更新しました' : '新規注文を作成しました'));
+        document.getElementById('orderEditModal').classList.remove('active');
+        loadAdminOrders();
+      } else {
+        showToast('エラーが発生しました: ' + (res ? res.message : '不明'));
+      }
     }
 
     async function deleteOrder(orderId) {
@@ -2083,7 +2265,7 @@
       showToast('更新中...');
       const res = await apiRequest('', { type: 'updateOrder', orderId: orderId, status: status, checked: checked }, true);
       if (res && res.status === 'ok') {
-        if (checked) {
+        if (checked || res.deleted) {
           showToast('受取確認済み — 一覧から削除しました');
           loadAdminOrders(); // 一覧を再読み込み
         } else {
@@ -2373,7 +2555,8 @@
 
       const res = await apiRequest('getAdminProducts');
       if (res && res.status === 'ok') {
-        allProducts = res.products;
+        allProducts = Array.isArray(res.products) ? res.products : [];
+        console.log('loadAdminProducts(admin.html): loaded products:', allProducts.length);
         tbodyPub.innerHTML = '';
         if (tbodyDraft) tbodyDraft.innerHTML = '';
 
@@ -2733,12 +2916,12 @@
     async function sendBroadcastPush() {
       const title = document.getElementById('pushTitle').value.trim();
       const body = document.getElementById('pushBody').value.trim();
-      const targetStatus = document.getElementById('pushTarget').value;
+      const targetStatus = 'all'; 
       if (!title || !body) {
         alert('タイトルと本文を入力してください');
         return;
       }
-      if (!confirm('配信対象（' + targetStatus + '）に対し、通知を送信しますか？')) return;
+      if (!confirm('通知を送信しますか？')) return;
 
       showToast('Push通知を送信中...');
       const res = await apiRequest('', { type: 'broadcastPush', title, body, targetStatus }, true);
