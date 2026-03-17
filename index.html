@@ -1573,7 +1573,15 @@
       font-size: 20px;
       font-weight: 700;
       color: var(--brown);
-      margin-bottom: 13px;
+      margin-bottom: 8px;
+    }
+
+    .prod-desc {
+      font-size: 13px;
+      color: var(--text-mid);
+      line-height: 1.6;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
     }
 
     .qty-row {
@@ -1868,7 +1876,23 @@
       </div>
 
       <div class="section">
-        <h2 class="sec-title">🌸 スタンプカード</h2>
+        <h2 class="sec-title">🌸 スタンプを取得する</h2>
+        <div
+          style="background:var(--warm-white);border-radius:16px;padding:22px 18px;box-shadow:0 4px 20px var(--shadow-soft);border:1px solid var(--border);text-align:center">
+          <div style="font-size:64px;margin-bottom:13px">📍</div>
+          <div style="font-family:'Zen Old Mincho',serif;font-size:17px;color:var(--text-dark);margin-bottom:7px">
+            院内のQRコードをスキャン</div>
+          <div style="font-size:11.5px;color:var(--text-light);line-height:1.85;margin-bottom:18px">
+            受付・待合室に貼られているQRコードを<br>スキャンするとスタンプが追加されます。</div>
+          <button class="btn primary" onclick="openScannerModal()"
+            style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:18px; width:100%">
+            <span style="font-size:16px;">📷</span> カメラを起動して読み取る
+          </button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 class="sec-title">🌿 現在のスタンプカード</h2>
         <div class="stamp-card">
           <div class="stamp-head">
             <div class="stamp-head-info">
@@ -1880,8 +1904,10 @@
           <div class="stamp-grid" id="homeStampGrid"></div>
           <div class="stamp-footer">
             <div class="stamp-count"><b id="homeStampCount">7</b> / 10</div>
-            <div class="stamp-msg" id="homeStampMsg">あと3回でプレゼント🎁</div>
+            <div id="homeStampMsg" class="stamp-msg">あと3回でプレゼント🎁</div>
           </div>
+          <button id="stampNewCardBtn" class="btn primary" style="display:none; margin-top:16px; width:100%"
+            onclick="startNewCard()">🌸 新しいスタンプカードを取得</button>
         </div>
       </div>
 
@@ -1935,6 +1961,11 @@
             <div class="spinner"></div>
           </div>
         </div>
+        <div style="margin-top:15px; text-align:center;">
+          <button class="btn btn-outline"
+            style="width:100%; border-color:var(--sage); color:var(--sage-dark); font-weight:600; padding:12px; border-radius:12px;"
+            onclick="switchPage('menu-list')">🍴 まゆみ助産院のメニュー一覧 🍴</button>
+        </div>
       </div>
 
       <div class="section" style="padding-bottom:26px">
@@ -1984,75 +2015,43 @@
     </div>
   </div>
 
-  <!-- ========== STAMP ========== -->
-  <div id="page-stamp" class="page">
+  <!-- ========== SURVEY ========== -->
+  <div id="page-survey" class="page">
     <div class="main">
-      <div class="banner" id="stampBanner">
+      <div class="banner">
         <div class="banner-overlay"></div>
         <div style="position:relative; z-index:1;">
-          <p class="banner-sub">スタンプカード</p>
-          <p class="banner-name" id="stampBannerTitle">7 / 10 スタンプ</p>
-          <div class="banner-chip"><span class="chip-num" id="stampBannerNum">7</span><span
-              class="chip-label">個獲得中</span>
-          </div>
+          <p class="banner-sub">大切なお声をお聞かせください</p>
+          <p class="banner-name">アンケート</p>
         </div>
       </div>
-      <div class="section">
-        <h2 class="sec-title">📱 スタンプを取得する</h2>
-        <div
-          style="background:var(--warm-white);border-radius:16px;padding:22px 18px;box-shadow:0 4px 20px var(--shadow-soft);border:1px solid var(--border);text-align:center">
-          <div style="font-size:64px;margin-bottom:13px">📍</div>
-          <div style="font-family:'Zen Old Mincho',serif;font-size:17px;color:var(--text-dark);margin-bottom:7px">
-            院内のQRコードをスキャン</div>
-          <div style="font-size:11.5px;color:var(--text-light);line-height:1.85;margin-bottom:18px">
-            受付・待合室に貼られているQRコードを<br>スキャンするとスタンプが追加されます。</div>
-          <button class="btn primary" onclick="openScannerModal()"
-            style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:18px; width:100%">
-            <span style="font-size:16px;">📷</span> カメラを起動して読み取る
-          </button>
-          <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:18px">
-            <div
-              style="display:flex;align-items:center;gap:10px;text-align:left;background:var(--cream);border-radius:10px;padding:9px 13px">
-              <div
-                style="width:22px;height:22px;border-radius:50%;background:var(--sage);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                1</div>
-              <div style="font-size:11.5px;color:var(--text-mid)">上の「カメラを起動」ボタンを押す</div>
-            </div>
-            <div
-              style="display:flex;align-items:center;gap:10px;text-align:left;background:var(--cream);border-radius:10px;padding:9px 13px">
-              <div
-                style="width:22px;height:22px;border-radius:50%;background:var(--sage);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                2</div>
-              <div style="font-size:11.5px;color:var(--text-mid)">院内に掲示されているQRコードを読み取る</div>
-            </div>
-            <div
-              style="display:flex;align-items:center;gap:10px;text-align:left;background:var(--cream);border-radius:10px;padding:9px 13px">
-              <div
-                style="width:22px;height:22px;border-radius:50%;background:var(--sage);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                3</div>
-              <div style="font-size:11.5px;color:var(--text-mid)">スタンプが自動的に追加されます🎉</div>
-            </div>
-          </div>
 
+      <div class="section" style="padding-top:20px">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 class="sec-title" style="margin-bottom:0">📝 アンケート一覧</h2>
+          <select id="surveyTitleFilter" onchange="renderSurveys()"
+            style="width:130px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
+            <option value="全て">アンケート名: 全て</option>
+          </select>
+        </div>
+        <div id="surveyList" style="margin-top:12px">
+          <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">現在回答可能なアンケートはありません</div>
         </div>
       </div>
-      <div class="section" style="padding-bottom:24px">
-        <h2 class="sec-title">🌿 現在のカード</h2>
-        <div class="stamp-card">
-          <div class="stamp-head">
-            <div class="stamp-head-info">
-              <h3>ご来院スタンプ</h3>
-              <p>10個でプレゼントをお渡しします</p>
-            </div>
-            <div class="stamp-pill" id="stampCardLabel">来院カード</div>
-          </div>
-          <div class="stamp-grid" id="stampPageGrid"></div>
-          <div class="stamp-footer">
-            <div class="stamp-count"><b id="stampPageCount">7</b> / 10</div>
-            <div class="stamp-msg" id="stampPageMsg">あと3回でプレゼント🎁</div>
-          </div>
-          <button id="stampNewCardBtn" class="btn primary" style="display:none; margin-top:16px; width:100%"
-            onclick="startNewCard()">🌸 新しいスタンプカードを取得</button>
+    </div>
+  </div>
+
+  <!-- === メニュー一覧ページ === -->
+  <div id="page-menu-list" class="page">
+    <div class="page-header sticky-header">
+      <button class="back-btn" onclick="switchPage('home')">‹</button>
+      <h1 class="page-title">メニュー一覧</h1>
+      <div style="width:40px"></div>
+    </div>
+    <div class="p-content" style="padding-top:70px">
+      <div id="menuListContainer" class="blog-list">
+        <div class="loading-wrap">
+          <div class="spinner"></div>
         </div>
       </div>
     </div>
@@ -2232,6 +2231,13 @@
         </div>
         <div class="cal-evt-list" id="calendar-events-list"></div>
       </div>
+
+      <div class="section" style="padding-bottom:30px">
+        <h2 class="sec-title">📋 今月のイベント一覧</h2>
+        <div class="cal-evt-list" id="calendar-monthly-events-list">
+          <div style="text-align:center;font-size:13px;color:var(--text-light);padding:20px 0">読み込み中...</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2286,18 +2292,7 @@
         </div>
       </div>
 
-      <div class="section" style="padding-top:20px">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h2 class="sec-title" style="margin-bottom:0">📝 アンケート</h2>
-          <select id="surveyTitleFilter" onchange="renderSurveys()"
-            style="width:130px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
-            <option value="全て">アンケート名: 全て</option>
-          </select>
-        </div>
-        <div id="surveyList" style="margin-top:12px">
-          <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">現在回答可能なアンケートはありません</div>
-        </div>
-      </div>
+
       <div class="section" style="padding-top:20px;padding-bottom:26px">
         <h2 class="sec-title">🔗 公式サイト・SNS</h2>
         <div class="sns-grid">
@@ -2350,8 +2345,6 @@
     <div class="nav-row">
       <button class="nav-btn active" id="nav-home" onclick="switchPage('home')"><span
           class="nav-icon">🏠</span><span>ホーム</span></button>
-      <button class="nav-btn" id="nav-stamp" onclick="switchPage('stamp')"><span
-          class="nav-icon">🌿</span><span>スタンプ</span></button>
       <button class="nav-btn" id="nav-shop" onclick="switchPage('shop')">
         <span class="nav-badge" id="badge-shop"></span>
         <span class="nav-icon">🛍</span><span>ショップ</span>
@@ -2364,6 +2357,8 @@
         <span class="nav-badge" id="badge-blog"></span>
         <span class="nav-icon">📢</span><span>ブログ</span>
       </button>
+      <button class="nav-btn" id="nav-survey" onclick="switchPage('survey')"><span
+          class="nav-icon">📝</span><span>アンケート</span></button>
       <button class="nav-btn" id="nav-mypage" onclick="switchPage('mypage')"><span
           class="nav-icon">👤</span><span>マイページ</span></button>
     </div>
@@ -2376,6 +2371,7 @@
       <div id="prodModalImg" class="prod-img c1">🍵</div>
       <div id="prodModalName" class="prod-name">商品名</div>
       <div id="prodModalPrice" class="prod-price">¥0</div>
+      <div id="prodModalDesc" class="prod-desc">商品説明</div>
       <div class="qty-row">
         <span class="qty-label">個数</span>
         <div class="qty-ctrl">
@@ -2400,13 +2396,6 @@
           <p id="stampPopMsg">スタンプを1つ追加しました！</p>
           <small id="stampPopCount">現在 8 / 10</small>
         </div>
-      </div>
-      <div id="stampReward" style="display:none;text-align:center;padding:10px 0">
-        <div style="font-size:60px;margin-bottom:11px">🎁</div>
-        <div class="modal-title">10個達成おめでとうございます！</div>
-        <p style="font-size:13px;color:var(--text-light);line-height:1.8;margin-bottom:12px">次回ご来院時に受付にてプレゼントをお受け取りください。
-        </p>
-        <button class="btn primary" style="margin-top:8px" onclick="startNewCard()">🌸 新しいスタンプカードを取得</button>
       </div>
       <button class="btn secondary" onclick="closeModal('stampModal')">閉じる</button>
     </div>
@@ -2501,7 +2490,7 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwFpI4DIYl4pGsAJNex-ZN2JUOu1Oi0PBuQ3iIXw2S8gsFNCYP36B8HIaQ41b0P-PH_Lg/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzrWkHswMoAixn3FOnUJ6GenloxC23xgmGJBqr7_oKPAmSSMiE9JBnEWE_MoAAduN67lg/exec';
 
     // GASからデータ取得（doGet対応）
     // action: 'getNews' | 'getProducts'
@@ -2639,22 +2628,22 @@
       }
     }
     function updateStampUI() {
-      renderStampGrid('homeStampGrid', stampCount);
-      renderStampGrid('stampPageGrid', stampCount);
+      const grid = document.getElementById('homeStampGrid');
+      if (grid) renderStampGrid('homeStampGrid', stampCount);
+
       const rem = Math.max(0, 10 - stampCount);
-      document.getElementById('homeStampNum').textContent = stampCount;
-      document.getElementById('homeStampCount').textContent = stampCount;
-      document.getElementById('stampBannerNum').textContent = stampCount;
-      document.getElementById('stampBannerTitle').textContent = `${stampCount} / 10 スタンプ`;
-      document.getElementById('stampPageCount').textContent = stampCount;
+      const elNum = document.getElementById('homeStampNum');
+      if (elNum) elNum.textContent = stampCount;
+      const elCount = document.getElementById('homeStampCount');
+      if (elCount) elCount.textContent = stampCount;
+
       const msg = rem > 0 ? `あと${rem}回でプレゼント🎁` : '達成済み🎉 新しいカードを取得できます！';
-      document.getElementById('homeStampMsg').textContent = msg;
-      document.getElementById('stampPageMsg').textContent = msg;
-      // カード枚数表示
-      const cardLabel = document.getElementById('stampCardLabel');
+      const elMsg = document.getElementById('homeStampMsg');
+      if (elMsg) elMsg.textContent = msg;
+
+      const cardLabel = document.getElementById('homeStampCardLabel');
       if (cardLabel) cardLabel.textContent = `${stampCardNum}枚目`;
 
-      // 10個溜まったときに手動で新しいカードを取得するボタンを表示
       const newCardBtn = document.getElementById('stampNewCardBtn');
       if (newCardBtn) {
         newCardBtn.style.display = stampCount >= 10 ? 'block' : 'none';
@@ -2673,17 +2662,17 @@
         return;
       }
 
-      if (stampCount >= 10) { showToast('10個達成！新しいカードを取得してください'); return; }
+      if (stampCount >= 10) { showToast('達成済み！特典チケットを使用してください 🎁'); return; }
       stampCount++;
       try {
         localStorage.setItem('mayumi_stamp', stampCount);
         localStorage.setItem('mayumi_last_stamp_date', today);
       } catch (e) { }
+
       updateStampUI();
       document.getElementById('stampPopMsg').textContent = 'ご来院ありがとうございます！スタンプを1つ追加しました！';
       document.getElementById('stampPopCount').textContent = `現在 ${stampCount} / 10`;
-      document.getElementById('stampNormal').style.display = stampCount >= 10 ? 'none' : 'block';
-      document.getElementById('stampReward').style.display = stampCount >= 10 ? 'block' : 'none';
+
       openModal('stampModal');
     }
     function startNewCard() {
@@ -2697,6 +2686,7 @@
       closeModal('stampModal');
       showToast(`🌸 ${stampCardNum}枚目のスタンプカードを開始しました！`);
     }
+
 
     // ===== カレンダー =====
     let calendarData = [];
@@ -2807,6 +2797,7 @@
 
       gridInfo.innerHTML = html;
       renderEventsList();
+      renderMonthlyEventsList();
       console.log('[カレンダー] レンダリング完了');
     }
 
@@ -2858,6 +2849,49 @@
             `;
         });
       }
+      el.innerHTML = html;
+    }
+
+    function renderMonthlyEventsList() {
+      const el = document.getElementById('calendar-monthly-events-list');
+      if (!el) return;
+
+      const year = currentMonthDate.getFullYear();
+      const month = currentMonthDate.getMonth() + 1;
+      const prefix = `${year}-${String(month).padStart(2, '0')}-`;
+
+      const monthlyEvts = calendarData.filter(e => e.date.startsWith(prefix))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      if (monthlyEvts.length === 0) {
+        el.innerHTML = `<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">今月の予定はありません</div>`;
+        return;
+      }
+
+      let html = '';
+      monthlyEvts.forEach(e => {
+        const d = new Date(e.date);
+        const dayStr = `${d.getMonth() + 1}/${d.getDate()}(${['日', '月', '火', '水', '木', '金', '土'][d.getDay()]})`;
+
+        let imgHtml = '';
+        if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
+          imgHtml = `<img src="${e.image}" style="width:100%; max-width:300px; border-radius:8px; margin-top:8px; display:block;">`;
+        }
+
+        html += `
+          <div class="cal-evt-item" onclick="selectCalendarDate(${d.getFullYear()}, ${d.getMonth()}, ${d.getDate()})">
+            <div style="font-size:12px; color:var(--text-mid); font-weight:bold; margin-bottom:4px;">${dayStr}</div>
+            <div style="display:flex; gap:10px; align-items:start;">
+              <div class="cal-evt-color" style="background:${e.color}"></div>
+              <div class="cal-evt-details">
+                <div class="cal-evt-title">${e.title}</div>
+                ${e.desc ? `<div class="cal-evt-desc">${e.desc}</div>` : ''}
+                ${imgHtml}
+              </div>
+            </div>
+          </div>
+        `;
+      });
       el.innerHTML = html;
     }
 
@@ -2971,14 +3005,17 @@
       // --- 日付の新しい順にソート ---
       items.sort((a, b) => b.ts - a.ts);
 
-      if (items.length === 0) {
+      // --- 最大30件に制限 ---
+      const displayItems = items.slice(0, 30);
+
+      if (displayItems.length === 0) {
         list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light);">現在お知らせはありません。</div>';
         return;
       }
 
       // --- 描画 ---
       let html = '';
-      items.forEach(item => {
+      displayItems.forEach(item => {
         let dateStr = '';
         if (item.ts > 0) {
           const d = new Date(item.ts);
@@ -3496,6 +3533,7 @@
       }
       document.getElementById('prodModalName').textContent = p.name;
       document.getElementById('prodModalPrice').textContent = '¥' + p.price.toLocaleString() + '（税込）';
+      document.getElementById('prodModalDesc').textContent = p.description || '';
       document.getElementById('modalQtyDisp').textContent = 1;
       openModal('productModal');
     }
@@ -3710,6 +3748,9 @@
       }
       if (name === 'calendar') {
         renderCalendar();
+      }
+      if (name === 'menu-list') {
+        loadMenus();
       }
     }
 
@@ -3944,6 +3985,11 @@
           kana: '',
           memo: ''
         });
+
+        // OneSignal タグ設定
+        if (window.OneSignalRef) {
+          // OneSignalRef.User.addTag("status", status);
+        }
       })();
     }
 
@@ -3971,6 +4017,8 @@
     function openSetupModal(isFirst) {
       document.getElementById('setupName').value = '';
       document.getElementById('setupPhone').value = '';
+      const defStatus = document.querySelector('input[name="setupStatus"][value="妊娠中"]');
+      if (defStatus) defStatus.checked = true;
       // アバタープレビューリセット
       const preview = document.getElementById('avatarPreview');
       if (preview) preview.src = DEFAULT_AVATAR;
@@ -4056,7 +4104,7 @@
           // すでにプロフィール登録済みの場合のみスタンプを付与
           if (_profile) {
             addStamp();
-            switchPage('stamp');
+            switchPage('home');
           } else {
             // 未登録の場合は一旦登録を促す（次回以降のアクセスに備える）
             showToast('まずはプロフィールを登録してください🌿');
@@ -4475,6 +4523,7 @@
         <input class="setup-input" id="setupPhone" type="tel" placeholder="例：090-1234-5678" maxlength="15"
           autocomplete="tel">
       </div>
+
       <button class="btn primary" id="setupBtn" onclick="saveProfile()" style="margin-top:4px">登録してアプリを始める 🌿</button>
       <button class="btn secondary" id="setupCancelBtn" onclick="closeSetupModal()" style="display:none;">キャンセル</button>
     </div>
@@ -4576,6 +4625,44 @@
       if (_qrStream) {
         _qrStream.getTracks().forEach(track => track.stop());
         _qrStream = null;
+      }
+    }
+
+    // メニュー一覧取得
+    async function loadMenus() {
+      const container = document.getElementById('menuListContainer');
+      if (!container) return;
+
+      container.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+
+      const res = await apiRequest('getMenus');
+      if (res && res.status === 'ok') {
+        const menus = res.menus || [];
+        if (menus.length === 0) {
+          container.innerHTML = '<div class="empty-state">現在公開中のメニューはありません</div>';
+          return;
+        }
+
+        let html = '';
+        menus.forEach(m => {
+          html += `
+            <div class="news-item" style="padding:0; overflow:hidden; border-radius:16px; margin-bottom:20px; box-shadow:0 4px 15px rgba(0,0,0,0.05);">
+              ${m.imageUrl ? `<img src="${m.imageUrl}" style="width:100%; height:200px; object-fit:cover; display:block;">` : ''}
+              <div style="padding:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:start; gap:10px;">
+                  <h3 style="margin:0; font-size:18px; color:var(--text-main); flex:1;">${m.name}</h3>
+                  <span class="status-chip ${m.reservationStatus === '予約受付中' ? 's-pending' : 's-cancelled'}" style="margin:0; white-space:nowrap;">
+                    ${m.reservationStatus}
+                  </span>
+                </div>
+                <div style="margin-top:10px; font-size:14px; color:var(--text-mid); line-height:1.6; white-space:pre-wrap;">${m.description || ''}</div>
+              </div>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      } else {
+        container.innerHTML = '<div class="empty-state">読み込みに失敗しました</div>';
       }
     }
   </script>
