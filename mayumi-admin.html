@@ -393,6 +393,9 @@
       <div class="nav-item" onclick="switchPage('analytics', this)">
         <span>📊</span>データ分析
       </div>
+      <div class="nav-item" onclick="switchPage('menus', this)">
+        <span>🍴</span>メニュー管理
+      </div>
       <div class="nav-item" onclick="switchPage('category-master', this)">
         <span>🏷️</span>カテゴリ管理
       </div>
@@ -572,6 +575,10 @@
         </div>
       </section>
 
+
+
+
+
       <!-- === 商品管理ページ === -->
       <section id="page-products" class="page">
         <div class="flex space-between mb-2">
@@ -607,6 +614,10 @@
                 <label>仕入値(円)</label>
                 <input type="number" id="prodCost" placeholder="利益計算用 例：1000" required>
               </div>
+            </div>
+            <div class="form-group mb-2">
+              <label>商品説明</label>
+              <textarea id="prodDesc" rows="3" placeholder="商品の特徴や詳細を入力してください..."></textarea>
             </div>
             <div class="form-group">
               <label>★画像（アイコン）をアップロード（スマホのライブラリから選択可能）</label>
@@ -703,6 +714,15 @@
               <input type="text" id="pushTitle" placeholder="例：新しいブログを公開しました！" value="まゆみ助産院">
             </div>
             <div class="form-group">
+              <label>配信対象</label>
+              <select id="pushTarget">
+                <option value="all">全配信（全員）</option>
+                <option value="妊娠中">妊娠中の方のみ</option>
+                <option value="産後">産後の方のみ</option>
+                <option value="その他">その他の方のみ</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label>通知本文</label>
               <textarea id="pushBody" rows="2" placeholder="通知の内容を入力してください..."></textarea>
             </div>
@@ -726,6 +746,33 @@
             <tbody id="usersList">
               <tr>
                 <td colspan="7" style="text-align:center;">読み込み中...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex space-between mb-2" style="margin-top:40px;">
+          <h2>📣 送信済みお知らせ（Push通知）履歴</h2>
+          <div class="flex">
+            <button type="button" class="btn" style="background:var(--danger); margin-right:8px;"
+              onclick="bulkDelete('PUSH', this)">🗑 一括削除</button>
+            <button class="btn btn-outline" onclick="loadAdminPushNotices()">🔄 更新</button>
+          </div>
+        </div>
+        <div class="card table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('PUSH', this)"></th>
+                <th>送信日時</th>
+                <th>タイトル</th>
+                <th>本文</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="pushNoticesList">
+              <tr>
+                <td colspan="5" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -942,88 +989,181 @@
         </div>
       </section>
 
-      <!-- === データ分析ページ === -->
-      <section id="page-analytics" class="page">
+      <!-- === メニュー管理ページ === -->
+      <section id="page-menus" class="page">
         <div class="flex space-between mb-2">
-          <h2>データ分析</h2>
+          <h2>メニュー管理</h2>
           <div class="flex">
-            <button class="btn btn-outline" onclick="loadAnalytics()">🔄 更新</button>
-          </div>
-        </div>
-
-        <div class="card mb-2">
-          <div class="card-title">💰 収益サマリー (月別)</div>
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr id="profitHeader">
-                  <th>項目</th>
-                </tr>
-              </thead>
-              <tbody id="profitBody">
-                <tr>
-                  <td colspan="1" style="text-align:center;">読み込み中...</td>
-                </tr>
-              </tbody>
-            </table>
+            <button class="btn btn-outline" onclick="loadAdminMenus()">🔄 更新</button>
           </div>
         </div>
 
         <div class="card">
-          <div class="card-title">📦 商品別販売数</div>
-          <div class="table-wrapper">
-            <table id="analyticsTable">
-              <thead>
-                <tr id="analyticsHeader">
-                  <th>商品名</th>
-                </tr>
-              </thead>
-              <tbody id="analyticsBody">
-                <tr>
-                  <td colspan="1" style="text-align:center;">読み込み中...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+          <div id="menuFormTitle" class="card-title">✨ 新しいメニューを追加する</div>
+          <form id="menuForm" onsubmit="submitMenu(event)">
+            <input type="hidden" id="menuRowIdx" value="">
+            <input type="hidden" id="menuPublishStatus" value="公開">
 
-      <section id="page-category-master" class="page">
-        <h2>🏷️ カテゴリ管理</h2>
+            <div class="form-group">
+              <label>メニュー名</label>
+              <input type="text" id="menuName" placeholder="例：骨盤ケア・整体" required>
+            </div>
 
-        <div class="card">
-          <div class="card-title">➕ 新規カテゴリ追加</div>
-          <div class="flex" style="gap:10px;">
-            <input type="text" id="newCategoryName" placeholder="例：健康情報" style="flex:1;">
-            <select id="newCategoryType"
-              style="width:120px; padding:8px; border:1px solid var(--border); border-radius:8px;">
-              <option value="ブログ">ブログ</option>
-              <option value="お知らせ">お知らせ</option>
-            </select>
-            <button class="btn" style="width:100px;" onclick="addCategory()">追加</button>
-          </div>
+            <div class="form-group">
+              <label>概要説明</label>
+              <textarea id="menuDescription" rows="3" placeholder="メニューの詳細説明を入力してください..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>画像（フライヤー・写真など）をアップロード</label>
+              <input type="file" id="menuImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
+                onchange="previewMenuImage(event)">
+              <div id="menuImagePreviewArea" style="margin-top:10px; display:none;">
+                <img id="menuImagePreview" alt="プレビュー"
+                  style="max-width: 100%; max-height: 200px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>予約受付ステータス</label>
+              <select id="menuReservationStatus">
+                <option value="予約受付中">予約受付中</option>
+                <option value="予約対象外">予約対象外</option>
+              </select>
+            </div>
+
+            <div class="flex" style="gap:10px; margin-top:20px;">
+              <button type="submit" id="menuSubmitBtn" class="btn" style="flex:2;"
+                onclick="document.getElementById('menuPublishStatus').value='公開'">🍴 公開して保存する</button>
+              <button type="submit" id="menuDraftBtn" class="btn btn-outline"
+                style="flex:1; border-color:var(--text-light); color:var(--text-mid);"
+                onclick="document.getElementById('menuPublishStatus').value='非公開'">📁 下書き保存</button>
+            </div>
+            <button type="button" id="menuCancelEditBtn" class="btn btn-outline"
+              style="width: 100%; margin-top: 10px; display: none;" onclick="cancelMenuEdit()">キャンセル</button>
+          </form>
         </div>
 
-        <div class="card">
-          <div class="card-title">📋 登録済みカテゴリ一覧</div>
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>カテゴリ名</th>
-                  <th style="width:100px; text-align:center;">分類</th>
-                  <th style="width:80px; text-align:center;">操作</th>
-                </tr>
-              </thead>
-              <tbody id="categoryListBody">
-                <tr>
-                  <td colspan="3" style="text-align:center;">読み込み中...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <h3 style="margin-top:30px; margin-bottom:10px; font-size: 16px;">📁 下書き保存一覧</h3>
+        <div class="card table-wrapper mb-2">
+          <table>
+            <thead>
+              <tr>
+                <th>画像</th>
+                <th>メニュー名</th>
+                <th>予約状況</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="menusDraftsList">
+              <tr>
+                <td colspan="4" style="text-align:center;">下書きはありません</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </section>
+
+        <h3 style="margin-top:30px; margin-bottom:10px; font-size: 16px;">🍴 公開済みメニュー一覧</h3>
+        <div class="card table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>画像</th>
+                <th>メニュー名</th>
+                <th>予約状況</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="menusList">
+              <tr>
+                <td colspan="4" style="text-align:center;">読み込み中...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- === データ分析ページ === -->
+        <section id="page-analytics" class="page">
+          <div class="flex space-between mb-2">
+            <h2>データ分析</h2>
+            <div class="flex">
+              <button class="btn btn-outline" onclick="loadAnalytics()">🔄 更新</button>
+            </div>
+          </div>
+
+          <div class="card mb-2">
+            <div class="card-title">💰 収益サマリー (月別)</div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr id="profitHeader">
+                    <th>項目</th>
+                  </tr>
+                </thead>
+                <tbody id="profitBody">
+                  <tr>
+                    <td colspan="1" style="text-align:center;">読み込み中...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">📦 商品別販売数</div>
+            <div class="table-wrapper">
+              <table id="analyticsTable">
+                <thead>
+                  <tr id="analyticsHeader">
+                    <th>商品名</th>
+                  </tr>
+                </thead>
+                <tbody id="analyticsBody">
+                  <tr>
+                    <td colspan="1" style="text-align:center;">読み込み中...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="page-category-master" class="page">
+          <h2>🏷️ カテゴリ管理</h2>
+
+          <div class="card">
+            <div class="card-title">➕ 新規カテゴリ追加</div>
+            <div class="flex" style="gap:10px;">
+              <input type="text" id="newCategoryName" placeholder="例：健康情報" style="flex:1;">
+              <select id="newCategoryType"
+                style="width:120px; padding:8px; border:1px solid var(--border); border-radius:8px;">
+                <option value="ブログ">ブログ</option>
+                <option value="お知らせ">お知らせ</option>
+              </select>
+              <button class="btn" style="width:100px;" onclick="addCategory()">追加</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">📋 登録済みカテゴリ一覧</div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>カテゴリ名</th>
+                    <th style="width:100px; text-align:center;">分類</th>
+                    <th style="width:80px; text-align:center;">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="categoryListBody">
+                  <tr>
+                    <td colspan="3" style="text-align:center;">読み込み中...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
 
     </main>
   </div>
@@ -1160,7 +1300,7 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwFpI4DIYl4pGsAJNex-ZN2JUOu1Oi0PBuQ3iIXw2S8gsFNCYP36B8HIaQ41b0P-PH_Lg/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzrWkHswMoAixn3FOnUJ6GenloxC23xgmGJBqr7_oKPAmSSMiE9JBnEWE_MoAAduN67lg/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -1173,7 +1313,9 @@
 
     let GAS_URL = localStorage.getItem('MAYUMI_GAS_URL') || DEFAULT_GAS_URL;
     let allUsers = [];
+    let allMenus = [];
     let allCategories = [];
+    let allPushNotices = [];
 
     document.getElementById('blogDate').valueAsDate = new Date();
     document.getElementById('calDate').valueAsDate = new Date();
@@ -1197,7 +1339,7 @@
     // --- 一括削除・選択関連の新しい機能 ---
     function toggleSelectAll(type, isChecked) {
       try {
-        const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : 'order-sel'));
+        const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : (type === 'PUSH' ? 'push-sel' : 'order-sel')));
         const table = isChecked.closest('table');
         if (table) {
           table.querySelectorAll('.' + cls).forEach(el => el.checked = isChecked.checked);
@@ -1211,10 +1353,10 @@
 
     async function bulkDelete(type, btnElement) {
       try {
-        const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : 'order-sel'));
+        const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : (type === 'PUSH' ? 'push-sel' : 'order-sel')));
         let checkboxes;
         if (btnElement) {
-          const tableWrap = btnElement.closest('.page').querySelector('.table-wrapper:has(input:checked)');
+          const tableWrap = btnElement.closest('.page').querySelector('.table-wrapper:has(.push-sel)') || btnElement.closest('.page').querySelector('.table-wrapper:has(input:checked)');
           if (tableWrap) {
             checkboxes = tableWrap.querySelectorAll(`.${cls}:checked`);
           } else {
@@ -1234,6 +1376,7 @@
         if (type === 'BLOG') label = '件のブログ記事';
         else if (type === 'PRODUCTS') label = '件の商品';
         else if (type === 'CALENDAR') label = '件のイベント';
+        else if (type === 'PUSH') label = '件の通知履歴';
         else label = '件の注文履歴';
 
         if (!confirm(`${count}${label}を削除しますか？\nこの操作は元に戻せません。`)) return;
@@ -1253,6 +1396,7 @@
           if (type === 'BLOG') loadAdminBlogs();
           else if (type === 'PRODUCTS') loadAdminProducts();
           else if (type === 'CALENDAR') loadAdminCalendar();
+          else if (type === 'PUSH') loadAdminPushNotices();
           else loadAdminOrders();
         } else {
           const errMsg = res ? (res.message || 'ステータスが不適切です') : 'レスポンスがありません';
@@ -1301,9 +1445,13 @@
       if (pageId === 'blogs') loadAdminBlogs();
       if (pageId === 'products') loadAdminProducts();
       if (pageId === 'calendar') loadAdminCalendar();
-      if (pageId === 'users') loadAdminUsers();
+      if (pageId === 'users') {
+        loadAdminUsers();
+        loadAdminPushNotices();
+      }
       if (pageId === 'surveys') loadAdminSurveys();
       if (pageId === 'analytics') loadAnalytics();
+      if (pageId === 'menus') loadAdminMenus();
       if (pageId === 'category-master') loadCategoryMaster();
     }
 
@@ -1419,6 +1567,57 @@
       }
     }
 
+    /* === お知らせ（Push通知）管理 === */
+    async function loadAdminPushNotices() {
+      const tbody = document.getElementById('pushNoticesList');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">読み込み中...</td></tr>';
+      const res = await apiRequest('getPushNotices');
+      if (res && res.status === 'ok') {
+        allPushNotices = res.notices || [];
+        renderPushNotices(allPushNotices);
+      } else {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">データ取得に失敗しました</td></tr>';
+      }
+    }
+
+    function renderPushNotices(notices) {
+      const tbody = document.getElementById('pushNoticesList');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      if (notices.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">通知履歴がありません</td></tr>';
+        return;
+      }
+      notices.forEach(n => {
+        const tr = document.createElement('tr');
+        const dateStr = new Date(n.date).toLocaleString('ja-JP');
+        tr.innerHTML = `
+          <td><input type="checkbox" class="push-sel" data-idx="${n.rowIdx}"></td>
+          <td style="font-size:11px;">${dateStr}</td>
+          <td style="font-weight:bold;">${n.title}</td>
+          <td style="font-size:12px;">${n.body}</td>
+          <td>
+            <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deletePushNotice(${n.rowIdx}, '${n.title.replace(/'/g, "\\'")}')">🗑</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function deletePushNotice(rowIdx, title) {
+      if (!confirm(`通知「${title}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+      showToast('削除中...');
+      const res = await apiRequest('', { type: 'deleteRow', sheet: 'PUSH', rowIdx: rowIdx }, true);
+      if (res && res.status === 'ok') {
+        showToast('通知を削除しました');
+        loadAdminPushNotices();
+      } else {
+        const errMsg = res ? (res.message || 'ステータスが不適切です') : 'レスポンスがありません';
+        showToast('削除に失敗しました: ' + errMsg);
+      }
+    }
+
     async function loadAnalytics() {
       const tbody = document.getElementById('analyticsBody');
       const pbody = document.getElementById('profitBody');
@@ -1427,6 +1626,17 @@
       tbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
       pbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
 
+      // 1. 商品一覧（マスタ）のデータを取得して同期する（商品管理との連動）
+      if (typeof window.allProducts === 'undefined' || !window.allProducts) {
+        const prodRes = await apiRequest('getAdminProducts');
+        if (prodRes && prodRes.status === 'ok') {
+          window.allProducts = prodRes.products || [];
+        } else {
+          window.allProducts = [];
+        }
+      }
+
+      // 2. 分析データを取得
       const res = await apiRequest('getAnalytics');
       if (res && res.status === 'ok') {
         renderAnalytics(res);
@@ -1443,41 +1653,82 @@
       const pheader = document.getElementById('profitHeader');
       const pbody = document.getElementById('profitBody');
 
-      // 共通：ヘッダー（月）の生成
-      const headerHtml = '<th>項目 / 月</th>' + res.months.map(m => `<th style="text-align:center;">${m}</th>`).join('');
-      header.innerHTML = headerHtml.replace('項目', '商品名');
-      pheader.innerHTML = headerHtml;
+      // --- 月のフィルタリング (2026年4月以降のみ表示) ---
+      const filteredMonths = res.months.filter(m => {
+        // "2026/04" や "2026年4月" などの文字列から年月を抽出して判定
+        const match = m.match(/(\d{4})[^\d]+(\d{1,2})/);
+        if (match) {
+          const year = parseInt(match[1], 10);
+          const month = parseInt(match[2], 10);
+          if (year > 2026) return true;
+          if (year === 2026 && month >= 4) return true;
+          return false; // 2026年3月以前は除外
+        }
+        return true;
+      });
 
-      // 収益サマリー
-      pbody.innerHTML = '';
-      const financialRows = [
+      // --- 商品リストの同期 (商品管理のデータを基準にする) ---
+      let displayProducts = [];
+      if (typeof window.allProducts !== 'undefined' && window.allProducts.length > 0) {
+        // 商品管理画面に登録されている全ての商品名を取得（追加・削除に自動追従）
+        displayProducts = window.allProducts.map(p => p.name);
+      } else {
+        // 万が一取得できなかった場合のフォールバック
+        displayProducts = res.products || [];
+      }
+
+      // --- 収益サマリー ---
+      const financialCols = [
         { label: '総売上 (円)', key: 'sales' },
         { label: '総原価 (円)', key: 'cost' },
         { label: '純利益 (円)', key: 'profit', style: 'color:var(--primary); font-weight:bold;' }
       ];
 
-      financialRows.forEach(row => {
-        let trHtml = `<td><b style="${row.style || ''}">${row.label}</b></td>`;
-        res.months.forEach(m => {
-          const val = (res.matrix[m] && res.matrix[m][row.key]) || 0;
-          trHtml += `<td style="text-align:center; ${row.style || ''}">${val.toLocaleString()}</td>`;
-        });
-        const tr = document.createElement('tr');
-        tr.innerHTML = trHtml;
-        pbody.appendChild(tr);
+      // ヘッダーの生成
+      let pheaderHtml = '<th>月 / 項目</th>';
+      financialCols.forEach(col => {
+        pheaderHtml += `<th style="text-align:center;">${col.label}</th>`;
       });
+      pheader.innerHTML = pheaderHtml;
 
-      // 商品別
+      // ボディの生成
+      pbody.innerHTML = '';
+      if (filteredMonths.length === 0) {
+        pbody.innerHTML = `<tr><td colspan="${financialCols.length + 1}" style="text-align:center;">2026年4月以降のデータがありません</td></tr>`;
+      } else {
+        filteredMonths.forEach(m => {
+          let trHtml = `<td><b>${m}</b></td>`;
+          financialCols.forEach(col => {
+            const val = (res.matrix[m] && res.matrix[m][col.key]) || 0;
+            trHtml += `<td style="text-align:center; ${col.style || ''}">${val.toLocaleString()}</td>`;
+          });
+          const tr = document.createElement('tr');
+          tr.innerHTML = trHtml;
+          pbody.appendChild(tr);
+        });
+      }
+
+      // --- 商品別販売数 ---
+      // ヘッダーの生成
+      let headerHtml = '<th>月 / 商品名</th>';
+      displayProducts.forEach(p => {
+        // 商品名の中の「（」または「(」の直前に改行タグ <br> を挿入して2行にする
+        const formattedName = p.replace(/(（|\()/g, '<br>$1');
+        headerHtml += `<th style="text-align:center; min-width:80px; font-weight:500;">${formattedName}</th>`;
+      });
+      header.innerHTML = headerHtml;
+
+      // ボディの生成
       tbody.innerHTML = '';
-      if (res.products.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${res.months.length + 1}" style="text-align:center;">データがありません</td></tr>`;
+      if (filteredMonths.length === 0 || displayProducts.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${displayProducts.length + 1}" style="text-align:center;">対象データがありません</td></tr>`;
         return;
       }
 
-      res.products.forEach(p => {
+      filteredMonths.forEach(m => {
         const tr = document.createElement('tr');
-        let trHtml = `<td><b>${p}</b></td>`;
-        res.months.forEach(m => {
+        let trHtml = `<td><b>${m}</b></td>`;
+        displayProducts.forEach(p => {
           const qty = (res.matrix[m] && res.matrix[m].products && res.matrix[m].products[p]) || 0;
           trHtml += `<td style="text-align:center;">${qty || '-'}</td>`;
         });
@@ -1485,7 +1736,6 @@
         tbody.appendChild(tr);
       });
     }
-
     async function loadCategoryMaster() {
       const tbody = document.getElementById('categoryListBody');
       if (!tbody) return;
@@ -2054,7 +2304,8 @@
         costPrice: Number(document.getElementById('prodCost').value),
         icon: prodIconUrl,
         bg: document.getElementById('prodBg').value,
-        status: status
+        status: status,
+        description: document.getElementById('prodDesc').value
       };
 
       const res = await apiRequest('', payload, true);
@@ -2148,6 +2399,7 @@
       document.getElementById('prodPrice').value = p.price;
       document.getElementById('prodCost').value = ''; // 仕入値は再設定が必要
       document.getElementById('prodBg').value = p.bg;
+      document.getElementById('prodDesc').value = p.description || '';
 
       document.getElementById('productFormTitle').innerText = '📝 商品を編集する';
       document.getElementById('prodSubmitBtn').innerText = '📝 修正を保存する';
@@ -2442,14 +2694,15 @@
     async function sendBroadcastPush() {
       const title = document.getElementById('pushTitle').value.trim();
       const body = document.getElementById('pushBody').value.trim();
+      const targetStatus = document.getElementById('pushTarget').value;
       if (!title || !body) {
         alert('タイトルと本文を入力してください');
         return;
       }
-      if (!confirm('全ての通知許可済みユーザーに配信しますか？')) return;
+      if (!confirm('配信対象（' + targetStatus + '）に対し、通知を送信しますか？')) return;
 
       showToast('Push通知を送信中...');
-      const res = await apiRequest('', { type: 'broadcastPush', title, body }, true);
+      const res = await apiRequest('', { type: 'broadcastPush', title, body, targetStatus }, true);
       if (res && res.status === 'ok') {
         showToast('送信完了しました！');
         document.getElementById('pushBody').value = '';
@@ -2813,6 +3066,166 @@
         }
       } else {
         showToast('出力に失敗しました: ' + (res ? res.message : 'Unknown error'));
+      }
+    }
+
+    // ========== メニュー管理ロジック ==========
+    let menuImageBase64 = null;
+
+    async function loadAdminMenus() {
+      const draftBody = document.getElementById('menusDraftsList');
+      const publishBody = document.getElementById('menusList');
+      if (!draftBody || !publishBody) return;
+
+      draftBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">読み込み中...</td></tr>';
+      publishBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">読み込み中...</td></tr>';
+
+      const res = await apiRequest('getAdminMenus');
+      if (res && res.status === 'ok') {
+        allMenus = res.menus || [];
+        let draftHtml = '';
+        let publishHtml = '';
+
+        allMenus.forEach(m => {
+          const rowHtml = `
+            <tr>
+              <td>
+                ${m.imageUrl ? `<img src="${m.imageUrl}" style="width:50px; height:50px; object-fit:cover; border-radius:4px;">` : 'ー'}
+              </td>
+              <td style="font-weight:bold;">${m.name}</td>
+              <td style="text-align:center;">
+                <span class="badge ${m.reservationStatus === '予約受付中' ? 'active' : ''}">${m.reservationStatus}</span>
+              </td>
+              <td>
+                <div class="flex" style="gap:5px;">
+                  <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editMenu(${m.rowIdx})">📝</button>
+                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff;" onclick="deleteMenu(${m.rowIdx}, '${m.name.replace(/'/g, "\\'")}')">🗑</button>
+                </div>
+              </td>
+            </tr>
+          `;
+          if (m.publishStatus === '公開') {
+            publishHtml += rowHtml;
+          } else {
+            draftHtml += rowHtml;
+          }
+        });
+
+        draftBody.innerHTML = draftHtml || '<tr><td colspan="4" style="text-align:center;">下書きはありません</td></tr>';
+        publishBody.innerHTML = publishHtml || '<tr><td colspan="4" style="text-align:center;">公開済みのメニューはありません</td></tr>';
+      } else {
+        draftBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">エラーが発生しました</td></tr>';
+        publishBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">エラーが発生しました</td></tr>';
+      }
+    }
+
+    function previewMenuImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        menuImageBase64 = e.target.result;
+        document.getElementById('menuImagePreview').src = menuImageBase64;
+        document.getElementById('menuImagePreviewArea').style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function submitMenu(event) {
+      event.preventDefault();
+      const rowIdx = document.getElementById('menuRowIdx').value;
+      const name = document.getElementById('menuName').value;
+      const description = document.getElementById('menuDescription').value;
+      const reservationStatus = document.getElementById('menuReservationStatus').value;
+      const publishStatus = document.getElementById('menuPublishStatus').value;
+
+      if (!name) {
+        alert('メニュー名を入力してください');
+        return;
+      }
+
+      showToast('保存中...');
+      let imageUrl = '';
+
+      // 画像が新規選択されている場合はアップロード
+      if (menuImageBase64) {
+        try {
+          const res = await apiRequest('', {
+            type: 'uploadImage',
+            filename: `menu_${Date.now()}.jpg`,
+            mimeType: 'image/jpeg',
+            base64: menuImageBase64.split(',')[1]
+          }, true);
+          if (res && res.url) imageUrl = res.url;
+        } catch (e) {
+          console.error('Image upload failed', e);
+        }
+      }
+
+      const type = rowIdx ? 'updateMenu' : 'addMenu';
+      const payload = {
+        type: type,
+        rowIdx: rowIdx,
+        name: name,
+        description: description,
+        reservationStatus: reservationStatus,
+        publishStatus: publishStatus
+      };
+      if (imageUrl) payload.imageUrl = imageUrl;
+
+      const res = await apiRequest('', payload, true);
+      if (res && res.status === 'ok') {
+        showToast(rowIdx ? 'メニューを更新しました' : 'メニューを追加しました');
+        cancelMenuEdit();
+        loadAdminMenus();
+      } else {
+        showToast('保存に失敗しました');
+      }
+    }
+
+    function editMenu(rowIdx) {
+      const m = allMenus.find(item => item.rowIdx === rowIdx);
+      if (!m) return;
+
+      document.getElementById('menuRowIdx').value = m.rowIdx;
+      document.getElementById('menuName').value = m.name;
+      document.getElementById('menuDescription').value = m.description || '';
+      document.getElementById('menuReservationStatus').value = m.reservationStatus;
+
+      if (m.imageUrl) {
+        document.getElementById('menuImagePreview').src = m.imageUrl;
+        document.getElementById('menuImagePreviewArea').style.display = 'block';
+      } else {
+        document.getElementById('menuImagePreviewArea').style.display = 'none';
+      }
+
+      document.getElementById('menuFormTitle').textContent = '📝 メニューを編集する';
+      document.getElementById('menuSubmitBtn').textContent = '🍴 変更を保存する';
+      document.getElementById('menuCancelEditBtn').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelMenuEdit() {
+      document.getElementById('menuForm').reset();
+      document.getElementById('menuRowIdx').value = '';
+      document.getElementById('menuImagePreviewArea').style.display = 'none';
+      menuImageBase64 = null;
+      document.getElementById('menuFormTitle').textContent = '✨ 新しいメニューを追加する';
+      document.getElementById('menuSubmitBtn').textContent = '🍴 公開して保存する';
+      document.getElementById('menuCancelEditBtn').style.display = 'none';
+    }
+
+    async function deleteMenu(rowIdx, name) {
+      if (!confirm(`「${name}」を削除してもよろしいですか？`)) return;
+
+      showToast('削除中...');
+      const res = await apiRequest('', { type: 'deleteMenu', rowIdx: rowIdx }, true);
+      if (res && res.status === 'ok') {
+        showToast('削除しました');
+        loadAdminMenus();
+      } else {
+        showToast('削除に失敗しました');
       }
     }
   </script>
