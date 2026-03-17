@@ -745,15 +745,6 @@
               <input type="text" id="pushTitle" placeholder="例：新しいブログを公開しました！" value="まゆみ助産院">
             </div>
             <div class="form-group">
-              <label>配信対象</label>
-              <select id="pushTarget">
-                <option value="all">全配信（全員）</option>
-                <option value="妊娠中">妊娠中の方のみ</option>
-                <option value="産後">産後の方のみ</option>
-                <option value="その他">その他の方のみ</option>
-              </select>
-            </div>
-            <div class="form-group">
               <label>通知本文</label>
               <textarea id="pushBody" rows="2" placeholder="通知の内容を入力してください..."></textarea>
             </div>
@@ -1387,8 +1378,22 @@
           <input type="text" id="editOrderMemberId" placeholder="例：M12345">
         </div>
         <div class="form-group">
-          <label>注文商品・内容</label>
-          <textarea id="editOrderItemName" rows="3" placeholder="例：よもぎ茶 x1" required></textarea>
+          <label>商品の追加</label>
+          <div class="flex" style="gap: 5px; margin-bottom: 10px;">
+            <select id="addOrderItemSelect" style="flex: 2;">
+              <option value="">商品を選択してください</option>
+            </select>
+            <input type="number" id="addOrderItemQty" value="1" min="1" style="flex: 1; width: 60px;">
+            <button type="button" class="btn" onclick="addItemToOrder()"
+              style="padding: 5px 10px; font-size: 12px; background: var(--sage);">追加</button>
+          </div>
+          <div id="selectedItemsList"
+            style="background: #fdfdfd; border: 1px solid #eee; border-radius: 8px; padding: 10px; min-height: 50px;">
+            <!-- 追加された商品がここに表示される -->
+            <p style="color: #999; font-size: 12px; margin: 0; text-align: center;">商品が追加されていません</p>
+          </div>
+          <!-- 以前の商品名テキストエリアは非表示にするか削除（互換性のためにhiddenで残すことも検討可能だが、今回は新方式に完全移行） -->
+          <input type="hidden" id="editOrderItemName">
         </div>
         <div class="form-group">
           <label>ステータス</label>
@@ -1413,13 +1418,14 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxNpiK0GBf96BldM-mBNy-6izk5RqaQjf4rMvf4CIvlkqdHw7sUEhOynm2pMg61MaZNRQ/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzncb71ZVaIgtFifR3dKdM1nSs-seF5lzMs9PTqFH78gJu3qGTpQ3m7LXcsQa5yXADKtw/exec';
 
     let GAS_URL = DEFAULT_GAS_URL;
     let allUsers = [];
     let allMenus = [];
     let allCategories = [];
     let allPushNotices = [];
+    let allProducts = [];
 
     document.getElementById('blogDate').valueAsDate = new Date();
     document.getElementById('calDate').valueAsDate = new Date();
@@ -1427,6 +1433,7 @@
     window.onload = () => {
       loadAdminOrders();
       loadCategoryMaster();
+      loadAdminProducts();
     };
 
     function showToast(msg) {
@@ -1456,7 +1463,8 @@
         const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : (type === 'PUSH' ? 'push-sel' : 'order-sel')));
         let checkboxes;
         if (btnElement) {
-          const tableWrap = btnElement.closest('.page').querySelector('.table-wrapper:has(.push-sel)') || btnElement.closest('.page').querySelector('.table-wrapper:has(input:checked)');
+          const page = btnElement.closest('.page');
+          const tableWrap = page ? page.querySelector('.table-wrapper') : null;
           if (tableWrap) {
             checkboxes = tableWrap.querySelectorAll(`.${cls}:checked`);
           } else {
@@ -1706,12 +1714,12 @@
       pbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
 
       // 1. 商品一覧（マスタ）のデータを取得して同期する（商品管理との連動）
-      if (typeof window.allProducts === 'undefined' || !window.allProducts) {
+      if (!allProducts || allProducts.length === 0) {
         const prodRes = await apiRequest('getAdminProducts');
         if (prodRes && prodRes.status === 'ok') {
-          window.allProducts = prodRes.products || [];
+          allProducts = prodRes.products || [];
         } else {
-          window.allProducts = [];
+          allProducts = [];
         }
       }
 
@@ -2006,6 +2014,7 @@
 
     /* === 注文管理 === */
     let allOrders = [];
+    let currentOrderItems = []; // モーダル内で編集中の商品リスト
 
     async function loadAdminOrders() {
       const showAll = document.getElementById('showAllOrders').checked;
@@ -2063,9 +2072,28 @@
     }
 
     function openOrderModal(orderId = null) {
+      console.log('openOrderModal called with id:', orderId);
       const modal = document.getElementById('orderEditModal');
       const title = document.getElementById('orderModalTitle');
       const form = document.getElementById('orderEditForm');
+
+      // 商品プルダウンの初期化
+      const select = document.getElementById('addOrderItemSelect');
+      if (select) {
+        select.innerHTML = '<option value="">商品を選択してください</option>';
+        console.log('openOrderModal: populating select. allProducts size:', allProducts ? allProducts.length : 'null');
+        if (Array.isArray(allProducts)) {
+          allProducts.forEach(p => {
+            if (p.status === '公開') {
+              const opt = document.createElement('option');
+              opt.value = p.name;
+              opt.dataset.price = p.price;
+              opt.innerText = `${p.name} (¥${Number(p.price).toLocaleString()})`;
+              select.appendChild(opt);
+            }
+          });
+        }
+      }
 
       if (orderId) {
         // 編集モード
@@ -2077,18 +2105,81 @@
         document.getElementById('editOrderDate').value = o.date ? new Date(o.date).toISOString().split('T')[0] : '';
         document.getElementById('editOrderCustomerName').value = o.customerName || '';
         document.getElementById('editOrderMemberId').value = o.memberId || '';
-        document.getElementById('editOrderItemName').value = o.itemName || '';
         document.getElementById('editOrderStatus').value = o.status || '未受取';
         document.getElementById('editOrderChecked').checked = o.checked || false;
+
+        // 既存商品の読み込み
+        currentOrderItems = o.items.map(it => ({ name: it.name, qty: it.qty, price: it.price }));
       } else {
         // 新規作成モード
         title.innerText = '✨ 新規注文の作成';
         form.reset();
         document.getElementById('editOrderId').value = '';
         document.getElementById('editOrderDate').valueAsDate = new Date();
+        currentOrderItems = [];
       }
 
+      renderOrderItems();
       modal.classList.add('active');
+    }
+
+    function addItemToOrder() {
+      const select = document.getElementById('addOrderItemSelect');
+      const qtyInput = document.getElementById('addOrderItemQty');
+      const productName = select.value;
+      const qty = parseInt(qtyInput.value);
+
+      if (!productName) {
+        showToast('商品を選択してください');
+        return;
+      }
+      if (qty < 1) {
+        showToast('個数は1以上を指定してください');
+        return;
+      }
+
+      const selectedOption = select.options[select.selectedIndex];
+      const price = parseInt(selectedOption.dataset.price) || 0;
+
+      // すでに同じ商品があれば個数を加算
+      const existing = currentOrderItems.find(it => it.name === productName);
+      if (existing) {
+        existing.qty += qty;
+      } else {
+        currentOrderItems.push({ name: productName, qty: qty, price: price });
+      }
+
+      renderOrderItems();
+      qtyInput.value = 1;
+      select.value = '';
+    }
+
+    function removeItemFromOrder(index) {
+      currentOrderItems.splice(index, 1);
+      renderOrderItems();
+    }
+
+    function renderOrderItems() {
+      const list = document.getElementById('selectedItemsList');
+      if (currentOrderItems.length === 0) {
+        list.innerHTML = '<p style="color: #999; font-size: 12px; margin: 0; text-align: center;">商品が追加されていません</p>';
+        return;
+      }
+
+      let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
+      currentOrderItems.forEach((it, idx) => {
+        html += `
+          <li style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
+            <div style="font-size: 13px;">
+              <strong>${it.name}</strong><br>
+              <span style="color: #666;">¥${it.price.toLocaleString()} x ${it.qty} = ¥${(it.price * it.qty).toLocaleString()}</span>
+            </div>
+            <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: var(--danger);" onclick="removeItemFromOrder(${idx})">削除</button>
+          </li>
+        `;
+      });
+      html += '</ul>';
+      list.innerHTML = html;
     }
 
     async function submitOrder(e) {
@@ -2096,13 +2187,21 @@
       const orderId = document.getElementById('editOrderId').value;
       const isEdit = !!orderId;
 
+      if (currentOrderItems.length === 0) {
+        showToast('商品を追加してください');
+        return;
+      }
+
+      const total = currentOrderItems.reduce((sum, it) => sum + (it.price * it.qty), 0);
+
       const data = {
         type: isEdit ? 'updateAdminOrder' : 'createOrder',
         orderId: orderId,
         date: document.getElementById('editOrderDate').value,
         customerName: document.getElementById('editOrderCustomerName').value,
         memberId: document.getElementById('editOrderMemberId').value,
-        itemName: document.getElementById('editOrderItemName').value,
+        items: currentOrderItems, // 配列で送信
+        total: total,
         status: document.getElementById('editOrderStatus').value,
         checked: document.getElementById('editOrderChecked').checked
       };
@@ -2111,7 +2210,8 @@
       const res = await apiRequest('', data, true);
 
       if (res && res.status === 'ok') {
-        showToast(isEdit ? '注文情報を更新しました' : '新規注文を作成しました');
+        const isDeleted = res.deleted || data.checked;
+        showToast(isDeleted ? '受取確認済み — 一覧から削除しました' : (isEdit ? '注文情報を更新しました' : '新規注文を作成しました'));
         document.getElementById('orderEditModal').classList.remove('active');
         loadAdminOrders();
       } else {
@@ -2138,7 +2238,7 @@
       showToast('更新中...');
       const res = await apiRequest('', { type: 'updateOrder', orderId: orderId, status: status, checked: checked }, true);
       if (res && res.status === 'ok') {
-        if (checked) {
+        if (checked || res.deleted) {
           showToast('受取確認済み — 一覧から削除しました');
           loadAdminOrders(); // 一覧を再読み込み
         } else {
@@ -2428,7 +2528,8 @@
 
       const res = await apiRequest('getAdminProducts');
       if (res && res.status === 'ok') {
-        allProducts = res.products;
+        allProducts = Array.isArray(res.products) ? res.products : [];
+        console.log('loadAdminProducts: loaded products:', allProducts.length);
         tbodyPub.innerHTML = '';
         if (tbodyDraft) tbodyDraft.innerHTML = '';
 
@@ -2788,12 +2889,12 @@
     async function sendBroadcastPush() {
       const title = document.getElementById('pushTitle').value.trim();
       const body = document.getElementById('pushBody').value.trim();
-      const targetStatus = document.getElementById('pushTarget').value;
+      const targetStatus = 'all'; 
       if (!title || !body) {
         alert('タイトルと本文を入力してください');
         return;
       }
-      if (!confirm('配信対象（' + targetStatus + '）に対し、通知を送信しますか？')) return;
+      if (!confirm('通知を送信しますか？')) return;
 
       showToast('Push通知を送信中...');
       const res = await apiRequest('', { type: 'broadcastPush', title, body, targetStatus }, true);
