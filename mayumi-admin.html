@@ -3051,7 +3051,14 @@
               </td>
               <td style="font-weight:bold;">${m.name}</td>
               <td style="text-align:center;">
-                <span class="badge ${m.reservationStatus === '予約受付中' ? 'active' : ''}">${m.reservationStatus}</span>
+                <select 
+                  class="form-control" 
+                  style="font-size:12px; padding:4px; max-width:120px; text-align:center; border:1px solid var(--border); border-radius:4px; background-color:${m.reservationStatus === '予約受付中' ? '#e8f5e9' : '#ffebee'}"
+                  onchange="quickUpdateMenuStatus(${m.rowIdx}, this.value, this)"
+                >
+                  <option value="予約受付中" ${m.reservationStatus === '予約受付中' ? 'selected' : ''}>予約受付中</option>
+                  <option value="予約対象外" ${m.reservationStatus === '予約対象外' ? 'selected' : ''}>予約対象外</option>
+                </select>
               </td>
               <td>
                 <div class="flex" style="gap:5px;">
@@ -3174,6 +3181,29 @@
         showToast('削除に失敗しました');
       }
     }
+
+    async function quickUpdateMenuStatus(rowIdx, newStatus, selectElement) {
+      if (!rowIdx) return;
+      selectElement.disabled = true;
+      showToast('保存中...');
+      
+      const res = await apiRequest('', { 
+        type: 'updateMenu', 
+        rowIdx: rowIdx, 
+        reservationStatus: newStatus 
+      }, true);
+      
+      selectElement.disabled = false;
+      if (res && res.status === 'ok') {
+        showToast('更新しました');
+        selectElement.style.backgroundColor = newStatus === '予約受付中' ? '#e8f5e9' : '#ffebee';
+      } else {
+        showToast('更新に失敗しました');
+        // Reload to revert to original state
+        loadAdminMenus();
+      }
+    }
+
     // ===== 画像クロップ機能 =====
     let cropper = null;
     let currentCropType = null;
