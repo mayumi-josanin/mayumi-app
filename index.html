@@ -1961,10 +1961,17 @@
             <div class="spinner"></div>
           </div>
         </div>
-        <div style="margin-top:15px; text-align:center;">
-          <button class="btn btn-outline"
-            style="width:100%; border-color:var(--sage); color:var(--sage-dark); font-weight:600; padding:12px; border-radius:12px;"
-            onclick="switchPage('menu-list')">🍴 まゆみ助産院のメニュー一覧 🍴</button>
+      </div>
+
+      <div class="section">
+        <h2 class="sec-title">🍴 まゆみ助産院のメニュー</h2>
+        <div style="background:var(--sage-light); padding:20px; border-radius:16px; border:1px solid var(--sage); box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+          <p style="margin:0 0 15px 0; font-size:14px; color:var(--text-mid); line-height:1.6;">
+            助産院で提供している骨盤ケアやマッサージ、各種教室などのメニューをこちらからご確認いただけます。
+          </p>
+          <button class="btn"
+            style="width:100%; background:var(--sage); color:#fff; font-weight:600; padding:14px; border-radius:12px; border:none; box-shadow:0 4px 10px rgba(167,185,154,0.4);"
+            onclick="switchPage('menu-list')">メニュー一覧を見る 🍴</button>
         </div>
       </div>
 
@@ -2487,10 +2494,21 @@
     </div>
   </div>
 
+  <!-- MENU DETAIL MODAL -->
+  <div class="modal-bg" id="menuDetailModal" onclick="closeModal('menuDetailModal',event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div id="menuDetailContent"></div>
+      <button class="btn secondary" onclick="closeModal('menuDetailModal')">閉じる</button>
+    </div>
+  </div>
+
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbzrWkHswMoAixn3FOnUJ6GenloxC23xgmGJBqr7_oKPAmSSMiE9JBnEWE_MoAAduN67lg/exec';
+
+    let USER_MENUS = [];
 
     // GASからデータ取得（doGet対応）
     // action: 'getNews' | 'getProducts'
@@ -4637,16 +4655,16 @@
 
       const res = await getFromGAS('getMenus');
       if (res && res.status === 'ok') {
-        const menus = res.menus || [];
-        if (menus.length === 0) {
+        USER_MENUS = res.menus || [];
+        if (USER_MENUS.length === 0) {
           container.innerHTML = '<div class="empty-state">現在公開中のメニューはありません</div>';
           return;
         }
 
         let html = '';
-        menus.forEach(m => {
+        USER_MENUS.forEach((m, idx) => {
           html += `
-            <div class="news-item" style="padding:0; overflow:hidden; border-radius:16px; margin-bottom:20px; box-shadow:0 8px 20px rgba(0,0,0,0.06); background:#fff; border:1px solid #f0ede8;">
+            <div class="news-item" onclick="openMenuDetail(${idx})" style="padding:0; overflow:hidden; border-radius:16px; margin-bottom:20px; box-shadow:0 8px 20px rgba(0,0,0,0.06); background:#fff; border:1px solid #f0ede8; cursor:pointer;">
               ${m.imageUrl ? `<img src="${m.imageUrl}" style="width:100%; height:200px; object-fit:cover; display:block;">` : ''}
               <div style="padding:20px;">
                 <div style="display:flex; justify-content:space-between; align-items:start; gap:10px; margin-bottom:10px;">
@@ -4655,7 +4673,7 @@
                     ${m.reservationStatus}
                   </span>
                 </div>
-                <div style="font-size:14px; color:var(--text-mid); line-height:1.6; white-space:pre-wrap;">${m.description || ''}</div>
+                <div style="font-size:14px; color:var(--text-mid); line-height:1.6; white-space:pre-wrap; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">${m.description || ''}</div>
               </div>
             </div>
           `;
@@ -4664,6 +4682,31 @@
       } else {
         container.innerHTML = '<div class="empty-state">読み込みに失敗しました</div>';
       }
+    }
+
+    function openMenuDetail(idx) {
+      const m = USER_MENUS[idx];
+      if (!m) return;
+
+      let imageHtml = '';
+      if (m.imageUrl) {
+        imageHtml = `<div style="margin-bottom:20px; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);"><img src="${m.imageUrl}" style="width:100%; height:auto; display:block;" alt="Menu Image"></div>`;
+      }
+
+      const formattedDesc = (m.description || '').replace(/\n/g, '<br>');
+
+      document.getElementById('menuDetailContent').innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <span class="blog-detail-cat">メニュー</span>
+          <span class="status-chip ${m.reservationStatus === '予約受付中' ? 's-pending' : 's-cancelled'}" style="margin:0; font-size:12px;">
+            ${m.reservationStatus}
+          </span>
+        </div>
+        <div class="blog-detail-title" style="margin-bottom:16px;">${m.name}</div>
+        ${imageHtml}
+        <div class="blog-detail-body" style="font-size:15px; line-height:1.8; color:var(--text-main);">${formattedDesc}</div>
+      `;
+      openModal('menuDetailModal');
     }
   </script>
   <style>
