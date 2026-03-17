@@ -8,6 +8,8 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&family=Zen+Old+Mincho:wght@400;700&display=swap"
     rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
   <style>
     :root {
       --sage: #8a9e7e;
@@ -473,7 +475,7 @@
             <div class="form-group">
               <label>★画像をアップロード（スマホのライブラリから選択可能）</label>
               <input type="file" id="blogImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
-                onchange="previewImage(event)">
+                onchange="openImageCropModal(event, 'blog')">
               <img id="imagePreview" alt="プレビュー">
             </div>
 
@@ -622,7 +624,7 @@
             <div class="form-group">
               <label>★画像（アイコン）をアップロード（スマホのライブラリから選択可能）</label>
               <input type="file" id="prodImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
-                onchange="previewProdImage(event)">
+                onchange="openImageCropModal(event, 'prod')">
               <img id="prodImagePreview" alt="プレビュー">
             </div>
             <div class="form-group" style="margin-bottom: 20px;">
@@ -824,7 +826,7 @@
             <div class="form-group">
               <label>★画像（フライヤー・写真など）をアップロード（スマホのライブラリから選択可能）</label>
               <input type="file" id="calImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
-                onchange="previewCalImage(event)">
+                onchange="openImageCropModal(event, 'cal')">
               <img id="calImagePreview" alt="プレビュー"
                 style="max-width: 100%; max-height: 200px; display: none; margin-top: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             </div>
@@ -1017,7 +1019,7 @@
             <div class="form-group">
               <label>画像（フライヤー・写真など）をアップロード</label>
               <input type="file" id="menuImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
-                onchange="previewMenuImage(event)">
+                onchange="openImageCropModal(event, 'menu')">
               <div id="menuImagePreviewArea" style="margin-top:10px; display:none;">
                 <img id="menuImagePreview" alt="プレビュー"
                   style="max-width: 100%; max-height: 200px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -2031,58 +2033,13 @@
     let selectedImageMime = null;
     let selectedImageName = null;
 
-    function previewImage(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const img = document.getElementById('imagePreview');
-      img.style.display = 'block';
-
-      processImage(file, function (dataUrl, mimeType) {
-        img.src = dataUrl;
-        selectedImageMime = mimeType;
-        selectedImageName = file.name;
-        selectedImageBase64 = dataUrl.split(',')[1];
-      });
-    }
-
     let prodImageBase64 = null;
     let prodImageMime = null;
     let prodImageName = null;
 
-    function previewProdImage(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const img = document.getElementById('prodImagePreview');
-      img.style.display = 'block';
-
-      processImage(file, function (dataUrl, mimeType) {
-        img.src = dataUrl;
-        prodImageMime = mimeType;
-        prodImageName = file.name;
-        prodImageBase64 = dataUrl.split(',')[1];
-      });
-    }
-
     let calImageBase64 = null;
     let calImageMime = null;
     let calImageName = null;
-
-    function previewCalImage(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const img = document.getElementById('calImagePreview');
-      img.style.display = 'block';
-
-      processImage(file, function (dataUrl, mimeType) {
-        img.src = dataUrl;
-        calImageMime = mimeType;
-        calImageName = file.name;
-        calImageBase64 = dataUrl.split(',')[1];
-      });
-    }
 
     async function submitBlog(e) {
       e.preventDefault();
@@ -3119,18 +3076,7 @@
       }
     }
 
-    function previewMenuImage(event) {
-      const file = event.target.files[0];
-      if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        menuImageBase64 = e.target.result;
-        document.getElementById('menuImagePreview').src = menuImageBase64;
-        document.getElementById('menuImagePreviewArea').style.display = 'block';
-      };
-      reader.readAsDataURL(file);
-    }
 
     async function submitMenu(event) {
       event.preventDefault();
@@ -3228,7 +3174,93 @@
         showToast('削除に失敗しました');
       }
     }
-  </script>
-</body>
+    // ===== 画像クロップ機能 =====
+    let cropper = null;
+    let currentCropType = null;
 
+    function openImageCropModal(event, type) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      currentCropType = type;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const cropImage = document.getElementById('cropImage');
+        cropImage.src = e.target.result;
+        document.getElementById('imageCropModal').style.display = 'flex';
+        
+        if (cropper) cropper.destroy();
+        
+        let aspectRatio = NaN; // Free crop by default
+        if (type === 'blog') aspectRatio = NaN;
+        if (type === 'prod') aspectRatio = 1; // Square for products
+        if (type === 'cal') aspectRatio = NaN;
+        if (type === 'menu') aspectRatio = NaN;
+
+        cropper = new Cropper(cropImage, {
+          viewMode: 1,
+          aspectRatio: aspectRatio,
+          autoCropArea: 0.8,
+          background: false
+        });
+      };
+      reader.readAsDataURL(file);
+      event.target.value = ''; // Reset input so same file can be selected again
+    }
+
+    function closeCropModal() {
+      document.getElementById('imageCropModal').style.display = 'none';
+      if (cropper) cropper.destroy();
+      cropper = null;
+    }
+
+    function applyCrop() {
+      if (!cropper) return;
+      const canvas = cropper.getCroppedCanvas({
+        maxWidth: 1200,
+        maxHeight: 1200
+      });
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      
+      if (currentCropType === 'blog') {
+        const img = document.getElementById('imagePreview');
+        img.src = dataUrl;
+        img.style.display = 'block';
+        selectedImageBase64 = dataUrl.split(',')[1];
+        selectedImageMime = 'image/jpeg';
+        selectedImageName = 'cropped.jpg';
+      } else if (currentCropType === 'prod') {
+        const img = document.getElementById('prodImagePreview');
+        img.src = dataUrl;
+        img.style.display = 'block';
+        prodImageBase64 = dataUrl.split(',')[1];
+        prodImageMime = 'image/jpeg';
+        prodImageName = 'cropped.jpg';
+      } else if (currentCropType === 'cal') {
+        const img = document.getElementById('calImagePreview');
+        img.src = dataUrl;
+        img.style.display = 'block';
+        calImageBase64 = dataUrl.split(',')[1];
+        calImageMime = 'image/jpeg';
+        calImageName = 'cropped.jpg';
+      } else if (currentCropType === 'menu') {
+        document.getElementById('menuImagePreview').src = dataUrl;
+        document.getElementById('menuImagePreviewArea').style.display = 'block';
+        menuImageBase64 = dataUrl;
+      }
+      closeCropModal();
+    }
+  </script>
+
+  <!-- 画像クロップ用モーダル -->
+  <div id="imageCropModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:2000; flex-direction:column; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="width:100%; max-width:600px; height:60vh; background:#fff; border-radius:12px; overflow:hidden; display:flex; justify-content:center; align-items:center; position:relative;">
+      <img id="cropImage" style="max-width:100%; max-height:100%; display:block;">
+    </div>
+    <div style="margin-top:20px; display:flex; gap:10px; width:100%; max-width:600px;">
+      <button class="btn btn-outline" style="flex:1; border-color:#fff; color:#fff;" onclick="closeCropModal()">キャンセル</button>
+      <button class="btn" style="flex:2; background:var(--sage); color:#fff; font-weight:600;" onclick="applyCrop()">トリミングして適用</button>
+    </div>
+  </div>
+</body>
 </html>
