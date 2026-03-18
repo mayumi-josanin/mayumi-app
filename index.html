@@ -1418,7 +1418,7 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzncb71ZVaIgtFifR3dKdM1nSs-seF5lzMs9PTqFH78gJu3qGTpQ3m7LXcsQa5yXADKtw/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbz7EnViyC8k0dBCAUNXEvguDdnZEdqZpZHoiVjmNdahGUTyuf3txPClyfdLTgsOBERCzg/exec';
 
     let GAS_URL = DEFAULT_GAS_URL;
     let allUsers = [];
@@ -2889,7 +2889,7 @@
     async function sendBroadcastPush() {
       const title = document.getElementById('pushTitle').value.trim();
       const body = document.getElementById('pushBody').value.trim();
-      const targetStatus = 'all'; 
+      const targetStatus = 'all';
       if (!title || !body) {
         alert('タイトルと本文を入力してください');
         return;
