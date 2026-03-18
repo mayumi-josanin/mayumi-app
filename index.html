@@ -817,6 +817,7 @@
       font-size: 13px;
       font-weight: 700;
       color: var(--brown);
+      margin-bottom: 2px;
     }
 
     .shop-price small {
@@ -1602,25 +1603,42 @@
     }
 
     .prod-name {
-      font-size: 15.5px;
-      font-weight: 500;
-      color: var(--text-dark);
-      margin-bottom: 4px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--sage-dark);
+      margin-top: 15px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-modal-desc {
+      font-size: 10px;
+      background: var(--sage-light);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 400;
     }
 
     .prod-price {
-      font-size: 20px;
-      font-weight: 700;
+      font-size: 14px;
+      font-weight: 500;
       color: var(--brown);
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
 
     .prod-desc {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-mid);
       line-height: 1.6;
-      margin-bottom: 18px;
-      white-space: pre-wrap;
+      margin-bottom: 20px;
+      background: #fdfaf5;
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+      /* 初期非表示 */
     }
 
     .qty-row {
@@ -2110,7 +2128,7 @@
   <!-- === メニュー一覧ページ === -->
   <div id="page-menu-list" class="page">
     <div class="page-header sticky-header">
-      <button class="back-btn" onclick="switchPage('home')">‹</button>
+      <button class="back-btn" onclick="switchPage('home')" style="width: auto; padding: 0 10px;">戻る</button>
       <div style="display:flex; justify-content:space-between; align-items:center; flex:1; padding-right:15px;">
         <h1 class="page-title" style="margin:0;">メニュー一覧</h1>
         <select id="menuStatusFilter" onchange="renderMenus()"
@@ -2337,6 +2355,10 @@
               id="profileName">---</span></div>
           <div class="profile-row"><span class="profile-key">電話番号</span><span class="profile-val"
               id="profilePhone">---</span></div>
+          <div class="profile-row"><span class="profile-key">生年月日</span><span class="profile-val"
+              id="profileBirthday">---</span></div>
+          <div class="profile-row"><span class="profile-key">住所</span><span class="profile-val"
+              id="profileAddress">---</span></div>
           <div class="profile-row" style="border-bottom:none"><span class="profile-key">登録日</span><span
               class="profile-val" id="profileRegDate">---</span></div>
         </div>
@@ -2450,7 +2472,10 @@
     <div class="modal-sheet" onclick="event.stopPropagation()">
       <div class="modal-handle"></div>
       <div id="prodModalImg" class="prod-img c1">🍵</div>
-      <div id="prodModalName" class="prod-name">商品名</div>
+      <div class="prod-name">
+        <span id="prodModalName">商品名</span>
+        <div class="btn-modal-desc" onclick="toggleModalDesc()">商品説明をみる</div>
+      </div>
       <div id="prodModalPrice" class="prod-price">¥0</div>
       <div id="prodModalDesc" class="prod-desc">商品説明</div>
       <div class="qty-row">
@@ -2580,7 +2605,7 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbz7EnViyC8k0dBCAUNXEvguDdnZEdqZpZHoiVjmNdahGUTyuf3txPClyfdLTgsOBERCzg/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbykw3DNukbVTtqVHmPIF46a7pPEzjrvUTJhy8nDyPsMVvMZ4kqBo94aKNdkJ_vDycW4cQ/exec';
 
     let USER_MENUS = [];
 
@@ -2641,14 +2666,14 @@
     };
 
     const PRODUCTS = [
-      { name: 'よもぎ茶（50パック）', price: 2100, icon: '🍵', bg: 'c1', imgKey: 'tea50' },
-      { name: 'よもぎ茶（30パック）', price: 1575, icon: '🍵', bg: 'c1', imgKey: 'tea30' },
-      { name: 'よもぎ入浴剤（10パック）', price: 1540, icon: '🛁', bg: 'c4', imgKey: 'bath10' },
-      { name: 'よもぎ入浴剤（2パック）', price: 350, icon: '🛁', bg: 'c4', imgKey: 'bath2' },
-      { name: '石鹸（あこがれのきよら）', price: 540, icon: '🧼', bg: 'c2', imgKey: 'soap' },
-      { name: '冷え取りパット（3枚セット）', price: 2400, icon: '🌸🌸🌸', bg: 'c3', imgKey: 'pad' },
-      { name: '冷え取りパット（2枚）', price: 1760, icon: '🌸🌸', bg: 'c3', imgKey: 'pad' },
-      { name: '冷え取りパット（1枚）', price: 880, icon: '🌸', bg: 'c3', imgKey: 'pad' },
+      { name: 'よもぎ茶（50パック）', price: 2100, icon: '🍵', bg: 'c1', imgKey: 'tea50', description: '無農薬栽培のよもぎをたっぷり50パック詰めました。毎日の健康維持に。' },
+      { name: 'よもぎ茶（30パック）', price: 1575, icon: '🍵', bg: 'c1', imgKey: 'tea30', description: '持ち運びにも便利な30パック入り。良質なよもぎの香りが楽しめます。' },
+      { name: 'よもぎ入浴剤（10パック）', price: 1540, icon: '🛁', bg: 'c4', imgKey: 'bath10', description: '体の芯から温まるよもぎ入浴剤。10回分のお得なセットです。' },
+      { name: 'よもぎ入浴剤（2パック）', price: 350, icon: '🛁', bg: 'c4', imgKey: 'bath2', description: 'ちょっとしたお試しやプレゼントに最適な2パック入り入浴剤。' },
+      { name: '石鹸（あこがれのきよら）', price: 540, icon: '🧼', bg: 'c2', imgKey: 'soap', description: '天然由来成分にこだわった、お肌に優しい洗顔・全身用石鹸です。' },
+      { name: '冷え取りパット（3枚セット）', price: 2400, icon: '🌸🌸🌸', bg: 'c3', imgKey: 'pad', description: '洗い替えに便利な3枚セット。オーガニックコットン使用で快適です。' },
+      { name: '冷え取りパット（2枚）', price: 1760, icon: '🌸🌸', bg: 'c3', imgKey: 'pad', description: '冷え対策の定番。肌触りの良いパット2枚セットです。' },
+      { name: '冷え取りパット（1枚）', price: 880, icon: '🌸', bg: 'c3', imgKey: 'pad', description: 'まずは試してみたい方に。高品質な国産よもぎ成分を配合。' },
     ];
 
     const FALLBACK_BLOG = [
@@ -3055,7 +3080,7 @@
       const month = currentMonthDate.getMonth() + 1;
       const prefix = `${year}-${String(month).padStart(2, '0')}-`;
 
-      const monthlyEvts = calendarData.filter(e => e.date.startsWith(prefix))
+      const monthlyEvts = calendarData.filter(e => e.date.startsWith(prefix) && !e.title.includes('休診'))
         .sort((a, b) => a.date.localeCompare(b.date));
 
       if (monthlyEvts.length === 0) {
@@ -3205,6 +3230,7 @@
 
       // 3) カレンダー (date: 'YYYY-MM-DD')
       calendarData.forEach(e => {
+        if (e.title && e.title.includes('休診')) return; // 休診はお知らせから除外
         const ts = e.date ? new Date(e.date).getTime() : 0;
         const body = e.desc || '';
         items.push({
@@ -3308,6 +3334,7 @@
           category: p.category,
           icon: p.icon || '🌿',
           bg: p.bg || 'c1',
+          description: p.description || '',
           imgKey: imgKeyMap[p.name] || 'default'
         }));
         // グローバル配列PRODUCTSを入れ替え
@@ -3381,9 +3408,10 @@
     // ===== お知らせ一覧用 統合ハッシュ =====
     // ブログ + カレンダー + 商品 + Push全部をまとめてハッシュ化。
     // これが変わる → 拡声器バッジを表示
+    // 拡声器バッジを表示するかどうかを判定
     function computeNoticeListHash() {
       const blogPart = blogItems.map(i => i.date + '_' + i.title).join('|');
-      const calPart = calendarData.map(i => i.date + '_' + i.title).join('|');
+      const calPart = calendarData.filter(i => !(i.title && i.title.includes('休診'))).map(i => i.date + '_' + i.title).join('|');
       const noticePart = pushNotices.map(n => n.date + '_' + n.title).join('|');
       return [blogPart, calPart, noticePart].join('@@');
     }
@@ -3785,8 +3813,16 @@
       document.getElementById('prodModalName').textContent = p.name;
       document.getElementById('prodModalPrice').textContent = '¥' + p.price.toLocaleString() + '（税込）';
       document.getElementById('prodModalDesc').textContent = p.description || '';
+      document.getElementById('prodModalDesc').style.display = 'none'; // 初期非表示
       document.getElementById('modalQtyDisp').textContent = 1;
       openModal('productModal');
+    }
+
+    function toggleModalDesc() {
+      const desc = document.getElementById('prodModalDesc');
+      const isHidden = window.getComputedStyle(desc).display === 'none';
+      desc.style.display = isHidden ? 'block' : 'none';
+      event.target.textContent = isHidden ? '× 閉じる' : '商品説明をみる';
     }
     function changeQty(d) {
       modalQty = Math.max(1, modalQty + d);
@@ -4202,6 +4238,8 @@
       const nameErr = document.getElementById('setupNameErr');
       const name = nameEl.value.trim();
       const phone = document.getElementById('setupPhone').value.trim();
+      const birthday = document.getElementById('setupBirthday').value;
+      const address = document.getElementById('setupAddress').value.trim();
 
       // バリデーション
       if (!name) {
@@ -4223,7 +4261,7 @@
         ? 'MYM-' + String(Math.floor(Math.random() * 9000) + 1000)
         : (_profile.memberId || 'MYM-' + String(Math.floor(Math.random() * 9000) + 1000));
 
-      _profile = { name, phone, regDate, memberId };
+      _profile = { name, phone, birthday, address, regDate, memberId };
       try {
         localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
         if (_avatarData) localStorage.setItem('mayumi_avatar', _avatarData);
@@ -4264,6 +4302,8 @@
           avatar: avatarUrl || '',
           name: name,
           phone: phone,
+          birthday: birthday,
+          address: address,
           kana: '',
           memo: ''
         });
@@ -4280,6 +4320,8 @@
       // 編集モード：現在の値をセット
       document.getElementById('setupName').value = _profile.name || '';
       document.getElementById('setupPhone').value = _profile.phone || '';
+      document.getElementById('setupBirthday').value = _profile.birthday || '';
+      document.getElementById('setupAddress').value = _profile.address || '';
       // アバタープレビュー設定
       const preview = document.getElementById('avatarPreview');
       if (preview) preview.src = _avatarData || DEFAULT_AVATAR;
@@ -4289,7 +4331,7 @@
         bannerPreview.style.backgroundImage = _bannerData ? `url(${_bannerData})` : '';
       }
       document.getElementById('setupTitle').textContent = 'プロフィールを編集';
-      document.getElementById('setupDesc').textContent = 'お名前・電話番号・アイコン画像を変更できます。';
+      document.getElementById('setupDesc').textContent = '項目を入力して、プロフィールを変更できます。';
       document.getElementById('setupBtn').textContent = '変更を保存する ✅';
       document.getElementById('setupCancelBtn').style.display = 'block';
       document.getElementById('avatarEditWrap').style.display = 'block';
@@ -4330,6 +4372,8 @@
       set('mypageMemberId', '会員ID：' + (_profile.memberId || '---'));
       set('profileName', _profile.name);
       set('profilePhone', _profile.phone || '未登録');
+      set('profileBirthday', _profile.birthday || '未登録');
+      set('profileAddress', _profile.address || '未登録');
       set('profileRegDate', _profile.regDate || '---');
       // アバター画像更新
       const avatarSrc = _avatarData || DEFAULT_AVATAR;
@@ -4806,6 +4850,14 @@
         <label class="setup-label">電話番号（任意）</label>
         <input class="setup-input" id="setupPhone" type="tel" placeholder="例：090-1234-5678" maxlength="15"
           autocomplete="tel">
+      </div>
+      <div class="setup-field">
+        <label class="setup-label">生年月日</label>
+        <input class="setup-input" id="setupBirthday" type="date">
+      </div>
+      <div class="setup-field">
+        <label class="setup-label">住所（市区町村）</label>
+        <input class="setup-input" id="setupAddress" type="text" placeholder="例：〇〇市〇〇町" maxlength="50">
       </div>
 
       <button class="btn primary" id="setupBtn" onclick="saveProfile()" style="margin-top:4px">登録してアプリを始める 🌿</button>
