@@ -254,13 +254,16 @@
 
     /* 画像プレビュー */
     #imagePreview,
-    #prodImagePreview {
+    #prodImagePreview,
+    #calImagePreview,
+    #menuImagePreview {
       max-width: 100%;
       max-height: 200px;
       display: none;
       margin-top: 10px;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border: 2px solid #fff;
     }
 
     /* スマホ用下部ナビ */
@@ -501,8 +504,12 @@
 
             <div class="form-group">
               <label>★画像をアップロード（スマホのライブラリから選択可能）</label>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き画面が開きます</div>
               <input type="file" id="blogImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'blog')">
+              <div id="blogPreviewLabel"
+                style="display:none; font-size:11px; color:var(--sage-dark); font-weight:bold; margin-top:10px;">✅
+                選択中のプレビュー</div>
               <img id="imagePreview" alt="プレビュー">
             </div>
 
@@ -650,8 +657,12 @@
             </div>
             <div class="form-group">
               <label>★画像（アイコン）をアップロード（スマホのライブラリから選択可能）</label>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き（正方形）画面が開きます</div>
               <input type="file" id="prodImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'prod')">
+              <div id="prodPreviewLabel"
+                style="display:none; font-size:11px; color:var(--sage-dark); font-weight:bold; margin-top:10px;">✅
+                選択中のプレビュー</div>
               <img id="prodImagePreview" alt="プレビュー">
             </div>
             <div class="form-group" style="margin-bottom: 20px;">
@@ -843,10 +854,13 @@
 
             <div class="form-group">
               <label>★画像（フライヤー・写真など）をアップロード（スマホのライブラリから選択可能）</label>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き画面が開きます</div>
               <input type="file" id="calImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'cal')">
-              <img id="calImagePreview" alt="プレビュー"
-                style="max-width: 100%; max-height: 200px; display: none; margin-top: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <div id="calPreviewLabel"
+                style="display:none; font-size:11px; color:var(--sage-dark); font-weight:bold; margin-top:10px;">✅
+                選択中のプレビュー</div>
+              <img id="calImagePreview" alt="プレビュー">
             </div>
 
             <div class="form-group" style="margin-bottom: 20px;">
@@ -1036,11 +1050,13 @@
 
             <div class="form-group">
               <label>画像（フライヤー・写真など）をアップロード</label>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き画面が開きます</div>
               <input type="file" id="menuImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'menu')">
               <div id="menuImagePreviewArea" style="margin-top:10px; display:none;">
-                <img id="menuImagePreview" alt="プレビュー"
-                  style="max-width: 100%; max-height: 200px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="font-size:11px; color:var(--sage-dark); font-weight:bold; margin-bottom:5px;">✅ 選択中のプレビュー
+                </div>
+                <img id="menuImagePreview" alt="プレビュー">
               </div>
             </div>
 
@@ -1432,7 +1448,7 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzncb71ZVaIgtFifR3dKdM1nSs-seF5lzMs9PTqFH78gJu3qGTpQ3m7LXcsQa5yXADKtw/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbz7EnViyC8k0dBCAUNXEvguDdnZEdqZpZHoiVjmNdahGUTyuf3txPClyfdLTgsOBERCzg/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -2455,6 +2471,18 @@
       document.getElementById('blogIcon').value = b.icon;
       document.getElementById('blogBody').value = b.body;
 
+      // 本文から画像URLを探してプレビューに表示（もしあれば）
+      const imgMatch = b.body.match(/📷\s*(https?:\/\/\S+)/);
+      if (imgMatch) {
+        const img = document.getElementById('imagePreview');
+        img.src = imgMatch[1];
+        img.style.display = 'block';
+        if (document.getElementById('blogPreviewLabel')) {
+          document.getElementById('blogPreviewLabel').innerText = '✅ 登録済みの画像';
+          document.getElementById('blogPreviewLabel').style.display = 'block';
+        }
+      }
+
       document.getElementById('blogSubmitBtn').innerText = '📝 修正して保存する';
       document.getElementById('blogCancelEditBtn').style.display = 'block';
 
@@ -2469,6 +2497,7 @@
       document.getElementById('blogSubmitBtn').innerText = '🌟 この内容で投稿する';
       document.getElementById('blogCancelEditBtn').style.display = 'none';
       document.getElementById('imagePreview').style.display = 'none';
+      if (document.getElementById('blogPreviewLabel')) document.getElementById('blogPreviewLabel').style.display = 'none';
       selectedImageBase64 = null;
     }
 
@@ -2623,6 +2652,16 @@
       document.getElementById('prodBg').value = p.bg;
       document.getElementById('prodDesc').value = p.description || '';
 
+      if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
+        const img = document.getElementById('prodImagePreview');
+        img.src = p.icon;
+        img.style.display = 'block';
+        if (document.getElementById('prodPreviewLabel')) {
+          document.getElementById('prodPreviewLabel').innerText = '✅ 登録済みの画像';
+          document.getElementById('prodPreviewLabel').style.display = 'block';
+        }
+      }
+
       document.getElementById('productFormTitle').innerText = '📝 商品を編集する';
       document.getElementById('prodSubmitBtn').innerText = '📝 修正を保存する';
       document.getElementById('prodCancelEditBtn').style.display = 'block';
@@ -2638,6 +2677,7 @@
       document.getElementById('prodSubmitBtn').innerText = '商品を追加する';
       document.getElementById('prodCancelEditBtn').style.display = 'none';
       document.getElementById('prodImagePreview').style.display = 'none';
+      if (document.getElementById('prodPreviewLabel')) document.getElementById('prodPreviewLabel').style.display = 'none';
       document.getElementById('prodBg').value = '#d4e8c8';
       prodImageBase64 = null;
     }
@@ -2872,6 +2912,16 @@
       document.getElementById('calDesc').value = c.desc;
       document.getElementById('calColor').value = c.color;
 
+      if (c.image) {
+        const img = document.getElementById('calImagePreview');
+        img.src = c.image;
+        img.style.display = 'block';
+        if (document.getElementById('calPreviewLabel')) {
+          document.getElementById('calPreviewLabel').innerText = '✅ 登録済みの画像';
+          document.getElementById('calPreviewLabel').style.display = 'block';
+        }
+      }
+
       document.getElementById('calendarFormTitle').innerText = '📝 イベントを編集する';
       document.getElementById('calSubmitBtn').innerText = '📝 修正を保存する';
       document.getElementById('calCancelEditBtn').style.display = 'block';
@@ -2892,6 +2942,7 @@
       document.getElementById('calDate').valueAsDate = new Date();
       document.getElementById('calColor').value = '#e57373';
       document.getElementById('calImagePreview').style.display = 'none';
+      if (document.getElementById('calPreviewLabel')) document.getElementById('calPreviewLabel').style.display = 'none';
       calImageBase64 = null;
     }
 
@@ -2916,7 +2967,7 @@
     async function sendBroadcastPush() {
       const title = document.getElementById('pushTitle').value.trim();
       const body = document.getElementById('pushBody').value.trim();
-      const targetStatus = 'all'; 
+      const targetStatus = 'all';
       if (!title || !body) {
         alert('タイトルと本文を入力してください');
         return;
@@ -3611,6 +3662,10 @@
         const img = document.getElementById('imagePreview');
         img.src = dataUrl;
         img.style.display = 'block';
+        if (document.getElementById('blogPreviewLabel')) {
+          document.getElementById('blogPreviewLabel').innerText = '✅ 選択中のプレビュー';
+          document.getElementById('blogPreviewLabel').style.display = 'block';
+        }
         selectedImageBase64 = dataUrl.split(',')[1];
         selectedImageMime = 'image/jpeg';
         selectedImageName = 'cropped.jpg';
@@ -3618,6 +3673,10 @@
         const img = document.getElementById('prodImagePreview');
         img.src = dataUrl;
         img.style.display = 'block';
+        if (document.getElementById('prodPreviewLabel')) {
+          document.getElementById('prodPreviewLabel').innerText = '✅ 選択中のプレビュー';
+          document.getElementById('prodPreviewLabel').style.display = 'block';
+        }
         prodImageBase64 = dataUrl.split(',')[1];
         prodImageMime = 'image/jpeg';
         prodImageName = 'cropped.jpg';
@@ -3625,13 +3684,19 @@
         const img = document.getElementById('calImagePreview');
         img.src = dataUrl;
         img.style.display = 'block';
+        if (document.getElementById('calPreviewLabel')) {
+          document.getElementById('calPreviewLabel').innerText = '✅ 選択中のプレビュー';
+          document.getElementById('calPreviewLabel').style.display = 'block';
+        }
         calImageBase64 = dataUrl.split(',')[1];
         calImageMime = 'image/jpeg';
         calImageName = 'cropped.jpg';
       } else if (currentCropType === 'menu') {
-        document.getElementById('menuImagePreview').src = dataUrl;
+        const img = document.getElementById('menuImagePreview');
+        img.src = dataUrl;
+        img.style.display = 'block';
         document.getElementById('menuImagePreviewArea').style.display = 'block';
-        menuImageBase64 = dataUrl;
+        menuImageBase64 = dataUrl.split(',')[1];
       }
       closeCropModal();
     }
