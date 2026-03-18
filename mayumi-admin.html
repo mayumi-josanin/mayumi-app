@@ -696,13 +696,14 @@
                 <th>カテゴリ</th>
                 <th>商品名</th>
                 <th>価格(円)</th>
+                <th style="width:250px;">商品説明</th>
                 <th>公開設定</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody id="productsDraftsList">
               <tr>
-                <td colspan="7" style="text-align:center;">読み込み中...</td>
+                <td colspan="8" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -719,13 +720,14 @@
                 <th>カテゴリ</th>
                 <th>商品名</th>
                 <th>価格(円)</th>
+                <th style="width:250px;">商品説明</th>
                 <th>公開設定</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody id="productsList">
               <tr>
-                <td colspan="7" style="text-align:center;">読み込み中...</td>
+                <td colspan="8" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -769,6 +771,8 @@
                 <th>登録/更新日時</th>
                 <th>氏名</th>
                 <th>電話番号</th>
+                <th>生年月日</th>
+                <th>住所</th>
                 <th>Push</th>
                 <th>メモ</th>
                 <th>操作</th>
@@ -1410,6 +1414,14 @@
         <input type="text" id="editUserPhone">
       </div>
       <div class="form-group">
+        <label>生年月日</label>
+        <input type="date" id="editUserBirthday">
+      </div>
+      <div class="form-group">
+        <label>住所</label>
+        <input type="text" id="editUserAddress">
+      </div>
+      <div class="form-group">
         <label>メモ</label>
         <textarea id="editUserMemo" rows="3"></textarea>
       </div>
@@ -1448,7 +1460,7 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbz7EnViyC8k0dBCAUNXEvguDdnZEdqZpZHoiVjmNdahGUTyuf3txPClyfdLTgsOBERCzg/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbykw3DNukbVTtqVHmPIF46a7pPEzjrvUTJhy8nDyPsMVvMZ4kqBo94aKNdkJ_vDycW4cQ/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -1616,7 +1628,7 @@
         const users = res.users || [];
         allUsers = users;
         if (users.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">登録されている会員はいません</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">登録されている会員はいません</td></tr>';
           return;
         }
 
@@ -1629,8 +1641,10 @@
               </td>
               <td>${u.memberId || ''}</td>
               <td style="font-size:11px;color:#666;">${u.timestamp || ''}</td>
-              <td style="font-weight:bold;">${u.name || ''}</td>
+              <td>${u.name || ''}</td>
               <td>${u.phone || ''}</td>
+              <td>${u.birthday || ''}</td>
+              <td>${u.address || ''}</td>
               <td style="text-align:center;">${u.pushEnabled ? '🔔' : 'ー'}</td>
               <td>${u.memo || ''}</td>
               <td>
@@ -1644,7 +1658,7 @@
         });
         tbody.innerHTML = html;
       } else {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:red;">会員情報の取得に失敗しました</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:red;">会員情報の取得に失敗しました</td></tr>';
       }
     }
 
@@ -1670,6 +1684,8 @@
       document.getElementById('editUserName').value = u.name || '';
       document.getElementById('editUserKana').value = u.kana || '';
       document.getElementById('editUserPhone').value = u.phone || '';
+      document.getElementById('editUserBirthday').value = u.birthday || '';
+      document.getElementById('editUserAddress').value = u.address || '';
       document.getElementById('editUserMemo').value = u.memo || '';
 
       document.getElementById('userEditModal').classList.add('active');
@@ -1680,6 +1696,8 @@
       const name = document.getElementById('editUserName').value;
       const kana = document.getElementById('editUserKana').value;
       const phone = document.getElementById('editUserPhone').value;
+      const birthday = document.getElementById('editUserBirthday').value;
+      const address = document.getElementById('editUserAddress').value;
       const memo = document.getElementById('editUserMemo').value;
 
       if (!name) {
@@ -1694,6 +1712,8 @@
         name: name,
         kana: kana,
         phone: phone,
+        birthday: birthday,
+        address: address,
         memo: memo
       }, true);
 
@@ -2579,8 +2599,8 @@
     async function loadAdminProducts() {
       const tbodyPub = document.getElementById('productsList');
       const tbodyDraft = document.getElementById('productsDraftsList');
-      tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
-      if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+      tbodyPub.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
+      if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
 
       const res = await apiRequest('getAdminProducts');
       if (res && res.status === 'ok') {
@@ -2610,6 +2630,9 @@
                 <input type="number" id="p_price_${p.rowIdx}" value="${p.price}" style="width:80px;">
               </td>
               <td>
+                <textarea id="p_desc_${p.rowIdx}" style="width:100%; min-height:60px; font-size:11px;">${p.description || ''}</textarea>
+              </td>
+              <td>
                 <select id="p_status_${p.rowIdx}">
                   <option value="公開" ${p.status === '公開' ? 'selected' : ''}>公開</option>
                   <option value="非公開" ${p.status === '非公開' ? 'selected' : ''}>非公開</option>
@@ -2635,8 +2658,8 @@
           }
         });
 
-        if (!hasDrafts && tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">下書き保存はありません</td></tr>';
-        if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">投稿済み商品はありません</td></tr>';
+        if (!hasDrafts && tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="8" style="text-align:center;">下書き保存はありません</td></tr>';
+        if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="8" style="text-align:center;">投稿済み商品はありません</td></tr>';
       }
     }
 
@@ -2684,10 +2707,11 @@
 
     async function saveProduct(rowIdx) {
       const price = document.getElementById(`p_price_${rowIdx}`).value;
+      const desc = document.getElementById(`p_desc_${rowIdx}`).value;
       const status = document.getElementById(`p_status_${rowIdx}`).value;
 
       showToast('商品を更新中...');
-      const res = await apiRequest('', { type: 'updateProduct', rowIdx: rowIdx, price: price, status: status }, true);
+      const res = await apiRequest('', { type: 'updateProduct', rowIdx: rowIdx, price: price, description: desc, status: status }, true);
       if (res && res.status === 'ok') {
         showToast('商品情報を更新しました');
       } else {
