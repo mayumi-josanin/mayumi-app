@@ -1377,41 +1377,80 @@
 
     .cal-evt-item {
       display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 10px 0;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
       border-bottom: 1px solid #fdf5f5;
     }
 
     .cal-evt-item:last-child {
       border-bottom: none;
-      padding-bottom: 0;
+    }
+
+    .cal-evt-date {
+      font-size: 11px;
+      color: var(--text-mid);
+      font-weight: bold;
+      width: 65px;
+      flex-shrink: 0;
+      line-height: 1.4;
+    }
+
+    .cal-evt-img-box {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #f0f0f0;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cal-evt-img-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .cal-evt-img-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
     }
 
     .cal-evt-color {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      margin-top: 2px;
+      width: 4px;
+      height: 24px;
+      border-radius: 2px;
       flex-shrink: 0;
     }
 
     .cal-evt-details {
       flex: 1;
-      text-align: left;
+      min-width: 0;
     }
 
     .cal-evt-title {
       font-size: 13.5px;
-      color: #5c4343;
+      color: var(--text-dark);
       font-weight: bold;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .cal-evt-desc {
-      font-size: 11.5px;
-      color: #8a6c6c;
-      white-space: pre-wrap;
+      font-size: 11px;
+      color: var(--text-light);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .no-evts {
@@ -2541,7 +2580,7 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzQ4JjpRQ-pUpSClIDOfUXhp2wiflaL-PEbZDtR3w2FlXT-Zkc2i6dTuA-EjbQAFt7Pmg/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbz7EnViyC8k0dBCAUNXEvguDdnZEdqZpZHoiVjmNdahGUTyuf3txPClyfdLTgsOBERCzg/exec';
 
     let USER_MENUS = [];
 
@@ -2982,18 +3021,24 @@
         html += `<div class="no-evts">予定はありません</div>`;
       } else {
         evts.forEach(e => {
-          let imgHtml = '';
+          let imgHtml = `
+            <div class="cal-evt-img-box">
+              <div class="cal-evt-img-placeholder" style="background:${e.color}22; color:${e.color}">📅</div>
+            </div>`;
           if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
-            imgHtml = `<img src="${e.image}" style="width:100%; max-width:300px; border-radius:8px; margin-top:8px; display:block;">`;
+            imgHtml = `
+              <div class="cal-evt-img-box">
+                <img src="${e.image}">
+              </div>`;
           }
 
           html += `
               <div class="cal-evt-item">
+                ${imgHtml}
                 <div class="cal-evt-color" style="background:${e.color}"></div>
                 <div class="cal-evt-details">
                   <div class="cal-evt-title">${e.title}</div>
-                  ${e.desc ? `<div class="cal-evt-desc">${e.desc}</div>` : ''}
-                  ${imgHtml}
+                  <div class="cal-evt-desc">${e.desc || ''}</div>
                 </div>
               </div>
             `;
@@ -3023,21 +3068,25 @@
         const d = new Date(e.date);
         const dayStr = `${d.getMonth() + 1}/${d.getDate()}(${['日', '月', '火', '水', '木', '金', '土'][d.getDay()]})`;
 
-        let imgHtml = '';
+        let imgHtml = `
+          <div class="cal-evt-img-box">
+            <div class="cal-evt-img-placeholder" style="background:${e.color}22; color:${e.color}">📅</div>
+          </div>`;
         if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
-          imgHtml = `<img src="${e.image}" style="width:100%; max-width:300px; border-radius:8px; margin-top:8px; display:block;">`;
+          imgHtml = `
+            <div class="cal-evt-img-box">
+              <img src="${e.image}">
+            </div>`;
         }
 
         html += `
           <div class="cal-evt-item" onclick="selectCalendarDate(${d.getFullYear()}, ${d.getMonth()}, ${d.getDate()})">
-            <div style="font-size:12px; color:var(--text-mid); font-weight:bold; margin-bottom:4px;">${dayStr}</div>
-            <div style="display:flex; gap:10px; align-items:start;">
-              <div class="cal-evt-color" style="background:${e.color}"></div>
-              <div class="cal-evt-details">
-                <div class="cal-evt-title">${e.title}</div>
-                ${e.desc ? `<div class="cal-evt-desc">${e.desc}</div>` : ''}
-                ${imgHtml}
-              </div>
+            <div class="cal-evt-date">${dayStr}</div>
+            ${imgHtml}
+            <div class="cal-evt-color" style="background:${e.color}"></div>
+            <div class="cal-evt-details">
+              <div class="cal-evt-title">${e.title}</div>
+              <div class="cal-evt-desc">${e.desc || ''}</div>
             </div>
           </div>
         `;
@@ -3129,13 +3178,14 @@
 
       // 1) Push通知 (GAS)
       pushNotices.forEach(n => {
+        const body = n.body || '';
         items.push({
           ts: n.date,          // タイムスタンプ (ms)
           type: 'notice',
           icon: '📢',
           label: 'お知らせ',
           title: n.title,
-          body: n.body || ''
+          body: body.length > 60 ? body.substring(0, 60) + '...' : body
         });
       });
 
@@ -3156,13 +3206,14 @@
       // 3) カレンダー (date: 'YYYY-MM-DD')
       calendarData.forEach(e => {
         const ts = e.date ? new Date(e.date).getTime() : 0;
+        const body = e.desc || '';
         items.push({
           ts,
           type: 'calendar',
           icon: '📅',
           label: 'カレンダー',
           title: e.title,
-          body: e.desc || ''
+          body: body.length > 60 ? body.substring(0, 60) + '...' : body
         });
       });
 
@@ -3426,8 +3477,12 @@
               <input type="file" id="fileInput_${q.id}" class="survey-answer-file" data-id="${q.id}" accept="image/*" style="display:none;">
             </div>
             <div id="surveyPreview_${q.id}" style="margin-top:12px; display:none; position: relative; animation: fadeIn 0.3s;">
-              <img src="" style="width:100%; max-height:280px; object-fit: cover; border-radius:16px; border:2.5px solid #fff; box-shadow: 0 4px 15px var(--shadow-mid);">
-              <button onclick="clearSurveyImage('${q.id}')" style="position: absolute; top: -10px; right: -10px; background: #555; color: #fff; border: 2px solid #fff; border-radius: 50%; width: 28px; height: 28px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">×</button>
+              <div style="font-size: 11px; color: var(--text-mid); margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                <span>✅ 選択済み</span>
+                <span style="margin-left:auto; color:var(--sage-dark); font-weight:bold; cursor:pointer;" onclick="document.getElementById('fileInput_${q.id}').click()">画像を差し替える</span>
+              </div>
+              <img src="" style="width:100%; max-height:280px; object-fit: cover; border-radius:16px; border:2.5px solid #fff; box-shadow: 0 4px 15px var(--shadow-mid);" onclick="document.getElementById('fileInput_${q.id}').click()">
+              <button onclick="clearSurveyImage('${q.id}')" style="position: absolute; top: 15px; right: -8px; background: #555; color: #fff; border: 2px solid #fff; border-radius: 50%; width: 26px; height: 26px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">×</button>
             </div>`;
 
           setTimeout(() => {
@@ -3596,18 +3651,34 @@
     }
 
     async function refreshAppData() {
-      showToast('最新情報を取得しています...');
+      showToast('最新情報を確認中...');
+
+      // サービスワーカーの更新を試みる（コード/デザインの更新）
+      if ('serviceWorker' in navigator) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let registration of registrations) {
+            await registration.update();
+          }
+        } catch (e) {
+          console.error('ServiceWorker update failed:', e);
+        }
+      }
+
+      // データも並行して取得（リロード前に念のため）
       try {
         await Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices(), loadSurveys()]);
         updateNavBadges();
-        if (document.getElementById('page-notices').classList.contains('active')) {
-          renderPushNotices();
-        }
-        showToast('最新情報に更新しました！');
       } catch (e) {
-        console.error('refreshAppData error:', e);
-        showToast('通信エラーが発生しました');
+        console.error('Data refresh error:', e);
       }
+
+      // キャッシュを無視してリロード（全て更新を反映）
+      setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('t', Date.now());
+        window.location.href = url.toString();
+      }, 800);
     }
 
     function renderBlogList(containerId, limit, filterType = null, filterCategory = '全て') {
@@ -4060,39 +4131,70 @@
     let _bannerData = null;
     try { _bannerData = localStorage.getItem('mayumi_banner') || null; } catch (e) { }
 
+    // 画像リサイズ・圧縮ヘルパー
+    function compressImage(file, maxWidth, maxHeight, quality, callback) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          callback(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => callback(null);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => callback(null);
+      reader.readAsDataURL(file);
+    }
+
     function handleAvatarChange(input) {
       const file = input.files[0];
       if (!file) return;
-      if (file.size > 500 * 1024) {
-        showToast('画像は500KB以下にしてください');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        _avatarData = e.target.result;
+      showToast('画像を処理中...');
+      compressImage(file, 800, 800, 0.7, (dataUrl) => {
+        if (!dataUrl) {
+          showToast('画像の読み込みに失敗しました');
+          return;
+        }
+        _avatarData = dataUrl;
         localStorage.removeItem('mayumi_avatar_url');
         // プレビュー更新
         const preview = document.getElementById('avatarPreview');
         if (preview) preview.src = _avatarData;
-      };
-      reader.readAsDataURL(file);
+      });
     }
 
     function handleBannerChange(input) {
       const file = input.files[0];
       if (!file) return;
-      if (file.size > 1500 * 1024) {
-        showToast('画像は1.5MB以下にしてください');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        _bannerData = e.target.result;
+      showToast('画像を処理中...');
+      compressImage(file, 1200, 1000, 0.7, (dataUrl) => {
+        if (!dataUrl) {
+          showToast('画像の読み込みに失敗しました');
+          return;
+        }
+        _bannerData = dataUrl;
         // プレビュー更新
         const preview = document.getElementById('bannerPreview');
         if (preview) preview.style.backgroundImage = `url(${_bannerData})`;
-      };
-      reader.readAsDataURL(file);
+      });
     }
 
     function saveProfile() {
