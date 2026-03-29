@@ -1478,7 +1478,7 @@
       max-width: 480px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       padding: 0 4px;
     }
 
@@ -1537,6 +1537,28 @@
       /* 初期は非表示 */
       z-index: 5;
       box-shadow: 0 0 5px rgba(220, 38, 38, 0.4);
+    }
+
+    .nav-badge.urgent {
+      background: var(--danger);
+      animation: pulseBadge 1.5s infinite;
+    }
+
+    @keyframes pulseBadge {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 5px rgba(220, 38, 38, 0.4);
+      }
+
+      50% {
+        transform: scale(1.2);
+        box-shadow: 0 0 10px rgba(220, 38, 38, 0.8);
+      }
+
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 5px rgba(220, 38, 38, 0.4);
+      }
     }
 
     /* ===== MODAL ===== */
@@ -1758,6 +1780,30 @@
       padding: 8px 0;
     }
 
+    /* Confetti Animation */
+    .confetti {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background-color: var(--primary);
+      opacity: 0.8;
+      animation: fall linear forwards;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    @keyframes fall {
+      0% {
+        transform: translateY(-10px) rotate(0deg);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
     .stamp-pop-icon {
       font-size: 60px;
       margin-bottom: 11px;
@@ -1776,6 +1822,37 @@
       100% {
         transform: scale(1)
       }
+    }
+
+    .stamp-msg {
+      text-align: center;
+      font-size: 13px;
+      color: var(--sage-dark);
+      font-weight: bold;
+    }
+
+    /* 月替わり特典スタイル */
+    .monthly-reward-box {
+      margin-top: 16px;
+      background: #fffafa;
+      border: 1px dashed var(--sage);
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+    }
+
+    .monthly-reward-title {
+      font-size: 11px;
+      color: var(--sage-dark);
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .monthly-reward-content {
+      font-size: 15px;
+      color: var(--text-dark);
+      font-weight: bold;
+      font-family: 'Zen Old Mincho', serif;
     }
 
     .stamp-pop p {
@@ -1839,6 +1916,166 @@
       transform: translateX(-50%) translateY(0);
     }
 
+    .support-fab {
+      position: fixed;
+      right: 16px;
+      bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+      z-index: 250;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, #7f9b70, #5a7a4e);
+      color: #fff;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 10px 24px rgba(90, 122, 78, 0.28);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .support-fab:active {
+      transform: scale(0.97);
+    }
+
+    .support-chat-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: min(82vh, 720px);
+      padding-bottom: 6px;
+    }
+
+    .support-chat-meta {
+      font-size: 11px;
+      color: var(--text-light);
+      line-height: 1.7;
+      text-align: center;
+      margin-top: -4px;
+    }
+
+    .support-chat-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      max-height: 46vh;
+      padding: 4px 2px 2px;
+    }
+
+    .support-msg {
+      max-width: 88%;
+      border-radius: 18px;
+      padding: 12px 14px;
+      box-shadow: 0 3px 10px var(--shadow-soft);
+    }
+
+    .support-msg.bot {
+      align-self: flex-start;
+      background: #fff;
+      border: 1px solid var(--border);
+    }
+
+    .support-msg.user {
+      align-self: flex-end;
+      background: var(--sage);
+      color: #fff;
+    }
+
+    .support-msg.pending {
+      opacity: 0.92;
+    }
+
+    .support-msg-label {
+      font-size: 10px;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+
+    .support-msg-body {
+      font-size: 13px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .support-chip-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .support-chip {
+      flex: 0 0 auto;
+      border: 1px solid rgba(138, 158, 126, 0.28);
+      background: #f4f8f1;
+      color: var(--sage-dark);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .support-chip:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+
+    .support-chat-form {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .support-chat-input {
+      min-height: 46px;
+      max-height: 110px;
+      resize: none;
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .support-chat-send {
+      width: auto;
+      min-width: 86px;
+      margin: 0;
+      padding: 12px 16px;
+      border-radius: 14px;
+    }
+
+    .support-chat-send:disabled,
+    .support-chat-input:disabled {
+      opacity: 0.7;
+      cursor: default;
+    }
+
+    .support-loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .support-loading-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--sage);
+      opacity: 0.35;
+      animation: supportLoadingPulse 1s ease-in-out infinite;
+    }
+
+    .support-loading-dot:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    .support-loading-dot:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
     /* animations */
     @keyframes fadeUp {
       from {
@@ -1849,6 +2086,21 @@
       to {
         opacity: 1;
         transform: translateY(0)
+      }
+    }
+
+    @keyframes supportLoadingPulse {
+
+      0%,
+      80%,
+      100% {
+        transform: scale(0.85);
+        opacity: 0.35;
+      }
+
+      40% {
+        transform: scale(1);
+        opacity: 1;
       }
     }
 
@@ -1942,7 +2194,7 @@
           <div style="font-size:11.5px;color:var(--text-light);line-height:1.85;margin-bottom:18px">
             受付・待合室に貼られているQRコードを<br>スキャンするとスタンプが追加されます。</div>
           <button class="btn primary" onclick="openScannerModal()"
-            style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:18px; width:100%">
+            style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:18px; width:100%; background:linear-gradient(135deg,#ffe066,#ffcc00); color:#333; border:none; box-shadow:0 4px 10px rgba(255, 204, 0, 0.3);">
             <span style="font-size:16px;">📷</span> カメラを起動して読み取る
           </button>
         </div>
@@ -2025,27 +2277,12 @@
         </div>
       </div>
 
-      <div class="section">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h2 class="sec-title" style="margin-bottom:0; flex:1">📝 ブログ</h2>
-          <div onclick="switchPage('blog')"
-            style="font-size:12px; color:var(--text-light); cursor:pointer; padding-bottom:0; margin-left:10px; white-space:nowrap;">
-            もっと見る ›</div>
-        </div>
-        <div id="homeBlogList" class="blog-list">
-          <div class="loading-wrap">
-            <div class="spinner"></div>
-          </div>
-        </div>
-      </div>
 
       <div class="section">
         <h2 class="sec-title">🍴 まゆみ助産院のメニュー</h2>
         <div
           style="background:var(--sage-light); padding:20px; border-radius:16px; border:1px solid var(--sage); box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-          <p style="margin:0 0 15px 0; font-size:14px; color:var(--text-mid); line-height:1.6;">
-            助産院で提供している骨盤ケアやマッサージ、各種教室などのメニューをこちらからご確認いただけます。
-          </p>
+
           <button class="btn"
             style="width:100%; background:var(--sage); color:#fff; font-weight:600; padding:14px; border-radius:12px; border:none; box-shadow:0 4px 10px rgba(167,185,154,0.4);"
             onclick="switchPage('menu-list')">メニュー一覧を見る 🍴</button>
@@ -2056,7 +2293,8 @@
         <h2 class="sec-title">🔗 公式サイト・SNS</h2>
         <div class="sns-grid">
           <a class="sns-link" href="https://mayumijosanin.com/" target="_blank">
-            <div class="sns-icon-wrap" style="background:linear-gradient(135deg,var(--sage-light),var(--sage-dark))">🌿
+            <div class="sns-icon-wrap"
+              style="background:linear-gradient(135deg,#fffdf0,#fdf5e6); border:1px solid #f3e5ab;">🌿
             </div>
             <div class="sns-info">
               <div class="sns-name">公式ホームページ</div>
@@ -2066,7 +2304,12 @@
           </a>
           <a class="sns-link" href="https://www.instagram.com/mayumijosanin?igsh=enE5bWZrbzN6NXcw" target="_blank">
             <div class="sns-icon-wrap"
-              style="background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)">📸</div>
+              style="background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="white">
+                <path
+                  d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+              </svg>
+            </div>
             <div class="sns-info">
               <div class="sns-name">Instagram</div>
               <div class="sns-handle">@mayumijosanin</div>
@@ -2074,7 +2317,12 @@
             <div class="sns-arrow">›</div>
           </a>
           <a class="sns-link" href="https://www.facebook.com/josanin.mayumi" target="_blank">
-            <div class="sns-icon-wrap" style="background:linear-gradient(135deg,#1877f2,#1059c9)">👥</div>
+            <div class="sns-icon-wrap" style="background:linear-gradient(135deg,#1877f2,#1059c9)">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="white">
+                <path
+                  d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z" />
+              </svg>
+            </div>
             <div class="sns-info">
               <div class="sns-name">Facebook</div>
               <div class="sns-handle">まゆみ助産院</div>
@@ -2089,7 +2337,7 @@
               </svg>
             </div>
             <div class="sns-info">
-              <div class="sns-name">LINE公式</div>
+              <div class="sns-name">公式LINE</div>
               <div class="sns-handle">まゆみ助産院</div>
             </div>
             <div class="sns-arrow">›</div>
@@ -2099,31 +2347,6 @@
     </div>
   </div>
 
-  <!-- ========== SURVEY ========== -->
-  <div id="page-survey" class="page">
-    <div class="main">
-      <div class="banner">
-        <div class="banner-overlay"></div>
-        <div style="position:relative; z-index:1;">
-          <p class="banner-sub">大切なお声をお聞かせください</p>
-          <p class="banner-name">アンケート</p>
-        </div>
-      </div>
-
-      <div class="section" style="padding-top:20px">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h2 class="sec-title" style="margin-bottom:0">📝 アンケート一覧</h2>
-          <select id="surveyTitleFilter" onchange="renderSurveys()"
-            style="width:130px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
-            <option value="全て">アンケート名: 全て</option>
-          </select>
-        </div>
-        <div id="surveyList" style="margin-top:12px">
-          <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">現在回答可能なアンケートはありません</div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- === メニュー一覧ページ === -->
   <div id="page-menu-list" class="page">
@@ -2261,21 +2484,7 @@
         </div>
       </div>
 
-      <!-- ブログセクション -->
-      <div class="section" style="padding-top:12px;padding-bottom:24px; border-top: 1px dashed var(--border);">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h2 class="sec-title" style="margin-bottom:0">📝 ブログ</h2>
-          <select id="blogCategoryFilter" onchange="renderDividedBlogList()"
-            style="width:130px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
-            <option value="全て">カテゴリ: 全て</option>
-          </select>
-        </div>
-        <div id="blogPageList" class="blog-list" style="margin-top:12px">
-          <div class="loading-wrap">
-            <div class="spinner"></div>
-          </div>
-        </div>
-      </div>
+
     </div>
   </div>
 
@@ -2367,7 +2576,7 @@
       </div>
 
       <div class="section" style="padding-top:20px">
-        <h2 class="sec-title">🎁 特典プレゼント一覧</h2>
+        <h2 class="sec-title">🎁 特典取得状況</h2>
         <div id="earnedRewardsList">
           <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">獲得した特典はありません</div>
         </div>
@@ -2389,6 +2598,17 @@
         </div>
       </div>
       <div class="section" style="padding-top:20px">
+        <h2 class="sec-title">🤖 使い方サポート</h2>
+        <div class="card"
+          style="padding:16px; border-radius:14px; background:linear-gradient(135deg,#fffdf8,#f6f8f2); border:1px solid var(--border);">
+          <div style="font-size:15px; font-weight:700; color:var(--text-dark); margin-bottom:6px;">アプリの使い方をチャットで確認できます
+          </div>
+          <div style="font-size:12px; color:var(--text-light); line-height:1.8; margin-bottom:14px;">
+            注文方法、スタンプ、通知設定、プロフィール登録などの使い方をその場で案内します。</div>
+          <button class="btn primary" style="margin:0;" onclick="openSupportChat()">💬 チャットで相談する</button>
+        </div>
+      </div>
+      <div class="section" style="padding-top:20px">
         <h2 class="sec-title">📋 ご注文履歴</h2>
         <div id="orderHistoryList">
           <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">注文履歴はありません</div>
@@ -2400,7 +2620,8 @@
         <h2 class="sec-title">🔗 公式サイト・SNS</h2>
         <div class="sns-grid">
           <a class="sns-link" href="https://mayumijosanin.com/" target="_blank">
-            <div class="sns-icon-wrap" style="background:linear-gradient(135deg,var(--sage-light),var(--sage-dark))">🌿
+            <div class="sns-icon-wrap"
+              style="background:linear-gradient(135deg,#fffdf0,#fdf5e6); border:1px solid #f3e5ab;">🌿
             </div>
             <div class="sns-info">
               <div class="sns-name">公式ホームページ</div>
@@ -2410,7 +2631,12 @@
           </a>
           <a class="sns-link" href="https://www.instagram.com/mayumijosanin?igsh=enE5bWZrbzN6NXcw" target="_blank">
             <div class="sns-icon-wrap"
-              style="background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)">📸</div>
+              style="background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="white">
+                <path
+                  d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+              </svg>
+            </div>
             <div class="sns-info">
               <div class="sns-name">Instagram</div>
               <div class="sns-handle">@mayumijosanin</div>
@@ -2418,7 +2644,12 @@
             <div class="sns-arrow">›</div>
           </a>
           <a class="sns-link" href="https://www.facebook.com/josanin.mayumi" target="_blank">
-            <div class="sns-icon-wrap" style="background:linear-gradient(135deg,#1877f2,#1059c9)">👥</div>
+            <div class="sns-icon-wrap" style="background:linear-gradient(135deg,#1877f2,#1059c9)">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="white">
+                <path
+                  d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z" />
+              </svg>
+            </div>
             <div class="sns-info">
               <div class="sns-name">Facebook</div>
               <div class="sns-handle">まゆみ助産院</div>
@@ -2433,7 +2664,7 @@
               </svg>
             </div>
             <div class="sns-info">
-              <div class="sns-name">LINE公式</div>
+              <div class="sns-name">公式LINE</div>
               <div class="sns-handle">まゆみ助産院</div>
             </div>
             <div class="sns-arrow">›</div>
@@ -2458,14 +2689,18 @@
       </button>
       <button class="nav-btn" id="nav-blog" onclick="switchPage('blog')">
         <span class="nav-badge" id="badge-blog"></span>
-        <span class="nav-icon">📢</span><span>ブログ</span>
+        <span class="nav-icon">💬</span><span>NEWS</span>
       </button>
-      <button class="nav-btn" id="nav-survey" onclick="switchPage('survey')"><span
-          class="nav-icon">📝</span><span>アンケート</span></button>
-      <button class="nav-btn" id="nav-mypage" onclick="switchPage('mypage')"><span
-          class="nav-icon">👤</span><span>マイページ</span></button>
+      <button class="nav-btn" id="nav-mypage" onclick="switchPage('mypage')">
+        <span class="nav-badge" id="badge-mypage"></span>
+        <span class="nav-icon">👤</span><span>マイページ</span>
+      </button>
     </div>
   </nav>
+
+  <button class="support-fab" id="supportFab" onclick="openSupportChat()">
+    <span style="font-size:16px;">💬</span><span>使い方相談</span>
+  </button>
 
   <!-- PRODUCT MODAL -->
   <div class="modal-bg" id="productModal" onclick="closeModal('productModal',event)">
@@ -2518,7 +2753,24 @@
         <div class="complete-h">ご注文ありがとうございます！</div>
         <p class="complete-p" id="orderCompleteMsg">ご来院時にスタッフにお声がけください。</p>
       </div>
-      <button class="btn primary" onclick="finishOrder()">ホームへ戻る</button>
+      <button class="btn primary"
+        onclick="closeModal('orderCompleteModal'); switchPage('mypage'); renderOrderHistory();">注文履歴を確認する</button>
+      <button class="btn secondary" style="margin-top:10px;" onclick="finishOrder()">ホームへ戻る</button>
+    </div>
+  </div>
+
+  <!-- REWARD USE COMPLETE MODAL -->
+  <div class="modal-bg" id="rewardUseCompleteModal" onclick="closeModal('rewardUseCompleteModal',event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="complete-wrap">
+        <span class="complete-icon">✅</span>
+        <div class="complete-h">特典を使用しました</div>
+        <p class="complete-p" id="rewardUseTimeMsg"
+          style="font-size:24px; font-weight:bold; color:var(--text-dark); margin:15px 0;"></p>
+        <p class="complete-p">この画面をスタッフにご提示ください。</p>
+      </div>
+      <button class="btn primary" onclick="closeModal('rewardUseCompleteModal')">閉じる</button>
     </div>
   </div>
 
@@ -2529,8 +2781,22 @@
       <div class="modal-title">注文をキャンセルしますか？</div>
       <p style="font-size:13px;color:var(--text-light);text-align:center;line-height:1.8;margin-bottom:8px">
         この操作は取り消せません。<br>よろしいですか？</p>
-      <button class="btn danger" onclick="confirmCancel()">キャンセルする</button>
-      <button class="btn secondary" onclick="closeModal('cancelModal')">戻る</button>
+      <button class="btn danger" id="cancelConfirmBtn" onclick="confirmCancel()">キャンセルする</button>
+      <button class="btn secondary" id="cancelBackBtn" onclick="closeModal('cancelModal')">戻る</button>
+    </div>
+  </div>
+
+  <!-- APP DIALOG MODAL -->
+  <div class="modal-bg" id="appDialogModal">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="appDialogTitle">ご案内</div>
+      <p id="appDialogMessage"
+        style="font-size:13px;color:var(--text-light);text-align:center;line-height:1.8;margin-bottom:12px;white-space:pre-line">
+      </p>
+      <button class="btn primary" id="appDialogConfirmBtn" onclick="resolveAppDialog(true)">閉じる</button>
+      <button class="btn secondary" id="appDialogCancelBtn" onclick="resolveAppDialog(false)"
+        style="display:none">キャンセル</button>
     </div>
   </div>
 
@@ -2554,20 +2820,25 @@
     </div>
   </div>
 
-  <!-- SURVEY MODAL -->
-  <div class="modal-bg" id="surveyModal" onclick="closeModal('surveyModal', event)">
+  <div class="modal-bg" id="supportChatModal" onclick="closeModal('supportChatModal',event)">
     <div class="modal-sheet" onclick="event.stopPropagation()">
-      <div class="modal-handle"></div>
-      <div class="modal-title" id="surveyModalTitle">アンケート</div>
-      <div id="surveyModalDesc" style="font-size:13px; color:var(--text-mid); margin-bottom:16px;"></div>
-      <div id="surveyQuestionsContainer" style="max-height: 60vh; overflow-y: auto; padding-right: 4px;"></div>
-      <div style="display:flex; gap:10px; margin-top:20px;">
-        <button class="btn primary" id="surveySubmitBtn" style="flex:1;"
-          onclick="submitSurveyResponse()">回答を送信する</button>
-        <button class="btn secondary" style="flex:1;" onclick="closeModal('surveyModal')">キャンセル</button>
+      <div class="support-chat-shell">
+        <div class="modal-handle"></div>
+        <div class="modal-title">使い方チャット</div>
+        <div class="support-chat-meta">アプリの使い方に関する質問にお答えします。診療や個別相談は公式LINEなどをご利用ください。</div>
+        <div class="support-chat-messages" id="supportChatMessages"></div>
+        <div class="support-chip-row" id="supportChatSuggestions"></div>
+        <div class="support-chat-form">
+          <textarea id="supportChatInput" class="support-chat-input"
+            placeholder="例：注文履歴の見方を教えてください（送信は右のボタン）"></textarea>
+          <button class="btn primary support-chat-send" id="supportChatSendBtn" onclick="sendSupportChat()">送信</button>
+        </div>
+        <button class="btn secondary" onclick="closeModal('supportChatModal')" style="margin-top:2px;">閉じる</button>
       </div>
     </div>
   </div>
+
+
 
 
   <!-- ========== NOTICES ========== -->
@@ -2602,10 +2873,19 @@
     </div>
   </div>
 
+  <!-- CALENDAR EVENT DETAIL MODAL -->
+  <div class="modal-bg" id="calendarEventDetailModal" onclick="closeModal('calendarEventDetailModal',event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div id="calendarEventDetailContent"></div>
+      <button class="btn secondary" onclick="closeModal('calendarEventDetailModal')">閉じる</button>
+    </div>
+  </div>
+
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbykw3DNukbVTtqVHmPIF46a7pPEzjrvUTJhy8nDyPsMVvMZ4kqBo94aKNdkJ_vDycW4cQ/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxpYkoowwPWEkHQcfGPXyaatDx2Z-quNcyJEvVp15FWKlCemXqg_Vyyi50uS_4txe3lDA/exec';
 
     let USER_MENUS = [];
 
@@ -2630,7 +2910,7 @@
         let res;
 
         // 画像のアップロードやユーザー情報更新はデータ量が大きいためPOSTで送る
-        if (action === 'updateUser' || action === 'uploadImage') {
+        if (action === 'updateUser' || action === 'uploadImage' || action === 'askSupportChat' || action === 'syncUserRewardStatus') {
           res = await fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify(payload),
@@ -2683,6 +2963,41 @@
       { date: '2025.05.28', category: 'ブログ', type: 'ブログ', icon: '🤱', title: '産後の骨盤ケア、いつから始める？', body: '産後の骨盤は出産の影響でゆるんだ状態。適切なタイミングと方法でケアを始めることが大切です。' },
     ];
 
+    const SUPPORT_FAQ_FALLBACK = [
+      { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日', answer: '画面右下のマイページから「プロフィールを編集」を開き、必要項目を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
+      { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 95 },
+      { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取るとスタンプが追加されます。10個たまると特典対象です。', priority: 90 },
+      { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから有効化できます。端末側で通知がオフになっている場合は、iPhoneの設定でも通知許可を確認してください。', priority: 85 },
+      { category: 'NEWS', question: '最新のお知らせの見方を知りたい', keywords: 'お知らせ,news,ブログ,新着,通知一覧', answer: '下部メニューの「NEWS」または画面上部の📢ボタンから確認できます。赤いバッジが出ているときは新着があります。', priority: 80 },
+      { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で今月の予定を確認できます。左右の矢印で別の月にも切り替えられます。', priority: 75 },
+    ];
+
+    const SUPPORT_APP_GUIDE = [
+      { category: 'アプリ全体', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,画面,メニュー,全体', answer: 'このアプリでは、ホームでスタンプQR読み取りやメニュー一覧の確認、ショップで商品注文、カレンダーで予定確認、NEWSでお知らせ確認、マイページでプロフィール・通知設定・注文履歴・スタンプ特典の確認ができます。診療や個別相談は公式LINEをご利用ください。', priority: 110 },
+      { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,トップ画面,home', answer: 'ホーム画面では、来院スタンプの取得、現在のスタンプカード確認、メニュー一覧への移動、公式サイトやSNSへのアクセスができます。スタンプ関連の操作はまずホームから行ってください。', priority: 92 },
+      { category: 'QR', question: 'QRコードの読み取り方法を知りたい', keywords: 'qr,qrコード,qrcode,カメラ,読み取り,読取,スキャン', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取ってください。カメラ許可が出た場合は許可が必要です。10個達成済みの場合は、先に新しいスタンプカードを取得してください。', priority: 91 },
+      { category: 'スタンプ特典', question: 'スタンプ特典の使い方を知りたい', keywords: '特典,プレゼント,期限,使用する,使用済み,チケット,受取期限', answer: 'スタンプが10個たまると特典対象です。マイページで獲得済み特典を確認でき、達成当日から使用できます。受取期限は獲得から1か月で、一度使用すると再度は使用できません。受け取りの際は受付へ直接お問い合わせください。10個達成後はホームの「新しいスタンプカードを取得」から次のカードを開始できます。', priority: 89 },
+      { category: 'カート', question: 'カートの使い方を知りたい', keywords: 'カート,買い物かご,個数,削除,合計,checkout,チェックアウト', answer: 'ショップで商品をカートに追加すると、カート画面で個数変更や削除ができます。内容確認後、「ご注文を確定する」を押すと院内受け取りの注文になります。', priority: 88 },
+      { category: '注文履歴', question: '注文履歴の確認方法を知りたい', keywords: '注文履歴,履歴,受取,受け取り,受取完了,キャンセル,注文状況', answer: 'マイページの「ご注文履歴」で受付中の注文や受取完了前の注文を確認できます。受付中の注文はキャンセルでき、キャンセルした注文は履歴から表示されなくなります。プロフィール未登録の場合は履歴は表示されません。', priority: 87 },
+      { category: 'メニュー一覧', question: 'メニュー一覧の見方を知りたい', keywords: 'メニュー,予約,予約受付中,予約対象外,施術,一覧', answer: 'ホーム画面の「メニュー一覧を見る」からメニュー一覧ページを開けます。受付状況で絞り込みでき、各メニューを開くと詳細や画像を確認できます。', priority: 84 },
+      { category: 'NEWS', question: 'NEWSページの使い方を知りたい', keywords: 'news,ニュース,お知らせ,記事,新着,詳細', answer: '下部メニューの「NEWS」ではお知らせを確認できます。記事をタップすると詳細が開き、新着があると下部メニューにバッジが表示されます。', priority: 83 },
+      { category: 'ブログ', question: 'ブログや過去のお知らせの見方を知りたい', keywords: 'ブログ,過去,履歴,一覧,記事,以前,バックナンバー', answer: 'ブログを含む過去のお知らせは、画面上部の📢ボタンから開く「お知らせ一覧」で日付順に確認できます。NEWSは主にお知らせ確認用です。', priority: 82 },
+      { category: 'お知らせ一覧', question: 'お知らせ一覧の見方を知りたい', keywords: 'お知らせ一覧,通知一覧,拡声器,header,ヘッダー,一覧', answer: '画面上部の📢ボタンから、お知らせ・カレンダー・通知などをまとめた一覧を開けます。未読があると赤いドットが表示されます。', priority: 82 },
+      { category: 'カレンダー', question: 'カレンダーの使い方を知りたい', keywords: 'カレンダー,イベント,予定,日程,前月,翌月,今月', answer: '下部メニューの「カレンダー」で予定を確認できます。左右の矢印で月を切り替え、日付をタップするとその日の予定を表示します。下部には今月のイベント一覧も表示されます。', priority: 81 },
+      { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,会員id,会員番号,memberid', answer: 'マイページの「プロフィールを編集」から、お名前、電話番号、生年月日、住所、アイコン画像、バナー画像を変更できます。会員IDはマイページ上部に表示されます。', priority: 80 },
+      { category: '通知', question: '通知のオンオフ方法を知りたい', keywords: '通知,push,プッシュ,オン,オフ,許可,設定', answer: 'マイページの通知設定ボタンから通知を有効化できます。ネイティブアプリで許可済みの場合、解除はiPhoneの設定アプリ側で行います。Web利用時も端末やブラウザの通知許可設定をご確認ください。', priority: 79 },
+      { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,再読み込み,リロード,最新情報,最新', answer: '画面上部の🔄ボタンで最新情報を再取得できます。ブログ、お知らせ、カレンダー、商品などを更新したいときにご利用ください。', priority: 78 },
+      { category: '外部リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'line,ライン,instagram,facebook,ホームページ,公式サイト,sns,問い合わせ,お問い合わせ,連絡', answer: 'ホーム画面やマイページの「公式サイト・SNS」から、公式ホームページ、Instagram、Facebook、公式LINEを開けます。診療や個別のご相談は公式LINEをご利用ください。', priority: 77 }
+    ];
+
+    const SUPPORT_APP_KEYWORDS = [
+      'アプリ', '使い方', 'ホーム', 'スタンプ', 'qr', 'qrcode', 'カメラ', 'ショップ', '商品', 'カート', '注文',
+      '購入', 'メニュー', '予約', 'news', 'ニュース', 'お知らせ', '通知一覧', 'ブログ', 'カレンダー', 'イベント', 'マイページ',
+      'プロフィール', '会員', '会員id', 'memberid', '通知', 'push', 'プッシュ', 'line', 'ライン', 'instagram',
+      'facebook', 'ホームページ', '公式サイト', '履歴', '受け取り', '受取', 'キャンセル', '特典', 'チケット',
+      '初回', '初めて', 'はじめて', '始める', '登録', '更新', 'リロード', '最新'
+    ];
+
     // ===== 状態 =====
     // ===== プロフィール・永続化 =====
     let _profile = null;
@@ -2694,14 +3009,159 @@
     try { stampCardNum = parseInt(localStorage.getItem('mayumi_stamp_card') || '1') || 1; } catch (e) { }
 
     let STAMP_REWARD_CONFIG = [];
+    let CURRENT_MONTHLY_REWARD = null;
     let EARNED_REWARDS = [];
     try { EARNED_REWARDS = JSON.parse(localStorage.getItem('mayumi_earned_rewards') || '[]'); } catch (e) { }
     let cart = [], orders = [];
+    let isOrderSubmitting = false;
+    let isCancelSubmitting = false;
+    let isReceiptSubmitting = false;
     let selectedPay = null, currentProdIdx = null, modalQty = 1;
     let cancelOrderId = null;
+    let receiptSubmittingOrderId = null;
     let blogItems = [];
     let allBlogCategories = [];
     let isDataLoaded = false;
+    let supportFaqItems = [];
+    let supportChatHistory = [];
+    let isSupportChatSending = false;
+    try { supportChatHistory = JSON.parse(localStorage.getItem('mayumi_support_chat_history') || '[]'); } catch (e) { }
+    let activeAppDialogResolver = null;
+    let lastSyncedRewardStatus = null;
+
+    function getTodayStampKey() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function normalizeStampDateKey(value) {
+      if (!value) return '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+        return String(value);
+      }
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return '';
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function normalizeRewardDateTime(value) {
+      if (!value) return '';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return parsed.toISOString();
+    }
+
+    function normalizeSingleReward(reward, index) {
+      const earnedDate = normalizeRewardDateTime(reward && reward.earnedDate) || new Date().toISOString();
+      let expiryDate = normalizeRewardDateTime(reward && reward.expiryDate);
+      if (!expiryDate) {
+        const expiry = new Date(earnedDate);
+        expiry.setMonth(expiry.getMonth() + 1);
+        expiryDate = expiry.toISOString();
+      }
+      return {
+        id: reward && reward.id ? String(reward.id) : `reward-${index + 1}`,
+        cardNum: Math.max(1, Number(reward && reward.cardNum) || 1),
+        rewardName: reward && reward.rewardName ? String(reward.rewardName) : 'スタンプ達成特典',
+        earnedDate: earnedDate,
+        expiryDate: expiryDate,
+        used: reward && reward.used === true,
+        usedAt: normalizeRewardDateTime(reward && reward.usedAt)
+      };
+    }
+
+    function normalizeRewardList(rewards) {
+      if (!Array.isArray(rewards)) return [];
+      return rewards.map(function (reward, index) {
+        return normalizeSingleReward(reward, index);
+      });
+    }
+
+    function getLocalRewardStatus() {
+      let lastStampDate = '';
+      let stampAchievedDate = '';
+      try {
+        lastStampDate = normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date') || '');
+        stampAchievedDate = normalizeRewardDateTime(localStorage.getItem('mayumi_stamp_10_date') || '');
+      } catch (e) { }
+      return {
+        stampCount: Math.max(0, Math.min(10, Number(stampCount) || 0)),
+        stampCardNum: Math.max(1, Number(stampCardNum) || 1),
+        rewards: normalizeRewardList(EARNED_REWARDS),
+        lastStampDate: lastStampDate,
+        stampAchievedDate: stampAchievedDate
+      };
+    }
+
+    function hasMeaningfulRewardStatus(status) {
+      if (!status) return false;
+      return Number(status.stampCount || 0) > 0 ||
+        Number(status.stampCardNum || 1) > 1 ||
+        (Array.isArray(status.rewards) && status.rewards.length > 0) ||
+        !!status.lastStampDate ||
+        !!status.stampAchievedDate;
+    }
+
+    function getComparableRewardStatus(status) {
+      const normalized = status || getLocalRewardStatus();
+      return {
+        stampCount: Math.max(0, Math.min(10, Number(normalized.stampCount) || 0)),
+        stampCardNum: Math.max(1, Number(normalized.stampCardNum) || 1),
+        rewards: normalizeRewardList(normalized.rewards),
+        lastStampDate: normalizeStampDateKey(normalized.lastStampDate),
+        stampAchievedDate: normalizeRewardDateTime(normalized.stampAchievedDate)
+      };
+    }
+
+    function rewardStatusEquals(a, b) {
+      return JSON.stringify(getComparableRewardStatus(a)) === JSON.stringify(getComparableRewardStatus(b));
+    }
+
+    function applyRewardStatusLocally(status) {
+      const next = getComparableRewardStatus(status);
+      stampCount = next.stampCount;
+      stampCardNum = next.stampCardNum;
+      EARNED_REWARDS = next.rewards;
+      try {
+        localStorage.setItem('mayumi_stamp', String(stampCount));
+        localStorage.setItem('mayumi_stamp_card', String(stampCardNum));
+        localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
+        if (next.lastStampDate) localStorage.setItem('mayumi_last_stamp_date', next.lastStampDate);
+        else localStorage.removeItem('mayumi_last_stamp_date');
+        if (next.stampAchievedDate) localStorage.setItem('mayumi_stamp_10_date', next.stampAchievedDate);
+        else localStorage.removeItem('mayumi_stamp_10_date');
+      } catch (e) { }
+      updateStampUI();
+      renderEarnedRewards();
+    }
+
+    async function syncRewardStatus(force) {
+      if (!_profile || !_profile.memberId) return null;
+      const localStatus = getLocalRewardStatus();
+      if (!force && lastSyncedRewardStatus && rewardStatusEquals(localStatus, lastSyncedRewardStatus)) {
+        return lastSyncedRewardStatus;
+      }
+      const res = await postToGAS({
+        type: 'syncUserRewardStatus',
+        memberId: _profile.memberId,
+        stampCount: localStatus.stampCount,
+        stampCardNum: localStatus.stampCardNum,
+        rewards: localStatus.rewards,
+        lastStampDate: localStatus.lastStampDate,
+        stampAchievedDate: localStatus.stampAchievedDate
+      });
+      if (res && res.status === 'ok' && res.rewardStatus) {
+        lastSyncedRewardStatus = getComparableRewardStatus(res.rewardStatus);
+        applyRewardStatusLocally(lastSyncedRewardStatus);
+      }
+      return res;
+    }
 
     // ===== ブログカテゴリフィルタ同期 =====
     function updateBlogCategoryFilters() {
@@ -2748,6 +3208,7 @@
         g.appendChild(c);
       }
     }
+
     function updateStampUI() {
       const grid = document.getElementById('homeStampGrid');
       if (grid) renderStampGrid('homeStampGrid', stampCount);
@@ -2759,8 +3220,27 @@
       if (elCount) elCount.textContent = stampCount;
 
       const msg = rem > 0 ? `あと${rem}回でプレゼント🎁` : '達成済み🎉 新しいカードを取得できます！';
+
+      // 達成済みの場合は期限を表示
+      if (rem === 0) {
+        let achDateStr = localStorage.getItem('mayumi_stamp_10_date');
+        if (achDateStr) {
+          const achDate = new Date(achDateStr);
+          const expDate = new Date(achDate);
+          expDate.setMonth(expDate.getMonth() + 1);
+          const now = new Date();
+          const diffMs = expDate - now;
+          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          if (diffDays > 0) {
+            msg += `<br><span style="font-size:12px; color:var(--danger); font-weight:bold;">受取期限: あと${diffDays}日</span>`;
+          } else {
+            msg += `<br><span style="font-size:12px; color:var(--danger); font-weight:bold;">受取期限: 本日まで</span>`;
+          }
+        }
+      }
+
       const elMsg = document.getElementById('homeStampMsg');
-      if (elMsg) elMsg.textContent = msg;
+      if (elMsg) elMsg.innerHTML = msg; // textContentからinnerHTMLに変更
 
       const cardLabel = document.getElementById('homeStampCardLabel');
       if (cardLabel) cardLabel.textContent = `${stampCardNum}枚目`;
@@ -2772,10 +3252,10 @@
     }
     function addStamp() {
       // 1日1回制限のチェック
-      const today = new Date().toDateString();
+      const today = getTodayStampKey();
       let lastStampDate = null;
       try {
-        lastStampDate = localStorage.getItem('mayumi_last_stamp_date');
+        lastStampDate = normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date'));
       } catch (e) { }
 
       if (lastStampDate === today) {
@@ -2788,6 +3268,9 @@
       try {
         localStorage.setItem('mayumi_stamp', stampCount);
         localStorage.setItem('mayumi_last_stamp_date', today);
+        if (stampCount === 10) {
+          localStorage.setItem('mayumi_stamp_10_date', new Date().toISOString());
+        }
       } catch (e) { }
 
       updateStampUI();
@@ -2795,45 +3278,67 @@
       document.getElementById('stampPopCount').textContent = `現在 ${stampCount} / 10`;
 
       openModal('stampModal');
+      syncRewardStatus();
     }
-    function startNewCard() {
-      // 達成したカード（現在のstampCardNum）に対する特典を付与
-      issueRewardForCard(stampCardNum);
+    async function startNewCard() {
+      // スタンプ達成特典を付与
+      await issueMonthlyReward({ skipSync: true });
 
       stampCount = 0;
       stampCardNum++;
       try {
         localStorage.setItem('mayumi_stamp', stampCount);
         localStorage.setItem('mayumi_stamp_card', stampCardNum);
+        localStorage.removeItem('mayumi_stamp_10_date');
       } catch (e) { }
       updateStampUI();
       closeModal('stampModal');
       showToast(`🌸 ${stampCardNum}枚目のスタンプカードを開始しました！`);
+      await syncRewardStatus(true);
     }
 
-    function issueRewardForCard(cardNum) {
-      if (!STAMP_REWARD_CONFIG || STAMP_REWARD_CONFIG.length === 0) return;
-
-      const config = STAMP_REWARD_CONFIG.find(r => r.cardNum === cardNum);
-      if (config) {
-        const now = new Date();
-        const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + config.validMonths);
-
-        EARNED_REWARDS.unshift({
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          cardNum: cardNum,
-          rewardName: config.rewardName,
-          earnedDate: now.toISOString(),
-          expiryDate: expiryDate.toISOString(),
+    // TEMPORARY DEMO SCRIPT
+    if (window.location.search.includes('demo=true')) {
+      if (!localStorage.getItem('mayumi_stamp_10_date')) {
+        localStorage.setItem('mayumi_stamp', '10');
+        localStorage.setItem('mayumi_stamp_10_date', new Date(Date.now() - 86400000).toISOString());
+        const demoReward = [{
+          id: 99999,
+          cardNum: 1,
+          rewardName: '【検証用】よもぎ茶プレゼント',
+          earnedDate: new Date(Date.now() - 86400000).toISOString(),
+          expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
           used: false
-        });
+        }];
+        localStorage.setItem('mayumi_earned_rewards', JSON.stringify(demoReward));
+      }
+    }
 
-        try {
-          localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
-        } catch (e) { }
+    async function issueMonthlyReward(options) {
+      const achDateStr = localStorage.getItem('mayumi_stamp_10_date');
+      const earnedDate = achDateStr ? new Date(achDateStr) : new Date();
 
-        renderEarnedRewards();
+      const expiryDate = new Date(earnedDate);
+      expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+      const newReward = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        cardNum: stampCardNum,
+        rewardName: 'スタンプ達成特典',
+        earnedDate: earnedDate.toISOString(),
+        expiryDate: expiryDate.toISOString(),
+        used: false
+      };
+
+      EARNED_REWARDS.unshift(newReward);
+      try {
+        localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
+        localStorage.removeItem('mayumi_stamp_10_date'); // 発行後は削除
+      } catch (e) { }
+
+      renderEarnedRewards();
+      if (!(options && options.skipSync)) {
+        await syncRewardStatus(true);
       }
     }
 
@@ -2865,19 +3370,36 @@
           cardStyle = 'background:#f9f9f9; border:1px solid #ddd; opacity:0.6;';
         } else {
           statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:var(--primary); color:#fff;">🎁 未使用</span>';
-          btnHtml = `<button class="btn primary" style="padding:6px 12px; font-size:12px; margin-top:10px;" onclick="useReward(${r.id})">使用する</button>`;
+          btnHtml = `<button class="btn primary" style="padding:6px 12px; font-size:12px; margin-top:10px;" onclick='useReward(${JSON.stringify(r.id)})'>使用する</button>`;
         }
 
         const earnedStr = new Date(r.earnedDate).toLocaleDateString('ja-JP');
         const expiryStr = expiry.toLocaleDateString('ja-JP');
 
+        let countdownHtml = '';
+        if (!r.used && !isExpired) {
+          const diffMs = expiry - now;
+          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          if (diffDays > 0) {
+            countdownHtml = `<div style="font-size:12px; font-weight:bold; color:var(--danger); margin-bottom:8px;">期限まで あと${diffDays}日</div>`;
+          } else {
+            countdownHtml = `<div style="font-size:12px; font-weight:bold; color:var(--danger); margin-bottom:8px;">期限まで 本日まで</div>`;
+          }
+        }
+
         html += `
           <div style="padding:16px; border-radius:16px; margin-bottom:12px; display:flex; flex-direction:column; box-shadow: 0 4px 12px rgba(0,0,0,0.05); ${cardStyle}">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <span style="font-weight:600; font-size:12px; color:var(--text-main); background:rgba(181, 201, 168, 0.2); padding:4px 10px; border-radius:100px;">${r.cardNum}枚目達成特典</span>
+              <span style="font-weight:600; font-size:12px; color:var(--text-main); background:rgba(181, 201, 168, 0.2); padding:4px 10px; border-radius:100px;">スタンプ ${r.cardNum}枚目 特典</span>
               ${statusHtml}
             </div>
-            <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:10px;">${r.rewardName}</div>
+            <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:10px;">スタンプ達成特典</div>
+            <div style="font-size:13px; color:var(--sage-dark); font-weight:500; line-height:1.5; margin-bottom:12px; padding:10px; background:var(--cream); border-radius:8px;">
+              🎁 <strong>受け取りの際は受付へ直接お問い合わせください。</strong><br>
+              ※ 特典は達成当日から使用できます。<br>
+              ※ 受取期間は特典獲得から1ヶ月で、一度使用すると再度は使用できません。
+            </div>
+            ${countdownHtml}
             <div style="font-size:12px; color:var(--text-light); line-height:1.5; margin-bottom:12px;">獲得日: ${earnedStr} <br> 有効期限: ${expiryStr}まで</div>
             ${btnHtml}
           </div>
@@ -2885,20 +3407,74 @@
       });
 
       container.innerHTML = html;
+
+      // Update the Mypage navigation badge based on expiring rewards
+      let hasExpiring = false;
+      EARNED_REWARDS.forEach(r => {
+        if (!r.used) {
+          const expiry = new Date(r.expiryDate);
+          if (now <= expiry) {
+            const diffMs = expiry - now;
+            const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            if (diffDays <= 7) {
+              hasExpiring = true;
+            }
+          }
+        }
+      });
+
+      const badge = document.getElementById('badge-mypage');
+      if (badge) {
+        if (hasExpiring) {
+          badge.style.display = 'block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
     }
 
     function useReward(id) {
-      if (confirm('この特典を使用しますか？\n（スタッフの確認後に「OK」を押してください）')) {
-        const reward = EARNED_REWARDS.find(r => r.id === id);
-        if (reward) {
-          reward.used = true;
-          try {
-            localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
-          } catch (e) { }
-          renderEarnedRewards();
-          showToast('特典を使用済みにしました');
-        }
+      const reward = EARNED_REWARDS.find(r => String(r.id) === String(id));
+      if (!reward) return;
+
+      if (reward.used) {
+        showAppAlert('この特典はすでに使用済みのため、再度は使用できません。', {
+          title: '特典のご利用について',
+          confirmLabel: '閉じる'
+        });
+        return;
       }
+
+      const expiry = new Date(reward.expiryDate);
+      if (new Date() > expiry) {
+        showAppAlert('この特典は受取期限を過ぎているため使用できません。', {
+          title: '特典のご利用について',
+          confirmLabel: '閉じる'
+        });
+        return;
+      }
+
+      showAppConfirm('本当に使用しますか？\nこの操作は取り消しできません。', {
+        title: '特典を使用しますか？',
+        confirmLabel: '使用する',
+        cancelLabel: '戻る',
+        confirmVariant: 'primary'
+      }).then(function (confirmed) {
+        if (!confirmed) return;
+
+        reward.used = true;
+        reward.usedAt = new Date().toISOString();
+        try {
+          localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
+        } catch (e) { }
+        renderEarnedRewards();
+        syncRewardStatus(true);
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('rewardUseTimeMsg').textContent = timeStr;
+        openModal('rewardUseCompleteModal');
+      });
     }
 
 
@@ -3057,8 +3633,9 @@
               </div>`;
           }
 
+          const originalIdx = calendarData.indexOf(e);
           html += `
-              <div class="cal-evt-item">
+              <div class="cal-evt-item" onclick="openCalendarEventDetail(${originalIdx})" style="cursor:pointer;">
                 ${imgHtml}
                 <div class="cal-evt-color" style="background:${e.color}"></div>
                 <div class="cal-evt-details">
@@ -3104,8 +3681,9 @@
             </div>`;
         }
 
+        const originalIdx = calendarData.indexOf(e);
         html += `
-          <div class="cal-evt-item" onclick="selectCalendarDate(${d.getFullYear()}, ${d.getMonth()}, ${d.getDate()})">
+          <div class="cal-evt-item" onclick="selectCalendarDate(${d.getFullYear()}, ${d.getMonth()}, ${d.getDate()}); openCalendarEventDetail(${originalIdx})" style="cursor:pointer;">
             <div class="cal-evt-date">${dayStr}</div>
             ${imgHtml}
             <div class="cal-evt-color" style="background:${e.color}"></div>
@@ -3119,26 +3697,68 @@
       el.innerHTML = html;
     }
 
-    // ===== スタンプ特典設定 =====
-    async function loadStampRewards() {
-      const data = await getFromGAS('getStampRewards');
-      if (data && data.status === 'ok' && data.rewards) {
-        STAMP_REWARD_CONFIG = data.rewards;
+    function openCalendarEventDetail(idx) {
+      const e = calendarData[idx];
+      if (!e) return;
 
-        // レトロアクティブな特典付与（過去に達成した分で、未付与のものがあれば付与する）
-        if (EARNED_REWARDS.length === 0 && stampCardNum > 1) {
-          let rewardsUpdated = false;
-          for (let i = 1; i < stampCardNum; i++) {
-            // Check if we already granted it
-            if (!EARNED_REWARDS.find(r => r.cardNum === i)) {
-              issueRewardForCard(i);
-              rewardsUpdated = true;
-            }
-          }
-        }
-        renderEarnedRewards();
+      let imageHtml = '';
+      if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
+        imageHtml = `<div style="margin-bottom:20px; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);"><img src="${e.image}" style="width:100%; height:auto; display:block;" alt="Event Image"></div>`;
       }
+
+      const formattedDesc = (e.desc || '').replace(/\n/g, '<br>');
+      const d = new Date(e.date);
+      const dateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${['日', '月', '火', '水', '木', '金', '土'][d.getDay()]})`;
+
+      document.getElementById('calendarEventDetailContent').innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <span class="blog-detail-cat" style="background:${e.color}22; color:${e.color};">予定</span>
+          <span style="font-size:13px; color:var(--text-light); font-weight:bold;">${dateStr}</span>
+        </div>
+        <div class="blog-detail-title" style="margin-bottom:16px;">${e.title}</div>
+        ${imageHtml}
+        <div class="blog-detail-body" style="font-size:15px; line-height:1.8; color:var(--text-main);">${formattedDesc}</div>
+      `;
+      openModal('calendarEventDetailModal');
     }
+
+    // ===== スタンプ特典設定 =====
+    async function loadCurrentMonthlyReward() {
+      CURRENT_MONTHLY_REWARD = null;
+      STAMP_REWARD_CONFIG = [];
+      return null;
+    }
+
+    async function loadStampRewards() {
+      await loadCurrentMonthlyReward();
+      const localStatus = getLocalRewardStatus();
+      if (_profile && _profile.memberId) {
+        const remote = await getFromGAS('getUserRewardStatus', { memberId: _profile.memberId });
+        if (remote && remote.status === 'ok' && remote.rewardStatus) {
+          const remoteStatus = getComparableRewardStatus(remote.rewardStatus);
+          if (hasMeaningfulRewardStatus(remoteStatus)) {
+            applyRewardStatusLocally(remoteStatus);
+            lastSyncedRewardStatus = remoteStatus;
+          } else if (hasMeaningfulRewardStatus(localStatus)) {
+            await syncRewardStatus(true);
+          }
+        } else if (hasMeaningfulRewardStatus(localStatus)) {
+          await syncRewardStatus(true);
+        }
+      } else {
+        applyRewardStatusLocally(localStatus);
+      }
+      renderEarnedRewards();
+    }
+
+    async function loadSurveys() {
+      return [];
+    }
+
+    function renderSurveys() {
+      return;
+    }
+
     // ===== ブログ =====
     // GASの getBlogNews レスポンス: { status:'ok', news:[{date,title,category,icon,body}] }
     async function loadBlog() {
@@ -3169,7 +3789,6 @@
       }
 
       renderBlogList('homeNewsList', 3, 'お知らせ');
-      renderBlogList('homeBlogList', 3, 'ブログ');
 
       if (document.getElementById('page-blog').classList.contains('active')) {
         renderDividedBlogList();
@@ -3335,6 +3954,7 @@
           icon: p.icon || '🌿',
           bg: p.bg || 'c1',
           description: p.description || '',
+          descriptionImage: p.descriptionImage || '',
           imgKey: imgKeyMap[p.name] || 'default'
         }));
         // グローバル配列PRODUCTSを入れ替え
@@ -3417,266 +4037,7 @@
     }
 
 
-    // ===== アンケート機能 =====
-    let activeSurveys = [];
-    async function loadSurveys() {
-      const data = await getFromGAS('getSurveys');
-      if (data && data.status === 'ok' && data.surveys) {
-        activeSurveys = data.surveys;
 
-        // プルダウンを更新
-        const select = document.getElementById('surveyTitleFilter');
-        if (select) {
-          const currentVal = select.value;
-          select.innerHTML = '<option value="全て">アンケート名: 全て</option>';
-          activeSurveys.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = opt.textContent = s.title;
-            select.appendChild(opt);
-          });
-          if ([...select.options].some(o => o.value === currentVal)) {
-            select.value = currentVal;
-          }
-        }
-
-        renderSurveys();
-      }
-    }
-
-    function renderSurveys() {
-      const container = document.getElementById('surveyList');
-      if (!container) return;
-
-      const filterTitle = document.getElementById('surveyTitleFilter')?.value || '全て';
-      let items = activeSurveys;
-      if (filterTitle !== '全て') {
-        items = items.filter(s => s.title === filterTitle);
-      }
-
-      if (items.length === 0) {
-        container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">現在回答可能なアンケートはありません</div>';
-        return;
-      }
-      container.innerHTML = '';
-      items.forEach(s => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.padding = '15px';
-        card.style.marginBottom = '12px';
-        card.style.border = '1px solid var(--border)';
-        card.style.background = 'var(--warm-white)';
-        card.style.borderRadius = '12px';
-        card.innerHTML = `
-          <div style="font-weight:bold; font-size:15px; margin-bottom:4px; color:var(--text-dark);">${s.title}</div>
-          <div style="font-size:12px; color:var(--text-mid); margin-bottom:12px;">${s.description || ''}</div>
-          <button class="btn primary" style="width:100%; font-size:12px; padding:10px; border-radius:8px;" onclick="openSurveyModal('${s.id}')">回答する</button>
-        `;
-        container.appendChild(card);
-      });
-    }
-
-    let currentSurvey = null;
-    function openSurveyModal(surveyId) {
-      currentSurvey = activeSurveys.find(s => String(s.id) === String(surveyId));
-      if (!currentSurvey) return;
-
-      document.getElementById('surveyModalTitle').innerText = currentSurvey.title;
-      document.getElementById('surveyModalDesc').innerText = currentSurvey.description || '';
-
-      const container = document.getElementById('surveyQuestionsContainer');
-      container.innerHTML = '';
-
-      currentSurvey.questions.forEach((q, idx) => {
-        const qDiv = document.createElement('div');
-        qDiv.style.marginBottom = '20px';
-        qDiv.innerHTML = `<label style="display:block; font-size:14px; font-weight:bold; margin-bottom:4px; color:var(--text-dark);">${idx + 1}. ${q.title}${q.required ? ' <span style="color:var(--danger)">*</span>' : ''}</label>`;
-        if (q.description) {
-          qDiv.innerHTML += `<div style="font-size:12px; color:var(--text-mid); margin-bottom:8px; line-height:1.4;">${q.description}</div>`;
-        }
-
-        if (q.type === 'text') {
-          qDiv.innerHTML += `<textarea class="survey-answer-field" data-id="${q.id}" rows="3" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:14px;" placeholder="回答を入力してください"></textarea>`;
-        } else if (q.type === 'image') {
-          qDiv.innerHTML += `
-            <div class="survey-upload-area" id="uploadArea_${q.id}" onclick="document.getElementById('fileInput_${q.id}').click()">
-              <div class="upload-icon" style="font-size: 32px;">📸</div>
-              <div class="upload-text">写真をアップロード</div>
-              <div class="survey-upload-btn">ファイルを選択</div>
-              <input type="file" id="fileInput_${q.id}" class="survey-answer-file" data-id="${q.id}" accept="image/*" style="display:none;">
-            </div>
-            <div id="surveyPreview_${q.id}" style="margin-top:12px; display:none; position: relative; animation: fadeIn 0.3s;">
-              <div style="font-size: 11px; color: var(--text-mid); margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
-                <span>✅ 選択済み</span>
-                <span style="margin-left:auto; color:var(--sage-dark); font-weight:bold; cursor:pointer;" onclick="document.getElementById('fileInput_${q.id}').click()">画像を差し替える</span>
-              </div>
-              <img src="" style="width:100%; max-height:280px; object-fit: cover; border-radius:16px; border:2.5px solid #fff; box-shadow: 0 4px 15px var(--shadow-mid);" onclick="document.getElementById('fileInput_${q.id}').click()">
-              <button onclick="clearSurveyImage('${q.id}')" style="position: absolute; top: 15px; right: -8px; background: #555; color: #fff; border: 2px solid #fff; border-radius: 50%; width: 26px; height: 26px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">×</button>
-            </div>`;
-
-          setTimeout(() => {
-            const input = document.getElementById(`fileInput_${q.id}`);
-            const area = document.getElementById(`uploadArea_${q.id}`);
-            if (input) {
-              input.onchange = (e) => {
-                const file = e.target.files[0];
-                const previewWrap = document.getElementById(`surveyPreview_${q.id}`);
-                if (file && previewWrap) {
-                  const reader = new FileReader();
-                  reader.onload = (re) => {
-                    previewWrap.querySelector('img').src = re.target.result;
-                    previewWrap.style.display = 'block';
-                    area.style.display = 'none';
-                  };
-                  reader.readAsDataURL(file);
-                }
-              };
-            }
-          }, 0);
-        } else if (q.type === 'radio') {
-          const options = (q.options || '').includes('\n')
-            ? q.options.split('\n').map(o => o.trim()).filter(o => o)
-            : (q.options || '').split(',').map(o => o.trim()).filter(o => o);
-          options.forEach(opt => {
-            qDiv.innerHTML += `
-              <label class="survey-option-box" data-q-id="${q.id}">
-                <input type="radio" name="q_${q.id}" class="survey-answer-radio" data-id="${q.id}" value="${opt}" onchange="updateSurveyBoxHighlights('${q.id}')">
-                <span>${opt}</span>
-              </label>`;
-          });
-        } else if (q.type === 'checkbox') {
-          const options = (q.options || '').includes('\n')
-            ? q.options.split('\n').map(o => o.trim()).filter(o => o)
-            : (q.options || '').split(',').map(o => o.trim()).filter(o => o);
-          options.forEach(opt => {
-            qDiv.innerHTML += `
-              <label class="survey-option-box" data-q-id="${q.id}">
-                <input type="checkbox" class="survey-answer-check" data-id="${q.id}" value="${opt}" onchange="updateSurveyBoxHighlights('${q.id}')">
-                <span>${opt}</span>
-              </label>`;
-          });
-        }
-        container.appendChild(qDiv);
-      });
-
-      openModal('surveyModal');
-    }
-
-    // アンケート用画像リセット
-    function clearSurveyImage(qId) {
-      const input = document.getElementById(`fileInput_${qId}`);
-      if (input) input.value = '';
-      const previewWrap = document.getElementById(`surveyPreview_${qId}`);
-      if (previewWrap) previewWrap.style.display = 'none';
-      const area = document.getElementById(`uploadArea_${qId}`);
-      if (area) area.style.display = 'flex';
-    }
-
-    // アンケート選択肢のハイライト更新
-    function updateSurveyBoxHighlights(qId) {
-      const boxes = document.querySelectorAll(`[data-q-id="${qId}"]`);
-      boxes.forEach(box => {
-        const input = box.querySelector('input');
-        if (input && input.checked) {
-          box.style.borderColor = 'var(--sage)';
-          box.style.background = '#f0f4ee';
-          box.style.boxShadow = '0 0 0 1px var(--sage)';
-        } else {
-          box.style.borderColor = 'var(--border)';
-          box.style.background = '#fff';
-          box.style.boxShadow = '0 2px 6px var(--shadow-soft)';
-        }
-      });
-    }
-
-    async function submitSurveyResponse() {
-      if (!currentSurvey) return;
-
-      const btn = document.getElementById('surveySubmitBtn');
-      btn.disabled = true;
-      btn.innerText = '準備中...';
-
-      const answers = {};
-      let allRequiredFilled = true;
-
-      // 画像をBase64に変換するPromiseリスト
-      const imagePromises = [];
-
-      currentSurvey.questions.forEach(q => {
-        if (q.type === 'text') {
-          const el = document.querySelector(`.survey-answer-field[data-id="${q.id}"]`);
-          const val = el ? el.value.trim() : "";
-          if (q.required && !val) allRequiredFilled = false;
-          answers[q.id] = { title: q.title, value: val };
-        } else if (q.type === 'radio') {
-          const el = document.querySelector(`.survey-answer-radio[data-id="${q.id}"]:checked`);
-          const val = el ? el.value : "";
-          if (q.required && !val) allRequiredFilled = false;
-          answers[q.id] = { title: q.title, value: val };
-        } else if (q.type === 'checkbox') {
-          const val = Array.from(document.querySelectorAll(`.survey-answer-check[data-id="${q.id}"]:checked`)).map(el => el.value);
-          if (q.required && val.length === 0) allRequiredFilled = false;
-          answers[q.id] = { title: q.title, value: val };
-        } else if (q.type === 'image') {
-          const el = document.querySelector(`.survey-answer-file[data-id="${q.id}"]`);
-          const file = el && el.files ? el.files[0] : null;
-          if (q.required && !file) allRequiredFilled = false;
-
-          if (file) {
-            const p = new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                answers[q.id] = { title: q.title, value: e.target.result }; // Base64
-                resolve();
-              };
-              reader.readAsDataURL(file);
-            });
-            imagePromises.push(p);
-          } else {
-            answers[q.id] = { title: q.title, value: "" };
-          }
-        }
-      });
-
-      if (!allRequiredFilled) {
-        showToast('必須項目を入力してください');
-        btn.disabled = false;
-        btn.innerText = '回答を送信する';
-        return;
-      }
-
-      // すべての画像をBase64に変換完了するまで待つ
-      if (imagePromises.length > 0) {
-        btn.innerText = '画像処理中...';
-        await Promise.all(imagePromises);
-      }
-
-      btn.disabled = true;
-      btn.innerText = '送信中...';
-
-      const memberId = localStorage.getItem('member_id') || 'GUEST';
-      const payload = {
-        type: 'submitSurveyResponse',
-        surveyId: currentSurvey.id,
-        memberId: memberId,
-        answers: answers
-      };
-
-      try {
-        const res = await postToGAS(payload);
-        if (res && res.status === 'ok') {
-          showToast('回答を送信しました。ご協力ありがとうございました！');
-          closeModal('surveyModal');
-        } else {
-          showToast('送信に失敗しました。もう一度お試しください。');
-        }
-      } catch (e) {
-        console.error("Survey submission error:", e);
-        showToast('通信エラーが発生しました');
-      } finally {
-        btn.disabled = false;
-        btn.innerText = '回答を送信する';
-      }
-    }
 
     async function refreshAppData() {
       showToast('最新情報を確認中...');
@@ -3765,9 +4126,7 @@
 
     function renderDividedBlogList() {
       const newsCat = document.getElementById('newsCategoryFilter')?.value || '全て';
-      const blogCat = document.getElementById('blogCategoryFilter')?.value || '全て';
       renderBlogList('newsPageList', 999, 'お知らせ', newsCat);
-      renderBlogList('blogPageList', 999, 'ブログ', blogCat);
     }
     function openBlogDetail(item) {
       let detailImageHtml = '';
@@ -3812,7 +4171,12 @@
       }
       document.getElementById('prodModalName').textContent = p.name;
       document.getElementById('prodModalPrice').textContent = '¥' + p.price.toLocaleString() + '（税込）';
-      document.getElementById('prodModalDesc').textContent = p.description || '';
+
+      let descHtml = p.description || '';
+      if (p.descriptionImage && p.descriptionImage.startsWith('http')) {
+        descHtml += `<div style="margin-top:12px; border-radius:8px; overflow:hidden;"><img src="${p.descriptionImage}" style="width:100%; height:auto; display:block;" alt="Description Image"></div>`;
+      }
+      document.getElementById('prodModalDesc').innerHTML = descHtml || '商品説明はありません';
       document.getElementById('prodModalDesc').style.display = 'none'; // 初期非表示
       document.getElementById('modalQtyDisp').textContent = 1;
       openModal('productModal');
@@ -3861,59 +4225,199 @@
       document.getElementById('cartTotal').textContent = '¥' + total.toLocaleString();
       updateCheckoutBtn();
     }
-    function chgCartQty(ci, d) { cart[ci].qty = Math.max(1, cart[ci].qty + d); updateCartUI(); renderCart(); }
-    function rmCartItem(ci) { cart.splice(ci, 1); updateCartUI(); renderCart(); }
+    function chgCartQty(ci, d) {
+      if (isOrderSubmitting) return;
+      cart[ci].qty = Math.max(1, cart[ci].qty + d);
+      updateCartUI();
+      renderCart();
+    }
+    function rmCartItem(ci) {
+      if (isOrderSubmitting) return;
+      cart.splice(ci, 1);
+      updateCartUI();
+      renderCart();
+    }
     function updateCheckoutBtn() {
-      document.getElementById('checkoutBtn').disabled = !cart.length;
+      const btn = document.getElementById('checkoutBtn');
+      if (!btn) return;
+      btn.disabled = !cart.length || isOrderSubmitting;
+      btn.textContent = isOrderSubmitting ? '送信中...' : 'ご注文を確定する';
     }
     function proceedCheckout() {
+      if (isOrderSubmitting) return;
       finalizeOrder('現金払い');
     }
     async function finalizeOrder(payLabel) {
-      const total = cart.reduce((s, c) => s + PRODUCTS[c.idx].price * c.qty, 0);
+      if (isOrderSubmitting || !cart.length) return;
+      if (!_profile || !_profile.memberId) {
+        showToast('先にプロフィールを登録してください');
+        switchPage('mypage');
+        return;
+      }
+
+      const cartSnapshot = cart.map(c => ({ idx: c.idx, qty: c.qty }));
+      const total = cartSnapshot.reduce((s, c) => s + PRODUCTS[c.idx].price * c.qty, 0);
       // GAS側の getCurrentTime() と同じ形式: M/d HH:mm
       const now = new Date();
       const ts = now.getFullYear() + '/' + (now.getMonth() + 1) + '/' + now.getDate() + ' ' +
         now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
       const orderId = 'ORD-' + Date.now();
-      const order = { id: orderId, items: [...cart], total, payment: payLabel, status: 'pending', time: ts, memberId: _profile.memberId };
-      orders.unshift(order);
-      // GASの handleOrder が期待する payload 構造:
-      // { type:'order', customerName, items:[{name,qty,price}], total, payment, orderId, time, memberId }
-      await postToGAS({
-        type: 'order',
-        customerName: CUSTOMER_NAME,
-        memberId: _profile.memberId,
-        items: order.items.map(c => ({
-          name: PRODUCTS[c.idx].name,
-          qty: c.qty,
-          price: PRODUCTS[c.idx].price
-        })),
-        total: total,
-        payment: payLabel,
-        orderId: orderId,
-        time: ts
-      });
-      cart = [];
-      updateCartUI();
-      document.getElementById('orderCompleteMsg').innerHTML = `お支払い：${payLabel}<br><br>ご来院時にスタッフにお声がけください。`;
-      openModal('orderCompleteModal');
+      const order = { id: orderId, items: cartSnapshot, total, payment: payLabel, status: 'pending', time: ts, memberId: _profile.memberId };
+
+      isOrderSubmitting = true;
+      updateCheckoutBtn();
+
+      try {
+        // GASの handleOrder が期待する payload 構造:
+        // { type:'order', customerName, items:[{name,qty,price}], total, payment, orderId, time, memberId }
+        const res = await postToGAS({
+          type: 'order',
+          customerName: CUSTOMER_NAME,
+          memberId: _profile.memberId,
+          items: order.items.map(c => ({
+            name: PRODUCTS[c.idx].name,
+            qty: c.qty,
+            price: PRODUCTS[c.idx].price
+          })),
+          total: total,
+          payment: payLabel,
+          orderId: orderId,
+          time: ts
+        });
+
+        if (!res || res.status !== 'ok') {
+          showToast('注文の送信に失敗しました');
+          return;
+        }
+
+        orders.unshift(order);
+        cart = [];
+        updateCartUI();
+        document.getElementById('orderCompleteMsg').innerHTML = `お支払い：${payLabel}<br><br>ご来院時にスタッフにお声がけください。`;
+        openModal('orderCompleteModal');
+      } catch (e) {
+        showToast('注文の送信に失敗しました');
+      } finally {
+        isOrderSubmitting = false;
+        updateCheckoutBtn();
+      }
     }
     function finishOrder() { closeModal('orderCompleteModal'); renderOrderHistory(); switchPage('mypage'); }
 
+    function setAppDialogButtonVariant(button, variant) {
+      if (!button) return;
+      button.className = 'btn ' + (variant === 'danger' ? 'danger' : 'primary');
+    }
+
+    function showAppDialog(options) {
+      const modal = document.getElementById('appDialogModal');
+      const title = document.getElementById('appDialogTitle');
+      const message = document.getElementById('appDialogMessage');
+      const confirmBtn = document.getElementById('appDialogConfirmBtn');
+      const cancelBtn = document.getElementById('appDialogCancelBtn');
+      if (!modal || !title || !message || !confirmBtn || !cancelBtn) return Promise.resolve(false);
+      if (activeAppDialogResolver) return Promise.resolve(false);
+
+      const settings = options || {};
+      const kind = settings.kind === 'confirm' ? 'confirm' : 'alert';
+      title.textContent = settings.title || 'ご案内';
+      message.textContent = settings.message || '';
+      confirmBtn.textContent = settings.confirmLabel || (kind === 'confirm' ? 'OK' : '閉じる');
+      setAppDialogButtonVariant(confirmBtn, settings.confirmVariant || 'primary');
+
+      if (kind === 'confirm') {
+        cancelBtn.style.display = 'block';
+        cancelBtn.textContent = settings.cancelLabel || 'キャンセル';
+      } else {
+        cancelBtn.style.display = 'none';
+        cancelBtn.textContent = 'キャンセル';
+      }
+
+      openModal('appDialogModal');
+      return new Promise(function (resolve) {
+        activeAppDialogResolver = resolve;
+      });
+    }
+
+    function resolveAppDialog(result) {
+      const resolver = activeAppDialogResolver;
+      activeAppDialogResolver = null;
+      closeModal('appDialogModal');
+      if (resolver) resolver(result);
+    }
+
+    function showAppAlert(message, options) {
+      const settings = options || {};
+      return showAppDialog({
+        kind: 'alert',
+        title: settings.title || 'ご案内',
+        message: message,
+        confirmLabel: settings.confirmLabel || '閉じる',
+        confirmVariant: settings.confirmVariant || 'primary'
+      });
+    }
+
+    function showAppConfirm(message, options) {
+      const settings = options || {};
+      return showAppDialog({
+        kind: 'confirm',
+        title: settings.title || '確認',
+        message: message,
+        confirmLabel: settings.confirmLabel || 'OK',
+        cancelLabel: settings.cancelLabel || 'キャンセル',
+        confirmVariant: settings.confirmVariant || 'primary'
+      });
+    }
+
     // ===== 注文履歴 =====
+    function shouldHideOrderFromHistory(order) {
+      if (!order) return true;
+      const status = String(order.status || '').trim().toLowerCase();
+      return status === 'cancelled' ||
+        status === 'キャンセル済' ||
+        status === 'キャンセル' ||
+        status.indexOf('キャンセル') !== -1;
+    }
+
+    function renderOrderHistoryError(message) {
+      const list = document.getElementById('orderHistoryList');
+      if (!list) return;
+      list.innerHTML = `
+        <div style="text-align:center;padding:26px 12px;color:var(--text-light);line-height:1.7">
+          <div style="font-size:13px;margin-bottom:12px">${message}</div>
+          <button class="btn secondary" id="orderHistoryRetryBtn" onclick="renderOrderHistory()" style="padding:8px 14px">再読み込み</button>
+        </div>
+      `;
+    }
+
     async function renderOrderHistory() {
       const list = document.getElementById('orderHistoryList');
       if (!_profile) { list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">プロフィールを登録すると履歴が表示されます</div>'; return; }
 
+      const previousOrders = Array.isArray(orders) ? orders.slice() : [];
       list.innerHTML = '<div style="text-align:center;padding:26px 0"><span class="loading-spinner"></span> 読み込み中...</div>';
 
       // GASから最新の履歴を取得（同期）
       const res = await getFromGAS('getCustomerOrders', { memberId: _profile.memberId });
       if (res && res.status === 'ok') {
-        orders = res.orders;
+        orders = (res.orders || []).filter(function (order) {
+          return !shouldHideOrderFromHistory(order);
+        });
+        renderOrderHistoryUI();
+        return;
       }
-      renderOrderHistoryUI();
+
+      orders = previousOrders;
+      const hasCachedOrders = orders.some(function (order) {
+        return !shouldHideOrderFromHistory(order);
+      });
+      if (hasCachedOrders) {
+        showToast('注文履歴の更新に失敗しました');
+        renderOrderHistoryUI();
+        return;
+      }
+
+      renderOrderHistoryError('注文履歴の取得に失敗しました。通信状況をご確認ください。');
     }
 
     function renderOrderHistoryUI() {
@@ -3922,14 +4426,21 @@
         list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">プロフィールを登録すると履歴が表示されます</div>';
         return;
       }
-      if (!orders.length) {
+      const visibleOrders = orders.filter(function (order) {
+        return !shouldHideOrderFromHistory(order);
+      });
+
+      if (!visibleOrders.length) {
         list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">注文履歴はありません</div>';
         return;
       }
       list.innerHTML = '';
-      orders.forEach(o => {
-        const sl = o.status === 'pending' ? '受付中' : o.status === 'cancelled' ? 'キャンセル済' : '完了';
-        const sc = o.status === 'pending' ? 's-pending' : o.status === 'cancelled' ? 's-cancelled' : 's-done';
+      visibleOrders.forEach(o => {
+        const isCancelled = o.status === 'cancelled' || o.status === 'キャンセル済' || o.status === 'キャンセル';
+        const isActionLocked = isCancelSubmitting || isReceiptSubmitting;
+        const receiptButtonLabel = isReceiptSubmitting && receiptSubmittingOrderId === o.id ? '更新中...' : '受け取りました';
+        const sl = o.status === 'pending' ? '受付中' : (isCancelled ? 'キャンセル済' : '完了');
+        const sc = o.status === 'pending' ? 's-pending' : (isCancelled ? 's-cancelled' : 's-done');
 
         const names = o.items.map(c => {
           const itemName = c.name || (productItems.find(p => p.id === c.idx) ? productItems.find(p => p.id === c.idx).name : '不明な商品');
@@ -3944,7 +4455,6 @@
               <span class="status-chip ${sc}">${sl}</span>
               <span style="font-size:10px;color:var(--text-light);margin-left:8px">${o.time}</span>
             </div>
-            ${o.status !== 'pending' ? `<button onclick="deleteLocalOrder('${o.id}')" style="background:none;border:none;color:var(--text-light);font-size:14px;cursor:pointer;padding:0 5px">✕</button>` : ''}
           </div>
           <div style="font-size:12px;color:var(--text-dark);margin:8px 0;line-height:1.5">${names}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px">
@@ -3952,8 +4462,8 @@
             <span style="font-size:14px;font-weight:700;color:var(--brown)">¥${Number(o.total).toLocaleString()}</span>
           </div>
           <div style="margin-top:8px; display:flex; gap:8px;">
-            ${o.status === 'pending' ? `<button class="btn danger" style="flex:1;padding:8px" onclick="openCancelModal('${o.id}')">キャンセルする</button>` : ''}
-            ${(!o.checked && o.status !== 'cancelled') ? `<button class="btn primary" style="flex:1;padding:8px;background:var(--sage)" onclick="confirmReceipt('${o.id}')">受け取りました</button>` : ''}
+            ${o.status === 'pending' ? `<button class="btn danger" style="flex:1;padding:8px" onclick="openCancelModal('${o.id}')" ${isActionLocked ? 'disabled' : ''}>キャンセルする</button>` : ''}
+            ${(!o.checked && !isCancelled) ? `<button class="btn primary" style="flex:1;padding:8px;background:var(--sage)" onclick="confirmReceipt('${o.id}')" ${isActionLocked ? 'disabled' : ''}>${receiptButtonLabel}</button>` : ''}
             ${(o.checked) ? `<div style="flex:1;padding:8px;background:#f0f0f0;color:#888;text-align:center;border-radius:8px;font-size:12px;font-weight:bold;">受取完了</div>` : ''}
           </div>
         `;
@@ -3962,33 +4472,85 @@
     }
 
     async function confirmReceipt(orderId) {
-      if (!confirm('商品を受け取りましたか？\nステータスを受取済に更新します。')) return;
+      if (isReceiptSubmitting) return;
+      const targetOrder = orders.find(function (order) { return order.id === orderId; });
+      if (!targetOrder || shouldHideOrderFromHistory(targetOrder)) return;
+      const confirmed = await showAppConfirm('商品を受け取りましたか？\nステータスを受取済に更新します。', {
+        title: '受取報告',
+        confirmLabel: '受取済にする',
+        cancelLabel: '戻る',
+        confirmVariant: 'primary'
+      });
+      if (!confirmed) return;
+
+      isReceiptSubmitting = true;
+      receiptSubmittingOrderId = orderId;
+      renderOrderHistoryUI();
       showToast('更新中...');
-      const res = await postToGAS({ type: 'confirmReceipt', orderId: orderId });
-      if (res && res.status === 'ok') {
-        showToast('受取を報告しました🌿');
-        orders = orders.filter(o => o.id !== orderId);
+      try {
+        const res = await postToGAS({ type: 'confirmReceipt', orderId: orderId });
+        if (res && res.status === 'ok') {
+          showToast('受取を報告しました🌿');
+          orders = orders.filter(o => o.id !== orderId);
+        } else {
+          showToast('更新に失敗しました');
+        }
+      } finally {
+        isReceiptSubmitting = false;
+        receiptSubmittingOrderId = null;
         renderOrderHistoryUI();
-      } else {
-        showToast('更新に失敗しました');
       }
     }
 
-    function deleteLocalOrder(id) {
-      if (!confirm('この履歴を非表示にしますか？\n（管理側のデータは削除されません）')) return;
-      orders = orders.filter(o => o.id !== id);
-      renderOrderHistoryUI();
-    }
-    function openCancelModal(id) { cancelOrderId = id; openModal('cancelModal'); }
-    async function confirmCancel() {
-      const o = orders.find(o => o.id === cancelOrderId);
-      if (o) {
-        o.status = 'cancelled';
-        await postToGAS({ type: 'cancel', orderId: o.id });
+    function updateCancelModalState() {
+      const confirmBtn = document.getElementById('cancelConfirmBtn');
+      const backBtn = document.getElementById('cancelBackBtn');
+      const isBusy = isCancelSubmitting || isReceiptSubmitting;
+      if (confirmBtn) {
+        confirmBtn.disabled = isBusy;
+        confirmBtn.textContent = isCancelSubmitting ? 'キャンセル中...' : 'キャンセルする';
       }
-      closeModal('cancelModal');
-      renderOrderHistoryUI();
-      showToast('キャンセルしました');
+      if (backBtn) backBtn.disabled = isCancelSubmitting;
+    }
+    function openCancelModal(id) {
+      if (isCancelSubmitting || isReceiptSubmitting) return;
+      cancelOrderId = id;
+      updateCancelModalState();
+      openModal('cancelModal');
+    }
+    async function confirmCancel() {
+      if (isCancelSubmitting || isReceiptSubmitting || !cancelOrderId) return;
+
+      const targetOrderId = cancelOrderId;
+      const targetOrder = orders.find(o => o.id === targetOrderId);
+      if (!targetOrder) {
+        cancelOrderId = null;
+        closeModal('cancelModal');
+        return;
+      }
+
+      isCancelSubmitting = true;
+      updateCancelModalState();
+      showToast('キャンセル処理中...');
+
+      try {
+        const res = await postToGAS({ type: 'cancel', orderId: targetOrder.id });
+        if (res && res.status === 'ok') {
+          orders = orders.filter(o => o.id !== targetOrderId);
+          showToast('キャンセルしました');
+          await renderOrderHistory();
+        } else {
+          showToast('キャンセルの送信に失敗しました');
+        }
+      } finally {
+        isCancelSubmitting = false;
+        cancelOrderId = null;
+        updateCancelModalState();
+        closeModal('cancelModal');
+        if (!document.getElementById('cancelModal').classList.contains('open')) {
+          renderOrderHistoryUI();
+        }
+      }
     }
 
     // ===== モーダル / ページ / トースト =====
@@ -4026,6 +4588,9 @@
         renderOrderHistory();
         renderSurveys();
         if (typeof syncNativePushStatus === 'function') syncNativePushStatus();
+      }
+      if (name === 'survey') {
+        renderSurveys();
       }
       if (name === 'blog') renderDividedBlogList();
       if (name === 'shop') {
@@ -4158,6 +4723,786 @@
       setTimeout(() => t.classList.remove('show'), 2300);
     }
 
+    function escapeHtml(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function normalizeSupportText(text) {
+      return String(text || '')
+        .toLowerCase()
+        .normalize('NFKC')
+        .replace(/[！!？?。、,.・/／\\|｜()\[\]{}（）「」『』【】<>＜＞:：;；"'`´~〜\-_=+*&^%$#@]/g, '')
+        .replace(/\s+/g, '');
+    }
+
+    function getSupportKeywordList(item) {
+      return String((item && item.keywords) || '')
+        .split(/[\n,、，\/\s]+/)
+        .map(function (part) { return part.trim(); })
+        .filter(Boolean);
+    }
+
+    function scoreSupportFaq(messageNorm, item) {
+      if (!messageNorm || !item) return 0;
+
+      let score = 0;
+      let keywordHits = 0;
+      const questionNorm = normalizeSupportText(item.question);
+      const categoryNorm = normalizeSupportText(item.category);
+
+      if (questionNorm) {
+        if (messageNorm === questionNorm) score += 40;
+        if (questionNorm.length >= 8 && messageNorm.indexOf(questionNorm) !== -1) score += 18;
+        if (messageNorm.length >= 8 && questionNorm.length >= 8 && questionNorm.indexOf(messageNorm) !== -1) score += 10;
+      }
+      if (categoryNorm && messageNorm.indexOf(categoryNorm) !== -1) {
+        score += 3;
+      }
+
+      getSupportKeywordList(item).forEach(function (keyword) {
+        const norm = normalizeSupportText(keyword);
+        if (!norm) return;
+        if (messageNorm.indexOf(norm) !== -1) {
+          keywordHits += 1;
+          score += norm.length >= 4 ? 6 : 3;
+        }
+      });
+
+      if (keywordHits >= 2) score += keywordHits * 2;
+      return score;
+    }
+
+    function getSupportFaqSource() {
+      return supportFaqItems.length ? supportFaqItems : SUPPORT_FAQ_FALLBACK;
+    }
+
+    function getCombinedSupportKnowledge() {
+      return getSupportFaqSource().concat(SUPPORT_APP_GUIDE);
+    }
+
+    function getDefaultSupportQuestions(limit) {
+      return Array.from(new Set(
+        getCombinedSupportKnowledge()
+          .map(function (item) { return item.question; })
+          .filter(Boolean)
+      )).slice(0, limit || 4);
+    }
+
+    function isLikelyAppSupportQuestion(messageNorm) {
+      return SUPPORT_APP_KEYWORDS.some(function (keyword) {
+        return messageNorm.indexOf(normalizeSupportText(keyword)) !== -1;
+      });
+    }
+
+    function hasSupportKeyword(messageNorm, keyword) {
+      const keywordNorm = normalizeSupportText(keyword);
+      return !!keywordNorm && messageNorm.indexOf(keywordNorm) !== -1;
+    }
+
+    function hasAnySupportKeyword(messageNorm, keywords) {
+      return (keywords || []).some(function (keyword) {
+        return hasSupportKeyword(messageNorm, keyword);
+      });
+    }
+
+    function hasAllSupportKeywordGroups(messageNorm, keywordGroups) {
+      return (keywordGroups || []).every(function (group) {
+        return hasAnySupportKeyword(messageNorm, group);
+      });
+    }
+
+    function isSupportBlogArchiveQuestion(messageNorm) {
+      return hasAnySupportKeyword(messageNorm, ['ブログ']) &&
+        hasAnySupportKeyword(messageNorm, ['過去', '履歴', '一覧', '記事', '以前', 'バックナンバー']);
+    }
+
+    function isSupportOrderHistoryQuestion(messageNorm) {
+      return hasAnySupportKeyword(messageNorm, ['注文履歴']) ||
+        (hasAnySupportKeyword(messageNorm, ['注文', '購入', 'ショップ', '受取', '受け取り']) &&
+          hasAnySupportKeyword(messageNorm, ['履歴', '状況', '状態', '受付中', '完了', 'キャンセル']));
+    }
+
+    function getMergedSupportSuggestions(preferred) {
+      const merged = [];
+      (preferred || []).forEach(function (question) {
+        if (question && merged.indexOf(question) === -1) merged.push(question);
+      });
+      getDefaultSupportQuestions(6).forEach(function (question) {
+        if (question && merged.indexOf(question) === -1) merged.push(question);
+      });
+      return merged.slice(0, 4);
+    }
+
+    function buildSupportText(answer) {
+      if (Array.isArray(answer)) {
+        return answer.filter(Boolean).join('\n');
+      }
+      return String(answer || '');
+    }
+
+    function buildSupportReply(answer, suggestions, matched) {
+      return {
+        matched: matched !== false,
+        answer: buildSupportText(answer),
+        suggestions: getMergedSupportSuggestions(suggestions)
+      };
+    }
+
+    function getSupportStatusReply(messageNorm) {
+      const asksCurrent = hasAnySupportKeyword(messageNorm, ['今', '現在', 'いま', '状況', '状態', '確認']);
+      const asksStatusOnly = asksCurrent || hasAnySupportKeyword(messageNorm, ['なってる', 'なっている', 'されてる', 'されている', '登録済', '未登録']);
+
+      if (hasAnySupportKeyword(messageNorm, ['スタンプ']) && hasAnySupportKeyword(messageNorm, ['残り', '何個', 'いくつ', '現在', '今', '状況', '状態'])) {
+        const remain = Math.max(0, 10 - stampCount);
+        return buildSupportReply(
+          stampCount >= 10
+            ? [
+              `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。10個達成済みです。`,
+              '次の流れ: 1. マイページの「特典取得状況」を確認 2. 必要なら特典を使用 3. ホームの「新しいスタンプカードを取得」で次のカードを開始してください。',
+              '補足: 来院スタンプは1日1回までです。'
+            ]
+            : [
+              `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。あと${remain}個で特典対象です。`,
+              '追加方法: ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取ってください。',
+              '補足: 来院スタンプは1日1回までです。'
+            ],
+          ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['カート', '買い物かご']) && (asksCurrent || hasAnySupportKeyword(messageNorm, ['何個', 'いくつ', '合計']))) {
+        const itemCount = cart.reduce(function (sum, item) { return sum + Number(item.qty || 0); }, 0);
+        const total = cart.reduce(function (sum, item) {
+          const product = PRODUCTS[item.idx];
+          return sum + ((product ? product.price : 0) * Number(item.qty || 0));
+        }, 0);
+        return buildSupportReply(
+          itemCount > 0
+            ? [
+              `現在のカートは${itemCount}点、合計は¥${total.toLocaleString()}です。`,
+              'カート画面では個数変更や削除ができます。',
+              '内容を確認したら「ご注文を確定する」を押してください。'
+            ]
+            : [
+              '現在カートには商品が入っていません。',
+              '下部メニューの「ショップ」で商品を選ぶとカートに追加できます。'
+            ],
+          ['カートの使い方を知りたい', '商品の注文方法を知りたい']
+        );
+      }
+
+      if ((hasAnySupportKeyword(messageNorm, ['プロフィール']) && asksStatusOnly) || hasAnySupportKeyword(messageNorm, ['会員id', 'memberid', '会員番号'])) {
+        return buildSupportReply(
+          _profile
+            ? [
+              `プロフィールは登録済みです。お名前は${_profile.name || '未設定'}、会員IDは${_profile.memberId || '未発行'}です。`,
+              '変更したい場合は、マイページの「プロフィールを編集」からお名前、電話番号、生年月日、住所、画像を更新できます。'
+            ]
+            : [
+              '現在プロフィールは未登録です。',
+              '初回起動時の案内、またはマイページの「プロフィールを編集」から登録してください。'
+            ],
+          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['通知', 'push', 'プッシュ']) && asksStatusOnly) {
+        const isEnabled = localStorage.getItem('push_enabled') === 'true';
+        return buildSupportReply(
+          isEnabled
+            ? [
+              '現在この端末では通知がオンの状態です。',
+              '解除したい場合は、マイページの通知設定、またはiPhoneの設定アプリ側をご確認ください。'
+            ]
+            : [
+              '現在この端末では通知はオフです。',
+              'マイページの通知設定ボタンから有効化をお試しください。'
+            ],
+          ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい']
+        );
+      }
+
+      return null;
+    }
+
+    function getSupportFaqReply(messageNorm) {
+      const source = getSupportFaqSource();
+      const ranked = source.map(function (item) {
+        return {
+          item: item,
+          score: scoreSupportFaq(messageNorm, item)
+        };
+      }).sort(function (a, b) {
+        if (b.score !== a.score) return b.score - a.score;
+        return Number(b.item.priority || 0) - Number(a.item.priority || 0);
+      });
+
+      if (ranked[0] && ranked[0].score >= 10) {
+        return buildSupportReply(
+          ranked[0].item.answer,
+          ranked
+            .filter(function (row) { return row.score >= 10 && row.item.question !== ranked[0].item.question; })
+            .slice(0, 3)
+            .map(function (row) { return row.item.question; })
+        );
+      }
+
+      return null;
+    }
+
+    function getSupportOverviewReply() {
+      return buildSupportReply(
+        [
+          'このアプリでは、現在次の機能をご利用いただけます。',
+          '1. ホーム: スタンプQR読み取り、現在のスタンプカード確認、メニュー一覧への移動',
+          '2. ショップ: 商品の確認、カート追加、注文',
+          '3. カレンダー: 月ごとの予定確認',
+          '4. NEWS: お知らせ記事の確認',
+          '5. 画面上部の📢: お知らせ一覧の確認',
+          '6. マイページ: プロフィール、通知設定、注文履歴、特典の確認',
+          '知りたい画面名や操作名をそのまま送っていただければ、手順を具体的にご案内します。'
+        ],
+        ['このアプリでできることを知りたい', '商品の注文方法を知りたい', 'スタンプの集め方を知りたい', 'プロフィールの登録方法を知りたい']
+      );
+    }
+
+    function getBuiltInSupportReply(messageNorm) {
+      if (hasAllSupportKeywordGroups(messageNorm, [['初回', '初めて', 'はじめて', '最初', '始める'], ['登録', 'プロフィール', '開始', 'ようこそ']])) {
+        return buildSupportReply(
+          '初回起動時は、ようこそ画面のあとにプロフィール登録画面が開きます。お名前は必須で、電話番号・生年月日・住所も登録できます。登録すると会員IDが発行されてアプリを使い始められます。',
+          ['プロフィールの登録方法を知りたい', 'このアプリでできることを知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['会員id', 'memberid', '会員番号'])) {
+        return buildSupportReply(
+          _profile
+            ? `会員IDはマイページ上部に表示されます。現在の会員IDは${_profile.memberId || '未発行'}です。`
+            : '会員IDはプロフィール登録後に発行され、マイページ上部に表示されます。現在はプロフィール未登録です。',
+          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['アイコン', 'アバター', 'バナー画像', '背景画像']) && hasAnySupportKeyword(messageNorm, ['変更', '編集', '設定'])) {
+        return buildSupportReply(
+          'プロフィール編集画面で、アイコン画像とバナー背景画像を変更できます。画像を選ぶとアプリ内で圧縮され、保存後にプロフィールやバナーへ反映されます。',
+          ['プロフィールの変更方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['プロフィール']) && hasAnySupportKeyword(messageNorm, ['登録', '登録方法', '会員登録']) && !hasAnySupportKeyword(messageNorm, ['変更', '編集'])) {
+        return buildSupportReply(
+          [
+            'プロフィール登録の方法です。',
+            '1. 初回起動時は案内に沿って登録できます。',
+            '2. あとから登録する場合は、マイページの「プロフィールを編集」を開きます。',
+            '3. お名前、電話番号、生年月日、住所を入力して保存してください。',
+            '補足: お名前は必須です。'
+          ],
+          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['プロフィール']) && hasAnySupportKeyword(messageNorm, ['登録', '変更', '編集', '名前', '電話', '生年月日', '住所'])) {
+        return buildSupportReply(
+          [
+            'プロフィール変更の方法です。',
+            '1. マイページを開きます。',
+            '2. 「プロフィールを編集」を押します。',
+            '3. お名前、電話番号、生年月日、住所を入力または修正して保存します。',
+            '補足: 保存後はマイページやバナー表示に反映されます。'
+          ],
+          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['通知', 'push', 'プッシュ']) && hasAnySupportKeyword(messageNorm, ['オン', 'オフ', '許可', '設定'])) {
+        return buildSupportReply(
+          [
+            '通知設定の方法です。',
+            '1. マイページを開きます。',
+            '2. 「通知設定」から有効化または確認します。',
+            '3. 端末側で拒否されている場合は、iPhoneやブラウザの通知設定もご確認ください。',
+            '補足: 通知内容はブログ更新や重要なお知らせです。'
+          ],
+          ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい']
+        );
+      }
+
+      if (isSupportBlogArchiveQuestion(messageNorm)) {
+        return buildSupportReply(
+          [
+            '過去のブログやお知らせの確認方法です。',
+            '1. 画面上部の📢ボタンを押します。',
+            '2. 「お知らせ一覧」でブログ・お知らせ・カレンダー情報を日付順に確認できます。',
+            '補足: 下部メニューのNEWSは主にお知らせ確認用です。'
+          ],
+          ['ブログや過去のお知らせの見方を知りたい', 'お知らせ一覧の見方を知りたい']
+        );
+      }
+
+      if (isSupportOrderHistoryQuestion(messageNorm)) {
+        return buildSupportReply(
+          [
+            '注文履歴の確認方法です。',
+            '1. 下部メニューからマイページを開きます。',
+            '2. 「ご注文履歴」を開きます。',
+            '3. 受付中の注文や、受け取り前の注文を確認できます。',
+            '補足: プロフィール未登録の場合は履歴は表示されません。'
+          ],
+          ['商品の注文方法を知りたい', '注文履歴の確認方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['キャンセル']) && hasAnySupportKeyword(messageNorm, ['注文', '履歴'])) {
+        return buildSupportReply(
+          [
+            '注文キャンセルの方法です。',
+            '1. マイページの「ご注文履歴」を開きます。',
+            '2. 受付中の注文に表示される「キャンセルする」を押します。',
+            '3. 確認後、キャンセルした注文は履歴から表示されなくなります。'
+          ],
+          ['注文履歴の確認方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['受け取りました']) || (hasAnySupportKeyword(messageNorm, ['受取', '受け取り']) && hasAnySupportKeyword(messageNorm, ['注文', '履歴', '商品']))) {
+        return buildSupportReply(
+          [
+            '受け取り完了の報告方法です。',
+            '1. マイページの「ご注文履歴」を開きます。',
+            '2. 対象注文の「受け取りました」を押します。',
+            '3. 受取完了として更新されます。',
+            '補足: キャンセル済みの注文には表示されません。'
+          ],
+          ['注文履歴の確認方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['支払い', '決済', '現金'])) {
+        return buildSupportReply(
+          [
+            '現在の支払い方法についてご案内します。',
+            '商品注文の支払い方法は現在「現金払い」です。',
+            '注文確定後、ご来院時にスタッフへお声がけください。'
+          ],
+          ['商品の注文方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['注文', '購入']) || hasAllSupportKeywordGroups(messageNorm, [['ショップ', '商品'], ['方法', 'やり方', '買い方', '流れ']])) {
+        return buildSupportReply(
+          [
+            '商品の注文手順です。',
+            '1. 下部メニューの「ショップ」を開きます。',
+            '2. 商品カードをタップして詳細を開きます。',
+            '3. 個数を選んで「カートに追加する」を押します。',
+            '4. カートで内容を確認し、「ご注文を確定する」を押します。',
+            '5. 注文後はマイページの「ご注文履歴」で状態を確認できます。'
+          ],
+          ['カートの使い方を知りたい', '注文履歴の確認方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['カート', '買い物かご']) && hasAnySupportKeyword(messageNorm, ['追加', '入れる', '個数', '削除', '変更', '見る'])) {
+        return buildSupportReply(
+          [
+            'カートの使い方です。',
+            '1. 商品をカートに追加します。',
+            '2. カート画面で個数変更や削除ができます。',
+            '3. 商品がない場合は空画面になり、「ショップへ」から戻れます。'
+          ],
+          ['カートの使い方を知りたい', '商品の注文方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['ショップ', '商品'])) {
+        return buildSupportReply(
+          [
+            'ショップの見方です。',
+            '1. 下部メニューの「ショップ」を開きます。',
+            '2. 商品カードをタップすると詳細が開きます。',
+            '3. 「商品説明をみる」で説明確認、個数選択、「カートに追加する」で購入準備ができます。'
+          ],
+          ['商品の注文方法を知りたい', 'カートの使い方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['新しいカード', '次のカード', 'カードを取得', 'カード開始'])) {
+        return buildSupportReply(
+          [
+            '新しいスタンプカードの始め方です。',
+            '1. スタンプが10個たまると、ホームに「新しいスタンプカードを取得」ボタンが表示されます。',
+            '2. ボタンを押すと特典を付与したうえで、次のスタンプカードが始まります。'
+          ],
+          ['スタンプ特典の使い方を知りたい', 'スタンプの集め方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['特典', 'プレゼント', '期限', '使用', 'チケット'])) {
+        return buildSupportReply(
+          [
+            'スタンプ特典の使い方です。',
+            '1. マイページの「特典取得状況」を開きます。',
+            '2. 獲得済み特典を確認し、必要な場合は「使用する」を押します。',
+            '3. 特典は達成当日から使用できます。',
+            '4. 受取期限は獲得から1か月です。',
+            '補足: 一度使用すると再度は使用できません。受け取りの際は受付へ直接お問い合わせください'
+          ],
+          ['スタンプ特典の使い方を知りたい', 'スタンプの集め方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['1日', '一日', '何回']) && hasAnySupportKeyword(messageNorm, ['スタンプ'])) {
+        return buildSupportReply(
+          '来院スタンプは1日1回までです。同じ日に再度読み取ると「本日はすでにスタンプを取得済みです」と表示されます。',
+          ['スタンプの集め方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['qr', 'qrコード', 'qrcode', 'カメラ', 'スキャン', '読み取り'])) {
+        return buildSupportReply(
+          [
+            'スタンプ取得の手順です。',
+            '1. ホーム画面の「カメラを起動して読み取る」を押します。',
+            '2. 院内のQRコードを読み取ります。',
+            '3. 読み取りが成功するとスタンプが追加されます。',
+            '補足: カメラ権限が必要です。プロフィール未登録の場合は先に登録してください。'
+          ],
+          ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['スタンプ'])) {
+        return buildSupportReply(
+          [
+            'スタンプ機能のご案内です。',
+            '1. スタンプはホーム画面で管理します。',
+            '2. 院内QRコードを読むと1日1回まで追加されます。',
+            '3. 10個たまると特典対象です。',
+            '4. 達成後はマイページで特典を確認できます。'
+          ],
+          ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['予約', 'よやく', 'アポイント', '予約したい', '予約方法'])) {
+        return buildSupportReply(
+          [
+            'ご予約についてのご案内です。',
+            '当院のご予約は「公式LINE」にて承っております。',
+            'お手数ですが、公式LINEの友達登録をしていただき、トーク画面から予約をご依頼ください。',
+            '公式LINEへは、ホーム画面またはマイページの「公式サイト・SNS」からアクセスできます。'
+          ],
+          ['公式LINEやSNSの開き方を知りたい', 'メニュー一覧の見方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['メニュー', '予約受付中', '予約対象外', '施術'])) {
+        return buildSupportReply(
+          [
+            'メニュー一覧の見方です。',
+            '1. ホームの「メニュー一覧を見る」を押します。',
+            '2. 一覧ページで「全て / 予約受付中 / 予約対象外」で絞り込みできます。',
+            '3. 各メニューをタップすると詳細や画像を確認できます。',
+            '補足: 実際のご予約は公式LINEからお願いいたします。'
+          ],
+          ['メニュー一覧の見方を知りたい', '予約の方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['カレンダー', 'イベント', '予定', '日程'])) {
+        return buildSupportReply(
+          [
+            'カレンダーの見方です。',
+            '1. 下部メニューの「カレンダー」を開きます。',
+            '2. 左右の矢印で月を切り替えます。',
+            '3. 日付をタップするとその日の予定を確認できます。',
+            '4. 下部には今月のイベント一覧も表示されます。'
+          ],
+          ['イベントカレンダーの見方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['お知らせ一覧', '通知一覧', '拡声器'])) {
+        return buildSupportReply(
+          [
+            'お知らせ一覧の見方です。',
+            '1. 画面上部の📢ボタンを押します。',
+            '2. Push通知、お知らせ、カレンダー情報などをまとめて確認できます。',
+            '補足: 未読があると赤いドットが表示されます。'
+          ],
+          ['お知らせ一覧の見方を知りたい', '最新のお知らせの見方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['news', 'ニュース', 'お知らせ'])) {
+        return buildSupportReply(
+          [
+            'NEWSページの見方です。',
+            '1. 下部メニューの「NEWS」を開きます。',
+            '2. お知らせ記事を一覧で確認できます。',
+            '3. 記事をタップすると詳細が開きます。',
+            '4. 必要に応じてカテゴリで絞り込みできます。'
+          ],
+          ['NEWSページの使い方を知りたい', 'お知らせ一覧の見方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['更新', '再読み込み', 'リロード', '最新情報'])) {
+        return buildSupportReply(
+          [
+            '最新情報の更新方法です。',
+            '1. 画面上部の🔄ボタンを押します。',
+            '2. ブログ、お知らせ、カレンダー、商品などの最新情報を再取得します。',
+            '3. その後、画面が再読み込みされます。'
+          ],
+          ['最新情報への更新方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', 'お問い合わせ'])) {
+        return buildSupportReply(
+          [
+            '公式サイトやSNSの開き方です。',
+            '1. ホーム画面またはマイページの「公式サイト・SNS」を開きます。',
+            '2. 公式ホームページ、Instagram、Facebook、公式LINEを選んで開けます。',
+            '補足: 診療や個別相談は公式LINEをご利用ください。'
+          ],
+          ['公式LINEやSNSの開き方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['ホーム', 'トップ'])) {
+        return buildSupportReply(
+          [
+            'ホーム画面でできることです。',
+            '1. スタンプQRの読み取り',
+            '2. 現在のスタンプカード確認',
+            '3. メニュー一覧への移動',
+            '4. 最新のお知らせ確認',
+            '5. 公式サイトやSNSへのアクセス'
+          ],
+          ['ホーム画面の見方を知りたい', 'スタンプの集め方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['アプリ', '使い方', 'できること', '機能', '何ができる'])) {
+        return getSupportOverviewReply();
+      }
+
+      return null;
+    }
+
+    async function loadSupportFaq(force) {
+      if (!force && supportFaqItems.length) {
+        renderSupportSuggestions(getDefaultSupportQuestions(4));
+        return supportFaqItems;
+      }
+
+      const res = await getFromGAS('getSupportFaq');
+      if (res && res.status === 'ok' && Array.isArray(res.faqs) && res.faqs.length) {
+        supportFaqItems = res.faqs;
+      } else {
+        supportFaqItems = SUPPORT_FAQ_FALLBACK.slice();
+      }
+
+      renderSupportSuggestions(getDefaultSupportQuestions(4));
+      return supportFaqItems;
+    }
+
+    function getLocalSupportReply(message) {
+      const messageNorm = normalizeSupportText(message);
+      const statusReply = getSupportStatusReply(messageNorm);
+      const builtInReply = getBuiltInSupportReply(messageNorm);
+      const faqReply = getSupportFaqReply(messageNorm);
+
+      if (statusReply) {
+        return statusReply;
+      }
+      if (builtInReply) return builtInReply;
+      if (faqReply) return faqReply;
+
+      if (isLikelyAppSupportQuestion(messageNorm)) {
+        return getSupportOverviewReply();
+      }
+
+      return buildSupportReply(
+        [
+          'このチャットでは、現在アプリに実装されている機能の使い方をご案内しています。',
+          'ご案内できる主な内容: ホーム、予約、スタンプ、メニュー一覧、ショップ、カレンダー、NEWS、通知設定、プロフィール、注文履歴、特典。',
+          '知りたい画面名や操作名をそのまま送ってください。例: 「予約の方法」「注文履歴の見方」「通知をオンにする方法」',
+          '診療や個別相談は公式LINEをご利用ください。'
+        ],
+        ['予約の方法を知りたい', 'このアプリでできることを知りたい', '商品の注文方法を知りたい', 'スタンプの集め方を知りたい'],
+        false
+      );
+    }
+
+    function persistSupportChatHistory() {
+      const clean = supportChatHistory
+        .filter(function (item) { return !item.pending; })
+        .slice(-20)
+        .map(function (item) {
+          return { role: item.role, text: item.text };
+        });
+      supportChatHistory = clean;
+      try {
+        localStorage.setItem('mayumi_support_chat_history', JSON.stringify(clean));
+      } catch (e) { }
+    }
+
+    function ensureSupportChatWelcome() {
+      if (supportChatHistory.length) return;
+      supportChatHistory = [{
+        role: 'bot',
+        text: 'アプリの使い方をご案内します。現在実装されている機能について、できるだけ具体的にお答えします。ホーム、予約、スタンプ、メニュー一覧、ショップ、カレンダー、NEWS、通知設定、プロフィール、注文履歴などをそのまま質問してください。'
+      }];
+      persistSupportChatHistory();
+    }
+
+    function updateSupportChatSendingState() {
+      const input = document.getElementById('supportChatInput');
+      const sendBtn = document.getElementById('supportChatSendBtn');
+      if (input) input.disabled = isSupportChatSending;
+      if (sendBtn) {
+        sendBtn.disabled = isSupportChatSending;
+        sendBtn.textContent = isSupportChatSending ? '送信中...' : '送信';
+      }
+
+      document.querySelectorAll('#supportChatSuggestions .support-chip').forEach(function (chip) {
+        chip.disabled = isSupportChatSending;
+      });
+    }
+
+    function renderSupportSuggestions(questions) {
+      const container = document.getElementById('supportChatSuggestions');
+      if (!container) return;
+
+      const sourceQuestions = (questions && questions.length ? questions : getDefaultSupportQuestions(4))
+        .filter(Boolean);
+      const unique = Array.from(new Set(sourceQuestions)).slice(0, 4);
+      container.innerHTML = '';
+
+      unique.forEach(function (question) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'support-chip';
+        btn.textContent = question;
+        btn.disabled = isSupportChatSending;
+        btn.addEventListener('click', function () {
+          askSuggestedSupportQuestion(question);
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function renderSupportChatMessages() {
+      const container = document.getElementById('supportChatMessages');
+      if (!container) return;
+
+      container.innerHTML = '';
+      supportChatHistory.forEach(function (message) {
+        const bubble = document.createElement('div');
+        bubble.className = 'support-msg ' + (message.role === 'user' ? 'user' : 'bot');
+        if (message.pending) bubble.className += ' pending';
+
+        const label = document.createElement('div');
+        label.className = 'support-msg-label';
+        label.textContent = message.role === 'user' ? 'あなた' : 'サポート';
+
+        const body = document.createElement('div');
+        body.className = 'support-msg-body';
+        if (message.pending) {
+          body.innerHTML = '<span class="support-loading"><span class="support-loading-dot"></span><span class="support-loading-dot"></span><span class="support-loading-dot"></span><span>回答を準備しています...</span></span>';
+        } else {
+          body.innerHTML = escapeHtml(message.text).replace(/\n/g, '<br>');
+        }
+
+        bubble.appendChild(label);
+        bubble.appendChild(body);
+        container.appendChild(bubble);
+      });
+
+      container.scrollTop = container.scrollHeight;
+    }
+
+    async function openSupportChat() {
+      ensureSupportChatWelcome();
+      openModal('supportChatModal');
+      renderSupportChatMessages();
+      renderSupportSuggestions();
+      updateSupportChatSendingState();
+      await loadSupportFaq();
+
+      setTimeout(function () {
+        const input = document.getElementById('supportChatInput');
+        if (input) input.focus();
+      }, 120);
+    }
+
+    function askSuggestedSupportQuestion(question) {
+      if (isSupportChatSending) return;
+      const input = document.getElementById('supportChatInput');
+      if (input) input.value = question;
+      sendSupportChat(question);
+    }
+
+    async function sendSupportChat(prefilledText) {
+      if (isSupportChatSending) return;
+
+      const input = document.getElementById('supportChatInput');
+      const message = String(typeof prefilledText === 'string' ? prefilledText : (input ? input.value : '')).trim();
+      if (!message) return;
+
+      ensureSupportChatWelcome();
+      isSupportChatSending = true;
+      updateSupportChatSendingState();
+      supportChatHistory.push({ role: 'user', text: message });
+      if (input) input.value = '';
+
+      const pendingMessage = { role: 'bot', text: '', pending: true };
+      supportChatHistory.push(pendingMessage);
+      renderSupportSuggestions([]);
+      renderSupportChatMessages();
+
+      try {
+        const startedAt = Date.now();
+        if (!supportFaqItems.length) {
+          await loadSupportFaq();
+        }
+
+        const localReply = getLocalSupportReply(message);
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < 250) {
+          await new Promise(function (resolve) { setTimeout(resolve, 250 - elapsed); });
+        }
+
+        supportChatHistory = supportChatHistory.filter(function (item) { return item !== pendingMessage; });
+        supportChatHistory.push({ role: 'bot', text: localReply.answer });
+        renderSupportSuggestions(localReply.suggestions || []);
+        persistSupportChatHistory();
+        renderSupportChatMessages();
+      } catch (err) {
+        supportChatHistory = supportChatHistory.filter(function (item) { return item !== pendingMessage; });
+        supportChatHistory.push({
+          role: 'bot',
+          text: '回答の準備中にエラーが発生しました。もう一度お試しいただくか、知りたい操作名を短く送ってください。'
+        });
+        renderSupportSuggestions(getDefaultSupportQuestions(4));
+        persistSupportChatHistory();
+        renderSupportChatMessages();
+      } finally {
+        isSupportChatSending = false;
+        updateSupportChatSendingState();
+      }
+    }
+
 
     // ===== プロフィール管理 =====
     // デフォルトアバター画像
@@ -4264,6 +5609,7 @@
       _profile = { name, phone, birthday, address, regDate, memberId };
       try {
         localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
+        localStorage.setItem('member_id', memberId); // 互換性のため個別にも保存
         if (_avatarData) localStorage.setItem('mayumi_avatar', _avatarData);
         if (_bannerData) localStorage.setItem('mayumi_banner', _bannerData);
       } catch (e) { }
@@ -4296,7 +5642,7 @@
           } catch (e) { console.log('Avatar upload error:', e); }
         }
 
-        postToGAS({
+        await postToGAS({
           type: 'updateUser',
           memberId: memberId,
           avatar: avatarUrl || '',
@@ -4307,6 +5653,7 @@
           kana: '',
           memo: ''
         });
+        await syncRewardStatus(true);
 
         // OneSignal タグ設定
         if (window.OneSignalRef) {
@@ -4478,7 +5825,10 @@
           console.log('togglePush: current perm:', perm.receive);
 
           if (perm.receive === 'granted') {
-            alert('通知は既に許可されています。解除する場合はiPhoneの設定アプリから変更してください。');
+            await showAppAlert('通知は既に許可されています。\n解除する場合はiPhoneの設定アプリから変更してください。', {
+              title: '通知設定',
+              confirmLabel: '閉じる'
+            });
             updatePushUI('on');
             return;
           }
@@ -4489,7 +5839,10 @@
             updatePushUI('on');
             showToast('通知を有効にしました！ ✅');
           } else {
-            alert('通知が許可されませんでした。設定アプリから許可してください。');
+            await showAppAlert('通知が許可されませんでした。\n設定アプリから許可してください。', {
+              title: '通知設定',
+              confirmLabel: '閉じる'
+            });
           }
         } catch (e) {
           console.error('togglePush Native error:', e);
@@ -4517,7 +5870,13 @@
           const isOn = OS.User.PushSubscription.optedIn;
           console.log('togglePush: Current subscription status:', isOn);
           if (isOn) {
-            if (confirm('プッシュ通知をオフにしますか？')) {
+            const shouldOptOut = await showAppConfirm('プッシュ通知をオフにしますか？', {
+              title: '通知設定',
+              confirmLabel: 'オフにする',
+              cancelLabel: '戻る',
+              confirmVariant: 'danger'
+            });
+            if (shouldOptOut) {
               await OS.User.PushSubscription.optOut();
               localStorage.setItem('push_enabled', 'false');
               updatePushUI('off');
@@ -4542,7 +5901,10 @@
           updatePushUI('on');
           showToast('有効化しました！ ✅');
         } else {
-          alert('通知が許可されませんでした。Safariの設定を確認してください。');
+          await showAppAlert('通知が許可されませんでした。\nSafariの設定を確認してください。', {
+            title: '通知設定',
+            confirmLabel: '閉じる'
+          });
         }
       } catch (e) {
         console.error('togglePush Web error:', e);
@@ -4633,7 +5995,7 @@
 
           PushNotifications.addListener('pushNotificationReceived', async (n) => {
             console.log('Native Push Received:', n);
-            window.alert('通知を受信しました: ' + (n.title || ''));
+            showToast('通知を受信しました: ' + (n.title || '新しい通知'));
             try {
               // @capawesome/capacitor-badge スタイル
               const count = await Badge.get();
@@ -4659,6 +6021,7 @@
         loadProducts(),
         loadCalendar(),
         loadPushNotices(),
+        loadSurveys(),
         loadStampRewards()
       ]).then(() => {
         isDataLoaded = true;
@@ -5067,6 +6430,7 @@
       animation: scanline 2.5s infinite linear;
     }
   </style>
+
 
 </body>
 
