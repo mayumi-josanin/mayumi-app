@@ -1538,6 +1538,37 @@
       <p style="font-size:12px; margin-bottom:10px; color:var(--text-mid);">アプリ公開用URL（QRコード生成用）を入力してください。</p>
       <input type="url" id="appPublicUrlInput" placeholder="https://mayumi-josanin.netlify.app"
         style="margin-bottom: 15px;">
+      <div style="font-size:13px; font-weight:bold; margin-bottom:10px;">アプリ更新設定</div>
+      <p style="font-size:12px; margin-bottom:10px; color:var(--text-mid);">
+        最低対応バージョン未満のアプリには、起動時にアップデート案内を表示します。
+      </p>
+      <div class="form-group">
+        <label>最新版の表示バージョン</label>
+        <input type="text" id="runtimeLatestVersionInput" placeholder="例：1.1.0">
+      </div>
+      <div class="form-group">
+        <label>最低対応バージョン</label>
+        <input type="text" id="runtimeMinimumVersionInput" placeholder="例：1.1.0">
+      </div>
+      <div class="form-group">
+        <label>App Store URL</label>
+        <input type="url" id="runtimeStoreUrlInput" placeholder="https://apps.apple.com/jp/app/...">
+      </div>
+      <div class="form-group">
+        <label>Web Bundle Version (プログラム版数)</label>
+        <p style="font-size:10px; color:var(--text-mid); margin-bottom:4px;">
+          ※この値を変更して保存すると、お客様のアプリに最新プログラムが強制反映されます。
+        </p>
+        <input type="text" id="runtimeWebBundleVersionInput" placeholder="例：2026.03.30.1">
+      </div>
+      <div class="form-group">
+        <label>更新案内タイトル</label>
+        <input type="text" id="runtimeUpdateTitleInput" placeholder="例：アップデートが必要です">
+      </div>
+      <div class="form-group" style="margin-bottom:15px;">
+        <label>更新案内メッセージ</label>
+        <textarea id="runtimeUpdateMessageInput" rows="3" placeholder="例：このアプリを引き続き利用するには最新版へ更新してください。"></textarea>
+      </div>
       <div class="flex" style="gap: 10px;">
         <button class="btn" onclick="saveSettings()" style="flex:1;">保存</button>
         <button class="btn btn-outline" onclick="resetGasUrlToDefault()"
@@ -1608,6 +1639,7 @@
     <div class="modal-content">
       <h3 style="margin-bottom: 15px;">👥 会員情報の編集</h3>
       <input type="hidden" id="editUserRowIdx">
+      <input type="hidden" id="editUserMemberId">
       <div class="form-group">
         <label>氏名</label>
         <input type="text" id="editUserName" required>
@@ -1723,7 +1755,7 @@
   </div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby4tuYI3y558ArBdabtkGJE76k4IUes2WO4_JxFnI7ptYROVQH1SZHKdlSHUzoY7XPmDg/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwatugi80oSd8Va_1OdKUsAB7pLj3iYfjei-PUOBrzABHALxOVZJYY3vBR4x1C5zlqQ/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -1736,6 +1768,14 @@
 
     let GAS_URL = localStorage.getItem('MAYUMI_GAS_URL') || DEFAULT_GAS_URL;
     let APP_PUBLIC_URL = localStorage.getItem('MAYUMI_APP_PUBLIC_URL') || '';
+    const DEFAULT_APP_RUNTIME_CONFIG = {
+      latestAppVersion: '1.1.0',
+      minimumSupportedVersion: '0.0.0',
+      iosStoreUrl: '',
+      updateTitle: 'アップデートが必要です',
+      updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
+      webBundleVersion: '2026.03.30.1'
+    };
     let allUsers = [];
     let allMenus = [];
     let allCategories = [];
@@ -1746,6 +1786,8 @@
     let editingRewardEntries = [];
     let allMenuRevenueRecords = [];
     let menuRevenueDraftEntries = [];
+    let adminAppRuntimeConfig = { ...DEFAULT_APP_RUNTIME_CONFIG };
+    let adminUsersLoadVersion = 0;
     const MENU_REVENUE_TYPES = ['母乳外来', 'ビジリス', '教室'];
     const API_GET_TIMEOUT_MS = 45000;
     const API_POST_TIMEOUT_MS = 45000;
@@ -1805,6 +1847,78 @@
       }
     }
 
+    function normalizeAdminVersionParts(version) {
+      const parts = String(version || '')
+        .split(/[^0-9]+/)
+        .filter(Boolean)
+        .map(part => parseInt(part, 10) || 0);
+      return parts.length ? parts : [0];
+    }
+
+    function compareAdminVersions(left, right) {
+      const a = normalizeAdminVersionParts(left);
+      const b = normalizeAdminVersionParts(right);
+      const maxLength = Math.max(a.length, b.length);
+      for (let i = 0; i < maxLength; i++) {
+        const leftPart = a[i] || 0;
+        const rightPart = b[i] || 0;
+        if (leftPart > rightPart) return 1;
+        if (leftPart < rightPart) return -1;
+      }
+      return 0;
+    }
+
+    function sanitizeAdminAppRuntimeConfig(raw) {
+      const input = raw && typeof raw === 'object' ? raw : {};
+      const config = {
+        latestAppVersion: String(input.latestAppVersion || DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion,
+        minimumSupportedVersion: String(input.minimumSupportedVersion || DEFAULT_APP_RUNTIME_CONFIG.minimumSupportedVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.minimumSupportedVersion,
+        iosStoreUrl: String(input.iosStoreUrl || DEFAULT_APP_RUNTIME_CONFIG.iosStoreUrl).trim(),
+        updateTitle: String(input.updateTitle || DEFAULT_APP_RUNTIME_CONFIG.updateTitle).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateTitle,
+        updateMessage: String(input.updateMessage || DEFAULT_APP_RUNTIME_CONFIG.updateMessage).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateMessage,
+        webBundleVersion: String(input.webBundleVersion || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion
+      };
+      if (compareAdminVersions(config.latestAppVersion, config.minimumSupportedVersion) < 0) {
+        config.latestAppVersion = config.minimumSupportedVersion;
+      }
+      if (config.iosStoreUrl && !/^https?:\/\//i.test(config.iosStoreUrl)) {
+        config.iosStoreUrl = '';
+      }
+      return config;
+    }
+
+    function applyAdminAppRuntimeConfigToInputs(config) {
+      const next = sanitizeAdminAppRuntimeConfig(config);
+      adminAppRuntimeConfig = next;
+      document.getElementById('runtimeLatestVersionInput').value = next.latestAppVersion;
+      document.getElementById('runtimeMinimumVersionInput').value = next.minimumSupportedVersion;
+      document.getElementById('runtimeStoreUrlInput').value = next.iosStoreUrl;
+      document.getElementById('runtimeUpdateTitleInput').value = next.updateTitle;
+      document.getElementById('runtimeUpdateMessageInput').value = next.updateMessage;
+      document.getElementById('runtimeWebBundleVersionInput').value = next.webBundleVersion || '';
+    }
+
+    function collectAdminAppRuntimeConfigFromInputs() {
+      return sanitizeAdminAppRuntimeConfig({
+        latestAppVersion: document.getElementById('runtimeLatestVersionInput').value,
+        minimumSupportedVersion: document.getElementById('runtimeMinimumVersionInput').value,
+        iosStoreUrl: document.getElementById('runtimeStoreUrlInput').value,
+        updateTitle: document.getElementById('runtimeUpdateTitleInput').value,
+        updateMessage: document.getElementById('runtimeUpdateMessageInput').value,
+        webBundleVersion: document.getElementById('runtimeWebBundleVersionInput').value || adminAppRuntimeConfig.webBundleVersion || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion
+      });
+    }
+
+    async function loadAdminAppRuntimeConfig() {
+      const res = await apiRequest('getAppRuntimeConfig');
+      if (res && res.status === 'ok' && res.config) {
+        applyAdminAppRuntimeConfigToInputs(res.config);
+        return res.config;
+      }
+      applyAdminAppRuntimeConfigToInputs(adminAppRuntimeConfig);
+      return adminAppRuntimeConfig;
+    }
+
     function normalizeFilterText(value) {
       return String(value || '')
         .toLowerCase()
@@ -1848,6 +1962,105 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    function invalidateAdminApiCache(actions) {
+      try {
+        const targets = Array.isArray(actions) ? actions : [];
+        const gasPrefix = `${ADMIN_API_CACHE_PREFIX}${GAS_URL || ''}::`;
+        Object.keys(localStorage).forEach(key => {
+          if (!key.startsWith(gasPrefix)) return;
+          if (!targets.length || targets.some(action => key.startsWith(`${gasPrefix}${action}::`))) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (err) {
+        console.warn('Failed to invalidate admin cache', err);
+      }
+      clearPendingAdminRequests(actions);
+    }
+
+    function clearPendingAdminRequests(actions) {
+      const targets = Array.isArray(actions) ? actions.filter(Boolean) : [];
+      if (!targets.length) {
+        pendingGetRequests.clear();
+        return;
+      }
+      Array.from(pendingGetRequests.keys()).forEach(key => {
+        if (targets.some(action => key.startsWith(`${action}::`))) {
+          pendingGetRequests.delete(key);
+        }
+      });
+    }
+
+    function refreshUserViews() {
+      applyUserFilters();
+      applyRewardStatusFilters();
+    }
+
+    function removeUserFromState(memberId, rowIdx) {
+      const normalizedMemberId = String(memberId || '').trim();
+      const numericRowIdx = Number(rowIdx || 0);
+      allUsers = allUsers.filter(user => {
+        if (normalizedMemberId && String(user.memberId || '').trim() === normalizedMemberId) {
+          return false;
+        }
+        if (numericRowIdx && Number(user.rowIdx || 0) === numericRowIdx) {
+          return false;
+        }
+        return true;
+      });
+      refreshUserViews();
+    }
+
+    function updateUserInState(payload) {
+      const normalizedMemberId = String(payload && payload.memberId || '').trim();
+      const numericRowIdx = Number(payload && payload.rowIdx || 0);
+      allUsers = allUsers.map(user => {
+        const sameMemberId = normalizedMemberId && String(user.memberId || '').trim() === normalizedMemberId;
+        const sameRowIdx = numericRowIdx && Number(user.rowIdx || 0) === numericRowIdx;
+        if (!sameMemberId && !sameRowIdx) return user;
+        return Object.assign({}, user, payload);
+      });
+      refreshUserViews();
+    }
+
+    function normalizeAvatarUrl(url) {
+      const value = String(url || '').trim();
+      if (!value) return '';
+      if (value.startsWith('data:image/')) return value;
+      if (!/^https?:\/\//i.test(value) && /^[A-Za-z0-9+/=]+$/.test(value) && value.length > 128) {
+        return `data:image/jpeg;base64,${value}`;
+      }
+      const driveFileMatch = value.match(/\/d\/([A-Za-z0-9_-]+)/) || value.match(/[?&]id=([A-Za-z0-9_-]+)/);
+      if (driveFileMatch && driveFileMatch[1]) {
+        return `https://drive.google.com/thumbnail?id=${driveFileMatch[1]}&sz=w1000`;
+      }
+      if (/^https?:\/\//i.test(value)) return value;
+      return '';
+    }
+
+    function getUserAvatarMarkup(user) {
+      if (!user) return '';
+      // アバター画像データは 'avatar' または 'avatarUrl' に入っている可能性があるため両方チェック
+      const rawUrl = user.avatar || user.avatarUrl || '';
+      const avatarUrl = normalizeAvatarUrl(rawUrl);
+      const displayName = String((user && user.name) || '').trim();
+      const fallbackLabel = escapeHtml(displayName ? displayName.charAt(0) : '👤');
+      const fallbackStyle = 'width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#f3f0ea;color:#8b7c67;font-size:14px;font-weight:700;';
+
+      if (!avatarUrl) {
+        return `<div style="${fallbackStyle}">${fallbackLabel}</div>`;
+      }
+
+      return `
+        <div style="position:relative;width:32px;height:32px;">
+          <img src="${escapeHtml(avatarUrl)}" alt="icon" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+            style="width:32px;height:32px;border-radius:50%;object-fit:cover;background:#f5f5f5;"
+            onerror="this.style.display='none';if(this.nextElementSibling){this.nextElementSibling.style.display='flex';}">
+          <div style="${fallbackStyle}display:none;position:absolute;inset:0;">${fallbackLabel}</div>
+        </div>
+      `;
     }
 
     // --- 一括削除・選択関連の新しい機能 ---
@@ -1923,15 +2136,25 @@
       }
     }
 
-    function openSettings() {
+    async function openSettings() {
       document.getElementById('gasUrlInput').value = GAS_URL;
       document.getElementById('appPublicUrlInput').value = APP_PUBLIC_URL;
+      applyAdminAppRuntimeConfigToInputs(adminAppRuntimeConfig);
+      if (GAS_URL) {
+        await loadAdminAppRuntimeConfig();
+      }
       document.getElementById('settingsModal').classList.add('active');
     }
 
     async function saveSettings() {
       const gUrl = document.getElementById('gasUrlInput').value.trim();
       const aUrl = document.getElementById('appPublicUrlInput').value.trim();
+      const runtimeConfig = collectAdminAppRuntimeConfigFromInputs();
+
+      if (compareAdminVersions(runtimeConfig.minimumSupportedVersion, '0.0.0') > 0 && !runtimeConfig.iosStoreUrl) {
+        showToast('最低対応バージョンを設定する場合は App Store URL も入力してください');
+        return;
+      }
 
       let changed = false;
       if (gUrl) {
@@ -1942,6 +2165,17 @@
 
       APP_PUBLIC_URL = aUrl;
       localStorage.setItem('MAYUMI_APP_PUBLIC_URL', APP_PUBLIC_URL);
+
+      if (GAS_URL) {
+        const saveConfigRes = await apiRequest('', { type: 'saveAppRuntimeConfig', config: runtimeConfig }, true);
+        if (!saveConfigRes || saveConfigRes.status !== 'ok') {
+          showToast((saveConfigRes && saveConfigRes.message) || '更新設定の保存に失敗しました');
+          return;
+        }
+        adminAppRuntimeConfig = sanitizeAdminAppRuntimeConfig(saveConfigRes.config || runtimeConfig);
+      } else {
+        adminAppRuntimeConfig = runtimeConfig;
+      }
 
       document.getElementById('settingsModal').classList.remove('active');
       showToast('設定を保存しました');
@@ -2026,8 +2260,7 @@
         return;
       }
       if (pageId === 'users') {
-        await loadAdminUsers();
-        await loadAdminPushNotices();
+        await Promise.all([loadAdminUsers(), loadAdminPushNotices()]);
         return;
       }
       if (pageId === 'analytics') {
@@ -2196,11 +2429,12 @@
     }
 
     async function loadAdminUsers() {
+      const loadVersion = ++adminUsersLoadVersion;
       const tbody = document.getElementById('usersList');
       const rewardTbody = document.getElementById('rewardStatusList');
       if (!tbody) return;
       const cachedRes = readAdminApiCache('getAdminUsers');
-      if (cachedRes && cachedRes.status === 'ok') {
+      if (cachedRes && cachedRes.status === 'ok' && loadVersion === adminUsersLoadVersion) {
         allUsers = cachedRes.users || [];
         applyUserFilters();
         applyRewardStatusFilters();
@@ -2212,6 +2446,7 @@
       }
 
       const res = await apiRequest('getAdminUsers');
+      if (loadVersion !== adminUsersLoadVersion) return;
       if (res && res.status === 'ok') {
         allUsers = res.users || [];
         applyUserFilters();
@@ -2235,12 +2470,12 @@
       }
 
       tbody.innerHTML = users.map(u => {
-        const avatarUrl = escapeHtml(u.avatarUrl || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2NjIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI1Ii8+PHBhdGggZD0iTTIwIDIxYThIDRhMTEuNSAxMS41IDAgMCAxIDE2IDB6Ii8+PC9zdmc+');
+        const memberIdExpr = JSON.stringify(u.memberId || '');
         const deleteName = JSON.stringify(u.name || '');
         return `
         <tr>
           <td style="text-align:center;">
-            <img src="${avatarUrl}" alt="icon" style="width:32px;height:32px;border-radius:50%;object-fit:cover;background:#f5f5f5;">
+            ${getUserAvatarMarkup(u)}
           </td>
           <td>${escapeHtml(u.memberId || '')}</td>
           <td style="font-size:11px;color:#666;">${escapeHtml(u.timestamp || '')}</td>
@@ -2252,8 +2487,8 @@
           <td>${escapeHtml(u.memo || '')}</td>
           <td>
             <div class="flex" style="gap:5px;">
-              <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editUser(${u.rowIdx})">📝</button>
-              <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteUser(${u.rowIdx}, ${deleteName})">🗑</button>
+              <button type="button" class="btn" title="会員情報を編集" style="padding:4px 8px; font-size:11px;" onclick='editUser(${memberIdExpr}, ${u.rowIdx})'>📝</button>
+              <button type="button" class="btn" title="会員を削除" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick='deleteUser(${memberIdExpr}, ${u.rowIdx}, ${deleteName})'>🗑</button>
             </div>
           </td>
         </tr>
@@ -2915,6 +3150,16 @@
       }, true);
 
       if (res && res.status === 'ok') {
+        invalidateAdminApiCache(['getAdminUsers']);
+        updateUserInState({
+          rowIdx: rowIdx,
+          memberId: memberId,
+          stampCount: stampCount,
+          stampCardNum: stampCardNum,
+          lastStampDate: toIsoDateValue(document.getElementById('editRewardLastStampDate').value),
+          stampAchievedDate: toIsoDateTimeValue(document.getElementById('editRewardStampAchievedDate').value),
+          rewards: rewards
+        });
         showToast('スタンプ・特典状況を更新しました');
         document.getElementById('rewardStatusModal').classList.remove('active');
         loadAdminUsers();
@@ -2923,11 +3168,17 @@
       }
     }
 
-    function editUser(rowIdx) {
-      const u = allUsers.find(item => item.rowIdx === rowIdx);
+    function editUser(memberId, rowIdx) {
+      const normalizedMemberId = String(memberId || '').trim();
+      const numericRowIdx = Number(rowIdx || 0);
+      const u = allUsers.find(item => {
+        if (normalizedMemberId && String(item.memberId || '').trim() === normalizedMemberId) return true;
+        return numericRowIdx && Number(item.rowIdx || 0) === numericRowIdx;
+      });
       if (!u) return;
 
       document.getElementById('editUserRowIdx').value = u.rowIdx;
+      document.getElementById('editUserMemberId').value = u.memberId || '';
       document.getElementById('editUserName').value = u.name || '';
       document.getElementById('editUserKana').value = u.kana || '';
       document.getElementById('editUserPhone').value = u.phone || '';
@@ -2939,13 +3190,14 @@
     }
 
     async function saveUserEdit() {
-      const rowIdx = document.getElementById('editUserRowIdx').value;
-      const name = document.getElementById('editUserName').value;
-      const kana = document.getElementById('editUserKana').value;
-      const phone = document.getElementById('editUserPhone').value;
+      const rowIdx = Number(document.getElementById('editUserRowIdx').value || 0);
+      const memberId = document.getElementById('editUserMemberId').value || '';
+      const name = document.getElementById('editUserName').value.trim();
+      const kana = document.getElementById('editUserKana').value.trim();
+      const phone = document.getElementById('editUserPhone').value.trim();
       const birthday = document.getElementById('editUserBirthday').value;
-      const address = document.getElementById('editUserAddress').value;
-      const memo = document.getElementById('editUserMemo').value;
+      const address = document.getElementById('editUserAddress').value.trim();
+      const memo = document.getElementById('editUserMemo').value.trim();
 
       if (!name) {
         alert('氏名を入力してください。');
@@ -2956,6 +3208,7 @@
       const res = await apiRequest('', {
         type: 'updateAdminUser',
         rowIdx: rowIdx,
+        memberId: memberId,
         name: name,
         kana: kana,
         phone: phone,
@@ -2965,23 +3218,40 @@
       }, true);
 
       if (res && res.status === 'ok') {
+        invalidateAdminApiCache(['getAdminUsers']);
+        updateUserInState({
+          rowIdx: rowIdx,
+          memberId: memberId,
+          name: name,
+          kana: kana,
+          phone: phone,
+          birthday: birthday ? birthday.replace(/-/g, '/') : '',
+          address: address,
+          memo: memo
+        });
         showToast('会員情報を更新しました');
         document.getElementById('userEditModal').classList.remove('active');
-        loadAdminUsers();
+        await loadAdminUsers();
       } else {
         showToast('更新に失敗しました');
       }
     }
 
-    async function deleteUser(rowIdx, name) {
+    async function deleteUser(memberId, rowIdx, name) {
       if (!confirm(`会員「${name || '名前なし'}」を削除しますか？\nこの操作は元に戻せません。`)) return;
       showToast('削除中...');
-      const res = await apiRequest('', { type: 'deleteUser', rowIdx: rowIdx }, true);
+      const res = await apiRequest('', {
+        type: 'deleteUser',
+        memberId: memberId,
+        rowIdx: rowIdx
+      }, true);
       if (res && res.status === 'ok') {
+        invalidateAdminApiCache(['getAdminUsers']);
+        removeUserFromState(memberId, rowIdx);
         showToast('会員を削除しました');
-        loadAdminUsers();
+        await loadAdminUsers();
       } else {
-        showToast('削除に失敗しました');
+        showToast('削除に失敗しました: ' + (res && res.message ? res.message : '不明なエラー'));
       }
     }
 
@@ -4925,7 +5195,9 @@
       const res = await apiRequest('getAdminCalendar');
       const targetRes = (res && res.status === 'ok') ? res : cachedRes;
       if (targetRes && targetRes.status === 'ok') {
-        allCalendarEvents = targetRes.events || [];
+        allCalendarEvents = (targetRes.events || []).filter(e => {
+          return !(e.title && (e.title.includes('休') || e.title.includes('往')));
+        });
         tbodyPub.innerHTML = '';
         if (tbodyDraft) tbodyDraft.innerHTML = '';
 
