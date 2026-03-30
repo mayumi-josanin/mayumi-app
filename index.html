@@ -4436,15 +4436,17 @@
       const p = PRODUCTS[idx];
       const img = document.getElementById('prodModalImg');
       img.className = 'prod-img';
-      if (p.imgKey && PROD_IMAGES[p.imgKey]) {
-        img.style.background = '#f8f5f0';
-        img.innerHTML = '<img src="' + PROD_IMAGES[p.imgKey] + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
-      } else if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
+
+      // 1. iconがURL(http/data)ならそれを最優先、次にimgKeyMap、最後に絵文字
+      if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
         img.style.background = '#f8f5f0';
         img.innerHTML = '<img src="' + p.icon + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
+      } else if (p.imgKey && PROD_IMAGES[p.imgKey]) {
+        img.style.background = '#f8f5f0';
+        img.innerHTML = '<img src="' + PROD_IMAGES[p.imgKey] + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
       } else {
         img.style.background = '';
-        img.textContent = p.icon;
+        img.textContent = p.icon || '🌿';
       }
       document.getElementById('prodModalName').textContent = p.name;
       document.getElementById('prodModalPrice').textContent = '¥' + p.price.toLocaleString() + '（税込）';
@@ -4494,7 +4496,16 @@
       cart.forEach((c, ci) => {
         const p = PRODUCTS[c.idx];
         const el = document.createElement('div'); el.className = 'cart-row';
-        el.innerHTML = `<div class="cart-thumb ${p.bg}">${p.icon}</div><div class="cart-info"><div class="cart-item-name">${p.name}</div><div class="cart-item-price">¥${(p.price * c.qty).toLocaleString()}</div><div class="cart-qty-row"><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},-1)">－</button><span class="qty-ctrl-num">${c.qty}</span><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},1)">＋</button></div></div><div class="cart-del" onclick="rmCartItem(${ci})">🗑</div>`;
+
+        // 表示用画像の決定（ShopViewと同様のロジック）
+        let imgSrcHtml = p.icon;
+        if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
+          imgSrcHtml = `<img src="${p.icon}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
+        } else if (p.imgKey && PROD_IMAGES[p.imgKey]) {
+          imgSrcHtml = `<img src="${PROD_IMAGES[p.imgKey]}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
+        }
+
+        el.innerHTML = `<div class="cart-thumb ${p.bg}">${imgSrcHtml}</div><div class="cart-info"><div class="cart-item-name">${p.name}</div><div class="cart-item-price">¥${(p.price * c.qty).toLocaleString()}</div><div class="cart-qty-row"><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},-1)">－</button><span class="qty-ctrl-num">${c.qty}</span><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},1)">＋</button></div></div><div class="cart-del" onclick="rmCartItem(${ci})">🗑</div>`;
         list.appendChild(el);
       });
       const total = cart.reduce((s, c) => s + PRODUCTS[c.idx].price * c.qty, 0);
