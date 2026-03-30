@@ -1723,7 +1723,7 @@
   </div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxpYkoowwPWEkHQcfGPXyaatDx2Z-quNcyJEvVp15FWKlCemXqg_Vyyi50uS_4txe3lDA/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby4tuYI3y558ArBdabtkGJE76k4IUes2WO4_JxFnI7ptYROVQH1SZHKdlSHUzoY7XPmDg/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -1752,6 +1752,8 @@
     const API_GET_RETRY_COUNT = 1;
     const API_RETRY_DELAY_MS = 1200;
     const pendingGetRequests = new Map();
+    const ADMIN_API_CACHE_PREFIX = 'mayumi-admin-api-cache:';
+    const ADMIN_API_CACHE_TTL_MS = 1000 * 60 * 15;
 
     document.getElementById('blogDate').valueAsDate = new Date();
     document.getElementById('calDate').valueAsDate = new Date();
@@ -1771,6 +1773,36 @@
       t.innerText = msg;
       t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    function buildAdminApiCacheKey(action, data) {
+      return `${ADMIN_API_CACHE_PREFIX}${GAS_URL || ''}::${action}::${JSON.stringify(data || {})}`;
+    }
+
+    function readAdminApiCache(action, data, maxAgeMs) {
+      try {
+        const raw = localStorage.getItem(buildAdminApiCacheKey(action, data));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const savedAt = Number(parsed.savedAt || 0);
+        const ttl = typeof maxAgeMs === 'number' ? maxAgeMs : ADMIN_API_CACHE_TTL_MS;
+        if (!savedAt || (ttl > 0 && (Date.now() - savedAt) > ttl)) return null;
+        return parsed.data || null;
+      } catch (err) {
+        console.warn('Failed to read admin cache', action, err);
+        return null;
+      }
+    }
+
+    function writeAdminApiCache(action, data, value) {
+      try {
+        localStorage.setItem(buildAdminApiCacheKey(action, data), JSON.stringify({
+          savedAt: Date.now(),
+          data: value
+        }));
+      } catch (err) {
+        console.warn('Failed to write admin cache', action, err);
+      }
     }
 
     function normalizeFilterText(value) {
@@ -2167,9 +2199,16 @@
       const tbody = document.getElementById('usersList');
       const rewardTbody = document.getElementById('rewardStatusList');
       if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">読み込み中...</td></tr>';
-      if (rewardTbody) {
-        rewardTbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">読み込み中...</td></tr>';
+      const cachedRes = readAdminApiCache('getAdminUsers');
+      if (cachedRes && cachedRes.status === 'ok') {
+        allUsers = cachedRes.users || [];
+        applyUserFilters();
+        applyRewardStatusFilters();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">読み込み中...</td></tr>';
+        if (rewardTbody) {
+          rewardTbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">読み込み中...</td></tr>';
+        }
       }
 
       const res = await apiRequest('getAdminUsers');
@@ -2950,7 +2989,13 @@
     async function loadAdminPushNotices() {
       const tbody = document.getElementById('pushNoticesList');
       if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">読み込み中...</td></tr>';
+      const cachedRes = readAdminApiCache('getPushNotices');
+      if (cachedRes && cachedRes.status === 'ok') {
+        allPushNotices = cachedRes.notices || [];
+        applyPushNoticeFilters();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">読み込み中...</td></tr>';
+      }
       const res = await apiRequest('getPushNotices');
       if (res && res.status === 'ok') {
         allPushNotices = res.notices || [];
@@ -3037,10 +3082,28 @@
       const recordsBody = document.getElementById('menuRevenueRecordsBody');
       if (!tbody || !pbody || !menuBody || !recordsBody) return;
 
-      tbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
-      pbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
-      menuBody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
-      recordsBody.innerHTML = '<div style="text-align:center; color:var(--text-mid);">読み込み中...</div>';
+      const cachedAnalytics = readAdminApiCache('getAnalytics');
+      const cachedRecords = readAdminApiCache('getMenuRevenueRecords');
+      let usedCachedAnalytics = false;
+      let usedCachedRecords = false;
+
+      if (cachedAnalytics && cachedAnalytics.status === 'ok') {
+        renderAnalytics(cachedAnalytics);
+        usedCachedAnalytics = true;
+      } else {
+        tbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
+        pbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
+        menuBody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
+      }
+
+      if (cachedRecords && cachedRecords.status === 'ok') {
+        allMenuRevenueRecords = cachedRecords.records || [];
+        updateMenuRevenueMonthFilterOptions();
+        renderMenuRevenueRecords();
+        usedCachedRecords = true;
+      } else {
+        recordsBody.innerHTML = '<div style="text-align:center; color:var(--text-mid);">読み込み中...</div>';
+      }
 
       // 1. 商品一覧（マスタ）のデータを取得して同期する（商品管理との連動）
       if (!allProducts || allProducts.length === 0) {
@@ -3055,22 +3118,33 @@
         updateMenuRevenueMonthFilterOptions();
         renderMenuRevenueRecords();
       } else {
-        recordsBody.innerHTML = '<div style="text-align:center; color:red;">メニュー収益の取得に失敗しました</div>';
+        if (!usedCachedRecords) {
+          recordsBody.innerHTML = '<div style="text-align:center; color:red;">メニュー収益の取得に失敗しました</div>';
+        }
       }
 
       if (res && res.status === 'ok') {
         renderAnalytics(res);
       } else {
-        const err = '<tr><td colspan="1" style="text-align:center; color:red;">データ取得に失敗しました</td></tr>';
-        tbody.innerHTML = err;
-        pbody.innerHTML = err;
-        menuBody.innerHTML = err;
+        if (!usedCachedAnalytics) {
+          const err = '<tr><td colspan="1" style="text-align:center; color:red;">データ取得に失敗しました</td></tr>';
+          tbody.innerHTML = err;
+          pbody.innerHTML = err;
+          menuBody.innerHTML = err;
+        }
       }
     }
 
     async function ensureAdminProductsLoaded(forceRefresh = false) {
       if (!forceRefresh && Array.isArray(allProducts) && allProducts.length > 0) {
         return true;
+      }
+      if (!forceRefresh) {
+        const cachedRes = readAdminApiCache('getAdminProducts');
+        if (cachedRes && cachedRes.status === 'ok') {
+          allProducts = Array.isArray(cachedRes.products) ? cachedRes.products : [];
+          updateProductCategoryOptions();
+        }
       }
       const res = await apiRequest('getAdminProducts');
       if (res && res.status === 'ok') {
@@ -3513,7 +3587,14 @@
     async function loadCategoryMaster() {
       const tbody = document.getElementById('categoryListBody');
       if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">読み込み中...</td></tr>';
+      const cachedRes = readAdminApiCache('getCategories');
+      if (cachedRes && cachedRes.status === 'ok') {
+        allCategories = cachedRes.categories || [];
+        renderCategoryList();
+        updateAllCategorySelectors();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">読み込み中...</td></tr>';
+      }
 
       const res = await apiRequest('getCategories');
       if (res && res.status === 'ok') {
@@ -3688,7 +3769,13 @@
       const tbody = document.getElementById('supportFaqListBody');
       if (!tbody) return;
 
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
+      const cachedRes = readAdminApiCache('getAdminSupportFaq');
+      if (cachedRes && cachedRes.status === 'ok') {
+        allSupportFaq = cachedRes.faqs || [];
+        applySupportFaqFilters();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
+      }
       const res = await apiRequest('getAdminSupportFaq');
       if (res && res.status === 'ok') {
         allSupportFaq = res.faqs || [];
@@ -3861,6 +3948,7 @@
         showToast('⚙ 初期設定からGASのURLを設定してください');
         return null;
       }
+      const cachedFallback = !isPost ? readAdminApiCache(action, data, ADMIN_API_CACHE_TTL_MS) : null;
       const requestKey = !isPost ? `${action}::${JSON.stringify(data || {})}` : null;
       if (requestKey && pendingGetRequests.has(requestKey)) {
         return pendingGetRequests.get(requestKey);
@@ -3888,7 +3976,11 @@
             }
 
             const res = await fetch(url, options);
-            return await res.json();
+            const json = await res.json();
+            if (!isPost && json && json.status === 'ok') {
+              writeAdminApiCache(action, data, json);
+            }
+            return json;
           } catch (e) {
             console.error(e);
             attempt += 1;
@@ -3898,8 +3990,16 @@
               continue;
             }
             if (e && e.name === 'AbortError') {
+              if (cachedFallback && cachedFallback.status === 'ok') {
+                showToast('通信が遅いため、前回取得したデータを表示しています。');
+                return cachedFallback;
+              }
               showToast('通信に時間がかかっています。再試行しても取得できませんでした。');
             } else {
+              if (cachedFallback && cachedFallback.status === 'ok') {
+                showToast('通信エラーのため、前回取得したデータを表示しています。');
+                return cachedFallback;
+              }
               showToast('通信エラーが発生しました: ' + e.message);
             }
             return null;
@@ -3931,8 +4031,15 @@
     async function loadAdminOrders() {
       const showAll = document.getElementById('showAllOrders').checked;
       const tbody = document.getElementById('ordersList');
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
-      const res = await apiRequest('getAdminOrders', { showAll: showAll });
+      const requestData = { showAll: showAll };
+      const cachedRes = readAdminApiCache('getAdminOrders', requestData);
+      if (cachedRes && cachedRes.status === 'ok') {
+        allOrders = cachedRes.orders || [];
+        applyOrderFilters();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+      }
+      const res = await apiRequest('getAdminOrders', requestData);
       if (res && res.status === 'ok') {
         allOrders = res.orders || [];
         applyOrderFilters();
@@ -4276,12 +4383,18 @@
     async function loadAdminBlogs() {
       const tbodyPub = document.getElementById('blogsList');
       const tbodyDraft = document.getElementById('blogsDraftsList');
-      tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
-      if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+      const cachedRes = readAdminApiCache('getAdminBlogs');
+      if (cachedRes && cachedRes.status === 'ok') {
+        allBlogs = cachedRes.blogs || [];
+      } else {
+        tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+      }
 
       const res = await apiRequest('getAdminBlogs');
-      if (res && res.status === 'ok') {
-        allBlogs = res.blogs;
+      const targetRes = (res && res.status === 'ok') ? res : cachedRes;
+      if (targetRes && targetRes.status === 'ok') {
+        allBlogs = targetRes.blogs || [];
         tbodyPub.innerHTML = '';
         if (tbodyDraft) tbodyDraft.innerHTML = '';
 
@@ -4290,7 +4403,7 @@
         let hasDrafts = false;
         let hasPublished = false;
 
-        res.blogs.forEach(b => {
+        allBlogs.forEach(b => {
           const catObj = allCategories.find(c => c.name === b.category) || {};
           const type = catObj.type || (b.category === 'お知らせ' ? 'お知らせ' : 'ブログ');
 
@@ -4331,6 +4444,9 @@
 
         if (!hasDrafts && tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">下書き保存はありません</td></tr>';
         if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">投稿済み記事はありません</td></tr>';
+      } else {
+        tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">ブログデータの取得に失敗しました</td></tr>';
+        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">ブログデータの取得に失敗しました</td></tr>';
       }
     }
 
@@ -4471,8 +4587,15 @@
     async function loadAdminProducts() {
       const tbodyPub = document.getElementById('productsList');
       const tbodyDraft = document.getElementById('productsDraftsList');
-      tbodyPub.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
-      if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
+      const cachedRes = readAdminApiCache('getAdminProducts');
+      if (cachedRes && cachedRes.status === 'ok') {
+        allProducts = Array.isArray(cachedRes.products) ? cachedRes.products : [];
+        updateProductCategoryOptions();
+        applyProductFilters();
+      } else {
+        tbodyPub.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
+        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
+      }
 
       const loaded = await ensureAdminProductsLoaded(true);
       if (loaded) {
@@ -4791,19 +4914,25 @@
     async function loadAdminCalendar() {
       const tbodyPub = document.getElementById('calendarList');
       const tbodyDraft = document.getElementById('calendarDraftsList');
-      tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
-      if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+      const cachedRes = readAdminApiCache('getAdminCalendar');
+      if (cachedRes && cachedRes.status === 'ok') {
+        allCalendarEvents = cachedRes.events || [];
+      } else {
+        tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+      }
 
       const res = await apiRequest('getAdminCalendar');
-      if (res && res.status === 'ok') {
-        allCalendarEvents = res.events;
+      const targetRes = (res && res.status === 'ok') ? res : cachedRes;
+      if (targetRes && targetRes.status === 'ok') {
+        allCalendarEvents = targetRes.events || [];
         tbodyPub.innerHTML = '';
         if (tbodyDraft) tbodyDraft.innerHTML = '';
 
         let hasDrafts = false;
         let hasPublished = false;
 
-        res.events.forEach(c => {
+        allCalendarEvents.forEach(c => {
           let imgHtml = '';
           if (c.image && (c.image.startsWith('http') || c.image.startsWith('data:'))) {
             imgHtml = `<img src="${c.image}" style="width:40px; height:40px; object-fit:cover; border-radius:4px; cursor:pointer;" onclick="window.open('${c.image}', '_blank')">`;
@@ -4849,6 +4978,9 @@
 
         if (!hasDrafts && tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">下書き保存はありません</td></tr>';
         if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">投稿済みイベントはありません</td></tr>';
+      } else {
+        tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">イベントデータの取得に失敗しました</td></tr>';
+        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">イベントデータの取得に失敗しました</td></tr>';
       }
     }
 
@@ -4944,12 +5076,18 @@
       const publishBody = document.getElementById('menusList');
       if (!draftBody || !publishBody) return;
 
-      draftBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">読み込み中...</td></tr>';
-      publishBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">読み込み中...</td></tr>';
+      const cachedRes = readAdminApiCache('getAdminMenus');
+      if (cachedRes && cachedRes.status === 'ok') {
+        allMenus = cachedRes.menus || [];
+      } else {
+        draftBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">読み込み中...</td></tr>';
+        publishBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">読み込み中...</td></tr>';
+      }
 
       const res = await apiRequest('getAdminMenus');
-      if (res && res.status === 'ok') {
-        allMenus = res.menus || [];
+      const targetRes = (res && res.status === 'ok') ? res : cachedRes;
+      if (targetRes && targetRes.status === 'ok') {
+        allMenus = targetRes.menus || [];
         let draftHtml = '';
         let publishHtml = '';
 
