@@ -574,14 +574,14 @@
     .stamp-head {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       margin-bottom: 16px;
     }
 
     .stamp-head-info h3 {
-      font-size: 12.5px;
-      font-weight: 500;
-      color: var(--text-mid);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
       margin-bottom: 2px;
     }
 
@@ -593,10 +593,11 @@
     .stamp-pill {
       background: var(--blush);
       color: var(--brown);
-      font-size: 9.5px;
-      font-weight: 500;
-      padding: 3px 10px;
-      border-radius: 10px;
+      font-size: 28px; /* 従来の約3倍 */
+      font-weight: 800;
+      padding: 4px 14px;
+      border-radius: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
     .stamp-grid {
@@ -1825,6 +1826,26 @@
       padding: 8px 0;
     }
 
+    .stamp-pop.milestone {
+      padding: 4px 0 12px;
+    }
+
+    .stamp-achievement-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      margin-bottom: 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #fff6d6, #f8e3b1);
+      color: #8f6b1f;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      box-shadow: 0 10px 24px rgba(212, 163, 115, 0.18);
+      animation: pop .45s cubic-bezier(.36, .07, .19, .97);
+    }
+
     /* Confetti Animation */
     .confetti {
       position: absolute;
@@ -1853,6 +1874,12 @@
       font-size: 60px;
       margin-bottom: 11px;
       animation: pop .4s cubic-bezier(.36, .07, .19, .97);
+    }
+
+    .stamp-pop-icon.milestone {
+      font-size: 70px;
+      margin-bottom: 14px;
+      filter: drop-shadow(0 10px 22px rgba(212, 163, 115, 0.35));
     }
 
     @keyframes pop {
@@ -1910,6 +1937,18 @@
     .stamp-pop small {
       font-size: 11px;
       color: var(--text-light);
+    }
+
+    .stamp-celebrate-note {
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #fffdf7, #fff6e8);
+      border: 1px solid rgba(212, 163, 115, 0.35);
+      color: var(--sage-dark);
+      font-size: 12px;
+      line-height: 1.8;
+      text-align: center;
     }
 
     /* complete */
@@ -2181,13 +2220,89 @@
       animation-delay: .05s
     }
 
-    .blog-card:nth-child(3) {
+     .blog-card:nth-child(3) {
       animation-delay: .10s
+    }
+
+    /* ===== CONFETTI (Celebration Effect) ===== */
+    .confetti-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 11000;
+      overflow: hidden;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: var(--sage);
+      top: -20px;
+      opacity: 0;
+      animation: confetti-fall 3s linear forwards;
+    }
+
+    @keyframes confetti-fall {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(105vh) rotate(720deg);
+        opacity: 0;
+      }
     }
   </style>
 </head>
 
 <body>
+
+  <!-- ONBOARDING SCREEN (Welcome) -->
+  <div class="onboarding-overlay" id="onboardingScreen">
+    <div class="onboarding-content">
+      <div style="text-align:center;margin-bottom:20px;">
+        <img src="icon.png" alt="Logo"
+          style="width:80px;height:80px;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,0.15);object-fit:cover;">
+      </div>
+      <div class="onboarding-title">ようこそ</div>
+      <div class="onboarding-desc">
+        まゆみ助産院の公式アプリへようこそ。<br>
+        お子様とあなたの健康を<br>
+        さらに便利にサポートします。
+      </div>
+
+      <div class="onboarding-features">
+        <div class="onboarding-feature">
+          <div class="onboarding-feature-icon">🛒</div>
+          <div class="onboarding-feature-text">
+            <h4 style="margin:0;font-size:15px;">商品のご注文</h4>
+            <p style="margin:0;font-size:12px;">おすすめの商品をアプリから簡単に注文</p>
+          </div>
+        </div>
+        <div class="onboarding-feature">
+          <div class="onboarding-feature-icon">📅</div>
+          <div class="onboarding-feature-text">
+            <h4 style="margin:0;font-size:15px;">予約・相談</h4>
+            <p style="margin:0;font-size:12px;">カレンダーで診療スケジュールを確認</p>
+          </div>
+        </div>
+        <div class="onboarding-feature">
+          <div class="onboarding-feature-icon">🌸</div>
+          <div class="onboarding-feature-text">
+            <h4 style="margin:0;font-size:15px;">スタンプカード</h4>
+            <p style="margin:0;font-size:12px;">来院ごとにスタンプを貯めて特典をゲット</p>
+          </div>
+        </div>
+      </div>
+
+      <button class="onboarding-btn" onclick="startAppFromOnboarding()">はじめる 🌿</button>
+    </div>
+  </div>
+
 
   <!-- 更新中オーバーレイ -->
   <div id="refresh-overlay" class="refresh-overlay">
@@ -2221,7 +2336,7 @@
   </header>
 
   <!-- ========== HOME ========== -->
-  <div id="page-home" class="page active">
+  <div id="page-home" class="page">
     <div class="main">
       <div class="banner" id="homeBanner">
         <div class="banner-overlay"></div>
@@ -2405,12 +2520,6 @@
       <button class="back-btn" onclick="switchPage('home')" style="width: auto; padding: 0 10px;">戻る</button>
       <div style="display:flex; justify-content:space-between; align-items:center; flex:1; padding-right:15px;">
         <h1 class="page-title" style="margin:0;">メニュー一覧</h1>
-        <select id="menuStatusFilter" onchange="renderMenus()"
-          style="width:130px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
-          <option value="全て">受付状況: 全て</option>
-          <option value="予約受付中">予約受付中</option>
-          <option value="予約対象外">予約対象外</option>
-        </select>
       </div>
     </div>
     <div class="p-content" style="padding-top:70px">
@@ -2782,11 +2891,15 @@
     <div class="modal-sheet" onclick="event.stopPropagation()">
       <div class="modal-handle"></div>
       <div id="stampNormal">
-        <div class="modal-title">スタンプを取得しました！</div>
-        <div class="stamp-pop">
-          <div class="stamp-pop-icon">🌿</div>
+        <div class="modal-title" id="stampModalTitle">スタンプを取得しました！</div>
+        <div class="stamp-pop" id="stampPopWrap">
+          <div class="stamp-achievement-badge" id="stampAchievementBadge" style="display:none;">🎉 10個達成</div>
+          <div class="stamp-pop-icon" id="stampPopIcon">🌿</div>
           <p id="stampPopMsg">スタンプを1つ追加しました！</p>
           <small id="stampPopCount">現在 8 / 10</small>
+          <div class="stamp-celebrate-note" id="stampCelebrateNote" style="display:none;">
+            おめでとうございます。<br>マイページの「特典取得状況」で特典をご確認いただけます。
+          </div>
         </div>
       </div>
       <button class="btn secondary" onclick="closeModal('stampModal')">閉じる</button>
@@ -3003,6 +3116,59 @@
         if (leftPart < rightPart) return -1;
       }
       return 0;
+    }
+
+    function triggerConfetti() {
+      const container = document.createElement('div');
+      container.className = 'confetti-container';
+      document.body.appendChild(container);
+
+      const colors = ['#a2b4a1', '#e8dace', '#d4a373', '#ccd5ae', '#faedcd', '#fefae0', '#e9edc9'];
+      const count = 80;
+
+      for (let i = 0; i < count; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        
+        // ランダムな配置
+        const left = Math.random() * 100 + '%';
+        const delay = Math.random() * 3 + 's';
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const size = (Math.random() * 6 + 4) + 'px';
+        const rotation = Math.random() * 360 + 'deg';
+
+        piece.style.left = left;
+        piece.style.animationDelay = delay;
+        piece.style.backgroundColor = color;
+        piece.style.width = size;
+        piece.style.height = size;
+        piece.style.transform = `rotate(${rotation})`;
+
+        container.appendChild(piece);
+      }
+
+      // 演出が終わったら要素を削除
+      setTimeout(function() {
+        if (container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+      }, 6000);
+    }
+
+    function updateStampModalPresentation(isMilestone) {
+      const title = document.getElementById('stampModalTitle');
+      const wrap = document.getElementById('stampPopWrap');
+      const badge = document.getElementById('stampAchievementBadge');
+      const icon = document.getElementById('stampPopIcon');
+      const note = document.getElementById('stampCelebrateNote');
+      if (!title || !wrap || !badge || !icon || !note) return;
+
+      title.textContent = isMilestone ? 'スタンプ10個達成です！' : 'スタンプを取得しました！';
+      wrap.classList.toggle('milestone', !!isMilestone);
+      badge.style.display = isMilestone ? 'inline-flex' : 'none';
+      note.style.display = isMilestone ? 'block' : 'none';
+      icon.textContent = isMilestone ? '🎉' : '🌿';
+      icon.classList.toggle('milestone', !!isMilestone);
     }
 
     function sanitizeAppRuntimeConfig(raw) {
@@ -3247,29 +3413,124 @@
     ];
 
     const SUPPORT_APP_GUIDE = [
-      { category: 'アプリ全体', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,画面,メニュー,全体', answer: 'このアプリでは、ホームでスタンプQR読み取りやメニュー一覧の確認、ショップで商品注文、カレンダーで予定確認、NEWSでお知らせ確認、マイページでプロフィール・通知設定・注文履歴・スタンプ特典の確認ができます。診療や個別相談は公式LINEをご利用ください。', priority: 110 },
-      { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,トップ画面,home', answer: 'ホーム画面では、来院スタンプの取得、現在のスタンプカード確認、メニュー一覧への移動、公式サイトやSNSへのアクセスができます。スタンプ関連の操作はまずホームから行ってください。', priority: 92 },
-      { category: 'QR', question: 'QRコードの読み取り方法を知りたい', keywords: 'qr,qrコード,qrcode,カメラ,読み取り,読取,スキャン', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取ってください。カメラ許可が出た場合は許可が必要です。10個達成済みの場合は、先に新しいスタンプカードを取得してください。', priority: 91 },
-      { category: 'スタンプ特典', question: 'スタンプ特典の使い方を知りたい', keywords: '特典,プレゼント,期限,使用する,使用済み,チケット,受取期限', answer: 'スタンプが10個たまると特典対象です。マイページで獲得済み特典を確認でき、達成当日から使用できます。受取期限は獲得から1か月で、一度使用すると再度は使用できません。受け取りの際は受付へ直接お問い合わせください。10個達成後はホームの「新しいスタンプカードを取得」から次のカードを開始できます。', priority: 89 },
-      { category: 'カート', question: 'カートの使い方を知りたい', keywords: 'カート,買い物かご,個数,削除,合計,checkout,チェックアウト', answer: 'ショップで商品をカートに追加すると、カート画面で個数変更や削除ができます。内容確認後、「ご注文を確定する」を押すと院内受け取りの注文になります。', priority: 88 },
-      { category: '注文履歴', question: '注文履歴の確認方法を知りたい', keywords: '注文履歴,履歴,受取,受け取り,受取完了,キャンセル,注文状況', answer: 'マイページの「ご注文履歴」で受付中の注文や受取完了前の注文を確認できます。受付中の注文はキャンセルでき、キャンセルした注文は履歴から表示されなくなります。プロフィール未登録の場合は履歴は表示されません。', priority: 87 },
-      { category: 'メニュー一覧', question: 'メニュー一覧の見方を知りたい', keywords: 'メニュー,予約,予約受付中,予約対象外,施術,一覧', answer: 'ホーム画面の「メニュー一覧を見る」からメニュー一覧ページを開けます。受付状況で絞り込みでき、各メニューを開くと詳細や画像を確認できます。', priority: 84 },
-      { category: 'NEWS', question: 'NEWSページの使い方を知りたい', keywords: 'news,ニュース,お知らせ,記事,新着,詳細', answer: '下部メニューの「NEWS」ではお知らせを確認できます。記事をタップすると詳細が開き、新着があると下部メニューにバッジが表示されます。', priority: 83 },
-      { category: 'ブログ', question: 'ブログや過去のお知らせの見方を知りたい', keywords: 'ブログ,過去,履歴,一覧,記事,以前,バックナンバー', answer: 'ブログを含む過去のお知らせは、画面上部の📢ボタンから開く「お知らせ一覧」で日付順に確認できます。NEWSは主にお知らせ確認用です。', priority: 82 },
-      { category: 'お知らせ一覧', question: 'お知らせ一覧の見方を知りたい', keywords: 'お知らせ一覧,通知一覧,拡声器,header,ヘッダー,一覧', answer: '画面上部の📢ボタンから、お知らせ・カレンダー・通知などをまとめた一覧を開けます。未読があると赤いドットが表示されます。', priority: 82 },
-      { category: 'カレンダー', question: 'カレンダーの使い方を知りたい', keywords: 'カレンダー,イベント,予定,日程,前月,翌月,今月', answer: '下部メニューの「カレンダー」で予定を確認できます。左右の矢印で月を切り替え、日付をタップするとその日の予定を表示します。下部には今月のイベント一覧も表示されます。', priority: 81 },
-      { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,会員id,会員番号,memberid', answer: 'マイページの「プロフィールを編集」から、お名前、電話番号、生年月日、住所、アイコン画像、バナー画像を変更できます。会員IDはマイページ上部に表示されます。', priority: 80 },
-      { category: '通知', question: '通知のオンオフ方法を知りたい', keywords: '通知,push,プッシュ,オン,オフ,許可,設定', answer: 'マイページの通知設定ボタンから通知のオンオフを切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可設定もご確認ください。', priority: 79 },
-      { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,再読み込み,リロード,最新情報,最新', answer: '画面上部の🔄ボタンで最新情報を再取得できます。ブログ、お知らせ、カレンダー、商品、メニュー一覧、FAQ、注文履歴などの最新状態をその場で反映したいときにご利用ください。', priority: 78 },
-      { category: '外部リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'line,ライン,instagram,facebook,ホームページ,公式サイト,sns,問い合わせ,お問い合わせ,連絡', answer: 'ホーム画面やマイページの「公式サイト・SNS」から、公式ホームページ、Instagram、Facebook、公式LINEを開けます。診療や個別のご相談は公式LINEをご利用ください。', priority: 77 }
+      // --- アプリ全般 ---
+      { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,画面,メニュー,全体', answer: 'このアプリでは、ホームでスタンプQR読み取りやメニュー一覧の確認、ショップで商品注文、カレンダーで予定確認、NEWSでお知らせ確認、マイページでプロフィール・通知設定・注文履歴・スタンプ特典の確認ができます。診療や個別相談は公式LINEをご利用ください。', priority: 120 },
+      { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,ボタン,下部', answer: '画面下部に5つのタブ（🏠ホーム、🛍ショップ、📅カレンダー、💬NEWS、👤マイページ）、画面上部には📢お知らせ一覧・🛒カート・👤マイページ・🔄更新ボタンがあります。右下には💬使い方相談ボタンもあります。', priority: 115 },
+
+      // --- ホーム画面 ---
+      { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,トップ画面,home', answer: 'ホーム画面には、バナー（お名前＆スタンプ数表示）、スタンプ取得（QR読み取り）、現在のスタンプカード、おすすめ商品、最新のお知らせ（3件）、メニュー一覧へのリンク、公式サイト・SNSリンクが表示されています。', priority: 92 },
+      { category: 'ホーム', question: 'ホームの名前を変更したい', keywords: 'ホーム,名前,バナー,表示名,変更', answer: 'マイページの「✏️ プロフィールを編集」からお名前を変更してください。変更後、ホーム画面のバナーにも反映されます。', priority: 88 },
+
+      // --- スタンプカード ---
+      { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院,集め方,取得,読み取り', answer: 'ホーム画面の「📷 カメラを起動して読み取る」ボタンから、院内（受付・待合室）のQRコードを読み取るとスタンプが1つ追加されます。1日1回まで取得可能です。', priority: 91 },
+      { category: 'QR', question: 'QRコードの読み取り方法を知りたい', keywords: 'qr,qrコード,qrcode,カメラ,読み取り,読取,スキャン', answer: 'ホーム画面の「📷 カメラを起動して読み取る」をタップし、カメラ許可を行ってから院内QRコードを読み取ってください。10個達成済みの場合は先に「新しいスタンプカードを取得」してください。', priority: 90 },
+      { category: 'スタンプ', question: 'スタンプは1日何個取得できますか？', keywords: 'スタンプ,1日,回数,制限,何回,何個', answer: 'スタンプの取得は1日1回までです。同じ日に2回目を読み取ろうとすると「本日はすでにスタンプを取得済みです」と表示されます。', priority: 89 },
+      { category: 'スタンプ', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,たまった,満了,完了', answer: 'スタンプが10個に達すると特典の対象になります。マイページの「🎁 特典取得状況」に獲得した特典が表示されます。受け取りは受付にお声がけください。', priority: 88 },
+      { category: 'スタンプ', question: '新しいカードを始めるには？', keywords: '新しいカード,次のカード,リセット,新規カード,カード取得', answer: 'スタンプ10個達成後、ホーム画面のスタンプカード下に表示される「🌸 新しいスタンプカードを取得」ボタンをタップしてください。スタンプが0にリセットされ、新しいカードが始まります。', priority: 87 },
+      { category: 'スタンプ', question: 'スタンプカードの○枚目とは？', keywords: '枚目,カード番号,カード枚数', answer: '何枚目のスタンプカードを使用しているかを示す表示です。カードを新しくするたびにカウントが増えます。', priority: 82 },
+      { category: 'QR', question: 'カメラの許可を求められました', keywords: 'カメラ,許可,アクセス,権限,拒否', answer: 'QRコードの読み取りにカメラへのアクセスが必要です。「許可」をタップしてください。許可しないと読み取りができません。', priority: 85 },
+      { category: 'QR', question: 'QRコードを読み取れません', keywords: 'qr,読み取れない,読めない,スキャンできない,エラー', answer: '以下をご確認ください：①カメラの許可が有効か（端末の設定→アプリの権限）②QRコードに汚れや傷がないか③十分な明るさがあるか④本日分のスタンプを取得済みでないか⑤10個達成済みの場合は先に「新しいスタンプカードを取得」してください。', priority: 84 },
+      { category: 'スタンプ', question: 'スタンプが消えてしまいました', keywords: 'スタンプ,消えた,なくなった,リセット,データ消失', answer: 'スタンプのデータは端末内に保存されています。アプリのデータを削除したり、別の端末に変更するとデータが引き継がれない場合があります。お困りの場合は受付にご相談ください。', priority: 83 },
+
+      // --- スタンプ特典 ---
+      { category: 'スタンプ特典', question: 'スタンプ特典の使い方を知りたい', keywords: '特典,プレゼント,期限,使用する,使用済み,チケット,受取期限', answer: 'スタンプ10個達成で特典対象です。マイページの「🎁 特典取得状況」で確認・使用できます。受取期限は達成日から1か月。「使用する」をタップすると確定され、取り消しはできません。受け取りは受付にお声がけください。', priority: 86 },
+      { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,確認,一覧,獲得', answer: 'マイページの「🎁 特典取得状況」セクションで確認できます。特典名、カード枚数、使用状態が表示されます。', priority: 85 },
+      { category: 'スタンプ特典', question: '特典に有効期限はありますか？', keywords: '特典,有効期限,期限,いつまで', answer: 'はい。スタンプ10個を達成した日から1か月間が受取期限です。マイページの特典一覧に「受取期限：あと○日」と表示されます。', priority: 84 },
+      { category: 'スタンプ特典', question: '特典を元に戻せますか？', keywords: '特典,取り消し,元に戻す,使用取消,キャンセル', answer: 'いいえ。一度「使用する」をタップして確定した特典は取り消しできません。ご注意ください。', priority: 83 },
+
+      // --- ショップ ---
+      { category: 'ショップ', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入,買う,商品', answer: '下部メニューの「🛍ショップ」→商品をタップ→個数を選んで「カートに追加する🛒」→画面右上🛒でカートを開く→内容を確認して「ご注文を確定する」で完了です。', priority: 95 },
+      { category: 'ショップ', question: '商品の詳細情報を見たい', keywords: '商品,詳細,説明,情報,画像', answer: 'ショップ画面で商品をタップすると、商品名・価格・商品説明・商品画像が表示されます。「商品説明をみる」をタップすると詳しい説明が展開されます。', priority: 90 },
+      { category: 'ショップ', question: '受け取り方法は？', keywords: '受け取り,受取方法,配送,宅配,院内', answer: 'すべての商品は院内受け取りです。注文後、ご来院時にスタッフにお声がけください。', priority: 88 },
+      { category: 'ショップ', question: '支払い方法は？', keywords: '支払い,支払方法,決済,クレジット,現金', answer: 'お支払いは現金払いのみです。ご来院時に受付でお支払いください。', priority: 87 },
+
+      // --- カート ---
+      { category: 'カート', question: 'カートの使い方を知りたい', keywords: 'カート,買い物かご,個数,削除,合計,checkout,チェックアウト', answer: 'ショップで商品をカートに追加すると、カート画面（右上🛒）で個数変更（＋/−ボタン）や削除ができます。内容確認後「ご注文を確定する」を押すと院内受け取りの注文になります。', priority: 88 },
+      { category: 'カート', question: 'カートの中身を確認するには？', keywords: 'カート,確認,中身,内容', answer: '画面右上の🛒アイコンをタップしてください。カート内の商品一覧、個数、小計、合計金額（税込）が表示されます。', priority: 86 },
+      { category: 'カート', question: 'カートの個数を変更したい', keywords: 'カート,個数変更,数量,増やす,減らす', answer: 'カート画面で各商品の「＋」「−」ボタンで個数を変更できます。', priority: 85 },
+      { category: 'カート', question: 'カートが空ですと表示されます', keywords: 'カート,空,商品がない,何もない', answer: 'まだ商品が追加されていません。「ショップへ」ボタンをタップしてショップに移動し、商品を選んでカートに追加してください。', priority: 84 },
+
+      // --- 注文履歴 ---
+      { category: '注文履歴', question: '注文履歴の確認方法を知りたい', keywords: '注文履歴,履歴,受取,受け取り,受取完了,注文状況', answer: 'マイページの「📋 ご注文履歴」で確認できます。注文日時・商品名・個数・合計金額・ステータス（受付中・受取完了など）が表示されます。', priority: 87 },
+      { category: '注文履歴', question: '注文をキャンセルしたい', keywords: '注文,キャンセル,取消,取り消し', answer: '受付中の注文はキャンセルできます。注文履歴でキャンセルしたい注文の「キャンセル」ボタンをタップしてください。キャンセル後は履歴から表示されなくなります。', priority: 86 },
+      { category: '注文履歴', question: '注文履歴が表示されません', keywords: '注文履歴,表示されない,出てこない,見えない', answer: 'プロフィールが未登録の場合、注文履歴は表示されません。マイページの「✏️ プロフィールを編集」から登録を完了してください。', priority: 85 },
+
+      // --- カレンダー ---
+      { category: 'カレンダー', question: 'カレンダーの使い方を知りたい', keywords: 'カレンダー,イベント,予定,日程,前月,翌月,今月', answer: '下部メニューの「📅 カレンダー」で予定を確認できます。◀▶で月を切り替え、日付タップでその日の予定を表示。休＝休診日、往＝往診日、イ＝イベント。下部には今月のイベント一覧も表示されます。', priority: 81 },
+      { category: 'カレンダー', question: '別の月のカレンダーを見たい', keywords: 'カレンダー,前月,翌月,月切替,矢印', answer: 'カレンダー上部の◀（前月）・▶（翌月）ボタンで月を切り替えられます。', priority: 79 },
+      { category: 'カレンダー', question: '今月のイベント一覧を見たい', keywords: '今月,イベント一覧,予定一覧,リスト', answer: 'カレンダーページの下部に「📋 今月のイベント一覧」が表示されています。今月のすべてのイベントが日付順に並んでいます。', priority: 78 },
+      { category: 'カレンダー', question: 'カレンダーの休・往・イとは？', keywords: '休,往,イ,マーク,記号,色', answer: '休＝休診日、往＝往診日、イ＝イベントを示します。それぞれ管理者が設定した色で日付に表示されます。', priority: 77 },
+
+      // --- NEWS ---
+      { category: 'NEWS', question: 'NEWSページの使い方を知りたい', keywords: 'news,ニュース,お知らせ,記事,新着,詳細', answer: '下部メニューの「💬 NEWS」ではお知らせを確認できます。記事をタップすると詳細が開き、新着があると下部メニューにバッジ（赤いドット）が表示されます。', priority: 83 },
+      { category: 'NEWS', question: '新着があるか分かりますか？', keywords: 'バッジ,赤い点,ドット,新着,未読', answer: '新着がある場合、下部メニューの「NEWS」「カレンダー」「ショップ」のアイコンに赤いドット（バッジ）が表示されます。該当ページを開くとバッジは消えます。', priority: 82 },
+      { category: 'NEWS', question: 'お知らせのカテゴリはありますか？', keywords: 'カテゴリ,種類,分類,絞り込み', answer: 'お知らせは「お知らせ」「休診情報」「ブログ」「イベント」「商品情報」などのカテゴリに分類されています。NEWSページではカテゴリで絞り込んで表示できます。', priority: 80 },
+      { category: 'ブログ', question: 'ブログや過去のお知らせの見方を知りたい', keywords: 'ブログ,過去,一覧,記事,以前,バックナンバー', answer: 'ブログを含む過去のお知らせは、画面上部の📢ボタンから開く「お知らせ一覧」で日付順に確認できます。', priority: 79 },
+
+      // --- お知らせ一覧 ---
+      { category: 'お知らせ一覧', question: '📢ボタンの機能は何ですか？', keywords: 'お知らせ一覧,通知一覧,拡声器,📢,ヘッダー', answer: '画面上部の📢ボタンは「お知らせ一覧」を開きます。ブログ・お知らせ・カレンダーイベント・Push通知など全ての新着情報をまとめて確認できます。未読があると赤いドットが表示されます。', priority: 78 },
+
+      // --- マイページ ---
+      { category: 'マイページ', question: 'マイページには何がありますか？', keywords: 'マイページ,内容,機能,セクション', answer: 'マイページには以下があります：👤プロフィール（表示・編集）、🎁特典取得状況（スタンプ特典の確認・使用）、🔔通知設定（Push通知のオン/オフ）、🤖使い方サポート（チャットボット）、📋ご注文履歴、🔗公式サイト・SNSリンク。', priority: 82 },
+      { category: 'マイページ', question: '会員IDとは何ですか？', keywords: '会員id,会員番号,memberid,id', answer: 'マイページ上部のバナーに表示される固有の番号です。プロフィール登録時に自動で生成されます。お問い合わせの際にお伝えいただくとスムーズです。', priority: 80 },
+
+      // --- プロフィール ---
+      { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回', answer: 'マイページの「✏️ プロフィールを編集」をタップし、お名前（必須）・電話番号・生年月日・住所を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
+      { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,修正', answer: 'マイページの「✏️ プロフィールを編集」から、お名前・電話番号・生年月日・住所・アイコン画像・バナー画像を変更できます。変更後「保存」をタップしてください。会員IDはマイページ上部に表示されます。', priority: 95 },
+      { category: 'プロフィール', question: 'アイコン画像を変更できますか？', keywords: 'アイコン,画像,アバター,写真,バナー', answer: 'はい。プロフィール編集画面からアイコン画像とバナー画像を変更できます。画像を選択するとアップロードされます。', priority: 85 },
+      { category: 'プロフィール', question: 'プロフィール未登録だとどうなりますか？', keywords: 'プロフィール,未登録,登録しない,制限', answer: 'プロフィール未登録でもアプリの閲覧は可能ですが、注文機能が使えない・注文履歴が表示されない・特典の管理が正しく紐づかない場合があります。', priority: 84 },
+
+      // --- 通知 ---
+      { category: '通知', question: '通知を受け取りたい', keywords: '通知,push,プッシュ,オン,受け取る', answer: 'マイページの「🔔 通知設定」セクションのボタンをタップしてオンにしてください。ブログ更新や重要なお知らせが届きます。', priority: 85 },
+      { category: '通知', question: '通知をオフにしたい', keywords: '通知,オフ,止める,解除', answer: 'マイページの通知設定ボタンを再度タップすることでオフに切り替えられます。', priority: 83 },
+      { category: '通知', question: '通知が届きません', keywords: '通知,届かない,来ない,受信できない', answer: '以下をご確認ください：①アプリ内の通知設定がオンになっていますか？②端末の設定でアプリの通知が許可されていますか？（iPhoneの場合：設定→通知→アプリ名→通知を許可）③インターネット接続は安定していますか？', priority: 82 },
+
+      // --- メニュー一覧 ---
+      { category: 'メニュー一覧', question: 'メニュー一覧の見方を知りたい', keywords: 'メニュー,施術,一覧,メニュー一覧', answer: 'ホーム画面の「メニュー一覧を見る🍴」ボタンをタップすると、メニュー一覧ページが開きます。各メニューをタップすると詳細や画像を確認できます。', priority: 84 },
+      { category: 'メニュー一覧', question: 'メニューの予約はアプリからできますか？', keywords: 'メニュー,予約,予約する,申し込み', answer: '現在アプリからの直接予約機能はありません。ご予約は公式LINEからお問い合わせください。ホーム画面またはマイページの公式LINEリンクからアクセスできます。', priority: 83 },
+
+      // --- 外部リンク ---
+      { category: '外部リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'line,ライン,instagram,facebook,ホームページ,公式サイト,sns,問い合わせ,連絡', answer: 'ホーム画面やマイページの「🔗 公式サイト・SNS」から、公式ホームページ（mayumijosanin.com）、Instagram（@mayumijosanin）、Facebook（まゆみ助産院）、公式LINEを開けます。', priority: 77 },
+      { category: '外部リンク', question: '診療の予約や個別相談はどこからできますか？', keywords: '診療,予約,相談,問い合わせ,連絡先', answer: '診療の予約や個別のご相談は公式LINEをご利用ください。ホーム画面またはマイページの公式LINEリンクからアクセスできます。', priority: 76 },
+
+      // --- チャットサポート ---
+      { category: 'チャットサポート', question: 'チャットサポートとは何ですか？', keywords: 'チャット,サポート,使い方相談,ボット,チャットボット', answer: 'アプリの使い方に関する質問にチャット形式で回答するサポート機能です。注文方法、スタンプの集め方、通知設定、プロフィール登録などの操作方法を案内します。', priority: 75 },
+      { category: 'チャットサポート', question: 'チャットサポートの開き方は？', keywords: 'チャット,開く,起動,どこ', answer: '画面右下の「💬 使い方相談」ボタンをタップするか、マイページの「🤖 使い方サポート」セクションの「💬 チャットで相談する」ボタンをタップしてください。', priority: 74 },
+
+      // --- トラブルシューティング ---
+      { category: 'トラブル', question: '画面が正しく表示されません', keywords: '画面,表示,おかしい,崩れ,不具合,バグ', answer: '以下をお試しください：①画面右上の🔄ボタンで情報を再取得②アプリを一度閉じて再起動③インターネット接続を確認。', priority: 73 },
+      { category: 'トラブル', question: 'データの取得に失敗しました', keywords: 'データ取得,失敗,エラー,同期,問題', answer: 'インターネット接続が不安定な可能性があります。Wi-Fiや4G/5G回線が安定している環境で🔄ボタンを押して再度お試しください。一部データの取得に失敗しても、他のデータは正常に更新されます。', priority: 72 },
+      { category: 'トラブル', question: 'バッジ（赤いドット）が消えません', keywords: 'バッジ,赤い点,消えない,ドット', answer: '該当するページ（NEWS、カレンダー、ショップなど）を一度開くとバッジは消えます。消えない場合は🔄ボタンで最新情報を再取得してみてください。', priority: 71 },
+      { category: 'トラブル', question: '注文ができません', keywords: '注文,できない,エラー,購入できない', answer: '以下をご確認ください：①プロフィールは登録済みですか？（マイページ→プロフィールを編集）②カートに商品が入っていますか？③インターネットに接続されていますか？', priority: 70 },
+      { category: 'トラブル', question: 'アプリが重い・遅いです', keywords: 'アプリ,重い,遅い,動かない,フリーズ', answer: '以下をお試しください：①他のアプリを閉じてメモリを開放②端末を再起動③🔄ボタンでアプリを最新版に更新。', priority: 69 },
+      { category: 'トラブル', question: '別の端末でデータを引き継げますか？', keywords: '端末,引き継ぎ,機種変更,データ移行', answer: 'スタンプデータは端末内に保存されているため自動では引き継がれません。プロフィールや注文履歴はサーバーに保存されています。スタンプの移行については受付にご相談ください。', priority: 68 },
+      { category: 'トラブル', question: 'アプリのアップデート方法は？', keywords: 'アップデート,更新,最新版,バージョン', answer: '画面右上の🔄ボタンで最新のプログラムが自動確認されます。更新がある場合は自動的に最新版に切り替わります。', priority: 67 },
+      { category: 'トラブル', question: 'アプリを削除したら復元できますか？', keywords: 'アプリ,削除,アンインストール,復元,再インストール', answer: 'アプリを再インストールするとプロフィールや注文履歴は復元できます。ただし端末に保存されたスタンプデータは削除される場合があります。', priority: 66 },
+
+      // --- その他 ---
+      { category: 'その他', question: 'アプリの対応端末は？', keywords: '対応,端末,iPhone,Android,ブラウザ,Safari', answer: 'iPhone（Safari）での動作を推奨しています。iOS端末向けのネイティブアプリとしてもご利用いただけます。', priority: 65 },
+      { category: 'その他', question: '個人情報の取り扱いについて', keywords: '個人情報,プライバシー,セキュリティ,安全', answer: 'プロフィールに登録いただいた情報は、まゆみ助産院の業務（注文管理・会員管理など）のためにのみ使用されます。第三者への提供は行いません。', priority: 64 }
     ];
 
     const SUPPORT_APP_KEYWORDS = [
-      'アプリ', '使い方', 'ホーム', 'スタンプ', 'qr', 'qrcode', 'カメラ', 'ショップ', '商品', 'カート', '注文',
-      '購入', 'メニュー', '予約', 'news', 'ニュース', 'お知らせ', '通知一覧', 'ブログ', 'カレンダー', 'イベント', 'マイページ',
-      'プロフィール', '会員', '会員id', 'memberid', '通知', 'push', 'プッシュ', 'line', 'ライン', 'instagram',
-      'facebook', 'ホームページ', '公式サイト', '履歴', '受け取り', '受取', 'キャンセル', '特典', 'チケット',
-      '初回', '初めて', 'はじめて', '始める', '登録', '更新', 'リロード', '最新'
+      'アプリ', '使い方', 'できること', '機能', '画面', 'ホーム', 'トップ', 'バナー',
+      'スタンプ', 'qr', 'qrコード', 'qrcode', 'カメラ', '読み取り', '来院', '10個', '枚目', '新しいカード',
+      '特典', 'プレゼント', '期限', '使用', 'チケット', '受取期限',
+      'ショップ', '商品', 'カート', '注文', '購入', '買い方', '個数', '受け取り', '院内', '現金', '支払い',
+      '注文履歴', '履歴', 'キャンセル', '注文状況', '受取完了',
+      'メニュー', '施術', '一覧', '予約',
+      'news', 'ニュース', 'お知らせ', '新着', '記事', 'カテゴリ', '絞り込み', '📢',
+      'ブログ', '過去', 'バックナンバー',
+      'カレンダー', 'イベント', '予定', '日程', '前月', '翌月', '休診', '往診', '休', '往', 'イ',
+      'マイページ', '会員', '会員id', 'memberid',
+      'プロフィール', '登録', '変更', '編集', '名前', '電話', '住所', '生年月日', 'アイコン', '画像',
+      '通知', 'push', 'プッシュ', 'オン', 'オフ', '届かない',
+      'line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', '連絡',
+      'チャット', 'サポート', 'ボット', '相談',
+      '更新', 'リロード', '最新', '反映', '🔄',
+      '初回', '初めて', 'はじめて', '始める',
+      '表示されない', 'エラー', '失敗', '重い', '遅い', '引き継ぎ', '機種変更', 'アップデート', '削除', '復元',
+      '端末', 'iPhone', '対応', '個人情報', 'バッジ', '赤い点'
     ];
 
     // ===== 状態 =====
@@ -3300,6 +3561,10 @@
     let supportChatHistory = [];
     let isSupportChatSending = false;
     try { supportChatHistory = JSON.parse(localStorage.getItem('mayumi_support_chat_history') || '[]'); } catch (e) { }
+    let lastSupportTopic = '';
+    if (supportChatHistory.length) {
+      try { lastSupportTopic = localStorage.getItem('mayumi_support_chat_topic') || ''; } catch (e) { }
+    }
     let activeAppDialogResolver = null;
     let lastSyncedRewardStatus = null;
 
@@ -3493,7 +3758,7 @@
       const elCount = document.getElementById('homeStampCount');
       if (elCount) elCount.textContent = stampCount;
 
-      const msg = rem > 0 ? `あと${rem}回でプレゼント🎁` : '達成済み🎉 新しいカードを取得できます！';
+      let msg = rem > 0 ? `あと${rem}回でプレゼント🎁` : '達成済み🎉 新しいカードを取得できます！';
 
       // 達成済みの場合は期限を表示
       if (rem === 0) {
@@ -3548,7 +3813,14 @@
       } catch (e) { }
 
       updateStampUI();
-      document.getElementById('stampPopMsg').textContent = 'ご来院ありがとうございます！スタンプを1つ追加しました！';
+      const reachedMilestone = stampCount === 10;
+      if (reachedMilestone) {
+        triggerConfetti();
+      }
+      updateStampModalPresentation(reachedMilestone);
+      document.getElementById('stampPopMsg').textContent = reachedMilestone
+        ? 'ご来院ありがとうございます！10個達成で特典対象になりました。'
+        : 'ご来院ありがとうございます！スタンプを1つ追加しました！';
       document.getElementById('stampPopCount').textContent = `現在 ${stampCount} / 10`;
 
       openModal('stampModal');
@@ -3566,6 +3838,7 @@
         localStorage.removeItem('mayumi_stamp_10_date');
       } catch (e) { }
       updateStampUI();
+      triggerConfetti();
       closeModal('stampModal');
       showToast(`🌸 ${stampCardNum}枚目のスタンプカードを開始しました！`);
       await syncRewardStatus(true);
@@ -5236,12 +5509,510 @@
       return String(answer || '');
     }
 
-    function buildSupportReply(answer, suggestions, matched) {
+    function buildSupportReply(answer, suggestions, matched, topic) {
       return {
         matched: matched !== false,
         answer: buildSupportText(answer),
-        suggestions: getMergedSupportSuggestions(suggestions)
+        suggestions: getMergedSupportSuggestions(suggestions),
+        topic: topic || ''
       };
+    }
+
+    function getSupportIntent(messageNorm) {
+      if (hasAnySupportKeyword(messageNorm, ['できない', '使えない', '表示されない', '出ない', '開けない', '届かない', '読めない', '失敗', 'エラー', '不具合', '重い', '遅い', 'フリーズ', '消えない'])) {
+        return 'trouble';
+      }
+      if (hasAnySupportKeyword(messageNorm, ['今', '現在', 'いま', '状況', '状態', '確認', '残り', '何個', 'いくつ', '何枚', '登録済', '未登録'])) {
+        return 'status';
+      }
+      if (hasAnySupportKeyword(messageNorm, ['どこ', 'どこで', 'どこから', '場所', '開き方', '表示場所'])) {
+        return 'where';
+      }
+      if (hasAnySupportKeyword(messageNorm, ['できる', 'できますか', '可能', '使える', '対応'])) {
+        return 'can';
+      }
+      if (hasAnySupportKeyword(messageNorm, ['とは', '何', '意味'])) {
+        return 'what';
+      }
+      return 'how';
+    }
+
+    function detectSupportTopic(messageNorm) {
+      if (!messageNorm) return '';
+      if (hasAnySupportKeyword(messageNorm, ['アップデートが必要', 'アップデート', '更新', '最新版', 'バージョン'])) return 'update';
+      if (hasAnySupportKeyword(messageNorm, ['予約', 'よやく', 'アポイント'])) return 'reservation';
+      if (hasAnySupportKeyword(messageNorm, ['注文履歴', '受け取りました', '受取報告', '受取完了']) || isSupportOrderHistoryQuestion(messageNorm)) return 'order-history';
+      if (hasAnySupportKeyword(messageNorm, ['カート', '買い物かご'])) return 'cart';
+      if (hasAnySupportKeyword(messageNorm, ['ショップ', '商品', '注文', '購入', '支払い', '現金'])) return 'shop';
+      if (hasAnySupportKeyword(messageNorm, ['特典', 'プレゼント', '期限', 'チケット'])) return 'reward';
+      if (hasAnySupportKeyword(messageNorm, ['スタンプ', 'qr', 'qrコード', 'qrcode', 'カメラ', '新しいカード', '枚目'])) return 'stamp';
+      if (hasAnySupportKeyword(messageNorm, ['通知', 'push', 'プッシュ'])) return 'notification';
+      if (hasAnySupportKeyword(messageNorm, ['プロフィール', '会員id', 'memberid', '会員番号', 'アイコン', 'アバター', 'バナー', '画像'])) return 'profile';
+      if (hasAnySupportKeyword(messageNorm, ['メニュー', '施術'])) return 'menu';
+      if (hasAnySupportKeyword(messageNorm, ['カレンダー', 'イベント', '予定', '日程'])) return 'calendar';
+      if (hasAnySupportKeyword(messageNorm, ['news', 'ニュース', 'お知らせ', 'ブログ', 'お知らせ一覧', '通知一覧', '📢', '新着'])) return 'news';
+      if (hasAnySupportKeyword(messageNorm, ['line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', 'お問い合わせ'])) return 'links';
+      if (hasAnySupportKeyword(messageNorm, ['チャット', 'サポート', 'ボット', '相談'])) return 'support-chat';
+      if (hasAnySupportKeyword(messageNorm, ['ホーム', 'トップ'])) return 'home';
+      if (hasAnySupportKeyword(messageNorm, ['アプリ', '使い方', 'できること', '機能'])) return 'app-overview';
+      return '';
+    }
+
+    function isSupportFollowUpQuestion(messageNorm) {
+      if (!messageNorm) return false;
+      if (detectSupportTopic(messageNorm)) return false;
+      return hasAnySupportKeyword(messageNorm, ['それ', 'その', 'さっき', '前の', '今の', 'この機能', 'この画面', 'どこ', 'どこから', '方法', 'やり方', '見方', '開き方', 'できますか', 'できる', '確認', '変更', '解除', 'オン', 'オフ', 'どうやって']);
+    }
+
+    function resolveSupportTopic(messageNorm) {
+      const explicitTopic = detectSupportTopic(messageNorm);
+      if (explicitTopic) return explicitTopic;
+      if (isSupportFollowUpQuestion(messageNorm) && lastSupportTopic) {
+        return lastSupportTopic;
+      }
+      return '';
+    }
+
+    function buildFeatureSupportReply(topic, answer, suggestions) {
+      return buildSupportReply(answer, suggestions, true, topic);
+    }
+
+    function getFeatureSupportReply(messageNorm) {
+      const topic = resolveSupportTopic(messageNorm);
+      if (!topic) return null;
+      const intent = getSupportIntent(messageNorm);
+
+      if (topic === 'update') {
+        if (hasAnySupportKeyword(messageNorm, ['アップデートが必要', 'ストア'])) {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              '「アップデートが必要です」と表示された場合は、案内の「アップデートする」を押してください。',
+              'App Store が開いたらアプリ本体を更新し、更新後にアプリを開き直してください。',
+              '通常の商品・お知らせ更新は画面上部の🔄ボタンで反映できますが、必須更新表示が出た場合はアプリ更新が必要です。'
+            ],
+            ['最新情報への更新方法を知りたい', '通知をオンにする方法を知りたい']
+          );
+        }
+        if (intent === 'trouble') {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              '更新で変わらない場合は、まず画面上部の🔄ボタンで最新情報を再取得してください。',
+              'それでも「アップデートが必要です」と表示される場合は、受付にて配布されている最新版のインストール方法をご確認ください。',
+              '商品・お知らせ・カレンダーなどの最新情報は🔄ボタン、アプリそのものの更新は院内の案内に従う、と覚えていただくと分かりやすいです。'
+            ],
+            ['最新情報への更新方法を知りたい', 'アプリのアップデート方法は？']
+          );
+        }
+        return buildFeatureSupportReply(
+          topic,
+          [
+            '更新には2種類あります。',
+            '1. 商品・お知らせ・カレンダーなどの最新情報は、画面上部の🔄ボタンで再取得でき、その場で最新状態に反映されます。',
+            '2. 「アップデートが必要です」と大きく表示された場合は、当院から案内されている方法で最新版を入れ直してください。',
+            '通常の情報更新（🔄ボタン）は再インストール不要です。'
+          ],
+          ['最新情報への更新方法を知りたい', 'アプリのアップデート方法は？']
+        );
+      }
+
+      if (topic === 'reservation') {
+        return buildFeatureSupportReply(
+          topic,
+          hasAnySupportKeyword(messageNorm, ['変更', 'キャンセル', '取り消し'])
+            ? [
+              '現在、アプリから予約の変更やキャンセルはできません。',
+              '予約変更・キャンセル・個別相談は、公式LINEからご連絡ください。',
+              '公式LINEはホーム画面またはマイページの「公式サイト・SNS」から開けます。'
+            ]
+            : [
+              '現在、アプリから直接予約する機能はありません。',
+              'ご予約や個別相談は公式LINEをご利用ください。',
+              'ホーム画面またはマイページの「公式サイト・SNS」から公式LINEを開けます。'
+            ],
+          ['公式LINEやSNSの開き方を知りたい', 'メニュー一覧の見方を知りたい']
+        );
+      }
+
+      if (topic === 'profile') {
+        if (hasAnySupportKeyword(messageNorm, ['アイコン', 'アバター', 'バナー', '画像', '写真'])) {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              'プロフィール画像の変更方法です。',
+              '1. マイページの「✏️ プロフィールを編集」を開きます。',
+              '2. アイコン画像またはバナー画像の変更ボタンから画像を選びます。',
+              '3. 保存すると、マイページやホーム画面の表示に反映されます。'
+            ],
+            ['プロフィールの変更方法を知りたい', 'ホーム画面の見方を知りたい']
+          );
+        }
+        if (intent === 'status') {
+          return buildFeatureSupportReply(
+            topic,
+            _profile
+              ? [
+                `プロフィールは登録済みです。お名前は${_profile.name || '未設定'}、会員IDは${_profile.memberId || '未発行'}です。`,
+                '変更したい場合はマイページの「プロフィールを編集」から更新できます。'
+              ]
+              : [
+                '現在プロフィールは未登録です。',
+                '初回起動時の案内、またはマイページの「プロフィールを編集」から登録してください。'
+              ],
+            ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+          );
+        }
+        return buildFeatureSupportReply(
+          topic,
+          _profile
+            ? [
+              'プロフィールの変更方法です。',
+              '1. マイページを開きます。',
+              '2. 「✏️ プロフィールを編集」を押します。',
+              '3. お名前、電話番号、生年月日、住所、画像を変更して保存します。'
+            ]
+            : [
+              'プロフィールの登録方法です。',
+              '1. マイページの「✏️ プロフィールを編集」を開きます。',
+              '2. お名前、電話番号、生年月日、住所を入力して保存します。',
+              '3. 初回起動時は案内に沿ってそのまま登録できます。'
+            ],
+          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+        );
+      }
+
+      if (topic === 'notification') {
+        if (intent === 'trouble') {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              '通知が届かない場合は、次を確認してください。',
+              '1. マイページの通知設定がオンになっているか。',
+              '2. iPhone やブラウザの設定で通知が許可されているか。',
+              '3. インターネット接続が安定しているか。',
+              isPushEnabled() ? '現在この端末のアプリ内設定はオンです。端末側の通知許可もご確認ください。' : '現在この端末のアプリ内設定はオフです。まずアプリ内でオンにしてください。'
+            ],
+            ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい']
+          );
+        }
+        return buildFeatureSupportReply(
+          topic,
+          hasAnySupportKeyword(messageNorm, ['オフ', '解除'])
+            ? [
+              '通知はオフにもできます。',
+              'マイページの「🔔 通知設定」ボタンを押すと、オンとオフを切り替えられます。',
+              '端末側の通知許可をオフにしたい場合は、iPhone の通知設定からも変更できます。'
+            ]
+            : [
+              '通知設定の方法です。',
+              '1. マイページを開きます。',
+              '2. 「🔔 通知設定」ボタンを押してオンまたはオフに切り替えます。',
+              '3. 端末側で通知が拒否されている場合は、iPhone の通知設定もご確認ください。'
+            ],
+          ['通知を受け取りたい', '通知をオフにしたい']
+        );
+      }
+
+      if (topic === 'order-history') {
+        if (hasAnySupportKeyword(messageNorm, ['キャンセル'])) {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              '注文キャンセルの方法です。',
+              '1. マイページの「📋 ご注文履歴」を開きます。',
+              '2. 受付中の注文に表示される「キャンセルする」を押します。',
+              '3. キャンセル後、その注文は履歴から表示されなくなります。'
+            ],
+            ['注文履歴の確認方法を知りたい', '商品の注文方法を知りたい']
+          );
+        }
+        if (hasAnySupportKeyword(messageNorm, ['受け取りました', '受取報告', '受取完了'])) {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              '受け取り完了の報告方法です。',
+              '1. マイページの「📋 ご注文履歴」を開きます。',
+              '2. 対象注文の「受け取りました」を押します。',
+              '3. 更新後、その注文は履歴に残らなくなります。'
+            ],
+            ['注文履歴の確認方法を知りたい', '商品の注文方法を知りたい']
+          );
+        }
+        if (intent === 'trouble') {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              '注文履歴が見えない場合は、次を確認してください。',
+              '1. プロフィール登録が完了しているか。',
+              '2. 画面上部の🔄ボタンで最新情報を再取得したか。',
+              '3. 受付中または受け取り前の注文があるか。',
+              'キャンセル済み・受取済みの注文は履歴に表示されません。'
+            ],
+            ['プロフィールの登録方法を知りたい', '最新情報への更新方法を知りたい']
+          );
+        }
+        return buildFeatureSupportReply(
+          topic,
+          [
+            '注文履歴の確認方法です。',
+            '1. 下部メニューからマイページを開きます。',
+            '2. 「📋 ご注文履歴」を確認します。',
+            '3. 受付中の注文はキャンセル、受け取り前の注文は「受け取りました」で更新できます。'
+          ],
+          ['注文をキャンセルしたい', '受け取り完了の報告方法を知りたい']
+        );
+      }
+
+      if (topic === 'cart') {
+        return buildFeatureSupportReply(
+          topic,
+          intent === 'status'
+            ? (cart.length
+              ? [
+                `現在のカートは${cart.reduce(function (sum, item) { return sum + Number(item.qty || 0); }, 0)}点です。`,
+                '画面右上の🛒から中身を確認し、個数変更や削除ができます。'
+              ]
+              : [
+                '現在カートには商品が入っていません。',
+                'ショップで商品を選び、「カートに追加する」を押すと入ります。'
+              ])
+            : [
+              'カートの使い方です。',
+              '1. ショップで商品を選び「カートに追加する」を押します。',
+              '2. 画面右上の🛒を押すとカートを開けます。',
+              '3. カートでは個数変更や削除ができます。'
+            ],
+          ['カートの中身を確認するには？', '商品の注文方法を知りたい']
+        );
+      }
+
+      if (topic === 'shop') {
+        if (hasAnySupportKeyword(messageNorm, ['支払い', '決済', '現金'])) {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              '商品注文のお支払い方法は現在「現金払い」です。',
+              'ご来院時に受付でお支払いください。'
+            ],
+            ['商品の注文方法を知りたい', '受け取り方法は？']
+          );
+        }
+        if (hasAnySupportKeyword(messageNorm, ['受取', '受け取り', '配送', '宅配'])) {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              '商品はすべて院内受け取りです。',
+              '注文後、ご来院時にスタッフへお声がけください。'
+            ],
+            ['商品の注文方法を知りたい', '注文履歴の確認方法を知りたい']
+          );
+        }
+        return buildFeatureSupportReply(
+          topic,
+          [
+            '商品の注文手順です。',
+            '1. 下部メニューの「🛍 ショップ」を開きます。',
+            '2. 商品をタップして詳細を確認します。',
+            '3. 個数を選んで「カートに追加する🛒」を押します。',
+            '4. 画面右上の🛒からカートを開き、「ご注文を確定する」で完了です。'
+          ],
+          ['カートの使い方を知りたい', '注文履歴の確認方法を知りたい']
+        );
+      }
+
+      if (topic === 'stamp') {
+        if (hasAnySupportKeyword(messageNorm, ['新しいカード', '次のカード', 'カード開始', 'カード取得'])) {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              '新しいスタンプカードの始め方です。',
+              '1. スタンプが10個たまると、ホーム画面に「🌸 新しいスタンプカードを取得」が表示されます。',
+              '2. そのボタンを押すと次のカードが始まります。',
+              '3. 新しいカード開始後はスタンプが0個に戻り、カード番号が1つ進みます。'
+            ],
+            ['スタンプが10個たまったらどうなりますか？', 'スタンプ特典の使い方を知りたい']
+          );
+        }
+        if (hasAnySupportKeyword(messageNorm, ['qr', 'qrコード', 'qrcode', 'カメラ', '読み取り'])) {
+          return buildFeatureSupportReply(
+            topic,
+            intent === 'trouble'
+              ? [
+                'QRコードが読み取れない場合は、次を確認してください。',
+                '1. カメラ権限が許可されているか。',
+                '2. QRコードに汚れや傷がないか。',
+                '3. その日のスタンプをすでに取得していないか。',
+                '4. 10個達成済みなら先に「新しいスタンプカードを取得」してください。'
+              ]
+              : [
+                'スタンプ取得の手順です。',
+                '1. ホーム画面の「📷 カメラを起動して読み取る」を押します。',
+                '2. カメラ権限の案内が出た場合は「許可」を選びます。',
+                '3. 院内のQRコードを読み取ります。',
+                '4. 読み取りに成功するとスタンプが1つ追加されます。'
+              ],
+            ['スタンプは1日何個取得できますか？', '新しいカードを始めるには？']
+          );
+        }
+        if (hasAnySupportKeyword(messageNorm, ['10個', '達成', 'たまった', '満了'])) {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              'スタンプが10個たまると特典対象になります。',
+              'マイページの「🎁 特典取得状況」で確認できます。',
+              'その後、ホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。'
+            ],
+            ['スタンプ特典の使い方を知りたい', '新しいカードを始めるには？']
+          );
+        }
+        return buildFeatureSupportReply(
+          topic,
+          [
+            'スタンプ機能のご案内です。',
+            '1. スタンプはホーム画面で確認します。',
+            '2. 院内QRコードを読むと1日1回まで追加されます。',
+            `3. 現在のカードは${stampCardNum}枚目、スタンプは${stampCount}個です。`,
+            '4. 10個たまると特典対象になります。'
+          ],
+          ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
+        );
+      }
+
+      if (topic === 'reward') {
+        const availableRewards = (EARNED_REWARDS || []).filter(function (reward) {
+          return reward && !reward.used;
+        });
+        if (hasAnySupportKeyword(messageNorm, ['期限', 'いつまで'])) {
+          return buildFeatureSupportReply(
+            topic,
+            [
+              '特典の受取期限は、スタンプ10個を達成した日から1か月です。',
+              'マイページの「🎁 特典取得状況」に期限が表示されます。',
+              '受け取りについては受付へ直接お問い合わせください。'
+            ],
+            ['スタンプ特典の使い方を知りたい', '特典はどこで確認できますか？']
+          );
+        }
+        if (intent === 'status') {
+          return buildFeatureSupportReply(
+            topic,
+            availableRewards.length
+              ? [
+                `現在、未使用の特典が${availableRewards.length}件あります。`,
+                'マイページの「🎁 特典取得状況」で確認できます。',
+                '特典は達成当日から使用でき、一度使用すると再使用できません。'
+              ]
+              : [
+                '現在、未使用の特典はありません。',
+                'スタンプが10個たまると特典対象になり、マイページに表示されます。'
+              ],
+            ['特典はどこで確認できますか？', 'スタンプの集め方を知りたい']
+          );
+        }
+        return buildFeatureSupportReply(
+          topic,
+          [
+            'スタンプ特典の使い方です。',
+            '1. マイページの「🎁 特典取得状況」を開きます。',
+            '2. 獲得済みの特典を確認し、必要なら「使用する」を押します。',
+            '3. 特典は達成当日から使用できます。',
+            '4. 一度使用すると再使用できません。受け取りは受付へ直接お問い合わせください。'
+          ],
+          ['特典に有効期限はありますか？', 'スタンプが10個たまったらどうなりますか？']
+        );
+      }
+
+      if (topic === 'menu') {
+        return buildFeatureSupportReply(
+          topic,
+          [
+            'メニュー一覧の見方です。',
+            '1. ホーム画面の「メニュー一覧を見る🍴」を押します。',
+            '2. 各メニューをタップすると詳細や画像を確認できます。',
+            '3. 予約受付中の表示があるものも、実際の予約連絡は公式LINEからお願いします。'
+          ],
+          ['予約の方法を知りたい', 'ホーム画面の見方を知りたい']
+        );
+      }
+
+      if (topic === 'calendar') {
+        return buildFeatureSupportReply(
+          topic,
+          [
+            'カレンダーの見方です。',
+            '1. 下部メニューの「📅 カレンダー」を開きます。',
+            '2. 左右の矢印で月を切り替えます。',
+            '3. 日付を押すと、その日の予定やイベントを確認できます。',
+            '4. 休＝休診日、往＝往診日、イ＝イベントです。'
+          ],
+          ['イベントカレンダーの見方を知りたい', '最新のお知らせの見方を知りたい']
+        );
+      }
+
+      if (topic === 'news') {
+        return buildFeatureSupportReply(
+          topic,
+          isSupportBlogArchiveQuestion(messageNorm)
+            ? [
+              '過去のブログやお知らせは、画面上部の📢ボタンから開く「お知らせ一覧」で確認できます。',
+              'ブログ・お知らせ・カレンダー情報などを日付順でまとめて見られます。'
+            ]
+            : [
+              'お知らせの見方です。',
+              '1. 下部メニューの「💬 NEWS」で記事一覧を確認できます。',
+              '2. 画面上部の📢ボタンでは、ブログ・お知らせ・Push通知などをまとめて確認できます。',
+              '3. 新着があるとアイコンに赤いドットが表示されます。'
+            ],
+          ['ブログや過去のお知らせの見方を知りたい', '📢ボタンの機能は何ですか？']
+        );
+      }
+
+      if (topic === 'links') {
+        return buildFeatureSupportReply(
+          topic,
+          [
+            '公式サイトやSNSの開き方です。',
+            '1. ホーム画面またはマイページの「🔗 公式サイト・SNS」を開きます。',
+            '2. 公式ホームページ、Instagram、Facebook、公式LINEを選んで開けます。',
+            '3. 診療や個別相談は公式LINEをご利用ください。'
+          ],
+          ['公式LINEやSNSの開き方を知りたい', '予約の方法を知りたい']
+        );
+      }
+
+      if (topic === 'support-chat') {
+        return buildFeatureSupportReply(
+          topic,
+          [
+            'このチャットでは、現在アプリに実装されている機能の使い方をご案内しています。',
+            'たとえば、注文方法、注文履歴、スタンプ、特典、通知設定、プロフィール変更、更新方法などに回答できます。',
+            '診療相談や個別のご予約内容の相談は公式LINEをご利用ください。'
+          ],
+          ['このアプリでできることを知りたい', '予約の方法を知りたい']
+        );
+      }
+
+      if (topic === 'home') {
+        return buildFeatureSupportReply(
+          topic,
+          [
+            'ホーム画面でできることです。',
+            '1. スタンプQRの読み取り',
+            '2. 現在のスタンプカード確認',
+            '3. おすすめ商品や最新のお知らせ確認',
+            '4. メニュー一覧への移動',
+            '5. 公式サイト・SNSへのアクセス'
+          ],
+          ['スタンプの集め方を知りたい', 'メニュー一覧の見方を知りたい']
+        );
+      }
+
+      if (topic === 'app-overview') {
+        return getSupportOverviewReply();
+      }
+
+      return null;
     }
 
     function getSupportStatusReply(messageNorm) {
@@ -5262,7 +6033,9 @@
               '追加方法: ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取ってください。',
               '補足: 来院スタンプは1日1回までです。'
             ],
-          ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
+          ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい'],
+          true,
+          'stamp'
         );
       }
 
@@ -5283,7 +6056,9 @@
               '現在カートには商品が入っていません。',
               '下部メニューの「ショップ」で商品を選ぶとカートに追加できます。'
             ],
-          ['カートの使い方を知りたい', '商品の注文方法を知りたい']
+          ['カートの使い方を知りたい', '商品の注文方法を知りたい'],
+          true,
+          'cart'
         );
       }
 
@@ -5298,7 +6073,9 @@
               '現在プロフィールは未登録です。',
               '初回起動時の案内、またはマイページの「プロフィールを編集」から登録してください。'
             ],
-          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい'],
+          true,
+          'profile'
         );
       }
 
@@ -5314,7 +6091,9 @@
               '現在この端末では通知はオフです。',
               'マイページの通知設定ボタンからオンにできます。'
             ],
-          ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい']
+          ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい'],
+          true,
+          'notification'
         );
       }
 
@@ -5358,7 +6137,9 @@
           '6. マイページ: プロフィール、通知設定、注文履歴、特典の確認',
           '知りたい画面名や操作名をそのまま送っていただければ、手順を具体的にご案内します。'
         ],
-        ['このアプリでできることを知りたい', '商品の注文方法を知りたい', 'スタンプの集め方を知りたい', 'プロフィールの登録方法を知りたい']
+        ['このアプリでできることを知りたい', '商品の注文方法を知りたい', 'スタンプの集め方を知りたい', 'プロフィールの登録方法を知りたい'],
+        true,
+        'app-overview'
       );
     }
 
@@ -5594,12 +6375,12 @@
         );
       }
 
-      if (hasAnySupportKeyword(messageNorm, ['メニュー', '予約受付中', '予約対象外', '施術'])) {
+      if (hasAnySupportKeyword(messageNorm, ['メニュー', '施術'])) {
         return buildSupportReply(
           [
             'メニュー一覧の見方です。',
-            '1. ホームの「メニュー一覧を見る」を押します。',
-            '2. 一覧ページで「全て / 予約受付中 / 予約対象外」で絞り込みできます。',
+            '1. ホームの「メニュー一覧を見る🍴」を押します。',
+            '2. メニュー一覧が表示されます。',
             '3. 各メニューをタップすると詳細や画像を確認できます。',
             '補足: 実際のご予約は公式LINEからお願いいたします。'
           ],
@@ -5687,6 +6468,101 @@
         return getSupportOverviewReply();
       }
 
+      // --- トラブルシューティング ---
+      if (hasAnySupportKeyword(messageNorm, ['表示されない', 'おかしい', '崩れ', '不具合', 'バグ'])) {
+        return buildSupportReply(
+          [
+            '画面表示のトラブルについてです。',
+            '以下をお試しください：',
+            '1. 画面右上の🔄ボタンで情報を再取得',
+            '2. アプリを一度閉じて再起動',
+            '3. インターネット接続を確認'
+          ],
+          ['最新情報への更新方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['エラー', '失敗', '同期', '問題'])) {
+        return buildSupportReply(
+          [
+            'データ取得エラーについてです。',
+            'インターネット接続が不安定な可能性があります。',
+            'Wi-Fiや4G/5G回線が安定している環境で🔄ボタンを押して再度お試しください。',
+            '一部データの取得に失敗しても、他のデータは正常に更新されます。'
+          ],
+          ['最新情報への更新方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['重い', '遅い', 'フリーズ', '動かない'])) {
+        return buildSupportReply(
+          [
+            'アプリの動作が遅い場合の対処法です。',
+            '1. 他のアプリを閉じてメモリを開放してください。',
+            '2. 端末を再起動してみてください。',
+            '3. 🔄ボタンでアプリを最新状態に更新してください。'
+          ],
+          ['最新情報への更新方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['引き継ぎ', '機種変更', 'データ移行'])) {
+        return buildSupportReply(
+          [
+            '端末の引き継ぎについてです。',
+            'スタンプデータは端末内に保存されているため、自動では引き継がれません。',
+            'プロフィールや注文履歴はサーバーに保存されています。',
+            'スタンプの移行については受付にご相談ください。'
+          ],
+          ['プロフィールの登録方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['削除', 'アンインストール', '復元', '再インストール'])) {
+        return buildSupportReply(
+          [
+            'アプリの削除・復元についてです。',
+            'アプリを再インストールするとプロフィールや注文履歴は復元できます。',
+            'ただし、端末に保存されたスタンプデータは削除される場合があります。'
+          ],
+          ['スタンプの集め方を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['個人情報', 'プライバシー', 'セキュリティ'])) {
+        return buildSupportReply(
+          [
+            '個人情報の取り扱いについてです。',
+            'プロフィールに登録いただいた情報は、まゆみ助産院の業務（注文管理・会員管理など）のためにのみ使用されます。',
+            '第三者への提供は行いません。'
+          ],
+          ['プロフィールの登録方法を知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['対応端末', 'iphone', 'android', 'ブラウザ', 'safari'])) {
+        return buildSupportReply(
+          [
+            'アプリの対応端末についてです。',
+            'iPhone（Safari）での動作を推奨しています。',
+            'iOS端末向けのネイティブアプリとしてもご利用いただけます。'
+          ],
+          ['このアプリでできることを知りたい']
+        );
+      }
+
+      if (hasAnySupportKeyword(messageNorm, ['チャットボット', 'ボット', 'サポート']) && hasAnySupportKeyword(messageNorm, ['何', 'できる', '使い方', '開き方'])) {
+        return buildSupportReply(
+          [
+            'チャットサポートについてです。',
+            'アプリの使い方に関する質問にチャット形式で回答するサポート機能です。',
+            '注文方法、スタンプの集め方、通知設定、プロフィール登録などの操作方法を案内します。',
+            '画面右下の「💬 使い方相談」ボタン、またはマイページの「🤖 使い方サポート」からご利用いただけます。'
+          ],
+          ['このアプリでできることを知りたい']
+        );
+      }
+
       return null;
     }
 
@@ -5710,12 +6586,14 @@
     function getLocalSupportReply(message) {
       const messageNorm = normalizeSupportText(message);
       const statusReply = getSupportStatusReply(messageNorm);
+      const featureReply = getFeatureSupportReply(messageNorm);
       const builtInReply = getBuiltInSupportReply(messageNorm);
       const faqReply = getSupportFaqReply(messageNorm);
 
       if (statusReply) {
         return statusReply;
       }
+      if (featureReply) return featureReply;
       if (builtInReply) return builtInReply;
       if (faqReply) return faqReply;
 
@@ -5748,11 +6626,23 @@
       } catch (e) { }
     }
 
+    function persistSupportTopic() {
+      try {
+        if (lastSupportTopic) {
+          localStorage.setItem('mayumi_support_chat_topic', lastSupportTopic);
+        } else {
+          localStorage.removeItem('mayumi_support_chat_topic');
+        }
+      } catch (e) { }
+    }
+
     function ensureSupportChatWelcome() {
       if (supportChatHistory.length) return;
+      lastSupportTopic = '';
+      persistSupportTopic();
       supportChatHistory = [{
         role: 'bot',
-        text: 'アプリの使い方をご案内します。現在実装されている機能について、できるだけ具体的にお答えします。ホーム、予約、スタンプ、メニュー一覧、ショップ、カレンダー、NEWS、通知設定、プロフィール、注文履歴などをそのまま質問してください。'
+        text: 'アプリの使い方をご案内します。機能ごとに、どこから使うか・何ができるか・できないこと・困ったときの対処まで、できるだけ具体的にお答えします。ホーム、予約、スタンプ、メニュー一覧、ショップ、カレンダー、NEWS、通知設定、プロフィール、注文履歴などをそのまま質問してください。'
       }];
       persistSupportChatHistory();
     }
@@ -5876,8 +6766,10 @@
 
         supportChatHistory = supportChatHistory.filter(function (item) { return item !== pendingMessage; });
         supportChatHistory.push({ role: 'bot', text: localReply.answer });
+        lastSupportTopic = localReply.topic || resolveSupportTopic(normalizeSupportText(message)) || lastSupportTopic;
         renderSupportSuggestions(localReply.suggestions || []);
         persistSupportChatHistory();
+        persistSupportTopic();
         renderSupportChatMessages();
       } catch (err) {
         supportChatHistory = supportChatHistory.filter(function (item) { return item !== pendingMessage; });
@@ -6008,6 +6900,11 @@
 
       // UIを先に更新する
       closeSetupModal();
+      if (isNew) {
+        const homePage = document.getElementById('page-home');
+        if (homePage) homePage.classList.add('active');
+        switchPage('home');
+      }
       updateProfileUI();
       showToast(isNew ? '登録完了しました 🌿' : 'プロフィールを更新しました ✅');
 
@@ -6143,12 +7040,13 @@
 
     function checkFirstLaunch() {
       if (!_profile) {
-        // 初回起動：オンボーディングを表示
-        setTimeout(() => {
-          document.getElementById('onboardingScreen').classList.add('show');
-        }, 100);
+        // 初回起動：オンボーディングを即座に表示
+        const screen = document.getElementById('onboardingScreen');
+        if (screen) screen.classList.add('show');
       } else {
-        // 既存ユーザー：プロフィールUIを更新
+        // 既存ユーザー：ホーム画面をアクティブにする
+        const homePage = document.getElementById('page-home');
+        if (homePage) homePage.classList.add('active');
         CUSTOMER_NAME = _profile.name;
         updateProfileUI();
       }
@@ -6342,12 +7240,14 @@
 
     // ===== 初期化 (並列実行で高速化) =====
     async function initApp() {
+      // 最初に初回起動チェックを行い、UI（オンボーディング or ホーム）を表示する
+      checkFirstLaunch();
+
       const versionGate = await ensureSupportedAppVersion();
       if (versionGate.blocked) {
         return;
       }
 
-      checkFirstLaunch();
       loadStampRewards();
       updateStampUI();
       checkUrlParams();
@@ -6601,49 +7501,9 @@
       }
     })();
   </script>
-  <!-- ONBOARDING SCREEN -->
-  <div class="onboarding-overlay" id="onboardingScreen">
-    <div class="onboarding-content">
-      <div style="text-align:center;margin-bottom:20px;">
-        <img src="icon.png" alt="Logo"
-          style="width:80px;height:80px;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,0.15);object-fit:cover;">
-      </div>
-      <div class="onboarding-title">ようこそ</div>
-      <div class="onboarding-desc">
-        まゆみ助産院の公式アプリへようこそ。<br>
-        お子様とあなたの健康を<br>
-        さらに便利にサポートします。
-      </div>
-
-      <div class="onboarding-features">
-        <div class="onboarding-feature">
-          <div class="onboarding-feature-icon">🛒</div>
-          <div class="onboarding-feature-text">
-            <h4 style="margin:0;font-size:15px;">商品のご注文</h4>
-            <p style="margin:0;font-size:12px;">おすすめの商品をアプリから簡単に注文</p>
-          </div>
-        </div>
-        <div class="onboarding-feature">
-          <div class="onboarding-feature-icon">📅</div>
-          <div class="onboarding-feature-text">
-            <h4 style="margin:0;font-size:15px;">イベント・おしらせ</h4>
-            <p style="margin:0;font-size:12px;">教室や休診日などのスケジュールを確認</p>
-          </div>
-        </div>
-        <div class="onboarding-feature">
-          <div class="onboarding-feature-icon">🎁</div>
-          <div class="onboarding-feature-text">
-            <h4 style="margin:0;font-size:15px;">デジタルスタンプ</h4>
-            <p style="margin:0;font-size:12px;">来院や購入で貯まるお得なスタンプカード</p>
-          </div>
-        </div>
-      </div>
-
-      <button class="onboarding-btn" onclick="startAppFromOnboarding()">始める</button>
-    </div>
-  </div>
 
   <!-- PROFILE SETUP / EDIT MODAL -->
+
   <div class="setup-overlay" id="setupOverlay">
     <div class="setup-sheet">
       <div class="setup-icon">
@@ -6841,11 +7701,8 @@
             `<img src="${m.imageUrl}" style="width:80px; height:80px; object-fit:cover; border-radius:10px; flex-shrink:0;">` :
             `<div style="width:80px; height:80px; background:var(--bg-gray); border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text-light); font-size:24px;">🍴</div>`
           }
-            <div style="flex:1; display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0;">
+            <div style="flex:1; display:flex; align-items:center; min-width:0;">
               <h3 style="margin:0; font-size:1.2rem; color:var(--text-main); font-weight:700; line-height:1.4; flex:1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${m.name}</h3>
-              <span class="status-chip ${m.reservationStatus === '予約受付中' ? 's-pending' : 's-cancelled'}" style="margin:0; font-size:13px; font-weight:bold; padding:4px 10px; border-radius:6px; white-space:nowrap; flex-shrink:0;">
-                ${m.reservationStatus}
-              </span>
             </div>
             <div style="color:var(--text-light); font-size:18px; margin-left:5px; flex-shrink:0;">›</div>
           </div>
@@ -6866,11 +7723,8 @@
       const formattedDesc = (m.description || '').replace(/\n/g, '<br>');
 
       document.getElementById('menuDetailContent').innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="margin-bottom:12px;">
           <span class="blog-detail-cat">メニュー</span>
-          <span class="status-chip ${m.reservationStatus === '予約受付中' ? 's-pending' : 's-cancelled'}" style="margin:0; font-size:12px;">
-            ${m.reservationStatus}
-          </span>
         </div>
         <div class="blog-detail-title" style="margin-bottom:16px;">${m.name}</div>
         ${imageHtml}
