@@ -1442,17 +1442,31 @@
           renderPushNotices();
         }
 
-        const gridIds = ['grid-recommended', 'grid-tea', 'grid-bath', 'grid-soap-other', 'grid-pad'];
+        const gridIds = ['grid-recommended', 'grid-tea', 'grid-bath', 'grid-dashi', 'grid-soap-other', 'grid-pad'];
         gridIds.forEach(id => {
           const el = document.getElementById(id);
           if (el) el.innerHTML = '';
         });
 
+        const normalizeProductCategory = (value) => String(value || '')
+          .replace(/\u3000/g, ' ')
+          .trim()
+          .replace(/\s+/g, '');
+
         const categoryMap = {
           'よもぎ茶': 'grid-tea',
           'よもぎ入浴剤': 'grid-bath',
+          '天然だし調理粉': 'grid-dashi',
+          '天然だし': 'grid-dashi',
+          '食品': 'grid-dashi',
+          'だし': 'grid-dashi',
           '石鹸': 'grid-soap-other',
           '冷え取りパット': 'grid-pad'
+        };
+
+        const resolveProductContainerId = (category) => {
+          const normalizedCategory = normalizeProductCategory(category);
+          return categoryMap[normalizedCategory] || null;
         };
 
         const createProductCard = (p, idx) => {
@@ -1478,7 +1492,11 @@
         }
 
         PRODUCTS.forEach((p, idx) => {
-          const containerId = categoryMap[p.category] || 'grid-soap-other';
+          const containerId = resolveProductContainerId(p.category);
+          if (!containerId) {
+            console.warn('Unknown product category:', p.category, p.name);
+            return;
+          }
           const container = document.getElementById(containerId);
           if (container) { container.appendChild(createProductCard(p, idx)); }
         });
