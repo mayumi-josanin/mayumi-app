@@ -920,9 +920,43 @@
     }
 
     @keyframes spin {
-      to {
-        transform: rotate(360deg)
-      }
+      to { transform: rotate(360deg) }
+    }
+
+    /* 回転アニメーションのみを抽出したユーティリティ */
+    .spinning {
+      animation: spin .7s linear infinite !important;
+      display: inline-block;
+    }
+
+    /* 更新中オーバーレイ */
+    .refresh-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(2px);
+      z-index: 10000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--sage-dark);
+      font-family: 'Noto Serif JP', serif;
+      font-weight: bold;
+    }
+
+    .refresh-overlay.active {
+      display: flex;
+    }
+
+    .refresh-overlay .spinner {
+      margin-bottom: 12px;
+      width: 32px;
+      height: 32px;
+      border-width: 3px;
     }
 
     /* ===== CART ===== */
@@ -2155,6 +2189,12 @@
 
 <body>
 
+  <!-- 更新中オーバーレイ -->
+  <div id="refresh-overlay" class="refresh-overlay">
+    <div class="spinner"></div>
+    <span>最新情報を更新しています...</span>
+  </div>
+
   <div id="toast" class="toast"></div>
 
   <!-- HEADER -->
@@ -2169,7 +2209,7 @@
         </div>
       </div>
       <div class="header-right">
-        <div class="hdr-btn" onclick="refreshAppData()" title="最新情報に更新">🔄</div>
+        <div id="refresh-btn" class="hdr-btn" onclick="refreshAppData()" title="最新情報に更新">🔄</div>
         <div class="hdr-btn" onclick="switchPage('notices')" title="お知らせ一覧">📢<div class="cart-badge" id="badge-notices"
             style="display:none; width:8px; height:8px; top:2px; right:2px;"></div>
         </div>
@@ -4109,20 +4149,6 @@
         });
       });
 
-      // 4) 商品 (PRODUCTS グローバル配列) - ユーザーの要望によりお知らせ一覧からは削除
-      /*
-      PRODUCTS.forEach(p => {
-        items.push({
-          ts: 0,
-          type: 'product',
-          icon: '🛒',
-          label: 'お買い物',
-          title: p.name,
-          body: '¥' + (p.price || 0).toLocaleString() + '（税込）'
-        });
-      });
-      */
-
       // --- 日付の新しい順にソート ---
       items.sort((a, b) => b.ts - a.ts);
 
@@ -4185,12 +4211,9 @@
     }
 
     // ===== 商品マスタ動的取得 =====
-    // GASの getProducts レスポンス: { status:'ok', products:[{category,name,price,icon,bg}] }
-    // GASにデータがある場合のみ PRODUCTS 配列を上書き（画像データは保持）
     async function loadProducts() {
       const data = await getFromGAS('getProducts');
       if (data && data.status === 'ok' && data.products && data.products.length > 0) {
-        // GASから取得した商品でPRODUCTSを更新（画像キーは名称一致で引き継ぎ、なければ'default'）
         const imgKeyMap = {};
         PRODUCTS.forEach(p => { imgKeyMap[p.name] = p.imgKey; });
 
@@ -4204,22 +4227,18 @@
           descriptionImage: p.descriptionImage || '',
           imgKey: imgKeyMap[p.name] || 'default'
         }));
-        // グローバル配列PRODUCTSを入れ替え
         PRODUCTS.splice(0, PRODUCTS.length, ...updated);
 
-        // 商品更新後、お知らせページが開いている場合は即座に再描画
         if (document.getElementById('page-notices').classList.contains('active')) {
           renderPushNotices();
         }
 
-        // 各カテゴリーのコンテナID
         const gridIds = ['grid-recommended', 'grid-tea', 'grid-bath', 'grid-soap-other', 'grid-pad'];
         gridIds.forEach(id => {
           const el = document.getElementById(id);
           if (el) el.innerHTML = '';
         });
 
-        // カテゴリーとコンテナの対応
         const categoryMap = {
           'よもぎ茶': 'grid-tea',
           'よもぎ入浴剤': 'grid-bath',
@@ -4227,20 +4246,11 @@
           '冷え取りパット': 'grid-pad'
         };
 
-        // 商品カード生成用ヘルパー
         const createProductCard = (p, idx) => {
           const card = document.createElement('div');
           card.className = 'shop-card';
           card.setAttribute('onclick', `openProductModal(${idx})`);
-
-          // 画像ソースの決定: iconがURL(http/data)ならそれを優先、次にimgKeyMap、最後にプレースホルダ
-          let imgSrc = '';
-          if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
-            imgSrc = p.icon;
-          } else {
-            imgSrc = PROD_IMAGES[p.imgKey] || `https://placehold.jp/24/c18151/ffffff/150x150.png?text=${encodeURIComponent(p.name)}`;
-          }
-
+          let imgSrc = (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) ? p.icon : (PROD_IMAGES[p.imgKey] || `https://placehold.jp/24/c18151/ffffff/150x150.png?text=${encodeURIComponent(p.name)}`);
           card.innerHTML = `
             <div class="shop-img ${p.bg}">
               <img src="${imgSrc}" alt="${p.name}">
@@ -4253,99 +4263,85 @@
           return card;
         };
 
-        // おすすめ商品を表示（上位4つ）
         const recContainer = document.getElementById('grid-recommended');
         if (recContainer) {
-          PRODUCTS.slice(0, 4).forEach((p, idx) => {
-            recContainer.appendChild(createProductCard(p, idx));
-          });
+          PRODUCTS.slice(0, 4).forEach((p, idx) => { recContainer.appendChild(createProductCard(p, idx)); });
         }
 
-        // 各カテゴリーコンテナに投入
         PRODUCTS.forEach((p, idx) => {
           const containerId = categoryMap[p.category] || 'grid-soap-other';
           const container = document.getElementById(containerId);
-          if (container) {
-            container.appendChild(createProductCard(p, idx));
-          }
+          if (container) { container.appendChild(createProductCard(p, idx)); }
         });
       }
     }
 
-    // ===== お知らせ一覧用 統合ハッシュ =====
-    // ブログ + カレンダー + 商品 + Push全部をまとめてハッシュ化。
-    // これが変わる → 拡声器バッジを表示
-    // 拡声器バッジを表示するかどうかを判定
-    function computeNoticeListHash() {
-      const blogPart = blogItems.map(i => i.date + '_' + i.title).join('|');
-      const calPart = calendarData.filter(i => !(i.title && (i.title.includes('休') || i.title.includes('往')))).map(i => i.date + '_' + i.title).join('|');
-      const noticePart = pushNotices.map(n => n.date + '_' + n.title).join('|');
-      return [blogPart, calPart, noticePart].join('@@');
+    async function tryTask(taskName, taskFn) {
+      try {
+        console.log(`[同期] ${taskName} の取得中...`);
+        return await taskFn();
+      } catch (e) {
+        console.error(`[同期エラー] ${taskName} の取得に失敗しました:`, e);
+        return null;
+      }
     }
-
-
-
 
     async function fetchLatestManagedContent(options) {
       const opts = options || {};
       const currentPage = document.querySelector('.page.active')?.id || '';
+      
       const tasks = [
-        loadBlog(),
-        loadProducts(),
-        loadCalendar(),
-        loadPushNotices(),
-        loadSurveys(),
-        loadStampRewards()
+        tryTask('ニュース', () => loadBlog()),
+        tryTask('商品', () => loadProducts()),
+        tryTask('カレンダー', () => loadCalendar()),
+        tryTask('通知', () => loadPushNotices()),
+        tryTask('アンケート', () => loadSurveys()),
+        tryTask('特典', () => loadStampRewards())
       ];
 
-      if (opts.refreshSupportFaq) {
-        tasks.push(loadSupportFaq(true));
-      }
-
-      if (opts.refreshMenus || currentPage === 'page-menu-list') {
-        tasks.push(loadMenus());
-      }
-
-      if (opts.refreshOrderHistory || currentPage === 'page-mypage') {
-        tasks.push(renderOrderHistory());
-      }
+      if (opts.refreshSupportFaq) tasks.push(tryTask('FAQ', () => loadSupportFaq(true)));
+      if (opts.refreshMenus || currentPage === 'page-menu-list') tasks.push(tryTask('メニュー', () => loadMenus()));
+      if (opts.refreshOrderHistory || currentPage === 'page-mypage') tasks.push(tryTask('履歴', () => renderOrderHistory()));
 
       await Promise.all(tasks);
       updateNavBadges();
     }
 
     async function refreshAppData() {
-      showToast('最新情報を確認中...');
-      let shouldReloadForCodeUpdate = false;
-
-      const versionGate = await ensureSupportedAppVersion();
-      if (versionGate.blocked) {
-        showToast('アプリ本体の更新が必要です');
-        return;
-      }
-
-      // Webプログラムの更新が必要な場合
-      if (versionGate.needsWebUpdate) {
-        shouldReloadForCodeUpdate = true;
-      }
-
-      // Web環境（PWA）ではサービスワーカー更新も試みる
-      if ('serviceWorker' in navigator) {
-        try {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (let registration of registrations) {
-            await registration.update();
-            if (registration.waiting) {
-              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-              shouldReloadForCodeUpdate = true;
-            }
-          }
-        } catch (e) {
-          console.error('ServiceWorker update failed:', e);
-        }
-      }
+      const btn = document.getElementById('refresh-btn');
+      const overlay = document.getElementById('refresh-overlay');
+      if (btn) btn.classList.add('spinning');
+      if (overlay) overlay.classList.add('active');
 
       try {
+        console.log('[更新] アプリ情報の同期を開始します...');
+        let shouldReloadForCodeUpdate = false;
+        
+        // アプリバージョンの確認
+        const versionGate = await ensureSupportedAppVersion();
+        if (versionGate.blocked) {
+          alert('アプリ本体の更新が必要です');
+          return;
+        }
+        if (versionGate.needsWebUpdate) shouldReloadForCodeUpdate = true;
+
+        // PWAサービスワーカーの更新試行 (バックグラウンドで実行)
+        if ('serviceWorker' in navigator) {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (let registration of registrations) {
+              await registration.update();
+              if (registration.waiting) {
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                shouldReloadForCodeUpdate = true;
+              }
+            }
+          } catch (e) { 
+            console.error('[更新] サービスワーカー更新失敗:', e); 
+          }
+        }
+
+        // 個別のデータ取得 (一括同期)
         await fetchLatestManagedContent({
           refreshSupportFaq: true,
           refreshMenus: true,
@@ -4353,18 +4349,22 @@
         });
 
         if (shouldReloadForCodeUpdate) {
-          showToast('最新プログラムへ更新しています...');
+          showToast('アプリを最新版へ読み込み直しています...');
           setTimeout(() => {
             const url = new URL(window.location.href);
-            url.searchParams.set('upd', Date.now()); // キャッシュ対策
+            url.searchParams.set('upd', Date.now());
             window.location.href = url.toString();
-          }, 1000);
+          }, 1200);
         } else {
-          showToast('最新情報を反映しました');
+          showToast('最新情報を反映しました ✨');
         }
       } catch (e) {
-        console.error('Data refresh error:', e);
-        showToast('データの取得に失敗しました');
+        console.error('[更新] 同期中に致命的なエラーが発生しました:', e);
+        showToast('同期中に問題が発生しました。しばらく経ってから再度お試しください。');
+      } finally {
+        if (btn) btn.classList.remove('spinning');
+        if (overlay) overlay.classList.remove('active');
+        console.log('[更新] 同期処理が完了しました。');
       }
     }
 
