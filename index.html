@@ -2593,7 +2593,7 @@
           </div>
           <div id="push-toggle-wrap">
             <button class="btn primary" id="push-btn" style="padding:8px 16px; font-size:12px; border-radius:20px;"
-              onclick="togglePush()">許可する</button>
+              onclick="togglePush()">通知オフ（タップでオン）</button>
           </div>
         </div>
       </div>
@@ -2885,7 +2885,7 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxpYkoowwPWEkHQcfGPXyaatDx2Z-quNcyJEvVp15FWKlCemXqg_Vyyi50uS_4txe3lDA/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycby4tuYI3y558ArBdabtkGJE76k4IUes2WO4_JxFnI7ptYROVQH1SZHKdlSHUzoY7XPmDg/exec';
 
     let USER_MENUS = [];
 
@@ -2910,7 +2910,7 @@
         let res;
 
         // 画像のアップロードやユーザー情報更新はデータ量が大きいためPOSTで送る
-        if (action === 'updateUser' || action === 'uploadImage' || action === 'askSupportChat' || action === 'syncUserRewardStatus') {
+        if (action === 'updateUser' || action === 'uploadImage' || action === 'askSupportChat' || action === 'syncUserRewardStatus' || action === 'unsubscribePush') {
           res = await fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify(payload),
@@ -2967,7 +2967,7 @@
       { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日', answer: '画面右下のマイページから「プロフィールを編集」を開き、必要項目を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
       { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 95 },
       { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取るとスタンプが追加されます。10個たまると特典対象です。', priority: 90 },
-      { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから有効化できます。端末側で通知がオフになっている場合は、iPhoneの設定でも通知許可を確認してください。', priority: 85 },
+      { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから通知をオンにできます。オフにしたい場合も同じボタンから切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可もご確認ください。', priority: 85 },
       { category: 'NEWS', question: '最新のお知らせの見方を知りたい', keywords: 'お知らせ,news,ブログ,新着,通知一覧', answer: '下部メニューの「NEWS」または画面上部の📢ボタンから確認できます。赤いバッジが出ているときは新着があります。', priority: 80 },
       { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で今月の予定を確認できます。左右の矢印で別の月にも切り替えられます。', priority: 75 },
     ];
@@ -2985,7 +2985,7 @@
       { category: 'お知らせ一覧', question: 'お知らせ一覧の見方を知りたい', keywords: 'お知らせ一覧,通知一覧,拡声器,header,ヘッダー,一覧', answer: '画面上部の📢ボタンから、お知らせ・カレンダー・通知などをまとめた一覧を開けます。未読があると赤いドットが表示されます。', priority: 82 },
       { category: 'カレンダー', question: 'カレンダーの使い方を知りたい', keywords: 'カレンダー,イベント,予定,日程,前月,翌月,今月', answer: '下部メニューの「カレンダー」で予定を確認できます。左右の矢印で月を切り替え、日付をタップするとその日の予定を表示します。下部には今月のイベント一覧も表示されます。', priority: 81 },
       { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,会員id,会員番号,memberid', answer: 'マイページの「プロフィールを編集」から、お名前、電話番号、生年月日、住所、アイコン画像、バナー画像を変更できます。会員IDはマイページ上部に表示されます。', priority: 80 },
-      { category: '通知', question: '通知のオンオフ方法を知りたい', keywords: '通知,push,プッシュ,オン,オフ,許可,設定', answer: 'マイページの通知設定ボタンから通知を有効化できます。ネイティブアプリで許可済みの場合、解除はiPhoneの設定アプリ側で行います。Web利用時も端末やブラウザの通知許可設定をご確認ください。', priority: 79 },
+      { category: '通知', question: '通知のオンオフ方法を知りたい', keywords: '通知,push,プッシュ,オン,オフ,許可,設定', answer: 'マイページの通知設定ボタンから通知のオンオフを切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可設定もご確認ください。', priority: 79 },
       { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,再読み込み,リロード,最新情報,最新', answer: '画面上部の🔄ボタンで最新情報を再取得できます。ブログ、お知らせ、カレンダー、商品などを更新したいときにご利用ください。', priority: 78 },
       { category: '外部リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'line,ライン,instagram,facebook,ホームページ,公式サイト,sns,問い合わせ,お問い合わせ,連絡', answer: 'ホーム画面やマイページの「公式サイト・SNS」から、公式ホームページ、Instagram、Facebook、公式LINEを開けます。診療や個別のご相談は公式LINEをご利用ください。', priority: 77 }
     ];
@@ -4606,9 +4606,71 @@
       }
     }
 
+    const PUSH_ENABLED_STORAGE_KEY = 'push_enabled';
+    const NATIVE_PUSH_PLAYER_ID_STORAGE_KEY = 'mayumi_native_push_player_id';
+    const NATIVE_PUSH_TOKEN_STORAGE_KEY = 'mayumi_native_push_token';
+
+    function getStoredPushPreference() {
+      return localStorage.getItem(PUSH_ENABLED_STORAGE_KEY);
+    }
+
+    function isPushEnabled() {
+      return getStoredPushPreference() === 'true';
+    }
+
+    function getStoredNativePushPlayerId() {
+      return localStorage.getItem(NATIVE_PUSH_PLAYER_ID_STORAGE_KEY) || '';
+    }
+
+    function setStoredNativePushPlayerId(playerId) {
+      if (playerId) localStorage.setItem(NATIVE_PUSH_PLAYER_ID_STORAGE_KEY, playerId);
+      else localStorage.removeItem(NATIVE_PUSH_PLAYER_ID_STORAGE_KEY);
+    }
+
+    function getStoredNativePushToken() {
+      return localStorage.getItem(NATIVE_PUSH_TOKEN_STORAGE_KEY) || '';
+    }
+
+    function setStoredNativePushToken(token) {
+      if (token) localStorage.setItem(NATIVE_PUSH_TOKEN_STORAGE_KEY, token);
+      else localStorage.removeItem(NATIVE_PUSH_TOKEN_STORAGE_KEY);
+    }
+
+    function getCurrentPushSubscriptionValue(enabled) {
+      if (!enabled) return false;
+      return getStoredNativePushPlayerId() || getStoredNativePushToken() || true;
+    }
+
+    async function syncPushPreferenceToProfile(enabled, subscriptionValue) {
+      if (!_profile || !_profile.memberId) return;
+      try {
+        await postToGAS({
+          type: 'updateUser',
+          memberId: _profile.memberId,
+          pushSubscription: enabled ? (subscriptionValue !== undefined ? subscriptionValue : getCurrentPushSubscriptionValue(true)) : false
+        });
+      } catch (e) {
+        console.log('syncPushPreferenceToProfile error:', e);
+      }
+    }
+
+    async function applyPushEnabledState(enabled, options) {
+      const nextEnabled = enabled === true;
+      const opts = options || {};
+
+      localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, nextEnabled ? 'true' : 'false');
+      if (opts.clearNativePlayerId) setStoredNativePushPlayerId('');
+      if (opts.clearNativeToken) setStoredNativePushToken('');
+      updatePushUI(nextEnabled ? 'on' : 'off');
+
+      if (opts.syncProfile !== false) {
+        await syncPushPreferenceToProfile(nextEnabled, opts.subscriptionValue);
+      }
+    }
+
     // 起動時にlocalStorageから通知ボタンの状態を即座に復元
     (function () {
-      var saved = localStorage.getItem('push_enabled');
+      var saved = getStoredPushPreference();
       if (saved === 'true') updatePushUI('on');
     })();
 
@@ -4622,7 +4684,7 @@
         btn.classList.add('secondary');
         btn.classList.remove('primary');
       } else {
-        btn.textContent = '許可する';
+        btn.textContent = '通知オフ（タップでオン）';
         btn.classList.add('primary');
         btn.classList.remove('secondary');
       }
@@ -4711,7 +4773,7 @@
       }
 
       // Push UIの初期状態回復
-      if (localStorage.getItem('push_enabled') === 'true') {
+      if (isPushEnabled()) {
         updatePushUI('on');
       }
     }
@@ -4912,16 +4974,16 @@
       }
 
       if (hasAnySupportKeyword(messageNorm, ['通知', 'push', 'プッシュ']) && asksStatusOnly) {
-        const isEnabled = localStorage.getItem('push_enabled') === 'true';
+        const isEnabled = isPushEnabled();
         return buildSupportReply(
           isEnabled
             ? [
               '現在この端末では通知がオンの状態です。',
-              '解除したい場合は、マイページの通知設定、またはiPhoneの設定アプリ側をご確認ください。'
+              'オフにしたい場合は、マイページの通知設定ボタンから切り替えられます。'
             ]
             : [
               '現在この端末では通知はオフです。',
-              'マイページの通知設定ボタンから有効化をお試しください。'
+              'マイページの通知設定ボタンからオンにできます。'
             ],
           ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい']
         );
@@ -5026,7 +5088,7 @@
           [
             '通知設定の方法です。',
             '1. マイページを開きます。',
-            '2. 「通知設定」から有効化または確認します。',
+            '2. 「通知設定」ボタンを押して、通知をオンまたはオフに切り替えます。',
             '3. 端末側で拒否されている場合は、iPhoneやブラウザの通知設定もご確認ください。',
             '補足: 通知内容はブログ更新や重要なお知らせです。'
           ],
@@ -5651,7 +5713,8 @@
           birthday: birthday,
           address: address,
           kana: '',
-          memo: ''
+          memo: '',
+          pushSubscription: getCurrentPushSubscriptionValue(isPushEnabled())
         });
         await syncRewardStatus(true);
 
@@ -5800,10 +5863,16 @@
         try {
           const perm = await Capacitor.Plugins.PushNotifications.checkPermissions();
           if (perm.receive === 'granted') {
-            localStorage.setItem('push_enabled', 'true');
-            updatePushUI('on');
+            if (getStoredPushPreference() === 'false') {
+              updatePushUI('off');
+            } else {
+              localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'true');
+              updatePushUI('on');
+            }
           } else {
-            localStorage.setItem('push_enabled', 'false');
+            localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
+            setStoredNativePushPlayerId('');
+            setStoredNativePushToken('');
             updatePushUI('off');
           }
         } catch (e) {
@@ -5821,25 +5890,54 @@
         console.log('togglePush: Native environment detected (v2-debug)');
         const Push = Capacitor.Plugins.PushNotifications;
         try {
-          let perm = await Push.checkPermissions();
-          console.log('togglePush: current perm:', perm.receive);
-
-          if (perm.receive === 'granted') {
-            await showAppAlert('通知は既に許可されています。\n解除する場合はiPhoneの設定アプリから変更してください。', {
+          if (isPushEnabled()) {
+            const shouldDisable = await showAppConfirm('プッシュ通知をオフにしますか？', {
               title: '通知設定',
-              confirmLabel: '閉じる'
+              confirmLabel: 'オフにする',
+              cancelLabel: '戻る',
+              confirmVariant: 'danger'
             });
-            updatePushUI('on');
+            if (!shouldDisable) return;
+
+            if (typeof Push.unregister === 'function') {
+              try {
+                await Push.unregister();
+              } catch (unregisterError) {
+                console.error('togglePush Native unregister error:', unregisterError);
+              }
+            }
+
+            const unsubscribeResult = await postToGAS({
+              type: 'unsubscribePush',
+              playerId: getStoredNativePushPlayerId(),
+              memberId: _profile && _profile.memberId ? _profile.memberId : '',
+              pushToken: getStoredNativePushToken()
+            });
+            if (unsubscribeResult && unsubscribeResult.warning) {
+              console.warn('unsubscribePush warning:', unsubscribeResult.warning);
+            }
+
+            await applyPushEnabledState(false, {
+              clearNativePlayerId: true,
+              clearNativeToken: true
+            });
+            showToast('通知をオフにしました');
             return;
           }
 
-          perm = await Push.requestPermissions();
+          let perm = await Push.checkPermissions();
+          console.log('togglePush: current perm:', perm.receive);
+
+          if (perm.receive !== 'granted') {
+            perm = await Push.requestPermissions();
+          }
           if (perm.receive === 'granted') {
             await Push.register();
-            updatePushUI('on');
+            await applyPushEnabledState(true);
             showToast('通知を有効にしました！ ✅');
           } else {
-            await showAppAlert('通知が許可されませんでした。\n設定アプリから許可してください。', {
+            await applyPushEnabledState(false, { syncProfile: false });
+            await showAppAlert('通知が許可されませんでした。\niPhoneの設定またはブラウザ設定で通知を許可してください。', {
               title: '通知設定',
               confirmLabel: '閉じる'
             });
@@ -5878,15 +5976,13 @@
             });
             if (shouldOptOut) {
               await OS.User.PushSubscription.optOut();
-              localStorage.setItem('push_enabled', 'false');
-              updatePushUI('off');
+              await applyPushEnabledState(false);
               showToast('通知をオフにしました');
             }
           } else {
             console.log('togglePush: Opting in...');
             await OS.User.PushSubscription.optIn();
-            localStorage.setItem('push_enabled', 'true');
-            updatePushUI('on');
+            await applyPushEnabledState(true);
             showToast('有効化しました！ ✅');
           }
           return;
@@ -5897,10 +5993,10 @@
         const finalStatus = OS.User.PushSubscription.optedIn;
         console.log('togglePush: Permission result status:', finalStatus);
         if (finalStatus) {
-          localStorage.setItem('push_enabled', 'true');
-          updatePushUI('on');
+          await applyPushEnabledState(true);
           showToast('有効化しました！ ✅');
         } else {
+          await applyPushEnabledState(false, { syncProfile: false });
           await showAppAlert('通知が許可されませんでした。\nSafariの設定を確認してください。', {
             title: '通知設定',
             confirmLabel: '閉じる'
@@ -5946,6 +6042,7 @@
           PushNotifications.addListener('registration', async (token) => {
             console.log('--- CAPACITOR PUSH REGISTERED (v2-debug) ---');
             console.log('Push token: ' + token.value);
+            setStoredNativePushToken(token.value);
             try {
               // OneSignal API への登録
               const payload = {
@@ -5964,8 +6061,18 @@
               });
               const resData = await response.json();
               console.log('OneSignal API Response (v2-debug):', resData);
+              const playerId = resData && resData.id ? String(resData.id) : '';
+              if (playerId) {
+                setStoredNativePushPlayerId(playerId);
+              }
+              await applyPushEnabledState(true, {
+                subscriptionValue: playerId || token.value
+              });
             } catch (e) {
               console.error('OneSignal API Registration Error (v2-debug):', e);
+              await applyPushEnabledState(true, {
+                subscriptionValue: token.value
+              });
             }
           });
 
@@ -5984,9 +6091,27 @@
             }
 
             if (perm.receive === 'granted') {
-              await PushNotifications.register();
-              console.log('Native Push Registration Call Sent');
+              if (getStoredPushPreference() === 'false') {
+                if (typeof PushNotifications.unregister === 'function') {
+                  try {
+                    await PushNotifications.unregister();
+                    console.log('Native push kept disabled by saved preference');
+                  } catch (unregisterError) {
+                    console.error('Push unregister on init failed:', unregisterError);
+                  }
+                }
+                setStoredNativePushPlayerId('');
+                setStoredNativePushToken('');
+                updatePushUI('off');
+              } else {
+                await PushNotifications.register();
+                console.log('Native Push Registration Call Sent');
+              }
             } else {
+              localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
+              setStoredNativePushPlayerId('');
+              setStoredNativePushToken('');
+              updatePushUI('off');
               console.warn('Native Push Permission not granted.');
             }
           } catch (e) {
@@ -6097,21 +6222,20 @@
               const perm = await OneSignal.Notifications.permission;
 
               if (sub.id) {
-                updatePushUI('on');
+                await applyPushEnabledState(true, { syncProfile: false });
                 clearInterval(syncInterval);
                 return;
               }
 
               if (perm) {
-                updatePushUI('on');
+                await applyPushEnabledState(true, { syncProfile: false });
                 try {
                   await OneSignal.User.PushSubscription.optIn();
                 } catch (err) {
                   console.error('OneSignal: Push sync error:', err);
                 }
               } else {
-                localStorage.setItem('push_enabled', 'false');
-                updatePushUI('off');
+                await applyPushEnabledState(false, { syncProfile: false });
                 clearInterval(syncInterval);
               }
             }, 15000);
@@ -6121,13 +6245,12 @@
 
           // イベントリスナーの集約
           OneSignal.Notifications.addEventListener("permissionChange", function (perm) {
-            if (perm) { localStorage.setItem('push_enabled', 'true'); updatePushUI('on'); }
-            else { localStorage.setItem('push_enabled', 'false'); updatePushUI('off'); }
+            if (perm) { applyPushEnabledState(true); }
+            else { applyPushEnabledState(false); }
           });
           OneSignal.User.PushSubscription.addEventListener("change", function (e) {
             const isOn = e.current.optedIn;
-            localStorage.setItem('push_enabled', isOn ? 'true' : 'false');
-            updatePushUI(isOn ? 'on' : 'off');
+            applyPushEnabledState(isOn);
           });
         });
       }
