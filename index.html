@@ -4276,6 +4276,21 @@
       }
     }
 
+    // ===== お知らせ一覧用 統合ハッシュ =====
+    // ブログ + カレンダー + 商品 + Push全部をまとめてハッシュ化。
+    // これが変わる → 拡声器バッジを表示
+    function computeNoticeListHash() {
+      try {
+        const blogPart = (blogItems || []).map(i => (i.date || '') + '_' + (i.title || '')).join('|');
+        const calPart = (calendarData || []).filter(i => !(i.title && (i.title.includes('休') || i.title.includes('往')))).map(i => (i.date || '') + '_' + (i.title || '')).join('|');
+        const noticePart = (pushNotices || []).map(n => (n.date || '') + '_' + (n.title || '')).join('|');
+        return [blogPart, calPart, noticePart].join('@@');
+      } catch (e) {
+        console.error('[同期] ハッシュ計算エラー:', e);
+        return '';
+      }
+    }
+
     async function tryTask(taskName, taskFn) {
       try {
         console.log(`[同期] ${taskName} の取得中...`);
@@ -4304,7 +4319,12 @@
       if (opts.refreshOrderHistory || currentPage === 'page-mypage') tasks.push(tryTask('履歴', () => renderOrderHistory()));
 
       await Promise.all(tasks);
-      updateNavBadges();
+      
+      try {
+        updateNavBadges();
+      } catch (e) {
+        console.error('[同期] バッジ表示更新エラー:', e);
+      }
     }
 
     async function refreshAppData() {
