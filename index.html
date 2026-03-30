@@ -2800,6 +2800,21 @@
     </div>
   </div>
 
+  <div class="modal-bg" id="requiredUpdateModal">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="requiredUpdateTitle">アップデートが必要です</div>
+      <p id="requiredUpdateMessage"
+        style="font-size:13px;color:var(--text-light);text-align:center;line-height:1.8;margin-bottom:12px;white-space:pre-line">
+      </p>
+      <div id="requiredUpdateMeta"
+        style="font-size:12px;color:var(--text-mid);text-align:center;line-height:1.7;margin-bottom:14px;"></div>
+      <button class="btn primary" id="requiredUpdatePrimaryBtn" onclick="openRequiredUpdateLink()">アップデートする</button>
+      <button class="btn secondary" id="requiredUpdateSecondaryBtn" onclick="closeRequiredUpdateModal()"
+        style="display:none">閉じる</button>
+    </div>
+  </div>
+
   <!-- SCANNER MODAL -->
   <div class="modal-bg" id="scannerModal" onclick="closeScannerModal(event)">
     <div class="modal-sheet" onclick="event.stopPropagation()">
@@ -2885,9 +2900,217 @@
   <script>
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycby4tuYI3y558ArBdabtkGJE76k4IUes2WO4_JxFnI7ptYROVQH1SZHKdlSHUzoY7XPmDg/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwatugi80oSd8Va_1OdKUsAB7pLj3iYfjei-PUOBrzABHALxOVZJYY3vBR4x1C5zlqQ/exec';
+    const CURRENT_WEB_BUNDLE_VERSION = '2026.03.30.1';
+    const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
+    const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
+      latestAppVersion: '1.1.0',
+      minimumSupportedVersion: '0.0.0',
+      iosStoreUrl: '',
+      updateTitle: 'アップデートが必要です',
+      updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
+      webBundleVersion: CURRENT_WEB_BUNDLE_VERSION
+    });
+    let currentAppRuntimeConfig = { ...DEFAULT_APP_RUNTIME_CONFIG };
+    let currentInstalledAppInfo = { version: '', build: '', bundleId: '', isNative: false, source: 'unknown' };
+    let currentRequiredUpdateUrl = '';
 
     let USER_MENUS = [];
+
+    function getCurrentPlatformName() {
+      try {
+        if (window.Capacitor && typeof Capacitor.getPlatform === 'function') {
+          return Capacitor.getPlatform();
+        }
+      } catch (e) { }
+      if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
+        return 'ios';
+      }
+      return 'web';
+    }
+
+    function isNativeAppRuntime() {
+      return getCurrentPlatformName() !== 'web';
+    }
+
+    function getVersionParts(version) {
+      const parts = String(version || '')
+        .split(/[^0-9]+/)
+        .filter(Boolean)
+        .map(function (part) { return parseInt(part, 10) || 0; });
+      return parts.length ? parts : [0];
+    }
+
+    function compareVersionStrings(left, right) {
+      const a = getVersionParts(left);
+      const b = getVersionParts(right);
+      const maxLength = Math.max(a.length, b.length);
+      for (let i = 0; i < maxLength; i++) {
+        const leftPart = a[i] || 0;
+        const rightPart = b[i] || 0;
+        if (leftPart > rightPart) return 1;
+        if (leftPart < rightPart) return -1;
+      }
+      return 0;
+    }
+
+    function sanitizeAppRuntimeConfig(raw) {
+      const input = raw && typeof raw === 'object' ? raw : {};
+      const config = {
+        latestAppVersion: String(input.latestAppVersion || DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion,
+        minimumSupportedVersion: String(input.minimumSupportedVersion || DEFAULT_APP_RUNTIME_CONFIG.minimumSupportedVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.minimumSupportedVersion,
+        iosStoreUrl: String(input.iosStoreUrl || DEFAULT_APP_RUNTIME_CONFIG.iosStoreUrl).trim(),
+        updateTitle: String(input.updateTitle || DEFAULT_APP_RUNTIME_CONFIG.updateTitle).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateTitle,
+        updateMessage: String(input.updateMessage || DEFAULT_APP_RUNTIME_CONFIG.updateMessage).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateMessage,
+        webBundleVersion: String(input.webBundleVersion || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion
+      };
+      if (compareVersionStrings(config.latestAppVersion, config.minimumSupportedVersion) < 0) {
+        config.latestAppVersion = config.minimumSupportedVersion;
+      }
+      if (config.iosStoreUrl && !/^https?:\/\//i.test(config.iosStoreUrl)) {
+        config.iosStoreUrl = '';
+      }
+      return config;
+    }
+
+    function readCachedAppRuntimeConfig() {
+      try {
+        const raw = localStorage.getItem(APP_RUNTIME_CONFIG_STORAGE_KEY);
+        if (!raw) return null;
+        return sanitizeAppRuntimeConfig(JSON.parse(raw));
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function cacheAppRuntimeConfig(config) {
+      try {
+        localStorage.setItem(APP_RUNTIME_CONFIG_STORAGE_KEY, JSON.stringify(sanitizeAppRuntimeConfig(config)));
+      } catch (e) { }
+    }
+
+    function withTimeout(promise, timeoutMs) {
+      return Promise.race([
+        promise,
+        new Promise(function (resolve) {
+          setTimeout(function () { resolve(null); }, timeoutMs);
+        })
+      ]);
+    }
+
+    async function fetchAppRuntimeConfig() {
+      const cached = readCachedAppRuntimeConfig();
+      try {
+        const res = await withTimeout(getFromGAS('getAppRuntimeConfig'), 4000);
+        if (res && res.status === 'ok' && res.config) {
+          currentAppRuntimeConfig = sanitizeAppRuntimeConfig(res.config);
+          cacheAppRuntimeConfig(currentAppRuntimeConfig);
+          return currentAppRuntimeConfig;
+        }
+      } catch (e) {
+        console.error('fetchAppRuntimeConfig error:', e);
+      }
+      currentAppRuntimeConfig = cached || { ...DEFAULT_APP_RUNTIME_CONFIG };
+      return currentAppRuntimeConfig;
+    }
+
+    async function getInstalledAppInfo() {
+      const isNative = isNativeAppRuntime();
+      const base = {
+        version: isNative ? '0.0.0' : DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion,
+        build: '',
+        bundleId: '',
+        isNative: isNative,
+        source: isNative ? 'fallback' : 'web'
+      };
+      if (!isNative) {
+        currentInstalledAppInfo = base;
+        return base;
+      }
+      try {
+        if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.NativeAppInfo &&
+          typeof Capacitor.Plugins.NativeAppInfo.getInfo === 'function') {
+          const info = await Capacitor.Plugins.NativeAppInfo.getInfo();
+          currentInstalledAppInfo = {
+            version: String(info && info.version || '').trim() || '0.0.0',
+            build: String(info && info.build || '').trim(),
+            bundleId: String(info && info.bundleId || '').trim(),
+            isNative: true,
+            source: 'native-plugin'
+          };
+          return currentInstalledAppInfo;
+        }
+      } catch (e) {
+        console.error('NativeAppInfo getInfo failed:', e);
+      }
+      currentInstalledAppInfo = base;
+      return base;
+    }
+
+    function fillRequiredUpdateModal(config, appInfo) {
+      const title = document.getElementById('requiredUpdateTitle');
+      const message = document.getElementById('requiredUpdateMessage');
+      const meta = document.getElementById('requiredUpdateMeta');
+      const primary = document.getElementById('requiredUpdatePrimaryBtn');
+      const secondary = document.getElementById('requiredUpdateSecondaryBtn');
+      const latestLabel = config.latestAppVersion ? '\n最新版: ' + config.latestAppVersion : '';
+      title.textContent = config.updateTitle || DEFAULT_APP_RUNTIME_CONFIG.updateTitle;
+      message.textContent = config.updateMessage || DEFAULT_APP_RUNTIME_CONFIG.updateMessage;
+      meta.textContent =
+        '現在のアプリ版: ' + (appInfo.version || '不明') +
+        '\n必要なアプリ版: ' + (config.minimumSupportedVersion || '未設定') +
+        latestLabel;
+      currentRequiredUpdateUrl = config.iosStoreUrl || '';
+      if (currentRequiredUpdateUrl) {
+        primary.textContent = 'アップデートする';
+        secondary.style.display = 'none';
+      } else {
+        primary.textContent = '閉じる';
+        secondary.style.display = 'none';
+      }
+    }
+
+    function openRequiredUpdateModal() {
+      const modal = document.getElementById('requiredUpdateModal');
+      if (modal) modal.classList.add('open');
+    }
+
+    function closeRequiredUpdateModal() {
+      const modal = document.getElementById('requiredUpdateModal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function openRequiredUpdateLink() {
+      if (!currentRequiredUpdateUrl) {
+        closeRequiredUpdateModal();
+        return;
+      }
+      window.location.href = currentRequiredUpdateUrl;
+    }
+
+    async function ensureSupportedAppVersion() {
+      const config = await fetchAppRuntimeConfig();
+      const appInfo = await getInstalledAppInfo();
+      currentAppRuntimeConfig = config;
+      currentInstalledAppInfo = appInfo;
+
+      // 1. ネイティブアプリの強制アップデート判定
+      const needsNativeUpdate = appInfo.isNative &&
+        compareVersionStrings(appInfo.version || '0.0.0', config.minimumSupportedVersion || '0.0.0') < 0;
+
+      // 2. Webプログラム（HTML/JS）の更新判定
+      // CURRENT_WEB_BUNDLE_VERSION が GAS側の設定より古い場合に検知
+      const needsWebUpdate = config.webBundleVersion && config.webBundleVersion !== CURRENT_WEB_BUNDLE_VERSION;
+
+      if (needsNativeUpdate && config.iosStoreUrl) {
+        fillRequiredUpdateModal(config, appInfo);
+        openRequiredUpdateModal();
+        return { blocked: true, needsWebUpdate: needsWebUpdate, config: config, appInfo: appInfo };
+      }
+
+      closeRequiredUpdateModal();
+      return { blocked: false, needsWebUpdate: needsWebUpdate, config: config, appInfo: appInfo };
+    }
 
     // GASからデータ取得（doGet対応）
     // action: 'getNews' | 'getProducts'
@@ -2986,7 +3209,7 @@
       { category: 'カレンダー', question: 'カレンダーの使い方を知りたい', keywords: 'カレンダー,イベント,予定,日程,前月,翌月,今月', answer: '下部メニューの「カレンダー」で予定を確認できます。左右の矢印で月を切り替え、日付をタップするとその日の予定を表示します。下部には今月のイベント一覧も表示されます。', priority: 81 },
       { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,会員id,会員番号,memberid', answer: 'マイページの「プロフィールを編集」から、お名前、電話番号、生年月日、住所、アイコン画像、バナー画像を変更できます。会員IDはマイページ上部に表示されます。', priority: 80 },
       { category: '通知', question: '通知のオンオフ方法を知りたい', keywords: '通知,push,プッシュ,オン,オフ,許可,設定', answer: 'マイページの通知設定ボタンから通知のオンオフを切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可設定もご確認ください。', priority: 79 },
-      { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,再読み込み,リロード,最新情報,最新', answer: '画面上部の🔄ボタンで最新情報を再取得できます。ブログ、お知らせ、カレンダー、商品などを更新したいときにご利用ください。', priority: 78 },
+      { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,再読み込み,リロード,最新情報,最新', answer: '画面上部の🔄ボタンで最新情報を再取得できます。ブログ、お知らせ、カレンダー、商品、メニュー一覧、FAQ、注文履歴などの最新状態をその場で反映したいときにご利用ください。', priority: 78 },
       { category: '外部リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'line,ライン,instagram,facebook,ホームページ,公式サイト,sns,問い合わせ,お問い合わせ,連絡', answer: 'ホーム画面やマイページの「公式サイト・SNS」から、公式ホームページ、Instagram、Facebook、公式LINEを開けます。診療や個別のご相談は公式LINEをご利用ください。', priority: 77 }
     ];
 
@@ -3568,19 +3791,22 @@
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
         const evts = calendarData.filter(e => e.date === dateStr);
         const isHoliday = evts.some(e => e.title.includes('休'));
+        const isOutpatient = evts.some(e => e.title.includes('往'));
 
         let dotsHtml = '';
-        if (evts.length > 0 && !isHoliday) {
+        if (evts.length > 0 && !isHoliday && !isOutpatient) {
           dotsHtml = `<div class="cal-evt-container">` +
             evts.map(e => `<div class="cal-evt-dot" style="background:${e.color}"></div>`).join('') +
             `</div>`;
         }
 
-        const holidayHtml = isHoliday ? '<div class="cal-holiday-tag">休</div>' : '';
+        let statusTagsHtml = '';
+        if (isHoliday) statusTagsHtml += '<div class="cal-holiday-tag">休</div>';
+        if (isOutpatient) statusTagsHtml += '<div class="cal-holiday-tag">往</div>';
 
         html += `<div class="${cls}" onclick="selectCalendarDate(${year}, ${month}, ${i})">
            <span>${i}</span>
-           ${holidayHtml}
+           ${statusTagsHtml}
            ${dotsHtml}
         </div>`;
       }
@@ -3657,7 +3883,7 @@
       const month = currentMonthDate.getMonth() + 1;
       const prefix = `${year}-${String(month).padStart(2, '0')}-`;
 
-      const monthlyEvts = calendarData.filter(e => e.date.startsWith(prefix) && !e.title.includes('休診'))
+      const monthlyEvts = calendarData.filter(e => e.date.startsWith(prefix) && !e.title.includes('休') && !e.title.includes('往'))
         .sort((a, b) => a.date.localeCompare(b.date));
 
       if (monthlyEvts.length === 0) {
@@ -3849,7 +4075,7 @@
 
       // 3) カレンダー (date: 'YYYY-MM-DD')
       calendarData.forEach(e => {
-        if (e.title && e.title.includes('休診')) return; // 休診はお知らせから除外
+        if (e.title && (e.title.includes('休') || e.title.includes('往'))) return; // 休診や往診はお知らせから除外
         const ts = e.date ? new Date(e.date).getTime() : 0;
         const body = e.desc || '';
         items.push({
@@ -4031,7 +4257,7 @@
     // 拡声器バッジを表示するかどうかを判定
     function computeNoticeListHash() {
       const blogPart = blogItems.map(i => i.date + '_' + i.title).join('|');
-      const calPart = calendarData.filter(i => !(i.title && i.title.includes('休診'))).map(i => i.date + '_' + i.title).join('|');
+      const calPart = calendarData.filter(i => !(i.title && (i.title.includes('休') || i.title.includes('往')))).map(i => i.date + '_' + i.title).join('|');
       const noticePart = pushNotices.map(n => n.date + '_' + n.title).join('|');
       return [blogPart, calPart, noticePart].join('@@');
     }
@@ -4039,35 +4265,86 @@
 
 
 
+    async function fetchLatestManagedContent(options) {
+      const opts = options || {};
+      const currentPage = document.querySelector('.page.active')?.id || '';
+      const tasks = [
+        loadBlog(),
+        loadProducts(),
+        loadCalendar(),
+        loadPushNotices(),
+        loadSurveys(),
+        loadStampRewards()
+      ];
+
+      if (opts.refreshSupportFaq) {
+        tasks.push(loadSupportFaq(true));
+      }
+
+      if (opts.refreshMenus || currentPage === 'page-menu-list') {
+        tasks.push(loadMenus());
+      }
+
+      if (opts.refreshOrderHistory || currentPage === 'page-mypage') {
+        tasks.push(renderOrderHistory());
+      }
+
+      await Promise.all(tasks);
+      updateNavBadges();
+    }
+
     async function refreshAppData() {
       showToast('最新情報を確認中...');
+      let shouldReloadForCodeUpdate = false;
 
-      // サービスワーカーの更新を試みる（コード/デザインの更新）
+      const versionGate = await ensureSupportedAppVersion();
+      if (versionGate.blocked) {
+        showToast('アプリ本体の更新が必要です');
+        return;
+      }
+
+      // Webプログラムの更新が必要な場合
+      if (versionGate.needsWebUpdate) {
+        shouldReloadForCodeUpdate = true;
+      }
+
+      // Web環境（PWA）ではサービスワーカー更新も試みる
       if ('serviceWorker' in navigator) {
         try {
           const registrations = await navigator.serviceWorker.getRegistrations();
           for (let registration of registrations) {
             await registration.update();
+            if (registration.waiting) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+              shouldReloadForCodeUpdate = true;
+            }
           }
         } catch (e) {
           console.error('ServiceWorker update failed:', e);
         }
       }
 
-      // データも並行して取得（リロード前に念のため）
       try {
-        await Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices(), loadSurveys()]);
-        updateNavBadges();
+        await fetchLatestManagedContent({
+          refreshSupportFaq: true,
+          refreshMenus: true,
+          refreshOrderHistory: true
+        });
+
+        if (shouldReloadForCodeUpdate) {
+          showToast('最新プログラムへ更新しています...');
+          setTimeout(() => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('upd', Date.now()); // キャッシュ対策
+            window.location.href = url.toString();
+          }, 1000);
+        } else {
+          showToast('最新情報を反映しました');
+        }
       } catch (e) {
         console.error('Data refresh error:', e);
+        showToast('データの取得に失敗しました');
       }
-
-      // キャッシュを無視してリロード（全て更新を反映）
-      setTimeout(() => {
-        const url = new URL(window.location.href);
-        url.searchParams.set('t', Date.now());
-        window.location.href = url.toString();
-      }, 800);
     }
 
     function renderBlogList(containerId, limit, filterType = null, filterCategory = '全て') {
@@ -5321,8 +5598,8 @@
           [
             '最新情報の更新方法です。',
             '1. 画面上部の🔄ボタンを押します。',
-            '2. ブログ、お知らせ、カレンダー、商品などの最新情報を再取得します。',
-            '3. その後、画面が再読み込みされます。'
+            '2. ブログ、お知らせ、カレンダー、商品、メニュー一覧、FAQ、注文履歴などの最新情報を再取得します。',
+            '3. 再インストールせず、その場で最新状態に反映します。'
           ],
           ['最新情報への更新方法を知りたい']
         );
@@ -5685,6 +5962,7 @@
       // GASへユーザー情報を同期（非同期で実行し、待たずに次へ進む）
       (async function () {
         let avatarUrl = localStorage.getItem('mayumi_avatar_url');
+        const avatarFallback = (_avatarData && _avatarData.startsWith('data:image/')) ? _avatarData : '';
         if (!avatarUrl && _avatarData && _avatarData.startsWith('data:image')) {
           try {
             const mimeMatch = _avatarData.match(/data:(image\/.+);base64,/);
@@ -5707,7 +5985,7 @@
         await postToGAS({
           type: 'updateUser',
           memberId: memberId,
-          avatar: avatarUrl || '',
+          avatar: avatarUrl || avatarFallback,
           name: name,
           phone: phone,
           birthday: birthday,
@@ -6011,7 +6289,12 @@
     // ※ 重複定義のため削除（3180行目付近に集約）
 
     // ===== 初期化 (並列実行で高速化) =====
-    function initApp() {
+    async function initApp() {
+      const versionGate = await ensureSupportedAppVersion();
+      if (versionGate.blocked) {
+        return;
+      }
+
       checkFirstLaunch();
       loadStampRewards();
       updateStampUI();
@@ -6141,43 +6424,53 @@
       })();
 
       // データを並列で取得（確実に動作する個別ロード方式）
-      Promise.all([
-        loadBlog(),
-        loadProducts(),
-        loadCalendar(),
-        loadPushNotices(),
-        loadSurveys(),
-        loadStampRewards()
-      ]).then(() => {
+      fetchLatestManagedContent({
+        refreshSupportFaq: false,
+        refreshMenus: false,
+        refreshOrderHistory: false
+      }).then(() => {
         isDataLoaded = true;
         updateNavBadges();
       }).catch(e => console.error('Initial load error:', e));
     }
-    initApp();
+    initApp().catch(e => console.error('initApp error:', e));
 
     // アプリ再表示時にデータを自動更新（タスクキル後の再起動対応）
     let lastFetchTime = Date.now();
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') {
-        const elapsed = Date.now() - lastFetchTime;
-        // 前回取得から1分以上経過していたら再取得
-        if (elapsed > 60000) {
-          lastFetchTime = Date.now();
-          Promise.all([loadBlog(), loadProducts(), loadCalendar(), loadPushNotices(), loadSurveys(), loadStampRewards()]).then(() => {
-            isDataLoaded = true;
-            updateNavBadges();
-          }).catch(function () { });
-        } else {
-          // 1分以内でもバッジの再チェック（未読状態の維持）
-          updateNavBadges();
-        }
+        ensureSupportedAppVersion().then(function (versionGate) {
+          if (versionGate && versionGate.blocked) {
+            showToast('アプリの更新が必要です');
+            return;
+          }
 
-        // アプリ復帰時にバッジをクリア (iOS用)
-        if (window.Capacitor) {
-          import('@capawesome/capacitor-badge').then(({ Badge }) => {
-            Badge.clear().catch(e => console.error('Badge clear error on resume:', e));
-          }).catch(e => console.error('Badge import error on resume:', e));
-        }
+          const elapsed = Date.now() - lastFetchTime;
+          // 前回取得から1分以上経過していたら再取得
+          if (elapsed > 60000) {
+            lastFetchTime = Date.now();
+            fetchLatestManagedContent({
+              refreshSupportFaq: true,
+              refreshMenus: false,
+              refreshOrderHistory: false
+            }).then(() => {
+              isDataLoaded = true;
+              updateNavBadges();
+            }).catch(function () { });
+          } else {
+            // 1分以内でもバッジの再チェック（未読状態の維持）
+            updateNavBadges();
+          }
+
+          // アプリ復帰時にバッジをクリア (iOS用)
+          if (window.Capacitor) {
+            import('@capawesome/capacitor-badge').then(({ Badge }) => {
+              Badge.clear().catch(e => console.error('Badge clear error on resume:', e));
+            }).catch(e => console.error('Badge import error on resume:', e));
+          }
+        }).catch(function (e) {
+          console.error('visibilitychange update check error:', e);
+        });
       }
     });
 
