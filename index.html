@@ -1338,13 +1338,23 @@
       margin-top: 4px;
       flex-wrap: wrap;
       justify-content: center;
-      width: 80%;
+      width: 100%;
+      height: 20px;
+      overflow: hidden;
     }
 
-    .cal-evt-dot {
-      width: 6px;
-      height: 6px;
+    .cal-evt-tag {
+      width: 17px;
+      height: 17px;
       border-radius: 50%;
+      color: #fff;
+      font-size: 9px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 
     .cal-holiday-tag {
@@ -3795,14 +3805,24 @@
 
         let dotsHtml = '';
         if (evts.length > 0 && !isHoliday && !isOutpatient) {
+          // ドット（点）から、文字入りの円タグ（休や往と同じ形式）に変更
           dotsHtml = `<div class="cal-evt-container">` +
-            evts.map(e => `<div class="cal-evt-dot" style="background:${e.color}"></div>`).join('') +
+            evts.slice(0, 2).map(e => {
+              const char = 'イ'; // 全てのイベントを一律「イ」で表示
+              return `<div class="cal-evt-tag" style="background:${e.color}">${char}</div>`;
+            }).join('') +
             `</div>`;
         }
 
         let statusTagsHtml = '';
-        if (isHoliday) statusTagsHtml += '<div class="cal-holiday-tag">休</div>';
-        if (isOutpatient) statusTagsHtml += '<div class="cal-holiday-tag">往</div>';
+        if (isHoliday) {
+          statusTagsHtml += '<div class="cal-holiday-tag">休</div>';
+        }
+        if (isOutpatient) {
+          const outEvt = evts.find(e => e.title.includes('往'));
+          const outColor = outEvt ? outEvt.color : '#e57373';
+          statusTagsHtml += `<div class="cal-holiday-tag" style="background:${outColor}">往</div>`;
+        }
 
         html += `<div class="${cls}" onclick="selectCalendarDate(${year}, ${month}, ${i})">
            <span>${i}</span>
