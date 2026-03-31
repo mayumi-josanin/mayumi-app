@@ -1236,7 +1236,40 @@
         </div>
 
         <div class="card">
-          <div class="card-title">📦 商品別販売数</div>
+          <div class="card-title">📦 商品別収益詳細 (月別)</div>
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+            月を選択するとその月に売れた商品の価格帯ごとの 個数 / 売上 / 利益 を確認できます。天然だし調味粉は割引価格ごとに表示します。
+          </div>
+          <div class="filter-toolbar" style="margin-bottom:14px;">
+            <select id="detailedAnalyticsMonthFilter" onchange="renderDetailedProductAnalytics(this.value)"
+              style="width:180px;">
+              <option value="">月を選択してください</option>
+            </select>
+          </div>
+          <div class="table-wrapper">
+            <table id="detailedProductAnalyticsTable">
+              <thead>
+                <tr>
+                  <th>商品名</th>
+                  <th style="text-align:center;">定価</th>
+                  <th style="text-align:center;">仕入れ単価</th>
+                  <th style="text-align:center;">売価帯</th>
+                  <th style="text-align:center;">個数</th>
+                  <th style="text-align:center;">売上</th>
+                  <th style="text-align:center; font-weight:bold;">利益</th>
+                </tr>
+              </thead>
+              <tbody id="detailedProductAnalyticsBody">
+                <tr>
+                  <td colspan="7" style="text-align:center; color:var(--text-mid);">月を選択してください</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📝 商品別販売数 (推移)</div>
           <div class="table-wrapper">
             <table id="analyticsTable">
               <thead>
@@ -1791,7 +1824,7 @@
   </div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyBDReRdL9LlVKZjn1UDZU12_3OCGRu4FkPorw1jJZRQliEcGrLUHiT4bTXsHh1epajrQ/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbz5cIeCDi5x3KaNuAV4SYHVTiIWr0kDq4xSPToQDU1jqeeerxTZU3uxDpxI5ubv3kcR1Q/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -2994,9 +3027,11 @@
               </span>
             </td>
             <td>
-              <div class="flex" style="gap:5px;">
-                <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="openRewardStatusDetail(${user.rowIdx})">詳細を見る</button>
+              <div class="flex" style="gap:5px; flex-wrap:wrap;">
+                <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="openRewardStatusDetail(${user.rowIdx})">詳細</button>
                 <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="openRewardStatusEditor(${user.rowIdx})">📝</button>
+                <button class="btn" style="padding:2px 6px; font-size:10px; background:#f39c12; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="demoForceUpdateStamps(${user.rowIdx}, 9)" title="スタンプを9個にして当日制限を解除します">デモ(9)</button>
+                <button class="btn" style="padding:2px 6px; font-size:10px; background:#e67e22; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="demoForceUpdateStamps(${user.rowIdx}, 10)" title="スタンプを10個にして当日制限を解除します">デモ(10)</button>
               </div>
             </td>
           </tr>
@@ -3198,6 +3233,25 @@
         });
         showToast('スタンプ・特典状況を更新しました');
         document.getElementById('rewardStatusModal').classList.remove('active');
+        loadAdminUsers();
+      } else {
+        showToast('更新に失敗しました');
+      }
+    }
+
+    async function demoForceUpdateStamps(rowIdx, count) {
+      if (!confirm(`【デモ用操作】\nスタンプを ${count} 個に設定しますか？\n(当日の取得制限も解除されます)`)) return;
+
+      showToast('デモデータを更新中...');
+      const res = await apiRequest('', {
+        type: 'updateAdminRewardStatus',
+        rowIdx: rowIdx,
+        stampCount: count,
+        clearLastStampDate: true
+      }, true);
+
+      if (res && res.status === 'ok') {
+        showToast(`スタンプを ${count} 個に設定しました！ 🎉`);
         loadAdminUsers();
       } else {
         showToast('更新に失敗しました');
@@ -3496,11 +3550,11 @@
 
       // --- 収益サマリー ---
       const financialCols = [
-        { label: '物販売上 (円)', key: 'sales' },
+        { label: '物販純利益 (円)', key: 'profit' },
         { label: 'メニュー売上 (円)', key: 'menuRevenueTotal' },
-        { label: '売上合計 (円)', key: 'combinedSales', style: 'color:var(--primary); font-weight:bold;' },
-        { label: '物販原価 (円)', key: 'cost' },
-        { label: '物販純利益 (円)', key: 'profit' }
+        { label: '合計金額 (円)', key: 'combinedSales', style: 'color:var(--primary); font-weight:bold;' },
+        { label: '物販売上 (円)', key: 'sales' },
+        { label: '物販原価 (円)', key: 'cost' }
       ];
 
       // ヘッダーの生成
@@ -3595,10 +3649,83 @@
         const tr = document.createElement('tr');
         let trHtml = `<td><b>${m}</b></td>`;
         displayProducts.forEach(p => {
-          const qty = (res.matrix[m] && res.matrix[m].products && res.matrix[m].products[p]) || 0;
+          const productStats = (res.matrix[m] && res.matrix[m].products && res.matrix[m].products[p]);
+          const qty = (productStats && typeof productStats === 'object') ? productStats.qty : (productStats || 0);
           trHtml += `<td style="text-align:center;">${qty || '-'}</td>`;
         });
         tr.innerHTML = trHtml;
+        tbody.appendChild(tr);
+      });
+
+      // 月選択ドロップダウンの更新
+      const detailMonthFilter = document.getElementById('detailedAnalyticsMonthFilter');
+      if (detailMonthFilter) {
+        const currentVal = detailMonthFilter.value;
+        detailMonthFilter.innerHTML = '<option value="">月を選択してください</option>' +
+          filteredMonths.map(m => `<option value="${m}">${m}</option>`).join('');
+        if (filteredMonths.includes(currentVal)) {
+          detailMonthFilter.value = currentVal;
+        }
+      }
+
+      // グローバル保存 (詳細描画で使うため)
+      window.lastAnalyticsResult = res;
+    }
+
+    /**
+     * 商品別の収益内訳を描画
+     */
+    function renderDetailedProductAnalytics(monthKey) {
+      const tbody = document.getElementById('detailedProductAnalyticsBody');
+      const res = window.lastAnalyticsResult;
+      if (!tbody || !res) return;
+
+      if (!monthKey || !res.matrix[monthKey]) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-mid);">月を選択してください</td></tr>';
+        return;
+      }
+
+      const detailsMap = res.matrix[monthKey].productDetails || {};
+      const detailRows = Object.keys(detailsMap).map(key => detailsMap[key]).sort((a, b) => {
+        const nameA = String(a && a.name || '');
+        const nameB = String(b && b.name || '');
+        if (nameA !== nameB) return nameA.localeCompare(nameB);
+        const orderA = Number.isFinite(Number(a && a.sortOrder)) ? Number(a.sortOrder) : 1000;
+        const orderB = Number.isFinite(Number(b && b.sortOrder)) ? Number(b.sortOrder) : 1000;
+        if (orderA !== orderB) return orderA - orderB;
+        return Number(b && b.price || 0) - Number(a && a.price || 0);
+      });
+
+      if (detailRows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-mid);">売上データがありません</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      detailRows.forEach(stats => {
+        const pName = stats.name;
+        const unitPrice = Number(stats.price || 0);
+
+        // マスターから定価と仕入値を探す
+        const masterProd = (allProducts || []).find(p => p.name === pName);
+        const listPrice = masterProd ? Number(masterProd.price) : 0;
+
+        // 商品ごとの平均原価 (その商品の総コスト / 総個数)
+        const unitCost = stats.qty > 0 ? (stats.cost / stats.qty) : 0;
+        const priceLabel = stats.priceLabel
+          ? escapeHtml(stats.priceLabel)
+          : (unitPrice > 0 ? '¥' + Math.floor(unitPrice).toLocaleString() : '-');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(pName)}</td>
+          <td style="text-align:center;">${listPrice > 0 ? '¥' + listPrice.toLocaleString() : '-'}</td>
+          <td style="text-align:center;">¥${Math.floor(unitCost).toLocaleString()}</td>
+          <td style="text-align:center; color:var(--sage-dark); font-weight:bold;">${priceLabel}</td>
+          <td style="text-align:center;">${Number(stats.qty || 0).toLocaleString()}個</td>
+          <td style="text-align:center;">¥${Math.floor(stats.sales).toLocaleString()}</td>
+          <td style="text-align:center; font-weight:bold; color:var(--primary)">¥${Math.floor(stats.profit).toLocaleString()}</td>
+        `;
         tbody.appendChild(tr);
       });
     }
@@ -4525,7 +4652,7 @@
         let subtotal = it.price * it.qty;
         let priceNote = `¥${it.price.toLocaleString()}`;
 
-        if (it.name === '天然だし調味粉') {
+        if (isDashiProductName(it.name)) {
           const pricing = calculateDashiPricing(it.qty);
           subtotal = pricing.totalRevenue;
           if (it.qty > 1) {
@@ -4555,7 +4682,7 @@
       if (currentOrderItems.length === 0) { showToast('商品を追加してください'); return; }
 
       const total = currentOrderItems.reduce((sum, it) => {
-        if (it.name === '天然だし調味粉') {
+        if (isDashiProductName(it.name)) {
           return sum + calculateDashiPricing(it.qty).totalRevenue;
         }
         return sum + (it.price * it.qty);
@@ -5757,30 +5884,31 @@
     /**
      * 「天然だし調味粉」専用の価格・利益計算ロジック (管理画面用)
      */
+    function isDashiProductName(name) {
+      const text = String(name || '').trim();
+      return text === '天然だし調味粉' || text === '天然だし調理粉';
+    }
+
     function calculateDashiPricing(qty) {
-      const basePrice = 2380; // 定価
+      const count = Math.max(0, Number(qty) || 0);
+      if (count <= 0) return { totalRevenue: 0, avgUnitPrice: 2980 };
+
       let totalRevenue = 0;
-
-      if (qty <= 0) return { totalRevenue: 0, avgUnitPrice: basePrice };
-
-      if (qty === 1) {
-        totalRevenue = basePrice;
-      } else if (qty === 2) {
-        totalRevenue = (basePrice * 0.8) * 2;
-      } else if (qty === 3) {
-        totalRevenue = (basePrice * 0.8 * 2) + (basePrice * 0.75);
-      } else if (qty === 4) {
-        totalRevenue = (basePrice * 0.8 * 3) + (basePrice * 0.70);
-      } else if (qty === 5) {
-        totalRevenue = (basePrice * 0.8 * 4) + (basePrice * 0.65);
+      if (count <= 2) {
+        totalRevenue = 2380 * count;
+      } else if (count === 3) {
+        totalRevenue = (2380 * 2) + 2235;
+      } else if (count === 4) {
+        totalRevenue = (2380 * 3) + 2086;
+      } else if (count === 5) {
+        totalRevenue = (2380 * 4) + 1937;
       } else {
-        totalRevenue = (basePrice * 0.75) * qty;
+        totalRevenue = 2235 * count;
       }
 
-      const roundedTotal = Math.floor(totalRevenue);
       return {
-        totalRevenue: roundedTotal,
-        avgUnitPrice: roundedTotal / qty
+        totalRevenue: totalRevenue,
+        avgUnitPrice: totalRevenue / count
       };
     }
 
