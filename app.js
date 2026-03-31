@@ -499,7 +499,7 @@ function renderRewardGachaCapsules(activePrizeKey) {
       : 'inset -5px -10px 0 rgba(0, 0, 0, 0.08), inset 6px 8px 0 rgba(255, 255, 255, 0.28), 0 8px 14px rgba(0, 0, 0, 0.1)';
     return `
       <div class="capsule" style="left:${capsule.left}; top:${capsule.top}; background:${prize.capsuleColor}; box-shadow:${boxShadow};">
-        <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:${prize.accentColor}; z-index:1;">${prize.rankLabel}</span>
+        <span class="capsule-content" aria-hidden="true">🎁</span>
       </div>
     `;
   }).join('');
@@ -520,7 +520,7 @@ function showRewardGachaResult(prizeMeta, options) {
   const rank = document.getElementById('rewardGachaResultRank');
   const name = document.getElementById('rewardGachaResultName');
   const message = document.getElementById('rewardGachaResultMessage');
-  const illust = document.getElementById('rewardGachaResultIllust');
+  const gift = document.getElementById('rewardGachaResultGift');
   const drawBtn = document.getElementById('rewardGachaDrawBtn');
   const nextBtn = document.getElementById('rewardGachaNextBtn');
   const handleBtn = document.getElementById('rewardGachaHandleBtn');
@@ -529,10 +529,8 @@ function showRewardGachaResult(prizeMeta, options) {
   const prize = getRewardGachaPrizeMeta(prizeMeta && prizeMeta.rewardName ? prizeMeta.rewardName : prizeMeta);
   const alreadyDrawn = !!(options && options.alreadyDrawn);
 
-  // イラスト画像の設定（賞ランクに応じて切替）
-  const illustMap = { A: 'img/gacha_prize_a.png', B: 'img/gacha_prize_b.png', C: 'img/gacha_prize_c.png', D: 'img/gacha_prize_d.png' };
-  if (illust) {
-    illust.src = illustMap[prize.key] || illustMap.A;
+  if (gift) {
+    gift.textContent = '🎁';
   }
 
   if (result) result.style.display = 'block';
@@ -575,6 +573,7 @@ function resetRewardGachaModal() {
   const result = document.getElementById('rewardGachaResult');
   const drawBtn = document.getElementById('rewardGachaDrawBtn');
   const nextBtn = document.getElementById('rewardGachaNextBtn');
+  const closeBtn = document.getElementById('rewardGachaCloseBtn');
   const handleBtn = document.getElementById('rewardGachaHandleBtn');
   const status = document.getElementById('rewardGachaStatus');
   const currentReward = getCurrentCardReward();
@@ -591,6 +590,9 @@ function resetRewardGachaModal() {
   }
   if (nextBtn) {
     nextBtn.style.display = currentReward ? 'block' : 'none';
+  }
+  if (closeBtn) {
+    closeBtn.disabled = false;
   }
   if (handleBtn) {
     handleBtn.disabled = !!currentReward;
@@ -827,7 +829,7 @@ async function drawRewardGacha() {
 
   isRewardGachaDrawing = true;
   if (drawBtn) drawBtn.disabled = true;
-  if (closeBtn) closeBtn.style.visibility = 'hidden';
+  if (closeBtn) closeBtn.disabled = true;
   if (handleBtn) handleBtn.disabled = true;
   if (machine) machine.classList.add('rolling');
   if (status) status.textContent = 'ガチャを回しています…';
@@ -888,14 +890,14 @@ async function drawRewardGacha() {
 
     showRewardGachaResult(drawnReward, { alreadyDrawn: !!(res && res.alreadyDrawn) });
     triggerConfetti();
-    if (closeBtn) closeBtn.style.visibility = 'visible';
+    if (closeBtn) closeBtn.disabled = false;
   } catch (err) {
     console.log('drawRewardGacha error:', err);
     showToast('特典ガチャの取得に失敗しました。');
     if (machine) machine.classList.remove('rolling');
     if (status) status.textContent = '通信に失敗しました。もう一度お試しください。';
     if (drawBtn) drawBtn.disabled = false;
-    if (closeBtn) closeBtn.style.visibility = 'visible';
+    if (closeBtn) closeBtn.disabled = false;
     if (handleBtn) handleBtn.disabled = false;
   } finally {
     isRewardGachaDrawing = false;
@@ -1083,13 +1085,13 @@ const FALLBACK_BLOG = [
 
 /* SUPPORT_FAQ_FALLBACK_START */
 const SUPPORT_FAQ_FALLBACK = [
-  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日', answer: '画面右下のマイページから「プロフィールを編集」を開き、必要項目を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
-  { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 95 },
-  { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取るとスタンプが追加されます。10個たまると特典ガチャを回せます。', priority: 90 },
-  { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから通知をオンにできます。オフにしたい場合も同じボタンから切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可もご確認ください。', priority: 85 },
-  { category: 'NEWS', question: '最新のお知らせの見方を知りたい', keywords: 'お知らせ,news,ブログ,新着,通知一覧', answer: '下部メニューの「NEWS」または画面上部の📢ボタンから確認できます。赤いバッジが出ているときは新着があります。', priority: 80 },
-  { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で今月の予定を確認できます。左右の矢印で別の月にも切り替えられます。', priority: 75 },
-];
+      { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日', answer: '画面右下のマイページから「プロフィールを編集」を開き、必要項目を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
+      { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 95 },
+      { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取るとスタンプが追加されます。10個たまると特典ガチャを回せます。', priority: 90 },
+      { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから通知をオンにできます。オフにしたい場合も同じボタンから切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可もご確認ください。', priority: 85 },
+      { category: 'NEWS', question: '最新のお知らせの見方を知りたい', keywords: 'お知らせ,news,ブログ,新着,通知一覧', answer: '下部メニューの「NEWS」または画面上部の📢ボタンから確認できます。赤いバッジが出ているときは新着があります。', priority: 80 },
+      { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で今月の予定を確認できます。左右の矢印で別の月にも切り替えられます。', priority: 75 },
+    ];
 /* SUPPORT_FAQ_FALLBACK_END */
 
 const SUPPORT_APP_GUIDE = [
