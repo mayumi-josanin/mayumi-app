@@ -54,10 +54,10 @@ let calendarLoaded = false;
 let currentMonthDate = new Date();
 let selectedDate = new Date();
 const REWARD_GACHA_PRIZE_POOL = [
-  { key: 'A', rankLabel: 'A賞', rewardName: 'A賞プレゼント', capsuleColor: '#f5cb6c', accentColor: '#b0791b', message: '受付でその時の特典をお受け取りください。', weight: 5 },
-  { key: 'B', rankLabel: 'B賞', rewardName: 'B賞プレゼント', capsuleColor: '#f3b7c9', accentColor: '#b86282', message: 'まゆみ助産院からのうれしいごほうびです。受付でご案内します。', weight: 15 },
-  { key: 'C', rankLabel: 'C賞', rewardName: 'C賞プレゼント', capsuleColor: '#b9d8a7', accentColor: '#628f58', message: 'やさしいプレゼントをご用意しています。受付へお声がけください。', weight: 30 },
-  { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: '当日のおたのしみプレゼントは受付でご確認ください。', weight: 50 }
+  { key: 'A', rankLabel: 'A賞', rewardName: 'A賞プレゼント', capsuleColor: '#f5cb6c', accentColor: '#b0791b', message: '当日のおたのしみプレゼントをご用意しています。受付へお声がけください。', weight: 10 },
+  { key: 'B', rankLabel: 'B賞', rewardName: 'B賞プレゼント', capsuleColor: '#f3b7c9', accentColor: '#b86282', message: '当日のおたのしみプレゼントをご用意しています。受付へお声がけください。', weight: 20 },
+  { key: 'C', rankLabel: 'C賞', rewardName: 'C賞プレゼント', capsuleColor: '#b9d8a7', accentColor: '#628f58', message: '当日のおたのしみプレゼントをご用意しています。受付へお声がけください。', weight: 30 },
+  { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: '当日のおたのしみプレゼントをご用意しています。受付へお声がけください。', weight: 40 }
 ];
 
 function getCurrentPlatformName() {
