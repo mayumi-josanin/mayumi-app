@@ -666,6 +666,7 @@
       </div>
 
       <div class="gacha-machine" id="rewardGachaMachine">
+        <div class="gacha-dropped-capsule" id="rewardGachaDroppedCapsule"></div>
         <div class="gacha-top">
           <div class="gacha-logo">ごほうび<br>ガチャ</div>
           <div class="gacha-capsules" id="rewardGachaCapsules"></div>
@@ -688,19 +689,22 @@
       <div class="gacha-status" id="rewardGachaStatus">ハンドルを回して、特典カプセルを受け取ってください。</div>
 
       <div class="gacha-result" id="rewardGachaResult" style="display:none;">
-        <div class="gacha-result-capsule">
-          <div class="gacha-result-top" id="rewardGachaResultTop"></div>
-          <div class="gacha-result-bottom" id="rewardGachaResultBottom"></div>
-          <div class="gacha-result-core">🎁</div>
+        <div class="gacha-result-layout">
+          <div class="gacha-result-illust">
+            <img id="rewardGachaResultIllust" src="img/gacha_prize_a.png" alt="特典イラスト" class="gacha-result-illust-img">
+          </div>
+          <div class="gacha-result-info">
+            <div class="gacha-result-badge" id="rewardGachaResultBadge">ごほうび獲得</div>
+            <div class="gacha-result-rank" id="rewardGachaResultRank">A賞</div>
+            <div class="gacha-result-name" id="rewardGachaResultName">プレゼント</div>
+          </div>
         </div>
-        <div class="gacha-result-badge" id="rewardGachaResultBadge">ごほうび獲得</div>
-        <div class="gacha-result-name" id="rewardGachaResultName">まゆみ賞</div>
         <div class="gacha-result-message" id="rewardGachaResultMessage">受付で結果画面をご提示ください。</div>
       </div>
 
       <button class="btn primary" id="rewardGachaDrawBtn" onclick="drawRewardGacha()">🎯 ガチャを回す</button>
       <button class="btn primary" id="rewardGachaNextBtn" style="display:none;" onclick="startNewCard()">🌸 新しいスタンプカードを取得</button>
-      <button class="btn secondary" onclick="closeModal('rewardGachaModal')">閉じる</button>
+      <button class="btn secondary" id="rewardGachaCloseBtn" onclick="closeModal('rewardGachaModal')">閉じる</button>
     </div>
   </div>
 
