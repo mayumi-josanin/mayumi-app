@@ -1,6 +1,6 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxEurwBmUiSKUc1qmyDqZUugJRnGPih1J5FPXxSK-n-TKvEn2_8SJ_qG07gAcvENYgkrA/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxe8-Ot8UF3ltrylRo3kixv41ZRcORA-SUJpV8w9dM7zxCu01y0Nbb6GBDYvtLgPgf2Rw/exec';
 const CURRENT_WEB_BUNDLE_VERSION = '2026.03.31.8';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
@@ -517,10 +517,10 @@ function renderRewardGachaCapsules(activePrizeKey) {
 function showRewardGachaResult(prizeMeta, options) {
   const result = document.getElementById('rewardGachaResult');
   const badge = document.getElementById('rewardGachaResultBadge');
+  const rank = document.getElementById('rewardGachaResultRank');
   const name = document.getElementById('rewardGachaResultName');
   const message = document.getElementById('rewardGachaResultMessage');
-  const top = document.getElementById('rewardGachaResultTop');
-  const bottom = document.getElementById('rewardGachaResultBottom');
+  const illust = document.getElementById('rewardGachaResultIllust');
   const drawBtn = document.getElementById('rewardGachaDrawBtn');
   const nextBtn = document.getElementById('rewardGachaNextBtn');
   const handleBtn = document.getElementById('rewardGachaHandleBtn');
@@ -529,17 +529,31 @@ function showRewardGachaResult(prizeMeta, options) {
   const prize = getRewardGachaPrizeMeta(prizeMeta && prizeMeta.rewardName ? prizeMeta.rewardName : prizeMeta);
   const alreadyDrawn = !!(options && options.alreadyDrawn);
 
+  // イラスト画像の設定（賞ランクに応じて切替）
+  const illustMap = { A: 'img/gacha_prize_a.png', B: 'img/gacha_prize_b.png', C: 'img/gacha_prize_c.png', D: 'img/gacha_prize_d.png' };
+  if (illust) {
+    illust.src = illustMap[prize.key] || illustMap.A;
+  }
+
   if (result) result.style.display = 'block';
   if (badge) {
     badge.textContent = alreadyDrawn ? `${prize.rankLabel} 獲得済み` : `${prize.rankLabel} が当たりました`;
     badge.style.color = prize.accentColor;
   }
-  if (name) name.textContent = prize.rewardName;
+  // ランク表示（○賞）
+  if (rank) {
+    rank.textContent = prize.rankLabel;
+    rank.style.color = prize.accentColor;
+  }
+  // 特典内容表示
+  if (name) {
+    // rewardNameから賞ラベル部分を除いて特典内容のみ表示
+    const rewardContent = prize.rewardName.replace(prize.rankLabel, '').trim();
+    name.textContent = rewardContent || prize.rewardName;
+  }
   if (message) {
     message.innerHTML = `${escapeHtml(prize.message)}<br>受け取りの際は受付へ直接お問い合わせください。`;
   }
-  if (top) top.style.background = `linear-gradient(180deg, #fff7eb, ${prize.capsuleColor})`;
-  if (bottom) bottom.style.background = `linear-gradient(180deg, ${prize.capsuleColor}, ${prize.accentColor})`;
   if (drawBtn) drawBtn.style.display = 'none';
   if (nextBtn) nextBtn.style.display = 'block';
   if (handleBtn) handleBtn.disabled = true;
@@ -804,13 +818,16 @@ async function drawRewardGacha() {
   }
 
   const drawBtn = document.getElementById('rewardGachaDrawBtn');
+  const closeBtn = document.getElementById('rewardGachaCloseBtn');
   const handleBtn = document.getElementById('rewardGachaHandleBtn');
   const machine = document.getElementById('rewardGachaMachine');
   const status = document.getElementById('rewardGachaStatus');
+  const dropCapsule = document.getElementById('rewardGachaDroppedCapsule');
   const startedAt = Date.now();
 
   isRewardGachaDrawing = true;
   if (drawBtn) drawBtn.disabled = true;
+  if (closeBtn) closeBtn.style.visibility = 'hidden';
   if (handleBtn) handleBtn.disabled = true;
   if (machine) machine.classList.add('rolling');
   if (status) status.textContent = 'ガチャを回しています…';
@@ -847,20 +864,38 @@ async function drawRewardGacha() {
       applyRewardStatusLocally(lastSyncedRewardStatus);
     }
 
+    // 演出時間の確保 (最小1.2秒)
     const elapsed = Date.now() - startedAt;
     if (elapsed < 1200) {
       await new Promise(function (resolve) { setTimeout(resolve, 1200 - elapsed); });
     }
 
+    // 回転停止
+    if (machine) machine.classList.remove('rolling');
+    if (status) status.textContent = '特典が出てきます…';
+
     const drawnReward = (res && res.drawnReward) || getCurrentCardReward();
+    const prizeColor = drawnReward ? getRewardGachaPrizeMeta(drawnReward.rewardName).capsuleColor : '#d9c5a2';
+
+    // カプセル落下演出
+    if (dropCapsule) {
+      dropCapsule.style.background = prizeColor;
+      dropCapsule.classList.add('falling');
+      await new Promise(r => setTimeout(r, 600));
+      dropCapsule.classList.add('bouncing');
+      await new Promise(r => setTimeout(r, 400));
+    }
+
     showRewardGachaResult(drawnReward, { alreadyDrawn: !!(res && res.alreadyDrawn) });
     triggerConfetti();
+    if (closeBtn) closeBtn.style.visibility = 'visible';
   } catch (err) {
     console.log('drawRewardGacha error:', err);
-    showToast('特典ガチャの取得に失敗しました。通信状況をご確認ください。');
+    showToast('特典ガチャの取得に失敗しました。');
     if (machine) machine.classList.remove('rolling');
-    if (status) status.textContent = '通信に失敗しました。時間をおいてもう一度お試しください。';
+    if (status) status.textContent = '通信に失敗しました。もう一度お試しください。';
     if (drawBtn) drawBtn.disabled = false;
+    if (closeBtn) closeBtn.style.visibility = 'visible';
     if (handleBtn) handleBtn.disabled = false;
   } finally {
     isRewardGachaDrawing = false;
