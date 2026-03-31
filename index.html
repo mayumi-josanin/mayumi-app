@@ -691,7 +691,7 @@
       <div class="gacha-result" id="rewardGachaResult" style="display:none;">
         <div class="gacha-result-layout">
           <div class="gacha-result-illust">
-            <img id="rewardGachaResultIllust" src="img/gacha_prize_a.png" alt="特典イラスト" class="gacha-result-illust-img">
+            <div id="rewardGachaResultGift" class="gacha-result-gift" aria-hidden="true">🎁</div>
           </div>
           <div class="gacha-result-info">
             <div class="gacha-result-badge" id="rewardGachaResultBadge">ごほうび獲得</div>
@@ -702,9 +702,13 @@
         <div class="gacha-result-message" id="rewardGachaResultMessage">受付で結果画面をご提示ください。</div>
       </div>
 
-      <button class="btn primary" id="rewardGachaDrawBtn" onclick="drawRewardGacha()">🎯 ガチャを回す</button>
-      <button class="btn primary" id="rewardGachaNextBtn" style="display:none;" onclick="startNewCard()">🌸 新しいスタンプカードを取得</button>
-      <button class="btn secondary" id="rewardGachaCloseBtn" onclick="closeModal('rewardGachaModal')">閉じる</button>
+      <div class="gacha-actions">
+        <button class="btn primary" id="rewardGachaDrawBtn" onclick="drawRewardGacha()">🎯 ガチャを回す</button>
+        <button class="btn primary" id="rewardGachaNextBtn" style="display:none;" onclick="startNewCard()">🌸 新しいスタンプカードを取得</button>
+      </div>
+      <div class="gacha-footer">
+        <button class="btn secondary gacha-close-btn" id="rewardGachaCloseBtn" onclick="closeModal('rewardGachaModal')">閉じる</button>
+      </div>
     </div>
   </div>
 
