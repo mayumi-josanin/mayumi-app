@@ -141,7 +141,7 @@
             <div id="homeStampMsg" class="stamp-msg">あと3回でプレゼント🎁</div>
           </div>
           <button id="stampNewCardBtn" class="btn primary" style="display:none; margin-top:16px; width:100%"
-            onclick="startNewCard()">🌸 新しいスタンプカードを取得</button>
+            onclick="openRewardGachaModal()">🎯 特典ガチャを回す</button>
         </div>
       </div>
 
@@ -650,7 +650,57 @@
           </div>
         </div>
       </div>
+      <button id="stampMilestoneActionBtn" class="btn primary" style="display:none; margin-bottom:10px;"
+        onclick="handleStampMilestoneAction()">🎯 特典ガチャを回す</button>
       <button class="btn secondary" onclick="closeModal('stampModal')">閉じる</button>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="rewardGachaModal" onclick="closeModal('rewardGachaModal',event)">
+    <div class="modal-sheet gacha-sheet" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="gacha-header">
+        <div class="gacha-kicker">MAYUMI JOSANIN REWARD GACHA</div>
+        <div class="modal-title" style="text-align:center; padding-left:0;">特典ガチャ</div>
+        <p class="gacha-copy">10個達成おめでとうございます。<br>まゆみ助産院のごほうびガチャを回してください。</p>
+      </div>
+
+      <div class="gacha-machine" id="rewardGachaMachine">
+        <div class="gacha-top">
+          <div class="gacha-logo">ごほうび<br>ガチャ</div>
+          <div class="gacha-capsules" id="rewardGachaCapsules"></div>
+          <div class="gacha-gloss"></div>
+        </div>
+        <div class="gacha-body">
+          <div class="gacha-slot">
+            <div class="gacha-slot-window" id="rewardGachaSlotWindow"></div>
+          </div>
+          <div class="gacha-handle-wrap">
+            <button type="button" class="gacha-handle" id="rewardGachaHandleBtn" onclick="drawRewardGacha()"
+              aria-label="ガチャを回す">
+              <span class="gacha-handle-bar"></span>
+              <span class="gacha-handle-knob"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="gacha-status" id="rewardGachaStatus">ハンドルを回して、特典カプセルを受け取ってください。</div>
+
+      <div class="gacha-result" id="rewardGachaResult" style="display:none;">
+        <div class="gacha-result-capsule">
+          <div class="gacha-result-top" id="rewardGachaResultTop"></div>
+          <div class="gacha-result-bottom" id="rewardGachaResultBottom"></div>
+          <div class="gacha-result-core">🎁</div>
+        </div>
+        <div class="gacha-result-badge" id="rewardGachaResultBadge">ごほうび獲得</div>
+        <div class="gacha-result-name" id="rewardGachaResultName">まゆみ賞</div>
+        <div class="gacha-result-message" id="rewardGachaResultMessage">受付で結果画面をご提示ください。</div>
+      </div>
+
+      <button class="btn primary" id="rewardGachaDrawBtn" onclick="drawRewardGacha()">🎯 ガチャを回す</button>
+      <button class="btn primary" id="rewardGachaNextBtn" style="display:none;" onclick="startNewCard()">🌸 新しいスタンプカードを取得</button>
+      <button class="btn secondary" onclick="closeModal('rewardGachaModal')">閉じる</button>
     </div>
   </div>
 
