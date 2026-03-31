@@ -948,11 +948,16 @@
 
             <div class="form-group" style="margin-bottom: 20px;">
               <label>カラー設定</label>
-              <div class="flex">
-                <input type="color" id="calColor" value="#e57373"
-                  style="width: 60px; height: 40px; padding: 2px; cursor: pointer;">
-                <span style="font-size: 12px; color: var(--text-light);">※カレンダー上の表示色になります。例：休診日(赤系 #e57373)、ヨガ(ピンク系
-                  #f48fb1)</span>
+              <div class="flex" style="flex-direction:column; align-items:flex-start; gap:8px;">
+                <div class="flex" style="gap:10px;">
+                  <input type="color" id="calColor" value="#e57373"
+                    style="width: 60px; height: 40px; padding: 2px; cursor: pointer;">
+                  <span style="font-size: 12px; color: var(--text-light);">※カレンダー上の表示色になります。例：休診日(赤系 #e57373)、ヨガ(ピンク系
+                    #f48fb1)</span>
+                </div>
+                <div id="calRecentColors" class="flex" style="flex-wrap:wrap; gap:6px; margin-top:4px;">
+                  <!-- 最近使用した色がここに表示される -->
+                </div>
               </div>
             </div>
             <div class="flex" style="gap:10px;">
@@ -989,6 +994,36 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="card compact-card" style="margin-top:20px;">
+          <div class="filter-toolbar">
+            <div style="font-size:13px; font-weight:bold; color:var(--text-mid); margin-right:5px;">📅 月別フィルタ:</div>
+            <select id="calYearFilter" onchange="applyCalendarFilters()" style="width:110px;">
+              <option value="all">全年度</option>
+              <option value="2025">2025年</option>
+              <option value="2026" selected>2026年</option>
+              <option value="2027">2027年</option>
+            </select>
+            <select id="calMonthFilter" onchange="applyCalendarFilters()" style="width:110px;">
+              <option value="all">全月</option>
+              <option value="01">1月</option>
+              <option value="02">2月</option>
+              <option value="03">3月</option>
+              <option value="04">4月</option>
+              <option value="05">5月</option>
+              <option value="06">6月</option>
+              <option value="07">7月</option>
+              <option value="08">8月</option>
+              <option value="09">9月</option>
+              <option value="10">10月</option>
+              <option value="11">11月</option>
+              <option value="12">12月</option>
+            </select>
+            <button type="button" class="btn btn-outline" style="padding:6px 12px; font-size:12px;"
+              onclick="resetCalendarFilters()">条件をクリア</button>
+            <div class="filter-meta" id="calFilterMeta"></div>
+          </div>
         </div>
 
         <h3 style="margin-top:30px; margin-bottom:10px; font-size: 16px;">イベント一覧</h3>
@@ -1032,6 +1067,7 @@
           <form id="menuForm" onsubmit="submitMenu(event)">
             <input type="hidden" id="menuRowIdx" value="">
             <input type="hidden" id="menuPublishStatus" value="公開">
+            <input type="hidden" id="menuExistingImageUrl" value="">
 
             <div class="form-group">
               <label>メニュー名</label>
@@ -1755,7 +1791,7 @@
   </div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwatugi80oSd8Va_1OdKUsAB7pLj3iYfjei-PUOBrzABHALxOVZJYY3vBR4x1C5zlqQ/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyBDReRdL9LlVKZjn1UDZU12_3OCGRu4FkPorw1jJZRQliEcGrLUHiT4bTXsHh1epajrQ/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -4486,11 +4522,22 @@
       }
       let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
       currentOrderItems.forEach((it, idx) => {
+        let subtotal = it.price * it.qty;
+        let priceNote = `¥${it.price.toLocaleString()}`;
+
+        if (it.name === '天然だし調味粉') {
+          const pricing = calculateDashiPricing(it.qty);
+          subtotal = pricing.totalRevenue;
+          if (it.qty > 1) {
+            priceNote = `<span style="text-decoration:line-through; font-size:11px; color:#999;">¥${it.price.toLocaleString()}</span> <span style="color:var(--danger); font-weight:bold;">実質 ¥${Math.floor(pricing.avgUnitPrice).toLocaleString()}</span>`;
+          }
+        }
+
         html += `
           <li style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
             <div style="font-size: 13px;">
               <strong>${it.name}</strong><br>
-              <span style="color: #666;">¥${it.price.toLocaleString()} x ${it.qty} = ¥${(it.price * it.qty).toLocaleString()}</span>
+              <span style="color: #666;">${priceNote} x ${it.qty} = ¥${subtotal.toLocaleString()}</span>
             </div>
             <button type="button" class="btn" style="padding: 2px 6px; font-size: 10px; background: var(--danger);" onclick="removeItemFromOrder(${idx})">削除</button>
           </li>
@@ -4506,7 +4553,13 @@
       const isEdit = !!orderId;
 
       if (currentOrderItems.length === 0) { showToast('商品を追加してください'); return; }
-      const total = currentOrderItems.reduce((sum, it) => sum + (it.price * it.qty), 0);
+
+      const total = currentOrderItems.reduce((sum, it) => {
+        if (it.name === '天然だし調味粉') {
+          return sum + calculateDashiPricing(it.qty).totalRevenue;
+        }
+        return sum + (it.price * it.qty);
+      }, 0);
 
       const data = {
         type: isEdit ? 'updateAdminOrder' : 'createOrder',
@@ -5187,6 +5240,7 @@
       const cachedRes = readAdminApiCache('getAdminCalendar');
       if (cachedRes && cachedRes.status === 'ok') {
         allCalendarEvents = cachedRes.events || [];
+        applyCalendarFilters();
       } else {
         tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
         if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
@@ -5195,64 +5249,131 @@
       const res = await apiRequest('getAdminCalendar');
       const targetRes = (res && res.status === 'ok') ? res : cachedRes;
       if (targetRes && targetRes.status === 'ok') {
-        allCalendarEvents = (targetRes.events || []).filter(e => {
-          return !(e.title && (e.title.includes('休') || e.title.includes('往')));
-        });
-        tbodyPub.innerHTML = '';
-        if (tbodyDraft) tbodyDraft.innerHTML = '';
-
-        let hasDrafts = false;
-        let hasPublished = false;
-
-        allCalendarEvents.forEach(c => {
-          let imgHtml = '';
-          if (c.image && (c.image.startsWith('http') || c.image.startsWith('data:'))) {
-            imgHtml = `<img src="${c.image}" style="width:40px; height:40px; object-fit:cover; border-radius:4px; cursor:pointer;" onclick="window.open('${c.image}', '_blank')">`;
-          } else {
-            imgHtml = `<span style="font-size:12px; color:var(--text-light);">なし</span>`;
-          }
-
-          const rowHtml = `
-            <tr>
-              <td><input type="checkbox" class="cal-sel" data-idx="${c.rowIdx}"></td>
-              <td style="text-align:center;">${imgHtml}</td>
-              <td>${c.date}</td>
-              <td style="font-weight:bold;">${c.title}</td>
-              <td style="font-size:11px;">${c.desc.replace(/\\n/g, '<br>')}</td>
-              <td>
-                <div style="width:20px; height:20px; border-radius:10px; background-color:${c.color};" title="${c.color}"></div>
-              </td>
-              <td>
-                <select id="c_status_${c.rowIdx}" onchange="updateCalendarStatus(${c.rowIdx}, this.value)">
-                  <option value="公開" ${c.status === '公開' ? 'selected' : ''}>公開</option>
-                  <option value="非公開" ${c.status === '非公開' ? 'selected' : ''}>非公開</option>
-                </select>
-              </td>
-              <td>
-                <div class="flex" style="gap:4px;">
-                  <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editCalendar(${c.rowIdx})">📝</button>
-                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteCalendar(${c.rowIdx}, '${c.title.replace(/'/g, "\\'")}')">🗑</button>
-                </div>
-              </td>
-            </tr>
-          `;
-
-          if (c.status === '非公開') {
-            if (tbodyDraft) {
-              tbodyDraft.innerHTML += rowHtml;
-              hasDrafts = true;
-            }
-          } else {
-            tbodyPub.innerHTML += rowHtml;
-            hasPublished = true;
-          }
-        });
-
-        if (!hasDrafts && tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">下書き保存はありません</td></tr>';
-        if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">投稿済みイベントはありません</td></tr>';
+        allCalendarEvents = (targetRes.events || []);
+        applyCalendarFilters();
       } else {
         tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">イベントデータの取得に失敗しました</td></tr>';
         if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">イベントデータの取得に失敗しました</td></tr>';
+      }
+    }
+
+    function resetCalendarFilters() {
+      const yearSelect = document.getElementById('calYearFilter');
+      const monthSelect = document.getElementById('calMonthFilter');
+      if (yearSelect) yearSelect.value = 'all';
+      if (monthSelect) monthSelect.value = 'all';
+      applyCalendarFilters();
+    }
+
+    function applyCalendarFilters() {
+      const year = document.getElementById('calYearFilter') ? document.getElementById('calYearFilter').value : 'all';
+      const month = document.getElementById('calMonthFilter') ? document.getElementById('calMonthFilter').value : 'all';
+
+      const filtered = allCalendarEvents.filter(e => {
+        if (!e.date) return true;
+        const [y, m, d] = e.date.split('-');
+        if (year !== 'all' && y !== year) return false;
+        if (month !== 'all' && m !== month) return false;
+        return true;
+      });
+
+      renderCalendarList(filtered);
+    }
+
+    function renderCalendarList(events) {
+      const tbodyPub = document.getElementById('calendarList');
+      const tbodyDraft = document.getElementById('calendarDraftsList');
+      if (!tbodyPub || !tbodyDraft) return;
+
+      tbodyPub.innerHTML = '';
+      tbodyDraft.innerHTML = '';
+
+      let hasDrafts = false;
+      let hasPublished = false;
+
+      // 日付順（降順）にソート
+      const sortedEvents = [...events].sort((a, b) => b.date.localeCompare(a.date));
+
+      // 過去に使用したカラーの履歴を抽出
+      updateRecentColorsHistory();
+
+      sortedEvents.forEach(c => {
+        let imgHtml = '';
+        if (c.image && (c.image.startsWith('http') || c.image.startsWith('data:'))) {
+          imgHtml = `<img src="${c.image}" style="width:40px; height:40px; object-fit:cover; border-radius:4px; cursor:pointer;" onclick="window.open('${c.image}', '_blank')">`;
+        } else {
+          imgHtml = `<span style="font-size:12px; color:var(--text-light);">なし</span>`;
+        }
+
+        const rowHtml = `
+          <tr>
+            <td><input type="checkbox" class="cal-sel" data-idx="${c.rowIdx}"></td>
+            <td style="text-align:center;">${imgHtml}</td>
+            <td>${c.date}</td>
+            <td style="font-weight:bold;">${c.title}</td>
+            <td style="font-size:11px;">${(c.desc || '').replace(/\\n/g, '<br>')}</td>
+            <td>
+              <div style="width:20px; height:20px; border-radius:10px; background-color:${c.color};" title="${c.color}"></div>
+            </td>
+            <td>
+              <select id="c_status_${c.rowIdx}" onchange="updateCalendarStatus(${c.rowIdx}, this.value)">
+                <option value="公開" ${c.status === '公開' ? 'selected' : ''}>公開</option>
+                <option value="非公開" ${c.status === '非公開' ? 'selected' : ''}>非公開</option>
+              </select>
+            </td>
+            <td>
+              <div class="flex" style="gap:4px;">
+                <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editCalendar(${c.rowIdx})">📝</button>
+                <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteCalendar(${c.rowIdx}, '${c.title.replace(/'/g, "\\'")}')">🗑</button>
+              </div>
+            </td>
+          </tr>
+        `;
+
+        if (c.status === '非公開') {
+          tbodyDraft.innerHTML += rowHtml;
+          hasDrafts = true;
+        } else {
+          tbodyPub.innerHTML += rowHtml;
+          hasPublished = true;
+        }
+      });
+
+      if (!hasDrafts) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">下書き保存はありません</td></tr>';
+      if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">投稿済みイベントはありません</td></tr>';
+
+      updateFilterMeta('calFilterMeta', events.length, allCalendarEvents.length, '表示条件に一致するイベントはありません');
+    }
+
+    function updateRecentColorsHistory() {
+      const container = document.getElementById('calRecentColors');
+      if (!container) return;
+
+      // 全イベントからユニークなカラーを抽出（大文字小文字を統一、空文字を除外）
+      const colors = [...new Set(allCalendarEvents
+        .map(e => (e.color || '').toLowerCase())
+        .filter(c => c && /^#[0-9a-f]{6}$/i.test(c))
+      )];
+
+      if (colors.length === 0) {
+        container.innerHTML = '<span style="font-size:11px; color:#999;">使用履歴のある色がここに表示されます</span>';
+        return;
+      }
+
+      container.innerHTML = '<span style="font-size:11px; color:#999; width:100%; margin-bottom:2px;">使用履歴から選択:</span>' +
+        colors.map(color => `
+          <div onclick="setCalendarFormColor('${color}')" 
+               style="width:24px; height:24px; border-radius:4px; background-color:${color}; border:1.5px solid #fff; box-shadow:0 0 0 1px #ddd; cursor:pointer;" 
+               title="${color}">
+          </div>
+        `).join('');
+    }
+
+    function setCalendarFormColor(color) {
+      const input = document.getElementById('calColor');
+      if (input) {
+        input.value = color.toLowerCase();
+        showToast('カラーを選択しました: ' + color);
       }
     }
 
@@ -5419,7 +5540,8 @@
       }
 
       showToast('保存中...');
-      let imageUrl = '';
+      // 既存の画像URLを取得しておく（もしあれば）
+      let imageUrl = document.getElementById('menuExistingImageUrl').value || '';
 
       // 画像が新規選択されている場合はアップロード
       if (menuImageBase64) {
@@ -5428,7 +5550,7 @@
             type: 'uploadImage',
             filename: `menu_${Date.now()}.jpg`,
             mimeType: 'image/jpeg',
-            base64: menuImageBase64.split(',')[1]
+            base64: menuImageBase64
           }, true);
           if (res && res.url) imageUrl = res.url;
         } catch (e) {
@@ -5443,9 +5565,9 @@
         name: name,
         description: description,
         reservationStatus: reservationStatus,
-        publishStatus: publishStatus
+        publishStatus: publishStatus,
+        imageUrl: imageUrl // 画像URLを含めて送信（新規・既存問わず）
       };
-      if (imageUrl) payload.imageUrl = imageUrl;
 
       const res = await apiRequest('', payload, true);
       if (res && res.status === 'ok') {
@@ -5465,6 +5587,7 @@
       document.getElementById('menuName').value = m.name;
       document.getElementById('menuDescription').value = m.description || '';
       document.getElementById('menuReservationStatus').value = m.reservationStatus;
+      document.getElementById('menuExistingImageUrl').value = m.imageUrl || ''; // 既存の画像URLを保持
 
       if (m.imageUrl) {
         document.getElementById('menuImagePreview').src = m.imageUrl;
@@ -5482,6 +5605,7 @@
     function cancelMenuEdit() {
       document.getElementById('menuForm').reset();
       document.getElementById('menuRowIdx').value = '';
+      document.getElementById('menuExistingImageUrl').value = ''; // リセット時にクリア
       document.getElementById('menuImagePreviewArea').style.display = 'none';
       menuImageBase64 = null;
       document.getElementById('menuFormTitle').textContent = '✨ 新しいメニューを追加する';
@@ -5507,9 +5631,13 @@
       selectElement.disabled = true;
       showToast('保存中...');
 
+      const m = allMenus.find(item => item.rowIdx === rowIdx);
       const res = await apiRequest('', {
         type: 'updateMenu',
         rowIdx: rowIdx,
+        name: m ? m.name : '',
+        description: m ? m.description : '',
+        imageUrl: m ? m.imageUrl : '',
         reservationStatus: newStatus
       }, true);
 
@@ -5624,6 +5752,36 @@
         menuImageBase64 = dataUrl.split(',')[1];
       }
       closeCropModal();
+    }
+
+    /**
+     * 「天然だし調味粉」専用の価格・利益計算ロジック (管理画面用)
+     */
+    function calculateDashiPricing(qty) {
+      const basePrice = 2380; // 定価
+      let totalRevenue = 0;
+
+      if (qty <= 0) return { totalRevenue: 0, avgUnitPrice: basePrice };
+
+      if (qty === 1) {
+        totalRevenue = basePrice;
+      } else if (qty === 2) {
+        totalRevenue = (basePrice * 0.8) * 2;
+      } else if (qty === 3) {
+        totalRevenue = (basePrice * 0.8 * 2) + (basePrice * 0.75);
+      } else if (qty === 4) {
+        totalRevenue = (basePrice * 0.8 * 3) + (basePrice * 0.70);
+      } else if (qty === 5) {
+        totalRevenue = (basePrice * 0.8 * 4) + (basePrice * 0.65);
+      } else {
+        totalRevenue = (basePrice * 0.75) * qty;
+      }
+
+      const roundedTotal = Math.floor(totalRevenue);
+      return {
+        totalRevenue: roundedTotal,
+        avgUnitPrice: roundedTotal / qty
+      };
     }
 
   </script>
