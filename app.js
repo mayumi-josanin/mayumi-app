@@ -1,7 +1,7 @@
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbwatugi80oSd8Va_1OdKUsAB7pLj3iYfjei-PUOBrzABHALxOVZJYY3vBR4x1C5zlqQ/exec';
-    const CURRENT_WEB_BUNDLE_VERSION = '2026.03.30.1';
+    const CURRENT_WEB_BUNDLE_VERSION = '2026.03.31.2';
     const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
     const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
       latestAppVersion: '1.1.0',
@@ -1457,6 +1457,7 @@
           'よもぎ茶': 'grid-tea',
           'よもぎ入浴剤': 'grid-bath',
           '天然だし調理粉': 'grid-dashi',
+          '天然だし調味粉': 'grid-dashi',
           '天然だし': 'grid-dashi',
           '食品': 'grid-dashi',
           'だし': 'grid-dashi',
