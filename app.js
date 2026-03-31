@@ -1,7 +1,7 @@
     // ===== GAS設定 =====
     // ↓ GASウェブアプリURLをここに貼り付け ↓
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbwatugi80oSd8Va_1OdKUsAB7pLj3iYfjei-PUOBrzABHALxOVZJYY3vBR4x1C5zlqQ/exec';
-    const CURRENT_WEB_BUNDLE_VERSION = '2026.03.31.2';
+    const CURRENT_WEB_BUNDLE_VERSION = '2026.03.31.4';
     const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
     const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
       latestAppVersion: '1.1.0',
@@ -1448,26 +1448,60 @@
           if (el) el.innerHTML = '';
         });
 
+        // 動的に追加された要素（見出し・グリッド）を削除して再描画に備える
+        const dynamicElements = document.querySelectorAll('.dynamic-cat');
+        dynamicElements.forEach(el => el.remove());
+
         const normalizeProductCategory = (value) => String(value || '')
           .replace(/\u3000/g, ' ')
           .trim()
           .replace(/\s+/g, '');
 
-        const categoryMap = {
-          'よもぎ茶': 'grid-tea',
-          'よもぎ入浴剤': 'grid-bath',
-          '天然だし調理粉': 'grid-dashi',
-          '天然だし調味粉': 'grid-dashi',
-          '天然だし': 'grid-dashi',
-          '食品': 'grid-dashi',
-          'だし': 'grid-dashi',
-          '石鹸': 'grid-soap-other',
-          '冷え取りパット': 'grid-pad'
-        };
+        // キーワードによる既存グリッドへのマッピング
+        const keywordMap = [
+          { key: '茶', gridId: 'grid-tea' },
+          { key: '入浴', gridId: 'grid-bath' },
+          { key: 'だし', gridId: 'grid-dashi' },
+          { key: '調味', gridId: 'grid-dashi' },
+          { key: '調理', gridId: 'grid-dashi' },
+          { key: '食品', gridId: 'grid-dashi' },
+          { key: '石鹸', gridId: 'grid-soap-other' },
+          { key: 'パット', gridId: 'grid-pad' }
+        ];
 
-        const resolveProductContainerId = (category) => {
-          const normalizedCategory = normalizeProductCategory(category);
-          return categoryMap[normalizedCategory] || null;
+        const getOrCreateContainer = (category) => {
+          const norm = normalizeProductCategory(category);
+          
+          // 1. キーワードマッチングを試行
+          const match = keywordMap.find(item => norm.includes(item.key));
+          if (match) {
+            const el = document.getElementById(match.gridId);
+            if (el) return el;
+          }
+
+          // 2. マッチしない場合は動的にセクションを作成
+          const dynamicId = 'grid-dynamic-' + encodeURIComponent(norm).replace(/%/g, '');
+          let container = document.getElementById(dynamicId);
+          
+          if (!container) {
+            const shopSection = document.querySelector('#page-shop .main .section');
+            if (!shopSection) return null;
+
+            // ラベル（見出し）作成
+            const label = document.createElement('div');
+            label.className = 'cat-label dynamic-cat';
+            label.style.marginTop = '24px';
+            label.innerHTML = `📦 ${category}`;
+            
+            // グリッド作成
+            container = document.createElement('div');
+            container.id = dynamicId;
+            container.className = 'shop-grid dynamic-cat';
+            
+            shopSection.appendChild(label);
+            shopSection.appendChild(container);
+          }
+          return container;
         };
 
         const createProductCard = (p, idx) => {
@@ -1487,19 +1521,20 @@
           return card;
         };
 
+        // おすすめ商品の表示（先頭4つ固定）
         const recContainer = document.getElementById('grid-recommended');
         if (recContainer) {
           PRODUCTS.slice(0, 4).forEach((p, idx) => { recContainer.appendChild(createProductCard(p, idx)); });
         }
 
+        // 商品を各カテゴリコンテナに配置
         PRODUCTS.forEach((p, idx) => {
-          const containerId = resolveProductContainerId(p.category);
-          if (!containerId) {
-            console.warn('Unknown product category:', p.category, p.name);
-            return;
+          const container = getOrCreateContainer(p.category);
+          if (container) {
+            container.appendChild(createProductCard(p, idx));
+          } else {
+            console.warn('Unknown product category location:', p.category, p.name);
           }
-          const container = document.getElementById(containerId);
-          if (container) { container.appendChild(createProductCard(p, idx)); }
         });
       }
     }
