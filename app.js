@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwUrlPMQ7Oq34cBgF4fHIiS3k6TUoJvDT5TOaWAArVxyu5n2Pz_B577Z_xv4QU_LOtM6w/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.03.31.7';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxEurwBmUiSKUc1qmyDqZUugJRnGPih1J5FPXxSK-n-TKvEn2_8SJ_qG07gAcvENYgkrA/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.03.31.8';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -16,6 +16,49 @@ let currentInstalledAppInfo = { version: '', build: '', bundleId: '', isNative: 
 let currentRequiredUpdateUrl = '';
 
 let USER_MENUS = [];
+let _profile = null;
+try { _profile = JSON.parse(localStorage.getItem('mayumi_profile') || 'null'); } catch (e) { }
+let CUSTOMER_NAME = _profile && _profile.name ? _profile.name : '';
+let stampCount = 0;
+try { stampCount = parseInt(localStorage.getItem('mayumi_stamp') || '0') || 0; } catch (e) { }
+let stampCardNum = 1;
+try { stampCardNum = parseInt(localStorage.getItem('mayumi_stamp_card') || '1') || 1; } catch (e) { }
+let STAMP_REWARD_CONFIG = [];
+let CURRENT_MONTHLY_REWARD = null;
+let EARNED_REWARDS = [];
+try { EARNED_REWARDS = JSON.parse(localStorage.getItem('mayumi_earned_rewards') || '[]'); } catch (e) { }
+let cart = [], orders = [];
+let isOrderSubmitting = false;
+let isCancelSubmitting = false;
+let isReceiptSubmitting = false;
+let selectedPay = null, currentProdIdx = null, modalQty = 1;
+let cancelOrderId = null;
+let receiptSubmittingOrderId = null;
+let blogItems = [];
+let allBlogCategories = [];
+let isDataLoaded = false;
+let supportFaqItems = [];
+let supportChatHistory = [];
+let isSupportChatSending = false;
+try { supportChatHistory = JSON.parse(localStorage.getItem('mayumi_support_chat_history') || '[]'); } catch (e) { }
+let lastSupportTopic = '';
+if (supportChatHistory.length) {
+  try { lastSupportTopic = localStorage.getItem('mayumi_support_chat_topic') || ''; } catch (e) { }
+}
+let activeAppDialogResolver = null;
+let lastSyncedRewardStatus = null;
+let isRewardGachaDrawing = false;
+let lastRewardGachaResult = null;
+let calendarData = [];
+let calendarLoaded = false;
+let currentMonthDate = new Date();
+let selectedDate = new Date();
+const REWARD_GACHA_PRIZE_POOL = [
+  { key: 'A', rankLabel: 'A賞', rewardName: 'A賞プレゼント', capsuleColor: '#f5cb6c', accentColor: '#b0791b', message: '受付でその時の特典をお受け取りください。', weight: 5 },
+  { key: 'B', rankLabel: 'B賞', rewardName: 'B賞プレゼント', capsuleColor: '#f3b7c9', accentColor: '#b86282', message: 'まゆみ助産院からのうれしいごほうびです。受付でご案内します。', weight: 15 },
+  { key: 'C', rankLabel: 'C賞', rewardName: 'C賞プレゼント', capsuleColor: '#b9d8a7', accentColor: '#628f58', message: 'やさしいプレゼントをご用意しています。受付へお声がけください。', weight: 30 },
+  { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: '当日のおたのしみプレゼントは受付でご確認ください。', weight: 50 }
+];
 
 function getCurrentPlatformName() {
   try {
@@ -97,14 +140,26 @@ function updateStampModalPresentation(isMilestone) {
   const badge = document.getElementById('stampAchievementBadge');
   const icon = document.getElementById('stampPopIcon');
   const note = document.getElementById('stampCelebrateNote');
+  const actionBtn = document.getElementById('stampMilestoneActionBtn');
   if (!title || !wrap || !badge || !icon || !note) return;
+
+  const rewardDrawn = hasCurrentCardReward();
 
   title.textContent = isMilestone ? 'スタンプ10個達成です！' : 'スタンプを取得しました！';
   wrap.classList.toggle('milestone', !!isMilestone);
   badge.style.display = isMilestone ? 'inline-flex' : 'none';
   note.style.display = isMilestone ? 'block' : 'none';
+  note.innerHTML = isMilestone
+    ? (rewardDrawn
+      ? 'おめでとうございます。<br>このカードのガチャ結果は保存済みです。次のスタンプカードを始められます。'
+      : 'おめでとうございます。<br>特典ガチャを回して、ごほうびを受け取ってください。')
+    : 'おめでとうございます。<br>マイページの「特典取得状況」で特典をご確認いただけます。';
   icon.textContent = isMilestone ? '🎉' : '🌿';
   icon.classList.toggle('milestone', !!isMilestone);
+  if (actionBtn) {
+    actionBtn.style.display = isMilestone ? 'block' : 'none';
+    actionBtn.textContent = rewardDrawn ? '🌸 新しいスタンプカードを取得' : '🎯 特典ガチャを回す';
+  }
 }
 
 function sanitizeAppRuntimeConfig(raw) {
@@ -286,7 +341,7 @@ async function postToGAS(payload) {
     let res;
 
     // 画像のアップロードやユーザー情報更新はデータ量が大きいためPOSTで送る
-    if (action === 'updateUser' || action === 'uploadImage' || action === 'askSupportChat' || action === 'syncUserRewardStatus' || action === 'unsubscribePush') {
+    if (action === 'updateUser' || action === 'uploadImage' || action === 'askSupportChat' || action === 'syncUserRewardStatus' || action === 'unsubscribePush' || action === 'drawRewardGacha') {
       res = await fetch(GAS_URL, {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -308,201 +363,6 @@ async function postToGAS(payload) {
     return null;
   }
 }
-
-// ===== 商品データ =====
-
-// 商品画像データ
-const PROD_IMAGES = {
-  tea50: 'img/tea50.jpg',
-  tea30: 'img/tea30.jpg',
-  bath10: 'img/bath10.jpg',
-  bath2: 'img/bath2.jpg',
-  soap: 'img/soap.jpg',
-  pad: 'img/pad.jpg',
-};
-
-const PRODUCTS = [
-  { name: 'よもぎ茶（50パック）', price: 2100, icon: '🍵', bg: 'c1', imgKey: 'tea50', description: '無農薬栽培のよもぎをたっぷり50パック詰めました。毎日の健康維持に。' },
-  { name: 'よもぎ茶（30パック）', price: 1575, icon: '🍵', bg: 'c1', imgKey: 'tea30', description: '持ち運びにも便利な30パック入り。良質なよもぎの香りが楽しめます。' },
-  { name: 'よもぎ入浴剤（10パック）', price: 1540, icon: '🛁', bg: 'c4', imgKey: 'bath10', description: '体の芯から温まるよもぎ入浴剤。10回分のお得なセットです。' },
-  { name: 'よもぎ入浴剤（2パック）', price: 350, icon: '🛁', bg: 'c4', imgKey: 'bath2', description: 'ちょっとしたお試しやプレゼントに最適な2パック入り入浴剤。' },
-  { name: '石鹸（あこがれのきよら）', price: 540, icon: '🧼', bg: 'c2', imgKey: 'soap', description: '天然由来成分にこだわった、お肌に優しい洗顔・全身用石鹸です。' },
-  { name: '冷え取りパット（3枚セット）', price: 2400, icon: '🌸🌸🌸', bg: 'c3', imgKey: 'pad', description: '洗い替えに便利な3枚セット。オーガニックコットン使用で快適です。' },
-  { name: '冷え取りパット（2枚）', price: 1760, icon: '🌸🌸', bg: 'c3', imgKey: 'pad', description: '冷え対策の定番。肌触りの良いパット2枚セットです。' },
-  { name: '冷え取りパット（1枚）', price: 880, icon: '🌸', bg: 'c3', imgKey: 'pad', description: 'まずは試してみたい方に。高品質な国産よもぎ成分を配合。' },
-];
-
-const FALLBACK_BLOG = [
-  { date: '2025.06.15', category: 'お知らせ', type: 'お知らせ', icon: '🌷', title: '夏の産後ヨガ体験会開催のご案内', body: '今年の夏も産後ヨガ体験会を開催いたします。初めての方も大歓迎です。お気軽にご参加ください。' },
-  { date: '2025.06.10', category: 'ブログ', type: 'ブログ', icon: '🍵', title: '授乳期にうれしい！おすすめハーブティー', body: '授乳中のママにぴったりのよもぎ茶をご紹介します。ノンカフェインで体を温める効果があります。' },
-  { date: '2025.06.05', category: '休診情報', type: 'お知らせ', icon: '📅', title: '6月22日（日）は臨時休診となります', body: '誠に恐れ入りますが、6月22日（日）は臨時休診とさせていただきます。ご不便をおかけして申し訳ございません。' },
-  { date: '2025.05.28', category: 'ブログ', type: 'ブログ', icon: '🤱', title: '産後の骨盤ケア、いつから始める？', body: '産後の骨盤は出産の影響でゆるんだ状態。適切なタイミングと方法でケアを始めることが大切です。' },
-];
-
-const SUPPORT_FAQ_FALLBACK = [
-  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日', answer: '画面右下のマイページから「プロフィールを編集」を開き、必要項目を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
-  { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 95 },
-  { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取るとスタンプが追加されます。10個たまると特典対象です。', priority: 90 },
-  { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから通知をオンにできます。オフにしたい場合も同じボタンから切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可もご確認ください。', priority: 85 },
-  { category: 'NEWS', question: '最新のお知らせの見方を知りたい', keywords: 'お知らせ,news,ブログ,新着,通知一覧', answer: '下部メニューの「NEWS」または画面上部の📢ボタンから確認できます。赤いバッジが出ているときは新着があります。', priority: 80 },
-  { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で今月の予定を確認できます。左右の矢印で別の月にも切り替えられます。', priority: 75 },
-];
-
-const SUPPORT_APP_GUIDE = [
-  // --- アプリ全般 ---
-  { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,画面,メニュー,全体', answer: 'このアプリでは、ホームでスタンプQR読み取りやメニュー一覧の確認、ショップで商品注文、カレンダーで予定確認、NEWSでお知らせ確認、マイページでプロフィール・通知設定・注文履歴・スタンプ特典の確認ができます。診療や個別相談は公式LINEをご利用ください。', priority: 120 },
-  { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,ボタン,下部', answer: '画面下部に5つのタブ（🏠ホーム、🛍ショップ、📅カレンダー、💬NEWS、👤マイページ）、画面上部には📢お知らせ一覧・🛒カート・👤マイページ・🔄更新ボタンがあります。右下には💬使い方相談ボタンもあります。', priority: 115 },
-
-  // --- ホーム画面 ---
-  { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,トップ画面,home', answer: 'ホーム画面には、バナー（お名前＆スタンプ数表示）、スタンプ取得（QR読み取り）、現在のスタンプカード、おすすめ商品、最新のお知らせ（3件）、メニュー一覧へのリンク、公式サイト・SNSリンクが表示されています。', priority: 92 },
-  { category: 'ホーム', question: 'ホームの名前を変更したい', keywords: 'ホーム,名前,バナー,表示名,変更', answer: 'マイページの「✏️ プロフィールを編集」からお名前を変更してください。変更後、ホーム画面のバナーにも反映されます。', priority: 88 },
-
-  // --- スタンプカード ---
-  { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院,集め方,取得,読み取り', answer: 'ホーム画面の「📷 カメラを起動して読み取る」ボタンから、院内（受付・待合室）のQRコードを読み取るとスタンプが1つ追加されます。1日1回まで取得可能です。', priority: 91 },
-  { category: 'QR', question: 'QRコードの読み取り方法を知りたい', keywords: 'qr,qrコード,qrcode,カメラ,読み取り,読取,スキャン', answer: 'ホーム画面の「📷 カメラを起動して読み取る」をタップし、カメラ許可を行ってから院内QRコードを読み取ってください。10個達成済みの場合は先に「新しいスタンプカードを取得」してください。', priority: 90 },
-  { category: 'スタンプ', question: 'スタンプは1日何個取得できますか？', keywords: 'スタンプ,1日,回数,制限,何回,何個', answer: 'スタンプの取得は1日1回までです。同じ日に2回目を読み取ろうとすると「本日はすでにスタンプを取得済みです」と表示されます。', priority: 89 },
-  { category: 'スタンプ', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,たまった,満了,完了', answer: 'スタンプが10個に達すると特典の対象になります。マイページの「🎁 特典取得状況」に獲得した特典が表示されます。受け取りは受付にお声がけください。', priority: 88 },
-  { category: 'スタンプ', question: '新しいカードを始めるには？', keywords: '新しいカード,次のカード,リセット,新規カード,カード取得', answer: 'スタンプ10個達成後、ホーム画面のスタンプカード下に表示される「🌸 新しいスタンプカードを取得」ボタンをタップしてください。スタンプが0にリセットされ、新しいカードが始まります。', priority: 87 },
-  { category: 'スタンプ', question: 'スタンプカードの○枚目とは？', keywords: '枚目,カード番号,カード枚数', answer: '何枚目のスタンプカードを使用しているかを示す表示です。カードを新しくするたびにカウントが増えます。', priority: 82 },
-  { category: 'QR', question: 'カメラの許可を求められました', keywords: 'カメラ,許可,アクセス,権限,拒否', answer: 'QRコードの読み取りにカメラへのアクセスが必要です。「許可」をタップしてください。許可しないと読み取りができません。', priority: 85 },
-  { category: 'QR', question: 'QRコードを読み取れません', keywords: 'qr,読み取れない,読めない,スキャンできない,エラー', answer: '以下をご確認ください：①カメラの許可が有効か（端末の設定→アプリの権限）②QRコードに汚れや傷がないか③十分な明るさがあるか④本日分のスタンプを取得済みでないか⑤10個達成済みの場合は先に「新しいスタンプカードを取得」してください。', priority: 84 },
-  { category: 'スタンプ', question: 'スタンプが消えてしまいました', keywords: 'スタンプ,消えた,なくなった,リセット,データ消失', answer: 'スタンプのデータは端末内に保存されています。アプリのデータを削除したり、別の端末に変更するとデータが引き継がれない場合があります。お困りの場合は受付にご相談ください。', priority: 83 },
-
-  // --- スタンプ特典 ---
-  { category: 'スタンプ特典', question: 'スタンプ特典の使い方を知りたい', keywords: '特典,プレゼント,期限,使用する,使用済み,チケット,受取期限', answer: 'スタンプ10個達成で特典対象です。マイページの「🎁 特典取得状況」で確認・使用できます。受取期限は達成日から1か月。「使用する」をタップすると確定され、取り消しはできません。受け取りは受付にお声がけください。', priority: 86 },
-  { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,確認,一覧,獲得', answer: 'マイページの「🎁 特典取得状況」セクションで確認できます。特典名、カード枚数、使用状態が表示されます。', priority: 85 },
-  { category: 'スタンプ特典', question: '特典に有効期限はありますか？', keywords: '特典,有効期限,期限,いつまで', answer: 'はい。スタンプ10個を達成した日から1か月間が受取期限です。マイページの特典一覧に「受取期限：あと○日」と表示されます。', priority: 84 },
-  { category: 'スタンプ特典', question: '特典を元に戻せますか？', keywords: '特典,取り消し,元に戻す,使用取消,キャンセル', answer: 'いいえ。一度「使用する」をタップして確定した特典は取り消しできません。ご注意ください。', priority: 83 },
-
-  // --- ショップ ---
-  { category: 'ショップ', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入,買う,商品', answer: '下部メニューの「🛍ショップ」→商品をタップ→個数を選んで「カートに追加する🛒」→画面右上🛒でカートを開く→内容を確認して「ご注文を確定する」で完了です。', priority: 95 },
-  { category: 'ショップ', question: '商品の詳細情報を見たい', keywords: '商品,詳細,説明,情報,画像', answer: 'ショップ画面で商品をタップすると、商品名・価格・商品説明・商品画像が表示されます。「商品説明をみる」をタップすると詳しい説明が展開されます。', priority: 90 },
-  { category: 'ショップ', question: '受け取り方法は？', keywords: '受け取り,受取方法,配送,宅配,院内', answer: 'すべての商品は院内受け取りです。注文後、ご来院時にスタッフにお声がけください。', priority: 88 },
-  { category: 'ショップ', question: '支払い方法は？', keywords: '支払い,支払方法,決済,クレジット,現金', answer: 'お支払いは現金払いのみです。ご来院時に受付でお支払いください。', priority: 87 },
-
-  // --- カート ---
-  { category: 'カート', question: 'カートの使い方を知りたい', keywords: 'カート,買い物かご,個数,削除,合計,checkout,チェックアウト', answer: 'ショップで商品をカートに追加すると、カート画面（右上🛒）で個数変更（＋/−ボタン）や削除ができます。内容確認後「ご注文を確定する」を押すと院内受け取りの注文になります。', priority: 88 },
-  { category: 'カート', question: 'カートの中身を確認するには？', keywords: 'カート,確認,中身,内容', answer: '画面右上の🛒アイコンをタップしてください。カート内の商品一覧、個数、小計、合計金額（税込）が表示されます。', priority: 86 },
-  { category: 'カート', question: 'カートの個数を変更したい', keywords: 'カート,個数変更,数量,増やす,減らす', answer: 'カート画面で各商品の「＋」「−」ボタンで個数を変更できます。', priority: 85 },
-  { category: 'カート', question: 'カートが空ですと表示されます', keywords: 'カート,空,商品がない,何もない', answer: 'まだ商品が追加されていません。「ショップへ」ボタンをタップしてショップに移動し、商品を選んでカートに追加してください。', priority: 84 },
-
-  // --- 注文履歴 ---
-  { category: '注文履歴', question: '注文履歴の確認方法を知りたい', keywords: '注文履歴,履歴,受取,受け取り,受取完了,注文状況', answer: 'マイページの「📋 ご注文履歴」で確認できます。注文日時・商品名・個数・合計金額・ステータス（受付中・受取完了など）が表示されます。', priority: 87 },
-  { category: '注文履歴', question: '注文をキャンセルしたい', keywords: '注文,キャンセル,取消,取り消し', answer: '受付中の注文はキャンセルできます。注文履歴でキャンセルしたい注文の「キャンセル」ボタンをタップしてください。キャンセル後は履歴から表示されなくなります。', priority: 86 },
-  { category: '注文履歴', question: '注文履歴が表示されません', keywords: '注文履歴,表示されない,出てこない,見えない', answer: 'プロフィールが未登録の場合、注文履歴は表示されません。マイページの「✏️ プロフィールを編集」から登録を完了してください。', priority: 85 },
-
-  // --- カレンダー ---
-  { category: 'カレンダー', question: 'カレンダーの使い方を知りたい', keywords: 'カレンダー,イベント,予定,日程,前月,翌月,今月', answer: '下部メニューの「📅 カレンダー」で予定を確認できます。◀▶で月を切り替え、日付タップでその日の予定を表示。休＝休診日、往＝往診日、イ＝イベント。下部には今月のイベント一覧も表示されます。', priority: 81 },
-  { category: 'カレンダー', question: '別の月のカレンダーを見たい', keywords: 'カレンダー,前月,翌月,月切替,矢印', answer: 'カレンダー上部の◀（前月）・▶（翌月）ボタンで月を切り替えられます。', priority: 79 },
-  { category: 'カレンダー', question: '今月のイベント一覧を見たい', keywords: '今月,イベント一覧,予定一覧,リスト', answer: 'カレンダーページの下部に「📋 今月のイベント一覧」が表示されています。今月のすべてのイベントが日付順に並んでいます。', priority: 78 },
-  { category: 'カレンダー', question: 'カレンダーの休・往・イとは？', keywords: '休,往,イ,マーク,記号,色', answer: '休＝休診日、往＝往診日、イ＝イベントを示します。それぞれ管理者が設定した色で日付に表示されます。', priority: 77 },
-
-  // --- NEWS ---
-  { category: 'NEWS', question: 'NEWSページの使い方を知りたい', keywords: 'news,ニュース,お知らせ,記事,新着,詳細', answer: '下部メニューの「💬 NEWS」ではお知らせを確認できます。記事をタップすると詳細が開き、新着があると下部メニューにバッジ（赤いドット）が表示されます。', priority: 83 },
-  { category: 'NEWS', question: '新着があるか分かりますか？', keywords: 'バッジ,赤い点,ドット,新着,未読', answer: '新着がある場合、下部メニューの「NEWS」「カレンダー」「ショップ」のアイコンに赤いドット（バッジ）が表示されます。該当ページを開くとバッジは消えます。', priority: 82 },
-  { category: 'NEWS', question: 'お知らせのカテゴリはありますか？', keywords: 'カテゴリ,種類,分類,絞り込み', answer: 'お知らせは「お知らせ」「休診情報」「ブログ」「イベント」「商品情報」などのカテゴリに分類されています。NEWSページではカテゴリで絞り込んで表示できます。', priority: 80 },
-  { category: 'ブログ', question: 'ブログや過去のお知らせの見方を知りたい', keywords: 'ブログ,過去,一覧,記事,以前,バックナンバー', answer: 'ブログを含む過去のお知らせは、画面上部の📢ボタンから開く「お知らせ一覧」で日付順に確認できます。', priority: 79 },
-
-  // --- お知らせ一覧 ---
-  { category: 'お知らせ一覧', question: '📢ボタンの機能は何ですか？', keywords: 'お知らせ一覧,通知一覧,拡声器,📢,ヘッダー', answer: '画面上部の📢ボタンは「お知らせ一覧」を開きます。ブログ・お知らせ・カレンダーイベント・Push通知など全ての新着情報をまとめて確認できます。未読があると赤いドットが表示されます。', priority: 78 },
-
-  // --- マイページ ---
-  { category: 'マイページ', question: 'マイページには何がありますか？', keywords: 'マイページ,内容,機能,セクション', answer: 'マイページには以下があります：👤プロフィール（表示・編集）、🎁特典取得状況（スタンプ特典の確認・使用）、🔔通知設定（Push通知のオン/オフ）、🤖使い方サポート（チャットボット）、📋ご注文履歴、🔗公式サイト・SNSリンク。', priority: 82 },
-  { category: 'マイページ', question: '会員IDとは何ですか？', keywords: '会員id,会員番号,memberid,id', answer: 'マイページ上部のバナーに表示される固有の番号です。プロフィール登録時に自動で生成されます。お問い合わせの際にお伝えいただくとスムーズです。', priority: 80 },
-
-  // --- プロフィール ---
-  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回', answer: 'マイページの「✏️ プロフィールを編集」をタップし、お名前（必須）・電話番号・生年月日・住所を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
-  { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,修正', answer: 'マイページの「✏️ プロフィールを編集」から、お名前・電話番号・生年月日・住所・アイコン画像・バナー画像を変更できます。変更後「保存」をタップしてください。会員IDはマイページ上部に表示されます。', priority: 95 },
-  { category: 'プロフィール', question: 'アイコン画像を変更できますか？', keywords: 'アイコン,画像,アバター,写真,バナー', answer: 'はい。プロフィール編集画面からアイコン画像とバナー画像を変更できます。画像を選択するとアップロードされます。', priority: 85 },
-  { category: 'プロフィール', question: 'プロフィール未登録だとどうなりますか？', keywords: 'プロフィール,未登録,登録しない,制限', answer: 'プロフィール未登録でもアプリの閲覧は可能ですが、注文機能が使えない・注文履歴が表示されない・特典の管理が正しく紐づかない場合があります。', priority: 84 },
-
-  // --- 通知 ---
-  { category: '通知', question: '通知を受け取りたい', keywords: '通知,push,プッシュ,オン,受け取る', answer: 'マイページの「🔔 通知設定」セクションのボタンをタップしてオンにしてください。ブログ更新や重要なお知らせが届きます。', priority: 85 },
-  { category: '通知', question: '通知をオフにしたい', keywords: '通知,オフ,止める,解除', answer: 'マイページの通知設定ボタンを再度タップすることでオフに切り替えられます。', priority: 83 },
-  { category: '通知', question: '通知が届きません', keywords: '通知,届かない,来ない,受信できない', answer: '以下をご確認ください：①アプリ内の通知設定がオンになっていますか？②端末の設定でアプリの通知が許可されていますか？（iPhoneの場合：設定→通知→アプリ名→通知を許可）③インターネット接続は安定していますか？', priority: 82 },
-
-  // --- メニュー一覧 ---
-  { category: 'メニュー一覧', question: 'メニュー一覧の見方を知りたい', keywords: 'メニュー,施術,一覧,メニュー一覧', answer: 'ホーム画面の「メニュー一覧を見る🍴」ボタンをタップすると、メニュー一覧ページが開きます。各メニューをタップすると詳細や画像を確認できます。', priority: 84 },
-  { category: 'メニュー一覧', question: 'メニューの予約はアプリからできますか？', keywords: 'メニュー,予約,予約する,申し込み', answer: '現在アプリからの直接予約機能はありません。ご予約は公式LINEからお問い合わせください。ホーム画面またはマイページの公式LINEリンクからアクセスできます。', priority: 83 },
-
-  // --- 外部リンク ---
-  { category: '外部リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'line,ライン,instagram,facebook,ホームページ,公式サイト,sns,問い合わせ,連絡', answer: 'ホーム画面やマイページの「🔗 公式サイト・SNS」から、公式ホームページ（mayumijosanin.com）、Instagram（@mayumijosanin）、Facebook（まゆみ助産院）、公式LINEを開けます。', priority: 77 },
-  { category: '外部リンク', question: '診療の予約や個別相談はどこからできますか？', keywords: '診療,予約,相談,問い合わせ,連絡先', answer: '診療の予約や個別のご相談は公式LINEをご利用ください。ホーム画面またはマイページの公式LINEリンクからアクセスできます。', priority: 76 },
-
-  // --- チャットサポート ---
-  { category: 'チャットサポート', question: 'チャットサポートとは何ですか？', keywords: 'チャット,サポート,使い方相談,ボット,チャットボット', answer: 'アプリの使い方に関する質問にチャット形式で回答するサポート機能です。注文方法、スタンプの集め方、通知設定、プロフィール登録などの操作方法を案内します。', priority: 75 },
-  { category: 'チャットサポート', question: 'チャットサポートの開き方は？', keywords: 'チャット,開く,起動,どこ', answer: '画面右下の「💬 使い方相談」ボタンをタップするか、マイページの「🤖 使い方サポート」セクションの「💬 チャットで相談する」ボタンをタップしてください。', priority: 74 },
-
-  // --- トラブルシューティング ---
-  { category: 'トラブル', question: '画面が正しく表示されません', keywords: '画面,表示,おかしい,崩れ,不具合,バグ', answer: '以下をお試しください：①画面右上の🔄ボタンで情報を再取得②アプリを一度閉じて再起動③インターネット接続を確認。', priority: 73 },
-  { category: 'トラブル', question: 'データの取得に失敗しました', keywords: 'データ取得,失敗,エラー,同期,問題', answer: 'インターネット接続が不安定な可能性があります。Wi-Fiや4G/5G回線が安定している環境で🔄ボタンを押して再度お試しください。一部データの取得に失敗しても、他のデータは正常に更新されます。', priority: 72 },
-  { category: 'トラブル', question: 'バッジ（赤いドット）が消えません', keywords: 'バッジ,赤い点,消えない,ドット', answer: '該当するページ（NEWS、カレンダー、ショップなど）を一度開くとバッジは消えます。消えない場合は🔄ボタンで最新情報を再取得してみてください。', priority: 71 },
-  { category: 'トラブル', question: '注文ができません', keywords: '注文,できない,エラー,購入できない', answer: '以下をご確認ください：①プロフィールは登録済みですか？（マイページ→プロフィールを編集）②カートに商品が入っていますか？③インターネットに接続されていますか？', priority: 70 },
-  { category: 'トラブル', question: 'アプリが重い・遅いです', keywords: 'アプリ,重い,遅い,動かない,フリーズ', answer: '以下をお試しください：①他のアプリを閉じてメモリを開放②端末を再起動③🔄ボタンでアプリを最新版に更新。', priority: 69 },
-  { category: 'トラブル', question: '別の端末でデータを引き継げますか？', keywords: '端末,引き継ぎ,機種変更,データ移行', answer: 'スタンプデータは端末内に保存されているため自動では引き継がれません。プロフィールや注文履歴はサーバーに保存されています。スタンプの移行については受付にご相談ください。', priority: 68 },
-  { category: 'トラブル', question: 'アプリのアップデート方法は？', keywords: 'アップデート,更新,最新版,バージョン', answer: '画面右上の🔄ボタンで最新のプログラムが自動確認されます。更新がある場合は自動的に最新版に切り替わります。', priority: 67 },
-  { category: 'トラブル', question: 'アプリを削除したら復元できますか？', keywords: 'アプリ,削除,アンインストール,復元,再インストール', answer: 'アプリを再インストールするとプロフィールや注文履歴は復元できます。ただし端末に保存されたスタンプデータは削除される場合があります。', priority: 66 },
-
-  // --- その他 ---
-  { category: 'その他', question: 'アプリの対応端末は？', keywords: '対応,端末,iPhone,Android,ブラウザ,Safari', answer: 'iPhone（Safari）での動作を推奨しています。iOS端末向けのネイティブアプリとしてもご利用いただけます。', priority: 65 },
-  { category: 'その他', question: '個人情報の取り扱いについて', keywords: '個人情報,プライバシー,セキュリティ,安全', answer: 'プロフィールに登録いただいた情報は、まゆみ助産院の業務（注文管理・会員管理など）のためにのみ使用されます。第三者への提供は行いません。', priority: 64 }
-];
-
-const SUPPORT_APP_KEYWORDS = [
-  'アプリ', '使い方', 'できること', '機能', '画面', 'ホーム', 'トップ', 'バナー',
-  'スタンプ', 'qr', 'qrコード', 'qrcode', 'カメラ', '読み取り', '来院', '10個', '枚目', '新しいカード',
-  '特典', 'プレゼント', '期限', '使用', 'チケット', '受取期限',
-  'ショップ', '商品', 'カート', '注文', '購入', '買い方', '個数', '受け取り', '院内', '現金', '支払い',
-  '注文履歴', '履歴', 'キャンセル', '注文状況', '受取完了',
-  'メニュー', '施術', '一覧', '予約',
-  'news', 'ニュース', 'お知らせ', '新着', '記事', 'カテゴリ', '絞り込み', '📢',
-  'ブログ', '過去', 'バックナンバー',
-  'カレンダー', 'イベント', '予定', '日程', '前月', '翌月', '休診', '往診', '休', '往', 'イ',
-  'マイページ', '会員', '会員id', 'memberid',
-  'プロフィール', '登録', '変更', '編集', '名前', '電話', '住所', '生年月日', 'アイコン', '画像',
-  '通知', 'push', 'プッシュ', 'オン', 'オフ', '届かない',
-  'line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', '連絡',
-  'チャット', 'サポート', 'ボット', '相談',
-  '更新', 'リロード', '最新', '反映', '🔄',
-  '初回', '初めて', 'はじめて', '始める',
-  '表示されない', 'エラー', '失敗', '重い', '遅い', '引き継ぎ', '機種変更', 'アップデート', '削除', '復元',
-  '端末', 'iPhone', '対応', '個人情報', 'バッジ', '赤い点'
-];
-
-// ===== 状態 =====
-// ===== プロフィール・永続化 =====
-let _profile = null;
-try { _profile = JSON.parse(localStorage.getItem('mayumi_profile') || 'null'); } catch (e) { }
-let CUSTOMER_NAME = _profile ? _profile.name : '';
-let stampCount = 0;
-try { stampCount = parseInt(localStorage.getItem('mayumi_stamp') || '0') || 0; } catch (e) { }
-let stampCardNum = 1;
-try { stampCardNum = parseInt(localStorage.getItem('mayumi_stamp_card') || '1') || 1; } catch (e) { }
-
-let STAMP_REWARD_CONFIG = [];
-let CURRENT_MONTHLY_REWARD = null;
-let EARNED_REWARDS = [];
-try { EARNED_REWARDS = JSON.parse(localStorage.getItem('mayumi_earned_rewards') || '[]'); } catch (e) { }
-let cart = [], orders = [];
-let isOrderSubmitting = false;
-let isCancelSubmitting = false;
-let isReceiptSubmitting = false;
-let selectedPay = null, currentProdIdx = null, modalQty = 1;
-let cancelOrderId = null;
-let receiptSubmittingOrderId = null;
-let blogItems = [];
-let allBlogCategories = [];
-let isDataLoaded = false;
-let supportFaqItems = [];
-let supportChatHistory = [];
-let isSupportChatSending = false;
-try { supportChatHistory = JSON.parse(localStorage.getItem('mayumi_support_chat_history') || '[]'); } catch (e) { }
-let lastSupportTopic = '';
-if (supportChatHistory.length) {
-  try { lastSupportTopic = localStorage.getItem('mayumi_support_chat_topic') || ''; } catch (e) { }
-}
-let activeAppDialogResolver = null;
-let lastSyncedRewardStatus = null;
 
 function getTodayStampKey() {
   const now = new Date();
@@ -543,7 +403,7 @@ function normalizeSingleReward(reward, index) {
   return {
     id: reward && reward.id ? String(reward.id) : `reward-${index + 1}`,
     cardNum: Math.max(1, Number(reward && reward.cardNum) || 1),
-    rewardName: reward && reward.rewardName ? String(reward.rewardName) : 'スタンプ達成特典',
+    rewardName: reward && reward.rewardName ? String(reward.rewardName) : '特典プレゼント',
     earnedDate: earnedDate,
     expiryDate: expiryDate,
     used: reward && reward.used === true,
@@ -556,6 +416,182 @@ function normalizeRewardList(rewards) {
   return rewards.map(function (reward, index) {
     return normalizeSingleReward(reward, index);
   });
+}
+
+function getRewardGachaPrizeMeta(rewardName) {
+  const normalized = String(rewardName || '').trim();
+  const matched = REWARD_GACHA_PRIZE_POOL.find(function (prize) {
+    return prize.rewardName === normalized ||
+      prize.rankLabel === normalized ||
+      (normalized && normalized.indexOf(prize.rankLabel) === 0);
+  });
+  if (matched) {
+    return Object.assign({}, matched);
+  }
+  return {
+    key: 'SPECIAL',
+    rankLabel: 'ごほうび獲得',
+    rewardName: normalized || '特典プレゼント',
+    capsuleColor: '#d9c5a2',
+    accentColor: '#8d6c46',
+    message: '受付でその時の特典をお受け取りください。'
+  };
+}
+
+function getCurrentCardReward(cardNum) {
+  const targetCardNum = Math.max(1, Number(cardNum || stampCardNum) || 1);
+  return normalizeRewardList(EARNED_REWARDS).find(function (reward) {
+    return Math.max(1, Number(reward && reward.cardNum) || 1) === targetCardNum;
+  }) || null;
+}
+
+function hasCurrentCardReward(cardNum) {
+  return !!getCurrentCardReward(cardNum);
+}
+
+function drawRewardGachaWeightedPrize() {
+  const totalWeight = REWARD_GACHA_PRIZE_POOL.reduce(function (sum, prize) {
+    return sum + Math.max(1, Number(prize.weight) || 0);
+  }, 0);
+  let roll = Math.random() * totalWeight;
+  for (let i = 0; i < REWARD_GACHA_PRIZE_POOL.length; i++) {
+    roll -= Math.max(1, Number(REWARD_GACHA_PRIZE_POOL[i].weight) || 0);
+    if (roll < 0) {
+      return Object.assign({}, REWARD_GACHA_PRIZE_POOL[i]);
+    }
+  }
+  return Object.assign({}, REWARD_GACHA_PRIZE_POOL[REWARD_GACHA_PRIZE_POOL.length - 1]);
+}
+
+function buildLocalGachaReward(prizeMeta) {
+  const achievedAt = normalizeRewardDateTime(localStorage.getItem('mayumi_stamp_10_date')) || new Date().toISOString();
+  const expiryDate = new Date(achievedAt);
+  expiryDate.setMonth(expiryDate.getMonth() + 1);
+  return normalizeSingleReward({
+    id: 'reward-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+    cardNum: stampCardNum,
+    rewardName: prizeMeta.rewardName,
+    earnedDate: achievedAt,
+    expiryDate: expiryDate.toISOString(),
+    used: false
+  }, 0);
+}
+
+function renderRewardGachaCapsules(activePrizeKey) {
+  const container = document.getElementById('rewardGachaCapsules');
+  const slotWindow = document.getElementById('rewardGachaSlotWindow');
+  if (!container || !slotWindow) return;
+
+  const capsuleLayout = [
+    { left: '18px', top: '18px', prizeIdx: 0 },
+    { left: '86px', top: '26px', prizeIdx: 1 },
+    { left: '148px', top: '54px', prizeIdx: 2 },
+    { left: '34px', top: '90px', prizeIdx: 3 },
+    { left: '112px', top: '106px', prizeIdx: 1 },
+    { left: '170px', top: '122px', prizeIdx: 2 }
+  ];
+
+  container.innerHTML = capsuleLayout.map(function (capsule) {
+    const prize = REWARD_GACHA_PRIZE_POOL[capsule.prizeIdx % REWARD_GACHA_PRIZE_POOL.length];
+    const isActive = activePrizeKey && prize.key === activePrizeKey;
+    const boxShadow = isActive
+      ? '0 0 0 3px rgba(255,255,255,0.78), 0 12px 20px rgba(176, 121, 27, 0.28)'
+      : 'inset -5px -10px 0 rgba(0, 0, 0, 0.08), inset 6px 8px 0 rgba(255, 255, 255, 0.28), 0 8px 14px rgba(0, 0, 0, 0.1)';
+    return `
+      <div class="capsule" style="left:${capsule.left}; top:${capsule.top}; background:${prize.capsuleColor}; box-shadow:${boxShadow};">
+        <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:${prize.accentColor}; z-index:1;">${prize.rankLabel}</span>
+      </div>
+    `;
+  }).join('');
+
+  const slotPrize = activePrizeKey
+    ? (REWARD_GACHA_PRIZE_POOL.find(function (prize) { return prize.key === activePrizeKey; }) || REWARD_GACHA_PRIZE_POOL[0])
+    : null;
+  slotWindow.textContent = slotPrize ? slotPrize.rankLabel : '???';
+  slotWindow.style.color = slotPrize ? slotPrize.accentColor : '#8f7a61';
+  slotWindow.style.background = slotPrize
+    ? `linear-gradient(180deg, ${slotPrize.capsuleColor}, #fff7ea)`
+    : 'linear-gradient(180deg, #fff8f0, #f7efe5)';
+}
+
+function showRewardGachaResult(prizeMeta, options) {
+  const result = document.getElementById('rewardGachaResult');
+  const badge = document.getElementById('rewardGachaResultBadge');
+  const name = document.getElementById('rewardGachaResultName');
+  const message = document.getElementById('rewardGachaResultMessage');
+  const top = document.getElementById('rewardGachaResultTop');
+  const bottom = document.getElementById('rewardGachaResultBottom');
+  const drawBtn = document.getElementById('rewardGachaDrawBtn');
+  const nextBtn = document.getElementById('rewardGachaNextBtn');
+  const handleBtn = document.getElementById('rewardGachaHandleBtn');
+  const status = document.getElementById('rewardGachaStatus');
+  const machine = document.getElementById('rewardGachaMachine');
+  const prize = getRewardGachaPrizeMeta(prizeMeta && prizeMeta.rewardName ? prizeMeta.rewardName : prizeMeta);
+  const alreadyDrawn = !!(options && options.alreadyDrawn);
+
+  if (result) result.style.display = 'block';
+  if (badge) {
+    badge.textContent = alreadyDrawn ? `${prize.rankLabel} 獲得済み` : `${prize.rankLabel} が当たりました`;
+    badge.style.color = prize.accentColor;
+  }
+  if (name) name.textContent = prize.rewardName;
+  if (message) {
+    message.innerHTML = `${escapeHtml(prize.message)}<br>受け取りの際は受付へ直接お問い合わせください。`;
+  }
+  if (top) top.style.background = `linear-gradient(180deg, #fff7eb, ${prize.capsuleColor})`;
+  if (bottom) bottom.style.background = `linear-gradient(180deg, ${prize.capsuleColor}, ${prize.accentColor})`;
+  if (drawBtn) drawBtn.style.display = 'none';
+  if (nextBtn) nextBtn.style.display = 'block';
+  if (handleBtn) handleBtn.disabled = true;
+  if (status) {
+    status.textContent = alreadyDrawn
+      ? 'このカードのガチャ結果は保存済みです。次のスタンプカードへ進めます。'
+      : 'ガチャ結果を保存しました。次のスタンプカードを始められます。';
+  }
+  if (machine) {
+    machine.classList.remove('rolling');
+    machine.classList.add('result-ready');
+  }
+  renderRewardGachaCapsules(prize.key);
+  lastRewardGachaResult = prize;
+}
+
+function resetRewardGachaModal() {
+  const machine = document.getElementById('rewardGachaMachine');
+  const result = document.getElementById('rewardGachaResult');
+  const drawBtn = document.getElementById('rewardGachaDrawBtn');
+  const nextBtn = document.getElementById('rewardGachaNextBtn');
+  const handleBtn = document.getElementById('rewardGachaHandleBtn');
+  const status = document.getElementById('rewardGachaStatus');
+  const currentReward = getCurrentCardReward();
+
+  if (machine) {
+    machine.classList.remove('rolling', 'result-ready');
+  }
+  if (result) {
+    result.style.display = 'none';
+  }
+  if (drawBtn) {
+    drawBtn.style.display = currentReward ? 'none' : 'block';
+    drawBtn.disabled = false;
+  }
+  if (nextBtn) {
+    nextBtn.style.display = currentReward ? 'block' : 'none';
+  }
+  if (handleBtn) {
+    handleBtn.disabled = !!currentReward;
+  }
+  if (status) {
+    status.textContent = currentReward
+      ? 'このカードのガチャ結果は保存済みです。次のスタンプカードへ進めます。'
+      : 'ハンドルを回して、特典カプセルを受け取ってください。';
+  }
+  renderRewardGachaCapsules(currentReward ? getRewardGachaPrizeMeta(currentReward.rewardName).key : '');
+  if (currentReward) {
+    showRewardGachaResult(currentReward, { alreadyDrawn: true });
+  } else {
+    lastRewardGachaResult = null;
+  }
 }
 
 function getLocalRewardStatus() {
@@ -638,55 +674,20 @@ async function syncRewardStatus(force) {
   return res;
 }
 
-// ===== ブログカテゴリフィルタ同期 =====
-function updateBlogCategoryFilters() {
-  const newsFilter = document.getElementById('newsCategoryFilter');
-  const blogFilter = document.getElementById('blogCategoryFilter');
-  if (!newsFilter || !blogFilter) return;
-
-  // 現在の選択を維持（可能であれば）
-  const currentNewsVal = newsFilter.value;
-  const currentBlogVal = blogFilter.value;
-
-  let newsHtml = '<option value="全て">カテゴリ: 全て</option>';
-  let blogHtml = '<option value="全て">カテゴリ: 全て</option>';
-
-  allBlogCategories.forEach(cat => {
-    const name = typeof cat === 'string' ? cat : (cat.name || '');
-    const type = typeof cat === 'string' ? 'ブログ' : (cat.type || 'ブログ');
-
-    const opt = `<option value="${name}">${name}</option>`;
-    if (type === 'お知らせ') {
-      newsHtml += opt;
-    } else {
-      blogHtml += opt;
-    }
-  });
-
-  newsFilter.innerHTML = newsHtml;
-  blogFilter.innerHTML = blogHtml;
-
-  // 以前の選択を復元（存在する場合）
-  const existsNews = Array.from(newsFilter.options).some(o => o.value === currentNewsVal);
-  if (existsNews) newsFilter.value = currentNewsVal;
-  const existsBlog = Array.from(blogFilter.options).some(o => o.value === currentBlogVal);
-  if (existsBlog) blogFilter.value = currentBlogVal;
-}
-
-// ===== スタンプ =====
 function renderStampGrid(id, count) {
-  const g = document.getElementById(id); g.innerHTML = '';
+  const grid = document.getElementById(id);
+  if (!grid) return;
+  grid.innerHTML = '';
   for (let i = 0; i < 10; i++) {
-    const c = document.createElement('div');
-    c.className = 'stamp-cell ' + (i < count ? 'filled' : 'empty');
-    if (i < count) c.textContent = '🌿';
-    g.appendChild(c);
+    const cell = document.createElement('div');
+    cell.className = 'stamp-cell ' + (i < count ? 'filled' : 'empty');
+    if (i < count) cell.textContent = '🌿';
+    grid.appendChild(cell);
   }
 }
 
 function updateStampUI() {
-  const grid = document.getElementById('homeStampGrid');
-  if (grid) renderStampGrid('homeStampGrid', stampCount);
+  renderStampGrid('homeStampGrid', stampCount);
 
   const rem = Math.max(0, 10 - stampCount);
   const elNum = document.getElementById('homeStampNum');
@@ -694,28 +695,29 @@ function updateStampUI() {
   const elCount = document.getElementById('homeStampCount');
   if (elCount) elCount.textContent = stampCount;
 
-  let msg = rem > 0 ? `あと${rem}回でプレゼント🎁` : '達成済み🎉 新しいカードを取得できます！';
+  const currentReward = getCurrentCardReward();
+  let msg = rem > 0
+    ? `あと${rem}回でプレゼント🎁`
+    : (currentReward
+      ? '達成済み🎉 ガチャ結果を受け取りました。新しいカードを始められます。'
+      : '達成済み🎉 特典ガチャを回せます！');
 
-  // 達成済みの場合は期限を表示
   if (rem === 0) {
-    let achDateStr = localStorage.getItem('mayumi_stamp_10_date');
-    if (achDateStr) {
-      const achDate = new Date(achDateStr);
-      const expDate = new Date(achDate);
-      expDate.setMonth(expDate.getMonth() + 1);
-      const now = new Date();
-      const diffMs = expDate - now;
+    const achievedAt = localStorage.getItem('mayumi_stamp_10_date');
+    if (achievedAt) {
+      const achievedDate = new Date(achievedAt);
+      const expiryDate = new Date(achievedDate);
+      expiryDate.setMonth(expiryDate.getMonth() + 1);
+      const diffMs = expiryDate - new Date();
       const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      if (diffDays > 0) {
-        msg += `<br><span style="font-size:12px; color:var(--danger); font-weight:bold;">受取期限: あと${diffDays}日</span>`;
-      } else {
-        msg += `<br><span style="font-size:12px; color:var(--danger); font-weight:bold;">受取期限: 本日まで</span>`;
-      }
+      msg += diffDays > 0
+        ? `<br><span style="font-size:12px; color:var(--danger); font-weight:bold;">受取期限: あと${diffDays}日</span>`
+        : `<br><span style="font-size:12px; color:var(--danger); font-weight:bold;">受取期限: 本日まで</span>`;
     }
   }
 
   const elMsg = document.getElementById('homeStampMsg');
-  if (elMsg) elMsg.innerHTML = msg; // textContentからinnerHTMLに変更
+  if (elMsg) elMsg.innerHTML = msg;
 
   const cardLabel = document.getElementById('homeStampCardLabel');
   if (cardLabel) cardLabel.textContent = `${stampCardNum}枚目`;
@@ -723,12 +725,16 @@ function updateStampUI() {
   const newCardBtn = document.getElementById('stampNewCardBtn');
   if (newCardBtn) {
     newCardBtn.style.display = stampCount >= 10 ? 'block' : 'none';
+    if (stampCount >= 10) {
+      newCardBtn.textContent = currentReward ? '🌸 新しいスタンプカードを取得' : '🎯 特典ガチャを回す';
+      newCardBtn.onclick = currentReward ? startNewCard : openRewardGachaModal;
+    }
   }
 }
+
 function addStamp() {
-  // 1日1回制限のチェック
   const today = getTodayStampKey();
-  let lastStampDate = null;
+  let lastStampDate = '';
   try {
     lastStampDate = normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date'));
   } catch (e) { }
@@ -737,11 +743,14 @@ function addStamp() {
     showToast('本日はすでにスタンプを取得済みです。来院スタンプは1日1回までです！');
     return;
   }
+  if (stampCount >= 10) {
+    showToast(hasCurrentCardReward() ? '達成済みです。新しいスタンプカードを始めてください。' : '達成済みです。特典ガチャを回してください。');
+    return;
+  }
 
-  if (stampCount >= 10) { showToast('達成済み！特典チケットを使用してください 🎁'); return; }
-  stampCount++;
+  stampCount += 1;
   try {
-    localStorage.setItem('mayumi_stamp', stampCount);
+    localStorage.setItem('mayumi_stamp', String(stampCount));
     localStorage.setItem('mayumi_last_stamp_date', today);
     if (stampCount === 10) {
       localStorage.setItem('mayumi_stamp_10_date', new Date().toISOString());
@@ -755,97 +764,156 @@ function addStamp() {
   }
   updateStampModalPresentation(reachedMilestone);
   document.getElementById('stampPopMsg').textContent = reachedMilestone
-    ? 'ご来院ありがとうございます！10個達成で特典対象になりました。'
+    ? 'ご来院ありがとうございます！10個達成です。特典ガチャを回せます。'
     : 'ご来院ありがとうございます！スタンプを1つ追加しました！';
   document.getElementById('stampPopCount').textContent = `現在 ${stampCount} / 10`;
 
   openModal('stampModal');
   syncRewardStatus();
 }
+
+function handleStampMilestoneAction() {
+  if (hasCurrentCardReward()) {
+    startNewCard();
+    return;
+  }
+  openRewardGachaModal();
+}
+
+function openRewardGachaModal() {
+  if (stampCount < 10) {
+    showToast('スタンプが10個たまると特典ガチャを回せます。');
+    return;
+  }
+  closeModal('stampModal');
+  resetRewardGachaModal();
+  openModal('rewardGachaModal');
+}
+
+async function drawRewardGacha() {
+  if (isRewardGachaDrawing) return;
+  if (stampCount < 10) {
+    showToast('スタンプが10個たまると特典ガチャを回せます。');
+    return;
+  }
+
+  const currentReward = getCurrentCardReward();
+  if (currentReward) {
+    showRewardGachaResult(currentReward, { alreadyDrawn: true });
+    return;
+  }
+
+  const drawBtn = document.getElementById('rewardGachaDrawBtn');
+  const handleBtn = document.getElementById('rewardGachaHandleBtn');
+  const machine = document.getElementById('rewardGachaMachine');
+  const status = document.getElementById('rewardGachaStatus');
+  const startedAt = Date.now();
+
+  isRewardGachaDrawing = true;
+  if (drawBtn) drawBtn.disabled = true;
+  if (handleBtn) handleBtn.disabled = true;
+  if (machine) machine.classList.add('rolling');
+  if (status) status.textContent = 'ガチャを回しています…';
+  renderRewardGachaCapsules();
+
+  try {
+    let res = null;
+    if (_profile && _profile.memberId) {
+      res = await postToGAS({
+        type: 'drawRewardGacha',
+        memberId: _profile.memberId
+      });
+    }
+
+    if (!res || res.status !== 'ok') {
+      const fallbackPrize = drawRewardGachaWeightedPrize();
+      const localReward = buildLocalGachaReward(fallbackPrize);
+      const nextStatus = getComparableRewardStatus({
+        stampCount: stampCount,
+        stampCardNum: stampCardNum,
+        rewards: [localReward].concat(normalizeRewardList(EARNED_REWARDS)),
+        lastStampDate: normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date') || ''),
+        stampAchievedDate: normalizeRewardDateTime(localStorage.getItem('mayumi_stamp_10_date') || '')
+      });
+      applyRewardStatusLocally(nextStatus);
+      lastSyncedRewardStatus = nextStatus;
+      res = {
+        status: 'ok',
+        rewardStatus: nextStatus,
+        drawnReward: Object.assign({}, fallbackPrize)
+      };
+    } else if (res.rewardStatus) {
+      lastSyncedRewardStatus = getComparableRewardStatus(res.rewardStatus);
+      applyRewardStatusLocally(lastSyncedRewardStatus);
+    }
+
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < 1200) {
+      await new Promise(function (resolve) { setTimeout(resolve, 1200 - elapsed); });
+    }
+
+    const drawnReward = (res && res.drawnReward) || getCurrentCardReward();
+    showRewardGachaResult(drawnReward, { alreadyDrawn: !!(res && res.alreadyDrawn) });
+    triggerConfetti();
+  } catch (err) {
+    console.log('drawRewardGacha error:', err);
+    showToast('特典ガチャの取得に失敗しました。通信状況をご確認ください。');
+    if (machine) machine.classList.remove('rolling');
+    if (status) status.textContent = '通信に失敗しました。時間をおいてもう一度お試しください。';
+    if (drawBtn) drawBtn.disabled = false;
+    if (handleBtn) handleBtn.disabled = false;
+  } finally {
+    isRewardGachaDrawing = false;
+  }
+}
+
 async function startNewCard() {
-  // スタンプ達成特典を付与
-  await issueMonthlyReward({ skipSync: true });
+  if (stampCount < 10) {
+    showToast('スタンプが10個たまると新しいカードを開始できます。');
+    return;
+  }
+  if (!hasCurrentCardReward()) {
+    showAppAlert('新しいスタンプカードを始める前に、特典ガチャを回してください。', {
+      title: '特典ガチャのご案内',
+      confirmLabel: '閉じる'
+    });
+    return;
+  }
 
   stampCount = 0;
-  stampCardNum++;
+  stampCardNum += 1;
   try {
-    localStorage.setItem('mayumi_stamp', stampCount);
-    localStorage.setItem('mayumi_stamp_card', stampCardNum);
+    localStorage.setItem('mayumi_stamp', String(stampCount));
+    localStorage.setItem('mayumi_stamp_card', String(stampCardNum));
     localStorage.removeItem('mayumi_stamp_10_date');
   } catch (e) { }
   updateStampUI();
   triggerConfetti();
   closeModal('stampModal');
+  closeModal('rewardGachaModal');
   showToast(`🌸 ${stampCardNum}枚目のスタンプカードを開始しました！`);
   await syncRewardStatus(true);
-}
-
-// TEMPORARY DEMO SCRIPT
-if (window.location.search.includes('demo=true')) {
-  if (!localStorage.getItem('mayumi_stamp_10_date')) {
-    localStorage.setItem('mayumi_stamp', '10');
-    localStorage.setItem('mayumi_stamp_10_date', new Date(Date.now() - 86400000).toISOString());
-    const demoReward = [{
-      id: 99999,
-      cardNum: 1,
-      rewardName: '【検証用】よもぎ茶プレゼント',
-      earnedDate: new Date(Date.now() - 86400000).toISOString(),
-      expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
-      used: false
-    }];
-    localStorage.setItem('mayumi_earned_rewards', JSON.stringify(demoReward));
-  }
-}
-
-async function issueMonthlyReward(options) {
-  const achDateStr = localStorage.getItem('mayumi_stamp_10_date');
-  const earnedDate = achDateStr ? new Date(achDateStr) : new Date();
-
-  const expiryDate = new Date(earnedDate);
-  expiryDate.setMonth(expiryDate.getMonth() + 1);
-
-  const newReward = {
-    id: Date.now() + Math.floor(Math.random() * 1000),
-    cardNum: stampCardNum,
-    rewardName: 'スタンプ達成特典',
-    earnedDate: earnedDate.toISOString(),
-    expiryDate: expiryDate.toISOString(),
-    used: false
-  };
-
-  EARNED_REWARDS.unshift(newReward);
-  try {
-    localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
-    localStorage.removeItem('mayumi_stamp_10_date'); // 発行後は削除
-  } catch (e) { }
-
-  renderEarnedRewards();
-  if (!(options && options.skipSync)) {
-    await syncRewardStatus(true);
-  }
 }
 
 function renderEarnedRewards() {
   const container = document.getElementById('earnedRewardsList');
   if (!container) return;
 
-  if (EARNED_REWARDS.length === 0) {
+  if (!EARNED_REWARDS.length) {
     container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">獲得した特典はありません</div>';
     return;
   }
 
-  let html = '';
   const now = new Date();
-
-  EARNED_REWARDS.forEach(r => {
-    const expiry = new Date(r.expiryDate);
+  let html = '';
+  EARNED_REWARDS.forEach(function (reward) {
+    const expiry = new Date(reward.expiryDate);
     const isExpired = now > expiry;
-
     let statusHtml = '';
     let btnHtml = '';
     let cardStyle = 'background:#fff; border:1px solid var(--primary); opacity:1;';
 
-    if (r.used) {
+    if (reward.used) {
       statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:#e0e0e0; color:#555;">使用済み</span>';
       cardStyle = 'background:#f9f9f9; border:1px solid #ddd; opacity:0.6;';
     } else if (isExpired) {
@@ -853,71 +921,60 @@ function renderEarnedRewards() {
       cardStyle = 'background:#f9f9f9; border:1px solid #ddd; opacity:0.6;';
     } else {
       statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:var(--primary); color:#fff;">🎁 未使用</span>';
-      btnHtml = `<button class="btn primary" style="padding:6px 12px; font-size:12px; margin-top:10px;" onclick='useReward(${JSON.stringify(r.id)})'>使用する</button>`;
+      btnHtml = `<button class="btn primary" style="padding:6px 12px; font-size:12px; margin-top:10px;" onclick='useReward(${JSON.stringify(reward.id)})'>使用する</button>`;
     }
 
-    const earnedStr = new Date(r.earnedDate).toLocaleDateString('ja-JP');
+    const earnedStr = new Date(reward.earnedDate).toLocaleDateString('ja-JP');
     const expiryStr = expiry.toLocaleDateString('ja-JP');
-
+    const rewardTitle = escapeHtml(String(reward.rewardName || '特典プレゼント'));
     let countdownHtml = '';
-    if (!r.used && !isExpired) {
+    if (!reward.used && !isExpired) {
       const diffMs = expiry - now;
       const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      if (diffDays > 0) {
-        countdownHtml = `<div style="font-size:12px; font-weight:bold; color:var(--danger); margin-bottom:8px;">期限まで あと${diffDays}日</div>`;
-      } else {
-        countdownHtml = `<div style="font-size:12px; font-weight:bold; color:var(--danger); margin-bottom:8px;">期限まで 本日まで</div>`;
-      }
+      countdownHtml = diffDays > 0
+        ? `<div style="font-size:12px; font-weight:bold; color:var(--danger); margin-bottom:8px;">期限まで あと${diffDays}日</div>`
+        : `<div style="font-size:12px; font-weight:bold; color:var(--danger); margin-bottom:8px;">期限まで 本日まで</div>`;
     }
 
     html += `
-          <div style="padding:16px; border-radius:16px; margin-bottom:12px; display:flex; flex-direction:column; box-shadow: 0 4px 12px rgba(0,0,0,0.05); ${cardStyle}">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <span style="font-weight:600; font-size:12px; color:var(--text-main); background:rgba(181, 201, 168, 0.2); padding:4px 10px; border-radius:100px;">スタンプ ${r.cardNum}枚目 特典</span>
-              ${statusHtml}
-            </div>
-            <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:10px;">スタンプ達成特典</div>
-            <div style="font-size:13px; color:var(--sage-dark); font-weight:500; line-height:1.5; margin-bottom:12px; padding:10px; background:var(--cream); border-radius:8px;">
-              🎁 <strong>受け取りの際は受付へ直接お問い合わせください。</strong><br>
-              ※ 特典は達成当日から使用できます。<br>
-              ※ 受取期間は特典獲得から1ヶ月で、一度使用すると再度は使用できません。
-            </div>
-            ${countdownHtml}
-            <div style="font-size:12px; color:var(--text-light); line-height:1.5; margin-bottom:12px;">獲得日: ${earnedStr} <br> 有効期限: ${expiryStr}まで</div>
-            ${btnHtml}
-          </div>
-        `;
+      <div style="padding:16px; border-radius:16px; margin-bottom:12px; display:flex; flex-direction:column; box-shadow: 0 4px 12px rgba(0,0,0,0.05); ${cardStyle}">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-weight:600; font-size:12px; color:var(--text-main); background:rgba(181, 201, 168, 0.2); padding:4px 10px; border-radius:100px;">スタンプ ${reward.cardNum}枚目 特典</span>
+          ${statusHtml}
+        </div>
+        <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:10px;">${rewardTitle}</div>
+        <div style="font-size:13px; color:var(--sage-dark); font-weight:500; line-height:1.5; margin-bottom:12px; padding:10px; background:var(--cream); border-radius:8px;">
+          🎁 <strong>受け取りの際は受付へ直接お問い合わせください。</strong><br>
+          ※ 特典は達成当日から使用できます。<br>
+          ※ 受取期間は特典獲得から1ヶ月で、一度使用すると再度は使用できません。
+        </div>
+        ${countdownHtml}
+        <div style="font-size:12px; color:var(--text-light); line-height:1.5; margin-bottom:12px;">獲得日: ${earnedStr} <br> 有効期限: ${expiryStr}まで</div>
+        ${btnHtml}
+      </div>
+    `;
   });
 
   container.innerHTML = html;
 
-  // Update the Mypage navigation badge based on expiring rewards
-  let hasExpiring = false;
-  EARNED_REWARDS.forEach(r => {
-    if (!r.used) {
-      const expiry = new Date(r.expiryDate);
-      if (now <= expiry) {
-        const diffMs = expiry - now;
-        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        if (diffDays <= 7) {
-          hasExpiring = true;
-        }
-      }
-    }
-  });
-
   const badge = document.getElementById('badge-mypage');
   if (badge) {
-    if (hasExpiring) {
-      badge.style.display = 'block';
-    } else {
-      badge.style.display = 'none';
-    }
+    const hasExpiring = EARNED_REWARDS.some(function (reward) {
+      if (reward.used) return false;
+      const expiry = new Date(reward.expiryDate);
+      if (now > expiry) return false;
+      const diffMs = expiry - now;
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      return diffDays <= 7;
+    });
+    badge.style.display = hasExpiring ? 'block' : 'none';
   }
 }
 
 function useReward(id) {
-  const reward = EARNED_REWARDS.find(r => String(r.id) === String(id));
+  const reward = EARNED_REWARDS.find(function (entry) {
+    return String(entry.id) === String(id);
+  });
   if (!reward) return;
 
   if (reward.used) {
@@ -960,265 +1017,209 @@ function useReward(id) {
   });
 }
 
+// ===== 商品データ =====
 
-// ===== カレンダー =====
-let calendarData = [];
-let calendarLoaded = false;
-let currentMonthDate = new Date();
-let selectedDate = new Date();
+const PROD_IMAGES = {
+  tea50: 'img/tea50.jpg',
+  tea30: 'img/tea30.jpg',
+  bath10: 'img/bath10.jpg',
+  bath2: 'img/bath2.jpg',
+  soap: 'img/soap.jpg',
+  pad: 'img/pad.jpg',
+};
 
-// GAS未設定時のフォールバックカレンダーデータ
-function getFallbackCalendarEvents() {
-  const today = new Date();
-  const y = today.getFullYear();
-  const m = String(today.getMonth() + 1).padStart(2, '0');
-  return [
-    { date: `${y}-${m}-15`, title: '📝 産後ヨガ教室', desc: '10:00〜11:30 定員5名様', color: '#f48fb1', image: '' },
-    { date: `${y}-${m}-22`, title: '休診日', desc: '臨時休診となります', color: '#e57373', image: '' },
-    { date: `${y}-${m}-25`, title: '🌿 お灸イベント', desc: 'ご自宅でできるお灸のやり方', color: '#81c784', image: '' }
-  ];
+const PRODUCTS = [
+  { category: 'よもぎ茶', name: 'よもぎ茶（50パック）', price: 2100, icon: '🍵', bg: 'c1', imgKey: 'tea50', description: '無農薬栽培のよもぎをたっぷり50パック詰めました。毎日の健康維持に。' },
+  { category: 'よもぎ茶', name: 'よもぎ茶（30パック）', price: 1575, icon: '🍵', bg: 'c1', imgKey: 'tea30', description: '持ち運びにも便利な30パック入り。良質なよもぎの香りが楽しめます。' },
+  { category: 'よもぎ入浴剤', name: 'よもぎ入浴剤（10パック）', price: 1540, icon: '🛁', bg: 'c4', imgKey: 'bath10', description: '体の芯から温まるよもぎ入浴剤。10回分のお得なセットです。' },
+  { category: 'よもぎ入浴剤', name: 'よもぎ入浴剤（2パック）', price: 350, icon: '🛁', bg: 'c4', imgKey: 'bath2', description: 'ちょっとしたお試しやプレゼントに最適な2パック入り入浴剤。' },
+  { category: '石鹸', name: '石鹸（あこがれのきよら）', price: 540, icon: '🧼', bg: 'c2', imgKey: 'soap', description: '天然由来成分にこだわった、お肌に優しい洗顔・全身用石鹸です。' },
+  { category: '冷え取りパット', name: '冷え取りパット（3枚セット）', price: 2400, icon: '🌸🌸🌸', bg: 'c3', imgKey: 'pad', description: '洗い替えに便利な3枚セット。オーガニックコットン使用で快適です。' },
+  { category: '冷え取りパット', name: '冷え取りパット（2枚）', price: 1760, icon: '🌸🌸', bg: 'c3', imgKey: 'pad', description: '冷え対策の定番。肌触りの良いパット2枚セットです。' },
+  { category: '冷え取りパット', name: '冷え取りパット（1枚）', price: 880, icon: '🌸', bg: 'c3', imgKey: 'pad', description: 'まずは試してみたい方に。高品質な国産よもぎ成分を配合。' },
+];
+
+const FALLBACK_BLOG = [
+  { date: '2025.06.15', category: 'お知らせ', type: 'お知らせ', icon: '🌷', title: '夏の産後ヨガ体験会開催のご案内', body: '今年の夏も産後ヨガ体験会を開催いたします。初めての方も大歓迎です。お気軽にご参加ください。' },
+  { date: '2025.06.10', category: 'ブログ', type: 'ブログ', icon: '🍵', title: '授乳期にうれしい！おすすめハーブティー', body: '授乳中のママにぴったりのよもぎ茶をご紹介します。ノンカフェインで体を温める効果があります。' },
+  { date: '2025.06.05', category: '休診情報', type: 'お知らせ', icon: '📅', title: '6月22日（日）は臨時休診となります', body: '誠に恐れ入りますが、6月22日（日）は臨時休診とさせていただきます。ご不便をおかけして申し訳ございません。' },
+  { date: '2025.05.28', category: 'ブログ', type: 'ブログ', icon: '🤱', title: '産後の骨盤ケア、いつから始める？', body: '産後の骨盤は出産の影響でゆるんだ状態。適切なタイミングと方法でケアを始めることが大切です。' },
+];
+
+/* SUPPORT_FAQ_FALLBACK_START */
+const SUPPORT_FAQ_FALLBACK = [
+  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日', answer: '画面右下のマイページから「プロフィールを編集」を開き、必要項目を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
+  { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 95 },
+  { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取るとスタンプが追加されます。10個たまると特典ガチャを回せます。', priority: 90 },
+  { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから通知をオンにできます。オフにしたい場合も同じボタンから切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可もご確認ください。', priority: 85 },
+  { category: 'NEWS', question: '最新のお知らせの見方を知りたい', keywords: 'お知らせ,news,ブログ,新着,通知一覧', answer: '下部メニューの「NEWS」または画面上部の📢ボタンから確認できます。赤いバッジが出ているときは新着があります。', priority: 80 },
+  { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で今月の予定を確認できます。左右の矢印で別の月にも切り替えられます。', priority: 75 },
+];
+/* SUPPORT_FAQ_FALLBACK_END */
+
+const SUPPORT_APP_GUIDE = [
+  { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,全体', answer: 'このアプリでは、スタンプQRの読み取り、商品注文、カレンダー確認、NEWS確認、プロフィール変更、通知設定、特典取得状況の確認ができます。予約や個別相談は公式LINEをご利用ください。', priority: 120 },
+  { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,下部', answer: '画面下部にはホーム、ショップ、カレンダー、NEWS、マイページがあります。画面上部からはお知らせ一覧、カート、マイページ、更新ボタンも利用できます。', priority: 115 },
+  { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,home,見方', answer: 'ホーム画面では、スタンプカード、QR読み取り、おすすめ商品、最新のお知らせ、メニュー一覧、公式サイト・SNSへのリンクを確認できます。', priority: 100 },
+  { category: 'プロフィール', question: 'プロフィール画像は変えられますか？', keywords: 'プロフィール画像,アイコン,写真,画像,変更', answer: 'はい。マイページの「✏️ プロフィールを編集」からアイコン画像を変更できます。変更後はマイページやホームの表示に反映されます。', priority: 98 },
+  { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,名前,電話,住所', answer: 'マイページの「✏️ プロフィールを編集」を開き、必要な項目を変更して保存してください。', priority: 97 },
+  { category: '通知', question: '通知をオフにしたい', keywords: '通知,オフ,push,プッシュ,解除', answer: 'マイページの「通知設定」でボタンをタップすると通知をオフにできます。端末側の通知設定も必要に応じてご確認ください。', priority: 96 },
+  { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,最新,再読み込み,リロード,refresh', answer: '画面上部の「🔄」ボタンを押すと、最新のお知らせ・商品・カレンダー・FAQ・特典状況などを更新できます。', priority: 95 },
+  { category: '更新', question: 'アップデートが必要と表示されたらどうすればいいですか？', keywords: 'アップデート,更新が必要,app store,最新版', answer: '起動時に「アップデートが必要です」と表示された場合は、案内に従って最新版へ更新してください。軽微な情報更新は「🔄」ボタンで反映できます。', priority: 94 },
+  { category: '予約', question: '予約はアプリからできますか？', keywords: '予約,よやく,line,予約方法', answer: 'このアプリから予約確定はできません。予約や個別相談は公式LINEからご連絡ください。メニュー一覧では内容確認のみできます。', priority: 93 },
+  { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。ガチャ結果はマイページの「🎁 特典取得状況」で確認できます。', priority: 92 }
+];
+
+const SUPPORT_APP_KEYWORDS = [
+  'アプリ', '使い方', 'プロフィール', 'アイコン', '通知', '注文', '履歴', 'スタンプ', '特典',
+  'ガチャ', '予約', 'メニュー', 'カレンダー', 'news', '更新', 'アップデート', '公式line'
+];
+
+function normalizeProductCategory(category) {
+  return String(category || '')
+    .trim()
+    .replace(/[　\\s]+/g, '')
+    .toLowerCase();
 }
 
-async function loadCalendar() {
-  console.log('[カレンダー] データ取得開始...');
-  const data = await getFromGAS('getCalendar');
-  console.log('[カレンダー] GASレスポンス:', JSON.stringify(data));
+function normalizeProductEntry(product, index) {
+  const item = product && typeof product === 'object' ? product : {};
+  return {
+    category: String(item.category || ''),
+    name: String(item.name || ''),
+    price: Number(item.price || 0),
+    icon: String(item.icon || ''),
+    bg: String(item.bg || ['c1', 'c2', 'c3', 'c4'][index % 4] || 'c1'),
+    imgKey: String(item.imgKey || ''),
+    description: String(item.description || '')
+  };
+}
 
-  if (data && data.status === 'ok' && data.events) {
-    // GASから正常にデータ取得 → 常に最新データで上書き（0件でもOK）
-    calendarData = data.events;
-    console.log('[カレンダー] GASからイベント取得:', calendarData.length, '件');
-  } else if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') {
-    // GAS未設定の場合のみフォールバックを使用
-    calendarData = getFallbackCalendarEvents();
-    console.log('[カレンダー] GAS未設定 → フォールバックデータ使用');
-  } else {
-    console.log('[カレンダー] GASからの取得に失敗。レスポンス:', data);
-    // GAS設定済みだがエラーの場合、既存データがなければフォールバック
-    if (calendarData.length === 0) {
-      calendarData = getFallbackCalendarEvents();
-    }
+async function loadProducts() {
+  const data = await getFromGAS('getProducts');
+  if (data && data.status === 'ok' && Array.isArray(data.products) && data.products.length) {
+    PRODUCTS.splice(0, PRODUCTS.length);
+    data.products.forEach(function (product, index) {
+      PRODUCTS.push(normalizeProductEntry(product, index));
+    });
   }
-  calendarLoaded = true;
-  renderCalendar();
+
+  const fixedGridIds = ['grid-recommended', 'grid-tea', 'grid-bath', 'grid-dashi', 'grid-soap-other', 'grid-pad'];
+  fixedGridIds.forEach(function (id) {
+    const node = document.getElementById(id);
+    if (node) node.innerHTML = '';
+  });
+  document.querySelectorAll('.dynamic-cat').forEach(function (node) {
+    node.remove();
+  });
+
+  const keywordMap = [
+    { key: 'よもぎ茶', gridId: 'grid-tea' },
+    { key: 'よもぎ入浴剤', gridId: 'grid-bath' },
+    { key: '入浴剤', gridId: 'grid-bath' },
+    { key: '天然だし調理粉', gridId: 'grid-dashi' },
+    { key: '天然だし調味粉', gridId: 'grid-dashi' },
+    { key: '天然だし', gridId: 'grid-dashi' },
+    { key: 'だし', gridId: 'grid-dashi' },
+    { key: '食品', gridId: 'grid-dashi' },
+    { key: '石鹸', gridId: 'grid-soap-other' },
+    { key: 'せっけん', gridId: 'grid-soap-other' },
+    { key: 'ソープ', gridId: 'grid-soap-other' },
+    { key: '冷え取りパット', gridId: 'grid-pad' },
+    { key: '冷え取りパッド', gridId: 'grid-pad' },
+    { key: '冷え取り', gridId: 'grid-pad' }
+  ].map(function (item) {
+    return {
+      key: normalizeProductCategory(item.key),
+      gridId: item.gridId
+    };
+  });
+
+  const getOrCreateContainer = function (category) {
+    const norm = normalizeProductCategory(category);
+    const match = keywordMap.find(function (item) { return norm.indexOf(item.key) !== -1; });
+    if (match) {
+      return document.getElementById(match.gridId);
+    }
+
+    const dynamicId = 'grid-dynamic-' + encodeURIComponent(norm || String(category || 'other')).replace(/%/g, '');
+    let container = document.getElementById(dynamicId);
+    if (!container) {
+      const shopSection = document.querySelector('#page-shop .main .section');
+      if (!shopSection) return null;
+
+      const label = document.createElement('div');
+      label.className = 'cat-label dynamic-cat';
+      label.style.marginTop = '24px';
+      label.textContent = '📦 ' + (category || 'その他');
+
+      container = document.createElement('div');
+      container.id = dynamicId;
+      container.className = 'shop-grid dynamic-cat';
+
+      shopSection.appendChild(label);
+      shopSection.appendChild(container);
+    }
+    return container;
+  };
+
+  const createProductCard = function (product, index) {
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    card.setAttribute('onclick', `openProductModal(${index})`);
+    const imageSource = (product.icon && (product.icon.startsWith('http') || product.icon.startsWith('data:')))
+      ? product.icon
+      : (PROD_IMAGES[product.imgKey] || `https://placehold.jp/24/c18151/ffffff/150x150.png?text=${encodeURIComponent(product.name)}`);
+    card.innerHTML = `
+      <div class="shop-img ${product.bg}">
+        <img src="${imageSource}" alt="${product.name}">
+      </div>
+      <div class="shop-info">
+        <div class="shop-name">${product.name}</div>
+        <div class="shop-price">¥${Number(product.price || 0).toLocaleString()}<small>（税込）</small></div>
+      </div>
+    `;
+    return card;
+  };
+
+  const recommended = document.getElementById('grid-recommended');
+  if (recommended) {
+    PRODUCTS.slice(0, 4).forEach(function (product, index) {
+      recommended.appendChild(createProductCard(product, index));
+    });
+  }
+
+  PRODUCTS.forEach(function (product, index) {
+    const container = getOrCreateContainer(product.category);
+    if (container) {
+      container.appendChild(createProductCard(product, index));
+    }
+  });
+}
+
+// ===== ブログ =====
+async function loadBlog() {
+  const data = await getFromGAS('getNews');
+  if (data && data.status === 'ok' && data.news) {
+    blogItems = data.news;
+    allBlogCategories = Array.isArray(data.categories) ? data.categories : [];
+  } else {
+    blogItems = FALLBACK_BLOG.slice();
+    allBlogCategories = [];
+  }
+
+  updateBlogCategoryFilters();
+  renderBlogList('homeNewsList', 3, 'お知らせ');
+
+  if (document.getElementById('page-blog').classList.contains('active')) {
+    renderDividedBlogList();
+  }
   if (document.getElementById('page-notices').classList.contains('active')) {
     renderPushNotices();
   }
-  updateNavBadges(); // バッジ更新
+  updateNavBadges();
 }
 
-function renderCalendar() {
-  const year = currentMonthDate.getFullYear();
-  const month = currentMonthDate.getMonth();
-  const mtEl = document.getElementById('calendar-month-year');
-  if (mtEl) mtEl.textContent = `${year}年 ${month + 1}月`;
-
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const firstDayOfWeek = firstDay.getDay();
-
-  const gridInfo = document.getElementById('calendar-grid-info');
-  if (!gridInfo) return;
-
-  let html = '';
-  const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-  dayNames.forEach(d => {
-    html += `<div class="cal-day-name">${d}</div>`;
-  });
-
-  for (let i = 0; i < firstDayOfWeek; i++) {
-    html += `<div class="cal-day empty"></div>`;
-  }
-
-  const today = new Date();
-
-  for (let i = 1; i <= daysInMonth; i++) {
-    const dDate = new Date(year, month, i);
-    const dayOfWeek = dDate.getDay();
-
-    let cls = 'cal-day';
-    if (dayOfWeek === 0) cls += ' sun';
-    if (dayOfWeek === 6) cls += ' sat';
-
-    if (dDate.toDateString() === today.toDateString()) {
-      cls += ' today';
-    }
-    if (dDate.toDateString() === selectedDate.toDateString()) {
-      cls += ' selected';
-    }
-
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-    const evts = calendarData.filter(e => e.date === dateStr);
-    const isHoliday = evts.some(e => e.title.includes('休'));
-    const isOutpatient = evts.some(e => e.title.includes('往'));
-
-    let dotsHtml = '';
-    if (evts.length > 0 && !isHoliday && !isOutpatient) {
-      // ドット（点）から、文字入りの円タグ（休や往と同じ形式）に変更
-      dotsHtml = `<div class="cal-evt-container">` +
-        evts.slice(0, 2).map(e => {
-          const char = 'イ'; // 全てのイベントを一律「イ」で表示
-          return `<div class="cal-evt-tag" style="background:${e.color}">${char}</div>`;
-        }).join('') +
-        `</div>`;
-    }
-
-    let statusTagsHtml = '';
-    if (isHoliday) {
-      statusTagsHtml += '<div class="cal-holiday-tag">休</div>';
-    }
-    if (isOutpatient) {
-      const outEvt = evts.find(e => e.title.includes('往'));
-      const outColor = outEvt ? outEvt.color : '#e57373';
-      statusTagsHtml += `<div class="cal-holiday-tag" style="background:${outColor}">往</div>`;
-    }
-
-    html += `<div class="${cls}" onclick="selectCalendarDate(${year}, ${month}, ${i})">
-           <span>${i}</span>
-           ${statusTagsHtml}
-           ${dotsHtml}
-        </div>`;
-  }
-
-  gridInfo.innerHTML = html;
-  renderEventsList();
-  renderMonthlyEventsList();
-  console.log('[カレンダー] レンダリング完了');
-}
-
-function selectCalendarDate(y, m, d) {
-  selectedDate = new Date(y, m, d);
-  renderCalendar();
-}
-
-function prevMonth() {
-  currentMonthDate.setMonth(currentMonthDate.getMonth() - 1);
-  renderCalendar();
-}
-
-function nextMonth() {
-  currentMonthDate.setMonth(currentMonthDate.getMonth() + 1);
-  renderCalendar();
-}
-
-function renderEventsList() {
-  const el = document.getElementById('calendar-events-list');
-  if (!el) return;
-
-  const y = selectedDate.getFullYear();
-  const m = selectedDate.getMonth() + 1;
-  const d = selectedDate.getDate();
-  const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-  const evts = calendarData.filter(e => e.date === dateStr);
-
-  let html = `<h3>${m}月${d}日(${['日', '月', '火', '水', '木', '金', '土'][selectedDate.getDay()]}) の予定</h3>`;
-
-  if (evts.length === 0) {
-    html += `<div class="no-evts">予定はありません</div>`;
-  } else {
-    evts.forEach(e => {
-      let imgHtml = `
-            <div class="cal-evt-img-box">
-              <div class="cal-evt-img-placeholder" style="background:${e.color}22; color:${e.color}">📅</div>
-            </div>`;
-      if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
-        imgHtml = `
-              <div class="cal-evt-img-box">
-                <img src="${e.image}">
-              </div>`;
-      }
-
-      const originalIdx = calendarData.indexOf(e);
-      html += `
-              <div class="cal-evt-item" onclick="openCalendarEventDetail(${originalIdx})" style="cursor:pointer;">
-                ${imgHtml}
-                <div class="cal-evt-color" style="background:${e.color}"></div>
-                <div class="cal-evt-details">
-                  <div class="cal-evt-title">${e.title}</div>
-                  <div class="cal-evt-desc">${e.desc || ''}</div>
-                </div>
-              </div>
-            `;
-    });
-  }
-  el.innerHTML = html;
-}
-
-function renderMonthlyEventsList() {
-  const el = document.getElementById('calendar-monthly-events-list');
-  if (!el) return;
-
-  const year = currentMonthDate.getFullYear();
-  const month = currentMonthDate.getMonth() + 1;
-  const prefix = `${year}-${String(month).padStart(2, '0')}-`;
-
-  const monthlyEvts = calendarData.filter(e => e.date.startsWith(prefix) && !e.title.includes('休') && !e.title.includes('往'))
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  if (monthlyEvts.length === 0) {
-    el.innerHTML = `<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">今月の予定はありません</div>`;
-    return;
-  }
-
-  let html = '';
-  monthlyEvts.forEach(e => {
-    const d = new Date(e.date);
-    const dayStr = `${d.getMonth() + 1}/${d.getDate()}(${['日', '月', '火', '水', '木', '金', '土'][d.getDay()]})`;
-
-    let imgHtml = `
-          <div class="cal-evt-img-box">
-            <div class="cal-evt-img-placeholder" style="background:${e.color}22; color:${e.color}">📅</div>
-          </div>`;
-    if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
-      imgHtml = `
-            <div class="cal-evt-img-box">
-              <img src="${e.image}">
-            </div>`;
-    }
-
-    const originalIdx = calendarData.indexOf(e);
-    html += `
-          <div class="cal-evt-item" onclick="selectCalendarDate(${d.getFullYear()}, ${d.getMonth()}, ${d.getDate()}); openCalendarEventDetail(${originalIdx})" style="cursor:pointer;">
-            <div class="cal-evt-date">${dayStr}</div>
-            ${imgHtml}
-            <div class="cal-evt-color" style="background:${e.color}"></div>
-            <div class="cal-evt-details">
-              <div class="cal-evt-title">${e.title}</div>
-              <div class="cal-evt-desc">${e.desc || ''}</div>
-            </div>
-          </div>
-        `;
-  });
-  el.innerHTML = html;
-}
-
-function openCalendarEventDetail(idx) {
-  const e = calendarData[idx];
-  if (!e) return;
-
-  let imageHtml = '';
-  if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
-    imageHtml = `<div style="margin-bottom:20px; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);"><img src="${e.image}" style="width:100%; height:auto; display:block;" alt="Event Image"></div>`;
-  }
-
-  const formattedDesc = (e.desc || '').replace(/\n/g, '<br>');
-  const d = new Date(e.date);
-  const dateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${['日', '月', '火', '水', '木', '金', '土'][d.getDay()]})`;
-
-  document.getElementById('calendarEventDetailContent').innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <span class="blog-detail-cat" style="background:${e.color}22; color:${e.color};">予定</span>
-          <span style="font-size:13px; color:var(--text-light); font-weight:bold;">${dateStr}</span>
-        </div>
-        <div class="blog-detail-title" style="margin-bottom:16px;">${e.title}</div>
-        ${imageHtml}
-        <div class="blog-detail-body" style="font-size:15px; line-height:1.8; color:var(--text-main);">${formattedDesc}</div>
-      `;
-  openModal('calendarEventDetailModal');
-}
-
-// ===== スタンプ特典設定 =====
 async function loadCurrentMonthlyReward() {
   CURRENT_MONTHLY_REWARD = null;
   STAMP_REWARD_CONFIG = [];
@@ -1255,288 +1256,106 @@ function renderSurveys() {
   return;
 }
 
-// ===== ブログ =====
-// GASの getBlogNews レスポンス: { status:'ok', news:[{date,title,category,icon,body}] }
-async function loadBlog() {
-  const data = await getFromGAS('getNews');
-  const containerNews = document.getElementById('homeNewsList');
-  const containerBlog = document.getElementById('homeBlogList');
+function renderCalendarEventLists() {
+  const dailyList = document.getElementById('calendar-events-list');
+  const monthlyList = document.getElementById('calendar-monthly-events-list');
+  if (!dailyList || !monthlyList) return;
 
-  if (data && data.status === 'ok' && data.news) {
-    const categories = data.categories || [];
-    allBlogCategories = categories;
-    updateBlogCategoryFilters();
+  const selectedKey = selectedDate.toISOString().slice(0, 10);
+  const selectedEvents = calendarData.filter(function (event) {
+    return String(event.date || '') === selectedKey;
+  });
+  const monthYear = currentMonthDate.getFullYear() + '-' + String(currentMonthDate.getMonth() + 1).padStart(2, '0');
+  const monthlyEvents = calendarData.filter(function (event) {
+    return String(event.date || '').slice(0, 7) === monthYear;
+  });
 
-    blogItems = data.news.map(item => {
-      const catObj = categories.find(c => c.name === item.category) || {};
-      // 管理画面と同様の推論ロジックで分類(type)を補完
-      item.type = catObj.type || (item.category === 'お知らせ' ? 'お知らせ' : (item.category === '休診情報' ? 'お知らせ' : 'ブログ'));
-      return item;
-    });
+  dailyList.innerHTML = selectedEvents.length
+    ? selectedEvents.map(function (event, index) {
+      return `<div class="cal-evt-item" onclick="openCalendarEventDetail(${calendarData.indexOf(event)})"><div class="cal-evt-title">${event.title || ''}</div><div class="cal-evt-desc">${event.desc || ''}</div></div>`;
+    }).join('')
+    : '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:20px 0">この日の予定はありません</div>';
+
+  monthlyList.innerHTML = monthlyEvents.length
+    ? monthlyEvents.map(function (event) {
+      return `<div class="cal-evt-item" onclick="openCalendarEventDetail(${calendarData.indexOf(event)})"><div class="cal-evt-date">${event.date || ''}</div><div class="cal-evt-title">${event.title || ''}</div><div class="cal-evt-desc">${event.desc || ''}</div></div>`;
+    }).join('')
+    : '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:20px 0">今月の予定はありません</div>';
+}
+
+function renderCalendar() {
+  const monthYear = document.getElementById('calendar-month-year');
+  const grid = document.getElementById('calendar-grid-info');
+  if (!monthYear || !grid) return;
+
+  monthYear.textContent = `${currentMonthDate.getFullYear()}年${currentMonthDate.getMonth() + 1}月`;
+  const firstDay = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth(), 1);
+  const startWeekday = firstDay.getDay();
+  const daysInMonth = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1, 0).getDate();
+  const weekdayLabels = ['日', '月', '火', '水', '木', '金', '土'];
+
+  let html = weekdayLabels.map(function (label) {
+    return `<div class="calendar-cell heading">${label}</div>`;
+  }).join('');
+
+  for (let i = 0; i < startWeekday; i++) {
+    html += '<div class="calendar-cell muted"></div>';
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateKey = `${currentMonthDate.getFullYear()}-${String(currentMonthDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const hasEvent = calendarData.some(function (event) { return String(event.date || '') === dateKey; });
+    const isSelected = selectedDate.getFullYear() === currentMonthDate.getFullYear() &&
+      selectedDate.getMonth() === currentMonthDate.getMonth() &&
+      selectedDate.getDate() === day;
+    html += `<button class="calendar-cell day${hasEvent ? ' has-event' : ''}${isSelected ? ' active' : ''}" onclick="selectCalendarDate(${currentMonthDate.getFullYear()}, ${currentMonthDate.getMonth()}, ${day})">${day}</button>`;
+  }
+
+  grid.innerHTML = html;
+  renderCalendarEventLists();
+}
+
+function selectCalendarDate(year, month, day) {
+  selectedDate = new Date(year, month, day);
+  currentMonthDate = new Date(year, month, 1);
+  renderCalendar();
+}
+
+function prevMonth() {
+  currentMonthDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() - 1, 1);
+  selectedDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth(), 1);
+  renderCalendar();
+}
+
+function nextMonth() {
+  currentMonthDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1, 1);
+  selectedDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth(), 1);
+  renderCalendar();
+}
+
+function openCalendarEventDetail(idx) {
+  const event = calendarData[idx];
+  if (!event) return;
+  const detail = document.getElementById('calendarEventDetailContent');
+  if (!detail) return;
+  detail.innerHTML = `
+    <div class="blog-detail-title" style="margin-bottom:12px;">${event.title || ''}</div>
+    <div class="blog-detail-body" style="font-size:14px; line-height:1.8; color:var(--text-main);">
+      <div style="margin-bottom:8px; color:var(--text-light);">${event.date || ''}</div>
+      <div>${(event.desc || '').replace(/\n/g, '<br>')}</div>
+    </div>
+  `;
+  openModal('calendarEventDetailModal');
+}
+
+async function loadCalendar() {
+  const data = await getFromGAS('getCalendar');
+  if (data && data.status === 'ok' && Array.isArray(data.events)) {
+    calendarData = data.events;
   } else {
-    // エラー時や取得不能時は空にする（または必要に応じてフォールバックを表示するが、ユーザーの要望により管理画面の内容を優先）
-    blogItems = [];
-    allBlogCategories = [
-      { name: 'お知らせ', type: 'お知らせ' },
-      { name: '休診情報', type: 'お知らせ' },
-      { name: 'ブログ', type: 'ブログ' }
-    ];
-    updateBlogCategoryFilters();
+    calendarData = [];
   }
-
-  renderBlogList('homeNewsList', 3, 'お知らせ');
-
-  if (document.getElementById('page-blog').classList.contains('active')) {
-    renderDividedBlogList();
-  }
-  if (document.getElementById('page-notices').classList.contains('active')) {
-    renderPushNotices();
-  }
-  updateNavBadges(); // バッジ更新
-}
-
-// ===== お知らせ (Push通知代替) =====
-let pushNotices = [];
-async function loadPushNotices() {
-  const data = await getFromGAS('getPushNotices');
-  if (data && data.status === 'ok' && data.notices) {
-    pushNotices = data.notices;
-    checkNewPushNotice();
-    if (document.getElementById('page-notices').classList.contains('active')) {
-      renderPushNotices();
-    }
-  }
-  updateNavBadges();
-}
-
-function renderPushNotices() {
-  const list = document.getElementById('noticeList');
-  if (!list) return;
-
-  // --- 全データソースを統合 ---
-  const items = [];
-
-  // 1) Push通知 (GAS)
-  pushNotices.forEach(n => {
-    const body = n.body || '';
-    items.push({
-      ts: n.date,          // タイムスタンプ (ms)
-      type: 'notice',
-      icon: '📢',
-      label: 'お知らせ',
-      title: n.title,
-      body: body.length > 60 ? body.substring(0, 60) + '...' : body
-    });
-  });
-
-  // 2) ブログ (date: 'YYYY.MM.DD')
-  blogItems.forEach(b => {
-    const parts = (b.date || '').split('.');
-    const ts = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]).getTime() : 0;
-    items.push({
-      ts,
-      type: 'blog',
-      icon: '📝',
-      label: b.category || 'ブログ',
-      title: b.title,
-      body: b.body ? b.body.substring(0, 60) + (b.body.length > 60 ? '...' : '') : ''
-    });
-  });
-
-  // 3) カレンダー (date: 'YYYY-MM-DD')
-  calendarData.forEach(e => {
-    if (e.title && (e.title.includes('休') || e.title.includes('往'))) return; // 休診や往診はお知らせから除外
-    const ts = e.date ? new Date(e.date).getTime() : 0;
-    const body = e.desc || '';
-    items.push({
-      ts,
-      type: 'calendar',
-      icon: '📅',
-      label: 'カレンダー',
-      title: e.title,
-      body: body.length > 60 ? body.substring(0, 60) + '...' : body
-    });
-  });
-
-  // --- 日付の新しい順にソート ---
-  items.sort((a, b) => b.ts - a.ts);
-
-  // --- 最大30件に制限 ---
-  const displayItems = items.slice(0, 30);
-
-  if (displayItems.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light);">現在お知らせはありません。</div>';
-    return;
-  }
-
-  // --- 描画 ---
-  let html = '';
-  displayItems.forEach(item => {
-    let dateStr = '';
-    if (item.ts > 0) {
-      const d = new Date(item.ts);
-      dateStr = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
-    }
-    const labelColors = {
-      notice: '#c05621',
-      blog: '#2f7a4d',
-      calendar: '#1565c0',
-      product: '#6a1b9a'
-    };
-    const color = labelColors[item.type] || 'var(--sage-dark)';
-    html += `
-          <div class="blog-card" style="padding:16px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:12px; font-weight:700; color:${color}; background:${color}18; border-radius:12px; padding:2px 10px;">${item.icon} ${item.label}</span>
-              ${dateStr ? `<span style="font-size:11px; color:var(--text-light); margin-left:auto;">${dateStr}</span>` : ''}
-            </div>
-            <div style="font-size:15px; font-weight:700; color:var(--text-dark); margin-bottom:4px;">${item.title}</div>
-            ${item.body ? `<div style="font-size:13px; color:var(--text-mid); line-height:1.6;">${item.body}</div>` : ''}
-          </div>
-        `;
-  });
-  list.innerHTML = html;
-}
-
-function checkNewPushNotice() {
-  if (pushNotices.length === 0) return;
-  const latest = pushNotices[0];
-  const lastSeenTime = Number(localStorage.getItem('last_seen_push_time') || 0);
-  const lastNotifiedTime = Number(localStorage.getItem('last_notified_push_time') || 0);
-
-  if (latest.date > lastSeenTime && latest.date > lastNotifiedTime) {
-    localStorage.setItem('last_notified_push_time', latest.date.toString());
-    if (Notification.permission === 'granted') {
-      try {
-        const n = new Notification(latest.title, {
-          body: latest.body,
-          icon: './icon.png'
-        });
-        n.onclick = () => { window.focus(); };
-      } catch (e) { console.error("Notification error:", e); }
-    }
-    showToast('🔔 新しいお知らせ：' + latest.title);
-  }
-}
-
-// ===== 商品マスタ動的取得 =====
-async function loadProducts() {
-  const data = await getFromGAS('getProducts');
-  if (data && data.status === 'ok' && data.products && data.products.length > 0) {
-    const imgKeyMap = {};
-    PRODUCTS.forEach(p => { imgKeyMap[p.name] = p.imgKey; });
-
-    const updated = data.products.map(p => ({
-      name: p.name,
-      price: p.price,
-      category: p.category,
-      icon: p.icon || '🌿',
-      bg: p.bg || 'c1',
-      description: p.description || '',
-      descriptionImage: p.descriptionImage || '',
-      imgKey: imgKeyMap[p.name] || 'default'
-    }));
-    PRODUCTS.splice(0, PRODUCTS.length, ...updated);
-
-    if (document.getElementById('page-notices').classList.contains('active')) {
-      renderPushNotices();
-    }
-
-    const gridIds = ['grid-recommended', 'grid-tea', 'grid-bath', 'grid-dashi', 'grid-soap-other', 'grid-pad'];
-    gridIds.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = '';
-    });
-
-    // 動的に追加された要素（見出し・グリッド）を削除して再描画に備える
-    const dynamicElements = document.querySelectorAll('.dynamic-cat');
-    dynamicElements.forEach(el => el.remove());
-
-    const normalizeProductCategory = (value) => String(value || '')
-      .replace(/\u3000/g, ' ')
-      .trim()
-      .replace(/\s+/g, '');
-
-    // キーワードによる既存グリッドへのマッピング
-    const keywordMap = [
-      { key: '茶', gridId: 'grid-tea' },
-      { key: '入浴', gridId: 'grid-bath' },
-      { key: 'だし', gridId: 'grid-dashi' },
-      { key: '調味', gridId: 'grid-dashi' },
-      { key: '調理', gridId: 'grid-dashi' },
-      { key: '食品', gridId: 'grid-dashi' },
-      { key: '石鹸', gridId: 'grid-soap-other' },
-      { key: 'パット', gridId: 'grid-pad' }
-    ];
-
-    const getOrCreateContainer = (category) => {
-      const norm = normalizeProductCategory(category);
-
-      // 1. キーワードマッチングを試行
-      const match = keywordMap.find(item => norm.includes(item.key));
-      if (match) {
-        const el = document.getElementById(match.gridId);
-        if (el) return el;
-      }
-
-      // 2. マッチしない場合は動的にセクションを作成
-      const dynamicId = 'grid-dynamic-' + encodeURIComponent(norm).replace(/%/g, '');
-      let container = document.getElementById(dynamicId);
-
-      if (!container) {
-        const shopSection = document.querySelector('#page-shop .main .section');
-        if (!shopSection) return null;
-
-        // ラベル（見出し）作成
-        const label = document.createElement('div');
-        label.className = 'cat-label dynamic-cat';
-        label.style.marginTop = '24px';
-        label.innerHTML = `📦 ${category}`;
-
-        // グリッド作成
-        container = document.createElement('div');
-        container.id = dynamicId;
-        container.className = 'shop-grid dynamic-cat';
-
-        shopSection.appendChild(label);
-        shopSection.appendChild(container);
-      }
-      return container;
-    };
-
-    const createProductCard = (p, idx) => {
-      const card = document.createElement('div');
-      card.className = 'shop-card';
-      card.setAttribute('onclick', `openProductModal(${idx})`);
-      let imgSrc = (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) ? p.icon : (PROD_IMAGES[p.imgKey] || `https://placehold.jp/24/c18151/ffffff/150x150.png?text=${encodeURIComponent(p.name)}`);
-      card.innerHTML = `
-            <div class="shop-img ${p.bg}">
-              <img src="${imgSrc}" alt="${p.name}">
-            </div>
-            <div class="shop-info">
-              <div class="shop-name">${p.name}</div>
-              <div class="shop-price">¥${p.price.toLocaleString()}<small>（税込）</small></div>
-            </div>
-          `;
-      return card;
-    };
-
-    // おすすめ商品の表示（先頭4つ固定）
-    const recContainer = document.getElementById('grid-recommended');
-    if (recContainer) {
-      PRODUCTS.slice(0, 4).forEach((p, idx) => { recContainer.appendChild(createProductCard(p, idx)); });
-    }
-
-    // 商品を各カテゴリコンテナに配置
-    PRODUCTS.forEach((p, idx) => {
-      const container = getOrCreateContainer(p.category);
-      if (container) {
-        container.appendChild(createProductCard(p, idx));
-      } else {
-        console.warn('Unknown product category location:', p.category, p.name);
-      }
-    });
-  }
+  renderCalendar();
 }
 
 // ===== お知らせ一覧用 統合ハッシュ =====
@@ -1812,7 +1631,7 @@ function renderCart() {
 
     let subtotal = p.price * c.qty;
     let priceNote = `¥${(p.price * c.qty).toLocaleString()}`;
-    if (p.name === '天然だし調味粉') {
+    if (isDashiProductName(p.name)) {
       const pricing = calculateDashiPricing(c.qty);
       subtotal = pricing.totalRevenue;
       if (c.qty > 1) {
@@ -1861,7 +1680,7 @@ async function finalizeOrder(payLabel) {
   const cartSnapshot = cart.map(c => ({ idx: c.idx, qty: c.qty }));
   const total = cartSnapshot.reduce((sum, c) => {
     const prod = PRODUCTS[c.idx];
-    if (prod.name === '天然だし調味粉') {
+    if (isDashiProductName(prod.name)) {
       return sum + calculateDashiPricing(c.qty).totalRevenue;
     }
     return sum + (prod.price * c.qty);
@@ -1886,7 +1705,7 @@ async function finalizeOrder(payLabel) {
       items: order.items.map(c => {
         const prod = PRODUCTS[c.idx];
         let effectivePrice = prod.price;
-        if (prod.name === '天然だし調味粉') {
+        if (isDashiProductName(prod.name)) {
           effectivePrice = calculateDashiPricing(c.qty).avgUnitPrice;
         }
         return {
@@ -2841,9 +2660,9 @@ function getFeatureSupportReply(messageNorm) {
         topic,
         [
           '新しいスタンプカードの始め方です。',
-          '1. スタンプが10個たまると、ホーム画面に「🌸 新しいスタンプカードを取得」が表示されます。',
-          '2. そのボタンを押すと次のカードが始まります。',
-          '3. 新しいカード開始後はスタンプが0個に戻り、カード番号が1つ進みます。'
+          '1. スタンプが10個たまると、ホーム画面に「🎯 特典ガチャを回す」が表示されます。',
+          '2. 特典ガチャを回すと、「🌸 新しいスタンプカードを取得」が表示されます。',
+          '3. そのボタンを押すと次のカードが始まり、スタンプが0個に戻ってカード番号が1つ進みます。'
         ],
         ['スタンプが10個たまったらどうなりますか？', 'スタンプ特典の使い方を知りたい']
       );
@@ -2857,7 +2676,7 @@ function getFeatureSupportReply(messageNorm) {
             '1. カメラ権限が許可されているか。',
             '2. QRコードに汚れや傷がないか。',
             '3. その日のスタンプをすでに取得していないか。',
-            '4. 10個達成済みなら先に「新しいスタンプカードを取得」してください。'
+            '4. 10個達成済みなら先に特典ガチャを回し、その後に新しいカードを始めてください。'
           ]
           : [
             'スタンプ取得の手順です。',
@@ -2873,9 +2692,9 @@ function getFeatureSupportReply(messageNorm) {
       return buildFeatureSupportReply(
         topic,
         [
-          'スタンプが10個たまると特典対象になります。',
-          'マイページの「🎁 特典取得状況」で確認できます。',
-          'その後、ホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。'
+          'スタンプが10個たまるとホーム画面から特典ガチャを回せます。',
+          'ガチャ結果はマイページの「🎁 特典取得状況」で確認できます。',
+          'ガチャ後は、ホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。'
         ],
         ['スタンプ特典の使い方を知りたい', '新しいカードを始めるには？']
       );
@@ -2887,7 +2706,7 @@ function getFeatureSupportReply(messageNorm) {
         '1. スタンプはホーム画面で確認します。',
         '2. 院内QRコードを読むと1日1回まで追加されます。',
         `3. 現在のカードは${stampCardNum}枚目、スタンプは${stampCount}個です。`,
-        '4. 10個たまると特典対象になります。'
+        '4. 10個たまると特典ガチャを回せます。'
       ],
       ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
     );
@@ -2919,7 +2738,7 @@ function getFeatureSupportReply(messageNorm) {
           ]
           : [
             '現在、未使用の特典はありません。',
-            'スタンプが10個たまると特典対象になり、マイページに表示されます。'
+            'スタンプが10個たまると特典ガチャを回せるようになり、結果がマイページに表示されます。'
           ],
         ['特典はどこで確認できますか？', 'スタンプの集め方を知りたい']
       );
@@ -3039,11 +2858,13 @@ function getSupportStatusReply(messageNorm) {
       stampCount >= 10
         ? [
           `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。10個達成済みです。`,
-          '次の流れ: 1. マイページの「特典取得状況」を確認 2. 必要なら特典を使用 3. ホームの「新しいスタンプカードを取得」で次のカードを開始してください。',
+          hasCurrentCardReward()
+            ? '次の流れ: 1. マイページの「特典取得状況」を確認 2. 必要なら特典を使用 3. ホームの「新しいスタンプカードを取得」で次のカードを開始してください。'
+            : '次の流れ: 1. ホームの「特典ガチャを回す」でごほうびを受け取る 2. マイページの「特典取得状況」で確認 3. ガチャ後に「新しいスタンプカードを取得」で次のカードを開始してください。',
           '補足: 来院スタンプは1日1回までです。'
         ]
         : [
-          `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。あと${remain}個で特典対象です。`,
+          `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。あと${remain}個で特典ガチャを回せます。`,
           '追加方法: ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取ってください。',
           '補足: 来院スタンプは1日1回までです。'
         ],
@@ -3323,8 +3144,9 @@ function getBuiltInSupportReply(messageNorm) {
     return buildSupportReply(
       [
         '新しいスタンプカードの始め方です。',
-        '1. スタンプが10個たまると、ホームに「新しいスタンプカードを取得」ボタンが表示されます。',
-        '2. ボタンを押すと特典を付与したうえで、次のスタンプカードが始まります。'
+        '1. スタンプが10個たまると、ホームに「特典ガチャを回す」ボタンが表示されます。',
+        '2. 特典ガチャを回すと、「新しいスタンプカードを取得」ボタンが表示されます。',
+        '3. そのボタンを押すと次のスタンプカードが始まります。'
       ],
       ['スタンプ特典の使い方を知りたい', 'スタンプの集め方を知りたい']
     );
@@ -3370,8 +3192,8 @@ function getBuiltInSupportReply(messageNorm) {
         'スタンプ機能のご案内です。',
         '1. スタンプはホーム画面で管理します。',
         '2. 院内QRコードを読むと1日1回まで追加されます。',
-        '3. 10個たまると特典対象です。',
-        '4. 達成後はマイページで特典を確認できます。'
+        '3. 10個たまると特典ガチャを回せます。',
+        '4. ガチャ結果はマイページで確認できます。'
       ],
       ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
     );
@@ -4761,32 +4583,31 @@ function openMenuDetail(idx) {
 /**
  * 「天然だし調味粉」専用の価格計算ロジック (アプリ用)
  */
+function isDashiProductName(name) {
+  const text = String(name || '').trim();
+  return text === '天然だし調味粉' || text === '天然だし調理粉';
+}
+
 function calculateDashiPricing(qty) {
-  const basePrice = 2980; // 定価 (変更: 2380 -> 2980)
+  const count = Math.max(0, Number(qty) || 0);
+  if (count <= 0) return { totalRevenue: 0, avgUnitPrice: 2980 };
+
   let totalRevenue = 0;
-
-  if (qty <= 0) return { totalRevenue: 0, avgUnitPrice: basePrice };
-
-  if (qty === 1) {
-    // 1袋購入→20%OFF (NEW)
-    totalRevenue = basePrice * 0.8;
-  } else if (qty === 2) {
-    // 2袋購入→全て20％📴
-    totalRevenue = (basePrice * 0.8) * 2;
-  } else if (qty === 3) {
-    totalRevenue = (basePrice * 0.8 * 2) + (basePrice * 0.75);
-  } else if (qty === 4) {
-    totalRevenue = (basePrice * 0.8 * 3) + (basePrice * 0.70);
-  } else if (qty === 5) {
-    totalRevenue = (basePrice * 0.8 * 4) + (basePrice * 0.65);
+  if (count <= 2) {
+    totalRevenue = 2380 * count;
+  } else if (count === 3) {
+    totalRevenue = (2380 * 2) + 2235;
+  } else if (count === 4) {
+    totalRevenue = (2380 * 3) + 2086;
+  } else if (count === 5) {
+    totalRevenue = (2380 * 4) + 1937;
   } else {
-    totalRevenue = (basePrice * 0.75) * qty;
+    totalRevenue = 2235 * count;
   }
 
-  const roundedTotal = Math.floor(totalRevenue);
   return {
-    totalRevenue: roundedTotal,
-    avgUnitPrice: roundedTotal / qty
+    totalRevenue: totalRevenue,
+    avgUnitPrice: totalRevenue / count
   };
 }
 
