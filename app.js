@@ -1,876 +1,876 @@
-    // ===== GAS設定 =====
-    // ↓ GASウェブアプリURLをここに貼り付け ↓
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwatugi80oSd8Va_1OdKUsAB7pLj3iYfjei-PUOBrzABHALxOVZJYY3vBR4x1C5zlqQ/exec';
-    const CURRENT_WEB_BUNDLE_VERSION = '2026.03.31.4';
-    const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
-    const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
-      latestAppVersion: '1.1.0',
-      minimumSupportedVersion: '0.0.0',
-      iosStoreUrl: '',
-      updateTitle: 'アップデートが必要です',
-      updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
-      webBundleVersion: CURRENT_WEB_BUNDLE_VERSION
-    });
-    let currentAppRuntimeConfig = { ...DEFAULT_APP_RUNTIME_CONFIG };
-    let currentInstalledAppInfo = { version: '', build: '', bundleId: '', isNative: false, source: 'unknown' };
-    let currentRequiredUpdateUrl = '';
+// ===== GAS設定 =====
+// ↓ GASウェブアプリURLをここに貼り付け ↓
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyBDReRdL9LlVKZjn1UDZU12_3OCGRu4FkPorw1jJZRQliEcGrLUHiT4bTXsHh1epajrQ/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.03.31.6';
+const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
+const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
+  latestAppVersion: '1.1.0',
+  minimumSupportedVersion: '0.0.0',
+  iosStoreUrl: '',
+  updateTitle: 'アップデートが必要です',
+  updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
+  webBundleVersion: CURRENT_WEB_BUNDLE_VERSION
+});
+let currentAppRuntimeConfig = { ...DEFAULT_APP_RUNTIME_CONFIG };
+let currentInstalledAppInfo = { version: '', build: '', bundleId: '', isNative: false, source: 'unknown' };
+let currentRequiredUpdateUrl = '';
 
-    let USER_MENUS = [];
+let USER_MENUS = [];
 
-    function getCurrentPlatformName() {
-      try {
-        if (window.Capacitor && typeof Capacitor.getPlatform === 'function') {
-          return Capacitor.getPlatform();
-        }
-      } catch (e) { }
-      if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
-        return 'ios';
-      }
-      return 'web';
+function getCurrentPlatformName() {
+  try {
+    if (window.Capacitor && typeof Capacitor.getPlatform === 'function') {
+      return Capacitor.getPlatform();
     }
+  } catch (e) { }
+  if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
+    return 'ios';
+  }
+  return 'web';
+}
 
-    function isNativeAppRuntime() {
-      return getCurrentPlatformName() !== 'web';
+function isNativeAppRuntime() {
+  return getCurrentPlatformName() !== 'web';
+}
+
+function getVersionParts(version) {
+  const parts = String(version || '')
+    .split(/[^0-9]+/)
+    .filter(Boolean)
+    .map(function (part) { return parseInt(part, 10) || 0; });
+  return parts.length ? parts : [0];
+}
+
+function compareVersionStrings(left, right) {
+  const a = getVersionParts(left);
+  const b = getVersionParts(right);
+  const maxLength = Math.max(a.length, b.length);
+  for (let i = 0; i < maxLength; i++) {
+    const leftPart = a[i] || 0;
+    const rightPart = b[i] || 0;
+    if (leftPart > rightPart) return 1;
+    if (leftPart < rightPart) return -1;
+  }
+  return 0;
+}
+
+function triggerConfetti() {
+  const container = document.createElement('div');
+  container.className = 'confetti-container';
+  document.body.appendChild(container);
+
+  const colors = ['#a2b4a1', '#e8dace', '#d4a373', '#ccd5ae', '#faedcd', '#fefae0', '#e9edc9'];
+  const count = 80;
+
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+
+    // ランダムな配置
+    const left = Math.random() * 100 + '%';
+    const delay = Math.random() * 3 + 's';
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const size = (Math.random() * 6 + 4) + 'px';
+    const rotation = Math.random() * 360 + 'deg';
+
+    piece.style.left = left;
+    piece.style.animationDelay = delay;
+    piece.style.backgroundColor = color;
+    piece.style.width = size;
+    piece.style.height = size;
+    piece.style.transform = `rotate(${rotation})`;
+
+    container.appendChild(piece);
+  }
+
+  // 演出が終わったら要素を削除
+  setTimeout(function () {
+    if (container.parentNode) {
+      container.parentNode.removeChild(container);
     }
+  }, 6000);
+}
 
-    function getVersionParts(version) {
-      const parts = String(version || '')
-        .split(/[^0-9]+/)
-        .filter(Boolean)
-        .map(function (part) { return parseInt(part, 10) || 0; });
-      return parts.length ? parts : [0];
-    }
+function updateStampModalPresentation(isMilestone) {
+  const title = document.getElementById('stampModalTitle');
+  const wrap = document.getElementById('stampPopWrap');
+  const badge = document.getElementById('stampAchievementBadge');
+  const icon = document.getElementById('stampPopIcon');
+  const note = document.getElementById('stampCelebrateNote');
+  if (!title || !wrap || !badge || !icon || !note) return;
 
-    function compareVersionStrings(left, right) {
-      const a = getVersionParts(left);
-      const b = getVersionParts(right);
-      const maxLength = Math.max(a.length, b.length);
-      for (let i = 0; i < maxLength; i++) {
-        const leftPart = a[i] || 0;
-        const rightPart = b[i] || 0;
-        if (leftPart > rightPart) return 1;
-        if (leftPart < rightPart) return -1;
-      }
-      return 0;
-    }
+  title.textContent = isMilestone ? 'スタンプ10個達成です！' : 'スタンプを取得しました！';
+  wrap.classList.toggle('milestone', !!isMilestone);
+  badge.style.display = isMilestone ? 'inline-flex' : 'none';
+  note.style.display = isMilestone ? 'block' : 'none';
+  icon.textContent = isMilestone ? '🎉' : '🌿';
+  icon.classList.toggle('milestone', !!isMilestone);
+}
 
-    function triggerConfetti() {
-      const container = document.createElement('div');
-      container.className = 'confetti-container';
-      document.body.appendChild(container);
+function sanitizeAppRuntimeConfig(raw) {
+  const input = raw && typeof raw === 'object' ? raw : {};
+  const config = {
+    latestAppVersion: String(input.latestAppVersion || DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion,
+    minimumSupportedVersion: String(input.minimumSupportedVersion || DEFAULT_APP_RUNTIME_CONFIG.minimumSupportedVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.minimumSupportedVersion,
+    iosStoreUrl: String(input.iosStoreUrl || DEFAULT_APP_RUNTIME_CONFIG.iosStoreUrl).trim(),
+    updateTitle: String(input.updateTitle || DEFAULT_APP_RUNTIME_CONFIG.updateTitle).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateTitle,
+    updateMessage: String(input.updateMessage || DEFAULT_APP_RUNTIME_CONFIG.updateMessage).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateMessage,
+    webBundleVersion: String(input.webBundleVersion || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion
+  };
+  if (compareVersionStrings(config.latestAppVersion, config.minimumSupportedVersion) < 0) {
+    config.latestAppVersion = config.minimumSupportedVersion;
+  }
+  if (config.iosStoreUrl && !/^https?:\/\//i.test(config.iosStoreUrl)) {
+    config.iosStoreUrl = '';
+  }
+  return config;
+}
 
-      const colors = ['#a2b4a1', '#e8dace', '#d4a373', '#ccd5ae', '#faedcd', '#fefae0', '#e9edc9'];
-      const count = 80;
+function readCachedAppRuntimeConfig() {
+  try {
+    const raw = localStorage.getItem(APP_RUNTIME_CONFIG_STORAGE_KEY);
+    if (!raw) return null;
+    return sanitizeAppRuntimeConfig(JSON.parse(raw));
+  } catch (e) {
+    return null;
+  }
+}
 
-      for (let i = 0; i < count; i++) {
-        const piece = document.createElement('div');
-        piece.className = 'confetti-piece';
-        
-        // ランダムな配置
-        const left = Math.random() * 100 + '%';
-        const delay = Math.random() * 3 + 's';
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        const size = (Math.random() * 6 + 4) + 'px';
-        const rotation = Math.random() * 360 + 'deg';
+function cacheAppRuntimeConfig(config) {
+  try {
+    localStorage.setItem(APP_RUNTIME_CONFIG_STORAGE_KEY, JSON.stringify(sanitizeAppRuntimeConfig(config)));
+  } catch (e) { }
+}
 
-        piece.style.left = left;
-        piece.style.animationDelay = delay;
-        piece.style.backgroundColor = color;
-        piece.style.width = size;
-        piece.style.height = size;
-        piece.style.transform = `rotate(${rotation})`;
+function withTimeout(promise, timeoutMs) {
+  return Promise.race([
+    promise,
+    new Promise(function (resolve) {
+      setTimeout(function () { resolve(null); }, timeoutMs);
+    })
+  ]);
+}
 
-        container.appendChild(piece);
-      }
-
-      // 演出が終わったら要素を削除
-      setTimeout(function() {
-        if (container.parentNode) {
-          container.parentNode.removeChild(container);
-        }
-      }, 6000);
-    }
-
-    function updateStampModalPresentation(isMilestone) {
-      const title = document.getElementById('stampModalTitle');
-      const wrap = document.getElementById('stampPopWrap');
-      const badge = document.getElementById('stampAchievementBadge');
-      const icon = document.getElementById('stampPopIcon');
-      const note = document.getElementById('stampCelebrateNote');
-      if (!title || !wrap || !badge || !icon || !note) return;
-
-      title.textContent = isMilestone ? 'スタンプ10個達成です！' : 'スタンプを取得しました！';
-      wrap.classList.toggle('milestone', !!isMilestone);
-      badge.style.display = isMilestone ? 'inline-flex' : 'none';
-      note.style.display = isMilestone ? 'block' : 'none';
-      icon.textContent = isMilestone ? '🎉' : '🌿';
-      icon.classList.toggle('milestone', !!isMilestone);
-    }
-
-    function sanitizeAppRuntimeConfig(raw) {
-      const input = raw && typeof raw === 'object' ? raw : {};
-      const config = {
-        latestAppVersion: String(input.latestAppVersion || DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion,
-        minimumSupportedVersion: String(input.minimumSupportedVersion || DEFAULT_APP_RUNTIME_CONFIG.minimumSupportedVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.minimumSupportedVersion,
-        iosStoreUrl: String(input.iosStoreUrl || DEFAULT_APP_RUNTIME_CONFIG.iosStoreUrl).trim(),
-        updateTitle: String(input.updateTitle || DEFAULT_APP_RUNTIME_CONFIG.updateTitle).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateTitle,
-        updateMessage: String(input.updateMessage || DEFAULT_APP_RUNTIME_CONFIG.updateMessage).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateMessage,
-        webBundleVersion: String(input.webBundleVersion || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion
-      };
-      if (compareVersionStrings(config.latestAppVersion, config.minimumSupportedVersion) < 0) {
-        config.latestAppVersion = config.minimumSupportedVersion;
-      }
-      if (config.iosStoreUrl && !/^https?:\/\//i.test(config.iosStoreUrl)) {
-        config.iosStoreUrl = '';
-      }
-      return config;
-    }
-
-    function readCachedAppRuntimeConfig() {
-      try {
-        const raw = localStorage.getItem(APP_RUNTIME_CONFIG_STORAGE_KEY);
-        if (!raw) return null;
-        return sanitizeAppRuntimeConfig(JSON.parse(raw));
-      } catch (e) {
-        return null;
-      }
-    }
-
-    function cacheAppRuntimeConfig(config) {
-      try {
-        localStorage.setItem(APP_RUNTIME_CONFIG_STORAGE_KEY, JSON.stringify(sanitizeAppRuntimeConfig(config)));
-      } catch (e) { }
-    }
-
-    function withTimeout(promise, timeoutMs) {
-      return Promise.race([
-        promise,
-        new Promise(function (resolve) {
-          setTimeout(function () { resolve(null); }, timeoutMs);
-        })
-      ]);
-    }
-
-    async function fetchAppRuntimeConfig() {
-      const cached = readCachedAppRuntimeConfig();
-      try {
-        const res = await withTimeout(getFromGAS('getAppRuntimeConfig'), 4000);
-        if (res && res.status === 'ok' && res.config) {
-          currentAppRuntimeConfig = sanitizeAppRuntimeConfig(res.config);
-          cacheAppRuntimeConfig(currentAppRuntimeConfig);
-          return currentAppRuntimeConfig;
-        }
-      } catch (e) {
-        console.error('fetchAppRuntimeConfig error:', e);
-      }
-      currentAppRuntimeConfig = cached || { ...DEFAULT_APP_RUNTIME_CONFIG };
+async function fetchAppRuntimeConfig() {
+  const cached = readCachedAppRuntimeConfig();
+  try {
+    const res = await withTimeout(getFromGAS('getAppRuntimeConfig'), 4000);
+    if (res && res.status === 'ok' && res.config) {
+      currentAppRuntimeConfig = sanitizeAppRuntimeConfig(res.config);
+      cacheAppRuntimeConfig(currentAppRuntimeConfig);
       return currentAppRuntimeConfig;
     }
+  } catch (e) {
+    console.error('fetchAppRuntimeConfig error:', e);
+  }
+  currentAppRuntimeConfig = cached || { ...DEFAULT_APP_RUNTIME_CONFIG };
+  return currentAppRuntimeConfig;
+}
 
-    async function getInstalledAppInfo() {
-      const isNative = isNativeAppRuntime();
-      const base = {
-        version: isNative ? '0.0.0' : DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion,
-        build: '',
-        bundleId: '',
-        isNative: isNative,
-        source: isNative ? 'fallback' : 'web'
+async function getInstalledAppInfo() {
+  const isNative = isNativeAppRuntime();
+  const base = {
+    version: isNative ? '0.0.0' : DEFAULT_APP_RUNTIME_CONFIG.latestAppVersion,
+    build: '',
+    bundleId: '',
+    isNative: isNative,
+    source: isNative ? 'fallback' : 'web'
+  };
+  if (!isNative) {
+    currentInstalledAppInfo = base;
+    return base;
+  }
+  try {
+    if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.NativeAppInfo &&
+      typeof Capacitor.Plugins.NativeAppInfo.getInfo === 'function') {
+      const info = await Capacitor.Plugins.NativeAppInfo.getInfo();
+      currentInstalledAppInfo = {
+        version: String(info && info.version || '').trim() || '0.0.0',
+        build: String(info && info.build || '').trim(),
+        bundleId: String(info && info.bundleId || '').trim(),
+        isNative: true,
+        source: 'native-plugin'
       };
-      if (!isNative) {
-        currentInstalledAppInfo = base;
-        return base;
-      }
-      try {
-        if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.NativeAppInfo &&
-          typeof Capacitor.Plugins.NativeAppInfo.getInfo === 'function') {
-          const info = await Capacitor.Plugins.NativeAppInfo.getInfo();
-          currentInstalledAppInfo = {
-            version: String(info && info.version || '').trim() || '0.0.0',
-            build: String(info && info.build || '').trim(),
-            bundleId: String(info && info.bundleId || '').trim(),
-            isNative: true,
-            source: 'native-plugin'
-          };
-          return currentInstalledAppInfo;
-        }
-      } catch (e) {
-        console.error('NativeAppInfo getInfo failed:', e);
-      }
-      currentInstalledAppInfo = base;
-      return base;
+      return currentInstalledAppInfo;
+    }
+  } catch (e) {
+    console.error('NativeAppInfo getInfo failed:', e);
+  }
+  currentInstalledAppInfo = base;
+  return base;
+}
+
+function fillRequiredUpdateModal(config, appInfo) {
+  const title = document.getElementById('requiredUpdateTitle');
+  const message = document.getElementById('requiredUpdateMessage');
+  const meta = document.getElementById('requiredUpdateMeta');
+  const primary = document.getElementById('requiredUpdatePrimaryBtn');
+  const secondary = document.getElementById('requiredUpdateSecondaryBtn');
+  const latestLabel = config.latestAppVersion ? '\n最新版: ' + config.latestAppVersion : '';
+  title.textContent = config.updateTitle || DEFAULT_APP_RUNTIME_CONFIG.updateTitle;
+  message.textContent = config.updateMessage || DEFAULT_APP_RUNTIME_CONFIG.updateMessage;
+  meta.textContent =
+    '現在のアプリ版: ' + (appInfo.version || '不明') +
+    '\n必要なアプリ版: ' + (config.minimumSupportedVersion || '未設定') +
+    latestLabel;
+  currentRequiredUpdateUrl = config.iosStoreUrl || '';
+  if (currentRequiredUpdateUrl) {
+    primary.textContent = 'アップデートする';
+    secondary.style.display = 'none';
+  } else {
+    primary.textContent = '閉じる';
+    secondary.style.display = 'none';
+  }
+}
+
+function openRequiredUpdateModal() {
+  const modal = document.getElementById('requiredUpdateModal');
+  if (modal) modal.classList.add('open');
+}
+
+function closeRequiredUpdateModal() {
+  const modal = document.getElementById('requiredUpdateModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function openRequiredUpdateLink() {
+  if (!currentRequiredUpdateUrl) {
+    closeRequiredUpdateModal();
+    return;
+  }
+  window.location.href = currentRequiredUpdateUrl;
+}
+
+async function ensureSupportedAppVersion() {
+  const config = await fetchAppRuntimeConfig();
+  const appInfo = await getInstalledAppInfo();
+  currentAppRuntimeConfig = config;
+  currentInstalledAppInfo = appInfo;
+
+  // 1. ネイティブアプリの強制アップデート判定
+  const needsNativeUpdate = appInfo.isNative &&
+    compareVersionStrings(appInfo.version || '0.0.0', config.minimumSupportedVersion || '0.0.0') < 0;
+
+  // 2. Webプログラム（HTML/JS）の更新判定
+  // CURRENT_WEB_BUNDLE_VERSION が GAS側の設定より古い場合に検知
+  const needsWebUpdate = config.webBundleVersion && config.webBundleVersion !== CURRENT_WEB_BUNDLE_VERSION;
+
+  if (needsNativeUpdate && config.iosStoreUrl) {
+    fillRequiredUpdateModal(config, appInfo);
+    openRequiredUpdateModal();
+    return { blocked: true, needsWebUpdate: needsWebUpdate, config: config, appInfo: appInfo };
+  }
+
+  closeRequiredUpdateModal();
+  return { blocked: false, needsWebUpdate: needsWebUpdate, config: config, appInfo: appInfo };
+}
+
+// GASからデータ取得（doGet対応）
+// action: 'getNews' | 'getProducts'
+async function getFromGAS(action, params) {
+  if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return null;
+  try {
+    let url = GAS_URL + '?action=' + action + '&t=' + Date.now();
+    if (params) url += '&data=' + encodeURIComponent(JSON.stringify(params));
+    const res = await fetch(url);
+    return await res.json();
+  } catch (e) { return null; }
+}
+
+// GASへデータ送信（GET/POST自動切り替え）
+// payload: { type:'order|updateUser|uploadImage|...', ... }
+async function postToGAS(payload) {
+  if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return;
+  try {
+    const action = payload.type;
+    let res;
+
+    // 画像のアップロードやユーザー情報更新はデータ量が大きいためPOSTで送る
+    if (action === 'updateUser' || action === 'uploadImage' || action === 'askSupportChat' || action === 'syncUserRewardStatus' || action === 'unsubscribePush') {
+      res = await fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'text/plain' }, // CORS回避のため text/plain
+        redirect: 'follow'
+      });
+    } else {
+      // それ以外（注文など）は従来通りGETで送る（POST不達問題の回避）
+      const data = encodeURIComponent(JSON.stringify(payload));
+      const url = GAS_URL + '?action=' + action + '&data=' + data + '&t=' + Date.now();
+      res = await fetch(url);
     }
 
-    function fillRequiredUpdateModal(config, appInfo) {
-      const title = document.getElementById('requiredUpdateTitle');
-      const message = document.getElementById('requiredUpdateMessage');
-      const meta = document.getElementById('requiredUpdateMeta');
-      const primary = document.getElementById('requiredUpdatePrimaryBtn');
-      const secondary = document.getElementById('requiredUpdateSecondaryBtn');
-      const latestLabel = config.latestAppVersion ? '\n最新版: ' + config.latestAppVersion : '';
-      title.textContent = config.updateTitle || DEFAULT_APP_RUNTIME_CONFIG.updateTitle;
-      message.textContent = config.updateMessage || DEFAULT_APP_RUNTIME_CONFIG.updateMessage;
-      meta.textContent =
-        '現在のアプリ版: ' + (appInfo.version || '不明') +
-        '\n必要なアプリ版: ' + (config.minimumSupportedVersion || '未設定') +
-        latestLabel;
-      currentRequiredUpdateUrl = config.iosStoreUrl || '';
-      if (currentRequiredUpdateUrl) {
-        primary.textContent = 'アップデートする';
-        secondary.style.display = 'none';
+    const json = await res.json();
+    console.log('postToGAS response:', json);
+    return json;
+  } catch (e) {
+    console.log('postToGAS error:', e);
+    return null;
+  }
+}
+
+// ===== 商品データ =====
+
+// 商品画像データ
+const PROD_IMAGES = {
+  tea50: 'img/tea50.jpg',
+  tea30: 'img/tea30.jpg',
+  bath10: 'img/bath10.jpg',
+  bath2: 'img/bath2.jpg',
+  soap: 'img/soap.jpg',
+  pad: 'img/pad.jpg',
+};
+
+const PRODUCTS = [
+  { name: 'よもぎ茶（50パック）', price: 2100, icon: '🍵', bg: 'c1', imgKey: 'tea50', description: '無農薬栽培のよもぎをたっぷり50パック詰めました。毎日の健康維持に。' },
+  { name: 'よもぎ茶（30パック）', price: 1575, icon: '🍵', bg: 'c1', imgKey: 'tea30', description: '持ち運びにも便利な30パック入り。良質なよもぎの香りが楽しめます。' },
+  { name: 'よもぎ入浴剤（10パック）', price: 1540, icon: '🛁', bg: 'c4', imgKey: 'bath10', description: '体の芯から温まるよもぎ入浴剤。10回分のお得なセットです。' },
+  { name: 'よもぎ入浴剤（2パック）', price: 350, icon: '🛁', bg: 'c4', imgKey: 'bath2', description: 'ちょっとしたお試しやプレゼントに最適な2パック入り入浴剤。' },
+  { name: '石鹸（あこがれのきよら）', price: 540, icon: '🧼', bg: 'c2', imgKey: 'soap', description: '天然由来成分にこだわった、お肌に優しい洗顔・全身用石鹸です。' },
+  { name: '冷え取りパット（3枚セット）', price: 2400, icon: '🌸🌸🌸', bg: 'c3', imgKey: 'pad', description: '洗い替えに便利な3枚セット。オーガニックコットン使用で快適です。' },
+  { name: '冷え取りパット（2枚）', price: 1760, icon: '🌸🌸', bg: 'c3', imgKey: 'pad', description: '冷え対策の定番。肌触りの良いパット2枚セットです。' },
+  { name: '冷え取りパット（1枚）', price: 880, icon: '🌸', bg: 'c3', imgKey: 'pad', description: 'まずは試してみたい方に。高品質な国産よもぎ成分を配合。' },
+];
+
+const FALLBACK_BLOG = [
+  { date: '2025.06.15', category: 'お知らせ', type: 'お知らせ', icon: '🌷', title: '夏の産後ヨガ体験会開催のご案内', body: '今年の夏も産後ヨガ体験会を開催いたします。初めての方も大歓迎です。お気軽にご参加ください。' },
+  { date: '2025.06.10', category: 'ブログ', type: 'ブログ', icon: '🍵', title: '授乳期にうれしい！おすすめハーブティー', body: '授乳中のママにぴったりのよもぎ茶をご紹介します。ノンカフェインで体を温める効果があります。' },
+  { date: '2025.06.05', category: '休診情報', type: 'お知らせ', icon: '📅', title: '6月22日（日）は臨時休診となります', body: '誠に恐れ入りますが、6月22日（日）は臨時休診とさせていただきます。ご不便をおかけして申し訳ございません。' },
+  { date: '2025.05.28', category: 'ブログ', type: 'ブログ', icon: '🤱', title: '産後の骨盤ケア、いつから始める？', body: '産後の骨盤は出産の影響でゆるんだ状態。適切なタイミングと方法でケアを始めることが大切です。' },
+];
+
+const SUPPORT_FAQ_FALLBACK = [
+  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日', answer: '画面右下のマイページから「プロフィールを編集」を開き、必要項目を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
+  { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 95 },
+  { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取るとスタンプが追加されます。10個たまると特典対象です。', priority: 90 },
+  { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから通知をオンにできます。オフにしたい場合も同じボタンから切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可もご確認ください。', priority: 85 },
+  { category: 'NEWS', question: '最新のお知らせの見方を知りたい', keywords: 'お知らせ,news,ブログ,新着,通知一覧', answer: '下部メニューの「NEWS」または画面上部の📢ボタンから確認できます。赤いバッジが出ているときは新着があります。', priority: 80 },
+  { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で今月の予定を確認できます。左右の矢印で別の月にも切り替えられます。', priority: 75 },
+];
+
+const SUPPORT_APP_GUIDE = [
+  // --- アプリ全般 ---
+  { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,画面,メニュー,全体', answer: 'このアプリでは、ホームでスタンプQR読み取りやメニュー一覧の確認、ショップで商品注文、カレンダーで予定確認、NEWSでお知らせ確認、マイページでプロフィール・通知設定・注文履歴・スタンプ特典の確認ができます。診療や個別相談は公式LINEをご利用ください。', priority: 120 },
+  { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,ボタン,下部', answer: '画面下部に5つのタブ（🏠ホーム、🛍ショップ、📅カレンダー、💬NEWS、👤マイページ）、画面上部には📢お知らせ一覧・🛒カート・👤マイページ・🔄更新ボタンがあります。右下には💬使い方相談ボタンもあります。', priority: 115 },
+
+  // --- ホーム画面 ---
+  { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,トップ画面,home', answer: 'ホーム画面には、バナー（お名前＆スタンプ数表示）、スタンプ取得（QR読み取り）、現在のスタンプカード、おすすめ商品、最新のお知らせ（3件）、メニュー一覧へのリンク、公式サイト・SNSリンクが表示されています。', priority: 92 },
+  { category: 'ホーム', question: 'ホームの名前を変更したい', keywords: 'ホーム,名前,バナー,表示名,変更', answer: 'マイページの「✏️ プロフィールを編集」からお名前を変更してください。変更後、ホーム画面のバナーにも反映されます。', priority: 88 },
+
+  // --- スタンプカード ---
+  { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院,集め方,取得,読み取り', answer: 'ホーム画面の「📷 カメラを起動して読み取る」ボタンから、院内（受付・待合室）のQRコードを読み取るとスタンプが1つ追加されます。1日1回まで取得可能です。', priority: 91 },
+  { category: 'QR', question: 'QRコードの読み取り方法を知りたい', keywords: 'qr,qrコード,qrcode,カメラ,読み取り,読取,スキャン', answer: 'ホーム画面の「📷 カメラを起動して読み取る」をタップし、カメラ許可を行ってから院内QRコードを読み取ってください。10個達成済みの場合は先に「新しいスタンプカードを取得」してください。', priority: 90 },
+  { category: 'スタンプ', question: 'スタンプは1日何個取得できますか？', keywords: 'スタンプ,1日,回数,制限,何回,何個', answer: 'スタンプの取得は1日1回までです。同じ日に2回目を読み取ろうとすると「本日はすでにスタンプを取得済みです」と表示されます。', priority: 89 },
+  { category: 'スタンプ', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,たまった,満了,完了', answer: 'スタンプが10個に達すると特典の対象になります。マイページの「🎁 特典取得状況」に獲得した特典が表示されます。受け取りは受付にお声がけください。', priority: 88 },
+  { category: 'スタンプ', question: '新しいカードを始めるには？', keywords: '新しいカード,次のカード,リセット,新規カード,カード取得', answer: 'スタンプ10個達成後、ホーム画面のスタンプカード下に表示される「🌸 新しいスタンプカードを取得」ボタンをタップしてください。スタンプが0にリセットされ、新しいカードが始まります。', priority: 87 },
+  { category: 'スタンプ', question: 'スタンプカードの○枚目とは？', keywords: '枚目,カード番号,カード枚数', answer: '何枚目のスタンプカードを使用しているかを示す表示です。カードを新しくするたびにカウントが増えます。', priority: 82 },
+  { category: 'QR', question: 'カメラの許可を求められました', keywords: 'カメラ,許可,アクセス,権限,拒否', answer: 'QRコードの読み取りにカメラへのアクセスが必要です。「許可」をタップしてください。許可しないと読み取りができません。', priority: 85 },
+  { category: 'QR', question: 'QRコードを読み取れません', keywords: 'qr,読み取れない,読めない,スキャンできない,エラー', answer: '以下をご確認ください：①カメラの許可が有効か（端末の設定→アプリの権限）②QRコードに汚れや傷がないか③十分な明るさがあるか④本日分のスタンプを取得済みでないか⑤10個達成済みの場合は先に「新しいスタンプカードを取得」してください。', priority: 84 },
+  { category: 'スタンプ', question: 'スタンプが消えてしまいました', keywords: 'スタンプ,消えた,なくなった,リセット,データ消失', answer: 'スタンプのデータは端末内に保存されています。アプリのデータを削除したり、別の端末に変更するとデータが引き継がれない場合があります。お困りの場合は受付にご相談ください。', priority: 83 },
+
+  // --- スタンプ特典 ---
+  { category: 'スタンプ特典', question: 'スタンプ特典の使い方を知りたい', keywords: '特典,プレゼント,期限,使用する,使用済み,チケット,受取期限', answer: 'スタンプ10個達成で特典対象です。マイページの「🎁 特典取得状況」で確認・使用できます。受取期限は達成日から1か月。「使用する」をタップすると確定され、取り消しはできません。受け取りは受付にお声がけください。', priority: 86 },
+  { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,確認,一覧,獲得', answer: 'マイページの「🎁 特典取得状況」セクションで確認できます。特典名、カード枚数、使用状態が表示されます。', priority: 85 },
+  { category: 'スタンプ特典', question: '特典に有効期限はありますか？', keywords: '特典,有効期限,期限,いつまで', answer: 'はい。スタンプ10個を達成した日から1か月間が受取期限です。マイページの特典一覧に「受取期限：あと○日」と表示されます。', priority: 84 },
+  { category: 'スタンプ特典', question: '特典を元に戻せますか？', keywords: '特典,取り消し,元に戻す,使用取消,キャンセル', answer: 'いいえ。一度「使用する」をタップして確定した特典は取り消しできません。ご注意ください。', priority: 83 },
+
+  // --- ショップ ---
+  { category: 'ショップ', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入,買う,商品', answer: '下部メニューの「🛍ショップ」→商品をタップ→個数を選んで「カートに追加する🛒」→画面右上🛒でカートを開く→内容を確認して「ご注文を確定する」で完了です。', priority: 95 },
+  { category: 'ショップ', question: '商品の詳細情報を見たい', keywords: '商品,詳細,説明,情報,画像', answer: 'ショップ画面で商品をタップすると、商品名・価格・商品説明・商品画像が表示されます。「商品説明をみる」をタップすると詳しい説明が展開されます。', priority: 90 },
+  { category: 'ショップ', question: '受け取り方法は？', keywords: '受け取り,受取方法,配送,宅配,院内', answer: 'すべての商品は院内受け取りです。注文後、ご来院時にスタッフにお声がけください。', priority: 88 },
+  { category: 'ショップ', question: '支払い方法は？', keywords: '支払い,支払方法,決済,クレジット,現金', answer: 'お支払いは現金払いのみです。ご来院時に受付でお支払いください。', priority: 87 },
+
+  // --- カート ---
+  { category: 'カート', question: 'カートの使い方を知りたい', keywords: 'カート,買い物かご,個数,削除,合計,checkout,チェックアウト', answer: 'ショップで商品をカートに追加すると、カート画面（右上🛒）で個数変更（＋/−ボタン）や削除ができます。内容確認後「ご注文を確定する」を押すと院内受け取りの注文になります。', priority: 88 },
+  { category: 'カート', question: 'カートの中身を確認するには？', keywords: 'カート,確認,中身,内容', answer: '画面右上の🛒アイコンをタップしてください。カート内の商品一覧、個数、小計、合計金額（税込）が表示されます。', priority: 86 },
+  { category: 'カート', question: 'カートの個数を変更したい', keywords: 'カート,個数変更,数量,増やす,減らす', answer: 'カート画面で各商品の「＋」「−」ボタンで個数を変更できます。', priority: 85 },
+  { category: 'カート', question: 'カートが空ですと表示されます', keywords: 'カート,空,商品がない,何もない', answer: 'まだ商品が追加されていません。「ショップへ」ボタンをタップしてショップに移動し、商品を選んでカートに追加してください。', priority: 84 },
+
+  // --- 注文履歴 ---
+  { category: '注文履歴', question: '注文履歴の確認方法を知りたい', keywords: '注文履歴,履歴,受取,受け取り,受取完了,注文状況', answer: 'マイページの「📋 ご注文履歴」で確認できます。注文日時・商品名・個数・合計金額・ステータス（受付中・受取完了など）が表示されます。', priority: 87 },
+  { category: '注文履歴', question: '注文をキャンセルしたい', keywords: '注文,キャンセル,取消,取り消し', answer: '受付中の注文はキャンセルできます。注文履歴でキャンセルしたい注文の「キャンセル」ボタンをタップしてください。キャンセル後は履歴から表示されなくなります。', priority: 86 },
+  { category: '注文履歴', question: '注文履歴が表示されません', keywords: '注文履歴,表示されない,出てこない,見えない', answer: 'プロフィールが未登録の場合、注文履歴は表示されません。マイページの「✏️ プロフィールを編集」から登録を完了してください。', priority: 85 },
+
+  // --- カレンダー ---
+  { category: 'カレンダー', question: 'カレンダーの使い方を知りたい', keywords: 'カレンダー,イベント,予定,日程,前月,翌月,今月', answer: '下部メニューの「📅 カレンダー」で予定を確認できます。◀▶で月を切り替え、日付タップでその日の予定を表示。休＝休診日、往＝往診日、イ＝イベント。下部には今月のイベント一覧も表示されます。', priority: 81 },
+  { category: 'カレンダー', question: '別の月のカレンダーを見たい', keywords: 'カレンダー,前月,翌月,月切替,矢印', answer: 'カレンダー上部の◀（前月）・▶（翌月）ボタンで月を切り替えられます。', priority: 79 },
+  { category: 'カレンダー', question: '今月のイベント一覧を見たい', keywords: '今月,イベント一覧,予定一覧,リスト', answer: 'カレンダーページの下部に「📋 今月のイベント一覧」が表示されています。今月のすべてのイベントが日付順に並んでいます。', priority: 78 },
+  { category: 'カレンダー', question: 'カレンダーの休・往・イとは？', keywords: '休,往,イ,マーク,記号,色', answer: '休＝休診日、往＝往診日、イ＝イベントを示します。それぞれ管理者が設定した色で日付に表示されます。', priority: 77 },
+
+  // --- NEWS ---
+  { category: 'NEWS', question: 'NEWSページの使い方を知りたい', keywords: 'news,ニュース,お知らせ,記事,新着,詳細', answer: '下部メニューの「💬 NEWS」ではお知らせを確認できます。記事をタップすると詳細が開き、新着があると下部メニューにバッジ（赤いドット）が表示されます。', priority: 83 },
+  { category: 'NEWS', question: '新着があるか分かりますか？', keywords: 'バッジ,赤い点,ドット,新着,未読', answer: '新着がある場合、下部メニューの「NEWS」「カレンダー」「ショップ」のアイコンに赤いドット（バッジ）が表示されます。該当ページを開くとバッジは消えます。', priority: 82 },
+  { category: 'NEWS', question: 'お知らせのカテゴリはありますか？', keywords: 'カテゴリ,種類,分類,絞り込み', answer: 'お知らせは「お知らせ」「休診情報」「ブログ」「イベント」「商品情報」などのカテゴリに分類されています。NEWSページではカテゴリで絞り込んで表示できます。', priority: 80 },
+  { category: 'ブログ', question: 'ブログや過去のお知らせの見方を知りたい', keywords: 'ブログ,過去,一覧,記事,以前,バックナンバー', answer: 'ブログを含む過去のお知らせは、画面上部の📢ボタンから開く「お知らせ一覧」で日付順に確認できます。', priority: 79 },
+
+  // --- お知らせ一覧 ---
+  { category: 'お知らせ一覧', question: '📢ボタンの機能は何ですか？', keywords: 'お知らせ一覧,通知一覧,拡声器,📢,ヘッダー', answer: '画面上部の📢ボタンは「お知らせ一覧」を開きます。ブログ・お知らせ・カレンダーイベント・Push通知など全ての新着情報をまとめて確認できます。未読があると赤いドットが表示されます。', priority: 78 },
+
+  // --- マイページ ---
+  { category: 'マイページ', question: 'マイページには何がありますか？', keywords: 'マイページ,内容,機能,セクション', answer: 'マイページには以下があります：👤プロフィール（表示・編集）、🎁特典取得状況（スタンプ特典の確認・使用）、🔔通知設定（Push通知のオン/オフ）、🤖使い方サポート（チャットボット）、📋ご注文履歴、🔗公式サイト・SNSリンク。', priority: 82 },
+  { category: 'マイページ', question: '会員IDとは何ですか？', keywords: '会員id,会員番号,memberid,id', answer: 'マイページ上部のバナーに表示される固有の番号です。プロフィール登録時に自動で生成されます。お問い合わせの際にお伝えいただくとスムーズです。', priority: 80 },
+
+  // --- プロフィール ---
+  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回', answer: 'マイページの「✏️ プロフィールを編集」をタップし、お名前（必須）・電話番号・生年月日・住所を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
+  { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,修正', answer: 'マイページの「✏️ プロフィールを編集」から、お名前・電話番号・生年月日・住所・アイコン画像・バナー画像を変更できます。変更後「保存」をタップしてください。会員IDはマイページ上部に表示されます。', priority: 95 },
+  { category: 'プロフィール', question: 'アイコン画像を変更できますか？', keywords: 'アイコン,画像,アバター,写真,バナー', answer: 'はい。プロフィール編集画面からアイコン画像とバナー画像を変更できます。画像を選択するとアップロードされます。', priority: 85 },
+  { category: 'プロフィール', question: 'プロフィール未登録だとどうなりますか？', keywords: 'プロフィール,未登録,登録しない,制限', answer: 'プロフィール未登録でもアプリの閲覧は可能ですが、注文機能が使えない・注文履歴が表示されない・特典の管理が正しく紐づかない場合があります。', priority: 84 },
+
+  // --- 通知 ---
+  { category: '通知', question: '通知を受け取りたい', keywords: '通知,push,プッシュ,オン,受け取る', answer: 'マイページの「🔔 通知設定」セクションのボタンをタップしてオンにしてください。ブログ更新や重要なお知らせが届きます。', priority: 85 },
+  { category: '通知', question: '通知をオフにしたい', keywords: '通知,オフ,止める,解除', answer: 'マイページの通知設定ボタンを再度タップすることでオフに切り替えられます。', priority: 83 },
+  { category: '通知', question: '通知が届きません', keywords: '通知,届かない,来ない,受信できない', answer: '以下をご確認ください：①アプリ内の通知設定がオンになっていますか？②端末の設定でアプリの通知が許可されていますか？（iPhoneの場合：設定→通知→アプリ名→通知を許可）③インターネット接続は安定していますか？', priority: 82 },
+
+  // --- メニュー一覧 ---
+  { category: 'メニュー一覧', question: 'メニュー一覧の見方を知りたい', keywords: 'メニュー,施術,一覧,メニュー一覧', answer: 'ホーム画面の「メニュー一覧を見る🍴」ボタンをタップすると、メニュー一覧ページが開きます。各メニューをタップすると詳細や画像を確認できます。', priority: 84 },
+  { category: 'メニュー一覧', question: 'メニューの予約はアプリからできますか？', keywords: 'メニュー,予約,予約する,申し込み', answer: '現在アプリからの直接予約機能はありません。ご予約は公式LINEからお問い合わせください。ホーム画面またはマイページの公式LINEリンクからアクセスできます。', priority: 83 },
+
+  // --- 外部リンク ---
+  { category: '外部リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'line,ライン,instagram,facebook,ホームページ,公式サイト,sns,問い合わせ,連絡', answer: 'ホーム画面やマイページの「🔗 公式サイト・SNS」から、公式ホームページ（mayumijosanin.com）、Instagram（@mayumijosanin）、Facebook（まゆみ助産院）、公式LINEを開けます。', priority: 77 },
+  { category: '外部リンク', question: '診療の予約や個別相談はどこからできますか？', keywords: '診療,予約,相談,問い合わせ,連絡先', answer: '診療の予約や個別のご相談は公式LINEをご利用ください。ホーム画面またはマイページの公式LINEリンクからアクセスできます。', priority: 76 },
+
+  // --- チャットサポート ---
+  { category: 'チャットサポート', question: 'チャットサポートとは何ですか？', keywords: 'チャット,サポート,使い方相談,ボット,チャットボット', answer: 'アプリの使い方に関する質問にチャット形式で回答するサポート機能です。注文方法、スタンプの集め方、通知設定、プロフィール登録などの操作方法を案内します。', priority: 75 },
+  { category: 'チャットサポート', question: 'チャットサポートの開き方は？', keywords: 'チャット,開く,起動,どこ', answer: '画面右下の「💬 使い方相談」ボタンをタップするか、マイページの「🤖 使い方サポート」セクションの「💬 チャットで相談する」ボタンをタップしてください。', priority: 74 },
+
+  // --- トラブルシューティング ---
+  { category: 'トラブル', question: '画面が正しく表示されません', keywords: '画面,表示,おかしい,崩れ,不具合,バグ', answer: '以下をお試しください：①画面右上の🔄ボタンで情報を再取得②アプリを一度閉じて再起動③インターネット接続を確認。', priority: 73 },
+  { category: 'トラブル', question: 'データの取得に失敗しました', keywords: 'データ取得,失敗,エラー,同期,問題', answer: 'インターネット接続が不安定な可能性があります。Wi-Fiや4G/5G回線が安定している環境で🔄ボタンを押して再度お試しください。一部データの取得に失敗しても、他のデータは正常に更新されます。', priority: 72 },
+  { category: 'トラブル', question: 'バッジ（赤いドット）が消えません', keywords: 'バッジ,赤い点,消えない,ドット', answer: '該当するページ（NEWS、カレンダー、ショップなど）を一度開くとバッジは消えます。消えない場合は🔄ボタンで最新情報を再取得してみてください。', priority: 71 },
+  { category: 'トラブル', question: '注文ができません', keywords: '注文,できない,エラー,購入できない', answer: '以下をご確認ください：①プロフィールは登録済みですか？（マイページ→プロフィールを編集）②カートに商品が入っていますか？③インターネットに接続されていますか？', priority: 70 },
+  { category: 'トラブル', question: 'アプリが重い・遅いです', keywords: 'アプリ,重い,遅い,動かない,フリーズ', answer: '以下をお試しください：①他のアプリを閉じてメモリを開放②端末を再起動③🔄ボタンでアプリを最新版に更新。', priority: 69 },
+  { category: 'トラブル', question: '別の端末でデータを引き継げますか？', keywords: '端末,引き継ぎ,機種変更,データ移行', answer: 'スタンプデータは端末内に保存されているため自動では引き継がれません。プロフィールや注文履歴はサーバーに保存されています。スタンプの移行については受付にご相談ください。', priority: 68 },
+  { category: 'トラブル', question: 'アプリのアップデート方法は？', keywords: 'アップデート,更新,最新版,バージョン', answer: '画面右上の🔄ボタンで最新のプログラムが自動確認されます。更新がある場合は自動的に最新版に切り替わります。', priority: 67 },
+  { category: 'トラブル', question: 'アプリを削除したら復元できますか？', keywords: 'アプリ,削除,アンインストール,復元,再インストール', answer: 'アプリを再インストールするとプロフィールや注文履歴は復元できます。ただし端末に保存されたスタンプデータは削除される場合があります。', priority: 66 },
+
+  // --- その他 ---
+  { category: 'その他', question: 'アプリの対応端末は？', keywords: '対応,端末,iPhone,Android,ブラウザ,Safari', answer: 'iPhone（Safari）での動作を推奨しています。iOS端末向けのネイティブアプリとしてもご利用いただけます。', priority: 65 },
+  { category: 'その他', question: '個人情報の取り扱いについて', keywords: '個人情報,プライバシー,セキュリティ,安全', answer: 'プロフィールに登録いただいた情報は、まゆみ助産院の業務（注文管理・会員管理など）のためにのみ使用されます。第三者への提供は行いません。', priority: 64 }
+];
+
+const SUPPORT_APP_KEYWORDS = [
+  'アプリ', '使い方', 'できること', '機能', '画面', 'ホーム', 'トップ', 'バナー',
+  'スタンプ', 'qr', 'qrコード', 'qrcode', 'カメラ', '読み取り', '来院', '10個', '枚目', '新しいカード',
+  '特典', 'プレゼント', '期限', '使用', 'チケット', '受取期限',
+  'ショップ', '商品', 'カート', '注文', '購入', '買い方', '個数', '受け取り', '院内', '現金', '支払い',
+  '注文履歴', '履歴', 'キャンセル', '注文状況', '受取完了',
+  'メニュー', '施術', '一覧', '予約',
+  'news', 'ニュース', 'お知らせ', '新着', '記事', 'カテゴリ', '絞り込み', '📢',
+  'ブログ', '過去', 'バックナンバー',
+  'カレンダー', 'イベント', '予定', '日程', '前月', '翌月', '休診', '往診', '休', '往', 'イ',
+  'マイページ', '会員', '会員id', 'memberid',
+  'プロフィール', '登録', '変更', '編集', '名前', '電話', '住所', '生年月日', 'アイコン', '画像',
+  '通知', 'push', 'プッシュ', 'オン', 'オフ', '届かない',
+  'line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', '連絡',
+  'チャット', 'サポート', 'ボット', '相談',
+  '更新', 'リロード', '最新', '反映', '🔄',
+  '初回', '初めて', 'はじめて', '始める',
+  '表示されない', 'エラー', '失敗', '重い', '遅い', '引き継ぎ', '機種変更', 'アップデート', '削除', '復元',
+  '端末', 'iPhone', '対応', '個人情報', 'バッジ', '赤い点'
+];
+
+// ===== 状態 =====
+// ===== プロフィール・永続化 =====
+let _profile = null;
+try { _profile = JSON.parse(localStorage.getItem('mayumi_profile') || 'null'); } catch (e) { }
+let CUSTOMER_NAME = _profile ? _profile.name : '';
+let stampCount = 0;
+try { stampCount = parseInt(localStorage.getItem('mayumi_stamp') || '0') || 0; } catch (e) { }
+let stampCardNum = 1;
+try { stampCardNum = parseInt(localStorage.getItem('mayumi_stamp_card') || '1') || 1; } catch (e) { }
+
+let STAMP_REWARD_CONFIG = [];
+let CURRENT_MONTHLY_REWARD = null;
+let EARNED_REWARDS = [];
+try { EARNED_REWARDS = JSON.parse(localStorage.getItem('mayumi_earned_rewards') || '[]'); } catch (e) { }
+let cart = [], orders = [];
+let isOrderSubmitting = false;
+let isCancelSubmitting = false;
+let isReceiptSubmitting = false;
+let selectedPay = null, currentProdIdx = null, modalQty = 1;
+let cancelOrderId = null;
+let receiptSubmittingOrderId = null;
+let blogItems = [];
+let allBlogCategories = [];
+let isDataLoaded = false;
+let supportFaqItems = [];
+let supportChatHistory = [];
+let isSupportChatSending = false;
+try { supportChatHistory = JSON.parse(localStorage.getItem('mayumi_support_chat_history') || '[]'); } catch (e) { }
+let lastSupportTopic = '';
+if (supportChatHistory.length) {
+  try { lastSupportTopic = localStorage.getItem('mayumi_support_chat_topic') || ''; } catch (e) { }
+}
+let activeAppDialogResolver = null;
+let lastSyncedRewardStatus = null;
+
+function getTodayStampKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeStampDateKey(value) {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    return String(value);
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeRewardDateTime(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString();
+}
+
+function normalizeSingleReward(reward, index) {
+  const earnedDate = normalizeRewardDateTime(reward && reward.earnedDate) || new Date().toISOString();
+  let expiryDate = normalizeRewardDateTime(reward && reward.expiryDate);
+  if (!expiryDate) {
+    const expiry = new Date(earnedDate);
+    expiry.setMonth(expiry.getMonth() + 1);
+    expiryDate = expiry.toISOString();
+  }
+  return {
+    id: reward && reward.id ? String(reward.id) : `reward-${index + 1}`,
+    cardNum: Math.max(1, Number(reward && reward.cardNum) || 1),
+    rewardName: reward && reward.rewardName ? String(reward.rewardName) : 'スタンプ達成特典',
+    earnedDate: earnedDate,
+    expiryDate: expiryDate,
+    used: reward && reward.used === true,
+    usedAt: normalizeRewardDateTime(reward && reward.usedAt)
+  };
+}
+
+function normalizeRewardList(rewards) {
+  if (!Array.isArray(rewards)) return [];
+  return rewards.map(function (reward, index) {
+    return normalizeSingleReward(reward, index);
+  });
+}
+
+function getLocalRewardStatus() {
+  let lastStampDate = '';
+  let stampAchievedDate = '';
+  try {
+    lastStampDate = normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date') || '');
+    stampAchievedDate = normalizeRewardDateTime(localStorage.getItem('mayumi_stamp_10_date') || '');
+  } catch (e) { }
+  return {
+    stampCount: Math.max(0, Math.min(10, Number(stampCount) || 0)),
+    stampCardNum: Math.max(1, Number(stampCardNum) || 1),
+    rewards: normalizeRewardList(EARNED_REWARDS),
+    lastStampDate: lastStampDate,
+    stampAchievedDate: stampAchievedDate
+  };
+}
+
+function hasMeaningfulRewardStatus(status) {
+  if (!status) return false;
+  return Number(status.stampCount || 0) > 0 ||
+    Number(status.stampCardNum || 1) > 1 ||
+    (Array.isArray(status.rewards) && status.rewards.length > 0) ||
+    !!status.lastStampDate ||
+    !!status.stampAchievedDate;
+}
+
+function getComparableRewardStatus(status) {
+  const normalized = status || getLocalRewardStatus();
+  return {
+    stampCount: Math.max(0, Math.min(10, Number(normalized.stampCount) || 0)),
+    stampCardNum: Math.max(1, Number(normalized.stampCardNum) || 1),
+    rewards: normalizeRewardList(normalized.rewards),
+    lastStampDate: normalizeStampDateKey(normalized.lastStampDate),
+    stampAchievedDate: normalizeRewardDateTime(normalized.stampAchievedDate)
+  };
+}
+
+function rewardStatusEquals(a, b) {
+  return JSON.stringify(getComparableRewardStatus(a)) === JSON.stringify(getComparableRewardStatus(b));
+}
+
+function applyRewardStatusLocally(status) {
+  const next = getComparableRewardStatus(status);
+  stampCount = next.stampCount;
+  stampCardNum = next.stampCardNum;
+  EARNED_REWARDS = next.rewards;
+  try {
+    localStorage.setItem('mayumi_stamp', String(stampCount));
+    localStorage.setItem('mayumi_stamp_card', String(stampCardNum));
+    localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
+    if (next.lastStampDate) localStorage.setItem('mayumi_last_stamp_date', next.lastStampDate);
+    else localStorage.removeItem('mayumi_last_stamp_date');
+    if (next.stampAchievedDate) localStorage.setItem('mayumi_stamp_10_date', next.stampAchievedDate);
+    else localStorage.removeItem('mayumi_stamp_10_date');
+  } catch (e) { }
+  updateStampUI();
+  renderEarnedRewards();
+}
+
+async function syncRewardStatus(force) {
+  if (!_profile || !_profile.memberId) return null;
+  const localStatus = getLocalRewardStatus();
+  if (!force && lastSyncedRewardStatus && rewardStatusEquals(localStatus, lastSyncedRewardStatus)) {
+    return lastSyncedRewardStatus;
+  }
+  const res = await postToGAS({
+    type: 'syncUserRewardStatus',
+    memberId: _profile.memberId,
+    stampCount: localStatus.stampCount,
+    stampCardNum: localStatus.stampCardNum,
+    rewards: localStatus.rewards,
+    lastStampDate: localStatus.lastStampDate,
+    stampAchievedDate: localStatus.stampAchievedDate
+  });
+  if (res && res.status === 'ok' && res.rewardStatus) {
+    lastSyncedRewardStatus = getComparableRewardStatus(res.rewardStatus);
+    applyRewardStatusLocally(lastSyncedRewardStatus);
+  }
+  return res;
+}
+
+// ===== ブログカテゴリフィルタ同期 =====
+function updateBlogCategoryFilters() {
+  const newsFilter = document.getElementById('newsCategoryFilter');
+  const blogFilter = document.getElementById('blogCategoryFilter');
+  if (!newsFilter || !blogFilter) return;
+
+  // 現在の選択を維持（可能であれば）
+  const currentNewsVal = newsFilter.value;
+  const currentBlogVal = blogFilter.value;
+
+  let newsHtml = '<option value="全て">カテゴリ: 全て</option>';
+  let blogHtml = '<option value="全て">カテゴリ: 全て</option>';
+
+  allBlogCategories.forEach(cat => {
+    const name = typeof cat === 'string' ? cat : (cat.name || '');
+    const type = typeof cat === 'string' ? 'ブログ' : (cat.type || 'ブログ');
+
+    const opt = `<option value="${name}">${name}</option>`;
+    if (type === 'お知らせ') {
+      newsHtml += opt;
+    } else {
+      blogHtml += opt;
+    }
+  });
+
+  newsFilter.innerHTML = newsHtml;
+  blogFilter.innerHTML = blogHtml;
+
+  // 以前の選択を復元（存在する場合）
+  const existsNews = Array.from(newsFilter.options).some(o => o.value === currentNewsVal);
+  if (existsNews) newsFilter.value = currentNewsVal;
+  const existsBlog = Array.from(blogFilter.options).some(o => o.value === currentBlogVal);
+  if (existsBlog) blogFilter.value = currentBlogVal;
+}
+
+// ===== スタンプ =====
+function renderStampGrid(id, count) {
+  const g = document.getElementById(id); g.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const c = document.createElement('div');
+    c.className = 'stamp-cell ' + (i < count ? 'filled' : 'empty');
+    if (i < count) c.textContent = '🌿';
+    g.appendChild(c);
+  }
+}
+
+function updateStampUI() {
+  const grid = document.getElementById('homeStampGrid');
+  if (grid) renderStampGrid('homeStampGrid', stampCount);
+
+  const rem = Math.max(0, 10 - stampCount);
+  const elNum = document.getElementById('homeStampNum');
+  if (elNum) elNum.textContent = stampCount;
+  const elCount = document.getElementById('homeStampCount');
+  if (elCount) elCount.textContent = stampCount;
+
+  let msg = rem > 0 ? `あと${rem}回でプレゼント🎁` : '達成済み🎉 新しいカードを取得できます！';
+
+  // 達成済みの場合は期限を表示
+  if (rem === 0) {
+    let achDateStr = localStorage.getItem('mayumi_stamp_10_date');
+    if (achDateStr) {
+      const achDate = new Date(achDateStr);
+      const expDate = new Date(achDate);
+      expDate.setMonth(expDate.getMonth() + 1);
+      const now = new Date();
+      const diffMs = expDate - now;
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays > 0) {
+        msg += `<br><span style="font-size:12px; color:var(--danger); font-weight:bold;">受取期限: あと${diffDays}日</span>`;
       } else {
-        primary.textContent = '閉じる';
-        secondary.style.display = 'none';
+        msg += `<br><span style="font-size:12px; color:var(--danger); font-weight:bold;">受取期限: 本日まで</span>`;
+      }
+    }
+  }
+
+  const elMsg = document.getElementById('homeStampMsg');
+  if (elMsg) elMsg.innerHTML = msg; // textContentからinnerHTMLに変更
+
+  const cardLabel = document.getElementById('homeStampCardLabel');
+  if (cardLabel) cardLabel.textContent = `${stampCardNum}枚目`;
+
+  const newCardBtn = document.getElementById('stampNewCardBtn');
+  if (newCardBtn) {
+    newCardBtn.style.display = stampCount >= 10 ? 'block' : 'none';
+  }
+}
+function addStamp() {
+  // 1日1回制限のチェック
+  const today = getTodayStampKey();
+  let lastStampDate = null;
+  try {
+    lastStampDate = normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date'));
+  } catch (e) { }
+
+  if (lastStampDate === today) {
+    showToast('本日はすでにスタンプを取得済みです。来院スタンプは1日1回までです！');
+    return;
+  }
+
+  if (stampCount >= 10) { showToast('達成済み！特典チケットを使用してください 🎁'); return; }
+  stampCount++;
+  try {
+    localStorage.setItem('mayumi_stamp', stampCount);
+    localStorage.setItem('mayumi_last_stamp_date', today);
+    if (stampCount === 10) {
+      localStorage.setItem('mayumi_stamp_10_date', new Date().toISOString());
+    }
+  } catch (e) { }
+
+  updateStampUI();
+  const reachedMilestone = stampCount === 10;
+  if (reachedMilestone) {
+    triggerConfetti();
+  }
+  updateStampModalPresentation(reachedMilestone);
+  document.getElementById('stampPopMsg').textContent = reachedMilestone
+    ? 'ご来院ありがとうございます！10個達成で特典対象になりました。'
+    : 'ご来院ありがとうございます！スタンプを1つ追加しました！';
+  document.getElementById('stampPopCount').textContent = `現在 ${stampCount} / 10`;
+
+  openModal('stampModal');
+  syncRewardStatus();
+}
+async function startNewCard() {
+  // スタンプ達成特典を付与
+  await issueMonthlyReward({ skipSync: true });
+
+  stampCount = 0;
+  stampCardNum++;
+  try {
+    localStorage.setItem('mayumi_stamp', stampCount);
+    localStorage.setItem('mayumi_stamp_card', stampCardNum);
+    localStorage.removeItem('mayumi_stamp_10_date');
+  } catch (e) { }
+  updateStampUI();
+  triggerConfetti();
+  closeModal('stampModal');
+  showToast(`🌸 ${stampCardNum}枚目のスタンプカードを開始しました！`);
+  await syncRewardStatus(true);
+}
+
+// TEMPORARY DEMO SCRIPT
+if (window.location.search.includes('demo=true')) {
+  if (!localStorage.getItem('mayumi_stamp_10_date')) {
+    localStorage.setItem('mayumi_stamp', '10');
+    localStorage.setItem('mayumi_stamp_10_date', new Date(Date.now() - 86400000).toISOString());
+    const demoReward = [{
+      id: 99999,
+      cardNum: 1,
+      rewardName: '【検証用】よもぎ茶プレゼント',
+      earnedDate: new Date(Date.now() - 86400000).toISOString(),
+      expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
+      used: false
+    }];
+    localStorage.setItem('mayumi_earned_rewards', JSON.stringify(demoReward));
+  }
+}
+
+async function issueMonthlyReward(options) {
+  const achDateStr = localStorage.getItem('mayumi_stamp_10_date');
+  const earnedDate = achDateStr ? new Date(achDateStr) : new Date();
+
+  const expiryDate = new Date(earnedDate);
+  expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+  const newReward = {
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    cardNum: stampCardNum,
+    rewardName: 'スタンプ達成特典',
+    earnedDate: earnedDate.toISOString(),
+    expiryDate: expiryDate.toISOString(),
+    used: false
+  };
+
+  EARNED_REWARDS.unshift(newReward);
+  try {
+    localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
+    localStorage.removeItem('mayumi_stamp_10_date'); // 発行後は削除
+  } catch (e) { }
+
+  renderEarnedRewards();
+  if (!(options && options.skipSync)) {
+    await syncRewardStatus(true);
+  }
+}
+
+function renderEarnedRewards() {
+  const container = document.getElementById('earnedRewardsList');
+  if (!container) return;
+
+  if (EARNED_REWARDS.length === 0) {
+    container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">獲得した特典はありません</div>';
+    return;
+  }
+
+  let html = '';
+  const now = new Date();
+
+  EARNED_REWARDS.forEach(r => {
+    const expiry = new Date(r.expiryDate);
+    const isExpired = now > expiry;
+
+    let statusHtml = '';
+    let btnHtml = '';
+    let cardStyle = 'background:#fff; border:1px solid var(--primary); opacity:1;';
+
+    if (r.used) {
+      statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:#e0e0e0; color:#555;">使用済み</span>';
+      cardStyle = 'background:#f9f9f9; border:1px solid #ddd; opacity:0.6;';
+    } else if (isExpired) {
+      statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:#ffebee; color:#d32f2f;">期限切れ</span>';
+      cardStyle = 'background:#f9f9f9; border:1px solid #ddd; opacity:0.6;';
+    } else {
+      statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:var(--primary); color:#fff;">🎁 未使用</span>';
+      btnHtml = `<button class="btn primary" style="padding:6px 12px; font-size:12px; margin-top:10px;" onclick='useReward(${JSON.stringify(r.id)})'>使用する</button>`;
+    }
+
+    const earnedStr = new Date(r.earnedDate).toLocaleDateString('ja-JP');
+    const expiryStr = expiry.toLocaleDateString('ja-JP');
+
+    let countdownHtml = '';
+    if (!r.used && !isExpired) {
+      const diffMs = expiry - now;
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays > 0) {
+        countdownHtml = `<div style="font-size:12px; font-weight:bold; color:var(--danger); margin-bottom:8px;">期限まで あと${diffDays}日</div>`;
+      } else {
+        countdownHtml = `<div style="font-size:12px; font-weight:bold; color:var(--danger); margin-bottom:8px;">期限まで 本日まで</div>`;
       }
     }
 
-    function openRequiredUpdateModal() {
-      const modal = document.getElementById('requiredUpdateModal');
-      if (modal) modal.classList.add('open');
-    }
-
-    function closeRequiredUpdateModal() {
-      const modal = document.getElementById('requiredUpdateModal');
-      if (modal) modal.classList.remove('open');
-    }
-
-    function openRequiredUpdateLink() {
-      if (!currentRequiredUpdateUrl) {
-        closeRequiredUpdateModal();
-        return;
-      }
-      window.location.href = currentRequiredUpdateUrl;
-    }
-
-    async function ensureSupportedAppVersion() {
-      const config = await fetchAppRuntimeConfig();
-      const appInfo = await getInstalledAppInfo();
-      currentAppRuntimeConfig = config;
-      currentInstalledAppInfo = appInfo;
-
-      // 1. ネイティブアプリの強制アップデート判定
-      const needsNativeUpdate = appInfo.isNative &&
-        compareVersionStrings(appInfo.version || '0.0.0', config.minimumSupportedVersion || '0.0.0') < 0;
-
-      // 2. Webプログラム（HTML/JS）の更新判定
-      // CURRENT_WEB_BUNDLE_VERSION が GAS側の設定より古い場合に検知
-      const needsWebUpdate = config.webBundleVersion && config.webBundleVersion !== CURRENT_WEB_BUNDLE_VERSION;
-
-      if (needsNativeUpdate && config.iosStoreUrl) {
-        fillRequiredUpdateModal(config, appInfo);
-        openRequiredUpdateModal();
-        return { blocked: true, needsWebUpdate: needsWebUpdate, config: config, appInfo: appInfo };
-      }
-
-      closeRequiredUpdateModal();
-      return { blocked: false, needsWebUpdate: needsWebUpdate, config: config, appInfo: appInfo };
-    }
-
-    // GASからデータ取得（doGet対応）
-    // action: 'getNews' | 'getProducts'
-    async function getFromGAS(action, params) {
-      if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return null;
-      try {
-        let url = GAS_URL + '?action=' + action + '&t=' + Date.now();
-        if (params) url += '&data=' + encodeURIComponent(JSON.stringify(params));
-        const res = await fetch(url);
-        return await res.json();
-      } catch (e) { return null; }
-    }
-
-    // GASへデータ送信（GET/POST自動切り替え）
-    // payload: { type:'order|updateUser|uploadImage|...', ... }
-    async function postToGAS(payload) {
-      if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return;
-      try {
-        const action = payload.type;
-        let res;
-
-        // 画像のアップロードやユーザー情報更新はデータ量が大きいためPOSTで送る
-        if (action === 'updateUser' || action === 'uploadImage' || action === 'askSupportChat' || action === 'syncUserRewardStatus' || action === 'unsubscribePush') {
-          res = await fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'text/plain' }, // CORS回避のため text/plain
-            redirect: 'follow'
-          });
-        } else {
-          // それ以外（注文など）は従来通りGETで送る（POST不達問題の回避）
-          const data = encodeURIComponent(JSON.stringify(payload));
-          const url = GAS_URL + '?action=' + action + '&data=' + data + '&t=' + Date.now();
-          res = await fetch(url);
-        }
-
-        const json = await res.json();
-        console.log('postToGAS response:', json);
-        return json;
-      } catch (e) {
-        console.log('postToGAS error:', e);
-        return null;
-      }
-    }
-
-    // ===== 商品データ =====
-
-    // 商品画像データ
-    const PROD_IMAGES = {
-      tea50: 'img/tea50.jpg',
-      tea30: 'img/tea30.jpg',
-      bath10: 'img/bath10.jpg',
-      bath2: 'img/bath2.jpg',
-      soap: 'img/soap.jpg',
-      pad: 'img/pad.jpg',
-    };
-
-    const PRODUCTS = [
-      { name: 'よもぎ茶（50パック）', price: 2100, icon: '🍵', bg: 'c1', imgKey: 'tea50', description: '無農薬栽培のよもぎをたっぷり50パック詰めました。毎日の健康維持に。' },
-      { name: 'よもぎ茶（30パック）', price: 1575, icon: '🍵', bg: 'c1', imgKey: 'tea30', description: '持ち運びにも便利な30パック入り。良質なよもぎの香りが楽しめます。' },
-      { name: 'よもぎ入浴剤（10パック）', price: 1540, icon: '🛁', bg: 'c4', imgKey: 'bath10', description: '体の芯から温まるよもぎ入浴剤。10回分のお得なセットです。' },
-      { name: 'よもぎ入浴剤（2パック）', price: 350, icon: '🛁', bg: 'c4', imgKey: 'bath2', description: 'ちょっとしたお試しやプレゼントに最適な2パック入り入浴剤。' },
-      { name: '石鹸（あこがれのきよら）', price: 540, icon: '🧼', bg: 'c2', imgKey: 'soap', description: '天然由来成分にこだわった、お肌に優しい洗顔・全身用石鹸です。' },
-      { name: '冷え取りパット（3枚セット）', price: 2400, icon: '🌸🌸🌸', bg: 'c3', imgKey: 'pad', description: '洗い替えに便利な3枚セット。オーガニックコットン使用で快適です。' },
-      { name: '冷え取りパット（2枚）', price: 1760, icon: '🌸🌸', bg: 'c3', imgKey: 'pad', description: '冷え対策の定番。肌触りの良いパット2枚セットです。' },
-      { name: '冷え取りパット（1枚）', price: 880, icon: '🌸', bg: 'c3', imgKey: 'pad', description: 'まずは試してみたい方に。高品質な国産よもぎ成分を配合。' },
-    ];
-
-    const FALLBACK_BLOG = [
-      { date: '2025.06.15', category: 'お知らせ', type: 'お知らせ', icon: '🌷', title: '夏の産後ヨガ体験会開催のご案内', body: '今年の夏も産後ヨガ体験会を開催いたします。初めての方も大歓迎です。お気軽にご参加ください。' },
-      { date: '2025.06.10', category: 'ブログ', type: 'ブログ', icon: '🍵', title: '授乳期にうれしい！おすすめハーブティー', body: '授乳中のママにぴったりのよもぎ茶をご紹介します。ノンカフェインで体を温める効果があります。' },
-      { date: '2025.06.05', category: '休診情報', type: 'お知らせ', icon: '📅', title: '6月22日（日）は臨時休診となります', body: '誠に恐れ入りますが、6月22日（日）は臨時休診とさせていただきます。ご不便をおかけして申し訳ございません。' },
-      { date: '2025.05.28', category: 'ブログ', type: 'ブログ', icon: '🤱', title: '産後の骨盤ケア、いつから始める？', body: '産後の骨盤は出産の影響でゆるんだ状態。適切なタイミングと方法でケアを始めることが大切です。' },
-    ];
-
-    const SUPPORT_FAQ_FALLBACK = [
-      { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日', answer: '画面右下のマイページから「プロフィールを編集」を開き、必要項目を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
-      { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 95 },
-      { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取るとスタンプが追加されます。10個たまると特典対象です。', priority: 90 },
-      { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから通知をオンにできます。オフにしたい場合も同じボタンから切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可もご確認ください。', priority: 85 },
-      { category: 'NEWS', question: '最新のお知らせの見方を知りたい', keywords: 'お知らせ,news,ブログ,新着,通知一覧', answer: '下部メニューの「NEWS」または画面上部の📢ボタンから確認できます。赤いバッジが出ているときは新着があります。', priority: 80 },
-      { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で今月の予定を確認できます。左右の矢印で別の月にも切り替えられます。', priority: 75 },
-    ];
-
-    const SUPPORT_APP_GUIDE = [
-      // --- アプリ全般 ---
-      { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,画面,メニュー,全体', answer: 'このアプリでは、ホームでスタンプQR読み取りやメニュー一覧の確認、ショップで商品注文、カレンダーで予定確認、NEWSでお知らせ確認、マイページでプロフィール・通知設定・注文履歴・スタンプ特典の確認ができます。診療や個別相談は公式LINEをご利用ください。', priority: 120 },
-      { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,ボタン,下部', answer: '画面下部に5つのタブ（🏠ホーム、🛍ショップ、📅カレンダー、💬NEWS、👤マイページ）、画面上部には📢お知らせ一覧・🛒カート・👤マイページ・🔄更新ボタンがあります。右下には💬使い方相談ボタンもあります。', priority: 115 },
-
-      // --- ホーム画面 ---
-      { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,トップ画面,home', answer: 'ホーム画面には、バナー（お名前＆スタンプ数表示）、スタンプ取得（QR読み取り）、現在のスタンプカード、おすすめ商品、最新のお知らせ（3件）、メニュー一覧へのリンク、公式サイト・SNSリンクが表示されています。', priority: 92 },
-      { category: 'ホーム', question: 'ホームの名前を変更したい', keywords: 'ホーム,名前,バナー,表示名,変更', answer: 'マイページの「✏️ プロフィールを編集」からお名前を変更してください。変更後、ホーム画面のバナーにも反映されます。', priority: 88 },
-
-      // --- スタンプカード ---
-      { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院,集め方,取得,読み取り', answer: 'ホーム画面の「📷 カメラを起動して読み取る」ボタンから、院内（受付・待合室）のQRコードを読み取るとスタンプが1つ追加されます。1日1回まで取得可能です。', priority: 91 },
-      { category: 'QR', question: 'QRコードの読み取り方法を知りたい', keywords: 'qr,qrコード,qrcode,カメラ,読み取り,読取,スキャン', answer: 'ホーム画面の「📷 カメラを起動して読み取る」をタップし、カメラ許可を行ってから院内QRコードを読み取ってください。10個達成済みの場合は先に「新しいスタンプカードを取得」してください。', priority: 90 },
-      { category: 'スタンプ', question: 'スタンプは1日何個取得できますか？', keywords: 'スタンプ,1日,回数,制限,何回,何個', answer: 'スタンプの取得は1日1回までです。同じ日に2回目を読み取ろうとすると「本日はすでにスタンプを取得済みです」と表示されます。', priority: 89 },
-      { category: 'スタンプ', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,たまった,満了,完了', answer: 'スタンプが10個に達すると特典の対象になります。マイページの「🎁 特典取得状況」に獲得した特典が表示されます。受け取りは受付にお声がけください。', priority: 88 },
-      { category: 'スタンプ', question: '新しいカードを始めるには？', keywords: '新しいカード,次のカード,リセット,新規カード,カード取得', answer: 'スタンプ10個達成後、ホーム画面のスタンプカード下に表示される「🌸 新しいスタンプカードを取得」ボタンをタップしてください。スタンプが0にリセットされ、新しいカードが始まります。', priority: 87 },
-      { category: 'スタンプ', question: 'スタンプカードの○枚目とは？', keywords: '枚目,カード番号,カード枚数', answer: '何枚目のスタンプカードを使用しているかを示す表示です。カードを新しくするたびにカウントが増えます。', priority: 82 },
-      { category: 'QR', question: 'カメラの許可を求められました', keywords: 'カメラ,許可,アクセス,権限,拒否', answer: 'QRコードの読み取りにカメラへのアクセスが必要です。「許可」をタップしてください。許可しないと読み取りができません。', priority: 85 },
-      { category: 'QR', question: 'QRコードを読み取れません', keywords: 'qr,読み取れない,読めない,スキャンできない,エラー', answer: '以下をご確認ください：①カメラの許可が有効か（端末の設定→アプリの権限）②QRコードに汚れや傷がないか③十分な明るさがあるか④本日分のスタンプを取得済みでないか⑤10個達成済みの場合は先に「新しいスタンプカードを取得」してください。', priority: 84 },
-      { category: 'スタンプ', question: 'スタンプが消えてしまいました', keywords: 'スタンプ,消えた,なくなった,リセット,データ消失', answer: 'スタンプのデータは端末内に保存されています。アプリのデータを削除したり、別の端末に変更するとデータが引き継がれない場合があります。お困りの場合は受付にご相談ください。', priority: 83 },
-
-      // --- スタンプ特典 ---
-      { category: 'スタンプ特典', question: 'スタンプ特典の使い方を知りたい', keywords: '特典,プレゼント,期限,使用する,使用済み,チケット,受取期限', answer: 'スタンプ10個達成で特典対象です。マイページの「🎁 特典取得状況」で確認・使用できます。受取期限は達成日から1か月。「使用する」をタップすると確定され、取り消しはできません。受け取りは受付にお声がけください。', priority: 86 },
-      { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,確認,一覧,獲得', answer: 'マイページの「🎁 特典取得状況」セクションで確認できます。特典名、カード枚数、使用状態が表示されます。', priority: 85 },
-      { category: 'スタンプ特典', question: '特典に有効期限はありますか？', keywords: '特典,有効期限,期限,いつまで', answer: 'はい。スタンプ10個を達成した日から1か月間が受取期限です。マイページの特典一覧に「受取期限：あと○日」と表示されます。', priority: 84 },
-      { category: 'スタンプ特典', question: '特典を元に戻せますか？', keywords: '特典,取り消し,元に戻す,使用取消,キャンセル', answer: 'いいえ。一度「使用する」をタップして確定した特典は取り消しできません。ご注意ください。', priority: 83 },
-
-      // --- ショップ ---
-      { category: 'ショップ', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入,買う,商品', answer: '下部メニューの「🛍ショップ」→商品をタップ→個数を選んで「カートに追加する🛒」→画面右上🛒でカートを開く→内容を確認して「ご注文を確定する」で完了です。', priority: 95 },
-      { category: 'ショップ', question: '商品の詳細情報を見たい', keywords: '商品,詳細,説明,情報,画像', answer: 'ショップ画面で商品をタップすると、商品名・価格・商品説明・商品画像が表示されます。「商品説明をみる」をタップすると詳しい説明が展開されます。', priority: 90 },
-      { category: 'ショップ', question: '受け取り方法は？', keywords: '受け取り,受取方法,配送,宅配,院内', answer: 'すべての商品は院内受け取りです。注文後、ご来院時にスタッフにお声がけください。', priority: 88 },
-      { category: 'ショップ', question: '支払い方法は？', keywords: '支払い,支払方法,決済,クレジット,現金', answer: 'お支払いは現金払いのみです。ご来院時に受付でお支払いください。', priority: 87 },
-
-      // --- カート ---
-      { category: 'カート', question: 'カートの使い方を知りたい', keywords: 'カート,買い物かご,個数,削除,合計,checkout,チェックアウト', answer: 'ショップで商品をカートに追加すると、カート画面（右上🛒）で個数変更（＋/−ボタン）や削除ができます。内容確認後「ご注文を確定する」を押すと院内受け取りの注文になります。', priority: 88 },
-      { category: 'カート', question: 'カートの中身を確認するには？', keywords: 'カート,確認,中身,内容', answer: '画面右上の🛒アイコンをタップしてください。カート内の商品一覧、個数、小計、合計金額（税込）が表示されます。', priority: 86 },
-      { category: 'カート', question: 'カートの個数を変更したい', keywords: 'カート,個数変更,数量,増やす,減らす', answer: 'カート画面で各商品の「＋」「−」ボタンで個数を変更できます。', priority: 85 },
-      { category: 'カート', question: 'カートが空ですと表示されます', keywords: 'カート,空,商品がない,何もない', answer: 'まだ商品が追加されていません。「ショップへ」ボタンをタップしてショップに移動し、商品を選んでカートに追加してください。', priority: 84 },
-
-      // --- 注文履歴 ---
-      { category: '注文履歴', question: '注文履歴の確認方法を知りたい', keywords: '注文履歴,履歴,受取,受け取り,受取完了,注文状況', answer: 'マイページの「📋 ご注文履歴」で確認できます。注文日時・商品名・個数・合計金額・ステータス（受付中・受取完了など）が表示されます。', priority: 87 },
-      { category: '注文履歴', question: '注文をキャンセルしたい', keywords: '注文,キャンセル,取消,取り消し', answer: '受付中の注文はキャンセルできます。注文履歴でキャンセルしたい注文の「キャンセル」ボタンをタップしてください。キャンセル後は履歴から表示されなくなります。', priority: 86 },
-      { category: '注文履歴', question: '注文履歴が表示されません', keywords: '注文履歴,表示されない,出てこない,見えない', answer: 'プロフィールが未登録の場合、注文履歴は表示されません。マイページの「✏️ プロフィールを編集」から登録を完了してください。', priority: 85 },
-
-      // --- カレンダー ---
-      { category: 'カレンダー', question: 'カレンダーの使い方を知りたい', keywords: 'カレンダー,イベント,予定,日程,前月,翌月,今月', answer: '下部メニューの「📅 カレンダー」で予定を確認できます。◀▶で月を切り替え、日付タップでその日の予定を表示。休＝休診日、往＝往診日、イ＝イベント。下部には今月のイベント一覧も表示されます。', priority: 81 },
-      { category: 'カレンダー', question: '別の月のカレンダーを見たい', keywords: 'カレンダー,前月,翌月,月切替,矢印', answer: 'カレンダー上部の◀（前月）・▶（翌月）ボタンで月を切り替えられます。', priority: 79 },
-      { category: 'カレンダー', question: '今月のイベント一覧を見たい', keywords: '今月,イベント一覧,予定一覧,リスト', answer: 'カレンダーページの下部に「📋 今月のイベント一覧」が表示されています。今月のすべてのイベントが日付順に並んでいます。', priority: 78 },
-      { category: 'カレンダー', question: 'カレンダーの休・往・イとは？', keywords: '休,往,イ,マーク,記号,色', answer: '休＝休診日、往＝往診日、イ＝イベントを示します。それぞれ管理者が設定した色で日付に表示されます。', priority: 77 },
-
-      // --- NEWS ---
-      { category: 'NEWS', question: 'NEWSページの使い方を知りたい', keywords: 'news,ニュース,お知らせ,記事,新着,詳細', answer: '下部メニューの「💬 NEWS」ではお知らせを確認できます。記事をタップすると詳細が開き、新着があると下部メニューにバッジ（赤いドット）が表示されます。', priority: 83 },
-      { category: 'NEWS', question: '新着があるか分かりますか？', keywords: 'バッジ,赤い点,ドット,新着,未読', answer: '新着がある場合、下部メニューの「NEWS」「カレンダー」「ショップ」のアイコンに赤いドット（バッジ）が表示されます。該当ページを開くとバッジは消えます。', priority: 82 },
-      { category: 'NEWS', question: 'お知らせのカテゴリはありますか？', keywords: 'カテゴリ,種類,分類,絞り込み', answer: 'お知らせは「お知らせ」「休診情報」「ブログ」「イベント」「商品情報」などのカテゴリに分類されています。NEWSページではカテゴリで絞り込んで表示できます。', priority: 80 },
-      { category: 'ブログ', question: 'ブログや過去のお知らせの見方を知りたい', keywords: 'ブログ,過去,一覧,記事,以前,バックナンバー', answer: 'ブログを含む過去のお知らせは、画面上部の📢ボタンから開く「お知らせ一覧」で日付順に確認できます。', priority: 79 },
-
-      // --- お知らせ一覧 ---
-      { category: 'お知らせ一覧', question: '📢ボタンの機能は何ですか？', keywords: 'お知らせ一覧,通知一覧,拡声器,📢,ヘッダー', answer: '画面上部の📢ボタンは「お知らせ一覧」を開きます。ブログ・お知らせ・カレンダーイベント・Push通知など全ての新着情報をまとめて確認できます。未読があると赤いドットが表示されます。', priority: 78 },
-
-      // --- マイページ ---
-      { category: 'マイページ', question: 'マイページには何がありますか？', keywords: 'マイページ,内容,機能,セクション', answer: 'マイページには以下があります：👤プロフィール（表示・編集）、🎁特典取得状況（スタンプ特典の確認・使用）、🔔通知設定（Push通知のオン/オフ）、🤖使い方サポート（チャットボット）、📋ご注文履歴、🔗公式サイト・SNSリンク。', priority: 82 },
-      { category: 'マイページ', question: '会員IDとは何ですか？', keywords: '会員id,会員番号,memberid,id', answer: 'マイページ上部のバナーに表示される固有の番号です。プロフィール登録時に自動で生成されます。お問い合わせの際にお伝えいただくとスムーズです。', priority: 80 },
-
-      // --- プロフィール ---
-      { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回', answer: 'マイページの「✏️ プロフィールを編集」をタップし、お名前（必須）・電話番号・生年月日・住所を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
-      { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,修正', answer: 'マイページの「✏️ プロフィールを編集」から、お名前・電話番号・生年月日・住所・アイコン画像・バナー画像を変更できます。変更後「保存」をタップしてください。会員IDはマイページ上部に表示されます。', priority: 95 },
-      { category: 'プロフィール', question: 'アイコン画像を変更できますか？', keywords: 'アイコン,画像,アバター,写真,バナー', answer: 'はい。プロフィール編集画面からアイコン画像とバナー画像を変更できます。画像を選択するとアップロードされます。', priority: 85 },
-      { category: 'プロフィール', question: 'プロフィール未登録だとどうなりますか？', keywords: 'プロフィール,未登録,登録しない,制限', answer: 'プロフィール未登録でもアプリの閲覧は可能ですが、注文機能が使えない・注文履歴が表示されない・特典の管理が正しく紐づかない場合があります。', priority: 84 },
-
-      // --- 通知 ---
-      { category: '通知', question: '通知を受け取りたい', keywords: '通知,push,プッシュ,オン,受け取る', answer: 'マイページの「🔔 通知設定」セクションのボタンをタップしてオンにしてください。ブログ更新や重要なお知らせが届きます。', priority: 85 },
-      { category: '通知', question: '通知をオフにしたい', keywords: '通知,オフ,止める,解除', answer: 'マイページの通知設定ボタンを再度タップすることでオフに切り替えられます。', priority: 83 },
-      { category: '通知', question: '通知が届きません', keywords: '通知,届かない,来ない,受信できない', answer: '以下をご確認ください：①アプリ内の通知設定がオンになっていますか？②端末の設定でアプリの通知が許可されていますか？（iPhoneの場合：設定→通知→アプリ名→通知を許可）③インターネット接続は安定していますか？', priority: 82 },
-
-      // --- メニュー一覧 ---
-      { category: 'メニュー一覧', question: 'メニュー一覧の見方を知りたい', keywords: 'メニュー,施術,一覧,メニュー一覧', answer: 'ホーム画面の「メニュー一覧を見る🍴」ボタンをタップすると、メニュー一覧ページが開きます。各メニューをタップすると詳細や画像を確認できます。', priority: 84 },
-      { category: 'メニュー一覧', question: 'メニューの予約はアプリからできますか？', keywords: 'メニュー,予約,予約する,申し込み', answer: '現在アプリからの直接予約機能はありません。ご予約は公式LINEからお問い合わせください。ホーム画面またはマイページの公式LINEリンクからアクセスできます。', priority: 83 },
-
-      // --- 外部リンク ---
-      { category: '外部リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'line,ライン,instagram,facebook,ホームページ,公式サイト,sns,問い合わせ,連絡', answer: 'ホーム画面やマイページの「🔗 公式サイト・SNS」から、公式ホームページ（mayumijosanin.com）、Instagram（@mayumijosanin）、Facebook（まゆみ助産院）、公式LINEを開けます。', priority: 77 },
-      { category: '外部リンク', question: '診療の予約や個別相談はどこからできますか？', keywords: '診療,予約,相談,問い合わせ,連絡先', answer: '診療の予約や個別のご相談は公式LINEをご利用ください。ホーム画面またはマイページの公式LINEリンクからアクセスできます。', priority: 76 },
-
-      // --- チャットサポート ---
-      { category: 'チャットサポート', question: 'チャットサポートとは何ですか？', keywords: 'チャット,サポート,使い方相談,ボット,チャットボット', answer: 'アプリの使い方に関する質問にチャット形式で回答するサポート機能です。注文方法、スタンプの集め方、通知設定、プロフィール登録などの操作方法を案内します。', priority: 75 },
-      { category: 'チャットサポート', question: 'チャットサポートの開き方は？', keywords: 'チャット,開く,起動,どこ', answer: '画面右下の「💬 使い方相談」ボタンをタップするか、マイページの「🤖 使い方サポート」セクションの「💬 チャットで相談する」ボタンをタップしてください。', priority: 74 },
-
-      // --- トラブルシューティング ---
-      { category: 'トラブル', question: '画面が正しく表示されません', keywords: '画面,表示,おかしい,崩れ,不具合,バグ', answer: '以下をお試しください：①画面右上の🔄ボタンで情報を再取得②アプリを一度閉じて再起動③インターネット接続を確認。', priority: 73 },
-      { category: 'トラブル', question: 'データの取得に失敗しました', keywords: 'データ取得,失敗,エラー,同期,問題', answer: 'インターネット接続が不安定な可能性があります。Wi-Fiや4G/5G回線が安定している環境で🔄ボタンを押して再度お試しください。一部データの取得に失敗しても、他のデータは正常に更新されます。', priority: 72 },
-      { category: 'トラブル', question: 'バッジ（赤いドット）が消えません', keywords: 'バッジ,赤い点,消えない,ドット', answer: '該当するページ（NEWS、カレンダー、ショップなど）を一度開くとバッジは消えます。消えない場合は🔄ボタンで最新情報を再取得してみてください。', priority: 71 },
-      { category: 'トラブル', question: '注文ができません', keywords: '注文,できない,エラー,購入できない', answer: '以下をご確認ください：①プロフィールは登録済みですか？（マイページ→プロフィールを編集）②カートに商品が入っていますか？③インターネットに接続されていますか？', priority: 70 },
-      { category: 'トラブル', question: 'アプリが重い・遅いです', keywords: 'アプリ,重い,遅い,動かない,フリーズ', answer: '以下をお試しください：①他のアプリを閉じてメモリを開放②端末を再起動③🔄ボタンでアプリを最新版に更新。', priority: 69 },
-      { category: 'トラブル', question: '別の端末でデータを引き継げますか？', keywords: '端末,引き継ぎ,機種変更,データ移行', answer: 'スタンプデータは端末内に保存されているため自動では引き継がれません。プロフィールや注文履歴はサーバーに保存されています。スタンプの移行については受付にご相談ください。', priority: 68 },
-      { category: 'トラブル', question: 'アプリのアップデート方法は？', keywords: 'アップデート,更新,最新版,バージョン', answer: '画面右上の🔄ボタンで最新のプログラムが自動確認されます。更新がある場合は自動的に最新版に切り替わります。', priority: 67 },
-      { category: 'トラブル', question: 'アプリを削除したら復元できますか？', keywords: 'アプリ,削除,アンインストール,復元,再インストール', answer: 'アプリを再インストールするとプロフィールや注文履歴は復元できます。ただし端末に保存されたスタンプデータは削除される場合があります。', priority: 66 },
-
-      // --- その他 ---
-      { category: 'その他', question: 'アプリの対応端末は？', keywords: '対応,端末,iPhone,Android,ブラウザ,Safari', answer: 'iPhone（Safari）での動作を推奨しています。iOS端末向けのネイティブアプリとしてもご利用いただけます。', priority: 65 },
-      { category: 'その他', question: '個人情報の取り扱いについて', keywords: '個人情報,プライバシー,セキュリティ,安全', answer: 'プロフィールに登録いただいた情報は、まゆみ助産院の業務（注文管理・会員管理など）のためにのみ使用されます。第三者への提供は行いません。', priority: 64 }
-    ];
-
-    const SUPPORT_APP_KEYWORDS = [
-      'アプリ', '使い方', 'できること', '機能', '画面', 'ホーム', 'トップ', 'バナー',
-      'スタンプ', 'qr', 'qrコード', 'qrcode', 'カメラ', '読み取り', '来院', '10個', '枚目', '新しいカード',
-      '特典', 'プレゼント', '期限', '使用', 'チケット', '受取期限',
-      'ショップ', '商品', 'カート', '注文', '購入', '買い方', '個数', '受け取り', '院内', '現金', '支払い',
-      '注文履歴', '履歴', 'キャンセル', '注文状況', '受取完了',
-      'メニュー', '施術', '一覧', '予約',
-      'news', 'ニュース', 'お知らせ', '新着', '記事', 'カテゴリ', '絞り込み', '📢',
-      'ブログ', '過去', 'バックナンバー',
-      'カレンダー', 'イベント', '予定', '日程', '前月', '翌月', '休診', '往診', '休', '往', 'イ',
-      'マイページ', '会員', '会員id', 'memberid',
-      'プロフィール', '登録', '変更', '編集', '名前', '電話', '住所', '生年月日', 'アイコン', '画像',
-      '通知', 'push', 'プッシュ', 'オン', 'オフ', '届かない',
-      'line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', '連絡',
-      'チャット', 'サポート', 'ボット', '相談',
-      '更新', 'リロード', '最新', '反映', '🔄',
-      '初回', '初めて', 'はじめて', '始める',
-      '表示されない', 'エラー', '失敗', '重い', '遅い', '引き継ぎ', '機種変更', 'アップデート', '削除', '復元',
-      '端末', 'iPhone', '対応', '個人情報', 'バッジ', '赤い点'
-    ];
-
-    // ===== 状態 =====
-    // ===== プロフィール・永続化 =====
-    let _profile = null;
-    try { _profile = JSON.parse(localStorage.getItem('mayumi_profile') || 'null'); } catch (e) { }
-    let CUSTOMER_NAME = _profile ? _profile.name : '';
-    let stampCount = 0;
-    try { stampCount = parseInt(localStorage.getItem('mayumi_stamp') || '0') || 0; } catch (e) { }
-    let stampCardNum = 1;
-    try { stampCardNum = parseInt(localStorage.getItem('mayumi_stamp_card') || '1') || 1; } catch (e) { }
-
-    let STAMP_REWARD_CONFIG = [];
-    let CURRENT_MONTHLY_REWARD = null;
-    let EARNED_REWARDS = [];
-    try { EARNED_REWARDS = JSON.parse(localStorage.getItem('mayumi_earned_rewards') || '[]'); } catch (e) { }
-    let cart = [], orders = [];
-    let isOrderSubmitting = false;
-    let isCancelSubmitting = false;
-    let isReceiptSubmitting = false;
-    let selectedPay = null, currentProdIdx = null, modalQty = 1;
-    let cancelOrderId = null;
-    let receiptSubmittingOrderId = null;
-    let blogItems = [];
-    let allBlogCategories = [];
-    let isDataLoaded = false;
-    let supportFaqItems = [];
-    let supportChatHistory = [];
-    let isSupportChatSending = false;
-    try { supportChatHistory = JSON.parse(localStorage.getItem('mayumi_support_chat_history') || '[]'); } catch (e) { }
-    let lastSupportTopic = '';
-    if (supportChatHistory.length) {
-      try { lastSupportTopic = localStorage.getItem('mayumi_support_chat_topic') || ''; } catch (e) { }
-    }
-    let activeAppDialogResolver = null;
-    let lastSyncedRewardStatus = null;
-
-    function getTodayStampKey() {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-
-    function normalizeStampDateKey(value) {
-      if (!value) return '';
-      if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
-        return String(value);
-      }
-      const parsed = new Date(value);
-      if (Number.isNaN(parsed.getTime())) return '';
-      const year = parsed.getFullYear();
-      const month = String(parsed.getMonth() + 1).padStart(2, '0');
-      const day = String(parsed.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-
-    function normalizeRewardDateTime(value) {
-      if (!value) return '';
-      const parsed = new Date(value);
-      if (Number.isNaN(parsed.getTime())) return '';
-      return parsed.toISOString();
-    }
-
-    function normalizeSingleReward(reward, index) {
-      const earnedDate = normalizeRewardDateTime(reward && reward.earnedDate) || new Date().toISOString();
-      let expiryDate = normalizeRewardDateTime(reward && reward.expiryDate);
-      if (!expiryDate) {
-        const expiry = new Date(earnedDate);
-        expiry.setMonth(expiry.getMonth() + 1);
-        expiryDate = expiry.toISOString();
-      }
-      return {
-        id: reward && reward.id ? String(reward.id) : `reward-${index + 1}`,
-        cardNum: Math.max(1, Number(reward && reward.cardNum) || 1),
-        rewardName: reward && reward.rewardName ? String(reward.rewardName) : 'スタンプ達成特典',
-        earnedDate: earnedDate,
-        expiryDate: expiryDate,
-        used: reward && reward.used === true,
-        usedAt: normalizeRewardDateTime(reward && reward.usedAt)
-      };
-    }
-
-    function normalizeRewardList(rewards) {
-      if (!Array.isArray(rewards)) return [];
-      return rewards.map(function (reward, index) {
-        return normalizeSingleReward(reward, index);
-      });
-    }
-
-    function getLocalRewardStatus() {
-      let lastStampDate = '';
-      let stampAchievedDate = '';
-      try {
-        lastStampDate = normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date') || '');
-        stampAchievedDate = normalizeRewardDateTime(localStorage.getItem('mayumi_stamp_10_date') || '');
-      } catch (e) { }
-      return {
-        stampCount: Math.max(0, Math.min(10, Number(stampCount) || 0)),
-        stampCardNum: Math.max(1, Number(stampCardNum) || 1),
-        rewards: normalizeRewardList(EARNED_REWARDS),
-        lastStampDate: lastStampDate,
-        stampAchievedDate: stampAchievedDate
-      };
-    }
-
-    function hasMeaningfulRewardStatus(status) {
-      if (!status) return false;
-      return Number(status.stampCount || 0) > 0 ||
-        Number(status.stampCardNum || 1) > 1 ||
-        (Array.isArray(status.rewards) && status.rewards.length > 0) ||
-        !!status.lastStampDate ||
-        !!status.stampAchievedDate;
-    }
-
-    function getComparableRewardStatus(status) {
-      const normalized = status || getLocalRewardStatus();
-      return {
-        stampCount: Math.max(0, Math.min(10, Number(normalized.stampCount) || 0)),
-        stampCardNum: Math.max(1, Number(normalized.stampCardNum) || 1),
-        rewards: normalizeRewardList(normalized.rewards),
-        lastStampDate: normalizeStampDateKey(normalized.lastStampDate),
-        stampAchievedDate: normalizeRewardDateTime(normalized.stampAchievedDate)
-      };
-    }
-
-    function rewardStatusEquals(a, b) {
-      return JSON.stringify(getComparableRewardStatus(a)) === JSON.stringify(getComparableRewardStatus(b));
-    }
-
-    function applyRewardStatusLocally(status) {
-      const next = getComparableRewardStatus(status);
-      stampCount = next.stampCount;
-      stampCardNum = next.stampCardNum;
-      EARNED_REWARDS = next.rewards;
-      try {
-        localStorage.setItem('mayumi_stamp', String(stampCount));
-        localStorage.setItem('mayumi_stamp_card', String(stampCardNum));
-        localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
-        if (next.lastStampDate) localStorage.setItem('mayumi_last_stamp_date', next.lastStampDate);
-        else localStorage.removeItem('mayumi_last_stamp_date');
-        if (next.stampAchievedDate) localStorage.setItem('mayumi_stamp_10_date', next.stampAchievedDate);
-        else localStorage.removeItem('mayumi_stamp_10_date');
-      } catch (e) { }
-      updateStampUI();
-      renderEarnedRewards();
-    }
-
-    async function syncRewardStatus(force) {
-      if (!_profile || !_profile.memberId) return null;
-      const localStatus = getLocalRewardStatus();
-      if (!force && lastSyncedRewardStatus && rewardStatusEquals(localStatus, lastSyncedRewardStatus)) {
-        return lastSyncedRewardStatus;
-      }
-      const res = await postToGAS({
-        type: 'syncUserRewardStatus',
-        memberId: _profile.memberId,
-        stampCount: localStatus.stampCount,
-        stampCardNum: localStatus.stampCardNum,
-        rewards: localStatus.rewards,
-        lastStampDate: localStatus.lastStampDate,
-        stampAchievedDate: localStatus.stampAchievedDate
-      });
-      if (res && res.status === 'ok' && res.rewardStatus) {
-        lastSyncedRewardStatus = getComparableRewardStatus(res.rewardStatus);
-        applyRewardStatusLocally(lastSyncedRewardStatus);
-      }
-      return res;
-    }
-
-    // ===== ブログカテゴリフィルタ同期 =====
-    function updateBlogCategoryFilters() {
-      const newsFilter = document.getElementById('newsCategoryFilter');
-      const blogFilter = document.getElementById('blogCategoryFilter');
-      if (!newsFilter || !blogFilter) return;
-
-      // 現在の選択を維持（可能であれば）
-      const currentNewsVal = newsFilter.value;
-      const currentBlogVal = blogFilter.value;
-
-      let newsHtml = '<option value="全て">カテゴリ: 全て</option>';
-      let blogHtml = '<option value="全て">カテゴリ: 全て</option>';
-
-      allBlogCategories.forEach(cat => {
-        const name = typeof cat === 'string' ? cat : (cat.name || '');
-        const type = typeof cat === 'string' ? 'ブログ' : (cat.type || 'ブログ');
-
-        const opt = `<option value="${name}">${name}</option>`;
-        if (type === 'お知らせ') {
-          newsHtml += opt;
-        } else {
-          blogHtml += opt;
-        }
-      });
-
-      newsFilter.innerHTML = newsHtml;
-      blogFilter.innerHTML = blogHtml;
-
-      // 以前の選択を復元（存在する場合）
-      const existsNews = Array.from(newsFilter.options).some(o => o.value === currentNewsVal);
-      if (existsNews) newsFilter.value = currentNewsVal;
-      const existsBlog = Array.from(blogFilter.options).some(o => o.value === currentBlogVal);
-      if (existsBlog) blogFilter.value = currentBlogVal;
-    }
-
-    // ===== スタンプ =====
-    function renderStampGrid(id, count) {
-      const g = document.getElementById(id); g.innerHTML = '';
-      for (let i = 0; i < 10; i++) {
-        const c = document.createElement('div');
-        c.className = 'stamp-cell ' + (i < count ? 'filled' : 'empty');
-        if (i < count) c.textContent = '🌿';
-        g.appendChild(c);
-      }
-    }
-
-    function updateStampUI() {
-      const grid = document.getElementById('homeStampGrid');
-      if (grid) renderStampGrid('homeStampGrid', stampCount);
-
-      const rem = Math.max(0, 10 - stampCount);
-      const elNum = document.getElementById('homeStampNum');
-      if (elNum) elNum.textContent = stampCount;
-      const elCount = document.getElementById('homeStampCount');
-      if (elCount) elCount.textContent = stampCount;
-
-      let msg = rem > 0 ? `あと${rem}回でプレゼント🎁` : '達成済み🎉 新しいカードを取得できます！';
-
-      // 達成済みの場合は期限を表示
-      if (rem === 0) {
-        let achDateStr = localStorage.getItem('mayumi_stamp_10_date');
-        if (achDateStr) {
-          const achDate = new Date(achDateStr);
-          const expDate = new Date(achDate);
-          expDate.setMonth(expDate.getMonth() + 1);
-          const now = new Date();
-          const diffMs = expDate - now;
-          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-          if (diffDays > 0) {
-            msg += `<br><span style="font-size:12px; color:var(--danger); font-weight:bold;">受取期限: あと${diffDays}日</span>`;
-          } else {
-            msg += `<br><span style="font-size:12px; color:var(--danger); font-weight:bold;">受取期限: 本日まで</span>`;
-          }
-        }
-      }
-
-      const elMsg = document.getElementById('homeStampMsg');
-      if (elMsg) elMsg.innerHTML = msg; // textContentからinnerHTMLに変更
-
-      const cardLabel = document.getElementById('homeStampCardLabel');
-      if (cardLabel) cardLabel.textContent = `${stampCardNum}枚目`;
-
-      const newCardBtn = document.getElementById('stampNewCardBtn');
-      if (newCardBtn) {
-        newCardBtn.style.display = stampCount >= 10 ? 'block' : 'none';
-      }
-    }
-    function addStamp() {
-      // 1日1回制限のチェック
-      const today = getTodayStampKey();
-      let lastStampDate = null;
-      try {
-        lastStampDate = normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date'));
-      } catch (e) { }
-
-      if (lastStampDate === today) {
-        showToast('本日はすでにスタンプを取得済みです。来院スタンプは1日1回までです！');
-        return;
-      }
-
-      if (stampCount >= 10) { showToast('達成済み！特典チケットを使用してください 🎁'); return; }
-      stampCount++;
-      try {
-        localStorage.setItem('mayumi_stamp', stampCount);
-        localStorage.setItem('mayumi_last_stamp_date', today);
-        if (stampCount === 10) {
-          localStorage.setItem('mayumi_stamp_10_date', new Date().toISOString());
-        }
-      } catch (e) { }
-
-      updateStampUI();
-      const reachedMilestone = stampCount === 10;
-      if (reachedMilestone) {
-        triggerConfetti();
-      }
-      updateStampModalPresentation(reachedMilestone);
-      document.getElementById('stampPopMsg').textContent = reachedMilestone
-        ? 'ご来院ありがとうございます！10個達成で特典対象になりました。'
-        : 'ご来院ありがとうございます！スタンプを1つ追加しました！';
-      document.getElementById('stampPopCount').textContent = `現在 ${stampCount} / 10`;
-
-      openModal('stampModal');
-      syncRewardStatus();
-    }
-    async function startNewCard() {
-      // スタンプ達成特典を付与
-      await issueMonthlyReward({ skipSync: true });
-
-      stampCount = 0;
-      stampCardNum++;
-      try {
-        localStorage.setItem('mayumi_stamp', stampCount);
-        localStorage.setItem('mayumi_stamp_card', stampCardNum);
-        localStorage.removeItem('mayumi_stamp_10_date');
-      } catch (e) { }
-      updateStampUI();
-      triggerConfetti();
-      closeModal('stampModal');
-      showToast(`🌸 ${stampCardNum}枚目のスタンプカードを開始しました！`);
-      await syncRewardStatus(true);
-    }
-
-    // TEMPORARY DEMO SCRIPT
-    if (window.location.search.includes('demo=true')) {
-      if (!localStorage.getItem('mayumi_stamp_10_date')) {
-        localStorage.setItem('mayumi_stamp', '10');
-        localStorage.setItem('mayumi_stamp_10_date', new Date(Date.now() - 86400000).toISOString());
-        const demoReward = [{
-          id: 99999,
-          cardNum: 1,
-          rewardName: '【検証用】よもぎ茶プレゼント',
-          earnedDate: new Date(Date.now() - 86400000).toISOString(),
-          expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
-          used: false
-        }];
-        localStorage.setItem('mayumi_earned_rewards', JSON.stringify(demoReward));
-      }
-    }
-
-    async function issueMonthlyReward(options) {
-      const achDateStr = localStorage.getItem('mayumi_stamp_10_date');
-      const earnedDate = achDateStr ? new Date(achDateStr) : new Date();
-
-      const expiryDate = new Date(earnedDate);
-      expiryDate.setMonth(expiryDate.getMonth() + 1);
-
-      const newReward = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        cardNum: stampCardNum,
-        rewardName: 'スタンプ達成特典',
-        earnedDate: earnedDate.toISOString(),
-        expiryDate: expiryDate.toISOString(),
-        used: false
-      };
-
-      EARNED_REWARDS.unshift(newReward);
-      try {
-        localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
-        localStorage.removeItem('mayumi_stamp_10_date'); // 発行後は削除
-      } catch (e) { }
-
-      renderEarnedRewards();
-      if (!(options && options.skipSync)) {
-        await syncRewardStatus(true);
-      }
-    }
-
-    function renderEarnedRewards() {
-      const container = document.getElementById('earnedRewardsList');
-      if (!container) return;
-
-      if (EARNED_REWARDS.length === 0) {
-        container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">獲得した特典はありません</div>';
-        return;
-      }
-
-      let html = '';
-      const now = new Date();
-
-      EARNED_REWARDS.forEach(r => {
-        const expiry = new Date(r.expiryDate);
-        const isExpired = now > expiry;
-
-        let statusHtml = '';
-        let btnHtml = '';
-        let cardStyle = 'background:#fff; border:1px solid var(--primary); opacity:1;';
-
-        if (r.used) {
-          statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:#e0e0e0; color:#555;">使用済み</span>';
-          cardStyle = 'background:#f9f9f9; border:1px solid #ddd; opacity:0.6;';
-        } else if (isExpired) {
-          statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:#ffebee; color:#d32f2f;">期限切れ</span>';
-          cardStyle = 'background:#f9f9f9; border:1px solid #ddd; opacity:0.6;';
-        } else {
-          statusHtml = '<span style="font-size:11px; padding:3px 8px; border-radius:12px; background:var(--primary); color:#fff;">🎁 未使用</span>';
-          btnHtml = `<button class="btn primary" style="padding:6px 12px; font-size:12px; margin-top:10px;" onclick='useReward(${JSON.stringify(r.id)})'>使用する</button>`;
-        }
-
-        const earnedStr = new Date(r.earnedDate).toLocaleDateString('ja-JP');
-        const expiryStr = expiry.toLocaleDateString('ja-JP');
-
-        let countdownHtml = '';
-        if (!r.used && !isExpired) {
-          const diffMs = expiry - now;
-          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-          if (diffDays > 0) {
-            countdownHtml = `<div style="font-size:12px; font-weight:bold; color:var(--danger); margin-bottom:8px;">期限まで あと${diffDays}日</div>`;
-          } else {
-            countdownHtml = `<div style="font-size:12px; font-weight:bold; color:var(--danger); margin-bottom:8px;">期限まで 本日まで</div>`;
-          }
-        }
-
-        html += `
+    html += `
           <div style="padding:16px; border-radius:16px; margin-bottom:12px; display:flex; flex-direction:column; box-shadow: 0 4px 12px rgba(0,0,0,0.05); ${cardStyle}">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
               <span style="font-weight:600; font-size:12px; color:var(--text-main); background:rgba(181, 201, 168, 0.2); padding:4px 10px; border-radius:100px;">スタンプ ${r.cardNum}枚目 特典</span>
@@ -887,250 +887,250 @@
             ${btnHtml}
           </div>
         `;
-      });
+  });
 
-      container.innerHTML = html;
+  container.innerHTML = html;
 
-      // Update the Mypage navigation badge based on expiring rewards
-      let hasExpiring = false;
-      EARNED_REWARDS.forEach(r => {
-        if (!r.used) {
-          const expiry = new Date(r.expiryDate);
-          if (now <= expiry) {
-            const diffMs = expiry - now;
-            const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-            if (diffDays <= 7) {
-              hasExpiring = true;
-            }
-          }
-        }
-      });
-
-      const badge = document.getElementById('badge-mypage');
-      if (badge) {
-        if (hasExpiring) {
-          badge.style.display = 'block';
-        } else {
-          badge.style.display = 'none';
+  // Update the Mypage navigation badge based on expiring rewards
+  let hasExpiring = false;
+  EARNED_REWARDS.forEach(r => {
+    if (!r.used) {
+      const expiry = new Date(r.expiryDate);
+      if (now <= expiry) {
+        const diffMs = expiry - now;
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays <= 7) {
+          hasExpiring = true;
         }
       }
     }
+  });
 
-    function useReward(id) {
-      const reward = EARNED_REWARDS.find(r => String(r.id) === String(id));
-      if (!reward) return;
+  const badge = document.getElementById('badge-mypage');
+  if (badge) {
+    if (hasExpiring) {
+      badge.style.display = 'block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
 
-      if (reward.used) {
-        showAppAlert('この特典はすでに使用済みのため、再度は使用できません。', {
-          title: '特典のご利用について',
-          confirmLabel: '閉じる'
-        });
-        return;
-      }
+function useReward(id) {
+  const reward = EARNED_REWARDS.find(r => String(r.id) === String(id));
+  if (!reward) return;
 
-      const expiry = new Date(reward.expiryDate);
-      if (new Date() > expiry) {
-        showAppAlert('この特典は受取期限を過ぎているため使用できません。', {
-          title: '特典のご利用について',
-          confirmLabel: '閉じる'
-        });
-        return;
-      }
+  if (reward.used) {
+    showAppAlert('この特典はすでに使用済みのため、再度は使用できません。', {
+      title: '特典のご利用について',
+      confirmLabel: '閉じる'
+    });
+    return;
+  }
 
-      showAppConfirm('本当に使用しますか？\nこの操作は取り消しできません。', {
-        title: '特典を使用しますか？',
-        confirmLabel: '使用する',
-        cancelLabel: '戻る',
-        confirmVariant: 'primary'
-      }).then(function (confirmed) {
-        if (!confirmed) return;
+  const expiry = new Date(reward.expiryDate);
+  if (new Date() > expiry) {
+    showAppAlert('この特典は受取期限を過ぎているため使用できません。', {
+      title: '特典のご利用について',
+      confirmLabel: '閉じる'
+    });
+    return;
+  }
 
-        reward.used = true;
-        reward.usedAt = new Date().toISOString();
-        try {
-          localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
-        } catch (e) { }
-        renderEarnedRewards();
-        syncRewardStatus(true);
+  showAppConfirm('本当に使用しますか？\nこの操作は取り消しできません。', {
+    title: '特典を使用しますか？',
+    confirmLabel: '使用する',
+    cancelLabel: '戻る',
+    confirmVariant: 'primary'
+  }).then(function (confirmed) {
+    if (!confirmed) return;
 
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('rewardUseTimeMsg').textContent = timeStr;
-        openModal('rewardUseCompleteModal');
-      });
+    reward.used = true;
+    reward.usedAt = new Date().toISOString();
+    try {
+      localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
+    } catch (e) { }
+    renderEarnedRewards();
+    syncRewardStatus(true);
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('rewardUseTimeMsg').textContent = timeStr;
+    openModal('rewardUseCompleteModal');
+  });
+}
+
+
+// ===== カレンダー =====
+let calendarData = [];
+let calendarLoaded = false;
+let currentMonthDate = new Date();
+let selectedDate = new Date();
+
+// GAS未設定時のフォールバックカレンダーデータ
+function getFallbackCalendarEvents() {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  return [
+    { date: `${y}-${m}-15`, title: '📝 産後ヨガ教室', desc: '10:00〜11:30 定員5名様', color: '#f48fb1', image: '' },
+    { date: `${y}-${m}-22`, title: '休診日', desc: '臨時休診となります', color: '#e57373', image: '' },
+    { date: `${y}-${m}-25`, title: '🌿 お灸イベント', desc: 'ご自宅でできるお灸のやり方', color: '#81c784', image: '' }
+  ];
+}
+
+async function loadCalendar() {
+  console.log('[カレンダー] データ取得開始...');
+  const data = await getFromGAS('getCalendar');
+  console.log('[カレンダー] GASレスポンス:', JSON.stringify(data));
+
+  if (data && data.status === 'ok' && data.events) {
+    // GASから正常にデータ取得 → 常に最新データで上書き（0件でもOK）
+    calendarData = data.events;
+    console.log('[カレンダー] GASからイベント取得:', calendarData.length, '件');
+  } else if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') {
+    // GAS未設定の場合のみフォールバックを使用
+    calendarData = getFallbackCalendarEvents();
+    console.log('[カレンダー] GAS未設定 → フォールバックデータ使用');
+  } else {
+    console.log('[カレンダー] GASからの取得に失敗。レスポンス:', data);
+    // GAS設定済みだがエラーの場合、既存データがなければフォールバック
+    if (calendarData.length === 0) {
+      calendarData = getFallbackCalendarEvents();
+    }
+  }
+  calendarLoaded = true;
+  renderCalendar();
+  if (document.getElementById('page-notices').classList.contains('active')) {
+    renderPushNotices();
+  }
+  updateNavBadges(); // バッジ更新
+}
+
+function renderCalendar() {
+  const year = currentMonthDate.getFullYear();
+  const month = currentMonthDate.getMonth();
+  const mtEl = document.getElementById('calendar-month-year');
+  if (mtEl) mtEl.textContent = `${year}年 ${month + 1}月`;
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const firstDayOfWeek = firstDay.getDay();
+
+  const gridInfo = document.getElementById('calendar-grid-info');
+  if (!gridInfo) return;
+
+  let html = '';
+  const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+  dayNames.forEach(d => {
+    html += `<div class="cal-day-name">${d}</div>`;
+  });
+
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    html += `<div class="cal-day empty"></div>`;
+  }
+
+  const today = new Date();
+
+  for (let i = 1; i <= daysInMonth; i++) {
+    const dDate = new Date(year, month, i);
+    const dayOfWeek = dDate.getDay();
+
+    let cls = 'cal-day';
+    if (dayOfWeek === 0) cls += ' sun';
+    if (dayOfWeek === 6) cls += ' sat';
+
+    if (dDate.toDateString() === today.toDateString()) {
+      cls += ' today';
+    }
+    if (dDate.toDateString() === selectedDate.toDateString()) {
+      cls += ' selected';
     }
 
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+    const evts = calendarData.filter(e => e.date === dateStr);
+    const isHoliday = evts.some(e => e.title.includes('休'));
+    const isOutpatient = evts.some(e => e.title.includes('往'));
 
-    // ===== カレンダー =====
-    let calendarData = [];
-    let calendarLoaded = false;
-    let currentMonthDate = new Date();
-    let selectedDate = new Date();
-
-    // GAS未設定時のフォールバックカレンダーデータ
-    function getFallbackCalendarEvents() {
-      const today = new Date();
-      const y = today.getFullYear();
-      const m = String(today.getMonth() + 1).padStart(2, '0');
-      return [
-        { date: `${y}-${m}-15`, title: '📝 産後ヨガ教室', desc: '10:00〜11:30 定員5名様', color: '#f48fb1', image: '' },
-        { date: `${y}-${m}-22`, title: '休診日', desc: '臨時休診となります', color: '#e57373', image: '' },
-        { date: `${y}-${m}-25`, title: '🌿 お灸イベント', desc: 'ご自宅でできるお灸のやり方', color: '#81c784', image: '' }
-      ];
+    let dotsHtml = '';
+    if (evts.length > 0 && !isHoliday && !isOutpatient) {
+      // ドット（点）から、文字入りの円タグ（休や往と同じ形式）に変更
+      dotsHtml = `<div class="cal-evt-container">` +
+        evts.slice(0, 2).map(e => {
+          const char = 'イ'; // 全てのイベントを一律「イ」で表示
+          return `<div class="cal-evt-tag" style="background:${e.color}">${char}</div>`;
+        }).join('') +
+        `</div>`;
     }
 
-    async function loadCalendar() {
-      console.log('[カレンダー] データ取得開始...');
-      const data = await getFromGAS('getCalendar');
-      console.log('[カレンダー] GASレスポンス:', JSON.stringify(data));
-
-      if (data && data.status === 'ok' && data.events) {
-        // GASから正常にデータ取得 → 常に最新データで上書き（0件でもOK）
-        calendarData = data.events;
-        console.log('[カレンダー] GASからイベント取得:', calendarData.length, '件');
-      } else if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') {
-        // GAS未設定の場合のみフォールバックを使用
-        calendarData = getFallbackCalendarEvents();
-        console.log('[カレンダー] GAS未設定 → フォールバックデータ使用');
-      } else {
-        console.log('[カレンダー] GASからの取得に失敗。レスポンス:', data);
-        // GAS設定済みだがエラーの場合、既存データがなければフォールバック
-        if (calendarData.length === 0) {
-          calendarData = getFallbackCalendarEvents();
-        }
-      }
-      calendarLoaded = true;
-      renderCalendar();
-      if (document.getElementById('page-notices').classList.contains('active')) {
-        renderPushNotices();
-      }
-      updateNavBadges(); // バッジ更新
+    let statusTagsHtml = '';
+    if (isHoliday) {
+      statusTagsHtml += '<div class="cal-holiday-tag">休</div>';
+    }
+    if (isOutpatient) {
+      const outEvt = evts.find(e => e.title.includes('往'));
+      const outColor = outEvt ? outEvt.color : '#e57373';
+      statusTagsHtml += `<div class="cal-holiday-tag" style="background:${outColor}">往</div>`;
     }
 
-    function renderCalendar() {
-      const year = currentMonthDate.getFullYear();
-      const month = currentMonthDate.getMonth();
-      const mtEl = document.getElementById('calendar-month-year');
-      if (mtEl) mtEl.textContent = `${year}年 ${month + 1}月`;
-
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      const daysInMonth = lastDay.getDate();
-      const firstDayOfWeek = firstDay.getDay();
-
-      const gridInfo = document.getElementById('calendar-grid-info');
-      if (!gridInfo) return;
-
-      let html = '';
-      const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-      dayNames.forEach(d => {
-        html += `<div class="cal-day-name">${d}</div>`;
-      });
-
-      for (let i = 0; i < firstDayOfWeek; i++) {
-        html += `<div class="cal-day empty"></div>`;
-      }
-
-      const today = new Date();
-
-      for (let i = 1; i <= daysInMonth; i++) {
-        const dDate = new Date(year, month, i);
-        const dayOfWeek = dDate.getDay();
-
-        let cls = 'cal-day';
-        if (dayOfWeek === 0) cls += ' sun';
-        if (dayOfWeek === 6) cls += ' sat';
-
-        if (dDate.toDateString() === today.toDateString()) {
-          cls += ' today';
-        }
-        if (dDate.toDateString() === selectedDate.toDateString()) {
-          cls += ' selected';
-        }
-
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        const evts = calendarData.filter(e => e.date === dateStr);
-        const isHoliday = evts.some(e => e.title.includes('休'));
-        const isOutpatient = evts.some(e => e.title.includes('往'));
-
-        let dotsHtml = '';
-        if (evts.length > 0 && !isHoliday && !isOutpatient) {
-          // ドット（点）から、文字入りの円タグ（休や往と同じ形式）に変更
-          dotsHtml = `<div class="cal-evt-container">` +
-            evts.slice(0, 2).map(e => {
-              const char = 'イ'; // 全てのイベントを一律「イ」で表示
-              return `<div class="cal-evt-tag" style="background:${e.color}">${char}</div>`;
-            }).join('') +
-            `</div>`;
-        }
-
-        let statusTagsHtml = '';
-        if (isHoliday) {
-          statusTagsHtml += '<div class="cal-holiday-tag">休</div>';
-        }
-        if (isOutpatient) {
-          const outEvt = evts.find(e => e.title.includes('往'));
-          const outColor = outEvt ? outEvt.color : '#e57373';
-          statusTagsHtml += `<div class="cal-holiday-tag" style="background:${outColor}">往</div>`;
-        }
-
-        html += `<div class="${cls}" onclick="selectCalendarDate(${year}, ${month}, ${i})">
+    html += `<div class="${cls}" onclick="selectCalendarDate(${year}, ${month}, ${i})">
            <span>${i}</span>
            ${statusTagsHtml}
            ${dotsHtml}
         </div>`;
-      }
+  }
 
-      gridInfo.innerHTML = html;
-      renderEventsList();
-      renderMonthlyEventsList();
-      console.log('[カレンダー] レンダリング完了');
-    }
+  gridInfo.innerHTML = html;
+  renderEventsList();
+  renderMonthlyEventsList();
+  console.log('[カレンダー] レンダリング完了');
+}
 
-    function selectCalendarDate(y, m, d) {
-      selectedDate = new Date(y, m, d);
-      renderCalendar();
-    }
+function selectCalendarDate(y, m, d) {
+  selectedDate = new Date(y, m, d);
+  renderCalendar();
+}
 
-    function prevMonth() {
-      currentMonthDate.setMonth(currentMonthDate.getMonth() - 1);
-      renderCalendar();
-    }
+function prevMonth() {
+  currentMonthDate.setMonth(currentMonthDate.getMonth() - 1);
+  renderCalendar();
+}
 
-    function nextMonth() {
-      currentMonthDate.setMonth(currentMonthDate.getMonth() + 1);
-      renderCalendar();
-    }
+function nextMonth() {
+  currentMonthDate.setMonth(currentMonthDate.getMonth() + 1);
+  renderCalendar();
+}
 
-    function renderEventsList() {
-      const el = document.getElementById('calendar-events-list');
-      if (!el) return;
+function renderEventsList() {
+  const el = document.getElementById('calendar-events-list');
+  if (!el) return;
 
-      const y = selectedDate.getFullYear();
-      const m = selectedDate.getMonth() + 1;
-      const d = selectedDate.getDate();
-      const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const evts = calendarData.filter(e => e.date === dateStr);
+  const y = selectedDate.getFullYear();
+  const m = selectedDate.getMonth() + 1;
+  const d = selectedDate.getDate();
+  const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const evts = calendarData.filter(e => e.date === dateStr);
 
-      let html = `<h3>${m}月${d}日(${['日', '月', '火', '水', '木', '金', '土'][selectedDate.getDay()]}) の予定</h3>`;
+  let html = `<h3>${m}月${d}日(${['日', '月', '火', '水', '木', '金', '土'][selectedDate.getDay()]}) の予定</h3>`;
 
-      if (evts.length === 0) {
-        html += `<div class="no-evts">予定はありません</div>`;
-      } else {
-        evts.forEach(e => {
-          let imgHtml = `
+  if (evts.length === 0) {
+    html += `<div class="no-evts">予定はありません</div>`;
+  } else {
+    evts.forEach(e => {
+      let imgHtml = `
             <div class="cal-evt-img-box">
               <div class="cal-evt-img-placeholder" style="background:${e.color}22; color:${e.color}">📅</div>
             </div>`;
-          if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
-            imgHtml = `
+      if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
+        imgHtml = `
               <div class="cal-evt-img-box">
                 <img src="${e.image}">
               </div>`;
-          }
+      }
 
-          const originalIdx = calendarData.indexOf(e);
-          html += `
+      const originalIdx = calendarData.indexOf(e);
+      html += `
               <div class="cal-evt-item" onclick="openCalendarEventDetail(${originalIdx})" style="cursor:pointer;">
                 ${imgHtml}
                 <div class="cal-evt-color" style="background:${e.color}"></div>
@@ -1140,45 +1140,45 @@
                 </div>
               </div>
             `;
-        });
-      }
-      el.innerHTML = html;
-    }
+    });
+  }
+  el.innerHTML = html;
+}
 
-    function renderMonthlyEventsList() {
-      const el = document.getElementById('calendar-monthly-events-list');
-      if (!el) return;
+function renderMonthlyEventsList() {
+  const el = document.getElementById('calendar-monthly-events-list');
+  if (!el) return;
 
-      const year = currentMonthDate.getFullYear();
-      const month = currentMonthDate.getMonth() + 1;
-      const prefix = `${year}-${String(month).padStart(2, '0')}-`;
+  const year = currentMonthDate.getFullYear();
+  const month = currentMonthDate.getMonth() + 1;
+  const prefix = `${year}-${String(month).padStart(2, '0')}-`;
 
-      const monthlyEvts = calendarData.filter(e => e.date.startsWith(prefix) && !e.title.includes('休') && !e.title.includes('往'))
-        .sort((a, b) => a.date.localeCompare(b.date));
+  const monthlyEvts = calendarData.filter(e => e.date.startsWith(prefix) && !e.title.includes('休') && !e.title.includes('往'))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
-      if (monthlyEvts.length === 0) {
-        el.innerHTML = `<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">今月の予定はありません</div>`;
-        return;
-      }
+  if (monthlyEvts.length === 0) {
+    el.innerHTML = `<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">今月の予定はありません</div>`;
+    return;
+  }
 
-      let html = '';
-      monthlyEvts.forEach(e => {
-        const d = new Date(e.date);
-        const dayStr = `${d.getMonth() + 1}/${d.getDate()}(${['日', '月', '火', '水', '木', '金', '土'][d.getDay()]})`;
+  let html = '';
+  monthlyEvts.forEach(e => {
+    const d = new Date(e.date);
+    const dayStr = `${d.getMonth() + 1}/${d.getDate()}(${['日', '月', '火', '水', '木', '金', '土'][d.getDay()]})`;
 
-        let imgHtml = `
+    let imgHtml = `
           <div class="cal-evt-img-box">
             <div class="cal-evt-img-placeholder" style="background:${e.color}22; color:${e.color}">📅</div>
           </div>`;
-        if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
-          imgHtml = `
+    if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
+      imgHtml = `
             <div class="cal-evt-img-box">
               <img src="${e.image}">
             </div>`;
-        }
+    }
 
-        const originalIdx = calendarData.indexOf(e);
-        html += `
+    const originalIdx = calendarData.indexOf(e);
+    html += `
           <div class="cal-evt-item" onclick="selectCalendarDate(${d.getFullYear()}, ${d.getMonth()}, ${d.getDate()}); openCalendarEventDetail(${originalIdx})" style="cursor:pointer;">
             <div class="cal-evt-date">${dayStr}</div>
             ${imgHtml}
@@ -1189,24 +1189,24 @@
             </div>
           </div>
         `;
-      });
-      el.innerHTML = html;
-    }
+  });
+  el.innerHTML = html;
+}
 
-    function openCalendarEventDetail(idx) {
-      const e = calendarData[idx];
-      if (!e) return;
+function openCalendarEventDetail(idx) {
+  const e = calendarData[idx];
+  if (!e) return;
 
-      let imageHtml = '';
-      if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
-        imageHtml = `<div style="margin-bottom:20px; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);"><img src="${e.image}" style="width:100%; height:auto; display:block;" alt="Event Image"></div>`;
-      }
+  let imageHtml = '';
+  if (e.image && (e.image.startsWith('http') || e.image.startsWith('data:'))) {
+    imageHtml = `<div style="margin-bottom:20px; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);"><img src="${e.image}" style="width:100%; height:auto; display:block;" alt="Event Image"></div>`;
+  }
 
-      const formattedDesc = (e.desc || '').replace(/\n/g, '<br>');
-      const d = new Date(e.date);
-      const dateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${['日', '月', '火', '水', '木', '金', '土'][d.getDay()]})`;
+  const formattedDesc = (e.desc || '').replace(/\n/g, '<br>');
+  const d = new Date(e.date);
+  const dateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${['日', '月', '火', '水', '木', '金', '土'][d.getDay()]})`;
 
-      document.getElementById('calendarEventDetailContent').innerHTML = `
+  document.getElementById('calendarEventDetailContent').innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <span class="blog-detail-cat" style="background:${e.color}22; color:${e.color};">予定</span>
           <span style="font-size:13px; color:var(--text-light); font-weight:bold;">${dateStr}</span>
@@ -1215,176 +1215,176 @@
         ${imageHtml}
         <div class="blog-detail-body" style="font-size:15px; line-height:1.8; color:var(--text-main);">${formattedDesc}</div>
       `;
-      openModal('calendarEventDetailModal');
-    }
+  openModal('calendarEventDetailModal');
+}
 
-    // ===== スタンプ特典設定 =====
-    async function loadCurrentMonthlyReward() {
-      CURRENT_MONTHLY_REWARD = null;
-      STAMP_REWARD_CONFIG = [];
-      return null;
-    }
+// ===== スタンプ特典設定 =====
+async function loadCurrentMonthlyReward() {
+  CURRENT_MONTHLY_REWARD = null;
+  STAMP_REWARD_CONFIG = [];
+  return null;
+}
 
-    async function loadStampRewards() {
-      await loadCurrentMonthlyReward();
-      const localStatus = getLocalRewardStatus();
-      if (_profile && _profile.memberId) {
-        const remote = await getFromGAS('getUserRewardStatus', { memberId: _profile.memberId });
-        if (remote && remote.status === 'ok' && remote.rewardStatus) {
-          const remoteStatus = getComparableRewardStatus(remote.rewardStatus);
-          if (hasMeaningfulRewardStatus(remoteStatus)) {
-            applyRewardStatusLocally(remoteStatus);
-            lastSyncedRewardStatus = remoteStatus;
-          } else if (hasMeaningfulRewardStatus(localStatus)) {
-            await syncRewardStatus(true);
-          }
-        } else if (hasMeaningfulRewardStatus(localStatus)) {
-          await syncRewardStatus(true);
-        }
-      } else {
-        applyRewardStatusLocally(localStatus);
+async function loadStampRewards() {
+  await loadCurrentMonthlyReward();
+  const localStatus = getLocalRewardStatus();
+  if (_profile && _profile.memberId) {
+    const remote = await getFromGAS('getUserRewardStatus', { memberId: _profile.memberId });
+    if (remote && remote.status === 'ok' && remote.rewardStatus) {
+      const remoteStatus = getComparableRewardStatus(remote.rewardStatus);
+      if (hasMeaningfulRewardStatus(remoteStatus)) {
+        applyRewardStatusLocally(remoteStatus);
+        lastSyncedRewardStatus = remoteStatus;
+      } else if (hasMeaningfulRewardStatus(localStatus)) {
+        await syncRewardStatus(true);
       }
-      renderEarnedRewards();
+    } else if (hasMeaningfulRewardStatus(localStatus)) {
+      await syncRewardStatus(true);
     }
+  } else {
+    applyRewardStatusLocally(localStatus);
+  }
+  renderEarnedRewards();
+}
 
-    async function loadSurveys() {
-      return [];
+async function loadSurveys() {
+  return [];
+}
+
+function renderSurveys() {
+  return;
+}
+
+// ===== ブログ =====
+// GASの getBlogNews レスポンス: { status:'ok', news:[{date,title,category,icon,body}] }
+async function loadBlog() {
+  const data = await getFromGAS('getNews');
+  const containerNews = document.getElementById('homeNewsList');
+  const containerBlog = document.getElementById('homeBlogList');
+
+  if (data && data.status === 'ok' && data.news) {
+    const categories = data.categories || [];
+    allBlogCategories = categories;
+    updateBlogCategoryFilters();
+
+    blogItems = data.news.map(item => {
+      const catObj = categories.find(c => c.name === item.category) || {};
+      // 管理画面と同様の推論ロジックで分類(type)を補完
+      item.type = catObj.type || (item.category === 'お知らせ' ? 'お知らせ' : (item.category === '休診情報' ? 'お知らせ' : 'ブログ'));
+      return item;
+    });
+  } else {
+    // エラー時や取得不能時は空にする（または必要に応じてフォールバックを表示するが、ユーザーの要望により管理画面の内容を優先）
+    blogItems = [];
+    allBlogCategories = [
+      { name: 'お知らせ', type: 'お知らせ' },
+      { name: '休診情報', type: 'お知らせ' },
+      { name: 'ブログ', type: 'ブログ' }
+    ];
+    updateBlogCategoryFilters();
+  }
+
+  renderBlogList('homeNewsList', 3, 'お知らせ');
+
+  if (document.getElementById('page-blog').classList.contains('active')) {
+    renderDividedBlogList();
+  }
+  if (document.getElementById('page-notices').classList.contains('active')) {
+    renderPushNotices();
+  }
+  updateNavBadges(); // バッジ更新
+}
+
+// ===== お知らせ (Push通知代替) =====
+let pushNotices = [];
+async function loadPushNotices() {
+  const data = await getFromGAS('getPushNotices');
+  if (data && data.status === 'ok' && data.notices) {
+    pushNotices = data.notices;
+    checkNewPushNotice();
+    if (document.getElementById('page-notices').classList.contains('active')) {
+      renderPushNotices();
     }
+  }
+  updateNavBadges();
+}
 
-    function renderSurveys() {
-      return;
+function renderPushNotices() {
+  const list = document.getElementById('noticeList');
+  if (!list) return;
+
+  // --- 全データソースを統合 ---
+  const items = [];
+
+  // 1) Push通知 (GAS)
+  pushNotices.forEach(n => {
+    const body = n.body || '';
+    items.push({
+      ts: n.date,          // タイムスタンプ (ms)
+      type: 'notice',
+      icon: '📢',
+      label: 'お知らせ',
+      title: n.title,
+      body: body.length > 60 ? body.substring(0, 60) + '...' : body
+    });
+  });
+
+  // 2) ブログ (date: 'YYYY.MM.DD')
+  blogItems.forEach(b => {
+    const parts = (b.date || '').split('.');
+    const ts = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]).getTime() : 0;
+    items.push({
+      ts,
+      type: 'blog',
+      icon: '📝',
+      label: b.category || 'ブログ',
+      title: b.title,
+      body: b.body ? b.body.substring(0, 60) + (b.body.length > 60 ? '...' : '') : ''
+    });
+  });
+
+  // 3) カレンダー (date: 'YYYY-MM-DD')
+  calendarData.forEach(e => {
+    if (e.title && (e.title.includes('休') || e.title.includes('往'))) return; // 休診や往診はお知らせから除外
+    const ts = e.date ? new Date(e.date).getTime() : 0;
+    const body = e.desc || '';
+    items.push({
+      ts,
+      type: 'calendar',
+      icon: '📅',
+      label: 'カレンダー',
+      title: e.title,
+      body: body.length > 60 ? body.substring(0, 60) + '...' : body
+    });
+  });
+
+  // --- 日付の新しい順にソート ---
+  items.sort((a, b) => b.ts - a.ts);
+
+  // --- 最大30件に制限 ---
+  const displayItems = items.slice(0, 30);
+
+  if (displayItems.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light);">現在お知らせはありません。</div>';
+    return;
+  }
+
+  // --- 描画 ---
+  let html = '';
+  displayItems.forEach(item => {
+    let dateStr = '';
+    if (item.ts > 0) {
+      const d = new Date(item.ts);
+      dateStr = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
     }
-
-    // ===== ブログ =====
-    // GASの getBlogNews レスポンス: { status:'ok', news:[{date,title,category,icon,body}] }
-    async function loadBlog() {
-      const data = await getFromGAS('getNews');
-      const containerNews = document.getElementById('homeNewsList');
-      const containerBlog = document.getElementById('homeBlogList');
-
-      if (data && data.status === 'ok' && data.news) {
-        const categories = data.categories || [];
-        allBlogCategories = categories;
-        updateBlogCategoryFilters();
-
-        blogItems = data.news.map(item => {
-          const catObj = categories.find(c => c.name === item.category) || {};
-          // 管理画面と同様の推論ロジックで分類(type)を補完
-          item.type = catObj.type || (item.category === 'お知らせ' ? 'お知らせ' : (item.category === '休診情報' ? 'お知らせ' : 'ブログ'));
-          return item;
-        });
-      } else {
-        // エラー時や取得不能時は空にする（または必要に応じてフォールバックを表示するが、ユーザーの要望により管理画面の内容を優先）
-        blogItems = [];
-        allBlogCategories = [
-          { name: 'お知らせ', type: 'お知らせ' },
-          { name: '休診情報', type: 'お知らせ' },
-          { name: 'ブログ', type: 'ブログ' }
-        ];
-        updateBlogCategoryFilters();
-      }
-
-      renderBlogList('homeNewsList', 3, 'お知らせ');
-
-      if (document.getElementById('page-blog').classList.contains('active')) {
-        renderDividedBlogList();
-      }
-      if (document.getElementById('page-notices').classList.contains('active')) {
-        renderPushNotices();
-      }
-      updateNavBadges(); // バッジ更新
-    }
-
-    // ===== お知らせ (Push通知代替) =====
-    let pushNotices = [];
-    async function loadPushNotices() {
-      const data = await getFromGAS('getPushNotices');
-      if (data && data.status === 'ok' && data.notices) {
-        pushNotices = data.notices;
-        checkNewPushNotice();
-        if (document.getElementById('page-notices').classList.contains('active')) {
-          renderPushNotices();
-        }
-      }
-      updateNavBadges();
-    }
-
-    function renderPushNotices() {
-      const list = document.getElementById('noticeList');
-      if (!list) return;
-
-      // --- 全データソースを統合 ---
-      const items = [];
-
-      // 1) Push通知 (GAS)
-      pushNotices.forEach(n => {
-        const body = n.body || '';
-        items.push({
-          ts: n.date,          // タイムスタンプ (ms)
-          type: 'notice',
-          icon: '📢',
-          label: 'お知らせ',
-          title: n.title,
-          body: body.length > 60 ? body.substring(0, 60) + '...' : body
-        });
-      });
-
-      // 2) ブログ (date: 'YYYY.MM.DD')
-      blogItems.forEach(b => {
-        const parts = (b.date || '').split('.');
-        const ts = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]).getTime() : 0;
-        items.push({
-          ts,
-          type: 'blog',
-          icon: '📝',
-          label: b.category || 'ブログ',
-          title: b.title,
-          body: b.body ? b.body.substring(0, 60) + (b.body.length > 60 ? '...' : '') : ''
-        });
-      });
-
-      // 3) カレンダー (date: 'YYYY-MM-DD')
-      calendarData.forEach(e => {
-        if (e.title && (e.title.includes('休') || e.title.includes('往'))) return; // 休診や往診はお知らせから除外
-        const ts = e.date ? new Date(e.date).getTime() : 0;
-        const body = e.desc || '';
-        items.push({
-          ts,
-          type: 'calendar',
-          icon: '📅',
-          label: 'カレンダー',
-          title: e.title,
-          body: body.length > 60 ? body.substring(0, 60) + '...' : body
-        });
-      });
-
-      // --- 日付の新しい順にソート ---
-      items.sort((a, b) => b.ts - a.ts);
-
-      // --- 最大30件に制限 ---
-      const displayItems = items.slice(0, 30);
-
-      if (displayItems.length === 0) {
-        list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light);">現在お知らせはありません。</div>';
-        return;
-      }
-
-      // --- 描画 ---
-      let html = '';
-      displayItems.forEach(item => {
-        let dateStr = '';
-        if (item.ts > 0) {
-          const d = new Date(item.ts);
-          dateStr = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
-        }
-        const labelColors = {
-          notice: '#c05621',
-          blog: '#2f7a4d',
-          calendar: '#1565c0',
-          product: '#6a1b9a'
-        };
-        const color = labelColors[item.type] || 'var(--sage-dark)';
-        html += `
+    const labelColors = {
+      notice: '#c05621',
+      blog: '#2f7a4d',
+      calendar: '#1565c0',
+      product: '#6a1b9a'
+    };
+    const color = labelColors[item.type] || 'var(--sage-dark)';
+    html += `
           <div class="blog-card" style="padding:16px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:12px; font-weight:700; color:${color}; background:${color}18; border-radius:12px; padding:2px 10px;">${item.icon} ${item.label}</span>
@@ -1394,122 +1394,122 @@
             ${item.body ? `<div style="font-size:13px; color:var(--text-mid); line-height:1.6;">${item.body}</div>` : ''}
           </div>
         `;
-      });
-      list.innerHTML = html;
-    }
+  });
+  list.innerHTML = html;
+}
 
-    function checkNewPushNotice() {
-      if (pushNotices.length === 0) return;
-      const latest = pushNotices[0];
-      const lastSeenTime = Number(localStorage.getItem('last_seen_push_time') || 0);
-      const lastNotifiedTime = Number(localStorage.getItem('last_notified_push_time') || 0);
+function checkNewPushNotice() {
+  if (pushNotices.length === 0) return;
+  const latest = pushNotices[0];
+  const lastSeenTime = Number(localStorage.getItem('last_seen_push_time') || 0);
+  const lastNotifiedTime = Number(localStorage.getItem('last_notified_push_time') || 0);
 
-      if (latest.date > lastSeenTime && latest.date > lastNotifiedTime) {
-        localStorage.setItem('last_notified_push_time', latest.date.toString());
-        if (Notification.permission === 'granted') {
-          try {
-            const n = new Notification(latest.title, {
-              body: latest.body,
-              icon: './icon.png'
-            });
-            n.onclick = () => { window.focus(); };
-          } catch (e) { console.error("Notification error:", e); }
-        }
-        showToast('🔔 新しいお知らせ：' + latest.title);
-      }
-    }
-
-    // ===== 商品マスタ動的取得 =====
-    async function loadProducts() {
-      const data = await getFromGAS('getProducts');
-      if (data && data.status === 'ok' && data.products && data.products.length > 0) {
-        const imgKeyMap = {};
-        PRODUCTS.forEach(p => { imgKeyMap[p.name] = p.imgKey; });
-
-        const updated = data.products.map(p => ({
-          name: p.name,
-          price: p.price,
-          category: p.category,
-          icon: p.icon || '🌿',
-          bg: p.bg || 'c1',
-          description: p.description || '',
-          descriptionImage: p.descriptionImage || '',
-          imgKey: imgKeyMap[p.name] || 'default'
-        }));
-        PRODUCTS.splice(0, PRODUCTS.length, ...updated);
-
-        if (document.getElementById('page-notices').classList.contains('active')) {
-          renderPushNotices();
-        }
-
-        const gridIds = ['grid-recommended', 'grid-tea', 'grid-bath', 'grid-dashi', 'grid-soap-other', 'grid-pad'];
-        gridIds.forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.innerHTML = '';
+  if (latest.date > lastSeenTime && latest.date > lastNotifiedTime) {
+    localStorage.setItem('last_notified_push_time', latest.date.toString());
+    if (Notification.permission === 'granted') {
+      try {
+        const n = new Notification(latest.title, {
+          body: latest.body,
+          icon: './icon.png'
         });
+        n.onclick = () => { window.focus(); };
+      } catch (e) { console.error("Notification error:", e); }
+    }
+    showToast('🔔 新しいお知らせ：' + latest.title);
+  }
+}
 
-        // 動的に追加された要素（見出し・グリッド）を削除して再描画に備える
-        const dynamicElements = document.querySelectorAll('.dynamic-cat');
-        dynamicElements.forEach(el => el.remove());
+// ===== 商品マスタ動的取得 =====
+async function loadProducts() {
+  const data = await getFromGAS('getProducts');
+  if (data && data.status === 'ok' && data.products && data.products.length > 0) {
+    const imgKeyMap = {};
+    PRODUCTS.forEach(p => { imgKeyMap[p.name] = p.imgKey; });
 
-        const normalizeProductCategory = (value) => String(value || '')
-          .replace(/\u3000/g, ' ')
-          .trim()
-          .replace(/\s+/g, '');
+    const updated = data.products.map(p => ({
+      name: p.name,
+      price: p.price,
+      category: p.category,
+      icon: p.icon || '🌿',
+      bg: p.bg || 'c1',
+      description: p.description || '',
+      descriptionImage: p.descriptionImage || '',
+      imgKey: imgKeyMap[p.name] || 'default'
+    }));
+    PRODUCTS.splice(0, PRODUCTS.length, ...updated);
 
-        // キーワードによる既存グリッドへのマッピング
-        const keywordMap = [
-          { key: '茶', gridId: 'grid-tea' },
-          { key: '入浴', gridId: 'grid-bath' },
-          { key: 'だし', gridId: 'grid-dashi' },
-          { key: '調味', gridId: 'grid-dashi' },
-          { key: '調理', gridId: 'grid-dashi' },
-          { key: '食品', gridId: 'grid-dashi' },
-          { key: '石鹸', gridId: 'grid-soap-other' },
-          { key: 'パット', gridId: 'grid-pad' }
-        ];
+    if (document.getElementById('page-notices').classList.contains('active')) {
+      renderPushNotices();
+    }
 
-        const getOrCreateContainer = (category) => {
-          const norm = normalizeProductCategory(category);
-          
-          // 1. キーワードマッチングを試行
-          const match = keywordMap.find(item => norm.includes(item.key));
-          if (match) {
-            const el = document.getElementById(match.gridId);
-            if (el) return el;
-          }
+    const gridIds = ['grid-recommended', 'grid-tea', 'grid-bath', 'grid-dashi', 'grid-soap-other', 'grid-pad'];
+    gridIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    });
 
-          // 2. マッチしない場合は動的にセクションを作成
-          const dynamicId = 'grid-dynamic-' + encodeURIComponent(norm).replace(/%/g, '');
-          let container = document.getElementById(dynamicId);
-          
-          if (!container) {
-            const shopSection = document.querySelector('#page-shop .main .section');
-            if (!shopSection) return null;
+    // 動的に追加された要素（見出し・グリッド）を削除して再描画に備える
+    const dynamicElements = document.querySelectorAll('.dynamic-cat');
+    dynamicElements.forEach(el => el.remove());
 
-            // ラベル（見出し）作成
-            const label = document.createElement('div');
-            label.className = 'cat-label dynamic-cat';
-            label.style.marginTop = '24px';
-            label.innerHTML = `📦 ${category}`;
-            
-            // グリッド作成
-            container = document.createElement('div');
-            container.id = dynamicId;
-            container.className = 'shop-grid dynamic-cat';
-            
-            shopSection.appendChild(label);
-            shopSection.appendChild(container);
-          }
-          return container;
-        };
+    const normalizeProductCategory = (value) => String(value || '')
+      .replace(/\u3000/g, ' ')
+      .trim()
+      .replace(/\s+/g, '');
 
-        const createProductCard = (p, idx) => {
-          const card = document.createElement('div');
-          card.className = 'shop-card';
-          card.setAttribute('onclick', `openProductModal(${idx})`);
-          let imgSrc = (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) ? p.icon : (PROD_IMAGES[p.imgKey] || `https://placehold.jp/24/c18151/ffffff/150x150.png?text=${encodeURIComponent(p.name)}`);
-          card.innerHTML = `
+    // キーワードによる既存グリッドへのマッピング
+    const keywordMap = [
+      { key: '茶', gridId: 'grid-tea' },
+      { key: '入浴', gridId: 'grid-bath' },
+      { key: 'だし', gridId: 'grid-dashi' },
+      { key: '調味', gridId: 'grid-dashi' },
+      { key: '調理', gridId: 'grid-dashi' },
+      { key: '食品', gridId: 'grid-dashi' },
+      { key: '石鹸', gridId: 'grid-soap-other' },
+      { key: 'パット', gridId: 'grid-pad' }
+    ];
+
+    const getOrCreateContainer = (category) => {
+      const norm = normalizeProductCategory(category);
+
+      // 1. キーワードマッチングを試行
+      const match = keywordMap.find(item => norm.includes(item.key));
+      if (match) {
+        const el = document.getElementById(match.gridId);
+        if (el) return el;
+      }
+
+      // 2. マッチしない場合は動的にセクションを作成
+      const dynamicId = 'grid-dynamic-' + encodeURIComponent(norm).replace(/%/g, '');
+      let container = document.getElementById(dynamicId);
+
+      if (!container) {
+        const shopSection = document.querySelector('#page-shop .main .section');
+        if (!shopSection) return null;
+
+        // ラベル（見出し）作成
+        const label = document.createElement('div');
+        label.className = 'cat-label dynamic-cat';
+        label.style.marginTop = '24px';
+        label.innerHTML = `📦 ${category}`;
+
+        // グリッド作成
+        container = document.createElement('div');
+        container.id = dynamicId;
+        container.className = 'shop-grid dynamic-cat';
+
+        shopSection.appendChild(label);
+        shopSection.appendChild(container);
+      }
+      return container;
+    };
+
+    const createProductCard = (p, idx) => {
+      const card = document.createElement('div');
+      card.className = 'shop-card';
+      card.setAttribute('onclick', `openProductModal(${idx})`);
+      let imgSrc = (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) ? p.icon : (PROD_IMAGES[p.imgKey] || `https://placehold.jp/24/c18151/ffffff/150x150.png?text=${encodeURIComponent(p.name)}`);
+      card.innerHTML = `
             <div class="shop-img ${p.bg}">
               <img src="${imgSrc}" alt="${p.name}">
             </div>
@@ -1518,530 +1518,554 @@
               <div class="shop-price">¥${p.price.toLocaleString()}<small>（税込）</small></div>
             </div>
           `;
-          return card;
-        };
+      return card;
+    };
 
-        // おすすめ商品の表示（先頭4つ固定）
-        const recContainer = document.getElementById('grid-recommended');
-        if (recContainer) {
-          PRODUCTS.slice(0, 4).forEach((p, idx) => { recContainer.appendChild(createProductCard(p, idx)); });
-        }
-
-        // 商品を各カテゴリコンテナに配置
-        PRODUCTS.forEach((p, idx) => {
-          const container = getOrCreateContainer(p.category);
-          if (container) {
-            container.appendChild(createProductCard(p, idx));
-          } else {
-            console.warn('Unknown product category location:', p.category, p.name);
-          }
-        });
-      }
+    // おすすめ商品の表示（先頭4つ固定）
+    const recContainer = document.getElementById('grid-recommended');
+    if (recContainer) {
+      PRODUCTS.slice(0, 4).forEach((p, idx) => { recContainer.appendChild(createProductCard(p, idx)); });
     }
 
-    // ===== お知らせ一覧用 統合ハッシュ =====
-    // ブログ + カレンダー + 商品 + Push全部をまとめてハッシュ化。
-    // これが変わる → 拡声器バッジを表示
-    function computeNoticeListHash() {
-      try {
-        const blogPart = (blogItems || []).map(i => (i.date || '') + '_' + (i.title || '')).join('|');
-        const calPart = (calendarData || []).filter(i => !(i.title && (i.title.includes('休') || i.title.includes('往')))).map(i => (i.date || '') + '_' + (i.title || '')).join('|');
-        const noticePart = (pushNotices || []).map(n => (n.date || '') + '_' + (n.title || '')).join('|');
-        return [blogPart, calPart, noticePart].join('@@');
-      } catch (e) {
-        console.error('[同期] ハッシュ計算エラー:', e);
-        return '';
+    // 商品を各カテゴリコンテナに配置
+    PRODUCTS.forEach((p, idx) => {
+      const container = getOrCreateContainer(p.category);
+      if (container) {
+        container.appendChild(createProductCard(p, idx));
+      } else {
+        console.warn('Unknown product category location:', p.category, p.name);
       }
+    });
+  }
+}
+
+// ===== お知らせ一覧用 統合ハッシュ =====
+// ブログ + カレンダー + 商品 + Push全部をまとめてハッシュ化。
+// これが変わる → 拡声器バッジを表示
+function computeNoticeListHash() {
+  try {
+    const blogPart = (blogItems || []).map(i => (i.date || '') + '_' + (i.title || '')).join('|');
+    const calPart = (calendarData || []).filter(i => !(i.title && (i.title.includes('休') || i.title.includes('往')))).map(i => (i.date || '') + '_' + (i.title || '')).join('|');
+    const noticePart = (pushNotices || []).map(n => (n.date || '') + '_' + (n.title || '')).join('|');
+    return [blogPart, calPart, noticePart].join('@@');
+  } catch (e) {
+    console.error('[同期] ハッシュ計算エラー:', e);
+    return '';
+  }
+}
+
+async function tryTask(taskName, taskFn) {
+  try {
+    console.log(`[同期] ${taskName} の取得中...`);
+    return await taskFn();
+  } catch (e) {
+    console.error(`[同期エラー] ${taskName} の取得に失敗しました:`, e);
+    return null;
+  }
+}
+
+async function fetchLatestManagedContent(options) {
+  const opts = options || {};
+  const currentPage = document.querySelector('.page.active')?.id || '';
+
+  const tasks = [
+    tryTask('ニュース', () => loadBlog()),
+    tryTask('商品', () => loadProducts()),
+    tryTask('カレンダー', () => loadCalendar()),
+    tryTask('通知', () => loadPushNotices()),
+    tryTask('アンケート', () => loadSurveys()),
+    tryTask('特典', () => loadStampRewards())
+  ];
+
+  if (opts.refreshSupportFaq) tasks.push(tryTask('FAQ', () => loadSupportFaq(true)));
+  if (opts.refreshMenus || currentPage === 'page-menu-list') tasks.push(tryTask('メニュー', () => loadMenus()));
+  if (opts.refreshOrderHistory || currentPage === 'page-mypage') tasks.push(tryTask('履歴', () => renderOrderHistory()));
+
+  await Promise.all(tasks);
+
+  try {
+    updateNavBadges();
+  } catch (e) {
+    console.error('[同期] バッジ表示更新エラー:', e);
+  }
+}
+
+async function refreshAppData() {
+  const btn = document.getElementById('refresh-btn');
+  const overlay = document.getElementById('refresh-overlay');
+  if (btn) btn.classList.add('spinning');
+  if (overlay) overlay.classList.add('active');
+
+  try {
+    console.log('[更新] アプリ情報の同期を開始します...');
+    let shouldReloadForCodeUpdate = false;
+
+    // アプリバージョンの確認
+    const versionGate = await ensureSupportedAppVersion();
+    if (versionGate.blocked) {
+      alert('アプリ本体の更新が必要です');
+      return;
     }
+    if (versionGate.needsWebUpdate) shouldReloadForCodeUpdate = true;
 
-    async function tryTask(taskName, taskFn) {
+    // PWAサービスワーカーの更新試行 (バックグラウンドで実行)
+    if ('serviceWorker' in navigator) {
       try {
-        console.log(`[同期] ${taskName} の取得中...`);
-        return await taskFn();
-      } catch (e) {
-        console.error(`[同期エラー] ${taskName} の取得に失敗しました:`, e);
-        return null;
-      }
-    }
-
-    async function fetchLatestManagedContent(options) {
-      const opts = options || {};
-      const currentPage = document.querySelector('.page.active')?.id || '';
-      
-      const tasks = [
-        tryTask('ニュース', () => loadBlog()),
-        tryTask('商品', () => loadProducts()),
-        tryTask('カレンダー', () => loadCalendar()),
-        tryTask('通知', () => loadPushNotices()),
-        tryTask('アンケート', () => loadSurveys()),
-        tryTask('特典', () => loadStampRewards())
-      ];
-
-      if (opts.refreshSupportFaq) tasks.push(tryTask('FAQ', () => loadSupportFaq(true)));
-      if (opts.refreshMenus || currentPage === 'page-menu-list') tasks.push(tryTask('メニュー', () => loadMenus()));
-      if (opts.refreshOrderHistory || currentPage === 'page-mypage') tasks.push(tryTask('履歴', () => renderOrderHistory()));
-
-      await Promise.all(tasks);
-      
-      try {
-        updateNavBadges();
-      } catch (e) {
-        console.error('[同期] バッジ表示更新エラー:', e);
-      }
-    }
-
-    async function refreshAppData() {
-      const btn = document.getElementById('refresh-btn');
-      const overlay = document.getElementById('refresh-overlay');
-      if (btn) btn.classList.add('spinning');
-      if (overlay) overlay.classList.add('active');
-
-      try {
-        console.log('[更新] アプリ情報の同期を開始します...');
-        let shouldReloadForCodeUpdate = false;
-        
-        // アプリバージョンの確認
-        const versionGate = await ensureSupportedAppVersion();
-        if (versionGate.blocked) {
-          alert('アプリ本体の更新が必要です');
-          return;
-        }
-        if (versionGate.needsWebUpdate) shouldReloadForCodeUpdate = true;
-
-        // PWAサービスワーカーの更新試行 (バックグラウンドで実行)
-        if ('serviceWorker' in navigator) {
-          try {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            for (let registration of registrations) {
-              await registration.update();
-              if (registration.waiting) {
-                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                shouldReloadForCodeUpdate = true;
-              }
-            }
-          } catch (e) { 
-            console.error('[更新] サービスワーカー更新失敗:', e); 
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (let registration of registrations) {
+          await registration.update();
+          if (registration.waiting) {
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            shouldReloadForCodeUpdate = true;
           }
         }
-
-        // 個別のデータ取得 (一括同期)
-        await fetchLatestManagedContent({
-          refreshSupportFaq: true,
-          refreshMenus: true,
-          refreshOrderHistory: true
-        });
-
-        if (shouldReloadForCodeUpdate) {
-          showToast('アプリを最新版へ読み込み直しています...');
-          setTimeout(() => {
-            const url = new URL(window.location.href);
-            url.searchParams.set('upd', Date.now());
-            window.location.href = url.toString();
-          }, 1200);
-        } else {
-          showToast('最新情報を反映しました ✨');
-        }
       } catch (e) {
-        console.error('[更新] 同期中に致命的なエラーが発生しました:', e);
-        showToast('同期中に問題が発生しました。しばらく経ってから再度お試しください。');
-      } finally {
-        if (btn) btn.classList.remove('spinning');
-        if (overlay) overlay.classList.remove('active');
-        console.log('[更新] 同期処理が完了しました。');
+        console.error('[更新] サービスワーカー更新失敗:', e);
       }
     }
 
-    function renderBlogList(containerId, limit, filterType = null, filterCategory = '全て') {
-      const el = document.getElementById(containerId);
-      if (!el) return;
+    // 個別のデータ取得 (一括同期)
+    await fetchLatestManagedContent({
+      refreshSupportFaq: true,
+      refreshMenus: true,
+      refreshOrderHistory: true
+    });
 
-      let items = blogItems;
-      if (filterType) {
-        items = items.filter(i => i.type === filterType);
+    if (shouldReloadForCodeUpdate) {
+      showToast('アプリを最新版へ読み込み直しています...');
+      setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('upd', Date.now());
+        window.location.href = url.toString();
+      }, 1200);
+    } else {
+      showToast('最新情報を反映しました ✨');
+    }
+  } catch (e) {
+    console.error('[更新] 同期中に致命的なエラーが発生しました:', e);
+    showToast('同期中に問題が発生しました。しばらく経ってから再度お試しください。');
+  } finally {
+    if (btn) btn.classList.remove('spinning');
+    if (overlay) overlay.classList.remove('active');
+    console.log('[更新] 同期処理が完了しました。');
+  }
+}
+
+function renderBlogList(containerId, limit, filterType = null, filterCategory = '全て') {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  let items = blogItems;
+  if (filterType) {
+    items = items.filter(i => i.type === filterType);
+  }
+  if (filterCategory && filterCategory !== '全て') {
+    items = items.filter(i => i.category === filterCategory);
+  }
+
+  items = items.slice(0, limit);
+
+  if (!items.length) {
+    el.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:28px 0">記事がありません</div>';
+    return;
+  }
+  el.innerHTML = '';
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'blog-card';
+
+    let imageHtml = '';
+    const rawImageUrl = item.image || item.imageUrl || '';
+    if (rawImageUrl) {
+      let displayUrl = rawImageUrl;
+      if (displayUrl.includes('drive.google.com')) {
+        const idMatch = displayUrl.match(/id=([a-zA-Z0-9_-]+)/) || displayUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (idMatch) displayUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[1] + '&sz=w1000';
       }
-      if (filterCategory && filterCategory !== '全て') {
-        items = items.filter(i => i.category === filterCategory);
-      }
+      imageHtml = `<div style="margin-top: 8px; border-radius: 8px; overflow: hidden;"><img src="${displayUrl}" style="width: 100%; height: auto; display: block;" alt="Blog Image"></div>`;
+    }
 
-      items = items.slice(0, limit);
-
-      if (!items.length) {
-        el.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:28px 0">記事がありません</div>';
-        return;
-      }
-      el.innerHTML = '';
-      items.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'blog-card';
-
-        let imageHtml = '';
-        const rawImageUrl = item.image || item.imageUrl || '';
-        if (rawImageUrl) {
-          let displayUrl = rawImageUrl;
-          if (displayUrl.includes('drive.google.com')) {
-            const idMatch = displayUrl.match(/id=([a-zA-Z0-9_-]+)/) || displayUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (idMatch) displayUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[1] + '&sz=w1000';
-          }
-          imageHtml = `<div style="margin-top: 8px; border-radius: 8px; overflow: hidden;"><img src="${displayUrl}" style="width: 100%; height: auto; display: block;" alt="Blog Image"></div>`;
+    let bodyHtml = '';
+    if (item.body) {
+      // '📷 'で始まるURLをimgタグに、'\n'を'<br>'に変換
+      let formattedBody = item.body.replace(/📷 (https?:\/\/[^\s]+)/g, function (match, url) {
+        let imgUrl = url;
+        if (imgUrl.includes('drive.google.com')) {
+          const idMatch = imgUrl.match(/id=([a-zA-Z0-9_-]+)/) || imgUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          if (idMatch) imgUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[1] + '&sz=w1000';
         }
-
-        let bodyHtml = '';
-        if (item.body) {
-          // '📷 'で始まるURLをimgタグに、'\n'を'<br>'に変換
-          let formattedBody = item.body.replace(/📷 (https?:\/\/[^\s]+)/g, function (match, url) {
-            let imgUrl = url;
-            if (imgUrl.includes('drive.google.com')) {
-              const idMatch = imgUrl.match(/id=([a-zA-Z0-9_-]+)/) || imgUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-              if (idMatch) imgUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[1] + '&sz=w1000';
-            }
-            return `<img src="${imgUrl}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; display: block; object-fit: contain;">`;
-          }).replace(/\n/g, '<br>');
-          bodyHtml = `<div class="blog-body-preview">${formattedBody}</div>`;
-        }
-
-        div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${item.icon || '📢'}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${item.date}</span><span class="blog-cat">${item.category}</span></div><div class="blog-title">${item.title}</div>${bodyHtml}${imageHtml}</div></div>`;
-        div.onclick = () => openBlogDetail(item);
-        el.appendChild(div);
-      });
+        return `<img src="${imgUrl}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; display: block; object-fit: contain;">`;
+      }).replace(/\n/g, '<br>');
+      bodyHtml = `<div class="blog-body-preview">${formattedBody}</div>`;
     }
 
-    function renderDividedBlogList() {
-      const newsCat = document.getElementById('newsCategoryFilter')?.value || '全て';
-      renderBlogList('newsPageList', 999, 'お知らせ', newsCat);
-    }
-    function openBlogDetail(item) {
-      let detailImageHtml = '';
-      if (item.image) {
-        detailImageHtml = `<div style="margin-bottom: 12px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><img src="${item.image}" style="width: 100%; height: auto; display: block;" alt="Blog Image"></div>`;
+    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${item.icon || '📢'}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${item.date}</span><span class="blog-cat">${item.category}</span></div><div class="blog-title">${item.title}</div>${bodyHtml}${imageHtml}</div></div>`;
+    div.onclick = () => openBlogDetail(item);
+    el.appendChild(div);
+  });
+}
+
+function renderDividedBlogList() {
+  const newsCat = document.getElementById('newsCategoryFilter')?.value || '全て';
+  renderBlogList('newsPageList', 999, 'お知らせ', newsCat);
+}
+function openBlogDetail(item) {
+  let detailImageHtml = '';
+  if (item.image) {
+    detailImageHtml = `<div style="margin-bottom: 12px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><img src="${item.image}" style="width: 100%; height: auto; display: block;" alt="Blog Image"></div>`;
+  }
+
+  let formattedBody = (item.body || '')
+    .replace(/📷 (https?:\/\/[^\s]+)/g, function (match, url) {
+      let imgUrl = url;
+      if (imgUrl.includes('drive.google.com')) {
+        const idMatch = imgUrl.match(/id=([a-zA-Z0-9_-]+)/) || imgUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (idMatch) imgUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[1] + '&sz=w1000';
       }
+      return `<img src="${imgUrl}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1); object-fit: contain;">`;
+    }).replace(/\n/g, '<br>');
 
-      let formattedBody = (item.body || '')
-        .replace(/📷 (https?:\/\/[^\s]+)/g, function (match, url) {
-          let imgUrl = url;
-          if (imgUrl.includes('drive.google.com')) {
-            const idMatch = imgUrl.match(/id=([a-zA-Z0-9_-]+)/) || imgUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (idMatch) imgUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[1] + '&sz=w1000';
-          }
-          return `<img src="${imgUrl}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1); object-fit: contain;">`;
-        }).replace(/\n/g, '<br>');
-
-      document.getElementById('blogDetailContent').innerHTML = `
+  document.getElementById('blogDetailContent').innerHTML = `
     <span class="blog-detail-cat">${item.category}</span>
     <div class="blog-detail-title">${item.title}</div>
     <div class="blog-detail-date">${item.date}</div>
     ${detailImageHtml}
     <div class="blog-detail-body">${formattedBody}</div>`;
-      openModal('blogDetailModal');
+  openModal('blogDetailModal');
+}
+
+// ===== ショップ =====
+function openProductModal(idx) {
+  currentProdIdx = idx; modalQty = 1;
+  const p = PRODUCTS[idx];
+  const img = document.getElementById('prodModalImg');
+  img.className = 'prod-img';
+
+  // 1. iconがURL(http/data)ならそれを最優先、次にimgKeyMap、最後に絵文字
+  if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
+    img.style.background = '#f8f5f0';
+    img.innerHTML = '<img src="' + p.icon + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
+  } else if (p.imgKey && PROD_IMAGES[p.imgKey]) {
+    img.style.background = '#f8f5f0';
+    img.innerHTML = '<img src="' + PROD_IMAGES[p.imgKey] + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
+  } else {
+    img.style.background = '';
+    img.textContent = p.icon || '🌿';
+  }
+  document.getElementById('prodModalName').textContent = p.name;
+  document.getElementById('prodModalPrice').textContent = '¥' + p.price.toLocaleString() + '（税込）';
+
+  let descHtml = (p.description || '').replace(/\n/g, '<br>');
+  if (p.descriptionImage && p.descriptionImage.startsWith('http')) {
+    descHtml += `<div style="margin-top:12px; border-radius:8px; overflow:hidden;"><img src="${p.descriptionImage}" style="width:100%; height:auto; display:block;" alt="Description Image"></div>`;
+  }
+  document.getElementById('prodModalDesc').innerHTML = descHtml || '商品説明はありません';
+  document.getElementById('prodModalDesc').style.display = 'none'; // 初期非表示
+  document.getElementById('modalQtyDisp').textContent = 1;
+  openModal('productModal');
+}
+
+function toggleModalDesc() {
+  const desc = document.getElementById('prodModalDesc');
+  const isHidden = window.getComputedStyle(desc).display === 'none';
+  desc.style.display = isHidden ? 'block' : 'none';
+  event.target.textContent = isHidden ? '× 閉じる' : '商品説明をみる';
+}
+function changeQty(d) {
+  modalQty = Math.max(1, modalQty + d);
+  document.getElementById('modalQtyDisp').textContent = modalQty;
+}
+function addToCart() {
+  const ex = cart.find(c => c.idx === currentProdIdx);
+  if (ex) ex.qty += modalQty; else cart.push({ idx: currentProdIdx, qty: modalQty });
+  closeModal('productModal');
+  updateCartUI();
+  showToast('カートに追加しました 🛒');
+}
+
+// ===== カート =====
+function updateCartUI() {
+  const count = cart.reduce((s, c) => s + c.qty, 0);
+  const badge = document.getElementById('cartBadge');
+  badge.style.display = count > 0 ? 'flex' : 'none';
+  badge.textContent = count;
+  if (document.getElementById('page-cart').classList.contains('active')) renderCart();
+}
+function renderCart() {
+  const empty = document.getElementById('cartEmpty');
+  const content = document.getElementById('cartContent');
+  if (!cart.length) { empty.style.display = 'block'; content.style.display = 'none'; return; }
+  empty.style.display = 'none'; content.style.display = 'block';
+  const list = document.getElementById('cartList'); list.innerHTML = '';
+  let total = 0;
+  cart.forEach((c, ci) => {
+    const p = PRODUCTS[c.idx];
+    const el = document.createElement('div'); el.className = 'cart-row';
+
+    // 表示用画像の決定
+    let imgSrcHtml = p.icon;
+    if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
+      imgSrcHtml = `<img src="${p.icon}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
+    } else if (p.imgKey && PROD_IMAGES[p.imgKey]) {
+      imgSrcHtml = `<img src="${PROD_IMAGES[p.imgKey]}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
     }
 
-    // ===== ショップ =====
-    function openProductModal(idx) {
-      currentProdIdx = idx; modalQty = 1;
-      const p = PRODUCTS[idx];
-      const img = document.getElementById('prodModalImg');
-      img.className = 'prod-img';
-
-      // 1. iconがURL(http/data)ならそれを最優先、次にimgKeyMap、最後に絵文字
-      if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
-        img.style.background = '#f8f5f0';
-        img.innerHTML = '<img src="' + p.icon + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
-      } else if (p.imgKey && PROD_IMAGES[p.imgKey]) {
-        img.style.background = '#f8f5f0';
-        img.innerHTML = '<img src="' + PROD_IMAGES[p.imgKey] + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
-      } else {
-        img.style.background = '';
-        img.textContent = p.icon || '🌿';
+    let subtotal = p.price * c.qty;
+    let priceNote = `¥${(p.price * c.qty).toLocaleString()}`;
+    if (p.name === '天然だし調味粉') {
+      const pricing = calculateDashiPricing(c.qty);
+      subtotal = pricing.totalRevenue;
+      if (c.qty > 1) {
+        priceNote = `<span style="text-decoration:line-through; font-size:11px; color:#999;">¥${(p.price * c.qty).toLocaleString()}</span> <br><span style="color:var(--danger); font-weight:700;">限定価格 ¥${subtotal.toLocaleString()}</span>`;
       }
-      document.getElementById('prodModalName').textContent = p.name;
-      document.getElementById('prodModalPrice').textContent = '¥' + p.price.toLocaleString() + '（税込）';
+    }
+    total += subtotal;
 
-      let descHtml = (p.description || '').replace(/\n/g, '<br>');
-      if (p.descriptionImage && p.descriptionImage.startsWith('http')) {
-        descHtml += `<div style="margin-top:12px; border-radius:8px; overflow:hidden;"><img src="${p.descriptionImage}" style="width:100%; height:auto; display:block;" alt="Description Image"></div>`;
-      }
-      document.getElementById('prodModalDesc').innerHTML = descHtml || '商品説明はありません';
-      document.getElementById('prodModalDesc').style.display = 'none'; // 初期非表示
-      document.getElementById('modalQtyDisp').textContent = 1;
-      openModal('productModal');
-    }
+    el.innerHTML = `<div class="cart-thumb ${p.bg}">${imgSrcHtml}</div><div class="cart-info"><div class="cart-item-name">${p.name}</div><div class="cart-item-price">${priceNote}</div><div class="cart-qty-row"><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},-1)">－</button><span class="qty-ctrl-num">${c.qty}</span><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},1)">＋</button></div></div><div class="cart-del" onclick="rmCartItem(${ci})">🗑</div>`;
+    list.appendChild(el);
+  });
+  document.getElementById('cartSubtotal').textContent = '¥' + total.toLocaleString();
+  document.getElementById('cartTotal').textContent = '¥' + total.toLocaleString();
+  updateCheckoutBtn();
+}
+function chgCartQty(ci, d) {
+  if (isOrderSubmitting) return;
+  cart[ci].qty = Math.max(1, cart[ci].qty + d);
+  updateCartUI();
+  renderCart();
+}
+function rmCartItem(ci) {
+  if (isOrderSubmitting) return;
+  cart.splice(ci, 1);
+  updateCartUI();
+  renderCart();
+}
+function updateCheckoutBtn() {
+  const btn = document.getElementById('checkoutBtn');
+  if (!btn) return;
+  btn.disabled = !cart.length || isOrderSubmitting;
+  btn.textContent = isOrderSubmitting ? '送信中...' : 'ご注文を確定する';
+}
+function proceedCheckout() {
+  if (isOrderSubmitting) return;
+  finalizeOrder('現金払い');
+}
+async function finalizeOrder(payLabel) {
+  if (isOrderSubmitting || !cart.length) return;
+  if (!_profile || !_profile.memberId) {
+    showToast('先にプロフィールを登録してください');
+    switchPage('mypage');
+    return;
+  }
 
-    function toggleModalDesc() {
-      const desc = document.getElementById('prodModalDesc');
-      const isHidden = window.getComputedStyle(desc).display === 'none';
-      desc.style.display = isHidden ? 'block' : 'none';
-      event.target.textContent = isHidden ? '× 閉じる' : '商品説明をみる';
+  const cartSnapshot = cart.map(c => ({ idx: c.idx, qty: c.qty }));
+  const total = cartSnapshot.reduce((sum, c) => {
+    const prod = PRODUCTS[c.idx];
+    if (prod.name === '天然だし調味粉') {
+      return sum + calculateDashiPricing(c.qty).totalRevenue;
     }
-    function changeQty(d) {
-      modalQty = Math.max(1, modalQty + d);
-      document.getElementById('modalQtyDisp').textContent = modalQty;
-    }
-    function addToCart() {
-      const ex = cart.find(c => c.idx === currentProdIdx);
-      if (ex) ex.qty += modalQty; else cart.push({ idx: currentProdIdx, qty: modalQty });
-      closeModal('productModal');
-      updateCartUI();
-      showToast('カートに追加しました 🛒');
-    }
+    return sum + (prod.price * c.qty);
+  }, 0);
+  // GAS側の getCurrentTime() と同じ形式: M/d HH:mm
+  const now = new Date();
+  const ts = now.getFullYear() + '/' + (now.getMonth() + 1) + '/' + now.getDate() + ' ' +
+    now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+  const orderId = 'ORD-' + Date.now();
+  const order = { id: orderId, items: cartSnapshot, total, payment: payLabel, status: 'pending', time: ts, memberId: _profile.memberId };
 
-    // ===== カート =====
-    function updateCartUI() {
-      const count = cart.reduce((s, c) => s + c.qty, 0);
-      const badge = document.getElementById('cartBadge');
-      badge.style.display = count > 0 ? 'flex' : 'none';
-      badge.textContent = count;
-      if (document.getElementById('page-cart').classList.contains('active')) renderCart();
-    }
-    function renderCart() {
-      const empty = document.getElementById('cartEmpty');
-      const content = document.getElementById('cartContent');
-      if (!cart.length) { empty.style.display = 'block'; content.style.display = 'none'; return; }
-      empty.style.display = 'none'; content.style.display = 'block';
-      const list = document.getElementById('cartList'); list.innerHTML = '';
-      cart.forEach((c, ci) => {
-        const p = PRODUCTS[c.idx];
-        const el = document.createElement('div'); el.className = 'cart-row';
+  isOrderSubmitting = true;
+  updateCheckoutBtn();
 
-        // 表示用画像の決定（ShopViewと同様のロジック）
-        let imgSrcHtml = p.icon;
-        if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
-          imgSrcHtml = `<img src="${p.icon}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
-        } else if (p.imgKey && PROD_IMAGES[p.imgKey]) {
-          imgSrcHtml = `<img src="${PROD_IMAGES[p.imgKey]}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
+  try {
+    // GASの handleOrder が期待する payload 構造:
+    // { type:'order', customerName, items:[{name,qty,price}], total, payment, orderId, time, memberId }
+    const res = await postToGAS({
+      type: 'order',
+      customerName: CUSTOMER_NAME,
+      memberId: _profile.memberId,
+      items: order.items.map(c => {
+        const prod = PRODUCTS[c.idx];
+        let effectivePrice = prod.price;
+        if (prod.name === '天然だし調味粉') {
+          effectivePrice = calculateDashiPricing(c.qty).avgUnitPrice;
         }
+        return {
+          name: prod.name,
+          qty: c.qty,
+          price: effectivePrice
+        };
+      }),
+      total: total,
+      payment: payLabel,
+      orderId: orderId,
+      time: ts
+    });
 
-        el.innerHTML = `<div class="cart-thumb ${p.bg}">${imgSrcHtml}</div><div class="cart-info"><div class="cart-item-name">${p.name}</div><div class="cart-item-price">¥${(p.price * c.qty).toLocaleString()}</div><div class="cart-qty-row"><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},-1)">－</button><span class="qty-ctrl-num">${c.qty}</span><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},1)">＋</button></div></div><div class="cart-del" onclick="rmCartItem(${ci})">🗑</div>`;
-        list.appendChild(el);
-      });
-      const total = cart.reduce((s, c) => s + PRODUCTS[c.idx].price * c.qty, 0);
-      document.getElementById('cartSubtotal').textContent = '¥' + total.toLocaleString();
-      document.getElementById('cartTotal').textContent = '¥' + total.toLocaleString();
-      updateCheckoutBtn();
-    }
-    function chgCartQty(ci, d) {
-      if (isOrderSubmitting) return;
-      cart[ci].qty = Math.max(1, cart[ci].qty + d);
-      updateCartUI();
-      renderCart();
-    }
-    function rmCartItem(ci) {
-      if (isOrderSubmitting) return;
-      cart.splice(ci, 1);
-      updateCartUI();
-      renderCart();
-    }
-    function updateCheckoutBtn() {
-      const btn = document.getElementById('checkoutBtn');
-      if (!btn) return;
-      btn.disabled = !cart.length || isOrderSubmitting;
-      btn.textContent = isOrderSubmitting ? '送信中...' : 'ご注文を確定する';
-    }
-    function proceedCheckout() {
-      if (isOrderSubmitting) return;
-      finalizeOrder('現金払い');
-    }
-    async function finalizeOrder(payLabel) {
-      if (isOrderSubmitting || !cart.length) return;
-      if (!_profile || !_profile.memberId) {
-        showToast('先にプロフィールを登録してください');
-        switchPage('mypage');
-        return;
-      }
-
-      const cartSnapshot = cart.map(c => ({ idx: c.idx, qty: c.qty }));
-      const total = cartSnapshot.reduce((s, c) => s + PRODUCTS[c.idx].price * c.qty, 0);
-      // GAS側の getCurrentTime() と同じ形式: M/d HH:mm
-      const now = new Date();
-      const ts = now.getFullYear() + '/' + (now.getMonth() + 1) + '/' + now.getDate() + ' ' +
-        now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
-      const orderId = 'ORD-' + Date.now();
-      const order = { id: orderId, items: cartSnapshot, total, payment: payLabel, status: 'pending', time: ts, memberId: _profile.memberId };
-
-      isOrderSubmitting = true;
-      updateCheckoutBtn();
-
-      try {
-        // GASの handleOrder が期待する payload 構造:
-        // { type:'order', customerName, items:[{name,qty,price}], total, payment, orderId, time, memberId }
-        const res = await postToGAS({
-          type: 'order',
-          customerName: CUSTOMER_NAME,
-          memberId: _profile.memberId,
-          items: order.items.map(c => ({
-            name: PRODUCTS[c.idx].name,
-            qty: c.qty,
-            price: PRODUCTS[c.idx].price
-          })),
-          total: total,
-          payment: payLabel,
-          orderId: orderId,
-          time: ts
-        });
-
-        if (!res || res.status !== 'ok') {
-          showToast('注文の送信に失敗しました');
-          return;
-        }
-
-        orders.unshift(order);
-        cart = [];
-        updateCartUI();
-        document.getElementById('orderCompleteMsg').innerHTML = `お支払い：${payLabel}<br><br>ご来院時にスタッフにお声がけください。`;
-        openModal('orderCompleteModal');
-      } catch (e) {
-        showToast('注文の送信に失敗しました');
-      } finally {
-        isOrderSubmitting = false;
-        updateCheckoutBtn();
-      }
-    }
-    function finishOrder() { closeModal('orderCompleteModal'); renderOrderHistory(); switchPage('mypage'); }
-
-    function setAppDialogButtonVariant(button, variant) {
-      if (!button) return;
-      button.className = 'btn ' + (variant === 'danger' ? 'danger' : 'primary');
+    if (!res || res.status !== 'ok') {
+      showToast('注文の送信に失敗しました');
+      return;
     }
 
-    function showAppDialog(options) {
-      const modal = document.getElementById('appDialogModal');
-      const title = document.getElementById('appDialogTitle');
-      const message = document.getElementById('appDialogMessage');
-      const confirmBtn = document.getElementById('appDialogConfirmBtn');
-      const cancelBtn = document.getElementById('appDialogCancelBtn');
-      if (!modal || !title || !message || !confirmBtn || !cancelBtn) return Promise.resolve(false);
-      if (activeAppDialogResolver) return Promise.resolve(false);
+    orders.unshift(order);
+    cart = [];
+    updateCartUI();
+    document.getElementById('orderCompleteMsg').innerHTML = `お支払い：${payLabel}<br><br>ご来院時にスタッフにお声がけください。`;
+    openModal('orderCompleteModal');
+  } catch (e) {
+    showToast('注文の送信に失敗しました');
+  } finally {
+    isOrderSubmitting = false;
+    updateCheckoutBtn();
+  }
+}
+function finishOrder() { closeModal('orderCompleteModal'); renderOrderHistory(); switchPage('mypage'); }
 
-      const settings = options || {};
-      const kind = settings.kind === 'confirm' ? 'confirm' : 'alert';
-      title.textContent = settings.title || 'ご案内';
-      message.textContent = settings.message || '';
-      confirmBtn.textContent = settings.confirmLabel || (kind === 'confirm' ? 'OK' : '閉じる');
-      setAppDialogButtonVariant(confirmBtn, settings.confirmVariant || 'primary');
+function setAppDialogButtonVariant(button, variant) {
+  if (!button) return;
+  button.className = 'btn ' + (variant === 'danger' ? 'danger' : 'primary');
+}
 
-      if (kind === 'confirm') {
-        cancelBtn.style.display = 'block';
-        cancelBtn.textContent = settings.cancelLabel || 'キャンセル';
-      } else {
-        cancelBtn.style.display = 'none';
-        cancelBtn.textContent = 'キャンセル';
-      }
+function showAppDialog(options) {
+  const modal = document.getElementById('appDialogModal');
+  const title = document.getElementById('appDialogTitle');
+  const message = document.getElementById('appDialogMessage');
+  const confirmBtn = document.getElementById('appDialogConfirmBtn');
+  const cancelBtn = document.getElementById('appDialogCancelBtn');
+  if (!modal || !title || !message || !confirmBtn || !cancelBtn) return Promise.resolve(false);
+  if (activeAppDialogResolver) return Promise.resolve(false);
 
-      openModal('appDialogModal');
-      return new Promise(function (resolve) {
-        activeAppDialogResolver = resolve;
-      });
-    }
+  const settings = options || {};
+  const kind = settings.kind === 'confirm' ? 'confirm' : 'alert';
+  title.textContent = settings.title || 'ご案内';
+  message.textContent = settings.message || '';
+  confirmBtn.textContent = settings.confirmLabel || (kind === 'confirm' ? 'OK' : '閉じる');
+  setAppDialogButtonVariant(confirmBtn, settings.confirmVariant || 'primary');
 
-    function resolveAppDialog(result) {
-      const resolver = activeAppDialogResolver;
-      activeAppDialogResolver = null;
-      closeModal('appDialogModal');
-      if (resolver) resolver(result);
-    }
+  if (kind === 'confirm') {
+    cancelBtn.style.display = 'block';
+    cancelBtn.textContent = settings.cancelLabel || 'キャンセル';
+  } else {
+    cancelBtn.style.display = 'none';
+    cancelBtn.textContent = 'キャンセル';
+  }
 
-    function showAppAlert(message, options) {
-      const settings = options || {};
-      return showAppDialog({
-        kind: 'alert',
-        title: settings.title || 'ご案内',
-        message: message,
-        confirmLabel: settings.confirmLabel || '閉じる',
-        confirmVariant: settings.confirmVariant || 'primary'
-      });
-    }
+  openModal('appDialogModal');
+  return new Promise(function (resolve) {
+    activeAppDialogResolver = resolve;
+  });
+}
 
-    function showAppConfirm(message, options) {
-      const settings = options || {};
-      return showAppDialog({
-        kind: 'confirm',
-        title: settings.title || '確認',
-        message: message,
-        confirmLabel: settings.confirmLabel || 'OK',
-        cancelLabel: settings.cancelLabel || 'キャンセル',
-        confirmVariant: settings.confirmVariant || 'primary'
-      });
-    }
+function resolveAppDialog(result) {
+  const resolver = activeAppDialogResolver;
+  activeAppDialogResolver = null;
+  closeModal('appDialogModal');
+  if (resolver) resolver(result);
+}
 
-    // ===== 注文履歴 =====
-    function shouldHideOrderFromHistory(order) {
-      if (!order) return true;
-      const status = String(order.status || '').trim().toLowerCase();
-      return status === 'cancelled' ||
-        status === 'キャンセル済' ||
-        status === 'キャンセル' ||
-        status.indexOf('キャンセル') !== -1;
-    }
+function showAppAlert(message, options) {
+  const settings = options || {};
+  return showAppDialog({
+    kind: 'alert',
+    title: settings.title || 'ご案内',
+    message: message,
+    confirmLabel: settings.confirmLabel || '閉じる',
+    confirmVariant: settings.confirmVariant || 'primary'
+  });
+}
 
-    function renderOrderHistoryError(message) {
-      const list = document.getElementById('orderHistoryList');
-      if (!list) return;
-      list.innerHTML = `
+function showAppConfirm(message, options) {
+  const settings = options || {};
+  return showAppDialog({
+    kind: 'confirm',
+    title: settings.title || '確認',
+    message: message,
+    confirmLabel: settings.confirmLabel || 'OK',
+    cancelLabel: settings.cancelLabel || 'キャンセル',
+    confirmVariant: settings.confirmVariant || 'primary'
+  });
+}
+
+// ===== 注文履歴 =====
+function shouldHideOrderFromHistory(order) {
+  if (!order) return true;
+  const status = String(order.status || '').trim().toLowerCase();
+  return status === 'cancelled' ||
+    status === 'キャンセル済' ||
+    status === 'キャンセル' ||
+    status.indexOf('キャンセル') !== -1;
+}
+
+function renderOrderHistoryError(message) {
+  const list = document.getElementById('orderHistoryList');
+  if (!list) return;
+  list.innerHTML = `
         <div style="text-align:center;padding:26px 12px;color:var(--text-light);line-height:1.7">
           <div style="font-size:13px;margin-bottom:12px">${message}</div>
           <button class="btn secondary" id="orderHistoryRetryBtn" onclick="renderOrderHistory()" style="padding:8px 14px">再読み込み</button>
         </div>
       `;
-    }
+}
 
-    async function renderOrderHistory() {
-      const list = document.getElementById('orderHistoryList');
-      if (!_profile) { list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">プロフィールを登録すると履歴が表示されます</div>'; return; }
+async function renderOrderHistory() {
+  const list = document.getElementById('orderHistoryList');
+  if (!_profile) { list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">プロフィールを登録すると履歴が表示されます</div>'; return; }
 
-      const previousOrders = Array.isArray(orders) ? orders.slice() : [];
-      list.innerHTML = '<div style="text-align:center;padding:26px 0"><span class="loading-spinner"></span> 読み込み中...</div>';
+  const previousOrders = Array.isArray(orders) ? orders.slice() : [];
+  list.innerHTML = '<div style="text-align:center;padding:26px 0"><span class="loading-spinner"></span> 読み込み中...</div>';
 
-      // GASから最新の履歴を取得（同期）
-      const res = await getFromGAS('getCustomerOrders', { memberId: _profile.memberId });
-      if (res && res.status === 'ok') {
-        orders = (res.orders || []).filter(function (order) {
-          return !shouldHideOrderFromHistory(order);
-        });
-        renderOrderHistoryUI();
-        return;
-      }
+  // GASから最新の履歴を取得（同期）
+  const res = await getFromGAS('getCustomerOrders', { memberId: _profile.memberId });
+  if (res && res.status === 'ok') {
+    orders = (res.orders || []).filter(function (order) {
+      return !shouldHideOrderFromHistory(order);
+    });
+    renderOrderHistoryUI();
+    return;
+  }
 
-      orders = previousOrders;
-      const hasCachedOrders = orders.some(function (order) {
-        return !shouldHideOrderFromHistory(order);
-      });
-      if (hasCachedOrders) {
-        showToast('注文履歴の更新に失敗しました');
-        renderOrderHistoryUI();
-        return;
-      }
+  orders = previousOrders;
+  const hasCachedOrders = orders.some(function (order) {
+    return !shouldHideOrderFromHistory(order);
+  });
+  if (hasCachedOrders) {
+    showToast('注文履歴の更新に失敗しました');
+    renderOrderHistoryUI();
+    return;
+  }
 
-      renderOrderHistoryError('注文履歴の取得に失敗しました。通信状況をご確認ください。');
-    }
+  renderOrderHistoryError('注文履歴の取得に失敗しました。通信状況をご確認ください。');
+}
 
-    function renderOrderHistoryUI() {
-      const list = document.getElementById('orderHistoryList');
-      if (!_profile) {
-        list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">プロフィールを登録すると履歴が表示されます</div>';
-        return;
-      }
-      const visibleOrders = orders.filter(function (order) {
-        return !shouldHideOrderFromHistory(order);
-      });
+function renderOrderHistoryUI() {
+  const list = document.getElementById('orderHistoryList');
+  if (!_profile) {
+    list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">プロフィールを登録すると履歴が表示されます</div>';
+    return;
+  }
+  const visibleOrders = orders.filter(function (order) {
+    return !shouldHideOrderFromHistory(order);
+  });
 
-      if (!visibleOrders.length) {
-        list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">注文履歴はありません</div>';
-        return;
-      }
-      list.innerHTML = '';
-      visibleOrders.forEach(o => {
-        const isCancelled = o.status === 'cancelled' || o.status === 'キャンセル済' || o.status === 'キャンセル';
-        const isActionLocked = isCancelSubmitting || isReceiptSubmitting;
-        const receiptButtonLabel = isReceiptSubmitting && receiptSubmittingOrderId === o.id ? '更新中...' : '受け取りました';
-        const sl = o.status === 'pending' ? '受付中' : (isCancelled ? 'キャンセル済' : '完了');
-        const sc = o.status === 'pending' ? 's-pending' : (isCancelled ? 's-cancelled' : 's-done');
+  if (!visibleOrders.length) {
+    list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">注文履歴はありません</div>';
+    return;
+  }
+  list.innerHTML = '';
+  visibleOrders.forEach(o => {
+    const isCancelled = o.status === 'cancelled' || o.status === 'キャンセル済' || o.status === 'キャンセル';
+    const isActionLocked = isCancelSubmitting || isReceiptSubmitting;
+    const receiptButtonLabel = isReceiptSubmitting && receiptSubmittingOrderId === o.id ? '更新中...' : '受け取りました';
+    const sl = o.status === 'pending' ? '受付中' : (isCancelled ? 'キャンセル済' : '完了');
+    const sc = o.status === 'pending' ? 's-pending' : (isCancelled ? 's-cancelled' : 's-done');
 
-        const names = o.items.map(c => {
-          const itemName = c.name || (productItems.find(p => p.id === c.idx) ? productItems.find(p => p.id === c.idx).name : '不明な商品');
-          return itemName + ' ×' + c.qty;
-        }).join('、');
+    const names = o.items.map(c => {
+      const itemName = c.name || (productItems.find(p => p.id === c.idx) ? productItems.find(p => p.id === c.idx).name : '不明な商品');
+      return itemName + ' ×' + c.qty;
+    }).join('、');
 
-        const d = document.createElement('div');
-        d.className = 'order-history-item';
-        d.innerHTML = `
+    const d = document.createElement('div');
+    d.className = 'order-history-item';
+    d.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div>
               <span class="status-chip ${sc}">${sl}</span>
@@ -2059,2601 +2083,2601 @@
             ${(o.checked) ? `<div style="flex:1;padding:8px;background:#f0f0f0;color:#888;text-align:center;border-radius:8px;font-size:12px;font-weight:bold;">受取完了</div>` : ''}
           </div>
         `;
-        list.appendChild(d);
-      });
+    list.appendChild(d);
+  });
+}
+
+async function confirmReceipt(orderId) {
+  if (isReceiptSubmitting) return;
+  const targetOrder = orders.find(function (order) { return order.id === orderId; });
+  if (!targetOrder || shouldHideOrderFromHistory(targetOrder)) return;
+  const confirmed = await showAppConfirm('商品を受け取りましたか？\nステータスを受取済に更新します。', {
+    title: '受取報告',
+    confirmLabel: '受取済にする',
+    cancelLabel: '戻る',
+    confirmVariant: 'primary'
+  });
+  if (!confirmed) return;
+
+  isReceiptSubmitting = true;
+  receiptSubmittingOrderId = orderId;
+  renderOrderHistoryUI();
+  showToast('更新中...');
+  try {
+    const res = await postToGAS({ type: 'confirmReceipt', orderId: orderId });
+    if (res && res.status === 'ok') {
+      showToast('受取を報告しました🌿');
+      orders = orders.filter(o => o.id !== orderId);
+    } else {
+      showToast('更新に失敗しました');
     }
+  } finally {
+    isReceiptSubmitting = false;
+    receiptSubmittingOrderId = null;
+    renderOrderHistoryUI();
+  }
+}
 
-    async function confirmReceipt(orderId) {
-      if (isReceiptSubmitting) return;
-      const targetOrder = orders.find(function (order) { return order.id === orderId; });
-      if (!targetOrder || shouldHideOrderFromHistory(targetOrder)) return;
-      const confirmed = await showAppConfirm('商品を受け取りましたか？\nステータスを受取済に更新します。', {
-        title: '受取報告',
-        confirmLabel: '受取済にする',
-        cancelLabel: '戻る',
-        confirmVariant: 'primary'
-      });
-      if (!confirmed) return;
+function updateCancelModalState() {
+  const confirmBtn = document.getElementById('cancelConfirmBtn');
+  const backBtn = document.getElementById('cancelBackBtn');
+  const isBusy = isCancelSubmitting || isReceiptSubmitting;
+  if (confirmBtn) {
+    confirmBtn.disabled = isBusy;
+    confirmBtn.textContent = isCancelSubmitting ? 'キャンセル中...' : 'キャンセルする';
+  }
+  if (backBtn) backBtn.disabled = isCancelSubmitting;
+}
+function openCancelModal(id) {
+  if (isCancelSubmitting || isReceiptSubmitting) return;
+  cancelOrderId = id;
+  updateCancelModalState();
+  openModal('cancelModal');
+}
+async function confirmCancel() {
+  if (isCancelSubmitting || isReceiptSubmitting || !cancelOrderId) return;
 
-      isReceiptSubmitting = true;
-      receiptSubmittingOrderId = orderId;
+  const targetOrderId = cancelOrderId;
+  const targetOrder = orders.find(o => o.id === targetOrderId);
+  if (!targetOrder) {
+    cancelOrderId = null;
+    closeModal('cancelModal');
+    return;
+  }
+
+  isCancelSubmitting = true;
+  updateCancelModalState();
+  showToast('キャンセル処理中...');
+
+  try {
+    const res = await postToGAS({ type: 'cancel', orderId: targetOrder.id });
+    if (res && res.status === 'ok') {
+      orders = orders.filter(o => o.id !== targetOrderId);
+      showToast('キャンセルしました');
+      await renderOrderHistory();
+    } else {
+      showToast('キャンセルの送信に失敗しました');
+    }
+  } finally {
+    isCancelSubmitting = false;
+    cancelOrderId = null;
+    updateCancelModalState();
+    closeModal('cancelModal');
+    if (!document.getElementById('cancelModal').classList.contains('open')) {
       renderOrderHistoryUI();
-      showToast('更新中...');
-      try {
-        const res = await postToGAS({ type: 'confirmReceipt', orderId: orderId });
-        if (res && res.status === 'ok') {
-          showToast('受取を報告しました🌿');
-          orders = orders.filter(o => o.id !== orderId);
-        } else {
-          showToast('更新に失敗しました');
-        }
-      } finally {
-        isReceiptSubmitting = false;
-        receiptSubmittingOrderId = null;
-        renderOrderHistoryUI();
+    }
+  }
+}
+
+// ===== モーダル / ページ / トースト =====
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id, e) { if (e && e.target !== document.getElementById(id)) return; document.getElementById(id).classList.remove('open'); }
+function switchPage(name) {
+  if (name === 'blog') {
+    const hash = blogItems.map(function (i) { return i.date + '_' + i.title; }).join('|');
+    localStorage.setItem('last_seen_blog_hash', hash);
+    document.getElementById('badge-blog').style.display = 'none';
+  }
+  if (name === 'calendar') {
+    const hash = calendarData.map(function (i) { return i.date + '_' + i.title; }).join('|');
+    localStorage.setItem('last_seen_calendar_hash', hash);
+    document.getElementById('badge-calendar').style.display = 'none';
+  }
+  if (name === 'notices') {
+    // 拡声器ページを開いた山時点で統合ハッシュを保存 → バッジを溈ませる
+    localStorage.setItem('last_seen_notices_hash', computeNoticeListHash());
+    document.getElementById('badge-notices').style.display = 'none';
+    renderPushNotices();
+  }
+  if (name === 'home') {
+    updateNavBadges();
+  }
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const nav = document.getElementById('nav-' + name);
+  if (nav) nav.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (name === 'cart') renderCart();
+  if (name === 'mypage') {
+    renderOrderHistory();
+    renderSurveys();
+    if (typeof syncNativePushStatus === 'function') syncNativePushStatus();
+  }
+  if (name === 'survey') {
+    renderSurveys();
+  }
+  if (name === 'blog') renderDividedBlogList();
+  if (name === 'shop') {
+    localStorage.setItem('last_seen_product_hash', PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|'));
+    var sb = document.getElementById('badge-shop');
+    if (sb) sb.style.display = 'none';
+  }
+  if (name === 'calendar') {
+    renderCalendar();
+  }
+  if (name === 'menu-list') {
+    loadMenus();
+  }
+}
+
+const PUSH_ENABLED_STORAGE_KEY = 'push_enabled';
+const NATIVE_PUSH_PLAYER_ID_STORAGE_KEY = 'mayumi_native_push_player_id';
+const NATIVE_PUSH_TOKEN_STORAGE_KEY = 'mayumi_native_push_token';
+
+function getStoredPushPreference() {
+  return localStorage.getItem(PUSH_ENABLED_STORAGE_KEY);
+}
+
+function isPushEnabled() {
+  return getStoredPushPreference() === 'true';
+}
+
+function getStoredNativePushPlayerId() {
+  return localStorage.getItem(NATIVE_PUSH_PLAYER_ID_STORAGE_KEY) || '';
+}
+
+function setStoredNativePushPlayerId(playerId) {
+  if (playerId) localStorage.setItem(NATIVE_PUSH_PLAYER_ID_STORAGE_KEY, playerId);
+  else localStorage.removeItem(NATIVE_PUSH_PLAYER_ID_STORAGE_KEY);
+}
+
+function getStoredNativePushToken() {
+  return localStorage.getItem(NATIVE_PUSH_TOKEN_STORAGE_KEY) || '';
+}
+
+function setStoredNativePushToken(token) {
+  if (token) localStorage.setItem(NATIVE_PUSH_TOKEN_STORAGE_KEY, token);
+  else localStorage.removeItem(NATIVE_PUSH_TOKEN_STORAGE_KEY);
+}
+
+function getCurrentPushSubscriptionValue(enabled) {
+  if (!enabled) return false;
+  return getStoredNativePushPlayerId() || getStoredNativePushToken() || true;
+}
+
+async function syncPushPreferenceToProfile(enabled, subscriptionValue) {
+  if (!_profile || !_profile.memberId) return;
+  try {
+    await postToGAS({
+      type: 'updateUser',
+      memberId: _profile.memberId,
+      pushSubscription: enabled ? (subscriptionValue !== undefined ? subscriptionValue : getCurrentPushSubscriptionValue(true)) : false
+    });
+  } catch (e) {
+    console.log('syncPushPreferenceToProfile error:', e);
+  }
+}
+
+async function applyPushEnabledState(enabled, options) {
+  const nextEnabled = enabled === true;
+  const opts = options || {};
+
+  localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, nextEnabled ? 'true' : 'false');
+  if (opts.clearNativePlayerId) setStoredNativePushPlayerId('');
+  if (opts.clearNativeToken) setStoredNativePushToken('');
+  updatePushUI(nextEnabled ? 'on' : 'off');
+
+  if (opts.syncProfile !== false) {
+    await syncPushPreferenceToProfile(nextEnabled, opts.subscriptionValue);
+  }
+}
+
+// 起動時にlocalStorageから通知ボタンの状態を即座に復元
+(function () {
+  var saved = getStoredPushPreference();
+  if (saved === 'true') updatePushUI('on');
+})();
+
+// ===== 初期化処理 (以前の定義は削除し、後半の定義に統一) =====
+
+function updatePushUI(state) {
+  const btn = document.getElementById('push-btn');
+  if (!btn) return;
+  if (state === 'on') {
+    btn.textContent = '通知オン 🔔（タップでオフ）';
+    btn.classList.add('secondary');
+    btn.classList.remove('primary');
+  } else {
+    btn.textContent = '通知オフ（タップでオン）';
+    btn.classList.add('primary');
+    btn.classList.remove('secondary');
+  }
+  btn.disabled = false;
+}
+
+
+// 更新バッジの制御
+function updateNavBadges() {
+  if (!isDataLoaded) return; // 初回ロード完了までバッジ更新をスキップ
+  let totalCount = 0;
+  const currentPage = document.querySelector('.page.active')?.id;
+
+  // 拡声器（お知らせ全体）の未読チェック
+  // ブログ / カレンダー / 商品 / Pushのどれかで変更があればドットを表示
+  const noticeBadge = document.getElementById('badge-notices');
+  if (noticeBadge) {
+    const currentNoticeHash = computeNoticeListHash();
+    const lastSeenNoticeHash = localStorage.getItem('last_seen_notices_hash') || '';
+    if (lastSeenNoticeHash && currentNoticeHash !== lastSeenNoticeHash && currentPage !== 'page-notices') {
+      noticeBadge.style.display = 'block';
+      totalCount++;
+    } else {
+      noticeBadge.style.display = 'none';
+      if (currentPage === 'page-notices' || !lastSeenNoticeHash) {
+        localStorage.setItem('last_seen_notices_hash', currentNoticeHash);
       }
     }
+  }
 
-    function updateCancelModalState() {
-      const confirmBtn = document.getElementById('cancelConfirmBtn');
-      const backBtn = document.getElementById('cancelBackBtn');
-      const isBusy = isCancelSubmitting || isReceiptSubmitting;
-      if (confirmBtn) {
-        confirmBtn.disabled = isBusy;
-        confirmBtn.textContent = isCancelSubmitting ? 'キャンセル中...' : 'キャンセルする';
-      }
-      if (backBtn) backBtn.disabled = isCancelSubmitting;
-    }
-    function openCancelModal(id) {
-      if (isCancelSubmitting || isReceiptSubmitting) return;
-      cancelOrderId = id;
-      updateCancelModalState();
-      openModal('cancelModal');
-    }
-    async function confirmCancel() {
-      if (isCancelSubmitting || isReceiptSubmitting || !cancelOrderId) return;
-
-      const targetOrderId = cancelOrderId;
-      const targetOrder = orders.find(o => o.id === targetOrderId);
-      if (!targetOrder) {
-        cancelOrderId = null;
-        closeModal('cancelModal');
-        return;
-      }
-
-      isCancelSubmitting = true;
-      updateCancelModalState();
-      showToast('キャンセル処理中...');
-
-      try {
-        const res = await postToGAS({ type: 'cancel', orderId: targetOrder.id });
-        if (res && res.status === 'ok') {
-          orders = orders.filter(o => o.id !== targetOrderId);
-          showToast('キャンセルしました');
-          await renderOrderHistory();
-        } else {
-          showToast('キャンセルの送信に失敗しました');
-        }
-      } finally {
-        isCancelSubmitting = false;
-        cancelOrderId = null;
-        updateCancelModalState();
-        closeModal('cancelModal');
-        if (!document.getElementById('cancelModal').classList.contains('open')) {
-          renderOrderHistoryUI();
-        }
+  // ブログの更新チェック
+  const blogBadge = document.getElementById('badge-blog');
+  if (blogBadge && blogItems && blogItems.length > 0) {
+    const lastSeenHash = localStorage.getItem('last_seen_blog_hash');
+    const currentHash = blogItems.map(function (i) { return i.date + '_' + i.title; }).join('|');
+    if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-blog') {
+      blogBadge.style.display = 'block';
+      totalCount++;
+    } else {
+      blogBadge.style.display = 'none';
+      if (currentPage === 'page-blog' || !lastSeenHash) {
+        localStorage.setItem('last_seen_blog_hash', currentHash);
       }
     }
+  }
 
-    // ===== モーダル / ページ / トースト =====
-    function openModal(id) { document.getElementById(id).classList.add('open'); }
-    function closeModal(id, e) { if (e && e.target !== document.getElementById(id)) return; document.getElementById(id).classList.remove('open'); }
-    function switchPage(name) {
-      if (name === 'blog') {
-        const hash = blogItems.map(function (i) { return i.date + '_' + i.title; }).join('|');
-        localStorage.setItem('last_seen_blog_hash', hash);
-        document.getElementById('badge-blog').style.display = 'none';
-      }
-      if (name === 'calendar') {
-        const hash = calendarData.map(function (i) { return i.date + '_' + i.title; }).join('|');
-        localStorage.setItem('last_seen_calendar_hash', hash);
-        document.getElementById('badge-calendar').style.display = 'none';
-      }
-      if (name === 'notices') {
-        // 拡声器ページを開いた山時点で統合ハッシュを保存 → バッジを溈ませる
-        localStorage.setItem('last_seen_notices_hash', computeNoticeListHash());
-        document.getElementById('badge-notices').style.display = 'none';
-        renderPushNotices();
-      }
-      if (name === 'home') {
-        updateNavBadges();
-      }
-
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById('page-' + name).classList.add('active');
-      const nav = document.getElementById('nav-' + name);
-      if (nav) nav.classList.add('active');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      if (name === 'cart') renderCart();
-      if (name === 'mypage') {
-        renderOrderHistory();
-        renderSurveys();
-        if (typeof syncNativePushStatus === 'function') syncNativePushStatus();
-      }
-      if (name === 'survey') {
-        renderSurveys();
-      }
-      if (name === 'blog') renderDividedBlogList();
-      if (name === 'shop') {
-        localStorage.setItem('last_seen_product_hash', PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|'));
-        var sb = document.getElementById('badge-shop');
-        if (sb) sb.style.display = 'none';
-      }
-      if (name === 'calendar') {
-        renderCalendar();
-      }
-      if (name === 'menu-list') {
-        loadMenus();
+  // カレンダーの更新チェック
+  const calBadge = document.getElementById('badge-calendar');
+  if (calBadge && calendarData && calendarData.length > 0) {
+    const lastSeenHash = localStorage.getItem('last_seen_calendar_hash');
+    const currentHash = calendarData.map(function (i) { return i.date + '_' + i.title; }).join('|');
+    if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-calendar') {
+      calBadge.style.display = 'block';
+      totalCount++;
+    } else {
+      calBadge.style.display = 'none';
+      if (currentPage === 'page-calendar' || !lastSeenHash) {
+        localStorage.setItem('last_seen_calendar_hash', currentHash);
       }
     }
+  }
 
-    const PUSH_ENABLED_STORAGE_KEY = 'push_enabled';
-    const NATIVE_PUSH_PLAYER_ID_STORAGE_KEY = 'mayumi_native_push_player_id';
-    const NATIVE_PUSH_TOKEN_STORAGE_KEY = 'mayumi_native_push_token';
-
-    function getStoredPushPreference() {
-      return localStorage.getItem(PUSH_ENABLED_STORAGE_KEY);
-    }
-
-    function isPushEnabled() {
-      return getStoredPushPreference() === 'true';
-    }
-
-    function getStoredNativePushPlayerId() {
-      return localStorage.getItem(NATIVE_PUSH_PLAYER_ID_STORAGE_KEY) || '';
-    }
-
-    function setStoredNativePushPlayerId(playerId) {
-      if (playerId) localStorage.setItem(NATIVE_PUSH_PLAYER_ID_STORAGE_KEY, playerId);
-      else localStorage.removeItem(NATIVE_PUSH_PLAYER_ID_STORAGE_KEY);
-    }
-
-    function getStoredNativePushToken() {
-      return localStorage.getItem(NATIVE_PUSH_TOKEN_STORAGE_KEY) || '';
-    }
-
-    function setStoredNativePushToken(token) {
-      if (token) localStorage.setItem(NATIVE_PUSH_TOKEN_STORAGE_KEY, token);
-      else localStorage.removeItem(NATIVE_PUSH_TOKEN_STORAGE_KEY);
-    }
-
-    function getCurrentPushSubscriptionValue(enabled) {
-      if (!enabled) return false;
-      return getStoredNativePushPlayerId() || getStoredNativePushToken() || true;
-    }
-
-    async function syncPushPreferenceToProfile(enabled, subscriptionValue) {
-      if (!_profile || !_profile.memberId) return;
-      try {
-        await postToGAS({
-          type: 'updateUser',
-          memberId: _profile.memberId,
-          pushSubscription: enabled ? (subscriptionValue !== undefined ? subscriptionValue : getCurrentPushSubscriptionValue(true)) : false
-        });
-      } catch (e) {
-        console.log('syncPushPreferenceToProfile error:', e);
+  // ショップ商品の更新チェック
+  const shopBadge = document.getElementById('badge-shop');
+  if (shopBadge && PRODUCTS && PRODUCTS.length > 0) {
+    const lastSeenHash = localStorage.getItem('last_seen_product_hash');
+    const currentHash = PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|');
+    if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-shop') {
+      shopBadge.style.display = 'block';
+      totalCount++;
+    } else {
+      shopBadge.style.display = 'none';
+      if (currentPage === 'page-shop' || !lastSeenHash) {
+        localStorage.setItem('last_seen_product_hash', currentHash);
       }
     }
+  }
 
-    async function applyPushEnabledState(enabled, options) {
-      const nextEnabled = enabled === true;
-      const opts = options || {};
-
-      localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, nextEnabled ? 'true' : 'false');
-      if (opts.clearNativePlayerId) setStoredNativePushPlayerId('');
-      if (opts.clearNativeToken) setStoredNativePushToken('');
-      updatePushUI(nextEnabled ? 'on' : 'off');
-
-      if (opts.syncProfile !== false) {
-        await syncPushPreferenceToProfile(nextEnabled, opts.subscriptionValue);
-      }
+  // App Badge API (ホーム画面のアイコン通知数)
+  if ('setAppBadge' in navigator) {
+    if (totalCount > 0) {
+      navigator.setAppBadge(totalCount).catch(function (err) { console.log('Badge error:', err); });
+    } else {
+      navigator.clearAppBadge().catch(function (err) { console.log('Badge error:', err); });
     }
+  }
 
-    // 起動時にlocalStorageから通知ボタンの状態を即座に復元
-    (function () {
-      var saved = getStoredPushPreference();
-      if (saved === 'true') updatePushUI('on');
-    })();
+  // Push UIの初期状態回復
+  if (isPushEnabled()) {
+    updatePushUI('on');
+  }
+}
 
-    // ===== 初期化処理 (以前の定義は削除し、後半の定義に統一) =====
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2300);
+}
 
-    function updatePushUI(state) {
-      const btn = document.getElementById('push-btn');
-      if (!btn) return;
-      if (state === 'on') {
-        btn.textContent = '通知オン 🔔（タップでオフ）';
-        btn.classList.add('secondary');
-        btn.classList.remove('primary');
-      } else {
-        btn.textContent = '通知オフ（タップでオン）';
-        btn.classList.add('primary');
-        btn.classList.remove('secondary');
-      }
-      btn.disabled = false;
+function escapeHtml(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeSupportText(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFKC')
+    .replace(/[！!？?。、,.・/／\\|｜()\[\]{}（）「」『』【】<>＜＞:：;；"'`´~〜\-_=+*&^%$#@]/g, '')
+    .replace(/\s+/g, '');
+}
+
+function getSupportKeywordList(item) {
+  return String((item && item.keywords) || '')
+    .split(/[\n,、，\/\s]+/)
+    .map(function (part) { return part.trim(); })
+    .filter(Boolean);
+}
+
+function scoreSupportFaq(messageNorm, item) {
+  if (!messageNorm || !item) return 0;
+
+  let score = 0;
+  let keywordHits = 0;
+  const questionNorm = normalizeSupportText(item.question);
+  const categoryNorm = normalizeSupportText(item.category);
+
+  if (questionNorm) {
+    if (messageNorm === questionNorm) score += 40;
+    if (questionNorm.length >= 8 && messageNorm.indexOf(questionNorm) !== -1) score += 18;
+    if (messageNorm.length >= 8 && questionNorm.length >= 8 && questionNorm.indexOf(messageNorm) !== -1) score += 10;
+  }
+  if (categoryNorm && messageNorm.indexOf(categoryNorm) !== -1) {
+    score += 3;
+  }
+
+  getSupportKeywordList(item).forEach(function (keyword) {
+    const norm = normalizeSupportText(keyword);
+    if (!norm) return;
+    if (messageNorm.indexOf(norm) !== -1) {
+      keywordHits += 1;
+      score += norm.length >= 4 ? 6 : 3;
     }
+  });
 
+  if (keywordHits >= 2) score += keywordHits * 2;
+  return score;
+}
 
-    // 更新バッジの制御
-    function updateNavBadges() {
-      if (!isDataLoaded) return; // 初回ロード完了までバッジ更新をスキップ
-      let totalCount = 0;
-      const currentPage = document.querySelector('.page.active')?.id;
+function getSupportFaqSource() {
+  return supportFaqItems.length ? supportFaqItems : SUPPORT_FAQ_FALLBACK;
+}
 
-      // 拡声器（お知らせ全体）の未読チェック
-      // ブログ / カレンダー / 商品 / Pushのどれかで変更があればドットを表示
-      const noticeBadge = document.getElementById('badge-notices');
-      if (noticeBadge) {
-        const currentNoticeHash = computeNoticeListHash();
-        const lastSeenNoticeHash = localStorage.getItem('last_seen_notices_hash') || '';
-        if (lastSeenNoticeHash && currentNoticeHash !== lastSeenNoticeHash && currentPage !== 'page-notices') {
-          noticeBadge.style.display = 'block';
-          totalCount++;
-        } else {
-          noticeBadge.style.display = 'none';
-          if (currentPage === 'page-notices' || !lastSeenNoticeHash) {
-            localStorage.setItem('last_seen_notices_hash', currentNoticeHash);
-          }
-        }
-      }
+function getCombinedSupportKnowledge() {
+  return getSupportFaqSource().concat(SUPPORT_APP_GUIDE);
+}
 
-      // ブログの更新チェック
-      const blogBadge = document.getElementById('badge-blog');
-      if (blogBadge && blogItems && blogItems.length > 0) {
-        const lastSeenHash = localStorage.getItem('last_seen_blog_hash');
-        const currentHash = blogItems.map(function (i) { return i.date + '_' + i.title; }).join('|');
-        if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-blog') {
-          blogBadge.style.display = 'block';
-          totalCount++;
-        } else {
-          blogBadge.style.display = 'none';
-          if (currentPage === 'page-blog' || !lastSeenHash) {
-            localStorage.setItem('last_seen_blog_hash', currentHash);
-          }
-        }
-      }
+function getDefaultSupportQuestions(limit) {
+  return Array.from(new Set(
+    getCombinedSupportKnowledge()
+      .map(function (item) { return item.question; })
+      .filter(Boolean)
+  )).slice(0, limit || 4);
+}
 
-      // カレンダーの更新チェック
-      const calBadge = document.getElementById('badge-calendar');
-      if (calBadge && calendarData && calendarData.length > 0) {
-        const lastSeenHash = localStorage.getItem('last_seen_calendar_hash');
-        const currentHash = calendarData.map(function (i) { return i.date + '_' + i.title; }).join('|');
-        if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-calendar') {
-          calBadge.style.display = 'block';
-          totalCount++;
-        } else {
-          calBadge.style.display = 'none';
-          if (currentPage === 'page-calendar' || !lastSeenHash) {
-            localStorage.setItem('last_seen_calendar_hash', currentHash);
-          }
-        }
-      }
+function isLikelyAppSupportQuestion(messageNorm) {
+  return SUPPORT_APP_KEYWORDS.some(function (keyword) {
+    return messageNorm.indexOf(normalizeSupportText(keyword)) !== -1;
+  });
+}
 
-      // ショップ商品の更新チェック
-      const shopBadge = document.getElementById('badge-shop');
-      if (shopBadge && PRODUCTS && PRODUCTS.length > 0) {
-        const lastSeenHash = localStorage.getItem('last_seen_product_hash');
-        const currentHash = PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|');
-        if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-shop') {
-          shopBadge.style.display = 'block';
-          totalCount++;
-        } else {
-          shopBadge.style.display = 'none';
-          if (currentPage === 'page-shop' || !lastSeenHash) {
-            localStorage.setItem('last_seen_product_hash', currentHash);
-          }
-        }
-      }
+function hasSupportKeyword(messageNorm, keyword) {
+  const keywordNorm = normalizeSupportText(keyword);
+  return !!keywordNorm && messageNorm.indexOf(keywordNorm) !== -1;
+}
 
-      // App Badge API (ホーム画面のアイコン通知数)
-      if ('setAppBadge' in navigator) {
-        if (totalCount > 0) {
-          navigator.setAppBadge(totalCount).catch(function (err) { console.log('Badge error:', err); });
-        } else {
-          navigator.clearAppBadge().catch(function (err) { console.log('Badge error:', err); });
-        }
-      }
+function hasAnySupportKeyword(messageNorm, keywords) {
+  return (keywords || []).some(function (keyword) {
+    return hasSupportKeyword(messageNorm, keyword);
+  });
+}
 
-      // Push UIの初期状態回復
-      if (isPushEnabled()) {
-        updatePushUI('on');
-      }
-    }
+function hasAllSupportKeywordGroups(messageNorm, keywordGroups) {
+  return (keywordGroups || []).every(function (group) {
+    return hasAnySupportKeyword(messageNorm, group);
+  });
+}
 
-    function showToast(msg) {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2300);
-    }
+function isSupportBlogArchiveQuestion(messageNorm) {
+  return hasAnySupportKeyword(messageNorm, ['ブログ']) &&
+    hasAnySupportKeyword(messageNorm, ['過去', '履歴', '一覧', '記事', '以前', 'バックナンバー']);
+}
 
-    function escapeHtml(text) {
-      return String(text || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
+function isSupportOrderHistoryQuestion(messageNorm) {
+  return hasAnySupportKeyword(messageNorm, ['注文履歴']) ||
+    (hasAnySupportKeyword(messageNorm, ['注文', '購入', 'ショップ', '受取', '受け取り']) &&
+      hasAnySupportKeyword(messageNorm, ['履歴', '状況', '状態', '受付中', '完了', 'キャンセル']));
+}
 
-    function normalizeSupportText(text) {
-      return String(text || '')
-        .toLowerCase()
-        .normalize('NFKC')
-        .replace(/[！!？?。、,.・/／\\|｜()\[\]{}（）「」『』【】<>＜＞:：;；"'`´~〜\-_=+*&^%$#@]/g, '')
-        .replace(/\s+/g, '');
-    }
+function getMergedSupportSuggestions(preferred) {
+  const merged = [];
+  (preferred || []).forEach(function (question) {
+    if (question && merged.indexOf(question) === -1) merged.push(question);
+  });
+  getDefaultSupportQuestions(6).forEach(function (question) {
+    if (question && merged.indexOf(question) === -1) merged.push(question);
+  });
+  return merged.slice(0, 4);
+}
 
-    function getSupportKeywordList(item) {
-      return String((item && item.keywords) || '')
-        .split(/[\n,、，\/\s]+/)
-        .map(function (part) { return part.trim(); })
-        .filter(Boolean);
-    }
+function buildSupportText(answer) {
+  if (Array.isArray(answer)) {
+    return answer.filter(Boolean).join('\n');
+  }
+  return String(answer || '');
+}
 
-    function scoreSupportFaq(messageNorm, item) {
-      if (!messageNorm || !item) return 0;
+function buildSupportReply(answer, suggestions, matched, topic) {
+  return {
+    matched: matched !== false,
+    answer: buildSupportText(answer),
+    suggestions: getMergedSupportSuggestions(suggestions),
+    topic: topic || ''
+  };
+}
 
-      let score = 0;
-      let keywordHits = 0;
-      const questionNorm = normalizeSupportText(item.question);
-      const categoryNorm = normalizeSupportText(item.category);
+function getSupportIntent(messageNorm) {
+  if (hasAnySupportKeyword(messageNorm, ['できない', '使えない', '表示されない', '出ない', '開けない', '届かない', '読めない', '失敗', 'エラー', '不具合', '重い', '遅い', 'フリーズ', '消えない'])) {
+    return 'trouble';
+  }
+  if (hasAnySupportKeyword(messageNorm, ['今', '現在', 'いま', '状況', '状態', '確認', '残り', '何個', 'いくつ', '何枚', '登録済', '未登録'])) {
+    return 'status';
+  }
+  if (hasAnySupportKeyword(messageNorm, ['どこ', 'どこで', 'どこから', '場所', '開き方', '表示場所'])) {
+    return 'where';
+  }
+  if (hasAnySupportKeyword(messageNorm, ['できる', 'できますか', '可能', '使える', '対応'])) {
+    return 'can';
+  }
+  if (hasAnySupportKeyword(messageNorm, ['とは', '何', '意味'])) {
+    return 'what';
+  }
+  return 'how';
+}
 
-      if (questionNorm) {
-        if (messageNorm === questionNorm) score += 40;
-        if (questionNorm.length >= 8 && messageNorm.indexOf(questionNorm) !== -1) score += 18;
-        if (messageNorm.length >= 8 && questionNorm.length >= 8 && questionNorm.indexOf(messageNorm) !== -1) score += 10;
-      }
-      if (categoryNorm && messageNorm.indexOf(categoryNorm) !== -1) {
-        score += 3;
-      }
+function detectSupportTopic(messageNorm) {
+  if (!messageNorm) return '';
+  if (hasAnySupportKeyword(messageNorm, ['アップデートが必要', 'アップデート', '更新', '最新版', 'バージョン'])) return 'update';
+  if (hasAnySupportKeyword(messageNorm, ['予約', 'よやく', 'アポイント'])) return 'reservation';
+  if (hasAnySupportKeyword(messageNorm, ['注文履歴', '受け取りました', '受取報告', '受取完了']) || isSupportOrderHistoryQuestion(messageNorm)) return 'order-history';
+  if (hasAnySupportKeyword(messageNorm, ['カート', '買い物かご'])) return 'cart';
+  if (hasAnySupportKeyword(messageNorm, ['ショップ', '商品', '注文', '購入', '支払い', '現金'])) return 'shop';
+  if (hasAnySupportKeyword(messageNorm, ['特典', 'プレゼント', '期限', 'チケット'])) return 'reward';
+  if (hasAnySupportKeyword(messageNorm, ['スタンプ', 'qr', 'qrコード', 'qrcode', 'カメラ', '新しいカード', '枚目'])) return 'stamp';
+  if (hasAnySupportKeyword(messageNorm, ['通知', 'push', 'プッシュ'])) return 'notification';
+  if (hasAnySupportKeyword(messageNorm, ['プロフィール', '会員id', 'memberid', '会員番号', 'アイコン', 'アバター', 'バナー', '画像'])) return 'profile';
+  if (hasAnySupportKeyword(messageNorm, ['メニュー', '施術'])) return 'menu';
+  if (hasAnySupportKeyword(messageNorm, ['カレンダー', 'イベント', '予定', '日程'])) return 'calendar';
+  if (hasAnySupportKeyword(messageNorm, ['news', 'ニュース', 'お知らせ', 'ブログ', 'お知らせ一覧', '通知一覧', '📢', '新着'])) return 'news';
+  if (hasAnySupportKeyword(messageNorm, ['line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', 'お問い合わせ'])) return 'links';
+  if (hasAnySupportKeyword(messageNorm, ['チャット', 'サポート', 'ボット', '相談'])) return 'support-chat';
+  if (hasAnySupportKeyword(messageNorm, ['ホーム', 'トップ'])) return 'home';
+  if (hasAnySupportKeyword(messageNorm, ['アプリ', '使い方', 'できること', '機能'])) return 'app-overview';
+  return '';
+}
 
-      getSupportKeywordList(item).forEach(function (keyword) {
-        const norm = normalizeSupportText(keyword);
-        if (!norm) return;
-        if (messageNorm.indexOf(norm) !== -1) {
-          keywordHits += 1;
-          score += norm.length >= 4 ? 6 : 3;
-        }
-      });
+function isSupportFollowUpQuestion(messageNorm) {
+  if (!messageNorm) return false;
+  if (detectSupportTopic(messageNorm)) return false;
+  return hasAnySupportKeyword(messageNorm, ['それ', 'その', 'さっき', '前の', '今の', 'この機能', 'この画面', 'どこ', 'どこから', '方法', 'やり方', '見方', '開き方', 'できますか', 'できる', '確認', '変更', '解除', 'オン', 'オフ', 'どうやって']);
+}
 
-      if (keywordHits >= 2) score += keywordHits * 2;
-      return score;
-    }
+function resolveSupportTopic(messageNorm) {
+  const explicitTopic = detectSupportTopic(messageNorm);
+  if (explicitTopic) return explicitTopic;
+  if (isSupportFollowUpQuestion(messageNorm) && lastSupportTopic) {
+    return lastSupportTopic;
+  }
+  return '';
+}
 
-    function getSupportFaqSource() {
-      return supportFaqItems.length ? supportFaqItems : SUPPORT_FAQ_FALLBACK;
-    }
+function buildFeatureSupportReply(topic, answer, suggestions) {
+  return buildSupportReply(answer, suggestions, true, topic);
+}
 
-    function getCombinedSupportKnowledge() {
-      return getSupportFaqSource().concat(SUPPORT_APP_GUIDE);
-    }
+function getFeatureSupportReply(messageNorm) {
+  const topic = resolveSupportTopic(messageNorm);
+  if (!topic) return null;
+  const intent = getSupportIntent(messageNorm);
 
-    function getDefaultSupportQuestions(limit) {
-      return Array.from(new Set(
-        getCombinedSupportKnowledge()
-          .map(function (item) { return item.question; })
-          .filter(Boolean)
-      )).slice(0, limit || 4);
-    }
-
-    function isLikelyAppSupportQuestion(messageNorm) {
-      return SUPPORT_APP_KEYWORDS.some(function (keyword) {
-        return messageNorm.indexOf(normalizeSupportText(keyword)) !== -1;
-      });
-    }
-
-    function hasSupportKeyword(messageNorm, keyword) {
-      const keywordNorm = normalizeSupportText(keyword);
-      return !!keywordNorm && messageNorm.indexOf(keywordNorm) !== -1;
-    }
-
-    function hasAnySupportKeyword(messageNorm, keywords) {
-      return (keywords || []).some(function (keyword) {
-        return hasSupportKeyword(messageNorm, keyword);
-      });
-    }
-
-    function hasAllSupportKeywordGroups(messageNorm, keywordGroups) {
-      return (keywordGroups || []).every(function (group) {
-        return hasAnySupportKeyword(messageNorm, group);
-      });
-    }
-
-    function isSupportBlogArchiveQuestion(messageNorm) {
-      return hasAnySupportKeyword(messageNorm, ['ブログ']) &&
-        hasAnySupportKeyword(messageNorm, ['過去', '履歴', '一覧', '記事', '以前', 'バックナンバー']);
-    }
-
-    function isSupportOrderHistoryQuestion(messageNorm) {
-      return hasAnySupportKeyword(messageNorm, ['注文履歴']) ||
-        (hasAnySupportKeyword(messageNorm, ['注文', '購入', 'ショップ', '受取', '受け取り']) &&
-          hasAnySupportKeyword(messageNorm, ['履歴', '状況', '状態', '受付中', '完了', 'キャンセル']));
-    }
-
-    function getMergedSupportSuggestions(preferred) {
-      const merged = [];
-      (preferred || []).forEach(function (question) {
-        if (question && merged.indexOf(question) === -1) merged.push(question);
-      });
-      getDefaultSupportQuestions(6).forEach(function (question) {
-        if (question && merged.indexOf(question) === -1) merged.push(question);
-      });
-      return merged.slice(0, 4);
-    }
-
-    function buildSupportText(answer) {
-      if (Array.isArray(answer)) {
-        return answer.filter(Boolean).join('\n');
-      }
-      return String(answer || '');
-    }
-
-    function buildSupportReply(answer, suggestions, matched, topic) {
-      return {
-        matched: matched !== false,
-        answer: buildSupportText(answer),
-        suggestions: getMergedSupportSuggestions(suggestions),
-        topic: topic || ''
-      };
-    }
-
-    function getSupportIntent(messageNorm) {
-      if (hasAnySupportKeyword(messageNorm, ['できない', '使えない', '表示されない', '出ない', '開けない', '届かない', '読めない', '失敗', 'エラー', '不具合', '重い', '遅い', 'フリーズ', '消えない'])) {
-        return 'trouble';
-      }
-      if (hasAnySupportKeyword(messageNorm, ['今', '現在', 'いま', '状況', '状態', '確認', '残り', '何個', 'いくつ', '何枚', '登録済', '未登録'])) {
-        return 'status';
-      }
-      if (hasAnySupportKeyword(messageNorm, ['どこ', 'どこで', 'どこから', '場所', '開き方', '表示場所'])) {
-        return 'where';
-      }
-      if (hasAnySupportKeyword(messageNorm, ['できる', 'できますか', '可能', '使える', '対応'])) {
-        return 'can';
-      }
-      if (hasAnySupportKeyword(messageNorm, ['とは', '何', '意味'])) {
-        return 'what';
-      }
-      return 'how';
-    }
-
-    function detectSupportTopic(messageNorm) {
-      if (!messageNorm) return '';
-      if (hasAnySupportKeyword(messageNorm, ['アップデートが必要', 'アップデート', '更新', '最新版', 'バージョン'])) return 'update';
-      if (hasAnySupportKeyword(messageNorm, ['予約', 'よやく', 'アポイント'])) return 'reservation';
-      if (hasAnySupportKeyword(messageNorm, ['注文履歴', '受け取りました', '受取報告', '受取完了']) || isSupportOrderHistoryQuestion(messageNorm)) return 'order-history';
-      if (hasAnySupportKeyword(messageNorm, ['カート', '買い物かご'])) return 'cart';
-      if (hasAnySupportKeyword(messageNorm, ['ショップ', '商品', '注文', '購入', '支払い', '現金'])) return 'shop';
-      if (hasAnySupportKeyword(messageNorm, ['特典', 'プレゼント', '期限', 'チケット'])) return 'reward';
-      if (hasAnySupportKeyword(messageNorm, ['スタンプ', 'qr', 'qrコード', 'qrcode', 'カメラ', '新しいカード', '枚目'])) return 'stamp';
-      if (hasAnySupportKeyword(messageNorm, ['通知', 'push', 'プッシュ'])) return 'notification';
-      if (hasAnySupportKeyword(messageNorm, ['プロフィール', '会員id', 'memberid', '会員番号', 'アイコン', 'アバター', 'バナー', '画像'])) return 'profile';
-      if (hasAnySupportKeyword(messageNorm, ['メニュー', '施術'])) return 'menu';
-      if (hasAnySupportKeyword(messageNorm, ['カレンダー', 'イベント', '予定', '日程'])) return 'calendar';
-      if (hasAnySupportKeyword(messageNorm, ['news', 'ニュース', 'お知らせ', 'ブログ', 'お知らせ一覧', '通知一覧', '📢', '新着'])) return 'news';
-      if (hasAnySupportKeyword(messageNorm, ['line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', 'お問い合わせ'])) return 'links';
-      if (hasAnySupportKeyword(messageNorm, ['チャット', 'サポート', 'ボット', '相談'])) return 'support-chat';
-      if (hasAnySupportKeyword(messageNorm, ['ホーム', 'トップ'])) return 'home';
-      if (hasAnySupportKeyword(messageNorm, ['アプリ', '使い方', 'できること', '機能'])) return 'app-overview';
-      return '';
-    }
-
-    function isSupportFollowUpQuestion(messageNorm) {
-      if (!messageNorm) return false;
-      if (detectSupportTopic(messageNorm)) return false;
-      return hasAnySupportKeyword(messageNorm, ['それ', 'その', 'さっき', '前の', '今の', 'この機能', 'この画面', 'どこ', 'どこから', '方法', 'やり方', '見方', '開き方', 'できますか', 'できる', '確認', '変更', '解除', 'オン', 'オフ', 'どうやって']);
-    }
-
-    function resolveSupportTopic(messageNorm) {
-      const explicitTopic = detectSupportTopic(messageNorm);
-      if (explicitTopic) return explicitTopic;
-      if (isSupportFollowUpQuestion(messageNorm) && lastSupportTopic) {
-        return lastSupportTopic;
-      }
-      return '';
-    }
-
-    function buildFeatureSupportReply(topic, answer, suggestions) {
-      return buildSupportReply(answer, suggestions, true, topic);
-    }
-
-    function getFeatureSupportReply(messageNorm) {
-      const topic = resolveSupportTopic(messageNorm);
-      if (!topic) return null;
-      const intent = getSupportIntent(messageNorm);
-
-      if (topic === 'update') {
-        if (hasAnySupportKeyword(messageNorm, ['アップデートが必要', 'ストア'])) {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              '「アップデートが必要です」と表示された場合は、案内の「アップデートする」を押してください。',
-              'App Store が開いたらアプリ本体を更新し、更新後にアプリを開き直してください。',
-              '通常の商品・お知らせ更新は画面上部の🔄ボタンで反映できますが、必須更新表示が出た場合はアプリ更新が必要です。'
-            ],
-            ['最新情報への更新方法を知りたい', '通知をオンにする方法を知りたい']
-          );
-        }
-        if (intent === 'trouble') {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              '更新で変わらない場合は、まず画面上部の🔄ボタンで最新情報を再取得してください。',
-              'それでも「アップデートが必要です」と表示される場合は、受付にて配布されている最新版のインストール方法をご確認ください。',
-              '商品・お知らせ・カレンダーなどの最新情報は🔄ボタン、アプリそのものの更新は院内の案内に従う、と覚えていただくと分かりやすいです。'
-            ],
-            ['最新情報への更新方法を知りたい', 'アプリのアップデート方法は？']
-          );
-        }
-        return buildFeatureSupportReply(
-          topic,
-          [
-            '更新には2種類あります。',
-            '1. 商品・お知らせ・カレンダーなどの最新情報は、画面上部の🔄ボタンで再取得でき、その場で最新状態に反映されます。',
-            '2. 「アップデートが必要です」と大きく表示された場合は、当院から案内されている方法で最新版を入れ直してください。',
-            '通常の情報更新（🔄ボタン）は再インストール不要です。'
-          ],
-          ['最新情報への更新方法を知りたい', 'アプリのアップデート方法は？']
-        );
-      }
-
-      if (topic === 'reservation') {
-        return buildFeatureSupportReply(
-          topic,
-          hasAnySupportKeyword(messageNorm, ['変更', 'キャンセル', '取り消し'])
-            ? [
-              '現在、アプリから予約の変更やキャンセルはできません。',
-              '予約変更・キャンセル・個別相談は、公式LINEからご連絡ください。',
-              '公式LINEはホーム画面またはマイページの「公式サイト・SNS」から開けます。'
-            ]
-            : [
-              '現在、アプリから直接予約する機能はありません。',
-              'ご予約や個別相談は公式LINEをご利用ください。',
-              'ホーム画面またはマイページの「公式サイト・SNS」から公式LINEを開けます。'
-            ],
-          ['公式LINEやSNSの開き方を知りたい', 'メニュー一覧の見方を知りたい']
-        );
-      }
-
-      if (topic === 'profile') {
-        if (hasAnySupportKeyword(messageNorm, ['アイコン', 'アバター', 'バナー', '画像', '写真'])) {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              'プロフィール画像の変更方法です。',
-              '1. マイページの「✏️ プロフィールを編集」を開きます。',
-              '2. アイコン画像またはバナー画像の変更ボタンから画像を選びます。',
-              '3. 保存すると、マイページやホーム画面の表示に反映されます。'
-            ],
-            ['プロフィールの変更方法を知りたい', 'ホーム画面の見方を知りたい']
-          );
-        }
-        if (intent === 'status') {
-          return buildFeatureSupportReply(
-            topic,
-            _profile
-              ? [
-                `プロフィールは登録済みです。お名前は${_profile.name || '未設定'}、会員IDは${_profile.memberId || '未発行'}です。`,
-                '変更したい場合はマイページの「プロフィールを編集」から更新できます。'
-              ]
-              : [
-                '現在プロフィールは未登録です。',
-                '初回起動時の案内、またはマイページの「プロフィールを編集」から登録してください。'
-              ],
-            ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
-          );
-        }
-        return buildFeatureSupportReply(
-          topic,
-          _profile
-            ? [
-              'プロフィールの変更方法です。',
-              '1. マイページを開きます。',
-              '2. 「✏️ プロフィールを編集」を押します。',
-              '3. お名前、電話番号、生年月日、住所、画像を変更して保存します。'
-            ]
-            : [
-              'プロフィールの登録方法です。',
-              '1. マイページの「✏️ プロフィールを編集」を開きます。',
-              '2. お名前、電話番号、生年月日、住所を入力して保存します。',
-              '3. 初回起動時は案内に沿ってそのまま登録できます。'
-            ],
-          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
-        );
-      }
-
-      if (topic === 'notification') {
-        if (intent === 'trouble') {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              '通知が届かない場合は、次を確認してください。',
-              '1. マイページの通知設定がオンになっているか。',
-              '2. iPhone やブラウザの設定で通知が許可されているか。',
-              '3. インターネット接続が安定しているか。',
-              isPushEnabled() ? '現在この端末のアプリ内設定はオンです。端末側の通知許可もご確認ください。' : '現在この端末のアプリ内設定はオフです。まずアプリ内でオンにしてください。'
-            ],
-            ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい']
-          );
-        }
-        return buildFeatureSupportReply(
-          topic,
-          hasAnySupportKeyword(messageNorm, ['オフ', '解除'])
-            ? [
-              '通知はオフにもできます。',
-              'マイページの「🔔 通知設定」ボタンを押すと、オンとオフを切り替えられます。',
-              '端末側の通知許可をオフにしたい場合は、iPhone の通知設定からも変更できます。'
-            ]
-            : [
-              '通知設定の方法です。',
-              '1. マイページを開きます。',
-              '2. 「🔔 通知設定」ボタンを押してオンまたはオフに切り替えます。',
-              '3. 端末側で通知が拒否されている場合は、iPhone の通知設定もご確認ください。'
-            ],
-          ['通知を受け取りたい', '通知をオフにしたい']
-        );
-      }
-
-      if (topic === 'order-history') {
-        if (hasAnySupportKeyword(messageNorm, ['キャンセル'])) {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              '注文キャンセルの方法です。',
-              '1. マイページの「📋 ご注文履歴」を開きます。',
-              '2. 受付中の注文に表示される「キャンセルする」を押します。',
-              '3. キャンセル後、その注文は履歴から表示されなくなります。'
-            ],
-            ['注文履歴の確認方法を知りたい', '商品の注文方法を知りたい']
-          );
-        }
-        if (hasAnySupportKeyword(messageNorm, ['受け取りました', '受取報告', '受取完了'])) {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              '受け取り完了の報告方法です。',
-              '1. マイページの「📋 ご注文履歴」を開きます。',
-              '2. 対象注文の「受け取りました」を押します。',
-              '3. 更新後、その注文は履歴に残らなくなります。'
-            ],
-            ['注文履歴の確認方法を知りたい', '商品の注文方法を知りたい']
-          );
-        }
-        if (intent === 'trouble') {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              '注文履歴が見えない場合は、次を確認してください。',
-              '1. プロフィール登録が完了しているか。',
-              '2. 画面上部の🔄ボタンで最新情報を再取得したか。',
-              '3. 受付中または受け取り前の注文があるか。',
-              'キャンセル済み・受取済みの注文は履歴に表示されません。'
-            ],
-            ['プロフィールの登録方法を知りたい', '最新情報への更新方法を知りたい']
-          );
-        }
-        return buildFeatureSupportReply(
-          topic,
-          [
-            '注文履歴の確認方法です。',
-            '1. 下部メニューからマイページを開きます。',
-            '2. 「📋 ご注文履歴」を確認します。',
-            '3. 受付中の注文はキャンセル、受け取り前の注文は「受け取りました」で更新できます。'
-          ],
-          ['注文をキャンセルしたい', '受け取り完了の報告方法を知りたい']
-        );
-      }
-
-      if (topic === 'cart') {
-        return buildFeatureSupportReply(
-          topic,
-          intent === 'status'
-            ? (cart.length
-              ? [
-                `現在のカートは${cart.reduce(function (sum, item) { return sum + Number(item.qty || 0); }, 0)}点です。`,
-                '画面右上の🛒から中身を確認し、個数変更や削除ができます。'
-              ]
-              : [
-                '現在カートには商品が入っていません。',
-                'ショップで商品を選び、「カートに追加する」を押すと入ります。'
-              ])
-            : [
-              'カートの使い方です。',
-              '1. ショップで商品を選び「カートに追加する」を押します。',
-              '2. 画面右上の🛒を押すとカートを開けます。',
-              '3. カートでは個数変更や削除ができます。'
-            ],
-          ['カートの中身を確認するには？', '商品の注文方法を知りたい']
-        );
-      }
-
-      if (topic === 'shop') {
-        if (hasAnySupportKeyword(messageNorm, ['支払い', '決済', '現金'])) {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              '商品注文のお支払い方法は現在「現金払い」です。',
-              'ご来院時に受付でお支払いください。'
-            ],
-            ['商品の注文方法を知りたい', '受け取り方法は？']
-          );
-        }
-        if (hasAnySupportKeyword(messageNorm, ['受取', '受け取り', '配送', '宅配'])) {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              '商品はすべて院内受け取りです。',
-              '注文後、ご来院時にスタッフへお声がけください。'
-            ],
-            ['商品の注文方法を知りたい', '注文履歴の確認方法を知りたい']
-          );
-        }
-        return buildFeatureSupportReply(
-          topic,
-          [
-            '商品の注文手順です。',
-            '1. 下部メニューの「🛍 ショップ」を開きます。',
-            '2. 商品をタップして詳細を確認します。',
-            '3. 個数を選んで「カートに追加する🛒」を押します。',
-            '4. 画面右上の🛒からカートを開き、「ご注文を確定する」で完了です。'
-          ],
-          ['カートの使い方を知りたい', '注文履歴の確認方法を知りたい']
-        );
-      }
-
-      if (topic === 'stamp') {
-        if (hasAnySupportKeyword(messageNorm, ['新しいカード', '次のカード', 'カード開始', 'カード取得'])) {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              '新しいスタンプカードの始め方です。',
-              '1. スタンプが10個たまると、ホーム画面に「🌸 新しいスタンプカードを取得」が表示されます。',
-              '2. そのボタンを押すと次のカードが始まります。',
-              '3. 新しいカード開始後はスタンプが0個に戻り、カード番号が1つ進みます。'
-            ],
-            ['スタンプが10個たまったらどうなりますか？', 'スタンプ特典の使い方を知りたい']
-          );
-        }
-        if (hasAnySupportKeyword(messageNorm, ['qr', 'qrコード', 'qrcode', 'カメラ', '読み取り'])) {
-          return buildFeatureSupportReply(
-            topic,
-            intent === 'trouble'
-              ? [
-                'QRコードが読み取れない場合は、次を確認してください。',
-                '1. カメラ権限が許可されているか。',
-                '2. QRコードに汚れや傷がないか。',
-                '3. その日のスタンプをすでに取得していないか。',
-                '4. 10個達成済みなら先に「新しいスタンプカードを取得」してください。'
-              ]
-              : [
-                'スタンプ取得の手順です。',
-                '1. ホーム画面の「📷 カメラを起動して読み取る」を押します。',
-                '2. カメラ権限の案内が出た場合は「許可」を選びます。',
-                '3. 院内のQRコードを読み取ります。',
-                '4. 読み取りに成功するとスタンプが1つ追加されます。'
-              ],
-            ['スタンプは1日何個取得できますか？', '新しいカードを始めるには？']
-          );
-        }
-        if (hasAnySupportKeyword(messageNorm, ['10個', '達成', 'たまった', '満了'])) {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              'スタンプが10個たまると特典対象になります。',
-              'マイページの「🎁 特典取得状況」で確認できます。',
-              'その後、ホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。'
-            ],
-            ['スタンプ特典の使い方を知りたい', '新しいカードを始めるには？']
-          );
-        }
-        return buildFeatureSupportReply(
-          topic,
-          [
-            'スタンプ機能のご案内です。',
-            '1. スタンプはホーム画面で確認します。',
-            '2. 院内QRコードを読むと1日1回まで追加されます。',
-            `3. 現在のカードは${stampCardNum}枚目、スタンプは${stampCount}個です。`,
-            '4. 10個たまると特典対象になります。'
-          ],
-          ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
-        );
-      }
-
-      if (topic === 'reward') {
-        const availableRewards = (EARNED_REWARDS || []).filter(function (reward) {
-          return reward && !reward.used;
-        });
-        if (hasAnySupportKeyword(messageNorm, ['期限', 'いつまで'])) {
-          return buildFeatureSupportReply(
-            topic,
-            [
-              '特典の受取期限は、スタンプ10個を達成した日から1か月です。',
-              'マイページの「🎁 特典取得状況」に期限が表示されます。',
-              '受け取りについては受付へ直接お問い合わせください。'
-            ],
-            ['スタンプ特典の使い方を知りたい', '特典はどこで確認できますか？']
-          );
-        }
-        if (intent === 'status') {
-          return buildFeatureSupportReply(
-            topic,
-            availableRewards.length
-              ? [
-                `現在、未使用の特典が${availableRewards.length}件あります。`,
-                'マイページの「🎁 特典取得状況」で確認できます。',
-                '特典は達成当日から使用でき、一度使用すると再使用できません。'
-              ]
-              : [
-                '現在、未使用の特典はありません。',
-                'スタンプが10個たまると特典対象になり、マイページに表示されます。'
-              ],
-            ['特典はどこで確認できますか？', 'スタンプの集め方を知りたい']
-          );
-        }
-        return buildFeatureSupportReply(
-          topic,
-          [
-            'スタンプ特典の使い方です。',
-            '1. マイページの「🎁 特典取得状況」を開きます。',
-            '2. 獲得済みの特典を確認し、必要なら「使用する」を押します。',
-            '3. 特典は達成当日から使用できます。',
-            '4. 一度使用すると再使用できません。受け取りは受付へ直接お問い合わせください。'
-          ],
-          ['特典に有効期限はありますか？', 'スタンプが10個たまったらどうなりますか？']
-        );
-      }
-
-      if (topic === 'menu') {
-        return buildFeatureSupportReply(
-          topic,
-          [
-            'メニュー一覧の見方です。',
-            '1. ホーム画面の「メニュー一覧を見る🍴」を押します。',
-            '2. 各メニューをタップすると詳細や画像を確認できます。',
-            '3. 予約受付中の表示があるものも、実際の予約連絡は公式LINEからお願いします。'
-          ],
-          ['予約の方法を知りたい', 'ホーム画面の見方を知りたい']
-        );
-      }
-
-      if (topic === 'calendar') {
-        return buildFeatureSupportReply(
-          topic,
-          [
-            'カレンダーの見方です。',
-            '1. 下部メニューの「📅 カレンダー」を開きます。',
-            '2. 左右の矢印で月を切り替えます。',
-            '3. 日付を押すと、その日の予定やイベントを確認できます。',
-            '4. 休＝休診日、往＝往診日、イ＝イベントです。'
-          ],
-          ['イベントカレンダーの見方を知りたい', '最新のお知らせの見方を知りたい']
-        );
-      }
-
-      if (topic === 'news') {
-        return buildFeatureSupportReply(
-          topic,
-          isSupportBlogArchiveQuestion(messageNorm)
-            ? [
-              '過去のブログやお知らせは、画面上部の📢ボタンから開く「お知らせ一覧」で確認できます。',
-              'ブログ・お知らせ・カレンダー情報などを日付順でまとめて見られます。'
-            ]
-            : [
-              'お知らせの見方です。',
-              '1. 下部メニューの「💬 NEWS」で記事一覧を確認できます。',
-              '2. 画面上部の📢ボタンでは、ブログ・お知らせ・Push通知などをまとめて確認できます。',
-              '3. 新着があるとアイコンに赤いドットが表示されます。'
-            ],
-          ['ブログや過去のお知らせの見方を知りたい', '📢ボタンの機能は何ですか？']
-        );
-      }
-
-      if (topic === 'links') {
-        return buildFeatureSupportReply(
-          topic,
-          [
-            '公式サイトやSNSの開き方です。',
-            '1. ホーム画面またはマイページの「🔗 公式サイト・SNS」を開きます。',
-            '2. 公式ホームページ、Instagram、Facebook、公式LINEを選んで開けます。',
-            '3. 診療や個別相談は公式LINEをご利用ください。'
-          ],
-          ['公式LINEやSNSの開き方を知りたい', '予約の方法を知りたい']
-        );
-      }
-
-      if (topic === 'support-chat') {
-        return buildFeatureSupportReply(
-          topic,
-          [
-            'このチャットでは、現在アプリに実装されている機能の使い方をご案内しています。',
-            'たとえば、注文方法、注文履歴、スタンプ、特典、通知設定、プロフィール変更、更新方法などに回答できます。',
-            '診療相談や個別のご予約内容の相談は公式LINEをご利用ください。'
-          ],
-          ['このアプリでできることを知りたい', '予約の方法を知りたい']
-        );
-      }
-
-      if (topic === 'home') {
-        return buildFeatureSupportReply(
-          topic,
-          [
-            'ホーム画面でできることです。',
-            '1. スタンプQRの読み取り',
-            '2. 現在のスタンプカード確認',
-            '3. おすすめ商品や最新のお知らせ確認',
-            '4. メニュー一覧への移動',
-            '5. 公式サイト・SNSへのアクセス'
-          ],
-          ['スタンプの集め方を知りたい', 'メニュー一覧の見方を知りたい']
-        );
-      }
-
-      if (topic === 'app-overview') {
-        return getSupportOverviewReply();
-      }
-
-      return null;
-    }
-
-    function getSupportStatusReply(messageNorm) {
-      const asksCurrent = hasAnySupportKeyword(messageNorm, ['今', '現在', 'いま', '状況', '状態', '確認']);
-      const asksStatusOnly = asksCurrent || hasAnySupportKeyword(messageNorm, ['なってる', 'なっている', 'されてる', 'されている', '登録済', '未登録']);
-
-      if (hasAnySupportKeyword(messageNorm, ['スタンプ']) && hasAnySupportKeyword(messageNorm, ['残り', '何個', 'いくつ', '現在', '今', '状況', '状態'])) {
-        const remain = Math.max(0, 10 - stampCount);
-        return buildSupportReply(
-          stampCount >= 10
-            ? [
-              `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。10個達成済みです。`,
-              '次の流れ: 1. マイページの「特典取得状況」を確認 2. 必要なら特典を使用 3. ホームの「新しいスタンプカードを取得」で次のカードを開始してください。',
-              '補足: 来院スタンプは1日1回までです。'
-            ]
-            : [
-              `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。あと${remain}個で特典対象です。`,
-              '追加方法: ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取ってください。',
-              '補足: 来院スタンプは1日1回までです。'
-            ],
-          ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい'],
-          true,
-          'stamp'
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['カート', '買い物かご']) && (asksCurrent || hasAnySupportKeyword(messageNorm, ['何個', 'いくつ', '合計']))) {
-        const itemCount = cart.reduce(function (sum, item) { return sum + Number(item.qty || 0); }, 0);
-        const total = cart.reduce(function (sum, item) {
-          const product = PRODUCTS[item.idx];
-          return sum + ((product ? product.price : 0) * Number(item.qty || 0));
-        }, 0);
-        return buildSupportReply(
-          itemCount > 0
-            ? [
-              `現在のカートは${itemCount}点、合計は¥${total.toLocaleString()}です。`,
-              'カート画面では個数変更や削除ができます。',
-              '内容を確認したら「ご注文を確定する」を押してください。'
-            ]
-            : [
-              '現在カートには商品が入っていません。',
-              '下部メニューの「ショップ」で商品を選ぶとカートに追加できます。'
-            ],
-          ['カートの使い方を知りたい', '商品の注文方法を知りたい'],
-          true,
-          'cart'
-        );
-      }
-
-      if ((hasAnySupportKeyword(messageNorm, ['プロフィール']) && asksStatusOnly) || hasAnySupportKeyword(messageNorm, ['会員id', 'memberid', '会員番号'])) {
-        return buildSupportReply(
-          _profile
-            ? [
-              `プロフィールは登録済みです。お名前は${_profile.name || '未設定'}、会員IDは${_profile.memberId || '未発行'}です。`,
-              '変更したい場合は、マイページの「プロフィールを編集」からお名前、電話番号、生年月日、住所、画像を更新できます。'
-            ]
-            : [
-              '現在プロフィールは未登録です。',
-              '初回起動時の案内、またはマイページの「プロフィールを編集」から登録してください。'
-            ],
-          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい'],
-          true,
-          'profile'
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['通知', 'push', 'プッシュ']) && asksStatusOnly) {
-        const isEnabled = isPushEnabled();
-        return buildSupportReply(
-          isEnabled
-            ? [
-              '現在この端末では通知がオンの状態です。',
-              'オフにしたい場合は、マイページの通知設定ボタンから切り替えられます。'
-            ]
-            : [
-              '現在この端末では通知はオフです。',
-              'マイページの通知設定ボタンからオンにできます。'
-            ],
-          ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい'],
-          true,
-          'notification'
-        );
-      }
-
-      return null;
-    }
-
-    function getSupportFaqReply(messageNorm) {
-      const source = getSupportFaqSource();
-      const ranked = source.map(function (item) {
-        return {
-          item: item,
-          score: scoreSupportFaq(messageNorm, item)
-        };
-      }).sort(function (a, b) {
-        if (b.score !== a.score) return b.score - a.score;
-        return Number(b.item.priority || 0) - Number(a.item.priority || 0);
-      });
-
-      if (ranked[0] && ranked[0].score >= 10) {
-        return buildSupportReply(
-          ranked[0].item.answer,
-          ranked
-            .filter(function (row) { return row.score >= 10 && row.item.question !== ranked[0].item.question; })
-            .slice(0, 3)
-            .map(function (row) { return row.item.question; })
-        );
-      }
-
-      return null;
-    }
-
-    function getSupportOverviewReply() {
-      return buildSupportReply(
+  if (topic === 'update') {
+    if (hasAnySupportKeyword(messageNorm, ['アップデートが必要', 'ストア'])) {
+      return buildFeatureSupportReply(
+        topic,
         [
-          'このアプリでは、現在次の機能をご利用いただけます。',
-          '1. ホーム: スタンプQR読み取り、現在のスタンプカード確認、メニュー一覧への移動',
-          '2. ショップ: 商品の確認、カート追加、注文',
-          '3. カレンダー: 月ごとの予定確認',
-          '4. NEWS: お知らせ記事の確認',
-          '5. 画面上部の📢: お知らせ一覧の確認',
-          '6. マイページ: プロフィール、通知設定、注文履歴、特典の確認',
-          '知りたい画面名や操作名をそのまま送っていただければ、手順を具体的にご案内します。'
+          '「アップデートが必要です」と表示された場合は、案内の「アップデートする」を押してください。',
+          'App Store が開いたらアプリ本体を更新し、更新後にアプリを開き直してください。',
+          '通常の商品・お知らせ更新は画面上部の🔄ボタンで反映できますが、必須更新表示が出た場合はアプリ更新が必要です。'
         ],
-        ['このアプリでできることを知りたい', '商品の注文方法を知りたい', 'スタンプの集め方を知りたい', 'プロフィールの登録方法を知りたい'],
-        true,
-        'app-overview'
+        ['最新情報への更新方法を知りたい', '通知をオンにする方法を知りたい']
       );
     }
+    if (intent === 'trouble') {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '更新で変わらない場合は、まず画面上部の🔄ボタンで最新情報を再取得してください。',
+          'それでも「アップデートが必要です」と表示される場合は、受付にて配布されている最新版のインストール方法をご確認ください。',
+          '商品・お知らせ・カレンダーなどの最新情報は🔄ボタン、アプリそのものの更新は院内の案内に従う、と覚えていただくと分かりやすいです。'
+        ],
+        ['最新情報への更新方法を知りたい', 'アプリのアップデート方法は？']
+      );
+    }
+    return buildFeatureSupportReply(
+      topic,
+      [
+        '更新には2種類あります。',
+        '1. 商品・お知らせ・カレンダーなどの最新情報は、画面上部の🔄ボタンで再取得でき、その場で最新状態に反映されます。',
+        '2. 「アップデートが必要です」と大きく表示された場合は、当院から案内されている方法で最新版を入れ直してください。',
+        '通常の情報更新（🔄ボタン）は再インストール不要です。'
+      ],
+      ['最新情報への更新方法を知りたい', 'アプリのアップデート方法は？']
+    );
+  }
 
-    function getBuiltInSupportReply(messageNorm) {
-      if (hasAllSupportKeywordGroups(messageNorm, [['初回', '初めて', 'はじめて', '最初', '始める'], ['登録', 'プロフィール', '開始', 'ようこそ']])) {
-        return buildSupportReply(
-          '初回起動時は、ようこそ画面のあとにプロフィール登録画面が開きます。お名前は必須で、電話番号・生年月日・住所も登録できます。登録すると会員IDが発行されてアプリを使い始められます。',
-          ['プロフィールの登録方法を知りたい', 'このアプリでできることを知りたい']
-        );
-      }
+  if (topic === 'reservation') {
+    return buildFeatureSupportReply(
+      topic,
+      hasAnySupportKeyword(messageNorm, ['変更', 'キャンセル', '取り消し'])
+        ? [
+          '現在、アプリから予約の変更やキャンセルはできません。',
+          '予約変更・キャンセル・個別相談は、公式LINEからご連絡ください。',
+          '公式LINEはホーム画面またはマイページの「公式サイト・SNS」から開けます。'
+        ]
+        : [
+          '現在、アプリから直接予約する機能はありません。',
+          'ご予約や個別相談は公式LINEをご利用ください。',
+          'ホーム画面またはマイページの「公式サイト・SNS」から公式LINEを開けます。'
+        ],
+      ['公式LINEやSNSの開き方を知りたい', 'メニュー一覧の見方を知りたい']
+    );
+  }
 
-      if (hasAnySupportKeyword(messageNorm, ['会員id', 'memberid', '会員番号'])) {
-        return buildSupportReply(
-          _profile
-            ? `会員IDはマイページ上部に表示されます。現在の会員IDは${_profile.memberId || '未発行'}です。`
-            : '会員IDはプロフィール登録後に発行され、マイページ上部に表示されます。現在はプロフィール未登録です。',
-          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['アイコン', 'アバター', 'バナー画像', '背景画像']) && hasAnySupportKeyword(messageNorm, ['変更', '編集', '設定'])) {
-        return buildSupportReply(
-          'プロフィール編集画面で、アイコン画像とバナー背景画像を変更できます。画像を選ぶとアプリ内で圧縮され、保存後にプロフィールやバナーへ反映されます。',
-          ['プロフィールの変更方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['プロフィール']) && hasAnySupportKeyword(messageNorm, ['登録', '登録方法', '会員登録']) && !hasAnySupportKeyword(messageNorm, ['変更', '編集'])) {
-        return buildSupportReply(
-          [
-            'プロフィール登録の方法です。',
-            '1. 初回起動時は案内に沿って登録できます。',
-            '2. あとから登録する場合は、マイページの「プロフィールを編集」を開きます。',
-            '3. お名前、電話番号、生年月日、住所を入力して保存してください。',
-            '補足: お名前は必須です。'
+  if (topic === 'profile') {
+    if (hasAnySupportKeyword(messageNorm, ['アイコン', 'アバター', 'バナー', '画像', '写真'])) {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          'プロフィール画像の変更方法です。',
+          '1. マイページの「✏️ プロフィールを編集」を開きます。',
+          '2. アイコン画像またはバナー画像の変更ボタンから画像を選びます。',
+          '3. 保存すると、マイページやホーム画面の表示に反映されます。'
+        ],
+        ['プロフィールの変更方法を知りたい', 'ホーム画面の見方を知りたい']
+      );
+    }
+    if (intent === 'status') {
+      return buildFeatureSupportReply(
+        topic,
+        _profile
+          ? [
+            `プロフィールは登録済みです。お名前は${_profile.name || '未設定'}、会員IDは${_profile.memberId || '未発行'}です。`,
+            '変更したい場合はマイページの「プロフィールを編集」から更新できます。'
+          ]
+          : [
+            '現在プロフィールは未登録です。',
+            '初回起動時の案内、またはマイページの「プロフィールを編集」から登録してください。'
           ],
-          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
-        );
-      }
+        ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+      );
+    }
+    return buildFeatureSupportReply(
+      topic,
+      _profile
+        ? [
+          'プロフィールの変更方法です。',
+          '1. マイページを開きます。',
+          '2. 「✏️ プロフィールを編集」を押します。',
+          '3. お名前、電話番号、生年月日、住所、画像を変更して保存します。'
+        ]
+        : [
+          'プロフィールの登録方法です。',
+          '1. マイページの「✏️ プロフィールを編集」を開きます。',
+          '2. お名前、電話番号、生年月日、住所を入力して保存します。',
+          '3. 初回起動時は案内に沿ってそのまま登録できます。'
+        ],
+      ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+    );
+  }
 
-      if (hasAnySupportKeyword(messageNorm, ['プロフィール']) && hasAnySupportKeyword(messageNorm, ['登録', '変更', '編集', '名前', '電話', '生年月日', '住所'])) {
-        return buildSupportReply(
-          [
-            'プロフィール変更の方法です。',
-            '1. マイページを開きます。',
-            '2. 「プロフィールを編集」を押します。',
-            '3. お名前、電話番号、生年月日、住所を入力または修正して保存します。',
-            '補足: 保存後はマイページやバナー表示に反映されます。'
-          ],
-          ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
-        );
-      }
+  if (topic === 'notification') {
+    if (intent === 'trouble') {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '通知が届かない場合は、次を確認してください。',
+          '1. マイページの通知設定がオンになっているか。',
+          '2. iPhone やブラウザの設定で通知が許可されているか。',
+          '3. インターネット接続が安定しているか。',
+          isPushEnabled() ? '現在この端末のアプリ内設定はオンです。端末側の通知許可もご確認ください。' : '現在この端末のアプリ内設定はオフです。まずアプリ内でオンにしてください。'
+        ],
+        ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい']
+      );
+    }
+    return buildFeatureSupportReply(
+      topic,
+      hasAnySupportKeyword(messageNorm, ['オフ', '解除'])
+        ? [
+          '通知はオフにもできます。',
+          'マイページの「🔔 通知設定」ボタンを押すと、オンとオフを切り替えられます。',
+          '端末側の通知許可をオフにしたい場合は、iPhone の通知設定からも変更できます。'
+        ]
+        : [
+          '通知設定の方法です。',
+          '1. マイページを開きます。',
+          '2. 「🔔 通知設定」ボタンを押してオンまたはオフに切り替えます。',
+          '3. 端末側で通知が拒否されている場合は、iPhone の通知設定もご確認ください。'
+        ],
+      ['通知を受け取りたい', '通知をオフにしたい']
+    );
+  }
 
-      if (hasAnySupportKeyword(messageNorm, ['通知', 'push', 'プッシュ']) && hasAnySupportKeyword(messageNorm, ['オン', 'オフ', '許可', '設定'])) {
-        return buildSupportReply(
-          [
-            '通知設定の方法です。',
-            '1. マイページを開きます。',
-            '2. 「通知設定」ボタンを押して、通知をオンまたはオフに切り替えます。',
-            '3. 端末側で拒否されている場合は、iPhoneやブラウザの通知設定もご確認ください。',
-            '補足: 通知内容はブログ更新や重要なお知らせです。'
-          ],
-          ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい']
-        );
-      }
+  if (topic === 'order-history') {
+    if (hasAnySupportKeyword(messageNorm, ['キャンセル'])) {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '注文キャンセルの方法です。',
+          '1. マイページの「📋 ご注文履歴」を開きます。',
+          '2. 受付中の注文に表示される「キャンセルする」を押します。',
+          '3. キャンセル後、その注文は履歴から表示されなくなります。'
+        ],
+        ['注文履歴の確認方法を知りたい', '商品の注文方法を知りたい']
+      );
+    }
+    if (hasAnySupportKeyword(messageNorm, ['受け取りました', '受取報告', '受取完了'])) {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '受け取り完了の報告方法です。',
+          '1. マイページの「📋 ご注文履歴」を開きます。',
+          '2. 対象注文の「受け取りました」を押します。',
+          '3. 更新後、その注文は履歴に残らなくなります。'
+        ],
+        ['注文履歴の確認方法を知りたい', '商品の注文方法を知りたい']
+      );
+    }
+    if (intent === 'trouble') {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '注文履歴が見えない場合は、次を確認してください。',
+          '1. プロフィール登録が完了しているか。',
+          '2. 画面上部の🔄ボタンで最新情報を再取得したか。',
+          '3. 受付中または受け取り前の注文があるか。',
+          'キャンセル済み・受取済みの注文は履歴に表示されません。'
+        ],
+        ['プロフィールの登録方法を知りたい', '最新情報への更新方法を知りたい']
+      );
+    }
+    return buildFeatureSupportReply(
+      topic,
+      [
+        '注文履歴の確認方法です。',
+        '1. 下部メニューからマイページを開きます。',
+        '2. 「📋 ご注文履歴」を確認します。',
+        '3. 受付中の注文はキャンセル、受け取り前の注文は「受け取りました」で更新できます。'
+      ],
+      ['注文をキャンセルしたい', '受け取り完了の報告方法を知りたい']
+    );
+  }
 
-      if (isSupportBlogArchiveQuestion(messageNorm)) {
-        return buildSupportReply(
-          [
-            '過去のブログやお知らせの確認方法です。',
-            '1. 画面上部の📢ボタンを押します。',
-            '2. 「お知らせ一覧」でブログ・お知らせ・カレンダー情報を日付順に確認できます。',
-            '補足: 下部メニューのNEWSは主にお知らせ確認用です。'
-          ],
-          ['ブログや過去のお知らせの見方を知りたい', 'お知らせ一覧の見方を知りたい']
-        );
-      }
+  if (topic === 'cart') {
+    return buildFeatureSupportReply(
+      topic,
+      intent === 'status'
+        ? (cart.length
+          ? [
+            `現在のカートは${cart.reduce(function (sum, item) { return sum + Number(item.qty || 0); }, 0)}点です。`,
+            '画面右上の🛒から中身を確認し、個数変更や削除ができます。'
+          ]
+          : [
+            '現在カートには商品が入っていません。',
+            'ショップで商品を選び、「カートに追加する」を押すと入ります。'
+          ])
+        : [
+          'カートの使い方です。',
+          '1. ショップで商品を選び「カートに追加する」を押します。',
+          '2. 画面右上の🛒を押すとカートを開けます。',
+          '3. カートでは個数変更や削除ができます。'
+        ],
+      ['カートの中身を確認するには？', '商品の注文方法を知りたい']
+    );
+  }
 
-      if (isSupportOrderHistoryQuestion(messageNorm)) {
-        return buildSupportReply(
-          [
-            '注文履歴の確認方法です。',
-            '1. 下部メニューからマイページを開きます。',
-            '2. 「ご注文履歴」を開きます。',
-            '3. 受付中の注文や、受け取り前の注文を確認できます。',
-            '補足: プロフィール未登録の場合は履歴は表示されません。'
-          ],
-          ['商品の注文方法を知りたい', '注文履歴の確認方法を知りたい']
-        );
-      }
+  if (topic === 'shop') {
+    if (hasAnySupportKeyword(messageNorm, ['支払い', '決済', '現金'])) {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '商品注文のお支払い方法は現在「現金払い」です。',
+          'ご来院時に受付でお支払いください。'
+        ],
+        ['商品の注文方法を知りたい', '受け取り方法は？']
+      );
+    }
+    if (hasAnySupportKeyword(messageNorm, ['受取', '受け取り', '配送', '宅配'])) {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '商品はすべて院内受け取りです。',
+          '注文後、ご来院時にスタッフへお声がけください。'
+        ],
+        ['商品の注文方法を知りたい', '注文履歴の確認方法を知りたい']
+      );
+    }
+    return buildFeatureSupportReply(
+      topic,
+      [
+        '商品の注文手順です。',
+        '1. 下部メニューの「🛍 ショップ」を開きます。',
+        '2. 商品をタップして詳細を確認します。',
+        '3. 個数を選んで「カートに追加する🛒」を押します。',
+        '4. 画面右上の🛒からカートを開き、「ご注文を確定する」で完了です。'
+      ],
+      ['カートの使い方を知りたい', '注文履歴の確認方法を知りたい']
+    );
+  }
 
-      if (hasAnySupportKeyword(messageNorm, ['キャンセル']) && hasAnySupportKeyword(messageNorm, ['注文', '履歴'])) {
-        return buildSupportReply(
-          [
-            '注文キャンセルの方法です。',
-            '1. マイページの「ご注文履歴」を開きます。',
-            '2. 受付中の注文に表示される「キャンセルする」を押します。',
-            '3. 確認後、キャンセルした注文は履歴から表示されなくなります。'
-          ],
-          ['注文履歴の確認方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['受け取りました']) || (hasAnySupportKeyword(messageNorm, ['受取', '受け取り']) && hasAnySupportKeyword(messageNorm, ['注文', '履歴', '商品']))) {
-        return buildSupportReply(
-          [
-            '受け取り完了の報告方法です。',
-            '1. マイページの「ご注文履歴」を開きます。',
-            '2. 対象注文の「受け取りました」を押します。',
-            '3. 受取完了として更新されます。',
-            '補足: キャンセル済みの注文には表示されません。'
-          ],
-          ['注文履歴の確認方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['支払い', '決済', '現金'])) {
-        return buildSupportReply(
-          [
-            '現在の支払い方法についてご案内します。',
-            '商品注文の支払い方法は現在「現金払い」です。',
-            '注文確定後、ご来院時にスタッフへお声がけください。'
-          ],
-          ['商品の注文方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['注文', '購入']) || hasAllSupportKeywordGroups(messageNorm, [['ショップ', '商品'], ['方法', 'やり方', '買い方', '流れ']])) {
-        return buildSupportReply(
-          [
-            '商品の注文手順です。',
-            '1. 下部メニューの「ショップ」を開きます。',
-            '2. 商品カードをタップして詳細を開きます。',
-            '3. 個数を選んで「カートに追加する」を押します。',
-            '4. カートで内容を確認し、「ご注文を確定する」を押します。',
-            '5. 注文後はマイページの「ご注文履歴」で状態を確認できます。'
-          ],
-          ['カートの使い方を知りたい', '注文履歴の確認方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['カート', '買い物かご']) && hasAnySupportKeyword(messageNorm, ['追加', '入れる', '個数', '削除', '変更', '見る'])) {
-        return buildSupportReply(
-          [
-            'カートの使い方です。',
-            '1. 商品をカートに追加します。',
-            '2. カート画面で個数変更や削除ができます。',
-            '3. 商品がない場合は空画面になり、「ショップへ」から戻れます。'
-          ],
-          ['カートの使い方を知りたい', '商品の注文方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['ショップ', '商品'])) {
-        return buildSupportReply(
-          [
-            'ショップの見方です。',
-            '1. 下部メニューの「ショップ」を開きます。',
-            '2. 商品カードをタップすると詳細が開きます。',
-            '3. 「商品説明をみる」で説明確認、個数選択、「カートに追加する」で購入準備ができます。'
-          ],
-          ['商品の注文方法を知りたい', 'カートの使い方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['新しいカード', '次のカード', 'カードを取得', 'カード開始'])) {
-        return buildSupportReply(
-          [
-            '新しいスタンプカードの始め方です。',
-            '1. スタンプが10個たまると、ホームに「新しいスタンプカードを取得」ボタンが表示されます。',
-            '2. ボタンを押すと特典を付与したうえで、次のスタンプカードが始まります。'
-          ],
-          ['スタンプ特典の使い方を知りたい', 'スタンプの集め方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['特典', 'プレゼント', '期限', '使用', 'チケット'])) {
-        return buildSupportReply(
-          [
-            'スタンプ特典の使い方です。',
-            '1. マイページの「特典取得状況」を開きます。',
-            '2. 獲得済み特典を確認し、必要な場合は「使用する」を押します。',
-            '3. 特典は達成当日から使用できます。',
-            '4. 受取期限は獲得から1か月です。',
-            '補足: 一度使用すると再度は使用できません。受け取りの際は受付へ直接お問い合わせください'
-          ],
-          ['スタンプ特典の使い方を知りたい', 'スタンプの集め方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['1日', '一日', '何回']) && hasAnySupportKeyword(messageNorm, ['スタンプ'])) {
-        return buildSupportReply(
-          '来院スタンプは1日1回までです。同じ日に再度読み取ると「本日はすでにスタンプを取得済みです」と表示されます。',
-          ['スタンプの集め方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['qr', 'qrコード', 'qrcode', 'カメラ', 'スキャン', '読み取り'])) {
-        return buildSupportReply(
-          [
+  if (topic === 'stamp') {
+    if (hasAnySupportKeyword(messageNorm, ['新しいカード', '次のカード', 'カード開始', 'カード取得'])) {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '新しいスタンプカードの始め方です。',
+          '1. スタンプが10個たまると、ホーム画面に「🌸 新しいスタンプカードを取得」が表示されます。',
+          '2. そのボタンを押すと次のカードが始まります。',
+          '3. 新しいカード開始後はスタンプが0個に戻り、カード番号が1つ進みます。'
+        ],
+        ['スタンプが10個たまったらどうなりますか？', 'スタンプ特典の使い方を知りたい']
+      );
+    }
+    if (hasAnySupportKeyword(messageNorm, ['qr', 'qrコード', 'qrcode', 'カメラ', '読み取り'])) {
+      return buildFeatureSupportReply(
+        topic,
+        intent === 'trouble'
+          ? [
+            'QRコードが読み取れない場合は、次を確認してください。',
+            '1. カメラ権限が許可されているか。',
+            '2. QRコードに汚れや傷がないか。',
+            '3. その日のスタンプをすでに取得していないか。',
+            '4. 10個達成済みなら先に「新しいスタンプカードを取得」してください。'
+          ]
+          : [
             'スタンプ取得の手順です。',
-            '1. ホーム画面の「カメラを起動して読み取る」を押します。',
-            '2. 院内のQRコードを読み取ります。',
-            '3. 読み取りが成功するとスタンプが追加されます。',
-            '補足: カメラ権限が必要です。プロフィール未登録の場合は先に登録してください。'
+            '1. ホーム画面の「📷 カメラを起動して読み取る」を押します。',
+            '2. カメラ権限の案内が出た場合は「許可」を選びます。',
+            '3. 院内のQRコードを読み取ります。',
+            '4. 読み取りに成功するとスタンプが1つ追加されます。'
           ],
-          ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['スタンプ'])) {
-        return buildSupportReply(
-          [
-            'スタンプ機能のご案内です。',
-            '1. スタンプはホーム画面で管理します。',
-            '2. 院内QRコードを読むと1日1回まで追加されます。',
-            '3. 10個たまると特典対象です。',
-            '4. 達成後はマイページで特典を確認できます。'
-          ],
-          ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['予約', 'よやく', 'アポイント', '予約したい', '予約方法'])) {
-        return buildSupportReply(
-          [
-            'ご予約についてのご案内です。',
-            '当院のご予約は「公式LINE」にて承っております。',
-            'お手数ですが、公式LINEの友達登録をしていただき、トーク画面から予約をご依頼ください。',
-            '公式LINEへは、ホーム画面またはマイページの「公式サイト・SNS」からアクセスできます。'
-          ],
-          ['公式LINEやSNSの開き方を知りたい', 'メニュー一覧の見方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['メニュー', '施術'])) {
-        return buildSupportReply(
-          [
-            'メニュー一覧の見方です。',
-            '1. ホームの「メニュー一覧を見る🍴」を押します。',
-            '2. メニュー一覧が表示されます。',
-            '3. 各メニューをタップすると詳細や画像を確認できます。',
-            '補足: 実際のご予約は公式LINEからお願いいたします。'
-          ],
-          ['メニュー一覧の見方を知りたい', '予約の方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['カレンダー', 'イベント', '予定', '日程'])) {
-        return buildSupportReply(
-          [
-            'カレンダーの見方です。',
-            '1. 下部メニューの「カレンダー」を開きます。',
-            '2. 左右の矢印で月を切り替えます。',
-            '3. 日付をタップするとその日の予定を確認できます。',
-            '4. 下部には今月のイベント一覧も表示されます。'
-          ],
-          ['イベントカレンダーの見方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['お知らせ一覧', '通知一覧', '拡声器'])) {
-        return buildSupportReply(
-          [
-            'お知らせ一覧の見方です。',
-            '1. 画面上部の📢ボタンを押します。',
-            '2. Push通知、お知らせ、カレンダー情報などをまとめて確認できます。',
-            '補足: 未読があると赤いドットが表示されます。'
-          ],
-          ['お知らせ一覧の見方を知りたい', '最新のお知らせの見方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['news', 'ニュース', 'お知らせ'])) {
-        return buildSupportReply(
-          [
-            'NEWSページの見方です。',
-            '1. 下部メニューの「NEWS」を開きます。',
-            '2. お知らせ記事を一覧で確認できます。',
-            '3. 記事をタップすると詳細が開きます。',
-            '4. 必要に応じてカテゴリで絞り込みできます。'
-          ],
-          ['NEWSページの使い方を知りたい', 'お知らせ一覧の見方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['更新', '再読み込み', 'リロード', '最新情報'])) {
-        return buildSupportReply(
-          [
-            '最新情報の更新方法です。',
-            '1. 画面上部の🔄ボタンを押します。',
-            '2. ブログ、お知らせ、カレンダー、商品、メニュー一覧、FAQ、注文履歴などの最新情報を再取得します。',
-            '3. 再インストールせず、その場で最新状態に反映します。'
-          ],
-          ['最新情報への更新方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', 'お問い合わせ'])) {
-        return buildSupportReply(
-          [
-            '公式サイトやSNSの開き方です。',
-            '1. ホーム画面またはマイページの「公式サイト・SNS」を開きます。',
-            '2. 公式ホームページ、Instagram、Facebook、公式LINEを選んで開けます。',
-            '補足: 診療や個別相談は公式LINEをご利用ください。'
-          ],
-          ['公式LINEやSNSの開き方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['ホーム', 'トップ'])) {
-        return buildSupportReply(
-          [
-            'ホーム画面でできることです。',
-            '1. スタンプQRの読み取り',
-            '2. 現在のスタンプカード確認',
-            '3. メニュー一覧への移動',
-            '4. 最新のお知らせ確認',
-            '5. 公式サイトやSNSへのアクセス'
-          ],
-          ['ホーム画面の見方を知りたい', 'スタンプの集め方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['アプリ', '使い方', 'できること', '機能', '何ができる'])) {
-        return getSupportOverviewReply();
-      }
-
-      // --- トラブルシューティング ---
-      if (hasAnySupportKeyword(messageNorm, ['表示されない', 'おかしい', '崩れ', '不具合', 'バグ'])) {
-        return buildSupportReply(
-          [
-            '画面表示のトラブルについてです。',
-            '以下をお試しください：',
-            '1. 画面右上の🔄ボタンで情報を再取得',
-            '2. アプリを一度閉じて再起動',
-            '3. インターネット接続を確認'
-          ],
-          ['最新情報への更新方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['エラー', '失敗', '同期', '問題'])) {
-        return buildSupportReply(
-          [
-            'データ取得エラーについてです。',
-            'インターネット接続が不安定な可能性があります。',
-            'Wi-Fiや4G/5G回線が安定している環境で🔄ボタンを押して再度お試しください。',
-            '一部データの取得に失敗しても、他のデータは正常に更新されます。'
-          ],
-          ['最新情報への更新方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['重い', '遅い', 'フリーズ', '動かない'])) {
-        return buildSupportReply(
-          [
-            'アプリの動作が遅い場合の対処法です。',
-            '1. 他のアプリを閉じてメモリを開放してください。',
-            '2. 端末を再起動してみてください。',
-            '3. 🔄ボタンでアプリを最新状態に更新してください。'
-          ],
-          ['最新情報への更新方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['引き継ぎ', '機種変更', 'データ移行'])) {
-        return buildSupportReply(
-          [
-            '端末の引き継ぎについてです。',
-            'スタンプデータは端末内に保存されているため、自動では引き継がれません。',
-            'プロフィールや注文履歴はサーバーに保存されています。',
-            'スタンプの移行については受付にご相談ください。'
-          ],
-          ['プロフィールの登録方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['削除', 'アンインストール', '復元', '再インストール'])) {
-        return buildSupportReply(
-          [
-            'アプリの削除・復元についてです。',
-            'アプリを再インストールするとプロフィールや注文履歴は復元できます。',
-            'ただし、端末に保存されたスタンプデータは削除される場合があります。'
-          ],
-          ['スタンプの集め方を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['個人情報', 'プライバシー', 'セキュリティ'])) {
-        return buildSupportReply(
-          [
-            '個人情報の取り扱いについてです。',
-            'プロフィールに登録いただいた情報は、まゆみ助産院の業務（注文管理・会員管理など）のためにのみ使用されます。',
-            '第三者への提供は行いません。'
-          ],
-          ['プロフィールの登録方法を知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['対応端末', 'iphone', 'android', 'ブラウザ', 'safari'])) {
-        return buildSupportReply(
-          [
-            'アプリの対応端末についてです。',
-            'iPhone（Safari）での動作を推奨しています。',
-            'iOS端末向けのネイティブアプリとしてもご利用いただけます。'
-          ],
-          ['このアプリでできることを知りたい']
-        );
-      }
-
-      if (hasAnySupportKeyword(messageNorm, ['チャットボット', 'ボット', 'サポート']) && hasAnySupportKeyword(messageNorm, ['何', 'できる', '使い方', '開き方'])) {
-        return buildSupportReply(
-          [
-            'チャットサポートについてです。',
-            'アプリの使い方に関する質問にチャット形式で回答するサポート機能です。',
-            '注文方法、スタンプの集め方、通知設定、プロフィール登録などの操作方法を案内します。',
-            '画面右下の「💬 使い方相談」ボタン、またはマイページの「🤖 使い方サポート」からご利用いただけます。'
-          ],
-          ['このアプリでできることを知りたい']
-        );
-      }
-
-      return null;
-    }
-
-    async function loadSupportFaq(force) {
-      if (!force && supportFaqItems.length) {
-        renderSupportSuggestions(getDefaultSupportQuestions(4));
-        return supportFaqItems;
-      }
-
-      const res = await getFromGAS('getSupportFaq');
-      if (res && res.status === 'ok' && Array.isArray(res.faqs) && res.faqs.length) {
-        supportFaqItems = res.faqs;
-      } else {
-        supportFaqItems = SUPPORT_FAQ_FALLBACK.slice();
-      }
-
-      renderSupportSuggestions(getDefaultSupportQuestions(4));
-      return supportFaqItems;
-    }
-
-    function getLocalSupportReply(message) {
-      const messageNorm = normalizeSupportText(message);
-      const statusReply = getSupportStatusReply(messageNorm);
-      const featureReply = getFeatureSupportReply(messageNorm);
-      const builtInReply = getBuiltInSupportReply(messageNorm);
-      const faqReply = getSupportFaqReply(messageNorm);
-
-      if (statusReply) {
-        return statusReply;
-      }
-      if (featureReply) return featureReply;
-      if (builtInReply) return builtInReply;
-      if (faqReply) return faqReply;
-
-      if (isLikelyAppSupportQuestion(messageNorm)) {
-        return getSupportOverviewReply();
-      }
-
-      return buildSupportReply(
-        [
-          'このチャットでは、現在アプリに実装されている機能の使い方をご案内しています。',
-          'ご案内できる主な内容: ホーム、予約、スタンプ、メニュー一覧、ショップ、カレンダー、NEWS、通知設定、プロフィール、注文履歴、特典。',
-          '知りたい画面名や操作名をそのまま送ってください。例: 「予約の方法」「注文履歴の見方」「通知をオンにする方法」',
-          '診療や個別相談は公式LINEをご利用ください。'
-        ],
-        ['予約の方法を知りたい', 'このアプリでできることを知りたい', '商品の注文方法を知りたい', 'スタンプの集め方を知りたい'],
-        false
+        ['スタンプは1日何個取得できますか？', '新しいカードを始めるには？']
       );
     }
+    if (hasAnySupportKeyword(messageNorm, ['10個', '達成', 'たまった', '満了'])) {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          'スタンプが10個たまると特典対象になります。',
+          'マイページの「🎁 特典取得状況」で確認できます。',
+          'その後、ホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。'
+        ],
+        ['スタンプ特典の使い方を知りたい', '新しいカードを始めるには？']
+      );
+    }
+    return buildFeatureSupportReply(
+      topic,
+      [
+        'スタンプ機能のご案内です。',
+        '1. スタンプはホーム画面で確認します。',
+        '2. 院内QRコードを読むと1日1回まで追加されます。',
+        `3. 現在のカードは${stampCardNum}枚目、スタンプは${stampCount}個です。`,
+        '4. 10個たまると特典対象になります。'
+      ],
+      ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
+    );
+  }
 
-    function persistSupportChatHistory() {
-      const clean = supportChatHistory
-        .filter(function (item) { return !item.pending; })
-        .slice(-20)
-        .map(function (item) {
-          return { role: item.role, text: item.text };
-        });
-      supportChatHistory = clean;
-      try {
-        localStorage.setItem('mayumi_support_chat_history', JSON.stringify(clean));
-      } catch (e) { }
+  if (topic === 'reward') {
+    const availableRewards = (EARNED_REWARDS || []).filter(function (reward) {
+      return reward && !reward.used;
+    });
+    if (hasAnySupportKeyword(messageNorm, ['期限', 'いつまで'])) {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '特典の受取期限は、スタンプ10個を達成した日から1か月です。',
+          'マイページの「🎁 特典取得状況」に期限が表示されます。',
+          '受け取りについては受付へ直接お問い合わせください。'
+        ],
+        ['スタンプ特典の使い方を知りたい', '特典はどこで確認できますか？']
+      );
+    }
+    if (intent === 'status') {
+      return buildFeatureSupportReply(
+        topic,
+        availableRewards.length
+          ? [
+            `現在、未使用の特典が${availableRewards.length}件あります。`,
+            'マイページの「🎁 特典取得状況」で確認できます。',
+            '特典は達成当日から使用でき、一度使用すると再使用できません。'
+          ]
+          : [
+            '現在、未使用の特典はありません。',
+            'スタンプが10個たまると特典対象になり、マイページに表示されます。'
+          ],
+        ['特典はどこで確認できますか？', 'スタンプの集め方を知りたい']
+      );
+    }
+    return buildFeatureSupportReply(
+      topic,
+      [
+        'スタンプ特典の使い方です。',
+        '1. マイページの「🎁 特典取得状況」を開きます。',
+        '2. 獲得済みの特典を確認し、必要なら「使用する」を押します。',
+        '3. 特典は達成当日から使用できます。',
+        '4. 一度使用すると再使用できません。受け取りは受付へ直接お問い合わせください。'
+      ],
+      ['特典に有効期限はありますか？', 'スタンプが10個たまったらどうなりますか？']
+    );
+  }
+
+  if (topic === 'menu') {
+    return buildFeatureSupportReply(
+      topic,
+      [
+        'メニュー一覧の見方です。',
+        '1. ホーム画面の「メニュー一覧を見る🍴」を押します。',
+        '2. 各メニューをタップすると詳細や画像を確認できます。',
+        '3. 予約受付中の表示があるものも、実際の予約連絡は公式LINEからお願いします。'
+      ],
+      ['予約の方法を知りたい', 'ホーム画面の見方を知りたい']
+    );
+  }
+
+  if (topic === 'calendar') {
+    return buildFeatureSupportReply(
+      topic,
+      [
+        'カレンダーの見方です。',
+        '1. 下部メニューの「📅 カレンダー」を開きます。',
+        '2. 左右の矢印で月を切り替えます。',
+        '3. 日付を押すと、その日の予定やイベントを確認できます。',
+        '4. 休＝休診日、往＝往診日、イ＝イベントです。'
+      ],
+      ['イベントカレンダーの見方を知りたい', '最新のお知らせの見方を知りたい']
+    );
+  }
+
+  if (topic === 'news') {
+    return buildFeatureSupportReply(
+      topic,
+      isSupportBlogArchiveQuestion(messageNorm)
+        ? [
+          '過去のブログやお知らせは、画面上部の📢ボタンから開く「お知らせ一覧」で確認できます。',
+          'ブログ・お知らせ・カレンダー情報などを日付順でまとめて見られます。'
+        ]
+        : [
+          'お知らせの見方です。',
+          '1. 下部メニューの「💬 NEWS」で記事一覧を確認できます。',
+          '2. 画面上部の📢ボタンでは、ブログ・お知らせ・Push通知などをまとめて確認できます。',
+          '3. 新着があるとアイコンに赤いドットが表示されます。'
+        ],
+      ['ブログや過去のお知らせの見方を知りたい', '📢ボタンの機能は何ですか？']
+    );
+  }
+
+  if (topic === 'links') {
+    return buildFeatureSupportReply(
+      topic,
+      [
+        '公式サイトやSNSの開き方です。',
+        '1. ホーム画面またはマイページの「🔗 公式サイト・SNS」を開きます。',
+        '2. 公式ホームページ、Instagram、Facebook、公式LINEを選んで開けます。',
+        '3. 診療や個別相談は公式LINEをご利用ください。'
+      ],
+      ['公式LINEやSNSの開き方を知りたい', '予約の方法を知りたい']
+    );
+  }
+
+  if (topic === 'support-chat') {
+    return buildFeatureSupportReply(
+      topic,
+      [
+        'このチャットでは、現在アプリに実装されている機能の使い方をご案内しています。',
+        'たとえば、注文方法、注文履歴、スタンプ、特典、通知設定、プロフィール変更、更新方法などに回答できます。',
+        '診療相談や個別のご予約内容の相談は公式LINEをご利用ください。'
+      ],
+      ['このアプリでできることを知りたい', '予約の方法を知りたい']
+    );
+  }
+
+  if (topic === 'home') {
+    return buildFeatureSupportReply(
+      topic,
+      [
+        'ホーム画面でできることです。',
+        '1. スタンプQRの読み取り',
+        '2. 現在のスタンプカード確認',
+        '3. おすすめ商品や最新のお知らせ確認',
+        '4. メニュー一覧への移動',
+        '5. 公式サイト・SNSへのアクセス'
+      ],
+      ['スタンプの集め方を知りたい', 'メニュー一覧の見方を知りたい']
+    );
+  }
+
+  if (topic === 'app-overview') {
+    return getSupportOverviewReply();
+  }
+
+  return null;
+}
+
+function getSupportStatusReply(messageNorm) {
+  const asksCurrent = hasAnySupportKeyword(messageNorm, ['今', '現在', 'いま', '状況', '状態', '確認']);
+  const asksStatusOnly = asksCurrent || hasAnySupportKeyword(messageNorm, ['なってる', 'なっている', 'されてる', 'されている', '登録済', '未登録']);
+
+  if (hasAnySupportKeyword(messageNorm, ['スタンプ']) && hasAnySupportKeyword(messageNorm, ['残り', '何個', 'いくつ', '現在', '今', '状況', '状態'])) {
+    const remain = Math.max(0, 10 - stampCount);
+    return buildSupportReply(
+      stampCount >= 10
+        ? [
+          `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。10個達成済みです。`,
+          '次の流れ: 1. マイページの「特典取得状況」を確認 2. 必要なら特典を使用 3. ホームの「新しいスタンプカードを取得」で次のカードを開始してください。',
+          '補足: 来院スタンプは1日1回までです。'
+        ]
+        : [
+          `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。あと${remain}個で特典対象です。`,
+          '追加方法: ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取ってください。',
+          '補足: 来院スタンプは1日1回までです。'
+        ],
+      ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい'],
+      true,
+      'stamp'
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['カート', '買い物かご']) && (asksCurrent || hasAnySupportKeyword(messageNorm, ['何個', 'いくつ', '合計']))) {
+    const itemCount = cart.reduce(function (sum, item) { return sum + Number(item.qty || 0); }, 0);
+    const total = cart.reduce(function (sum, item) {
+      const product = PRODUCTS[item.idx];
+      return sum + ((product ? product.price : 0) * Number(item.qty || 0));
+    }, 0);
+    return buildSupportReply(
+      itemCount > 0
+        ? [
+          `現在のカートは${itemCount}点、合計は¥${total.toLocaleString()}です。`,
+          'カート画面では個数変更や削除ができます。',
+          '内容を確認したら「ご注文を確定する」を押してください。'
+        ]
+        : [
+          '現在カートには商品が入っていません。',
+          '下部メニューの「ショップ」で商品を選ぶとカートに追加できます。'
+        ],
+      ['カートの使い方を知りたい', '商品の注文方法を知りたい'],
+      true,
+      'cart'
+    );
+  }
+
+  if ((hasAnySupportKeyword(messageNorm, ['プロフィール']) && asksStatusOnly) || hasAnySupportKeyword(messageNorm, ['会員id', 'memberid', '会員番号'])) {
+    return buildSupportReply(
+      _profile
+        ? [
+          `プロフィールは登録済みです。お名前は${_profile.name || '未設定'}、会員IDは${_profile.memberId || '未発行'}です。`,
+          '変更したい場合は、マイページの「プロフィールを編集」からお名前、電話番号、生年月日、住所、画像を更新できます。'
+        ]
+        : [
+          '現在プロフィールは未登録です。',
+          '初回起動時の案内、またはマイページの「プロフィールを編集」から登録してください。'
+        ],
+      ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい'],
+      true,
+      'profile'
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['通知', 'push', 'プッシュ']) && asksStatusOnly) {
+    const isEnabled = isPushEnabled();
+    return buildSupportReply(
+      isEnabled
+        ? [
+          '現在この端末では通知がオンの状態です。',
+          'オフにしたい場合は、マイページの通知設定ボタンから切り替えられます。'
+        ]
+        : [
+          '現在この端末では通知はオフです。',
+          'マイページの通知設定ボタンからオンにできます。'
+        ],
+      ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい'],
+      true,
+      'notification'
+    );
+  }
+
+  return null;
+}
+
+function getSupportFaqReply(messageNorm) {
+  const source = getSupportFaqSource();
+  const ranked = source.map(function (item) {
+    return {
+      item: item,
+      score: scoreSupportFaq(messageNorm, item)
+    };
+  }).sort(function (a, b) {
+    if (b.score !== a.score) return b.score - a.score;
+    return Number(b.item.priority || 0) - Number(a.item.priority || 0);
+  });
+
+  if (ranked[0] && ranked[0].score >= 10) {
+    return buildSupportReply(
+      ranked[0].item.answer,
+      ranked
+        .filter(function (row) { return row.score >= 10 && row.item.question !== ranked[0].item.question; })
+        .slice(0, 3)
+        .map(function (row) { return row.item.question; })
+    );
+  }
+
+  return null;
+}
+
+function getSupportOverviewReply() {
+  return buildSupportReply(
+    [
+      'このアプリでは、現在次の機能をご利用いただけます。',
+      '1. ホーム: スタンプQR読み取り、現在のスタンプカード確認、メニュー一覧への移動',
+      '2. ショップ: 商品の確認、カート追加、注文',
+      '3. カレンダー: 月ごとの予定確認',
+      '4. NEWS: お知らせ記事の確認',
+      '5. 画面上部の📢: お知らせ一覧の確認',
+      '6. マイページ: プロフィール、通知設定、注文履歴、特典の確認',
+      '知りたい画面名や操作名をそのまま送っていただければ、手順を具体的にご案内します。'
+    ],
+    ['このアプリでできることを知りたい', '商品の注文方法を知りたい', 'スタンプの集め方を知りたい', 'プロフィールの登録方法を知りたい'],
+    true,
+    'app-overview'
+  );
+}
+
+function getBuiltInSupportReply(messageNorm) {
+  if (hasAllSupportKeywordGroups(messageNorm, [['初回', '初めて', 'はじめて', '最初', '始める'], ['登録', 'プロフィール', '開始', 'ようこそ']])) {
+    return buildSupportReply(
+      '初回起動時は、ようこそ画面のあとにプロフィール登録画面が開きます。お名前は必須で、電話番号・生年月日・住所も登録できます。登録すると会員IDが発行されてアプリを使い始められます。',
+      ['プロフィールの登録方法を知りたい', 'このアプリでできることを知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['会員id', 'memberid', '会員番号'])) {
+    return buildSupportReply(
+      _profile
+        ? `会員IDはマイページ上部に表示されます。現在の会員IDは${_profile.memberId || '未発行'}です。`
+        : '会員IDはプロフィール登録後に発行され、マイページ上部に表示されます。現在はプロフィール未登録です。',
+      ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['アイコン', 'アバター', 'バナー画像', '背景画像']) && hasAnySupportKeyword(messageNorm, ['変更', '編集', '設定'])) {
+    return buildSupportReply(
+      'プロフィール編集画面で、アイコン画像とバナー背景画像を変更できます。画像を選ぶとアプリ内で圧縮され、保存後にプロフィールやバナーへ反映されます。',
+      ['プロフィールの変更方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['プロフィール']) && hasAnySupportKeyword(messageNorm, ['登録', '登録方法', '会員登録']) && !hasAnySupportKeyword(messageNorm, ['変更', '編集'])) {
+    return buildSupportReply(
+      [
+        'プロフィール登録の方法です。',
+        '1. 初回起動時は案内に沿って登録できます。',
+        '2. あとから登録する場合は、マイページの「プロフィールを編集」を開きます。',
+        '3. お名前、電話番号、生年月日、住所を入力して保存してください。',
+        '補足: お名前は必須です。'
+      ],
+      ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['プロフィール']) && hasAnySupportKeyword(messageNorm, ['登録', '変更', '編集', '名前', '電話', '生年月日', '住所'])) {
+    return buildSupportReply(
+      [
+        'プロフィール変更の方法です。',
+        '1. マイページを開きます。',
+        '2. 「プロフィールを編集」を押します。',
+        '3. お名前、電話番号、生年月日、住所を入力または修正して保存します。',
+        '補足: 保存後はマイページやバナー表示に反映されます。'
+      ],
+      ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['通知', 'push', 'プッシュ']) && hasAnySupportKeyword(messageNorm, ['オン', 'オフ', '許可', '設定'])) {
+    return buildSupportReply(
+      [
+        '通知設定の方法です。',
+        '1. マイページを開きます。',
+        '2. 「通知設定」ボタンを押して、通知をオンまたはオフに切り替えます。',
+        '3. 端末側で拒否されている場合は、iPhoneやブラウザの通知設定もご確認ください。',
+        '補足: 通知内容はブログ更新や重要なお知らせです。'
+      ],
+      ['通知のオンオフ方法を知りたい', '最新のお知らせの見方を知りたい']
+    );
+  }
+
+  if (isSupportBlogArchiveQuestion(messageNorm)) {
+    return buildSupportReply(
+      [
+        '過去のブログやお知らせの確認方法です。',
+        '1. 画面上部の📢ボタンを押します。',
+        '2. 「お知らせ一覧」でブログ・お知らせ・カレンダー情報を日付順に確認できます。',
+        '補足: 下部メニューのNEWSは主にお知らせ確認用です。'
+      ],
+      ['ブログや過去のお知らせの見方を知りたい', 'お知らせ一覧の見方を知りたい']
+    );
+  }
+
+  if (isSupportOrderHistoryQuestion(messageNorm)) {
+    return buildSupportReply(
+      [
+        '注文履歴の確認方法です。',
+        '1. 下部メニューからマイページを開きます。',
+        '2. 「ご注文履歴」を開きます。',
+        '3. 受付中の注文や、受け取り前の注文を確認できます。',
+        '補足: プロフィール未登録の場合は履歴は表示されません。'
+      ],
+      ['商品の注文方法を知りたい', '注文履歴の確認方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['キャンセル']) && hasAnySupportKeyword(messageNorm, ['注文', '履歴'])) {
+    return buildSupportReply(
+      [
+        '注文キャンセルの方法です。',
+        '1. マイページの「ご注文履歴」を開きます。',
+        '2. 受付中の注文に表示される「キャンセルする」を押します。',
+        '3. 確認後、キャンセルした注文は履歴から表示されなくなります。'
+      ],
+      ['注文履歴の確認方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['受け取りました']) || (hasAnySupportKeyword(messageNorm, ['受取', '受け取り']) && hasAnySupportKeyword(messageNorm, ['注文', '履歴', '商品']))) {
+    return buildSupportReply(
+      [
+        '受け取り完了の報告方法です。',
+        '1. マイページの「ご注文履歴」を開きます。',
+        '2. 対象注文の「受け取りました」を押します。',
+        '3. 受取完了として更新されます。',
+        '補足: キャンセル済みの注文には表示されません。'
+      ],
+      ['注文履歴の確認方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['支払い', '決済', '現金'])) {
+    return buildSupportReply(
+      [
+        '現在の支払い方法についてご案内します。',
+        '商品注文の支払い方法は現在「現金払い」です。',
+        '注文確定後、ご来院時にスタッフへお声がけください。'
+      ],
+      ['商品の注文方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['注文', '購入']) || hasAllSupportKeywordGroups(messageNorm, [['ショップ', '商品'], ['方法', 'やり方', '買い方', '流れ']])) {
+    return buildSupportReply(
+      [
+        '商品の注文手順です。',
+        '1. 下部メニューの「ショップ」を開きます。',
+        '2. 商品カードをタップして詳細を開きます。',
+        '3. 個数を選んで「カートに追加する」を押します。',
+        '4. カートで内容を確認し、「ご注文を確定する」を押します。',
+        '5. 注文後はマイページの「ご注文履歴」で状態を確認できます。'
+      ],
+      ['カートの使い方を知りたい', '注文履歴の確認方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['カート', '買い物かご']) && hasAnySupportKeyword(messageNorm, ['追加', '入れる', '個数', '削除', '変更', '見る'])) {
+    return buildSupportReply(
+      [
+        'カートの使い方です。',
+        '1. 商品をカートに追加します。',
+        '2. カート画面で個数変更や削除ができます。',
+        '3. 商品がない場合は空画面になり、「ショップへ」から戻れます。'
+      ],
+      ['カートの使い方を知りたい', '商品の注文方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['ショップ', '商品'])) {
+    return buildSupportReply(
+      [
+        'ショップの見方です。',
+        '1. 下部メニューの「ショップ」を開きます。',
+        '2. 商品カードをタップすると詳細が開きます。',
+        '3. 「商品説明をみる」で説明確認、個数選択、「カートに追加する」で購入準備ができます。'
+      ],
+      ['商品の注文方法を知りたい', 'カートの使い方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['新しいカード', '次のカード', 'カードを取得', 'カード開始'])) {
+    return buildSupportReply(
+      [
+        '新しいスタンプカードの始め方です。',
+        '1. スタンプが10個たまると、ホームに「新しいスタンプカードを取得」ボタンが表示されます。',
+        '2. ボタンを押すと特典を付与したうえで、次のスタンプカードが始まります。'
+      ],
+      ['スタンプ特典の使い方を知りたい', 'スタンプの集め方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['特典', 'プレゼント', '期限', '使用', 'チケット'])) {
+    return buildSupportReply(
+      [
+        'スタンプ特典の使い方です。',
+        '1. マイページの「特典取得状況」を開きます。',
+        '2. 獲得済み特典を確認し、必要な場合は「使用する」を押します。',
+        '3. 特典は達成当日から使用できます。',
+        '4. 受取期限は獲得から1か月です。',
+        '補足: 一度使用すると再度は使用できません。受け取りの際は受付へ直接お問い合わせください'
+      ],
+      ['スタンプ特典の使い方を知りたい', 'スタンプの集め方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['1日', '一日', '何回']) && hasAnySupportKeyword(messageNorm, ['スタンプ'])) {
+    return buildSupportReply(
+      '来院スタンプは1日1回までです。同じ日に再度読み取ると「本日はすでにスタンプを取得済みです」と表示されます。',
+      ['スタンプの集め方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['qr', 'qrコード', 'qrcode', 'カメラ', 'スキャン', '読み取り'])) {
+    return buildSupportReply(
+      [
+        'スタンプ取得の手順です。',
+        '1. ホーム画面の「カメラを起動して読み取る」を押します。',
+        '2. 院内のQRコードを読み取ります。',
+        '3. 読み取りが成功するとスタンプが追加されます。',
+        '補足: カメラ権限が必要です。プロフィール未登録の場合は先に登録してください。'
+      ],
+      ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['スタンプ'])) {
+    return buildSupportReply(
+      [
+        'スタンプ機能のご案内です。',
+        '1. スタンプはホーム画面で管理します。',
+        '2. 院内QRコードを読むと1日1回まで追加されます。',
+        '3. 10個たまると特典対象です。',
+        '4. 達成後はマイページで特典を確認できます。'
+      ],
+      ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['予約', 'よやく', 'アポイント', '予約したい', '予約方法'])) {
+    return buildSupportReply(
+      [
+        'ご予約についてのご案内です。',
+        '当院のご予約は「公式LINE」にて承っております。',
+        'お手数ですが、公式LINEの友達登録をしていただき、トーク画面から予約をご依頼ください。',
+        '公式LINEへは、ホーム画面またはマイページの「公式サイト・SNS」からアクセスできます。'
+      ],
+      ['公式LINEやSNSの開き方を知りたい', 'メニュー一覧の見方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['メニュー', '施術'])) {
+    return buildSupportReply(
+      [
+        'メニュー一覧の見方です。',
+        '1. ホームの「メニュー一覧を見る🍴」を押します。',
+        '2. メニュー一覧が表示されます。',
+        '3. 各メニューをタップすると詳細や画像を確認できます。',
+        '補足: 実際のご予約は公式LINEからお願いいたします。'
+      ],
+      ['メニュー一覧の見方を知りたい', '予約の方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['カレンダー', 'イベント', '予定', '日程'])) {
+    return buildSupportReply(
+      [
+        'カレンダーの見方です。',
+        '1. 下部メニューの「カレンダー」を開きます。',
+        '2. 左右の矢印で月を切り替えます。',
+        '3. 日付をタップするとその日の予定を確認できます。',
+        '4. 下部には今月のイベント一覧も表示されます。'
+      ],
+      ['イベントカレンダーの見方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['お知らせ一覧', '通知一覧', '拡声器'])) {
+    return buildSupportReply(
+      [
+        'お知らせ一覧の見方です。',
+        '1. 画面上部の📢ボタンを押します。',
+        '2. Push通知、お知らせ、カレンダー情報などをまとめて確認できます。',
+        '補足: 未読があると赤いドットが表示されます。'
+      ],
+      ['お知らせ一覧の見方を知りたい', '最新のお知らせの見方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['news', 'ニュース', 'お知らせ'])) {
+    return buildSupportReply(
+      [
+        'NEWSページの見方です。',
+        '1. 下部メニューの「NEWS」を開きます。',
+        '2. お知らせ記事を一覧で確認できます。',
+        '3. 記事をタップすると詳細が開きます。',
+        '4. 必要に応じてカテゴリで絞り込みできます。'
+      ],
+      ['NEWSページの使い方を知りたい', 'お知らせ一覧の見方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['更新', '再読み込み', 'リロード', '最新情報'])) {
+    return buildSupportReply(
+      [
+        '最新情報の更新方法です。',
+        '1. 画面上部の🔄ボタンを押します。',
+        '2. ブログ、お知らせ、カレンダー、商品、メニュー一覧、FAQ、注文履歴などの最新情報を再取得します。',
+        '3. 再インストールせず、その場で最新状態に反映します。'
+      ],
+      ['最新情報への更新方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', 'お問い合わせ'])) {
+    return buildSupportReply(
+      [
+        '公式サイトやSNSの開き方です。',
+        '1. ホーム画面またはマイページの「公式サイト・SNS」を開きます。',
+        '2. 公式ホームページ、Instagram、Facebook、公式LINEを選んで開けます。',
+        '補足: 診療や個別相談は公式LINEをご利用ください。'
+      ],
+      ['公式LINEやSNSの開き方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['ホーム', 'トップ'])) {
+    return buildSupportReply(
+      [
+        'ホーム画面でできることです。',
+        '1. スタンプQRの読み取り',
+        '2. 現在のスタンプカード確認',
+        '3. メニュー一覧への移動',
+        '4. 最新のお知らせ確認',
+        '5. 公式サイトやSNSへのアクセス'
+      ],
+      ['ホーム画面の見方を知りたい', 'スタンプの集め方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['アプリ', '使い方', 'できること', '機能', '何ができる'])) {
+    return getSupportOverviewReply();
+  }
+
+  // --- トラブルシューティング ---
+  if (hasAnySupportKeyword(messageNorm, ['表示されない', 'おかしい', '崩れ', '不具合', 'バグ'])) {
+    return buildSupportReply(
+      [
+        '画面表示のトラブルについてです。',
+        '以下をお試しください：',
+        '1. 画面右上の🔄ボタンで情報を再取得',
+        '2. アプリを一度閉じて再起動',
+        '3. インターネット接続を確認'
+      ],
+      ['最新情報への更新方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['エラー', '失敗', '同期', '問題'])) {
+    return buildSupportReply(
+      [
+        'データ取得エラーについてです。',
+        'インターネット接続が不安定な可能性があります。',
+        'Wi-Fiや4G/5G回線が安定している環境で🔄ボタンを押して再度お試しください。',
+        '一部データの取得に失敗しても、他のデータは正常に更新されます。'
+      ],
+      ['最新情報への更新方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['重い', '遅い', 'フリーズ', '動かない'])) {
+    return buildSupportReply(
+      [
+        'アプリの動作が遅い場合の対処法です。',
+        '1. 他のアプリを閉じてメモリを開放してください。',
+        '2. 端末を再起動してみてください。',
+        '3. 🔄ボタンでアプリを最新状態に更新してください。'
+      ],
+      ['最新情報への更新方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['引き継ぎ', '機種変更', 'データ移行'])) {
+    return buildSupportReply(
+      [
+        '端末の引き継ぎについてです。',
+        'スタンプデータは端末内に保存されているため、自動では引き継がれません。',
+        'プロフィールや注文履歴はサーバーに保存されています。',
+        'スタンプの移行については受付にご相談ください。'
+      ],
+      ['プロフィールの登録方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['削除', 'アンインストール', '復元', '再インストール'])) {
+    return buildSupportReply(
+      [
+        'アプリの削除・復元についてです。',
+        'アプリを再インストールするとプロフィールや注文履歴は復元できます。',
+        'ただし、端末に保存されたスタンプデータは削除される場合があります。'
+      ],
+      ['スタンプの集め方を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['個人情報', 'プライバシー', 'セキュリティ'])) {
+    return buildSupportReply(
+      [
+        '個人情報の取り扱いについてです。',
+        'プロフィールに登録いただいた情報は、まゆみ助産院の業務（注文管理・会員管理など）のためにのみ使用されます。',
+        '第三者への提供は行いません。'
+      ],
+      ['プロフィールの登録方法を知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['対応端末', 'iphone', 'android', 'ブラウザ', 'safari'])) {
+    return buildSupportReply(
+      [
+        'アプリの対応端末についてです。',
+        'iPhone（Safari）での動作を推奨しています。',
+        'iOS端末向けのネイティブアプリとしてもご利用いただけます。'
+      ],
+      ['このアプリでできることを知りたい']
+    );
+  }
+
+  if (hasAnySupportKeyword(messageNorm, ['チャットボット', 'ボット', 'サポート']) && hasAnySupportKeyword(messageNorm, ['何', 'できる', '使い方', '開き方'])) {
+    return buildSupportReply(
+      [
+        'チャットサポートについてです。',
+        'アプリの使い方に関する質問にチャット形式で回答するサポート機能です。',
+        '注文方法、スタンプの集め方、通知設定、プロフィール登録などの操作方法を案内します。',
+        '画面右下の「💬 使い方相談」ボタン、またはマイページの「🤖 使い方サポート」からご利用いただけます。'
+      ],
+      ['このアプリでできることを知りたい']
+    );
+  }
+
+  return null;
+}
+
+async function loadSupportFaq(force) {
+  if (!force && supportFaqItems.length) {
+    renderSupportSuggestions(getDefaultSupportQuestions(4));
+    return supportFaqItems;
+  }
+
+  const res = await getFromGAS('getSupportFaq');
+  if (res && res.status === 'ok' && Array.isArray(res.faqs) && res.faqs.length) {
+    supportFaqItems = res.faqs;
+  } else {
+    supportFaqItems = SUPPORT_FAQ_FALLBACK.slice();
+  }
+
+  renderSupportSuggestions(getDefaultSupportQuestions(4));
+  return supportFaqItems;
+}
+
+function getLocalSupportReply(message) {
+  const messageNorm = normalizeSupportText(message);
+  const statusReply = getSupportStatusReply(messageNorm);
+  const featureReply = getFeatureSupportReply(messageNorm);
+  const builtInReply = getBuiltInSupportReply(messageNorm);
+  const faqReply = getSupportFaqReply(messageNorm);
+
+  if (statusReply) {
+    return statusReply;
+  }
+  if (featureReply) return featureReply;
+  if (builtInReply) return builtInReply;
+  if (faqReply) return faqReply;
+
+  if (isLikelyAppSupportQuestion(messageNorm)) {
+    return getSupportOverviewReply();
+  }
+
+  return buildSupportReply(
+    [
+      'このチャットでは、現在アプリに実装されている機能の使い方をご案内しています。',
+      'ご案内できる主な内容: ホーム、予約、スタンプ、メニュー一覧、ショップ、カレンダー、NEWS、通知設定、プロフィール、注文履歴、特典。',
+      '知りたい画面名や操作名をそのまま送ってください。例: 「予約の方法」「注文履歴の見方」「通知をオンにする方法」',
+      '診療や個別相談は公式LINEをご利用ください。'
+    ],
+    ['予約の方法を知りたい', 'このアプリでできることを知りたい', '商品の注文方法を知りたい', 'スタンプの集め方を知りたい'],
+    false
+  );
+}
+
+function persistSupportChatHistory() {
+  const clean = supportChatHistory
+    .filter(function (item) { return !item.pending; })
+    .slice(-20)
+    .map(function (item) {
+      return { role: item.role, text: item.text };
+    });
+  supportChatHistory = clean;
+  try {
+    localStorage.setItem('mayumi_support_chat_history', JSON.stringify(clean));
+  } catch (e) { }
+}
+
+function persistSupportTopic() {
+  try {
+    if (lastSupportTopic) {
+      localStorage.setItem('mayumi_support_chat_topic', lastSupportTopic);
+    } else {
+      localStorage.removeItem('mayumi_support_chat_topic');
+    }
+  } catch (e) { }
+}
+
+function ensureSupportChatWelcome() {
+  if (supportChatHistory.length) return;
+  lastSupportTopic = '';
+  persistSupportTopic();
+  supportChatHistory = [{
+    role: 'bot',
+    text: 'アプリの使い方をご案内します。機能ごとに、どこから使うか・何ができるか・できないこと・困ったときの対処まで、できるだけ具体的にお答えします。ホーム、予約、スタンプ、メニュー一覧、ショップ、カレンダー、NEWS、通知設定、プロフィール、注文履歴などをそのまま質問してください。'
+  }];
+  persistSupportChatHistory();
+}
+
+function updateSupportChatSendingState() {
+  const input = document.getElementById('supportChatInput');
+  const sendBtn = document.getElementById('supportChatSendBtn');
+  if (input) input.disabled = isSupportChatSending;
+  if (sendBtn) {
+    sendBtn.disabled = isSupportChatSending;
+    sendBtn.textContent = isSupportChatSending ? '送信中...' : '送信';
+  }
+
+  document.querySelectorAll('#supportChatSuggestions .support-chip').forEach(function (chip) {
+    chip.disabled = isSupportChatSending;
+  });
+}
+
+function renderSupportSuggestions(questions) {
+  const container = document.getElementById('supportChatSuggestions');
+  if (!container) return;
+
+  const sourceQuestions = (questions && questions.length ? questions : getDefaultSupportQuestions(4))
+    .filter(Boolean);
+  const unique = Array.from(new Set(sourceQuestions)).slice(0, 4);
+  container.innerHTML = '';
+
+  unique.forEach(function (question) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'support-chip';
+    btn.textContent = question;
+    btn.disabled = isSupportChatSending;
+    btn.addEventListener('click', function () {
+      askSuggestedSupportQuestion(question);
+    });
+    container.appendChild(btn);
+  });
+}
+
+function renderSupportChatMessages() {
+  const container = document.getElementById('supportChatMessages');
+  if (!container) return;
+
+  container.innerHTML = '';
+  supportChatHistory.forEach(function (message) {
+    const bubble = document.createElement('div');
+    bubble.className = 'support-msg ' + (message.role === 'user' ? 'user' : 'bot');
+    if (message.pending) bubble.className += ' pending';
+
+    const label = document.createElement('div');
+    label.className = 'support-msg-label';
+    label.textContent = message.role === 'user' ? 'あなた' : 'サポート';
+
+    const body = document.createElement('div');
+    body.className = 'support-msg-body';
+    if (message.pending) {
+      body.innerHTML = '<span class="support-loading"><span class="support-loading-dot"></span><span class="support-loading-dot"></span><span class="support-loading-dot"></span><span>回答を準備しています...</span></span>';
+    } else {
+      body.innerHTML = escapeHtml(message.text).replace(/\n/g, '<br>');
     }
 
-    function persistSupportTopic() {
-      try {
-        if (lastSupportTopic) {
-          localStorage.setItem('mayumi_support_chat_topic', lastSupportTopic);
-        } else {
-          localStorage.removeItem('mayumi_support_chat_topic');
-        }
-      } catch (e) { }
-    }
+    bubble.appendChild(label);
+    bubble.appendChild(body);
+    container.appendChild(bubble);
+  });
 
-    function ensureSupportChatWelcome() {
-      if (supportChatHistory.length) return;
-      lastSupportTopic = '';
-      persistSupportTopic();
-      supportChatHistory = [{
-        role: 'bot',
-        text: 'アプリの使い方をご案内します。機能ごとに、どこから使うか・何ができるか・できないこと・困ったときの対処まで、できるだけ具体的にお答えします。ホーム、予約、スタンプ、メニュー一覧、ショップ、カレンダー、NEWS、通知設定、プロフィール、注文履歴などをそのまま質問してください。'
-      }];
-      persistSupportChatHistory();
-    }
+  container.scrollTop = container.scrollHeight;
+}
 
-    function updateSupportChatSendingState() {
-      const input = document.getElementById('supportChatInput');
-      const sendBtn = document.getElementById('supportChatSendBtn');
-      if (input) input.disabled = isSupportChatSending;
-      if (sendBtn) {
-        sendBtn.disabled = isSupportChatSending;
-        sendBtn.textContent = isSupportChatSending ? '送信中...' : '送信';
-      }
+async function openSupportChat() {
+  ensureSupportChatWelcome();
+  openModal('supportChatModal');
+  renderSupportChatMessages();
+  renderSupportSuggestions();
+  updateSupportChatSendingState();
+  await loadSupportFaq();
 
-      document.querySelectorAll('#supportChatSuggestions .support-chip').forEach(function (chip) {
-        chip.disabled = isSupportChatSending;
-      });
-    }
+  setTimeout(function () {
+    const input = document.getElementById('supportChatInput');
+    if (input) input.focus();
+  }, 120);
+}
 
-    function renderSupportSuggestions(questions) {
-      const container = document.getElementById('supportChatSuggestions');
-      if (!container) return;
+function askSuggestedSupportQuestion(question) {
+  if (isSupportChatSending) return;
+  const input = document.getElementById('supportChatInput');
+  if (input) input.value = question;
+  sendSupportChat(question);
+}
 
-      const sourceQuestions = (questions && questions.length ? questions : getDefaultSupportQuestions(4))
-        .filter(Boolean);
-      const unique = Array.from(new Set(sourceQuestions)).slice(0, 4);
-      container.innerHTML = '';
+async function sendSupportChat(prefilledText) {
+  if (isSupportChatSending) return;
 
-      unique.forEach(function (question) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'support-chip';
-        btn.textContent = question;
-        btn.disabled = isSupportChatSending;
-        btn.addEventListener('click', function () {
-          askSuggestedSupportQuestion(question);
-        });
-        container.appendChild(btn);
-      });
-    }
+  const input = document.getElementById('supportChatInput');
+  const message = String(typeof prefilledText === 'string' ? prefilledText : (input ? input.value : '')).trim();
+  if (!message) return;
 
-    function renderSupportChatMessages() {
-      const container = document.getElementById('supportChatMessages');
-      if (!container) return;
+  ensureSupportChatWelcome();
+  isSupportChatSending = true;
+  updateSupportChatSendingState();
+  supportChatHistory.push({ role: 'user', text: message });
+  if (input) input.value = '';
 
-      container.innerHTML = '';
-      supportChatHistory.forEach(function (message) {
-        const bubble = document.createElement('div');
-        bubble.className = 'support-msg ' + (message.role === 'user' ? 'user' : 'bot');
-        if (message.pending) bubble.className += ' pending';
+  const pendingMessage = { role: 'bot', text: '', pending: true };
+  supportChatHistory.push(pendingMessage);
+  renderSupportSuggestions([]);
+  renderSupportChatMessages();
 
-        const label = document.createElement('div');
-        label.className = 'support-msg-label';
-        label.textContent = message.role === 'user' ? 'あなた' : 'サポート';
-
-        const body = document.createElement('div');
-        body.className = 'support-msg-body';
-        if (message.pending) {
-          body.innerHTML = '<span class="support-loading"><span class="support-loading-dot"></span><span class="support-loading-dot"></span><span class="support-loading-dot"></span><span>回答を準備しています...</span></span>';
-        } else {
-          body.innerHTML = escapeHtml(message.text).replace(/\n/g, '<br>');
-        }
-
-        bubble.appendChild(label);
-        bubble.appendChild(body);
-        container.appendChild(bubble);
-      });
-
-      container.scrollTop = container.scrollHeight;
-    }
-
-    async function openSupportChat() {
-      ensureSupportChatWelcome();
-      openModal('supportChatModal');
-      renderSupportChatMessages();
-      renderSupportSuggestions();
-      updateSupportChatSendingState();
+  try {
+    const startedAt = Date.now();
+    if (!supportFaqItems.length) {
       await loadSupportFaq();
-
-      setTimeout(function () {
-        const input = document.getElementById('supportChatInput');
-        if (input) input.focus();
-      }, 120);
     }
 
-    function askSuggestedSupportQuestion(question) {
-      if (isSupportChatSending) return;
-      const input = document.getElementById('supportChatInput');
-      if (input) input.value = question;
-      sendSupportChat(question);
+    const localReply = getLocalSupportReply(message);
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < 250) {
+      await new Promise(function (resolve) { setTimeout(resolve, 250 - elapsed); });
     }
 
-    async function sendSupportChat(prefilledText) {
-      if (isSupportChatSending) return;
+    supportChatHistory = supportChatHistory.filter(function (item) { return item !== pendingMessage; });
+    supportChatHistory.push({ role: 'bot', text: localReply.answer });
+    lastSupportTopic = localReply.topic || resolveSupportTopic(normalizeSupportText(message)) || lastSupportTopic;
+    renderSupportSuggestions(localReply.suggestions || []);
+    persistSupportChatHistory();
+    persistSupportTopic();
+    renderSupportChatMessages();
+  } catch (err) {
+    supportChatHistory = supportChatHistory.filter(function (item) { return item !== pendingMessage; });
+    supportChatHistory.push({
+      role: 'bot',
+      text: '回答の準備中にエラーが発生しました。もう一度お試しいただくか、知りたい操作名を短く送ってください。'
+    });
+    renderSupportSuggestions(getDefaultSupportQuestions(4));
+    persistSupportChatHistory();
+    renderSupportChatMessages();
+  } finally {
+    isSupportChatSending = false;
+    updateSupportChatSendingState();
+  }
+}
 
-      const input = document.getElementById('supportChatInput');
-      const message = String(typeof prefilledText === 'string' ? prefilledText : (input ? input.value : '')).trim();
-      if (!message) return;
 
-      ensureSupportChatWelcome();
-      isSupportChatSending = true;
-      updateSupportChatSendingState();
-      supportChatHistory.push({ role: 'user', text: message });
-      if (input) input.value = '';
+// ===== プロフィール管理 =====
+// デフォルトアバター画像
+const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIHJ4PSI0MCIgZmlsbD0iI2I1YzlhOCIvPjx0ZXh0IHg9IjQwIiB5PSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0id2hpdGUiIGZvbnQtc2l6ZT0iMzIiPvCfkak8L3RleHQ+PC9zdmc+';
+let _avatarData = null;
+try { _avatarData = localStorage.getItem('mayumi_avatar') || null; } catch (e) { }
+let _bannerData = null;
+try { _bannerData = localStorage.getItem('mayumi_banner') || null; } catch (e) { }
 
-      const pendingMessage = { role: 'bot', text: '', pending: true };
-      supportChatHistory.push(pendingMessage);
-      renderSupportSuggestions([]);
-      renderSupportChatMessages();
+// 画像リサイズ・圧縮ヘルパー
+function compressImage(file, maxWidth, maxHeight, quality, callback) {
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const img = new Image();
+    img.onload = function () {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      callback(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => callback(null);
+    img.src = e.target.result;
+  };
+  reader.onerror = () => callback(null);
+  reader.readAsDataURL(file);
+}
 
+function handleAvatarChange(input) {
+  const file = input.files[0];
+  if (!file) return;
+  showToast('画像を処理中...');
+  compressImage(file, 800, 800, 0.7, (dataUrl) => {
+    if (!dataUrl) {
+      showToast('画像の読み込みに失敗しました');
+      return;
+    }
+    _avatarData = dataUrl;
+    localStorage.removeItem('mayumi_avatar_url');
+    // プレビュー更新
+    const preview = document.getElementById('avatarPreview');
+    if (preview) preview.src = _avatarData;
+  });
+}
+
+function handleBannerChange(input) {
+  const file = input.files[0];
+  if (!file) return;
+  showToast('画像を処理中...');
+  compressImage(file, 1200, 1000, 0.7, (dataUrl) => {
+    if (!dataUrl) {
+      showToast('画像の読み込みに失敗しました');
+      return;
+    }
+    _bannerData = dataUrl;
+    // プレビュー更新
+    const preview = document.getElementById('bannerPreview');
+    if (preview) preview.style.backgroundImage = `url(${_bannerData})`;
+  });
+}
+
+function saveProfile() {
+  const nameEl = document.getElementById('setupName');
+  const nameErr = document.getElementById('setupNameErr');
+  const name = nameEl.value.trim();
+  const phone = document.getElementById('setupPhone').value.trim();
+  const birthday = document.getElementById('setupBirthday').value;
+  const address = document.getElementById('setupAddress').value.trim();
+
+  // バリデーション
+  if (!name) {
+    nameEl.classList.add('error');
+    nameErr.classList.add('show');
+    nameEl.focus();
+    return;
+  }
+  nameEl.classList.remove('error');
+  nameErr.classList.remove('show');
+
+  const isNew = !_profile;
+  const now = new Date();
+  // 登録/更新日時を yyyy/M/d H:mm 形式にする
+  const regDate = now.getFullYear() + '/' + (now.getMonth() + 1) + '/' + now.getDate() + ' ' +
+    now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+
+  const memberId = isNew
+    ? 'MYM-' + String(Math.floor(Math.random() * 9000) + 1000)
+    : (_profile.memberId || 'MYM-' + String(Math.floor(Math.random() * 9000) + 1000));
+
+  _profile = { name, phone, birthday, address, regDate, memberId };
+  try {
+    localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
+    localStorage.setItem('member_id', memberId); // 互換性のため個別にも保存
+    if (_avatarData) localStorage.setItem('mayumi_avatar', _avatarData);
+    if (_bannerData) localStorage.setItem('mayumi_banner', _bannerData);
+  } catch (e) { }
+  CUSTOMER_NAME = name;
+
+  // UIを先に更新する
+  closeSetupModal();
+  if (isNew) {
+    const homePage = document.getElementById('page-home');
+    if (homePage) homePage.classList.add('active');
+    switchPage('home');
+  }
+  updateProfileUI();
+  showToast(isNew ? '登録完了しました 🌿' : 'プロフィールを更新しました ✅');
+
+  // GASへユーザー情報を同期（非同期で実行し、待たずに次へ進む）
+  (async function () {
+    let avatarUrl = localStorage.getItem('mayumi_avatar_url');
+    const avatarFallback = (_avatarData && _avatarData.startsWith('data:image/')) ? _avatarData : '';
+    if (!avatarUrl && _avatarData && _avatarData.startsWith('data:image')) {
       try {
-        const startedAt = Date.now();
-        if (!supportFaqItems.length) {
-          await loadSupportFaq();
-        }
-
-        const localReply = getLocalSupportReply(message);
-        const elapsed = Date.now() - startedAt;
-        if (elapsed < 250) {
-          await new Promise(function (resolve) { setTimeout(resolve, 250 - elapsed); });
-        }
-
-        supportChatHistory = supportChatHistory.filter(function (item) { return item !== pendingMessage; });
-        supportChatHistory.push({ role: 'bot', text: localReply.answer });
-        lastSupportTopic = localReply.topic || resolveSupportTopic(normalizeSupportText(message)) || lastSupportTopic;
-        renderSupportSuggestions(localReply.suggestions || []);
-        persistSupportChatHistory();
-        persistSupportTopic();
-        renderSupportChatMessages();
-      } catch (err) {
-        supportChatHistory = supportChatHistory.filter(function (item) { return item !== pendingMessage; });
-        supportChatHistory.push({
-          role: 'bot',
-          text: '回答の準備中にエラーが発生しました。もう一度お試しいただくか、知りたい操作名を短く送ってください。'
+        const mimeMatch = _avatarData.match(/data:(image\/.+);base64,/);
+        const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+        const ext = mimeType.split('/')[1] || 'png';
+        const fname = "avatar_" + memberId + "." + ext;
+        const res = await postToGAS({
+          type: 'uploadImage',
+          filename: fname,
+          mimeType: mimeType,
+          base64: _avatarData.split(',')[1]
         });
-        renderSupportSuggestions(getDefaultSupportQuestions(4));
-        persistSupportChatHistory();
-        renderSupportChatMessages();
-      } finally {
-        isSupportChatSending = false;
-        updateSupportChatSendingState();
+        if (res && res.url) {
+          avatarUrl = res.url;
+          localStorage.setItem('mayumi_avatar_url', avatarUrl);
+        }
+      } catch (e) { console.log('Avatar upload error:', e); }
+    }
+
+    await postToGAS({
+      type: 'updateUser',
+      memberId: memberId,
+      avatar: avatarUrl || avatarFallback,
+      name: name,
+      phone: phone,
+      birthday: birthday,
+      address: address,
+      kana: '',
+      memo: '',
+      pushSubscription: getCurrentPushSubscriptionValue(isPushEnabled())
+    });
+    await syncRewardStatus(true);
+
+    // OneSignal タグ設定
+    if (window.OneSignalRef) {
+      // OneSignalRef.User.addTag("status", status);
+    }
+  })();
+}
+
+function openEditProfile() {
+  if (!_profile) { openSetupModal(false); return; }
+  // 編集モード：現在の値をセット
+  document.getElementById('setupName').value = _profile.name || '';
+  document.getElementById('setupPhone').value = _profile.phone || '';
+  document.getElementById('setupBirthday').value = _profile.birthday || '';
+  document.getElementById('setupAddress').value = _profile.address || '';
+  // アバタープレビュー設定
+  const preview = document.getElementById('avatarPreview');
+  if (preview) preview.src = _avatarData || DEFAULT_AVATAR;
+  // バナープレビュー設定
+  const bannerPreview = document.getElementById('bannerPreview');
+  if (bannerPreview) {
+    bannerPreview.style.backgroundImage = _bannerData ? `url(${_bannerData})` : '';
+  }
+  document.getElementById('setupTitle').textContent = 'プロフィールを編集';
+  document.getElementById('setupDesc').textContent = '項目を入力して、プロフィールを変更できます。';
+  document.getElementById('setupBtn').textContent = '変更を保存する ✅';
+  document.getElementById('setupCancelBtn').style.display = 'block';
+  document.getElementById('avatarEditWrap').style.display = 'block';
+  document.getElementById('setupOverlay').classList.add('open');
+}
+
+function openSetupModal(isFirst) {
+  document.getElementById('setupName').value = '';
+  document.getElementById('setupPhone').value = '';
+  const defStatus = document.querySelector('input[name="setupStatus"][value="妊娠中"]');
+  if (defStatus) defStatus.checked = true;
+  // アバタープレビューリセット
+  const preview = document.getElementById('avatarPreview');
+  if (preview) preview.src = DEFAULT_AVATAR;
+  // バナープレビューリセット
+  const bannerPreview = document.getElementById('bannerPreview');
+  if (bannerPreview) bannerPreview.style.backgroundImage = '';
+  document.getElementById('setupTitle').textContent = 'ようこそ！';
+  document.getElementById('setupDesc').textContent = 'まゆみ助産院アプリへようこそ。\nはじめにプロフィールを登録してください。';
+  document.getElementById('setupBtn').textContent = '登録してアプリを始める 🌿';
+  document.getElementById('setupCancelBtn').style.display = 'none';
+  document.getElementById('avatarEditWrap').style.display = 'block';
+  document.getElementById('setupOverlay').classList.add('open');
+}
+
+function closeSetupModal() {
+  document.getElementById('setupOverlay').classList.remove('open');
+  // エラー状態リセット
+  document.getElementById('setupName').classList.remove('error');
+  document.getElementById('setupNameErr').classList.remove('show');
+}
+
+function updateProfileUI() {
+  if (!_profile) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('homeBannerName', _profile.name + '様');
+  set('mypageBannerName', _profile.name + '様');
+  set('mypageMemberId', '会員ID：' + (_profile.memberId || '---'));
+  set('profileName', _profile.name);
+  set('profilePhone', _profile.phone || '未登録');
+  set('profileBirthday', _profile.birthday || '未登録');
+  set('profileAddress', _profile.address || '未登録');
+  set('profileRegDate', _profile.regDate || '---');
+  // アバター画像更新
+  const avatarSrc = _avatarData || DEFAULT_AVATAR;
+  const profileAvatar = document.getElementById('profileAvatar');
+  if (profileAvatar) profileAvatar.src = avatarSrc;
+
+  // バナー背景画像更新
+  const banners = [
+    document.getElementById('homeBanner'),
+    document.getElementById('stampBanner'),
+    document.getElementById('mypageBanner')
+  ];
+  banners.forEach(banner => {
+    if (banner) {
+      if (_bannerData) {
+        banner.style.backgroundImage = `url(${_bannerData})`;
+        banner.style.backgroundSize = 'cover';
+        banner.style.backgroundPosition = 'center';
+        banner.classList.add('has-bg');
+      } else {
+        banner.style.backgroundImage = '';
+        banner.classList.remove('has-bg');
       }
     }
+  });
+}
 
+function checkFirstLaunch() {
+  if (!_profile) {
+    // 初回起動：オンボーディングを即座に表示
+    const screen = document.getElementById('onboardingScreen');
+    if (screen) screen.classList.add('show');
+  } else {
+    // 既存ユーザー：ホーム画面をアクティブにする
+    const homePage = document.getElementById('page-home');
+    if (homePage) homePage.classList.add('active');
+    CUSTOMER_NAME = _profile.name;
+    updateProfileUI();
+  }
+}
 
-    // ===== プロフィール管理 =====
-    // デフォルトアバター画像
-    const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIHJ4PSI0MCIgZmlsbD0iI2I1YzlhOCIvPjx0ZXh0IHg9IjQwIiB5PSI0OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0id2hpdGUiIGZvbnQtc2l6ZT0iMzIiPvCfkak8L3RleHQ+PC9zdmc+';
-    let _avatarData = null;
-    try { _avatarData = localStorage.getItem('mayumi_avatar') || null; } catch (e) { }
-    let _bannerData = null;
-    try { _bannerData = localStorage.getItem('mayumi_banner') || null; } catch (e) { }
+function startAppFromOnboarding() {
+  const screen = document.getElementById('onboardingScreen');
+  screen.classList.remove('show');
+  setTimeout(() => {
+    openSetupModal(true);
+  }, 600); // フェードアウトを待つ
+}
 
-    // 画像リサイズ・圧縮ヘルパー
-    function compressImage(file, maxWidth, maxHeight, quality, callback) {
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const img = new Image();
-        img.onload = function () {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          if (width > height) {
-            if (width > maxWidth) {
-              height *= maxWidth / width;
-              width = maxWidth;
-            }
-          } else {
-            if (height > maxHeight) {
-              width *= maxHeight / height;
-              height = maxHeight;
-            }
+// ===== URLパラメータからのスタンプ付与処理 =====
+function checkUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('action') === 'add_stamp') {
+    setTimeout(() => {
+      // すでにプロフィール登録済みの場合のみスタンプを付与
+      if (_profile) {
+        addStamp();
+        switchPage('home');
+      } else {
+        // 未登録の場合は一旦登録を促す（次回以降のアクセスに備える）
+        showToast('まずはプロフィールを登録してください🌿');
+      }
+      // URLをクリーンアップしてリロード時の二重付与を防止
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }, 800);
+  }
+}
+
+// OneSignalの状態監視（後半の初期化ブロックでまとめて処理されるため、ここはコメントアウト）
+/*
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+OneSignalDeferred.push(function (OneSignal) { ... });
+*/
+
+// ネイティブ環境でのプッシュ状態同期
+async function syncNativePushStatus() {
+  if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
+    try {
+      const perm = await Capacitor.Plugins.PushNotifications.checkPermissions();
+      if (perm.receive === 'granted') {
+        if (getStoredPushPreference() === 'false') {
+          updatePushUI('off');
+        } else {
+          localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'true');
+          updatePushUI('on');
+        }
+      } else {
+        localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
+        setStoredNativePushPlayerId('');
+        setStoredNativePushToken('');
+        updatePushUI('off');
+      }
+    } catch (e) {
+      console.error('Native status sync error:', e);
+    }
+  }
+}
+// 起動時とマイページ表示時に同期
+syncNativePushStatus();
+
+// 通知の有効/無効を切り替え
+async function togglePush() {
+  // ネイティブ環境 (Capacitor) の場合
+  if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
+    console.log('togglePush: Native environment detected (v2-debug)');
+    const Push = Capacitor.Plugins.PushNotifications;
+    try {
+      if (isPushEnabled()) {
+        const shouldDisable = await showAppConfirm('プッシュ通知をオフにしますか？', {
+          title: '通知設定',
+          confirmLabel: 'オフにする',
+          cancelLabel: '戻る',
+          confirmVariant: 'danger'
+        });
+        if (!shouldDisable) return;
+
+        if (typeof Push.unregister === 'function') {
+          try {
+            await Push.unregister();
+          } catch (unregisterError) {
+            console.error('togglePush Native unregister error:', unregisterError);
           }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          callback(canvas.toDataURL('image/jpeg', quality));
-        };
-        img.onerror = () => callback(null);
-        img.src = e.target.result;
-      };
-      reader.onerror = () => callback(null);
-      reader.readAsDataURL(file);
-    }
-
-    function handleAvatarChange(input) {
-      const file = input.files[0];
-      if (!file) return;
-      showToast('画像を処理中...');
-      compressImage(file, 800, 800, 0.7, (dataUrl) => {
-        if (!dataUrl) {
-          showToast('画像の読み込みに失敗しました');
-          return;
         }
-        _avatarData = dataUrl;
-        localStorage.removeItem('mayumi_avatar_url');
-        // プレビュー更新
-        const preview = document.getElementById('avatarPreview');
-        if (preview) preview.src = _avatarData;
-      });
-    }
 
-    function handleBannerChange(input) {
-      const file = input.files[0];
-      if (!file) return;
-      showToast('画像を処理中...');
-      compressImage(file, 1200, 1000, 0.7, (dataUrl) => {
-        if (!dataUrl) {
-          showToast('画像の読み込みに失敗しました');
-          return;
+        const unsubscribeResult = await postToGAS({
+          type: 'unsubscribePush',
+          playerId: getStoredNativePushPlayerId(),
+          memberId: _profile && _profile.memberId ? _profile.memberId : '',
+          pushToken: getStoredNativePushToken()
+        });
+        if (unsubscribeResult && unsubscribeResult.warning) {
+          console.warn('unsubscribePush warning:', unsubscribeResult.warning);
         }
-        _bannerData = dataUrl;
-        // プレビュー更新
-        const preview = document.getElementById('bannerPreview');
-        if (preview) preview.style.backgroundImage = `url(${_bannerData})`;
-      });
-    }
 
-    function saveProfile() {
-      const nameEl = document.getElementById('setupName');
-      const nameErr = document.getElementById('setupNameErr');
-      const name = nameEl.value.trim();
-      const phone = document.getElementById('setupPhone').value.trim();
-      const birthday = document.getElementById('setupBirthday').value;
-      const address = document.getElementById('setupAddress').value.trim();
-
-      // バリデーション
-      if (!name) {
-        nameEl.classList.add('error');
-        nameErr.classList.add('show');
-        nameEl.focus();
+        await applyPushEnabledState(false, {
+          clearNativePlayerId: true,
+          clearNativeToken: true
+        });
+        showToast('通知をオフにしました');
         return;
       }
-      nameEl.classList.remove('error');
-      nameErr.classList.remove('show');
 
-      const isNew = !_profile;
-      const now = new Date();
-      // 登録/更新日時を yyyy/M/d H:mm 形式にする
-      const regDate = now.getFullYear() + '/' + (now.getMonth() + 1) + '/' + now.getDate() + ' ' +
-        now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+      let perm = await Push.checkPermissions();
+      console.log('togglePush: current perm:', perm.receive);
 
-      const memberId = isNew
-        ? 'MYM-' + String(Math.floor(Math.random() * 9000) + 1000)
-        : (_profile.memberId || 'MYM-' + String(Math.floor(Math.random() * 9000) + 1000));
-
-      _profile = { name, phone, birthday, address, regDate, memberId };
-      try {
-        localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
-        localStorage.setItem('member_id', memberId); // 互換性のため個別にも保存
-        if (_avatarData) localStorage.setItem('mayumi_avatar', _avatarData);
-        if (_bannerData) localStorage.setItem('mayumi_banner', _bannerData);
-      } catch (e) { }
-      CUSTOMER_NAME = name;
-
-      // UIを先に更新する
-      closeSetupModal();
-      if (isNew) {
-        const homePage = document.getElementById('page-home');
-        if (homePage) homePage.classList.add('active');
-        switchPage('home');
+      if (perm.receive !== 'granted') {
+        perm = await Push.requestPermissions();
       }
-      updateProfileUI();
-      showToast(isNew ? '登録完了しました 🌿' : 'プロフィールを更新しました ✅');
-
-      // GASへユーザー情報を同期（非同期で実行し、待たずに次へ進む）
-      (async function () {
-        let avatarUrl = localStorage.getItem('mayumi_avatar_url');
-        const avatarFallback = (_avatarData && _avatarData.startsWith('data:image/')) ? _avatarData : '';
-        if (!avatarUrl && _avatarData && _avatarData.startsWith('data:image')) {
-          try {
-            const mimeMatch = _avatarData.match(/data:(image\/.+);base64,/);
-            const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-            const ext = mimeType.split('/')[1] || 'png';
-            const fname = "avatar_" + memberId + "." + ext;
-            const res = await postToGAS({
-              type: 'uploadImage',
-              filename: fname,
-              mimeType: mimeType,
-              base64: _avatarData.split(',')[1]
-            });
-            if (res && res.url) {
-              avatarUrl = res.url;
-              localStorage.setItem('mayumi_avatar_url', avatarUrl);
-            }
-          } catch (e) { console.log('Avatar upload error:', e); }
-        }
-
-        await postToGAS({
-          type: 'updateUser',
-          memberId: memberId,
-          avatar: avatarUrl || avatarFallback,
-          name: name,
-          phone: phone,
-          birthday: birthday,
-          address: address,
-          kana: '',
-          memo: '',
-          pushSubscription: getCurrentPushSubscriptionValue(isPushEnabled())
+      if (perm.receive === 'granted') {
+        await Push.register();
+        await applyPushEnabledState(true);
+        showToast('通知を有効にしました！ ✅');
+      } else {
+        await applyPushEnabledState(false, { syncProfile: false });
+        await showAppAlert('通知が許可されませんでした。\niPhoneの設定またはブラウザ設定で通知を許可してください。', {
+          title: '通知設定',
+          confirmLabel: '閉じる'
         });
-        await syncRewardStatus(true);
-
-        // OneSignal タグ設定
-        if (window.OneSignalRef) {
-          // OneSignalRef.User.addTag("status", status);
-        }
-      })();
-    }
-
-    function openEditProfile() {
-      if (!_profile) { openSetupModal(false); return; }
-      // 編集モード：現在の値をセット
-      document.getElementById('setupName').value = _profile.name || '';
-      document.getElementById('setupPhone').value = _profile.phone || '';
-      document.getElementById('setupBirthday').value = _profile.birthday || '';
-      document.getElementById('setupAddress').value = _profile.address || '';
-      // アバタープレビュー設定
-      const preview = document.getElementById('avatarPreview');
-      if (preview) preview.src = _avatarData || DEFAULT_AVATAR;
-      // バナープレビュー設定
-      const bannerPreview = document.getElementById('bannerPreview');
-      if (bannerPreview) {
-        bannerPreview.style.backgroundImage = _bannerData ? `url(${_bannerData})` : '';
       }
-      document.getElementById('setupTitle').textContent = 'プロフィールを編集';
-      document.getElementById('setupDesc').textContent = '項目を入力して、プロフィールを変更できます。';
-      document.getElementById('setupBtn').textContent = '変更を保存する ✅';
-      document.getElementById('setupCancelBtn').style.display = 'block';
-      document.getElementById('avatarEditWrap').style.display = 'block';
-      document.getElementById('setupOverlay').classList.add('open');
+    } catch (e) {
+      console.error('togglePush Native error:', e);
+      showToast('エラーが発生しました');
     }
+    return;
+  }
 
-    function openSetupModal(isFirst) {
-      document.getElementById('setupName').value = '';
-      document.getElementById('setupPhone').value = '';
-      const defStatus = document.querySelector('input[name="setupStatus"][value="妊娠中"]');
-      if (defStatus) defStatus.checked = true;
-      // アバタープレビューリセット
-      const preview = document.getElementById('avatarPreview');
-      if (preview) preview.src = DEFAULT_AVATAR;
-      // バナープレビューリセット
-      const bannerPreview = document.getElementById('bannerPreview');
-      if (bannerPreview) bannerPreview.style.backgroundImage = '';
-      document.getElementById('setupTitle').textContent = 'ようこそ！';
-      document.getElementById('setupDesc').textContent = 'まゆみ助産院アプリへようこそ。\nはじめにプロフィールを登録してください。';
-      document.getElementById('setupBtn').textContent = '登録してアプリを始める 🌿';
-      document.getElementById('setupCancelBtn').style.display = 'none';
-      document.getElementById('avatarEditWrap').style.display = 'block';
-      document.getElementById('setupOverlay').classList.add('open');
-    }
+  // Web環境 (OneSignal SDK) の場合
+  console.log('togglePush: Web environment flow (v2-debug)');
+  for (let i = 0; i < 30; i++) {
+    if (window.OneSignalRef && window.OneSignalRef.Notifications) break;
+    await new Promise(r => setTimeout(r, 100));
+  }
 
-    function closeSetupModal() {
-      document.getElementById('setupOverlay').classList.remove('open');
-      // エラー状態リセット
-      document.getElementById('setupName').classList.remove('error');
-      document.getElementById('setupNameErr').classList.remove('show');
-    }
+  const OS = window.OneSignalRef;
+  if (!OS || !OS.Notifications) {
+    const msg = !OS ? 'OneSignal SDK未読み込み' : 'Notifications API未対応';
+    showToast('エラー: ' + msg + '。リロードしてください。');
+    return;
+  }
 
-    function updateProfileUI() {
-      if (!_profile) return;
-      const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-      set('homeBannerName', _profile.name + '様');
-      set('mypageBannerName', _profile.name + '様');
-      set('mypageMemberId', '会員ID：' + (_profile.memberId || '---'));
-      set('profileName', _profile.name);
-      set('profilePhone', _profile.phone || '未登録');
-      set('profileBirthday', _profile.birthday || '未登録');
-      set('profileAddress', _profile.address || '未登録');
-      set('profileRegDate', _profile.regDate || '---');
-      // アバター画像更新
-      const avatarSrc = _avatarData || DEFAULT_AVATAR;
-      const profileAvatar = document.getElementById('profileAvatar');
-      if (profileAvatar) profileAvatar.src = avatarSrc;
-
-      // バナー背景画像更新
-      const banners = [
-        document.getElementById('homeBanner'),
-        document.getElementById('stampBanner'),
-        document.getElementById('mypageBanner')
-      ];
-      banners.forEach(banner => {
-        if (banner) {
-          if (_bannerData) {
-            banner.style.backgroundImage = `url(${_bannerData})`;
-            banner.style.backgroundSize = 'cover';
-            banner.style.backgroundPosition = 'center';
-            banner.classList.add('has-bg');
-          } else {
-            banner.style.backgroundImage = '';
-            banner.classList.remove('has-bg');
-          }
+  try {
+    if (OS.Notifications.permission) {
+      const isOn = OS.User.PushSubscription.optedIn;
+      console.log('togglePush: Current subscription status:', isOn);
+      if (isOn) {
+        const shouldOptOut = await showAppConfirm('プッシュ通知をオフにしますか？', {
+          title: '通知設定',
+          confirmLabel: 'オフにする',
+          cancelLabel: '戻る',
+          confirmVariant: 'danger'
+        });
+        if (shouldOptOut) {
+          await OS.User.PushSubscription.optOut();
+          await applyPushEnabledState(false);
+          showToast('通知をオフにしました');
         }
+      } else {
+        console.log('togglePush: Opting in...');
+        await OS.User.PushSubscription.optIn();
+        await applyPushEnabledState(true);
+        showToast('有効化しました！ ✅');
+      }
+      return;
+    }
+
+    console.log('togglePush: Requesting initial permission...');
+    await OS.Notifications.requestPermission();
+    const finalStatus = OS.User.PushSubscription.optedIn;
+    console.log('togglePush: Permission result status:', finalStatus);
+    if (finalStatus) {
+      await applyPushEnabledState(true);
+      showToast('有効化しました！ ✅');
+    } else {
+      await applyPushEnabledState(false, { syncProfile: false });
+      await showAppAlert('通知が許可されませんでした。\nSafariの設定を確認してください。', {
+        title: '通知設定',
+        confirmLabel: '閉じる'
       });
     }
+  } catch (e) {
+    console.error('togglePush Web error:', e);
+    showToast('通知設定中にエラーが発生しました');
+  }
+}
 
-    function checkFirstLaunch() {
-      if (!_profile) {
-        // 初回起動：オンボーディングを即座に表示
-        const screen = document.getElementById('onboardingScreen');
-        if (screen) screen.classList.add('show');
-      } else {
-        // 既存ユーザー：ホーム画面をアクティブにする
-        const homePage = document.getElementById('page-home');
-        if (homePage) homePage.classList.add('active');
-        CUSTOMER_NAME = _profile.name;
-        updateProfileUI();
-      }
-    }
+// ※ 重複定義のため削除（3180行目付近に集約）
 
-    function startAppFromOnboarding() {
-      const screen = document.getElementById('onboardingScreen');
-      screen.classList.remove('show');
-      setTimeout(() => {
-        openSetupModal(true);
-      }, 600); // フェードアウトを待つ
-    }
+// ===== 初期化 (並列実行で高速化) =====
+async function initApp() {
+  // 最初に初回起動チェックを行い、UI（オンボーディング or ホーム）を表示する
+  checkFirstLaunch();
 
-    // ===== URLパラメータからのスタンプ付与処理 =====
-    function checkUrlParams() {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('action') === 'add_stamp') {
-        setTimeout(() => {
-          // すでにプロフィール登録済みの場合のみスタンプを付与
-          if (_profile) {
-            addStamp();
-            switchPage('home');
-          } else {
-            // 未登録の場合は一旦登録を促す（次回以降のアクセスに備える）
-            showToast('まずはプロフィールを登録してください🌿');
-          }
-          // URLをクリーンアップしてリロード時の二重付与を防止
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }, 800);
-      }
-    }
+  const versionGate = await ensureSupportedAppVersion();
+  if (versionGate.blocked) {
+    return;
+  }
 
-    // OneSignalの状態監視（後半の初期化ブロックでまとめて処理されるため、ここはコメントアウト）
-    /*
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(function (OneSignal) { ... });
-    */
+  loadStampRewards();
+  updateStampUI();
+  checkUrlParams();
 
-    // ネイティブ環境でのプッシュ状態同期
-    async function syncNativePushStatus() {
+  // Capacitor環境 (iOS/Androidネイティブアプリ) の場合の通知設定
+  (function () {
+    let retryCount = 0;
+    const maxRetries = 50; // 5 seconds total
+
+    async function attemptInit() {
+      console.log('Native Features: Checking for Capacitor... (Retry: ' + retryCount + ')');
+
       if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
+        console.log('Native Features: Capacitor found! Initializing...');
+        await runNativeInit();
+      } else if (retryCount < maxRetries) {
+        retryCount++;
+        setTimeout(attemptInit, 100);
+      } else {
+        console.error('Native Features: Capacitor failure (Timeout 5s).');
+      }
+    }
+
+    async function runNativeInit() {
+      const { PushNotifications, Badge } = Capacitor.Plugins;
+
+      PushNotifications.addListener('registration', async (token) => {
+        console.log('--- CAPACITOR PUSH REGISTERED (v2-debug) ---');
+        console.log('Push token: ' + token.value);
+        setStoredNativePushToken(token.value);
         try {
-          const perm = await Capacitor.Plugins.PushNotifications.checkPermissions();
-          if (perm.receive === 'granted') {
-            if (getStoredPushPreference() === 'false') {
-              updatePushUI('off');
-            } else {
-              localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'true');
-              updatePushUI('on');
+          // OneSignal API への登録
+          const payload = {
+            app_id: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
+            device_type: 0, // iOS
+            identifier: token.value,
+            language: 'ja',
+            test_type: 1 // Sandbox (Xcodeからのデバッグ実行時に必要)
+          };
+          console.log('OneSignal Registering Payload (v2-debug):', JSON.stringify(payload));
+
+          const response = await fetch('https://onesignal.com/api/v1/players', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const resData = await response.json();
+          console.log('OneSignal API Response (v2-debug):', resData);
+          const playerId = resData && resData.id ? String(resData.id) : '';
+          if (playerId) {
+            setStoredNativePushPlayerId(playerId);
+          }
+          await applyPushEnabledState(true, {
+            subscriptionValue: playerId || token.value
+          });
+        } catch (e) {
+          console.error('OneSignal API Registration Error (v2-debug):', e);
+          await applyPushEnabledState(true, {
+            subscriptionValue: token.value
+          });
+        }
+      });
+
+      PushNotifications.addListener('registrationError', (err) => {
+        console.error('Push Registration Listener Error:', err);
+      });
+
+      try {
+        let perm = await PushNotifications.checkPermissions();
+        console.log('Current Native Perm:', perm.receive);
+
+        if (perm.receive === 'prompt') {
+          console.log('Requesting Push Permissions...');
+          perm = await PushNotifications.requestPermissions();
+          console.log('Resulting Native Perm:', perm.receive);
+        }
+
+        if (perm.receive === 'granted') {
+          if (getStoredPushPreference() === 'false') {
+            if (typeof PushNotifications.unregister === 'function') {
+              try {
+                await PushNotifications.unregister();
+                console.log('Native push kept disabled by saved preference');
+              } catch (unregisterError) {
+                console.error('Push unregister on init failed:', unregisterError);
+              }
             }
-          } else {
-            localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
             setStoredNativePushPlayerId('');
             setStoredNativePushToken('');
             updatePushUI('off');
-          }
-        } catch (e) {
-          console.error('Native status sync error:', e);
-        }
-      }
-    }
-    // 起動時とマイページ表示時に同期
-    syncNativePushStatus();
-
-    // 通知の有効/無効を切り替え
-    async function togglePush() {
-      // ネイティブ環境 (Capacitor) の場合
-      if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
-        console.log('togglePush: Native environment detected (v2-debug)');
-        const Push = Capacitor.Plugins.PushNotifications;
-        try {
-          if (isPushEnabled()) {
-            const shouldDisable = await showAppConfirm('プッシュ通知をオフにしますか？', {
-              title: '通知設定',
-              confirmLabel: 'オフにする',
-              cancelLabel: '戻る',
-              confirmVariant: 'danger'
-            });
-            if (!shouldDisable) return;
-
-            if (typeof Push.unregister === 'function') {
-              try {
-                await Push.unregister();
-              } catch (unregisterError) {
-                console.error('togglePush Native unregister error:', unregisterError);
-              }
-            }
-
-            const unsubscribeResult = await postToGAS({
-              type: 'unsubscribePush',
-              playerId: getStoredNativePushPlayerId(),
-              memberId: _profile && _profile.memberId ? _profile.memberId : '',
-              pushToken: getStoredNativePushToken()
-            });
-            if (unsubscribeResult && unsubscribeResult.warning) {
-              console.warn('unsubscribePush warning:', unsubscribeResult.warning);
-            }
-
-            await applyPushEnabledState(false, {
-              clearNativePlayerId: true,
-              clearNativeToken: true
-            });
-            showToast('通知をオフにしました');
-            return;
-          }
-
-          let perm = await Push.checkPermissions();
-          console.log('togglePush: current perm:', perm.receive);
-
-          if (perm.receive !== 'granted') {
-            perm = await Push.requestPermissions();
-          }
-          if (perm.receive === 'granted') {
-            await Push.register();
-            await applyPushEnabledState(true);
-            showToast('通知を有効にしました！ ✅');
           } else {
-            await applyPushEnabledState(false, { syncProfile: false });
-            await showAppAlert('通知が許可されませんでした。\niPhoneの設定またはブラウザ設定で通知を許可してください。', {
-              title: '通知設定',
-              confirmLabel: '閉じる'
-            });
+            await PushNotifications.register();
+            console.log('Native Push Registration Call Sent');
           }
-        } catch (e) {
-          console.error('togglePush Native error:', e);
-          showToast('エラーが発生しました');
-        }
-        return;
-      }
-
-      // Web環境 (OneSignal SDK) の場合
-      console.log('togglePush: Web environment flow (v2-debug)');
-      for (let i = 0; i < 30; i++) {
-        if (window.OneSignalRef && window.OneSignalRef.Notifications) break;
-        await new Promise(r => setTimeout(r, 100));
-      }
-
-      const OS = window.OneSignalRef;
-      if (!OS || !OS.Notifications) {
-        const msg = !OS ? 'OneSignal SDK未読み込み' : 'Notifications API未対応';
-        showToast('エラー: ' + msg + '。リロードしてください。');
-        return;
-      }
-
-      try {
-        if (OS.Notifications.permission) {
-          const isOn = OS.User.PushSubscription.optedIn;
-          console.log('togglePush: Current subscription status:', isOn);
-          if (isOn) {
-            const shouldOptOut = await showAppConfirm('プッシュ通知をオフにしますか？', {
-              title: '通知設定',
-              confirmLabel: 'オフにする',
-              cancelLabel: '戻る',
-              confirmVariant: 'danger'
-            });
-            if (shouldOptOut) {
-              await OS.User.PushSubscription.optOut();
-              await applyPushEnabledState(false);
-              showToast('通知をオフにしました');
-            }
-          } else {
-            console.log('togglePush: Opting in...');
-            await OS.User.PushSubscription.optIn();
-            await applyPushEnabledState(true);
-            showToast('有効化しました！ ✅');
-          }
-          return;
-        }
-
-        console.log('togglePush: Requesting initial permission...');
-        await OS.Notifications.requestPermission();
-        const finalStatus = OS.User.PushSubscription.optedIn;
-        console.log('togglePush: Permission result status:', finalStatus);
-        if (finalStatus) {
-          await applyPushEnabledState(true);
-          showToast('有効化しました！ ✅');
         } else {
-          await applyPushEnabledState(false, { syncProfile: false });
-          await showAppAlert('通知が許可されませんでした。\nSafariの設定を確認してください。', {
-            title: '通知設定',
-            confirmLabel: '閉じる'
-          });
+          localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
+          setStoredNativePushPlayerId('');
+          setStoredNativePushToken('');
+          updatePushUI('off');
+          console.warn('Native Push Permission not granted.');
         }
       } catch (e) {
-        console.error('togglePush Web error:', e);
-        showToast('通知設定中にエラーが発生しました');
+        console.error('Push Initialization Exception:', e);
       }
+
+      PushNotifications.addListener('pushNotificationReceived', async (n) => {
+        console.log('Native Push Received:', n);
+        showToast('通知を受信しました: ' + (n.title || '新しい通知'));
+        try {
+          // @capawesome/capacitor-badge スタイル
+          const count = await Badge.get();
+          await Badge.set({ count: (count.count || 0) + 1 });
+        } catch (e) {
+          console.error('Badge Update Exception:', e);
+        }
+      });
+
+      try {
+        await Badge.set({ count: 0 });
+        console.log('Badge cleared on startup (v2-debug)');
+      } catch (e) { }
     }
 
-    // ※ 重複定義のため削除（3180行目付近に集約）
+    // 実行開始
+    attemptInit();
+  })();
 
-    // ===== 初期化 (並列実行で高速化) =====
-    async function initApp() {
-      // 最初に初回起動チェックを行い、UI（オンボーディング or ホーム）を表示する
-      checkFirstLaunch();
+  // データを並列で取得（確実に動作する個別ロード方式）
+  fetchLatestManagedContent({
+    refreshSupportFaq: false,
+    refreshMenus: false,
+    refreshOrderHistory: false
+  }).then(() => {
+    isDataLoaded = true;
+    updateNavBadges();
+  }).catch(e => console.error('Initial load error:', e));
+}
+initApp().catch(e => console.error('initApp error:', e));
 
-      const versionGate = await ensureSupportedAppVersion();
-      if (versionGate.blocked) {
+// アプリ再表示時にデータを自動更新（タスクキル後の再起動対応）
+let lastFetchTime = Date.now();
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible') {
+    ensureSupportedAppVersion().then(function (versionGate) {
+      if (versionGate && versionGate.blocked) {
+        showToast('アプリの更新が必要です');
         return;
       }
 
-      loadStampRewards();
-      updateStampUI();
-      checkUrlParams();
-
-      // Capacitor環境 (iOS/Androidネイティブアプリ) の場合の通知設定
-      (function () {
-        let retryCount = 0;
-        const maxRetries = 50; // 5 seconds total
-
-        async function attemptInit() {
-          console.log('Native Features: Checking for Capacitor... (Retry: ' + retryCount + ')');
-
-          if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
-            console.log('Native Features: Capacitor found! Initializing...');
-            await runNativeInit();
-          } else if (retryCount < maxRetries) {
-            retryCount++;
-            setTimeout(attemptInit, 100);
-          } else {
-            console.error('Native Features: Capacitor failure (Timeout 5s).');
-          }
-        }
-
-        async function runNativeInit() {
-          const { PushNotifications, Badge } = Capacitor.Plugins;
-
-          PushNotifications.addListener('registration', async (token) => {
-            console.log('--- CAPACITOR PUSH REGISTERED (v2-debug) ---');
-            console.log('Push token: ' + token.value);
-            setStoredNativePushToken(token.value);
-            try {
-              // OneSignal API への登録
-              const payload = {
-                app_id: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-                device_type: 0, // iOS
-                identifier: token.value,
-                language: 'ja',
-                test_type: 1 // Sandbox (Xcodeからのデバッグ実行時に必要)
-              };
-              console.log('OneSignal Registering Payload (v2-debug):', JSON.stringify(payload));
-
-              const response = await fetch('https://onesignal.com/api/v1/players', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-              });
-              const resData = await response.json();
-              console.log('OneSignal API Response (v2-debug):', resData);
-              const playerId = resData && resData.id ? String(resData.id) : '';
-              if (playerId) {
-                setStoredNativePushPlayerId(playerId);
-              }
-              await applyPushEnabledState(true, {
-                subscriptionValue: playerId || token.value
-              });
-            } catch (e) {
-              console.error('OneSignal API Registration Error (v2-debug):', e);
-              await applyPushEnabledState(true, {
-                subscriptionValue: token.value
-              });
-            }
-          });
-
-          PushNotifications.addListener('registrationError', (err) => {
-            console.error('Push Registration Listener Error:', err);
-          });
-
-          try {
-            let perm = await PushNotifications.checkPermissions();
-            console.log('Current Native Perm:', perm.receive);
-
-            if (perm.receive === 'prompt') {
-              console.log('Requesting Push Permissions...');
-              perm = await PushNotifications.requestPermissions();
-              console.log('Resulting Native Perm:', perm.receive);
-            }
-
-            if (perm.receive === 'granted') {
-              if (getStoredPushPreference() === 'false') {
-                if (typeof PushNotifications.unregister === 'function') {
-                  try {
-                    await PushNotifications.unregister();
-                    console.log('Native push kept disabled by saved preference');
-                  } catch (unregisterError) {
-                    console.error('Push unregister on init failed:', unregisterError);
-                  }
-                }
-                setStoredNativePushPlayerId('');
-                setStoredNativePushToken('');
-                updatePushUI('off');
-              } else {
-                await PushNotifications.register();
-                console.log('Native Push Registration Call Sent');
-              }
-            } else {
-              localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
-              setStoredNativePushPlayerId('');
-              setStoredNativePushToken('');
-              updatePushUI('off');
-              console.warn('Native Push Permission not granted.');
-            }
-          } catch (e) {
-            console.error('Push Initialization Exception:', e);
-          }
-
-          PushNotifications.addListener('pushNotificationReceived', async (n) => {
-            console.log('Native Push Received:', n);
-            showToast('通知を受信しました: ' + (n.title || '新しい通知'));
-            try {
-              // @capawesome/capacitor-badge スタイル
-              const count = await Badge.get();
-              await Badge.set({ count: (count.count || 0) + 1 });
-            } catch (e) {
-              console.error('Badge Update Exception:', e);
-            }
-          });
-
-          try {
-            await Badge.set({ count: 0 });
-            console.log('Badge cleared on startup (v2-debug)');
-          } catch (e) { }
-        }
-
-        // 実行開始
-        attemptInit();
-      })();
-
-      // データを並列で取得（確実に動作する個別ロード方式）
-      fetchLatestManagedContent({
-        refreshSupportFaq: false,
-        refreshMenus: false,
-        refreshOrderHistory: false
-      }).then(() => {
-        isDataLoaded = true;
+      const elapsed = Date.now() - lastFetchTime;
+      // 前回取得から1分以上経過していたら再取得
+      if (elapsed > 60000) {
+        lastFetchTime = Date.now();
+        fetchLatestManagedContent({
+          refreshSupportFaq: true,
+          refreshMenus: false,
+          refreshOrderHistory: false
+        }).then(() => {
+          isDataLoaded = true;
+          updateNavBadges();
+        }).catch(function () { });
+      } else {
+        // 1分以内でもバッジの再チェック（未読状態の維持）
         updateNavBadges();
-      }).catch(e => console.error('Initial load error:', e));
-    }
-    initApp().catch(e => console.error('initApp error:', e));
+      }
 
-    // アプリ再表示時にデータを自動更新（タスクキル後の再起動対応）
-    let lastFetchTime = Date.now();
-    document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') {
-        ensureSupportedAppVersion().then(function (versionGate) {
-          if (versionGate && versionGate.blocked) {
-            showToast('アプリの更新が必要です');
+      // アプリ復帰時にバッジをクリア (iOS用)
+      if (window.Capacitor) {
+        import('@capawesome/capacitor-badge').then(({ Badge }) => {
+          Badge.clear().catch(e => console.error('Badge clear error on resume:', e));
+        }).catch(e => console.error('Badge import error on resume:', e));
+      }
+    }).catch(function (e) {
+      console.error('visibilitychange update check error:', e);
+    });
+  }
+});
+
+
+
+(async function () {
+  const href = window.location.href;
+  const ua = navigator.userAgent;
+  const isNative = href.startsWith('capacitor://') ||
+    href.includes('localhost') ||
+    ua.includes('Capacitor') ||
+    window.Capacitor;
+
+  if (!isNative) {
+    // 1. OneSignal SDK の読み込み
+    const script = document.createElement('script');
+    script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+    script.async = true;
+    document.head.appendChild(script);
+
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function (OneSignal) {
+      window.OneSignalRef = OneSignal;
+
+      // --- 1. OneSignal 初期化 (サブディレクトリ対応版) ---
+      OneSignal.init({
+        appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
+        // Dashboardの設定と連動させるためルート相対パスを指定
+        serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js',
+        serviceWorkerParam: { scope: '/mayumi-app/' },
+        allowLocalhostAsSecureOrigin: true,
+      }).then(() => {
+        console.log('OneSignal: Init Success!');
+      }).catch(e => {
+        console.error('OneSignal: Init Error:', e);
+      }).finally(() => {
+        // 15秒おきに ID が取れるまで粘り強くチェック
+        const syncInterval = setInterval(async () => {
+          const sub = OneSignal.User.PushSubscription;
+          const perm = await OneSignal.Notifications.permission;
+
+          if (sub.id) {
+            await applyPushEnabledState(true, { syncProfile: false });
+            clearInterval(syncInterval);
             return;
           }
 
-          const elapsed = Date.now() - lastFetchTime;
-          // 前回取得から1分以上経過していたら再取得
-          if (elapsed > 60000) {
-            lastFetchTime = Date.now();
-            fetchLatestManagedContent({
-              refreshSupportFaq: true,
-              refreshMenus: false,
-              refreshOrderHistory: false
-            }).then(() => {
-              isDataLoaded = true;
-              updateNavBadges();
-            }).catch(function () { });
+          if (perm) {
+            await applyPushEnabledState(true, { syncProfile: false });
+            try {
+              await OneSignal.User.PushSubscription.optIn();
+            } catch (err) {
+              console.error('OneSignal: Push sync error:', err);
+            }
           } else {
-            // 1分以内でもバッジの再チェック（未読状態の維持）
-            updateNavBadges();
+            await applyPushEnabledState(false, { syncProfile: false });
+            clearInterval(syncInterval);
           }
+        }, 15000);
 
-          // アプリ復帰時にバッジをクリア (iOS用)
-          if (window.Capacitor) {
-            import('@capawesome/capacitor-badge').then(({ Badge }) => {
-              Badge.clear().catch(e => console.error('Badge clear error on resume:', e));
-            }).catch(e => console.error('Badge import error on resume:', e));
-          }
-        }).catch(function (e) {
-          console.error('visibilitychange update check error:', e);
-        });
-      }
+        setTimeout(() => clearInterval(syncInterval), 120000); // 2分間トライ
+      });
+
+      // イベントリスナーの集約
+      OneSignal.Notifications.addEventListener("permissionChange", function (perm) {
+        if (perm) { applyPushEnabledState(true); }
+        else { applyPushEnabledState(false); }
+      });
+      OneSignal.User.PushSubscription.addEventListener("change", function (e) {
+        const isOn = e.current.optedIn;
+        applyPushEnabledState(isOn);
+      });
+    });
+  }
+})();
+
+let _qrScanning = false;
+let _qrStream = null;
+
+function openScannerModal() {
+  if (typeof stampCount !== 'undefined' && stampCount >= 10) {
+    showToast('10個達成！新しいカードを取得してください');
+    return;
+  }
+  const modal = document.getElementById('scannerModal');
+  if (modal) modal.classList.add('open');
+  startScanner();
+}
+
+function closeScannerModal(e) {
+  if (e) {
+    if (e.currentTarget.id === 'scannerModal' || e.target.tagName.toLowerCase() === 'button') {
+      const modal = document.getElementById('scannerModal');
+      if (modal) modal.classList.remove('open');
+      stopScanner();
+    }
+  } else {
+    const modal = document.getElementById('scannerModal');
+    if (modal) modal.classList.remove('open');
+    stopScanner();
+  }
+}
+
+function startScanner() {
+  const video = document.getElementById('qr-video');
+  const canvasElement = document.getElementById('qr-canvas');
+  if (!video || !canvasElement) return;
+  const canvas = canvasElement.getContext('2d');
+  const scanLine = document.getElementById('qr-scan-line');
+
+  _qrScanning = true;
+  scanLine.style.display = 'block';
+  scanLine.classList.add('scanning');
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(function (stream) {
+      _qrStream = stream;
+      video.srcObject = stream;
+      video.setAttribute('playsinline', true);
+      video.play();
+      requestAnimationFrame(tick);
+    })
+    .catch(function (err) {
+      console.error("Camera error:", err);
+      showToast('カメラへのアクセスが許可されていません');
+      closeScannerModal();
     });
 
+  let frameCount = 0;
+  function tick() {
+    if (!_qrScanning) return;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      frameCount++;
+      if (frameCount % 3 === 0) { // Throttle processing rate
+        canvasElement.height = video.videoHeight;
+        canvasElement.width = video.videoWidth;
+        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+        var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
 
-  
-    (async function () {
-      const href = window.location.href;
-      const ua = navigator.userAgent;
-      const isNative = href.startsWith('capacitor://') ||
-        href.includes('localhost') ||
-        ua.includes('Capacitor') ||
-        window.Capacitor;
-
-      if (!isNative) {
-        // 1. OneSignal SDK の読み込み
-        const script = document.createElement('script');
-        script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
-        script.async = true;
-        document.head.appendChild(script);
-
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        OneSignalDeferred.push(async function (OneSignal) {
-          window.OneSignalRef = OneSignal;
-
-          // --- 1. OneSignal 初期化 (サブディレクトリ対応版) ---
-          OneSignal.init({
-            appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            // Dashboardの設定と連動させるためルート相対パスを指定
-            serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js',
-            serviceWorkerParam: { scope: '/mayumi-app/' },
-            allowLocalhostAsSecureOrigin: true,
-          }).then(() => {
-            console.log('OneSignal: Init Success!');
-          }).catch(e => {
-            console.error('OneSignal: Init Error:', e);
-          }).finally(() => {
-            // 15秒おきに ID が取れるまで粘り強くチェック
-            const syncInterval = setInterval(async () => {
-              const sub = OneSignal.User.PushSubscription;
-              const perm = await OneSignal.Notifications.permission;
-
-              if (sub.id) {
-                await applyPushEnabledState(true, { syncProfile: false });
-                clearInterval(syncInterval);
-                return;
-              }
-
-              if (perm) {
-                await applyPushEnabledState(true, { syncProfile: false });
-                try {
-                  await OneSignal.User.PushSubscription.optIn();
-                } catch (err) {
-                  console.error('OneSignal: Push sync error:', err);
-                }
-              } else {
-                await applyPushEnabledState(false, { syncProfile: false });
-                clearInterval(syncInterval);
-              }
-            }, 15000);
-
-            setTimeout(() => clearInterval(syncInterval), 120000); // 2分間トライ
+        if (typeof jsQR !== 'undefined') {
+          var code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "dontInvert",
           });
 
-          // イベントリスナーの集約
-          OneSignal.Notifications.addEventListener("permissionChange", function (perm) {
-            if (perm) { applyPushEnabledState(true); }
-            else { applyPushEnabledState(false); }
-          });
-          OneSignal.User.PushSubscription.addEventListener("change", function (e) {
-            const isOn = e.current.optedIn;
-            applyPushEnabledState(isOn);
-          });
-        });
-      }
-    })();
-
-    let _qrScanning = false;
-    let _qrStream = null;
-
-    function openScannerModal() {
-      if (typeof stampCount !== 'undefined' && stampCount >= 10) {
-        showToast('10個達成！新しいカードを取得してください');
-        return;
-      }
-      const modal = document.getElementById('scannerModal');
-      if (modal) modal.classList.add('open');
-      startScanner();
-    }
-
-    function closeScannerModal(e) {
-      if (e) {
-        if (e.currentTarget.id === 'scannerModal' || e.target.tagName.toLowerCase() === 'button') {
-          const modal = document.getElementById('scannerModal');
-          if (modal) modal.classList.remove('open');
-          stopScanner();
-        }
-      } else {
-        const modal = document.getElementById('scannerModal');
-        if (modal) modal.classList.remove('open');
-        stopScanner();
-      }
-    }
-
-    function startScanner() {
-      const video = document.getElementById('qr-video');
-      const canvasElement = document.getElementById('qr-canvas');
-      if (!video || !canvasElement) return;
-      const canvas = canvasElement.getContext('2d');
-      const scanLine = document.getElementById('qr-scan-line');
-
-      _qrScanning = true;
-      scanLine.style.display = 'block';
-      scanLine.classList.add('scanning');
-
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then(function (stream) {
-          _qrStream = stream;
-          video.srcObject = stream;
-          video.setAttribute('playsinline', true);
-          video.play();
-          requestAnimationFrame(tick);
-        })
-        .catch(function (err) {
-          console.error("Camera error:", err);
-          showToast('カメラへのアクセスが許可されていません');
-          closeScannerModal();
-        });
-
-      let frameCount = 0;
-      function tick() {
-        if (!_qrScanning) return;
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          frameCount++;
-          if (frameCount % 3 === 0) { // Throttle processing rate
-            canvasElement.height = video.videoHeight;
-            canvasElement.width = video.videoWidth;
-            canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
-            var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-
-            if (typeof jsQR !== 'undefined') {
-              var code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "dontInvert",
-              });
-
-              if (code && code.data.includes('action=add_stamp')) {
-                _qrScanning = false;
-                closeScannerModal();
-                showToast('QRコードを読み取りました🎉');
-                setTimeout(() => {
-                  if (typeof addStamp === 'function') addStamp();
-                }, 400);
-                return;
-              }
-            }
+          if (code && code.data.includes('action=add_stamp')) {
+            _qrScanning = false;
+            closeScannerModal();
+            showToast('QRコードを読み取りました🎉');
+            setTimeout(() => {
+              if (typeof addStamp === 'function') addStamp();
+            }, 400);
+            return;
           }
         }
-        requestAnimationFrame(tick);
       }
     }
+    requestAnimationFrame(tick);
+  }
+}
 
-    function stopScanner() {
-      _qrScanning = false;
-      const scanLine = document.getElementById('qr-scan-line');
-      if (scanLine) {
-        scanLine.style.display = 'none';
-        scanLine.classList.remove('scanning');
-      }
-      if (_qrStream) {
-        _qrStream.getTracks().forEach(track => track.stop());
-        _qrStream = null;
-      }
-    }
+function stopScanner() {
+  _qrScanning = false;
+  const scanLine = document.getElementById('qr-scan-line');
+  if (scanLine) {
+    scanLine.style.display = 'none';
+    scanLine.classList.remove('scanning');
+  }
+  if (_qrStream) {
+    _qrStream.getTracks().forEach(track => track.stop());
+    _qrStream = null;
+  }
+}
 
-    // メニュー一覧取得
-    async function loadMenus() {
-      const container = document.getElementById('menuListContainer');
-      if (!container) return;
+// メニュー一覧取得
+async function loadMenus() {
+  const container = document.getElementById('menuListContainer');
+  if (!container) return;
 
-      container.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  container.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
 
-      const res = await getFromGAS('getMenus');
-      if (res && res.status === 'ok') {
-        USER_MENUS = res.menus || [];
+  const res = await getFromGAS('getMenus');
+  if (res && res.status === 'ok') {
+    USER_MENUS = res.menus || [];
 
-        // Add originalIndex to each menu to ensure detail modal always opens correct item
-        USER_MENUS.forEach((m, idx) => {
-          m.originalIndex = idx;
-        });
+    // Add originalIndex to each menu to ensure detail modal always opens correct item
+    USER_MENUS.forEach((m, idx) => {
+      m.originalIndex = idx;
+    });
 
-        renderMenus();
-      } else {
-        container.innerHTML = '<div class="empty-state">読み込みに失敗しました</div>';
-      }
-    }
+    renderMenus();
+  } else {
+    container.innerHTML = '<div class="empty-state">読み込みに失敗しました</div>';
+  }
+}
 
-    function renderMenus() {
-      const container = document.getElementById('menuListContainer');
-      if (!container) return;
+function renderMenus() {
+  const container = document.getElementById('menuListContainer');
+  if (!container) return;
 
-      const filterVal = document.getElementById('menuStatusFilter') ? document.getElementById('menuStatusFilter').value : '全て';
+  const filterVal = document.getElementById('menuStatusFilter') ? document.getElementById('menuStatusFilter').value : '全て';
 
-      let filteredMenus = USER_MENUS;
-      if (filterVal !== '全て') {
-        filteredMenus = USER_MENUS.filter(m => m.reservationStatus === filterVal);
-      }
+  let filteredMenus = USER_MENUS;
+  if (filterVal !== '全て') {
+    filteredMenus = USER_MENUS.filter(m => m.reservationStatus === filterVal);
+  }
 
-      if (filteredMenus.length === 0) {
-        container.innerHTML = '<div class="empty-state">該当するメニューはありません</div>';
-        return;
-      }
+  if (filteredMenus.length === 0) {
+    container.innerHTML = '<div class="empty-state">該当するメニューはありません</div>';
+    return;
+  }
 
-      let html = '';
-      filteredMenus.forEach(m => {
-        html += `
+  let html = '';
+  filteredMenus.forEach(m => {
+    html += `
           <div class="news-item" onclick="openMenuDetail(${m.originalIndex})" style="padding:15px; border-radius:16px; margin-bottom:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); background:#fff; border:1px solid #f0ede8; cursor:pointer; display:flex; align-items:center; gap:15px;">
             ${m.imageUrl ?
-            `<img src="${m.imageUrl}" style="width:80px; height:80px; object-fit:cover; border-radius:10px; flex-shrink:0;">` :
-            `<div style="width:80px; height:80px; background:var(--bg-gray); border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text-light); font-size:24px;">🍴</div>`
-          }
+        `<img src="${m.imageUrl}" style="width:80px; height:80px; object-fit:cover; border-radius:10px; flex-shrink:0;">` :
+        `<div style="width:80px; height:80px; background:var(--bg-gray); border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text-light); font-size:24px;">🍴</div>`
+      }
             <div style="flex:1; display:flex; align-items:center; min-width:0;">
               <h3 style="margin:0; font-size:1.2rem; color:var(--text-main); font-weight:700; line-height:1.4; flex:1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${m.name}</h3>
             </div>
             <div style="color:var(--text-light); font-size:18px; margin-left:5px; flex-shrink:0;">›</div>
           </div>
         `;
-      });
-      container.innerHTML = html;
-    }
+  });
+  container.innerHTML = html;
+}
 
-    function openMenuDetail(idx) {
-      const m = USER_MENUS[idx];
-      if (!m) return;
+function openMenuDetail(idx) {
+  const m = USER_MENUS[idx];
+  if (!m) return;
 
-      let imageHtml = '';
-      if (m.imageUrl) {
-        imageHtml = `<div style="margin-bottom:20px; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);"><img src="${m.imageUrl}" style="width:100%; height:auto; display:block;" alt="Menu Image"></div>`;
-      }
+  let imageHtml = '';
+  if (m.imageUrl) {
+    imageHtml = `<div style="margin-bottom:20px; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);"><img src="${m.imageUrl}" style="width:100%; height:auto; display:block;" alt="Menu Image"></div>`;
+  }
 
-      const formattedDesc = (m.description || '').replace(/\n/g, '<br>');
+  const formattedDesc = (m.description || '').replace(/\n/g, '<br>');
 
-      document.getElementById('menuDetailContent').innerHTML = `
+  document.getElementById('menuDetailContent').innerHTML = `
         <div style="margin-bottom:12px;">
           <span class="blog-detail-cat">メニュー</span>
         </div>
@@ -4661,77 +4685,108 @@
         ${imageHtml}
         <div class="blog-detail-body" style="font-size:15px; line-height:1.8; color:var(--text-main);">${formattedDesc}</div>
       `;
-      openModal('menuDetailModal');
-    }
-    (async function () {
-      const href = window.location.href;
-      const ua = navigator.userAgent;
-      const isNative = href.startsWith('capacitor://') ||
-        href.includes('localhost') ||
-        ua.includes('Capacitor') ||
-        window.Capacitor;
+  openModal('menuDetailModal');
+}
+(async function () {
+  const href = window.location.href;
+  const ua = navigator.userAgent;
+  const isNative = href.startsWith('capacitor://') ||
+    href.includes('localhost') ||
+    ua.includes('Capacitor') ||
+    window.Capacitor;
 
-      if (!isNative) {
-        // 1. OneSignal SDK の読み込み
-        const script = document.createElement('script');
-        script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
-        script.async = true;
-        document.head.appendChild(script);
+  if (!isNative) {
+    // 1. OneSignal SDK の読み込み
+    const script = document.createElement('script');
+    script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+    script.async = true;
+    document.head.appendChild(script);
 
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        OneSignalDeferred.push(async function (OneSignal) {
-          window.OneSignalRef = OneSignal;
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function (OneSignal) {
+      window.OneSignalRef = OneSignal;
 
-          // --- 1. OneSignal 初期化 (サブディレクトリ対応版) ---
-          OneSignal.init({
-            appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-            // Dashboardの設定と連動させるためルート相対パスを指定
-            serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js',
-            serviceWorkerParam: { scope: '/mayumi-app/' },
-            allowLocalhostAsSecureOrigin: true,
-          }).then(() => {
-            console.log('OneSignal: Init Success!');
-          }).catch(e => {
-            console.error('OneSignal: Init Error:', e);
-          }).finally(() => {
-            // 15秒おきに ID が取れるまで粘り強くチェック
-            const syncInterval = setInterval(async () => {
-              const sub = OneSignal.User.PushSubscription;
-              const perm = await OneSignal.Notifications.permission;
+      // --- 1. OneSignal 初期化 (サブディレクトリ対応版) ---
+      OneSignal.init({
+        appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
+        // Dashboardの設定と連動させるためルート相対パスを指定
+        serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js',
+        serviceWorkerParam: { scope: '/mayumi-app/' },
+        allowLocalhostAsSecureOrigin: true,
+      }).then(() => {
+        console.log('OneSignal: Init Success!');
+      }).catch(e => {
+        console.error('OneSignal: Init Error:', e);
+      }).finally(() => {
+        // 15秒おきに ID が取れるまで粘り強くチェック
+        const syncInterval = setInterval(async () => {
+          const sub = OneSignal.User.PushSubscription;
+          const perm = await OneSignal.Notifications.permission;
 
-              if (sub.id) {
-                await applyPushEnabledState(true, { syncProfile: false });
-                clearInterval(syncInterval);
-                return;
-              }
+          if (sub.id) {
+            await applyPushEnabledState(true, { syncProfile: false });
+            clearInterval(syncInterval);
+            return;
+          }
 
-              if (perm) {
-                await applyPushEnabledState(true, { syncProfile: false });
-                try {
-                  await OneSignal.User.PushSubscription.optIn();
-                } catch (err) {
-                  console.error('OneSignal: Push sync error:', err);
-                }
-              } else {
-                await applyPushEnabledState(false, { syncProfile: false });
-                clearInterval(syncInterval);
-              }
-            }, 15000);
+          if (perm) {
+            await applyPushEnabledState(true, { syncProfile: false });
+            try {
+              await OneSignal.User.PushSubscription.optIn();
+            } catch (err) {
+              console.error('OneSignal: Push sync error:', err);
+            }
+          } else {
+            await applyPushEnabledState(false, { syncProfile: false });
+            clearInterval(syncInterval);
+          }
+        }, 15000);
 
-            setTimeout(() => clearInterval(syncInterval), 120000); // 2分間トライ
-          });
+        setTimeout(() => clearInterval(syncInterval), 120000); // 2分間トライ
+      });
 
-          // イベントリスナーの集約
-          OneSignal.Notifications.addEventListener("permissionChange", function (perm) {
-            if (perm) { applyPushEnabledState(true); }
-            else { applyPushEnabledState(false); }
-          });
-          OneSignal.User.PushSubscription.addEventListener("change", function (e) {
-            const isOn = e.current.optedIn;
-            applyPushEnabledState(isOn);
-          });
-        });
-      }
-    })();
+      // イベントリスナーの集約
+      OneSignal.Notifications.addEventListener("permissionChange", function (perm) {
+        if (perm) { applyPushEnabledState(true); }
+        else { applyPushEnabledState(false); }
+      });
+      OneSignal.User.PushSubscription.addEventListener("change", function (e) {
+        const isOn = e.current.optedIn;
+        applyPushEnabledState(isOn);
+      });
+    });
+  }
+})();
+
+/**
+ * 「天然だし調味粉」専用の価格計算ロジック (アプリ用)
+ */
+function calculateDashiPricing(qty) {
+  const basePrice = 2380; // 定価
+  let totalRevenue = 0;
+
+  if (qty <= 0) return { totalRevenue: 0, avgUnitPrice: basePrice };
+
+  if (qty === 1) {
+    totalRevenue = basePrice;
+  } else if (qty === 2) {
+    // 2袋購入→全て20％📴
+    totalRevenue = (basePrice * 0.8) * 2;
+  } else if (qty === 3) {
+    totalRevenue = (basePrice * 0.8 * 2) + (basePrice * 0.75);
+  } else if (qty === 4) {
+    totalRevenue = (basePrice * 0.8 * 3) + (basePrice * 0.70);
+  } else if (qty === 5) {
+    totalRevenue = (basePrice * 0.8 * 4) + (basePrice * 0.65);
+  } else {
+    totalRevenue = (basePrice * 0.75) * qty;
+  }
+
+  const roundedTotal = Math.floor(totalRevenue);
+  return {
+    totalRevenue: roundedTotal,
+    avgUnitPrice: roundedTotal / qty
+  };
+}
 
 if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initApp); } else { initApp(); }
