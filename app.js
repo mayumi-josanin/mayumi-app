@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyBDReRdL9LlVKZjn1UDZU12_3OCGRu4FkPorw1jJZRQliEcGrLUHiT4bTXsHh1epajrQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.03.31.6';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.03.31.7';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -4762,13 +4762,14 @@ function openMenuDetail(idx) {
  * 「天然だし調味粉」専用の価格計算ロジック (アプリ用)
  */
 function calculateDashiPricing(qty) {
-  const basePrice = 2380; // 定価
+  const basePrice = 2980; // 定価 (変更: 2380 -> 2980)
   let totalRevenue = 0;
 
   if (qty <= 0) return { totalRevenue: 0, avgUnitPrice: basePrice };
 
   if (qty === 1) {
-    totalRevenue = basePrice;
+    // 1袋購入→20%OFF (NEW)
+    totalRevenue = basePrice * 0.8;
   } else if (qty === 2) {
     // 2袋購入→全て20％📴
     totalRevenue = (basePrice * 0.8) * 2;
