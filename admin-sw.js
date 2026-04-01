@@ -5,7 +5,10 @@ const ADMIN_SHELL_ASSETS = [
   './admin-icon-192.png',
   './admin-icon-512.png',
   './admin-apple-touch-icon.png',
-  './www/icon.png'
+  './assets/icon.png',
+  './assets/instr_ios_1.png',
+  './assets/instr_ios_2.png',
+  './assets/instr_ios_3.png'
 ];
 
 self.addEventListener('install', function (event) {
