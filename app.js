@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyTzf1bbabiREOdq-Kcl66mTfI1pcZ2t8sPYquu9PRhvh465DnmYoIB8hRwSLH0GEFyQg/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.16';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.17';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -71,6 +71,25 @@ function getCurrentPlatformName() {
     return 'ios';
   }
   return 'web';
+}
+
+function isLikelyCapacitorRuntime() {
+  const href = window.location && window.location.href ? String(window.location.href) : '';
+  const ua = navigator && navigator.userAgent ? String(navigator.userAgent) : '';
+  return href.startsWith('capacitor://') || ua.includes('Capacitor') || !!window.Capacitor;
+}
+
+async function waitForCapacitorPushPlugin(timeoutMs) {
+  if (!isLikelyCapacitorRuntime()) return null;
+  const deadline = Date.now() + Math.max(0, timeoutMs || 0);
+  do {
+    if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
+      return Capacitor.Plugins.PushNotifications;
+    }
+    if (Date.now() >= deadline) break;
+    await new Promise(function (resolve) { setTimeout(resolve, 100); });
+  } while (true);
+  return null;
 }
 
 function isNativeAppRuntime() {
@@ -4485,25 +4504,25 @@ OneSignalDeferred.push(function (OneSignal) { ... });
 
 // ネイティブ環境でのプッシュ状態同期
 async function syncNativePushStatus() {
-  if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
-    try {
-      const perm = await Capacitor.Plugins.PushNotifications.checkPermissions();
-      if (perm.receive === 'granted') {
-        if (getStoredPushPreference() === 'false') {
-          updatePushUI('off');
-        } else {
-          localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'true');
-          updatePushUI('on');
-        }
-      } else {
-        localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
-        setStoredNativePushPlayerId('');
-        setStoredNativePushToken('');
+  const Push = await waitForCapacitorPushPlugin(2000);
+  if (!Push) return;
+  try {
+    const perm = await Push.checkPermissions();
+    if (perm.receive === 'granted') {
+      if (getStoredPushPreference() === 'false') {
         updatePushUI('off');
+      } else {
+        localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'true');
+        updatePushUI('on');
       }
-    } catch (e) {
-      console.error('Native status sync error:', e);
+    } else {
+      localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
+      setStoredNativePushPlayerId('');
+      setStoredNativePushToken('');
+      updatePushUI('off');
     }
+  } catch (e) {
+    console.error('Native status sync error:', e);
   }
 }
 // 起動時とマイページ表示時に同期
@@ -4511,10 +4530,11 @@ syncNativePushStatus();
 
 // 通知の有効/無効を切り替え
 async function togglePush() {
+  const Push = await waitForCapacitorPushPlugin(4000);
+
   // ネイティブ環境 (Capacitor) の場合
-  if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.PushNotifications) {
+  if (Push) {
     console.log('togglePush: Native environment detected (v2-debug)');
-    const Push = Capacitor.Plugins.PushNotifications;
     try {
       if (isPushEnabled()) {
         const shouldDisable = await showAppConfirm('プッシュ通知をオフにしますか？', {
@@ -4572,6 +4592,11 @@ async function togglePush() {
       console.error('togglePush Native error:', e);
       showToast('エラーが発生しました');
     }
+    return;
+  }
+
+  if (isLikelyCapacitorRuntime()) {
+    showToast('通知設定の準備中です。数秒後にもう一度お試しください。');
     return;
   }
 
@@ -4904,12 +4929,8 @@ setInterval(function () {
 
 
 (async function () {
-  const href = window.location.href;
-  const ua = navigator.userAgent;
-  const isNative = href.startsWith('capacitor://') ||
-    href.includes('localhost') ||
-    ua.includes('Capacitor') ||
-    window.Capacitor;
+  const isNative = isLikelyCapacitorRuntime() ||
+    String(window.location && window.location.href ? window.location.href : '').includes('localhost');
 
   if (!isNative) {
     // 1. OneSignal SDK の読み込み
