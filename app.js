@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbz5cIeCDi5x3KaNuAV4SYHVTiIWr0kDq4xSPToQDU1jqeeerxTZU3uxDpxI5ubv3kcR1Q/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.13';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzGyw95U7fo-StoETPnGmjqUEYVVqWWFByYTcLLRcPO3P5NF8kLXkf86zp1OA4VC48K7Q/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.14';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -36,6 +36,7 @@ let cancelOrderId = null;
 let receiptSubmittingOrderId = null;
 let blogItems = [];
 let allBlogCategories = [];
+let pushNotices = [];
 let isDataLoaded = false;
 let supportFaqItems = [];
 let supportChatHistory = [];
@@ -1238,19 +1239,42 @@ async function loadProducts() {
 async function loadBlog() {
   const data = await getFromGAS('getNews');
   if (data && data.status === 'ok' && data.news) {
-    blogItems = data.news;
     allBlogCategories = Array.isArray(data.categories) ? data.categories : [];
+    blogItems = normalizeBlogItems(data.news, allBlogCategories);
   } else {
-    blogItems = FALLBACK_BLOG.slice();
     allBlogCategories = [];
+    blogItems = normalizeBlogItems(FALLBACK_BLOG.slice(), []);
   }
 
   updateBlogCategoryFilters();
-  renderBlogList('homeNewsList', 3, 'お知らせ');
+  renderBlogList('homeNewsList', 3);
 
   if (document.getElementById('page-blog').classList.contains('active')) {
     renderDividedBlogList();
   }
+  if (document.getElementById('page-notices').classList.contains('active')) {
+    renderPushNotices();
+  }
+  updateNavBadges();
+}
+
+async function loadPushNotices() {
+  const data = await getFromGAS('getPushNotices');
+  if (data && data.status === 'ok' && Array.isArray(data.notices)) {
+    pushNotices = data.notices.map(function (notice) {
+      return {
+        date: Number(notice && notice.date || 0),
+        title: String(notice && notice.title || 'お知らせ'),
+        body: String(notice && notice.body || '')
+      };
+    }).filter(function (notice) {
+      return notice.title || notice.body;
+    });
+    allBlogCategories = Array.isArray(data.categories) ? data.categories : [];
+  } else {
+    pushNotices = [];
+  }
+
   if (document.getElementById('page-notices').classList.contains('active')) {
     renderPushNotices();
   }
@@ -1630,7 +1654,7 @@ function renderBlogList(containerId, limit, filterType = null, filterCategory = 
 
   let items = blogItems;
   if (filterType) {
-    items = items.filter(i => i.type === filterType);
+    items = items.filter(i => getBlogItemType(i) === filterType);
   }
   if (filterCategory && filterCategory !== '全て') {
     items = items.filter(i => i.category === filterCategory);
@@ -1648,7 +1672,7 @@ function renderBlogList(containerId, limit, filterType = null, filterCategory = 
     div.className = 'blog-card';
 
     let imageHtml = '';
-    const rawImageUrl = item.image || item.imageUrl || '';
+    const rawImageUrl = item.hasEmbeddedImage ? '' : getDisplayImageUrl(item.image || item.imageUrl || '');
     if (rawImageUrl) {
       let displayUrl = rawImageUrl;
       if (displayUrl.includes('drive.google.com')) {
@@ -1680,11 +1704,220 @@ function renderBlogList(containerId, limit, filterType = null, filterCategory = 
 
 function renderDividedBlogList() {
   const newsCat = document.getElementById('newsCategoryFilter')?.value || '全て';
-  renderBlogList('newsPageList', 999, 'お知らせ', newsCat);
+  renderBlogList('newsPageList', 999, null, newsCat);
+}
+
+function updateBlogCategoryFilters() {
+  const filter = document.getElementById('newsCategoryFilter');
+  if (!filter) return;
+
+  const previousValue = filter.value || '全て';
+  const categoryNames = [];
+  const seen = {};
+
+  (allBlogCategories || []).forEach(function (item) {
+    const name = String(item && item.name || '').trim();
+    if (!name || seen[name]) return;
+    seen[name] = true;
+    categoryNames.push(name);
+  });
+
+  (blogItems || []).forEach(function (item) {
+    const name = String(item && item.category || '').trim();
+    if (!name || seen[name]) return;
+    seen[name] = true;
+    categoryNames.push(name);
+  });
+
+  filter.innerHTML = '<option value="全て">カテゴリ: 全て</option>' + categoryNames.map(function (name) {
+    return `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+  }).join('');
+
+  filter.value = seen[previousValue] ? previousValue : '全て';
+}
+
+function renderPushNotices() {
+  const list = document.getElementById('noticeList');
+  if (!list) return;
+
+  const combinedItems = buildNoticeFeedItems();
+  if (!combinedItems.length) {
+    list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:28px 0">お知らせはありません</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  combinedItems.forEach(function (item) {
+    const card = document.createElement('div');
+    card.className = 'blog-card';
+    card.innerHTML = `
+      <div class="blog-inner">
+        <div class="blog-icon">${item.icon}</div>
+        <div style="flex:1">
+          <div class="blog-meta">
+            <span class="blog-date">${escapeHtml(item.dateLabel)}</span>
+            <span class="blog-cat">${escapeHtml(item.category)}</span>
+          </div>
+          <div class="blog-title">${escapeHtml(item.title)}</div>
+          <div class="blog-body-preview">${escapeHtml(item.body || '').replace(/\n/g, '<br>')}</div>
+        </div>
+      </div>
+    `;
+    card.onclick = function () {
+      openBlogDetail({
+        category: item.category,
+        title: item.title,
+        date: item.dateLabel,
+        body: item.body,
+        image: item.image || '',
+        hasEmbeddedImage: item.hasEmbeddedImage === true
+      });
+    };
+    list.appendChild(card);
+  });
+}
+
+function buildNoticeFeedItems() {
+  const blogFeed = (blogItems || []).map(function (item) {
+    return {
+      kind: 'blog',
+      timestamp: parseLooseDateToTimestamp(item.date),
+      dateLabel: item.date || '',
+      category: item.category || getBlogItemType(item),
+      title: item.title || '',
+      body: item.body || '',
+      image: getDisplayImageUrl(item.image || item.imageUrl || ''),
+      icon: item.icon || '📢',
+      hasEmbeddedImage: item.hasEmbeddedImage === true
+    };
+  });
+
+  const calendarFeed = (calendarData || []).filter(function (event) {
+    return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event);
+  }).map(function (event) {
+    return {
+      kind: 'calendar',
+      timestamp: parseLooseDateToTimestamp(event.date),
+      dateLabel: String(event.date || ''),
+      category: 'カレンダー',
+      title: event.title || '',
+      body: event.desc || '',
+      image: getDisplayImageUrl(event.image || ''),
+      icon: '📅'
+    };
+  });
+
+  const pushFeed = (pushNotices || []).map(function (notice) {
+    return {
+      kind: 'push',
+      timestamp: Number(notice.date || 0),
+      dateLabel: formatPushNoticeDate(notice.date),
+      category: 'Push通知',
+      title: notice.title || 'お知らせ',
+      body: notice.body || '',
+      image: '',
+      icon: '🔔'
+    };
+  });
+
+  return blogFeed.concat(calendarFeed, pushFeed).sort(function (a, b) {
+    return (b.timestamp || 0) - (a.timestamp || 0);
+  });
+}
+
+function buildBlogCategoryTypeMap(categories) {
+  const map = {};
+  (categories || []).forEach(function (item) {
+    const name = String(item && item.name || '').trim();
+    if (!name) return;
+    map[name] = item.type === 'お知らせ' ? 'お知らせ' : 'ブログ';
+  });
+  return map;
+}
+
+function normalizeBlogItems(items, categories) {
+  const categoryTypeMap = buildBlogCategoryTypeMap(categories);
+  return (items || []).map(function (item) {
+    const category = String(item && item.category || 'お知らせ').trim() || 'お知らせ';
+    const body = String(item && item.body || '');
+    const embeddedImage = extractEmbeddedImageUrl(body);
+    const inferredType = getInferredBlogType(category, categoryTypeMap[category], item && item.type);
+    return {
+      date: normalizeBlogDate(item && item.date),
+      title: String(item && item.title || ''),
+      category: category,
+      type: inferredType,
+      icon: String(item && item.icon || (inferredType === 'お知らせ' ? '📢' : '📝')),
+      body: body,
+      image: getDisplayImageUrl((item && (item.image || item.imageUrl)) || '') || embeddedImage,
+      hasEmbeddedImage: !!embeddedImage
+    };
+  }).filter(function (item) {
+    return item.title;
+  });
+}
+
+function normalizeBlogDate(rawValue) {
+  const raw = String(rawValue || '').trim();
+  const match = raw.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})(?:\D+(\d{1,2}):(\d{1,2}))?$/);
+  if (!match) return raw;
+  return match[1] + '.' + String(match[2]).padStart(2, '0') + '.' + String(match[3]).padStart(2, '0');
+}
+
+function getInferredBlogType(category, categoryType, rawType) {
+  if (rawType === 'お知らせ' || rawType === 'ブログ') return rawType;
+  if (categoryType === 'お知らせ' || categoryType === 'ブログ') return categoryType;
+  return category === 'お知らせ' || category === '休診情報' ? 'お知らせ' : 'ブログ';
+}
+
+function getBlogItemType(item) {
+  return getInferredBlogType(item && item.category, item && item.type, item && item.type);
+}
+
+function extractEmbeddedImageUrl(body) {
+  const match = String(body || '').match(/📷\s*(https?:\/\/\S+)/);
+  return match ? match[1] : '';
+}
+
+function getDisplayImageUrl(rawValue) {
+  const value = String(rawValue || '').trim();
+  if (/^https?:\/\//i.test(value) || /^data:image\//i.test(value)) return value;
+  return '';
+}
+
+function parseLooseDateToTimestamp(rawValue) {
+  if (typeof rawValue === 'number' && Number.isFinite(rawValue)) return rawValue;
+  const raw = String(rawValue || '').trim();
+  if (!raw) return 0;
+  const matched = raw.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})(?:\D+(\d{1,2}):(\d{1,2}))?$/);
+  if (matched) {
+    return new Date(
+      Number(matched[1]),
+      Number(matched[2]) - 1,
+      Number(matched[3]),
+      Number(matched[4] || 0),
+      Number(matched[5] || 0),
+      0,
+      0
+    ).getTime();
+  }
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatPushNoticeDate(rawValue) {
+  const timestamp = Number(rawValue || 0);
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  return date.getFullYear() + '.' +
+    String(date.getMonth() + 1).padStart(2, '0') + '.' +
+    String(date.getDate()).padStart(2, '0') + ' ' +
+    String(date.getHours()).padStart(2, '0') + ':' +
+    String(date.getMinutes()).padStart(2, '0');
 }
 function openBlogDetail(item) {
   let detailImageHtml = '';
-  if (item.image) {
+  if (item.image && !item.hasEmbeddedImage) {
     detailImageHtml = `<div style="margin-bottom: 12px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><img src="${item.image}" style="width: 100%; height: auto; display: block;" alt="Blog Image"></div>`;
   }
 
