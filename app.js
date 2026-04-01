@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzM-qPlBMA2138CAAWiceHFqiHD9HztpEkG7--kuxvyc6YKNJkTSYdLnSCadP9IIvFgUQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.15';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyTzf1bbabiREOdq-Kcl66mTfI1pcZ2t8sPYquu9PRhvh465DnmYoIB8hRwSLH0GEFyQg/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.16';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -4528,6 +4528,7 @@ async function togglePush() {
   }
 
   try {
+    console.log('togglePush: OneSignal available. Permission status:', OS.Notifications.permission);
     if (OS.Notifications.permission) {
       const isOn = OS.User.PushSubscription.optedIn;
       console.log('togglePush: Current subscription status:', isOn);
@@ -4804,12 +4805,14 @@ setInterval(function () {
     OneSignalDeferred.push(async function (OneSignal) {
       window.OneSignalRef = OneSignal;
 
-      // --- 1. OneSignal 初期化 (サブディレクトリ対応版) ---
+      // --- 1. OneSignal 初期化 (パス自動検知版) ---
+      const appBase = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1) || '/';
+      console.log('OneSignal: Auto-detected base path:', appBase);
+
       OneSignal.init({
         appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-        // Dashboardの設定と連動させるためルート相対パスを指定
-        serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js',
-        serviceWorkerParam: { scope: '/mayumi-app/' },
+        serviceWorkerPath: appBase + 'OneSignalSDKWorker.js',
+        serviceWorkerParam: { scope: appBase },
         allowLocalhostAsSecureOrigin: true,
       }).then(() => {
         console.log('OneSignal: Init Success!');
@@ -5054,76 +5057,6 @@ function openMenuDetail(idx) {
       `;
   openModal('menuDetailModal');
 }
-(async function () {
-  const href = window.location.href;
-  const ua = navigator.userAgent;
-  const isNative = href.startsWith('capacitor://') ||
-    href.includes('localhost') ||
-    ua.includes('Capacitor') ||
-    window.Capacitor;
-
-  if (!isNative) {
-    // 1. OneSignal SDK の読み込み
-    const script = document.createElement('script');
-    script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
-    script.async = true;
-    document.head.appendChild(script);
-
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(async function (OneSignal) {
-      window.OneSignalRef = OneSignal;
-
-      // --- 1. OneSignal 初期化 (サブディレクトリ対応版) ---
-      OneSignal.init({
-        appId: "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb",
-        // Dashboardの設定と連動させるためルート相対パスを指定
-        serviceWorkerPath: '/mayumi-app/OneSignalSDKWorker.js',
-        serviceWorkerParam: { scope: '/mayumi-app/' },
-        allowLocalhostAsSecureOrigin: true,
-      }).then(() => {
-        console.log('OneSignal: Init Success!');
-      }).catch(e => {
-        console.error('OneSignal: Init Error:', e);
-      }).finally(() => {
-        // 15秒おきに ID が取れるまで粘り強くチェック
-        const syncInterval = setInterval(async () => {
-          const sub = OneSignal.User.PushSubscription;
-          const perm = await OneSignal.Notifications.permission;
-
-          if (sub.id) {
-            await applyPushEnabledState(true, { syncProfile: false });
-            clearInterval(syncInterval);
-            return;
-          }
-
-          if (perm) {
-            await applyPushEnabledState(true, { syncProfile: false });
-            try {
-              await OneSignal.User.PushSubscription.optIn();
-            } catch (err) {
-              console.error('OneSignal: Push sync error:', err);
-            }
-          } else {
-            await applyPushEnabledState(false, { syncProfile: false });
-            clearInterval(syncInterval);
-          }
-        }, 15000);
-
-        setTimeout(() => clearInterval(syncInterval), 120000); // 2分間トライ
-      });
-
-      // イベントリスナーの集約
-      OneSignal.Notifications.addEventListener("permissionChange", function (perm) {
-        if (perm) { applyPushEnabledState(true); }
-        else { applyPushEnabledState(false); }
-      });
-      OneSignal.User.PushSubscription.addEventListener("change", function (e) {
-        const isOn = e.current.optedIn;
-        applyPushEnabledState(isOn);
-      });
-    });
-  }
-})();
 
 /**
  * 「天然だし調味粉」専用の価格計算ロジック (アプリ用)
