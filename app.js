@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbz5cIeCDi5x3KaNuAV4SYHVTiIWr0kDq4xSPToQDU1jqeeerxTZU3uxDpxI5ubv3kcR1Q/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.12';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.13';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -1085,13 +1085,13 @@ const FALLBACK_BLOG = [
 
 /* SUPPORT_FAQ_FALLBACK_START */
 const SUPPORT_FAQ_FALLBACK = [
-      { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日', answer: '画面右下のマイページから「プロフィールを編集」を開き、必要項目を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
-      { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 95 },
-      { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取るとスタンプが追加されます。10個たまると特典ガチャを回せます。', priority: 90 },
-      { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから通知をオンにできます。オフにしたい場合も同じボタンから切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可もご確認ください。', priority: 85 },
-      { category: 'NEWS', question: '最新のお知らせの見方を知りたい', keywords: 'お知らせ,news,ブログ,新着,通知一覧', answer: '下部メニューの「NEWS」または画面上部の📢ボタンから確認できます。赤いバッジが出ているときは新着があります。', priority: 80 },
-      { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で今月の予定を確認できます。左右の矢印で別の月にも切り替えられます。', priority: 75 },
-    ];
+  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日', answer: '画面右下のマイページから「プロフィールを編集」を開き、必要項目を入力して保存してください。初回起動時は案内に沿って登録できます。', priority: 100 },
+  { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 95 },
+  { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院', answer: 'ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取るとスタンプが追加されます。10個たまると特典ガチャを回せます。', priority: 90 },
+  { category: '通知', question: '通知をオンにしたい', keywords: '通知,push,プッシュ,お知らせ', answer: 'マイページの「通知設定」にあるボタンから通知をオンにできます。オフにしたい場合も同じボタンから切り替えられます。端末側で通知が拒否されている場合は、iPhoneやブラウザの通知許可もご確認ください。', priority: 85 },
+  { category: 'NEWS', question: '最新のお知らせの見方を知りたい', keywords: 'お知らせ,news,ブログ,新着,通知一覧', answer: '下部メニューの「NEWS」または画面上部の📢ボタンから確認できます。赤いバッジが出ているときは新着があります。', priority: 80 },
+  { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で今月の予定を確認できます。左右の矢印で別の月にも切り替えられます。', priority: 75 },
+];
 /* SUPPORT_FAQ_FALLBACK_END */
 
 const SUPPORT_APP_GUIDE = [
@@ -1302,9 +1302,9 @@ function renderCalendarEventLists() {
   const selectedEvents = getCalendarEventsByDate(selectedKey);
   const monthYearStr = currentMonthDate.getFullYear() + '-' + String(currentMonthDate.getMonth() + 1).padStart(2, '0');
   const monthlyEvents = calendarData.filter(function (event) {
-    return String(event.date || '').slice(0, 7) === monthYearStr && 
-           !isCalendarHolidayEvent(event) && 
-           !isCalendarVisitEvent(event);
+    return String(event.date || '').slice(0, 7) === monthYearStr &&
+      !isCalendarHolidayEvent(event) &&
+      !isCalendarVisitEvent(event);
   });
 
   const displayDate = formatCalendarDisplayDate(selectedKey);
@@ -1355,13 +1355,13 @@ function renderCalendar() {
       selectedDate.getDate() === d.getDate();
     const isToday = dateKey === todayKey;
     const weekday = d.getDay();
-    
+
     const classes = ['cal-day'];
     if (weekday === 0) classes.push('sun');
     if (weekday === 6) classes.push('sat');
     if (isToday) classes.push('today');
     if (isSelected) classes.push('selected');
-    
+
     html += `<button type="button" class="${classes.join(' ')}" onclick="selectCalendarDate(${d.getFullYear()}, ${d.getMonth()}, ${day})"><span class="cal-day-number">${day}</span>${buildCalendarDayMarkers(dayEvents)}</button>`;
   }
 
@@ -1470,8 +1470,8 @@ function buildCalendarDayMarkers(dayEvents) {
   if (!dayEvents || !dayEvents.length) return '';
   const holidayEvents = dayEvents.filter(isCalendarHolidayEvent);
   const visitEvents = dayEvents.filter(isCalendarVisitEvent);
-  const normalEvents = dayEvents.filter(function (event) { 
-    return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event); 
+  const normalEvents = dayEvents.filter(function (event) {
+    return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event);
   });
 
   let html = '';
@@ -1479,12 +1479,12 @@ function buildCalendarDayMarkers(dayEvents) {
     html += '<div class="cal-holiday-tag">休診</div>';
   }
   if (visitEvents.length) {
-    visitEvents.forEach(function(ev) {
+    visitEvents.forEach(function (ev) {
       const color = getCalendarSafeColor(ev.color);
       html += `<div class="cal-visit-tag" style="background:${color}">往診</div>`;
     });
   }
-  
+
   if (normalEvents.length) {
     html += '<div class="cal-evt-container">';
     normalEvents.slice(0, 3).forEach(function (event) {
