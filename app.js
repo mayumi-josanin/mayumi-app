@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzGyw95U7fo-StoETPnGmjqUEYVVqWWFByYTcLLRcPO3P5NF8kLXkf86zp1OA4VC48K7Q/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.14';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzM-qPlBMA2138CAAWiceHFqiHD9HztpEkG7--kuxvyc6YKNJkTSYdLnSCadP9IIvFgUQ/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.15';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -1077,6 +1077,8 @@ const PRODUCTS = [
   { category: '冷え取りパット', name: '冷え取りパット（1枚）', price: 880, icon: '🌸', bg: 'c3', imgKey: 'pad', description: 'まずは試してみたい方に。高品質な国産よもぎ成分を配合。' },
 ];
 
+const NOTICE_FEED_START_DATE = '2026-04-01';
+
 const FALLBACK_BLOG = [
   { date: '2025.06.15', category: 'お知らせ', type: 'お知らせ', icon: '🌷', title: '夏の産後ヨガ体験会開催のご案内', body: '今年の夏も産後ヨガ体験会を開催いたします。初めての方も大歓迎です。お気軽にご参加ください。' },
   { date: '2025.06.10', category: 'ブログ', type: 'ブログ', icon: '🍵', title: '授乳期にうれしい！おすすめハーブティー', body: '授乳中のママにぴったりのよもぎ茶をご紹介します。ノンカフェインで体を温める効果があります。' },
@@ -1105,12 +1107,15 @@ const SUPPORT_APP_GUIDE = [
   { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,最新,再読み込み,リロード,refresh', answer: '画面上部の「🔄」ボタンを押すと、最新のお知らせ・商品・カレンダー・FAQ・特典状況などを更新できます。', priority: 95 },
   { category: '更新', question: 'アップデートが必要と表示されたらどうすればいいですか？', keywords: 'アップデート,更新が必要,app store,最新版', answer: '起動時に「アップデートが必要です」と表示された場合は、案内に従って最新版へ更新してください。軽微な情報更新は「🔄」ボタンで反映できます。', priority: 94 },
   { category: '予約', question: '予約はアプリからできますか？', keywords: '予約,よやく,line,予約方法', answer: 'このアプリから予約確定はできません。予約や個別相談は公式LINEからご連絡ください。メニュー一覧では内容確認のみできます。', priority: 93 },
-  { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。ガチャ結果はマイページの「🎁 特典取得状況」で確認できます。', priority: 92 }
+  { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。ガチャ結果はマイページの「🎁 特典取得状況」で確認できます。', priority: 92 },
+  { category: 'NEWS', question: 'まゆみのブログとは何ですか？', keywords: 'まゆみのブログ,ブログ,外部ブログ', answer: '「まゆみのブログ」はマイページの「🔗 公式サイト・SNS」内にある外部ブログへのリンクです。院長の日々の想いや詳しい記事を読むことができます。ニュース内の「つぶやき」とは別物です。', priority: 88 },
+  { category: 'NEWS', question: 'まゆみのつぶやきってどこで見られますか？', keywords: 'つぶやき,NEWS,カテゴリ,告知,メッセージ', answer: '「まゆみのつぶやき」はNEWSページの右上のカテゴリ選択で「まゆみのつぶやき」を選ぶと表示されます。アプリ内で手軽に読める院長からの短いメッセージや、大切なお知らせが配信されます。', priority: 86 }
 ];
 
 const SUPPORT_APP_KEYWORDS = [
   'アプリ', '使い方', 'プロフィール', 'アイコン', '通知', '注文', '履歴', 'スタンプ', '特典',
-  'ガチャ', '予約', 'メニュー', 'カレンダー', 'news', '更新', 'アップデート', '公式line'
+  'ガチャ', '予約', 'メニュー', 'カレンダー', 'news', '更新', 'アップデート', '公式line',
+  'ブログ', 'つぶやき', 'まゆみのブログ', 'まゆみのつぶやき'
 ];
 
 function normalizeProductCategory(category) {
@@ -1208,9 +1213,13 @@ async function loadProducts() {
     const imageSource = (product.icon && (product.icon.startsWith('http') || product.icon.startsWith('data:')))
       ? product.icon
       : (PROD_IMAGES[product.imgKey] || `https://placehold.jp/24/c18151/ffffff/150x150.png?text=${encodeURIComponent(product.name)}`);
+    const iconBadge = product.icon && !/^https?:\/\//i.test(product.icon) && !/^data:/i.test(product.icon)
+      ? `<span class="shop-icon-badge">${escapeHtml(product.icon)}</span>`
+      : '';
     card.innerHTML = `
       <div class="shop-img ${product.bg}">
         <img src="${imageSource}" alt="${product.name}">
+        ${iconBadge}
       </div>
       <div class="shop-info">
         <div class="shop-name">${product.name}</div>
@@ -1270,7 +1279,6 @@ async function loadPushNotices() {
     }).filter(function (notice) {
       return notice.title || notice.body;
     });
-    allBlogCategories = Array.isArray(data.categories) ? data.categories : [];
   } else {
     pushNotices = [];
   }
@@ -1443,6 +1451,9 @@ async function loadCalendar() {
     calendarData = [];
   }
   renderCalendar();
+  if (document.getElementById('page-notices').classList.contains('active')) {
+    renderPushNotices();
+  }
 }
 
 function formatCalendarDateKey(date) {
@@ -1541,10 +1552,18 @@ function buildCalendarEventListItem(event, showDate) {
 // これが変わる → 拡声器バッジを表示
 function computeNoticeListHash() {
   try {
-    const blogPart = (blogItems || []).map(i => (i.date || '') + '_' + (i.title || '')).join('|');
-    const calPart = (calendarData || []).filter(i => !(i.title && (i.title.includes('休') || i.title.includes('往')))).map(i => (i.date || '') + '_' + (i.title || '')).join('|');
-    const noticePart = (pushNotices || []).map(n => (n.date || '') + '_' + (n.title || '')).join('|');
-    return [blogPart, calPart, noticePart].join('@@');
+    const visibleNoticePart = buildNoticeFeedItems().map(function (item) {
+      return [
+        item.kind || '',
+        item.timestamp || '',
+        item.dateLabel || '',
+        item.category || '',
+        item.title || '',
+        item.body || '',
+        item.image || ''
+      ].join('_');
+    }).join('|');
+    return visibleNoticePart;
   } catch (e) {
     console.error('[同期] ハッシュ計算エラー:', e);
     return '';
@@ -1575,7 +1594,7 @@ async function fetchLatestManagedContent(options) {
   ];
 
   if (opts.refreshSupportFaq) tasks.push(tryTask('FAQ', () => loadSupportFaq(true)));
-  if (opts.refreshMenus || currentPage === 'page-menu-list') tasks.push(tryTask('メニュー', () => loadMenus()));
+  tasks.push(tryTask('メニュー', () => loadMenus({ silent: currentPage !== 'page-menu-list' })));
   if (opts.refreshOrderHistory || currentPage === 'page-mypage') tasks.push(tryTask('履歴', () => renderOrderHistory()));
 
   await Promise.all(tasks);
@@ -1584,6 +1603,21 @@ async function fetchLatestManagedContent(options) {
     updateNavBadges();
   } catch (e) {
     console.error('[同期] バッジ表示更新エラー:', e);
+  }
+}
+
+async function refreshNoticeFeed() {
+  await Promise.all([
+    tryTask('ニュース', () => loadBlog()),
+    tryTask('カレンダー', () => loadCalendar()),
+    tryTask('通知', () => loadPushNotices()),
+    tryTask('メニュー', () => loadMenus({ silent: true, allowMissingContainer: true }))
+  ]);
+
+  try {
+    updateNavBadges();
+  } catch (e) {
+    console.error('[お知らせ同期] バッジ表示更新エラー:', e);
   }
 }
 
@@ -1778,11 +1812,12 @@ function renderPushNotices() {
 }
 
 function buildNoticeFeedItems() {
+  const minimumTimestamp = getNoticeItemTimestamp(NOTICE_FEED_START_DATE);
   const blogFeed = (blogItems || []).map(function (item) {
     return {
       kind: 'blog',
-      timestamp: parseLooseDateToTimestamp(item.date),
-      dateLabel: item.date || '',
+      timestamp: getNoticeItemTimestamp(item.date),
+      dateLabel: formatNoticeDateLabel(item.date),
       category: item.category || getBlogItemType(item),
       title: item.title || '',
       body: item.body || '',
@@ -1797,8 +1832,8 @@ function buildNoticeFeedItems() {
   }).map(function (event) {
     return {
       kind: 'calendar',
-      timestamp: parseLooseDateToTimestamp(event.date),
-      dateLabel: String(event.date || ''),
+      timestamp: getNoticeItemTimestamp(event.date),
+      dateLabel: formatNoticeDateLabel(event.date),
       category: 'カレンダー',
       title: event.title || '',
       body: event.desc || '',
@@ -1807,11 +1842,24 @@ function buildNoticeFeedItems() {
     };
   });
 
+  const menuFeed = (USER_MENUS || []).map(function (menu) {
+    return {
+      kind: 'menu',
+      timestamp: getNoticeItemTimestamp(menu.date),
+      dateLabel: formatNoticeDateLabel(menu.date),
+      category: 'メニュー',
+      title: menu.name || '',
+      body: menu.description || (menu.reservationStatus ? '予約状況: ' + menu.reservationStatus : ''),
+      image: getDisplayImageUrl(menu.imageUrl || ''),
+      icon: '🍴'
+    };
+  });
+
   const pushFeed = (pushNotices || []).map(function (notice) {
     return {
       kind: 'push',
-      timestamp: Number(notice.date || 0),
-      dateLabel: formatPushNoticeDate(notice.date),
+      timestamp: getNoticeItemTimestamp(notice.date),
+      dateLabel: formatNoticeDateLabel(notice.date),
       category: 'Push通知',
       title: notice.title || 'お知らせ',
       body: notice.body || '',
@@ -1820,7 +1868,9 @@ function buildNoticeFeedItems() {
     };
   });
 
-  return blogFeed.concat(calendarFeed, pushFeed).sort(function (a, b) {
+  return blogFeed.concat(calendarFeed, menuFeed, pushFeed).filter(function (item) {
+    return (item.timestamp || 0) >= minimumTimestamp;
+  }).sort(function (a, b) {
     return (b.timestamp || 0) - (a.timestamp || 0);
   });
 }
@@ -1844,6 +1894,7 @@ function normalizeBlogItems(items, categories) {
     const inferredType = getInferredBlogType(category, categoryTypeMap[category], item && item.type);
     return {
       date: normalizeBlogDate(item && item.date),
+      updatedAt: String(item && item.updatedAt || item && item.date || ''),
       title: String(item && item.title || ''),
       category: category,
       type: inferredType,
@@ -1854,6 +1905,10 @@ function normalizeBlogItems(items, categories) {
     };
   }).filter(function (item) {
     return item.title;
+  }).sort(function (a, b) {
+    const timeA = parseLooseDateToTimestamp(a.updatedAt || a.date);
+    const timeB = parseLooseDateToTimestamp(b.updatedAt || b.date);
+    return timeB - timeA;
   });
 }
 
@@ -1903,6 +1958,28 @@ function parseLooseDateToTimestamp(rawValue) {
   }
   const parsed = Date.parse(raw);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getNoticeItemTimestamp(rawValue) {
+  return parseLooseDateToTimestamp(rawValue);
+}
+
+function hasExplicitTimeValue(rawValue) {
+  if (typeof rawValue === 'number' && Number.isFinite(rawValue)) return true;
+  return /\d{1,2}:\d{2}/.test(String(rawValue || '').trim());
+}
+
+function formatNoticeDateLabel(rawValue) {
+  const timestamp = getNoticeItemTimestamp(rawValue);
+  if (!timestamp) return String(rawValue || '');
+  const date = new Date(timestamp);
+  const dateLabel = date.getFullYear() + '.' +
+    String(date.getMonth() + 1).padStart(2, '0') + '.' +
+    String(date.getDate()).padStart(2, '0');
+  if (!hasExplicitTimeValue(rawValue)) return dateLabel;
+  return dateLabel + ' ' +
+    String(date.getHours()).padStart(2, '0') + ':' +
+    String(date.getMinutes()).padStart(2, '0');
 }
 
 function formatPushNoticeDate(rawValue) {
@@ -2380,12 +2457,16 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id, e) { if (e && e.target !== document.getElementById(id)) return; document.getElementById(id).classList.remove('open'); }
 function switchPage(name) {
   if (name === 'blog') {
-    const hash = blogItems.map(function (i) { return i.date + '_' + i.title; }).join('|');
+    const hash = blogItems.map(function (i) {
+      return [i.updatedAt || '', i.date || '', i.title || '', i.body || ''].join('_');
+    }).join('|');
     localStorage.setItem('last_seen_blog_hash', hash);
     document.getElementById('badge-blog').style.display = 'none';
   }
   if (name === 'calendar') {
-    const hash = calendarData.map(function (i) { return i.date + '_' + i.title; }).join('|');
+    const hash = calendarData.map(function (i) {
+      return [i.updatedAt || '', i.date || '', i.title || '', i.desc || ''].join('_');
+    }).join('|');
     localStorage.setItem('last_seen_calendar_hash', hash);
     document.getElementById('badge-calendar').style.display = 'none';
   }
@@ -2394,6 +2475,11 @@ function switchPage(name) {
     localStorage.setItem('last_seen_notices_hash', computeNoticeListHash());
     document.getElementById('badge-notices').style.display = 'none';
     renderPushNotices();
+    if (isDataLoaded) {
+      refreshNoticeFeed().catch(function (e) {
+        console.error('notice feed refresh error:', e);
+      });
+    }
   }
   if (name === 'home') {
     updateNavBadges();
@@ -2541,7 +2627,9 @@ function updateNavBadges() {
   const blogBadge = document.getElementById('badge-blog');
   if (blogBadge && blogItems && blogItems.length > 0) {
     const lastSeenHash = localStorage.getItem('last_seen_blog_hash');
-    const currentHash = blogItems.map(function (i) { return i.date + '_' + i.title; }).join('|');
+    const currentHash = blogItems.map(function (i) {
+      return [i.updatedAt || '', i.date || '', i.title || '', i.body || ''].join('_');
+    }).join('|');
     if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-blog') {
       blogBadge.style.display = 'block';
       totalCount++;
@@ -2557,7 +2645,9 @@ function updateNavBadges() {
   const calBadge = document.getElementById('badge-calendar');
   if (calBadge && calendarData && calendarData.length > 0) {
     const lastSeenHash = localStorage.getItem('last_seen_calendar_hash');
-    const currentHash = calendarData.map(function (i) { return i.date + '_' + i.title; }).join('|');
+    const currentHash = calendarData.map(function (i) {
+      return [i.updatedAt || '', i.date || '', i.title || '', i.desc || ''].join('_');
+    }).join('|');
     if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-calendar') {
       calBadge.style.display = 'block';
       totalCount++;
@@ -2770,7 +2860,7 @@ function detectSupportTopic(messageNorm) {
   if (hasAnySupportKeyword(messageNorm, ['プロフィール', '会員id', 'memberid', '会員番号', 'アイコン', 'アバター', 'バナー', '画像'])) return 'profile';
   if (hasAnySupportKeyword(messageNorm, ['メニュー', '施術'])) return 'menu';
   if (hasAnySupportKeyword(messageNorm, ['カレンダー', 'イベント', '予定', '日程'])) return 'calendar';
-  if (hasAnySupportKeyword(messageNorm, ['news', 'ニュース', 'お知らせ', 'ブログ', 'お知らせ一覧', '通知一覧', '📢', '新着'])) return 'news';
+  if (hasAnySupportKeyword(messageNorm, ['news', 'ニュース', 'お知らせ', 'ブログ', 'お知らせ一覧', '通知一覧', '📢', '新着', 'つぶやき', 'まゆみのブログ', 'まゆみのつぶやき'])) return 'news';
   if (hasAnySupportKeyword(messageNorm, ['line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', 'お問い合わせ'])) return 'links';
   if (hasAnySupportKeyword(messageNorm, ['チャット', 'サポート', 'ボット', '相談'])) return 'support-chat';
   if (hasAnySupportKeyword(messageNorm, ['ホーム', 'トップ'])) return 'home';
@@ -3171,6 +3261,29 @@ function getFeatureSupportReply(messageNorm) {
   }
 
   if (topic === 'news') {
+    if (hasAnySupportKeyword(messageNorm, ['まゆみのブログ', 'ブログ'])) {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '「まゆみのブログ」は、マイページの「🔗 公式サイト・SNS」から閲覧できる外部ブログです。',
+          '以前から続いている院長のブログ記事をじっくり読むことができます。',
+          'NEWSにある「まゆみのつぶやき」とは内容が異なりますので、ぜひ両方チェックしてみてくださいね。'
+        ],
+        ['まゆみのブログとは何ですか？', 'まゆみのつぶやきはどこで見られますか？']
+      );
+    }
+    if (hasAnySupportKeyword(messageNorm, ['まゆみのつぶやき', 'つぶやき'])) {
+      return buildFeatureSupportReply(
+        topic,
+        [
+          '「まゆみのつぶやき」は、NEWSページ内の特定のカテゴリです。',
+          '1. 下部メニューの「💬 NEWS」を開きます。',
+          '2. 右上のカテゴリ選択から「まゆみのつぶやき」を選んでください。',
+          'アプリ内で手軽に読める院長からのメッセージや、最新の活動報告などが掲載されています。'
+        ],
+        ['まゆみのつぶやきはどこで見られますか？', 'まゆみのブログとは何ですか？']
+      );
+    }
     return buildFeatureSupportReply(
       topic,
       isSupportBlogArchiveQuestion(messageNorm)
@@ -3184,7 +3297,7 @@ function getFeatureSupportReply(messageNorm) {
           '2. 画面上部の📢ボタンでは、ブログ・お知らせ・Push通知などをまとめて確認できます。',
           '3. 新着があるとアイコンに赤いドットが表示されます。'
         ],
-      ['ブログや過去のお知らせの見方を知りたい', '📢ボタンの機能は何ですか？']
+      ['ブログや過去のお知らせの見方を知りたい', 'まゆみのブログとは何ですか？']
     );
   }
 
@@ -4624,11 +4737,15 @@ document.addEventListener('visibilitychange', function () {
       // 前回取得から1分以上経過していたら再取得
       if (elapsed > 60000) {
         lastFetchTime = Date.now();
-        fetchLatestManagedContent({
-          refreshSupportFaq: true,
-          refreshMenus: false,
-          refreshOrderHistory: false
-        }).then(() => {
+        const activePageId = document.querySelector('.page.active')?.id || '';
+        const fetchTask = activePageId === 'page-notices'
+          ? refreshNoticeFeed()
+          : fetchLatestManagedContent({
+            refreshSupportFaq: true,
+            refreshMenus: false,
+            refreshOrderHistory: false
+          });
+        fetchTask.then(() => {
           isDataLoaded = true;
           updateNavBadges();
         }).catch(function () { });
@@ -4648,6 +4765,23 @@ document.addEventListener('visibilitychange', function () {
     });
   }
 });
+
+setInterval(function () {
+  if (document.visibilityState !== 'visible' || !isDataLoaded) return;
+  const activePageId = document.querySelector('.page.active')?.id || '';
+  if (activePageId !== 'page-notices') return;
+
+  const elapsed = Date.now() - lastFetchTime;
+  if (elapsed <= 60000) return;
+
+  lastFetchTime = Date.now();
+  refreshNoticeFeed().then(function () {
+    isDataLoaded = true;
+    updateNavBadges();
+  }).catch(function (e) {
+    console.error('periodic notice feed refresh error:', e);
+  });
+}, 90000);
 
 
 
@@ -4820,25 +4954,49 @@ function stopScanner() {
 }
 
 // メニュー一覧取得
-async function loadMenus() {
+async function loadMenus(options) {
   const container = document.getElementById('menuListContainer');
-  if (!container) return;
+  const opts = options || {};
+  if (!container && !opts.allowMissingContainer) return;
 
-  container.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  if (container && !opts.silent) {
+    container.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  }
 
   const res = await getFromGAS('getMenus');
   if (res && res.status === 'ok') {
-    USER_MENUS = res.menus || [];
+    USER_MENUS = normalizeUserMenus(res.menus || []);
 
     // Add originalIndex to each menu to ensure detail modal always opens correct item
     USER_MENUS.forEach((m, idx) => {
       m.originalIndex = idx;
     });
 
-    renderMenus();
+    if (container) renderMenus();
+    if (document.getElementById('page-notices').classList.contains('active')) {
+      renderPushNotices();
+    }
   } else {
-    container.innerHTML = '<div class="empty-state">読み込みに失敗しました</div>';
+    if (container && !opts.silent) {
+      container.innerHTML = '<div class="empty-state">読み込みに失敗しました</div>';
+    }
   }
+}
+
+function normalizeUserMenus(items) {
+  return (items || []).map(function (item) {
+    return {
+      rowIdx: item && item.rowIdx,
+      date: String(item && item.date || ''),
+      updatedAt: String(item && item.updatedAt || item && item.date || ''),
+      name: String(item && item.name || ''),
+      imageUrl: String(item && item.imageUrl || ''),
+      description: String(item && item.description || ''),
+      reservationStatus: String(item && item.reservationStatus || '')
+    };
+  }).filter(function (item) {
+    return item.name;
+  });
 }
 
 function renderMenus() {
