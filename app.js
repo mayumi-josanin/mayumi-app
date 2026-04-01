@@ -2549,6 +2549,68 @@ function getCurrentPushSubscriptionValue(enabled) {
   return getStoredNativePushPlayerId() || getStoredNativePushToken() || true;
 }
 
+function getOneSignalPushSubscription(oneSignal) {
+  if (!oneSignal || !oneSignal.User || !oneSignal.User.PushSubscription) return null;
+  return oneSignal.User.PushSubscription;
+}
+
+async function getOneSignalPermissionState(oneSignal) {
+  if (!oneSignal || !oneSignal.Notifications) return false;
+  try {
+    const permission = oneSignal.Notifications.permission;
+    if (permission && typeof permission.then === 'function') {
+      return !!(await permission);
+    }
+    return !!permission;
+  } catch (e) {
+    console.error('OneSignal permission read error:', e);
+    return false;
+  }
+}
+
+function getOneSignalSubscriptionValue(oneSignal) {
+  const sub = getOneSignalPushSubscription(oneSignal);
+  if (!sub) return true;
+  return sub.id || sub.token || true;
+}
+
+async function syncWebPushState(options) {
+  const opts = options || {};
+  const OS = opts.oneSignal || window.OneSignalRef;
+  const sub = getOneSignalPushSubscription(OS);
+  if (!OS || !OS.Notifications || !sub) return false;
+
+  const permissionGranted = await getOneSignalPermissionState(OS);
+  if (!permissionGranted) {
+    await applyPushEnabledState(false, { syncProfile: opts.syncProfile === true });
+    return false;
+  }
+
+  try {
+    if (opts.targetEnabled === false && sub.optedIn && typeof sub.optOut === 'function') {
+      await sub.optOut();
+    } else if (opts.targetEnabled === true && !sub.optedIn && typeof sub.optIn === 'function') {
+      await sub.optIn();
+    } else if (opts.reconcile !== false) {
+      const savedPreference = getStoredPushPreference();
+      if (savedPreference === 'false' && sub.optedIn && typeof sub.optOut === 'function') {
+        await sub.optOut();
+      } else if (savedPreference === 'true' && !sub.optedIn && typeof sub.optIn === 'function') {
+        await sub.optIn();
+      }
+    }
+  } catch (e) {
+    console.error('OneSignal push sync error:', e);
+  }
+
+  const enabled = !!sub.optedIn;
+  await applyPushEnabledState(enabled, {
+    syncProfile: opts.syncProfile === true,
+    subscriptionValue: enabled ? getOneSignalSubscriptionValue(OS) : false
+  });
+  return enabled;
+}
+
 async function syncPushPreferenceToProfile(enabled, subscriptionValue) {
   if (!_profile || !_profile.memberId) return;
   try {
@@ -4527,9 +4589,16 @@ async function togglePush() {
   }
 
   try {
-    console.log('togglePush: OneSignal available. Permission status:', OS.Notifications.permission);
-    if (OS.Notifications.permission) {
-      const isOn = OS.User.PushSubscription.optedIn;
+    const permissionGranted = await getOneSignalPermissionState(OS);
+    const sub = getOneSignalPushSubscription(OS);
+    if (!sub) {
+      await handleNativeNotificationFallback();
+      return;
+    }
+
+    console.log('togglePush: OneSignal available. Permission status:', permissionGranted);
+    if (permissionGranted) {
+      const isOn = !!sub.optedIn;
       console.log('togglePush: Current subscription status:', isOn);
       if (isOn) {
         const shouldOptOut = await showAppConfirm('プッシュ通知をオフにしますか？', {
@@ -4539,28 +4608,46 @@ async function togglePush() {
           confirmVariant: 'danger'
         });
         if (shouldOptOut) {
-          await OS.User.PushSubscription.optOut();
-          await applyPushEnabledState(false);
+          await syncWebPushState({
+            oneSignal: OS,
+            syncProfile: true,
+            targetEnabled: false,
+            reconcile: false
+          });
           showToast('通知をオフにしました');
         }
       } else {
         console.log('togglePush: Opting in...');
-        await OS.User.PushSubscription.optIn();
-        await applyPushEnabledState(true);
-        showToast('有効化しました！ ✅');
+        const enabled = await syncWebPushState({
+          oneSignal: OS,
+          syncProfile: true,
+          targetEnabled: true,
+          reconcile: false
+        });
+        if (enabled) {
+          showToast('有効化しました！ ✅');
+        } else {
+          await showAppAlert('通知が許可されませんでした。\nSafariの設定を確認してください。', {
+            title: '通知設定',
+            confirmLabel: '閉じる'
+          });
+        }
       }
       return;
     }
 
     console.log('togglePush: Requesting initial permission...');
     await OS.Notifications.requestPermission();
-    const finalStatus = OS.User.PushSubscription.optedIn;
+    const finalStatus = await syncWebPushState({
+      oneSignal: OS,
+      syncProfile: true,
+      targetEnabled: true,
+      reconcile: false
+    });
     console.log('togglePush: Permission result status:', finalStatus);
     if (finalStatus) {
-      await applyPushEnabledState(true);
       showToast('有効化しました！ ✅');
     } else {
-      await applyPushEnabledState(false, { syncProfile: false });
       await showAppAlert('通知が許可されませんでした。\nSafariの設定を確認してください。', {
         title: '通知設定',
         confirmLabel: '閉じる'
@@ -4686,12 +4773,6 @@ async function initApp() {
         let perm = await PushNotifications.checkPermissions();
         console.log('Current Native Perm:', perm.receive);
 
-        if (perm.receive === 'prompt') {
-          console.log('Requesting Push Permissions...');
-          perm = await PushNotifications.requestPermissions();
-          console.log('Resulting Native Perm:', perm.receive);
-        }
-
         if (perm.receive === 'granted') {
           if (getStoredPushPreference() === 'false') {
             if (typeof PushNotifications.unregister === 'function') {
@@ -4709,6 +4790,12 @@ async function initApp() {
             await PushNotifications.register();
             console.log('Native Push Registration Call Sent');
           }
+        } else if (perm.receive === 'prompt') {
+          localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
+          setStoredNativePushPlayerId('');
+          setStoredNativePushToken('');
+          updatePushUI('off');
+          console.log('Native push permission prompt deferred until user taps the toggle');
         } else {
           localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, 'false');
           setStoredNativePushPlayerId('');
@@ -4849,27 +4936,22 @@ setInterval(function () {
       }).catch(e => {
         console.error('OneSignal: Init Error:', e);
       }).finally(() => {
-        // 15秒おきに ID が取れるまで粘り強くチェック
+        syncWebPushState({
+          oneSignal: OneSignal,
+          syncProfile: false
+        }).catch(err => {
+          console.error('OneSignal: Initial push sync error:', err);
+        });
+
+        // 15秒おきに購読状態を同期
         const syncInterval = setInterval(async () => {
-          const sub = OneSignal.User.PushSubscription;
-          const perm = await OneSignal.Notifications.permission;
-
-          if (sub.id) {
-            await applyPushEnabledState(true, { syncProfile: false });
-            clearInterval(syncInterval);
-            return;
-          }
-
-          if (perm) {
-            await applyPushEnabledState(true, { syncProfile: false });
-            try {
-              await OneSignal.User.PushSubscription.optIn();
-            } catch (err) {
-              console.error('OneSignal: Push sync error:', err);
-            }
-          } else {
-            await applyPushEnabledState(false, { syncProfile: false });
-            clearInterval(syncInterval);
+          try {
+            await syncWebPushState({
+              oneSignal: OneSignal,
+              syncProfile: false
+            });
+          } catch (err) {
+            console.error('OneSignal: Push sync error:', err);
           }
         }, 15000);
 
@@ -4878,12 +4960,22 @@ setInterval(function () {
 
       // イベントリスナーの集約
       OneSignal.Notifications.addEventListener("permissionChange", function (perm) {
-        if (perm) { applyPushEnabledState(true); }
-        else { applyPushEnabledState(false); }
+        syncWebPushState({
+          oneSignal: OneSignal,
+          syncProfile: false,
+          reconcile: false
+        }).catch(err => {
+          console.error('OneSignal: permissionChange sync error:', err, perm);
+        });
       });
       OneSignal.User.PushSubscription.addEventListener("change", function (e) {
-        const isOn = e.current.optedIn;
-        applyPushEnabledState(isOn);
+        syncWebPushState({
+          oneSignal: OneSignal,
+          syncProfile: false,
+          reconcile: false
+        }).catch(err => {
+          console.error('OneSignal: subscriptionChange sync error:', err, e);
+        });
       });
     });
   }
