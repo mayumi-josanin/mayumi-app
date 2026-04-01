@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyTzf1bbabiREOdq-Kcl66mTfI1pcZ2t8sPYquu9PRhvh465DnmYoIB8hRwSLH0GEFyQg/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.17';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLPw-WXl9lf1YTFAimEqZVCm8TjpbPaUWSUJgxo5NoA2Z60jlQAluXTX5EjRDmUZcXsA/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.20';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
