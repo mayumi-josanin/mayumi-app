@@ -76,7 +76,11 @@ function getCurrentPlatformName() {
 function isLikelyCapacitorRuntime() {
   const href = window.location && window.location.href ? String(window.location.href) : '';
   const ua = navigator && navigator.userAgent ? String(navigator.userAgent) : '';
-  return href.startsWith('capacitor://') || ua.includes('Capacitor') || !!window.Capacitor;
+  // capacitor:// は確実にネイティブアプリ。Capacitor文字列はUAに含まれる場合がある。
+  // window.Capacitor が存在し、かつ window.Capacitor.isNative が true なら確実に実機。
+  return href.startsWith('capacitor://') ||
+    ua.includes('Capacitor') ||
+    (window.Capacitor && window.Capacitor.isNative === true);
 }
 
 async function waitForCapacitorPushPlugin(timeoutMs) {
@@ -4595,9 +4599,9 @@ async function togglePush() {
     return;
   }
 
-  if (isLikelyCapacitorRuntime()) {
-    showToast('通知設定の準備中です。数秒後にもう一度お試しください。');
-    return;
+  // Capacitor環境だと推測されるがプラグインが見つからない場合、1回だけ警告を出してWebフローへ。
+  if (isLikelyCapacitorRuntime() && !Push) {
+    console.warn('Native environment suspected but Push plugin not found. Falling back to Web/OneSignal...');
   }
 
   // Web環境 (OneSignal SDK) の場合
@@ -4685,15 +4689,15 @@ async function togglePush() {
 }
 
 async function handleNativeNotificationFallback() {
-  const btn = document.getElementById('push-btn');
+  // OneSignalが使えない場合（SDKエラーなど）の保険として、標準ブラウザ通知での切り替えを試みる
   if (isPushEnabled()) {
     await applyPushEnabledState(false, { syncProfile: false });
-    showToast('通知をオフにしました');
+    showToast('通知設定（ブラウザ版）をオフにしました');
     return;
   }
 
   if (!('Notification' in window)) {
-    showToast('通知が利用できません。ブラウザの設定を確認してください。');
+    showToast('通知が利用できません。ブラウザの設定で通知を許可してください。');
     return;
   }
 
@@ -4701,10 +4705,10 @@ async function handleNativeNotificationFallback() {
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
       await applyPushEnabledState(true, { syncProfile: false });
-      showToast('通知を有効化しました！ ✅');
+      showToast('通知設定（ブラウザ版）をオンにしました！ ✅');
     } else {
       await applyPushEnabledState(false, { syncProfile: false });
-      await showAppAlert('通知が許可されませんでした。\nブラウザの設定を確認してください。', {
+      await showAppAlert('通知が許可されませんでした。\nブラウザの設定で通知（プッシュ通知）が許可されているか確認してください。', {
         title: '通知設定',
         confirmLabel: '閉じる'
       });
