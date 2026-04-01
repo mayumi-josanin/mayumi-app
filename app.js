@@ -1295,7 +1295,7 @@ async function loadPushNotices() {
   if (data && data.status === 'ok' && Array.isArray(data.notices)) {
     pushNotices = data.notices.map(function (notice) {
       return {
-        date: Number(notice && notice.date || 0),
+        date: notice && notice.date || 0,
         title: String(notice && notice.title || 'お知らせ'),
         body: String(notice && notice.body || '')
       };
@@ -1839,7 +1839,7 @@ function buildNoticeFeedItems() {
   const blogFeed = (blogItems || []).map(function (item) {
     return {
       kind: 'blog',
-      timestamp: getNoticeItemTimestamp(item.date),
+      timestamp: getNoticeItemTimestamp(item.updatedAt || item.date),
       dateLabel: formatNoticeDateLabel(item.date),
       category: item.category || getBlogItemType(item),
       title: item.title || '',
