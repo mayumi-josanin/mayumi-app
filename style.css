@@ -785,6 +785,24 @@
       font-weight: 500;
     }
 
+    .shop-icon-badge {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      min-width: 34px;
+      height: 34px;
+      padding: 0 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, .92);
+      border: 1px solid rgba(180, 146, 118, .18);
+      box-shadow: 0 3px 10px rgba(78, 52, 46, .12);
+      font-size: 18px;
+      line-height: 1;
+    }
+
     .shop-info {
       padding: 10px 11px;
     }
@@ -1563,6 +1581,13 @@
       font-size: 30px;
       line-height: 1;
       transition: transform .18s;
+    }
+
+    .nav-icon svg {
+      display: block;
+      width: 26px;
+      height: 26px;
+      margin: 0 auto;
     }
 
     .nav-btn:hover .nav-icon {
