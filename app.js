@@ -4522,8 +4522,7 @@ async function togglePush() {
 
   const OS = window.OneSignalRef;
   if (!OS || !OS.Notifications) {
-    const msg = !OS ? 'OneSignal SDK未読み込み' : 'Notifications API未対応';
-    showToast('エラー: ' + msg + '。リロードしてください。');
+    await handleNativeNotificationFallback();
     return;
   }
 
@@ -4569,6 +4568,37 @@ async function togglePush() {
     }
   } catch (e) {
     console.error('togglePush Web error:', e);
+    showToast('通知設定中にエラーが発生しました');
+  }
+}
+
+async function handleNativeNotificationFallback() {
+  const btn = document.getElementById('push-btn');
+  if (isPushEnabled()) {
+    await applyPushEnabledState(false, { syncProfile: false });
+    showToast('通知をオフにしました');
+    return;
+  }
+
+  if (!('Notification' in window)) {
+    showToast('通知が利用できません。ブラウザの設定を確認してください。');
+    return;
+  }
+
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      await applyPushEnabledState(true, { syncProfile: false });
+      showToast('通知を有効化しました！ ✅');
+    } else {
+      await applyPushEnabledState(false, { syncProfile: false });
+      await showAppAlert('通知が許可されませんでした。\nブラウザの設定を確認してください。', {
+        title: '通知設定',
+        confirmLabel: '閉じる'
+      });
+    }
+  } catch (e) {
+    console.error('Notification fallback error:', e);
     showToast('通知設定中にエラーが発生しました');
   }
 }
