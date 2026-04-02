@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx8fe47pgWwM9C6zuDpbwdHSAmjvFz2paX25TSvIhgFzCvI5kdYfRNUm6wedZsyhImfSA/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.29';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzmTpurpfCKsXR7JoZa8l_f5UCblEqK_-aPmzTceFHgBmTkQQs-BqQen_7u9TZRoH7UOQ/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.30';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -985,8 +985,8 @@ function renderEarnedRewards() {
       btnHtml = `<button class="btn primary" style="padding:6px 12px; font-size:12px; margin-top:10px;" onclick='useReward(${JSON.stringify(reward.id)})'>使用する</button>`;
     }
 
-    const earnedStr = new Date(reward.earnedDate).toLocaleDateString('ja-JP');
-    const expiryStr = expiry.toLocaleDateString('ja-JP');
+    const earnedStr = formatCustomerDateYmd(reward.earnedDate);
+    const expiryStr = formatCustomerDateYmd(reward.expiryDate);
     const rewardTitle = escapeHtml(String(reward.rewardName || '特典プレゼント'));
     let countdownHtml = '';
     if (!reward.used && !isExpired) {
@@ -1487,17 +1487,11 @@ function formatCalendarDateKey(date) {
 }
 
 function formatCalendarDisplayDate(dateValue) {
-  const raw = String(dateValue || '').trim().split(/[ T]/)[0];
-  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return raw;
-  return Number(match[2]) + '月' + Number(match[3]) + '日';
+  return formatCustomerDateYmd(dateValue);
 }
 
 function formatCalendarCompactDate(dateValue) {
-  const raw = String(dateValue || '').trim().split(/[ T]/)[0];
-  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return raw;
-  return Number(match[2]) + '/' + Number(match[3]);
+  return formatCustomerDateYmd(dateValue);
 }
 
 function getCalendarEventsByDate(dateKey) {
@@ -2001,7 +1995,7 @@ function normalizeBlogDate(rawValue) {
   const raw = String(rawValue || '').trim();
   const match = raw.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})(?:\D+(\d{1,2}):(\d{1,2}))?$/);
   if (!match) return raw;
-  return match[1] + '.' + String(match[2]).padStart(2, '0') + '.' + String(match[3]).padStart(2, '0');
+  return match[1] + '/' + String(match[2]).padStart(2, '0') + '/' + String(match[3]).padStart(2, '0');
 }
 
 function getInferredBlogType(category, categoryType, rawType) {
@@ -2045,6 +2039,32 @@ function parseLooseDateToTimestamp(rawValue) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function formatCustomerDateYmd(rawValue) {
+  if (rawValue instanceof Date) {
+    if (Number.isNaN(rawValue.getTime())) return '';
+    return rawValue.getFullYear() + '/' +
+      String(rawValue.getMonth() + 1).padStart(2, '0') + '/' +
+      String(rawValue.getDate()).padStart(2, '0');
+  }
+  const raw = String(rawValue || '').trim();
+  if (!raw) return '';
+  const timestamp = parseLooseDateToTimestamp(rawValue);
+  if (Number.isFinite(timestamp) && timestamp !== 0) {
+    const date = new Date(timestamp);
+    if (!Number.isNaN(date.getTime())) {
+      return date.getFullYear() + '/' +
+        String(date.getMonth() + 1).padStart(2, '0') + '/' +
+        String(date.getDate()).padStart(2, '0');
+    }
+  }
+  const dateOnly = raw.split(/[ T]/)[0];
+  const match = dateOnly.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})$/);
+  if (match) {
+    return match[1] + '/' + String(match[2]).padStart(2, '0') + '/' + String(match[3]).padStart(2, '0');
+  }
+  return dateOnly.replace(/[.-]/g, '/');
+}
+
 function getNoticeItemTimestamp(rawValue) {
   return parseLooseDateToTimestamp(rawValue);
 }
@@ -2055,24 +2075,11 @@ function hasExplicitTimeValue(rawValue) {
 }
 
 function formatNoticeDateLabel(rawValue) {
-  const timestamp = getNoticeItemTimestamp(rawValue);
-  if (!timestamp) return String(rawValue || '');
-  const date = new Date(timestamp);
-  const dateLabel = date.getFullYear() + '.' +
-    String(date.getMonth() + 1).padStart(2, '0') + '.' +
-    String(date.getDate()).padStart(2, '0');
-  return dateLabel;
+  return formatCustomerDateYmd(rawValue);
 }
 
 function formatPushNoticeDate(rawValue) {
-  const timestamp = Number(rawValue || 0);
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  return date.getFullYear() + '.' +
-    String(date.getMonth() + 1).padStart(2, '0') + '.' +
-    String(date.getDate()).padStart(2, '0') + ' ' +
-    String(date.getHours()).padStart(2, '0') + ':' +
-    String(date.getMinutes()).padStart(2, '0');
+  return formatCustomerDateYmd(rawValue);
 }
 function openBlogDetail(item) {
   let detailImageHtml = '';
@@ -2233,8 +2240,7 @@ async function finalizeOrder(payLabel) {
   }, 0);
   // GAS側の getCurrentTime() と同じ形式: M/d HH:mm
   const now = new Date();
-  const ts = now.getFullYear() + '/' + (now.getMonth() + 1) + '/' + now.getDate() + ' ' +
-    now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+  const ts = formatCustomerDateYmd(now);
   const orderId = 'ORD-' + Date.now();
   const order = { id: orderId, items: cartSnapshot, total, payment: payLabel, status: 'pending', time: ts, memberId: _profile.memberId };
 
@@ -2434,7 +2440,7 @@ function renderOrderHistoryUI() {
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div>
               <span class="status-chip ${sc}">${sl}</span>
-              <span style="font-size:10px;color:var(--text-light);margin-left:8px">${o.time}</span>
+              <span style="font-size:10px;color:var(--text-light);margin-left:8px">${formatCustomerDateYmd(o.time)}</span>
             </div>
           </div>
           <div style="font-size:12px;color:var(--text-dark);margin:8px 0;line-height:1.5">${names}</div>
@@ -4363,8 +4369,7 @@ function saveProfile() {
   const isNew = !_profile;
   const now = new Date();
   // 登録/更新日時を yyyy/M/d H:mm 形式にする
-  const regDate = now.getFullYear() + '/' + (now.getMonth() + 1) + '/' + now.getDate() + ' ' +
-    now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+  const regDate = formatCustomerDateYmd(now);
 
   const memberId = isNew
     ? 'MYM-' + String(Math.floor(Math.random() * 9000) + 1000)
@@ -4490,9 +4495,9 @@ function updateProfileUI() {
   set('mypageMemberId', '会員ID：' + (_profile.memberId || '---'));
   set('profileName', _profile.name);
   set('profilePhone', _profile.phone || '未登録');
-  set('profileBirthday', _profile.birthday || '未登録');
+  set('profileBirthday', _profile.birthday ? formatCustomerDateYmd(_profile.birthday) : '未登録');
   set('profileAddress', _profile.address || '未登録');
-  set('profileRegDate', _profile.regDate || '---');
+  set('profileRegDate', _profile.regDate ? formatCustomerDateYmd(_profile.regDate) : '---');
   // アバター画像更新
   const avatarSrc = _avatarData || DEFAULT_AVATAR;
   const profileAvatar = document.getElementById('profileAvatar');
