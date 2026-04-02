@@ -1842,7 +1842,7 @@ function renderPushNotices() {
         hasEmbeddedImage: item.hasEmbeddedImage === true
       });
     };
-    list.appendChild(card);
+    container.appendChild(card);
   });
 }
 
@@ -1851,8 +1851,8 @@ function buildNoticeFeedItems() {
 
   // システム用表示名のマッピングを取得（「通知」セクションから）
   const getLabel = function (type, defaultLabel) {
-    if (!blogCategories || !Array.isArray(blogCategories)) return defaultLabel;
-    const found = blogCategories.find(c => c && c.type === '通知' && c.name && c.name.startsWith(type + ':'));
+    if (!allBlogCategories || !Array.isArray(allBlogCategories)) return defaultLabel;
+    const found = allBlogCategories.find(c => c && c.type === '通知' && c.name && c.name.startsWith(type + ':'));
     if (found) return found.name.split(':')[1] || defaultLabel;
     return defaultLabel;
   };
