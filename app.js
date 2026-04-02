@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwthEoRuUqPTrCZP9nDEPucdT9DbJAkl83OXfY_TYfeopk4Cepn9fQkjFq_QMqJGOY1Sg/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.27';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxRSgDJanw7LES3jqFaKQdjRQQQV93lqFK4SXli9NygZvJWGBrafz9TvqXcybAYJwHLwg/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.28';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -1854,8 +1854,8 @@ function buildNoticeFeedItems() {
   const blogFeed = (blogItems || []).map(function (item, index) {
     return {
       kind: 'blog',
-      // インデックスの重みを逆転させ、index 0 が最も大きくなるようにする
       sourceWeight: (blogItems.length - index),
+      sortOrder: Number(item.sortOrder || 0),
       timestamp: getNoticeItemTimestamp(item.updatedAt || item.date),
       dateLabel: formatNoticeDateLabel(item.date),
       category: item.category || getBlogItemType(item),
@@ -1867,13 +1867,14 @@ function buildNoticeFeedItems() {
     };
   });
 
-  // Calendar: スプレッドシート追加順（通常は末尾に追加）なので、indexが大きいほど新しい
+  // Calendar: スプレッドシート追加順
   const calendarFeed = (calendarData || []).filter(function (event) {
     return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event);
   }).map(function (event, index) {
     return {
       kind: 'calendar',
       sourceWeight: index,
+      sortOrder: Number(event.sortOrder || 0),
       timestamp: getNoticeItemTimestamp(event.updatedAt || '1970-01-01'),
       dateLabel: formatNoticeDateLabel(event.date),
       category: getLabel('calendar', 'カレンダー'),
@@ -1884,11 +1885,12 @@ function buildNoticeFeedItems() {
     };
   });
 
-  // Menu: 同様に末尾追加と想定
+  // Menu: スプレッドシート追加順
   const menuFeed = (USER_MENUS || []).map(function (menu, index) {
     return {
       kind: 'menu',
       sourceWeight: index,
+      sortOrder: Number(menu.sortOrder || 0),
       timestamp: getNoticeItemTimestamp(menu.updatedAt || '1970-01-01'),
       dateLabel: formatNoticeDateLabel(menu.date),
       category: getLabel('menu', 'メニュー'),
@@ -1899,11 +1901,12 @@ function buildNoticeFeedItems() {
     };
   });
 
-  // Push: GAS側で .reverse() 済みなので、index 0 が最新
+  // Push: GAS側で最新順
   const pushFeed = (pushNotices || []).map(function (notice, index) {
     return {
       kind: 'push',
       sourceWeight: (pushNotices.length - index),
+      sortOrder: Number(notice.sortOrder || 0),
       timestamp: getNoticeItemTimestamp(notice.updatedAt || notice.date),
       dateLabel: formatNoticeDateLabel(notice.date),
       category: getLabel('push', 'Push通知'),
@@ -1920,9 +1923,13 @@ function buildNoticeFeedItems() {
     const contentTimestamp = getNoticeItemTimestamp(item.date || '1970-01-01');
     return contentTimestamp >= minimumTimestamp;
   }).sort(function (a, b) {
+    // 手動並び順 (sortOrder) がある場合は優先
+    const sortA = a.sortOrder || 0;
+    const sortB = b.sortOrder || 0;
+    if (sortA !== sortB) return sortB - sortA;
+
     const diff = (b.timestamp || 0) - (a.timestamp || 0);
     if (diff !== 0) return diff;
-    // タイムスタンプが同じ場合、各ソース内での新しさ（Weight）で比較
     return (b.sourceWeight || 0) - (a.sourceWeight || 0);
   });
 }
@@ -5204,10 +5211,18 @@ function normalizeUserMenus(items) {
       name: String(item && item.name || ''),
       imageUrl: String(item && item.imageUrl || ''),
       description: String(item && item.description || ''),
-      reservationStatus: String(item && item.reservationStatus || '')
+      reservationStatus: String(item && item.reservationStatus || ''),
+      sortOrder: Number(item && item.sortOrder || 0)
     };
   }).filter(function (item) {
     return item.name;
+  }).sort(function (a, b) {
+    // 手動並び順が最優先
+    if (a.sortOrder !== b.sortOrder) return b.sortOrder - a.sortOrder;
+    // 同じ場合は更新日時順
+    const timeA = new Date(a.updatedAt || a.date || 0).getTime();
+    const timeB = new Date(b.updatedAt || b.date || 0).getTime();
+    return timeB - timeA;
   });
 }
 
