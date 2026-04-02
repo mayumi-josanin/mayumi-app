@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxID5uCa0r3tkcG3c1th6GnoYyuPcU4zfuoRE2ro4TYQDQ6KKQeOsnPnc8Xvyv_Y2XT2w/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.01.21';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz2SOnzs0newlScvWkeUpJ9UBi9GHj_XgKnpB_hOqz_hSvptpPCi6wVpEVONOiXtzLViw/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.22';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -1848,9 +1848,9 @@ function renderPushNotices() {
 
 function buildNoticeFeedItems() {
   const minimumTimestamp = getNoticeItemTimestamp(NOTICE_FEED_START_DATE);
-  
+
   // システム用表示名のマッピングを取得（「通知」セクションから）
-  const getLabel = function(type, defaultLabel) {
+  const getLabel = function (type, defaultLabel) {
     if (!blogCategories || !Array.isArray(blogCategories)) return defaultLabel;
     const found = blogCategories.find(c => c && c.type === '通知' && c.name && c.name.startsWith(type + ':'));
     if (found) return found.name.split(':')[1] || defaultLabel;
@@ -1931,7 +1931,7 @@ function updateNoticeCategoryFilter(items) {
   categories.forEach(cat => {
     options.push(`<option value="${cat}">${cat}</option>`);
   });
-  
+
   const current = select.value;
   select.innerHTML = options.join('');
   select.value = current;
