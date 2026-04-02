@@ -1593,6 +1593,7 @@ function computeNoticeListHash() {
   }
 }
 
+
 async function tryTask(taskName, taskFn) {
   try {
     console.log(`[同期] ${taskName} の取得中...`);
@@ -1654,7 +1655,6 @@ async function refreshAppData() {
     console.log('[更新] アプリ情報の同期を開始します...');
     let shouldReloadForCodeUpdate = false;
 
-    // アプリバージョンの確認
     const versionGate = await ensureSupportedAppVersion();
     if (versionGate.blocked) {
       alert('アプリ本体の更新が必要です');
@@ -1662,7 +1662,6 @@ async function refreshAppData() {
     }
     if (versionGate.needsWebUpdate) shouldReloadForCodeUpdate = true;
 
-    // PWAサービスワーカーの更新試行 (バックグラウンドで実行)
     if ('serviceWorker' in navigator) {
       try {
         const registrations = await navigator.serviceWorker.getRegistrations();
@@ -1678,7 +1677,6 @@ async function refreshAppData() {
       }
     }
 
-    // 個別のデータ取得 (一括同期)
     await fetchLatestManagedContent({
       refreshSupportFaq: true,
       refreshMenus: true,
@@ -1701,7 +1699,6 @@ async function refreshAppData() {
   } finally {
     if (btn) btn.classList.remove('spinning');
     if (overlay) overlay.classList.remove('active');
-    console.log('[更新] 同期処理が完了しました。');
   }
 }
 
@@ -1800,10 +1797,8 @@ function renderPushNotices() {
   const filterValue = document.getElementById('noticeCategoryFilter') ? document.getElementById('noticeCategoryFilter').value : '';
   let items = buildNoticeFeedItems();
 
-  // カテゴリ一覧を更新
   updateNoticeCategoryFilter(items);
 
-  // フィルタリング
   if (filterValue) {
     items = items.filter(function (item) {
       return item.category === filterValue;
@@ -1848,18 +1843,20 @@ function renderPushNotices() {
 
 function buildNoticeFeedItems() {
   const minimumTimestamp = getNoticeItemTimestamp(NOTICE_FEED_START_DATE);
-
-  // システム用表示名のマッピングを取得（「通知」セクションから）
-  const getLabel = function (type, defaultLabel) {
+  
+  const getLabel = function(type, defaultLabel) {
     if (!allBlogCategories || !Array.isArray(allBlogCategories)) return defaultLabel;
     const found = allBlogCategories.find(c => c && c.type === '通知' && c.name && c.name.startsWith(type + ':'));
     if (found) return found.name.split(':')[1] || defaultLabel;
     return defaultLabel;
   };
 
-  const blogFeed = (blogItems || []).map(function (item) {
+  // Blog: GAS側で新しい順にソート済みなので、indexが小さいほど新しい
+  const blogFeed = (blogItems || []).map(function (item, index) {
     return {
       kind: 'blog',
+      // インデックスの重みを逆転させ、index 0 が最も大きくなるようにする
+      sourceWeight: (blogItems.length - index),
       timestamp: getNoticeItemTimestamp(item.updatedAt || item.date),
       dateLabel: formatNoticeDateLabel(item.date),
       category: item.category || getBlogItemType(item),
@@ -1871,12 +1868,14 @@ function buildNoticeFeedItems() {
     };
   });
 
+  // Calendar: スプレッドシート追加順（通常は末尾に追加）なので、indexが大きいほど新しい
   const calendarFeed = (calendarData || []).filter(function (event) {
     return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event);
-  }).map(function (event) {
+  }).map(function (event, index) {
     return {
       kind: 'calendar',
-      timestamp: getNoticeItemTimestamp(event.updatedAt || event.date),
+      sourceWeight: index,
+      timestamp: getNoticeItemTimestamp(event.updatedAt || '1970-01-01'),
       dateLabel: formatNoticeDateLabel(event.date),
       category: getLabel('calendar', 'カレンダー'),
       title: event.title || '',
@@ -1886,10 +1885,12 @@ function buildNoticeFeedItems() {
     };
   });
 
-  const menuFeed = (USER_MENUS || []).map(function (menu) {
+  // Menu: 同様に末尾追加と想定
+  const menuFeed = (USER_MENUS || []).map(function (menu, index) {
     return {
       kind: 'menu',
-      timestamp: getNoticeItemTimestamp(menu.updatedAt || menu.date),
+      sourceWeight: index,
+      timestamp: getNoticeItemTimestamp(menu.updatedAt || '1970-01-01'),
       dateLabel: formatNoticeDateLabel(menu.date),
       category: getLabel('menu', 'メニュー'),
       title: menu.name || '',
@@ -1899,9 +1900,11 @@ function buildNoticeFeedItems() {
     };
   });
 
-  const pushFeed = (pushNotices || []).map(function (notice) {
+  // Push: GAS側で .reverse() 済みなので、index 0 が最新
+  const pushFeed = (pushNotices || []).map(function (notice, index) {
     return {
       kind: 'push',
+      sourceWeight: (pushNotices.length - index),
       timestamp: getNoticeItemTimestamp(notice.updatedAt || notice.date),
       dateLabel: formatNoticeDateLabel(notice.date),
       category: getLabel('push', 'Push通知'),
@@ -1913,9 +1916,12 @@ function buildNoticeFeedItems() {
   });
 
   return blogFeed.concat(calendarFeed, menuFeed, pushFeed).filter(function (item) {
-    return (item.timestamp || 0) >= minimumTimestamp;
+    return (item.timestamp || 0) >= minimumTimestamp || (item.timestamp === 0);
   }).sort(function (a, b) {
-    return (b.timestamp || 0) - (a.timestamp || 0);
+    const diff = (b.timestamp || 0) - (a.timestamp || 0);
+    if (diff !== 0) return diff;
+    // タイムスタンプが同じ場合、各ソース内での新しさ（Weight）で比較
+    return (b.sourceWeight || 0) - (a.sourceWeight || 0);
   });
 }
 
