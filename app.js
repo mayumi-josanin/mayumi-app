@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxRSgDJanw7LES3jqFaKQdjRQQQV93lqFK4SXli9NygZvJWGBrafz9TvqXcybAYJwHLwg/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.28';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx8fe47pgWwM9C6zuDpbwdHSAmjvFz2paX25TSvIhgFzCvI5kdYfRNUm6wedZsyhImfSA/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.29';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -1487,14 +1487,14 @@ function formatCalendarDateKey(date) {
 }
 
 function formatCalendarDisplayDate(dateValue) {
-  const raw = String(dateValue || '').trim();
+  const raw = String(dateValue || '').trim().split(/[ T]/)[0];
   const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return raw;
   return Number(match[2]) + '月' + Number(match[3]) + '日';
 }
 
 function formatCalendarCompactDate(dateValue) {
-  const raw = String(dateValue || '').trim();
+  const raw = String(dateValue || '').trim().split(/[ T]/)[0];
   const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return raw;
   return Number(match[2]) + '/' + Number(match[3]);
@@ -1502,7 +1502,8 @@ function formatCalendarCompactDate(dateValue) {
 
 function getCalendarEventsByDate(dateKey) {
   return calendarData.filter(function (event) {
-    return String(event.date || '') === dateKey;
+    const eventDate = String(event.date || '').split(/[ T]/)[0];
+    return eventDate === dateKey;
   });
 }
 
@@ -2060,10 +2061,7 @@ function formatNoticeDateLabel(rawValue) {
   const dateLabel = date.getFullYear() + '.' +
     String(date.getMonth() + 1).padStart(2, '0') + '.' +
     String(date.getDate()).padStart(2, '0');
-  if (!hasExplicitTimeValue(rawValue)) return dateLabel;
-  return dateLabel + ' ' +
-    String(date.getHours()).padStart(2, '0') + ':' +
-    String(date.getMinutes()).padStart(2, '0');
+  return dateLabel;
 }
 
 function formatPushNoticeDate(rawValue) {
