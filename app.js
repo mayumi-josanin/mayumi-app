@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzmTpurpfCKsXR7JoZa8l_f5UCblEqK_-aPmzTceFHgBmTkQQs-BqQen_7u9TZRoH7UOQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.30';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzoe-X7aNoXVU-ySe3qD8UCH0Uf9TZf9sXGl3J_5oR7upwoExD5Sk4M9nYaFjOKhDGn2w/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.31';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -1157,7 +1157,9 @@ function normalizeProductEntry(product, index) {
     icon: String(item.icon || ''),
     bg: String(item.bg || ['c1', 'c2', 'c3', 'c4'][index % 4] || 'c1'),
     imgKey: String(item.imgKey || ''),
-    description: String(item.description || '')
+    description: String(item.description || ''),
+    descriptionImage: String(item.descriptionImage || ''),
+    updatedAt: String(item.updatedAt || '')
   };
 }
 
@@ -1265,6 +1267,10 @@ async function loadProducts() {
       container.appendChild(createProductCard(product, index));
     }
   });
+
+  if (document.getElementById('page-notices').classList.contains('active')) {
+    renderPushNotices();
+  }
 }
 
 // ===== ブログ =====
@@ -1566,7 +1572,7 @@ function buildCalendarEventListItem(event, showDate) {
 }
 
 // ===== お知らせ一覧用 統合ハッシュ =====
-// ブログ + カレンダー + 商品 + Push全部をまとめてハッシュ化。
+// お知らせ一覧に表示する管理対象をまとめてハッシュ化。
 // これが変わる → 拡声器バッジを表示
 function computeNoticeListHash() {
   try {
@@ -1586,6 +1592,20 @@ function computeNoticeListHash() {
     console.error('[同期] ハッシュ計算エラー:', e);
     return '';
   }
+}
+
+function computeProductListHash() {
+  return (PRODUCTS || []).map(function (item) {
+    return [
+      item.updatedAt || '',
+      item.category || '',
+      item.name || '',
+      item.price || '',
+      item.description || '',
+      item.icon || '',
+      item.descriptionImage || ''
+    ].join('_');
+  }).join('|');
 }
 
 
@@ -1628,8 +1648,9 @@ async function fetchLatestManagedContent(options) {
 async function refreshNoticeFeed() {
   await Promise.all([
     tryTask('ニュース', () => loadBlog()),
+    tryTask('商品', () => loadProducts()),
     tryTask('カレンダー', () => loadCalendar()),
-    tryTask('通知', () => loadPushNotices()),
+    tryTask('FAQ', () => loadSupportFaq(true)),
     tryTask('メニュー', () => loadMenus({ silent: true, allowMissingContainer: true }))
   ]);
 
@@ -1719,6 +1740,7 @@ function renderBlogList(containerId, limit, filterType = null, filterCategory = 
   items.forEach(item => {
     const div = document.createElement('div');
     div.className = 'blog-card';
+    const displayDate = formatCustomerDateYmd(item.date);
 
     let imageHtml = '';
     const rawImageUrl = item.hasEmbeddedImage ? '' : getDisplayImageUrl(item.image || item.imageUrl || '');
@@ -1745,7 +1767,7 @@ function renderBlogList(containerId, limit, filterType = null, filterCategory = 
       bodyHtml = `<div class="blog-body-preview">${formattedBody}</div>`;
     }
 
-    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${item.icon || '📢'}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${item.date}</span><span class="blog-cat">${item.category}</span></div><div class="blog-title">${item.title}</div>${bodyHtml}${imageHtml}</div></div>`;
+    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${item.icon || '📢'}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${displayDate}</span><span class="blog-cat">${item.category}</span></div><div class="blog-title">${item.title}</div>${bodyHtml}${imageHtml}</div></div>`;
     div.onclick = () => openBlogDetail(item);
     el.appendChild(div);
   });
@@ -1815,6 +1837,7 @@ function renderPushNotices() {
         <div style="flex:1">
           <div class="blog-meta">
             <span class="blog-cat">${escapeHtml(item.category)}</span>
+            <span class="blog-date">${escapeHtml(item.dateLabel || '')}</span>
           </div>
           <div class="blog-title">${escapeHtml(item.title)}</div>
           <div class="blog-body-preview">${escapeHtml(item.body || '').replace(/\n/g, '<br>')}</div>
@@ -1838,13 +1861,6 @@ function renderPushNotices() {
 function buildNoticeFeedItems() {
   const minimumTimestamp = getNoticeItemTimestamp(NOTICE_FEED_START_DATE);
 
-  const getLabel = function (type, defaultLabel) {
-    if (!allBlogCategories || !Array.isArray(allBlogCategories)) return defaultLabel;
-    const found = allBlogCategories.find(c => c && c.type === '通知' && c.name && c.name.startsWith(type + ':'));
-    if (found) return found.name.split(':')[1] || defaultLabel;
-    return defaultLabel;
-  };
-
   // Blog: GAS側で新しい順にソート済みなので、indexが小さいほど新しい
   const blogFeed = (blogItems || []).map(function (item, index) {
     return {
@@ -1852,8 +1868,8 @@ function buildNoticeFeedItems() {
       sourceWeight: (blogItems.length - index),
       sortOrder: Number(item.sortOrder || 0),
       timestamp: getNoticeItemTimestamp(item.updatedAt || item.date),
-      dateLabel: formatNoticeDateLabel(item.date),
-      category: item.category || getBlogItemType(item),
+      dateLabel: formatNoticeDateLabel(item.updatedAt || item.date),
+      category: 'NEWS',
       title: item.title || '',
       body: item.body || '',
       image: getDisplayImageUrl(item.image || item.imageUrl || ''),
@@ -1870,9 +1886,9 @@ function buildNoticeFeedItems() {
       kind: 'calendar',
       sourceWeight: index,
       sortOrder: Number(event.sortOrder || 0),
-      timestamp: getNoticeItemTimestamp(event.updatedAt || '1970-01-01'),
-      dateLabel: formatNoticeDateLabel(event.date),
-      category: getLabel('calendar', 'カレンダー'),
+      timestamp: getNoticeItemTimestamp(event.updatedAt || event.date),
+      dateLabel: formatNoticeDateLabel(event.updatedAt || event.date),
+      category: 'カレンダー',
       title: event.title || '',
       body: event.desc || '',
       image: getDisplayImageUrl(event.image || ''),
@@ -1880,15 +1896,45 @@ function buildNoticeFeedItems() {
     };
   });
 
-  // Menu: スプレッドシート追加順
+  const productFeed = (PRODUCTS || []).map(function (product, index) {
+    return {
+      kind: 'product',
+      sourceWeight: (PRODUCTS.length - index),
+      sortOrder: Number(product.sortOrder || 0),
+      timestamp: getNoticeItemTimestamp(product.updatedAt),
+      dateLabel: formatNoticeDateLabel(product.updatedAt),
+      category: 'ショップ',
+      title: product.name || '',
+      body: product.description || '',
+      image: getDisplayImageUrl(product.icon || ''),
+      icon: '🛍️'
+    };
+  });
+
+  const supportFeed = (supportFaqItems || []).map(function (item, index) {
+    return {
+      kind: 'support',
+      sourceWeight: (supportFaqItems.length - index),
+      sortOrder: 0,
+      timestamp: getNoticeItemTimestamp(item.updatedAt),
+      dateLabel: formatNoticeDateLabel(item.updatedAt),
+      category: 'マイページ',
+      title: item.question || '',
+      body: item.answer || '',
+      image: '',
+      icon: '👤'
+    };
+  });
+
+  // Home: メニュー一覧はホームから閲覧する導線のため、カテゴリは「ホーム」でまとめる
   const menuFeed = (USER_MENUS || []).map(function (menu, index) {
     return {
       kind: 'menu',
       sourceWeight: index,
       sortOrder: Number(menu.sortOrder || 0),
-      timestamp: getNoticeItemTimestamp(menu.updatedAt || '1970-01-01'),
-      dateLabel: formatNoticeDateLabel(menu.date),
-      category: getLabel('menu', 'メニュー'),
+      timestamp: getNoticeItemTimestamp(menu.updatedAt || menu.date),
+      dateLabel: formatNoticeDateLabel(menu.updatedAt || menu.date),
+      category: 'ホーム',
       title: menu.name || '',
       body: menu.description || (menu.reservationStatus ? '予約状況: ' + menu.reservationStatus : ''),
       image: getDisplayImageUrl(menu.imageUrl || ''),
@@ -1896,35 +1942,15 @@ function buildNoticeFeedItems() {
     };
   });
 
-  // Push: GAS側で最新順
-  const pushFeed = (pushNotices || []).map(function (notice, index) {
-    return {
-      kind: 'push',
-      sourceWeight: (pushNotices.length - index),
-      sortOrder: Number(notice.sortOrder || 0),
-      timestamp: getNoticeItemTimestamp(notice.updatedAt || notice.date),
-      dateLabel: formatNoticeDateLabel(notice.date),
-      category: getLabel('push', 'Push通知'),
-      title: notice.title || 'お知らせ',
-      body: notice.body || '',
-      image: '',
-      icon: '🔔'
-    };
-  });
-
-  return blogFeed.concat(calendarFeed, menuFeed, pushFeed).filter(function (item) {
-    // 2026-04-01 以降のみを表示
-    // item.timestamp は updatedAt を含む場合があるため、表示用日付 (item.date) もチェック対象にする
-    const contentTimestamp = getNoticeItemTimestamp(item.date || '1970-01-01');
-    return contentTimestamp >= minimumTimestamp;
+  return blogFeed.concat(calendarFeed, productFeed, supportFeed, menuFeed).filter(function (item) {
+    return (item.timestamp || 0) >= minimumTimestamp;
   }).sort(function (a, b) {
-    // 手動並び順 (sortOrder) がある場合は優先
+    const diff = (b.timestamp || 0) - (a.timestamp || 0);
+    if (diff !== 0) return diff;
+
     const sortA = a.sortOrder || 0;
     const sortB = b.sortOrder || 0;
     if (sortA !== sortB) return sortB - sortA;
-
-    const diff = (b.timestamp || 0) - (a.timestamp || 0);
-    if (diff !== 0) return diff;
     return (b.sourceWeight || 0) - (a.sourceWeight || 0);
   });
 }
@@ -1977,6 +2003,7 @@ function normalizeBlogItems(items, categories) {
       title: String(item && item.title || ''),
       category: category,
       type: inferredType,
+      sortOrder: Number(item && item.sortOrder || 0),
       icon: String(item && item.icon || (inferredType === 'お知らせ' ? '📢' : '📝')),
       body: body,
       image: getDisplayImageUrl((item && (item.image || item.imageUrl)) || '') || embeddedImage,
@@ -2096,11 +2123,12 @@ function openBlogDetail(item) {
       }
       return `<img src="${imgUrl}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1); object-fit: contain;">`;
     }).replace(/\n/g, '<br>');
+  const displayDate = formatCustomerDateYmd(item.date);
 
   document.getElementById('blogDetailContent').innerHTML = `
     <span class="blog-detail-cat">${item.category}</span>
     <div class="blog-detail-title">${item.title}</div>
-    <div class="blog-detail-date">${item.date}</div>
+    <div class="blog-detail-date">${displayDate}</div>
     ${detailImageHtml}
     <div class="blog-detail-body">${formattedBody}</div>`;
   openModal('blogDetailModal');
@@ -2590,7 +2618,7 @@ function switchPage(name) {
   }
   if (name === 'blog') renderDividedBlogList();
   if (name === 'shop') {
-    localStorage.setItem('last_seen_product_hash', PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|'));
+    localStorage.setItem('last_seen_product_hash', computeProductListHash());
     var sb = document.getElementById('badge-shop');
     if (sb) sb.style.display = 'none';
   }
@@ -2813,7 +2841,7 @@ function updateNavBadges() {
   const shopBadge = document.getElementById('badge-shop');
   if (shopBadge && PRODUCTS && PRODUCTS.length > 0) {
     const lastSeenHash = localStorage.getItem('last_seen_product_hash');
-    const currentHash = PRODUCTS.map(function (p) { return p.name + '_' + p.price; }).join('|');
+    const currentHash = computeProductListHash();
     if (lastSeenHash && lastSeenHash !== currentHash && currentPage !== 'page-shop') {
       shopBadge.style.display = 'block';
       totalCount++;
@@ -4060,11 +4088,24 @@ async function loadSupportFaq(force) {
 
   const res = await getFromGAS('getSupportFaq');
   if (res && res.status === 'ok' && Array.isArray(res.faqs) && res.faqs.length) {
-    supportFaqItems = res.faqs;
+    supportFaqItems = res.faqs.map(function (item) {
+      return {
+        rowIdx: item && item.rowIdx,
+        category: String(item && item.category || ''),
+        question: String(item && item.question || ''),
+        keywords: String(item && item.keywords || ''),
+        answer: String(item && item.answer || ''),
+        priority: Number(item && item.priority || 0),
+        updatedAt: String(item && item.updatedAt || '')
+      };
+    });
   } else {
     supportFaqItems = SUPPORT_FAQ_FALLBACK.slice();
   }
 
+  if (document.getElementById('page-notices').classList.contains('active')) {
+    renderPushNotices();
+  }
   renderSupportSuggestions(getDefaultSupportQuestions(4));
   return supportFaqItems;
 }
@@ -4925,7 +4966,7 @@ async function initApp() {
 
   // データを並列で取得（確実に動作する個別ロード方式）
   fetchLatestManagedContent({
-    refreshSupportFaq: false,
+    refreshSupportFaq: true,
     refreshMenus: false,
     refreshOrderHistory: false
   }).then(() => {
