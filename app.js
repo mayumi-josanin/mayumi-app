@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyag4hQCXQabMfIktuYu_1bCLB7L0WGlDgYScs_zEQ2Xh89ZtupO1oHk6pCNLLcR_x7uA/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.25';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwthEoRuUqPTrCZP9nDEPucdT9DbJAkl83OXfY_TYfeopk4Cepn9fQkjFq_QMqJGOY1Sg/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.26';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -1915,8 +1915,10 @@ function buildNoticeFeedItems() {
   });
 
   return blogFeed.concat(calendarFeed, menuFeed, pushFeed).filter(function (item) {
-    // 2026-04-01 以降のみを表示（厳格化）
-    return (item.timestamp || 0) >= minimumTimestamp;
+    // 2026-04-01 以降のみを表示
+    // item.timestamp は updatedAt を含む場合があるため、表示用日付 (item.date) もチェック対象にする
+    const contentTimestamp = getNoticeItemTimestamp(item.date || '1970-01-01');
+    return contentTimestamp >= minimumTimestamp;
   }).sort(function (a, b) {
     const diff = (b.timestamp || 0) - (a.timestamp || 0);
     if (diff !== 0) return diff;
@@ -5107,7 +5109,14 @@ function startScanner() {
     })
     .catch(function (err) {
       console.error("Camera error:", err);
-      showToast('カメラへのアクセスが許可されていません');
+      _qrScanning = false;
+      const isHttps = location.protocol === 'https:';
+      const helpMsg = `カメラの起動に失敗しました。以下の点をご確認ください：
+\n1. ブラウザのカメラ許可を「オン」にしてください
+2. iPhone等の本体設定で、ブラウザへのカメラアクセスが許可されているか確認してください
+3. ${isHttps ? '一時的な不具合の可能性があるため、ページを再読み込みしてください' : '接続が保護(HTTPS)されていないため、カメラをご利用いただけません'}`;
+
+      alert(helpMsg);
       closeScannerModal();
     });
 
