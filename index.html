@@ -264,7 +264,8 @@
             <div class="sns-arrow">›</div>
           </a>
           <a class="sns-link" href="https://mayumijosanin.jugem.jp/" target="_blank" rel="noopener noreferrer">
-            <div class="sns-icon-wrap" style="background:linear-gradient(135deg,#f8efe6,#ead7c5); border:1px solid #d7bea8;">👂</div>
+            <div class="sns-icon-wrap"
+              style="background:linear-gradient(135deg,#f8efe6,#ead7c5); border:1px solid #d7bea8;">👂</div>
             <div class="sns-info">
               <div class="sns-name">まゆみのブログ</div>
               <div class="sns-handle">mayumijosanin.jugem.jp</div>
@@ -589,7 +590,8 @@
             <div class="sns-arrow">›</div>
           </a>
           <a class="sns-link" href="https://mayumijosanin.jugem.jp/" target="_blank" rel="noopener noreferrer">
-            <div class="sns-icon-wrap" style="background:linear-gradient(135deg,#f8efe6,#ead7c5); border:1px solid #d7bea8;">👂</div>
+            <div class="sns-icon-wrap"
+              style="background:linear-gradient(135deg,#f8efe6,#ead7c5); border:1px solid #d7bea8;">👂</div>
             <div class="sns-info">
               <div class="sns-name">まゆみのブログ</div>
               <div class="sns-handle">mayumijosanin.jugem.jp</div>
@@ -606,7 +608,15 @@
       <button class="nav-btn active" id="nav-home" onclick="switchPage('home')"><span
           class="nav-icon">🏠</span><span>ホーム</span></button>
       <button class="nav-btn" id="nav-shop" onclick="switchPage('shop')"><span class="nav-badge"
-          id="badge-shop"></span><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 8V6.5C7 3.98 9.01 2 11.5 2C13.99 2 16 3.98 16 6.5V8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5.27 8H17.73C18.83 8 19.69 8.95 19.57 10.05L18.62 18.55C18.5 19.57 17.64 20.34 16.61 20.34H6.39C5.36 20.34 4.5 19.57 4.38 18.55L3.43 10.05C3.31 8.95 4.17 8 5.27 8Z" fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 12.5H13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span>ショップ</span></button>
+          id="badge-shop"></span><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="26"
+            height="26" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 8V6.5C7 3.98 9.01 2 11.5 2C13.99 2 16 3.98 16 6.5V8" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" />
+            <path
+              d="M5.27 8H17.73C18.83 8 19.69 8.95 19.57 10.05L18.62 18.55C18.5 19.57 17.64 20.34 16.61 20.34H6.39C5.36 20.34 4.5 19.57 4.38 18.55L3.43 10.05C3.31 8.95 4.17 8 5.27 8Z"
+              fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="1.8" />
+            <path d="M9.5 12.5H13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg></span><span>ショップ</span></button>
       <button class="nav-btn" id="nav-calendar" onclick="switchPage('calendar')"><span class="nav-badge"
           id="badge-calendar"></span><span class="nav-icon">📅</span><span>カレンダー</span></button>
       <button class="nav-btn" id="nav-blog" onclick="switchPage('blog')"><span class="nav-badge"
@@ -845,7 +855,7 @@
         <h2 class="sec-title">📢 お知らせ一覧</h2>
         <div style="margin-bottom: 15px; display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
           <span style="font-size: 13px; color: var(--text-mid);">カテゴリ：</span>
-          <select id="noticeCategoryFilter" onchange="renderPushNotices()" 
+          <select id="noticeCategoryFilter" onchange="renderPushNotices()"
             style="padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff;">
             <option value="">全て</option>
           </select>
