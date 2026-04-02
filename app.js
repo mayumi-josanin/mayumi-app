@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzoe-X7aNoXVU-ySe3qD8UCH0Uf9TZf9sXGl3J_5oR7upwoExD5Sk4M9nYaFjOKhDGn2w/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.31';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzFPyJe1495VO7LU1G7HlcuoD6xvwdBQwPHr3_4JiFl8kUoG7Pk_qdyg8Nnann-y_XQtA/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.33';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -1863,12 +1863,20 @@ function buildNoticeFeedItems() {
 
   // Blog: GAS側で新しい順にソート済みなので、indexが小さいほど新しい
   const blogFeed = (blogItems || []).map(function (item, index) {
+    const publishMeta = buildNoticePublishMeta({
+      updatedAt: item.updatedAt,
+      fallbackDate: item.date,
+      useFallbackDateForSort: true,
+      useFallbackDateForLabel: true,
+      useFallbackDateForVisibility: true
+    });
     return {
       kind: 'blog',
       sourceWeight: (blogItems.length - index),
       sortOrder: Number(item.sortOrder || 0),
-      timestamp: getNoticeItemTimestamp(item.updatedAt || item.date),
-      dateLabel: formatNoticeDateLabel(item.updatedAt || item.date),
+      timestamp: publishMeta.timestamp,
+      visibilityTimestamp: publishMeta.visibilityTimestamp,
+      dateLabel: publishMeta.dateLabel,
       category: 'NEWS',
       title: item.title || '',
       body: item.body || '',
@@ -1882,12 +1890,18 @@ function buildNoticeFeedItems() {
   const calendarFeed = (calendarData || []).filter(function (event) {
     return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event);
   }).map(function (event, index) {
+    const publishMeta = buildNoticePublishMeta({
+      updatedAt: event.updatedAt,
+      fallbackDate: event.date,
+      useFallbackDateForVisibility: true
+    });
     return {
       kind: 'calendar',
       sourceWeight: index,
       sortOrder: Number(event.sortOrder || 0),
-      timestamp: getNoticeItemTimestamp(event.updatedAt || event.date),
-      dateLabel: formatNoticeDateLabel(event.updatedAt || event.date),
+      timestamp: publishMeta.timestamp,
+      visibilityTimestamp: publishMeta.visibilityTimestamp,
+      dateLabel: publishMeta.dateLabel,
       category: 'カレンダー',
       title: event.title || '',
       body: event.desc || '',
@@ -1897,12 +1911,16 @@ function buildNoticeFeedItems() {
   });
 
   const productFeed = (PRODUCTS || []).map(function (product, index) {
+    const publishMeta = buildNoticePublishMeta({
+      updatedAt: product.updatedAt
+    });
     return {
       kind: 'product',
       sourceWeight: (PRODUCTS.length - index),
       sortOrder: Number(product.sortOrder || 0),
-      timestamp: getNoticeItemTimestamp(product.updatedAt),
-      dateLabel: formatNoticeDateLabel(product.updatedAt),
+      timestamp: publishMeta.timestamp,
+      visibilityTimestamp: publishMeta.visibilityTimestamp,
+      dateLabel: publishMeta.dateLabel,
       category: 'ショップ',
       title: product.name || '',
       body: product.description || '',
@@ -1912,12 +1930,16 @@ function buildNoticeFeedItems() {
   });
 
   const supportFeed = (supportFaqItems || []).map(function (item, index) {
+    const publishMeta = buildNoticePublishMeta({
+      updatedAt: item.updatedAt
+    });
     return {
       kind: 'support',
       sourceWeight: (supportFaqItems.length - index),
       sortOrder: 0,
-      timestamp: getNoticeItemTimestamp(item.updatedAt),
-      dateLabel: formatNoticeDateLabel(item.updatedAt),
+      timestamp: publishMeta.timestamp,
+      visibilityTimestamp: publishMeta.visibilityTimestamp,
+      dateLabel: publishMeta.dateLabel,
       category: 'マイページ',
       title: item.question || '',
       body: item.answer || '',
@@ -1928,12 +1950,20 @@ function buildNoticeFeedItems() {
 
   // Home: メニュー一覧はホームから閲覧する導線のため、カテゴリは「ホーム」でまとめる
   const menuFeed = (USER_MENUS || []).map(function (menu, index) {
+    const publishMeta = buildNoticePublishMeta({
+      updatedAt: menu.updatedAt,
+      fallbackDate: menu.date,
+      useFallbackDateForSort: true,
+      useFallbackDateForLabel: true,
+      useFallbackDateForVisibility: true
+    });
     return {
       kind: 'menu',
       sourceWeight: index,
       sortOrder: Number(menu.sortOrder || 0),
-      timestamp: getNoticeItemTimestamp(menu.updatedAt || menu.date),
-      dateLabel: formatNoticeDateLabel(menu.updatedAt || menu.date),
+      timestamp: publishMeta.timestamp,
+      visibilityTimestamp: publishMeta.visibilityTimestamp,
+      dateLabel: publishMeta.dateLabel,
       category: 'ホーム',
       title: menu.name || '',
       body: menu.description || (menu.reservationStatus ? '予約状況: ' + menu.reservationStatus : ''),
@@ -1943,7 +1973,9 @@ function buildNoticeFeedItems() {
   });
 
   return blogFeed.concat(calendarFeed, productFeed, supportFeed, menuFeed).filter(function (item) {
-    return (item.timestamp || 0) >= minimumTimestamp;
+    const visibilityTimestamp = Number(item.visibilityTimestamp || item.timestamp || 0);
+    if (!visibilityTimestamp) return true;
+    return visibilityTimestamp >= minimumTimestamp;
   }).sort(function (a, b) {
     const diff = (b.timestamp || 0) - (a.timestamp || 0);
     if (diff !== 0) return diff;
@@ -2094,6 +2126,19 @@ function formatCustomerDateYmd(rawValue) {
 
 function getNoticeItemTimestamp(rawValue) {
   return parseLooseDateToTimestamp(rawValue);
+}
+
+function buildNoticePublishMeta(options) {
+  const updatedAt = String(options && options.updatedAt || '').trim();
+  const fallbackDate = String(options && options.fallbackDate || '').trim();
+  const sortRaw = updatedAt || (options && options.useFallbackDateForSort ? fallbackDate : '');
+  const labelRaw = updatedAt || (options && options.useFallbackDateForLabel ? fallbackDate : '');
+  const visibilityRaw = updatedAt || (options && options.useFallbackDateForVisibility ? fallbackDate : '');
+  return {
+    timestamp: getNoticeItemTimestamp(sortRaw),
+    visibilityTimestamp: getNoticeItemTimestamp(visibilityRaw),
+    dateLabel: formatNoticeDateLabel(labelRaw)
+  };
 }
 
 function hasExplicitTimeValue(rawValue) {
