@@ -1794,17 +1794,29 @@ function updateBlogCategoryFilters() {
 }
 
 function renderPushNotices() {
-  const list = document.getElementById('noticeList');
-  if (!list) return;
+  const container = document.getElementById('noticeList');
+  if (!container) return;
 
-  const combinedItems = buildNoticeFeedItems();
-  if (!combinedItems.length) {
-    list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:28px 0">お知らせはありません</div>';
+  const filterValue = document.getElementById('noticeCategoryFilter') ? document.getElementById('noticeCategoryFilter').value : '';
+  let items = buildNoticeFeedItems();
+
+  // カテゴリ一覧を更新
+  updateNoticeCategoryFilter(items);
+
+  // フィルタリング
+  if (filterValue) {
+    items = items.filter(function (item) {
+      return item.category === filterValue;
+    });
+  }
+
+  if (items.length === 0) {
+    container.innerHTML = '<div style="text-align:center; padding:40px 20px; color:var(--text-mid);">条件に一致するお知らせはありません</div>';
     return;
   }
 
-  list.innerHTML = '';
-  combinedItems.forEach(function (item) {
+  container.innerHTML = '';
+  items.forEach(function (item) {
     const card = document.createElement('div');
     card.className = 'blog-card';
     card.innerHTML = `
@@ -1836,6 +1848,15 @@ function renderPushNotices() {
 
 function buildNoticeFeedItems() {
   const minimumTimestamp = getNoticeItemTimestamp(NOTICE_FEED_START_DATE);
+  
+  // システム用表示名のマッピングを取得（「通知」セクションから）
+  const getLabel = function(type, defaultLabel) {
+    if (!blogCategories || !Array.isArray(blogCategories)) return defaultLabel;
+    const found = blogCategories.find(c => c && c.type === '通知' && c.name && c.name.startsWith(type + ':'));
+    if (found) return found.name.split(':')[1] || defaultLabel;
+    return defaultLabel;
+  };
+
   const blogFeed = (blogItems || []).map(function (item) {
     return {
       kind: 'blog',
@@ -1855,9 +1876,9 @@ function buildNoticeFeedItems() {
   }).map(function (event) {
     return {
       kind: 'calendar',
-      timestamp: getNoticeItemTimestamp(event.date),
+      timestamp: getNoticeItemTimestamp(event.updatedAt || event.date),
       dateLabel: formatNoticeDateLabel(event.date),
-      category: 'カレンダー',
+      category: getLabel('calendar', 'カレンダー'),
       title: event.title || '',
       body: event.desc || '',
       image: getDisplayImageUrl(event.image || ''),
@@ -1868,9 +1889,9 @@ function buildNoticeFeedItems() {
   const menuFeed = (USER_MENUS || []).map(function (menu) {
     return {
       kind: 'menu',
-      timestamp: getNoticeItemTimestamp(menu.date),
+      timestamp: getNoticeItemTimestamp(menu.updatedAt || menu.date),
       dateLabel: formatNoticeDateLabel(menu.date),
-      category: 'メニュー',
+      category: getLabel('menu', 'メニュー'),
       title: menu.name || '',
       body: menu.description || (menu.reservationStatus ? '予約状況: ' + menu.reservationStatus : ''),
       image: getDisplayImageUrl(menu.imageUrl || ''),
@@ -1881,9 +1902,9 @@ function buildNoticeFeedItems() {
   const pushFeed = (pushNotices || []).map(function (notice) {
     return {
       kind: 'push',
-      timestamp: getNoticeItemTimestamp(notice.date),
+      timestamp: getNoticeItemTimestamp(notice.updatedAt || notice.date),
       dateLabel: formatNoticeDateLabel(notice.date),
-      category: 'Push通知',
+      category: getLabel('push', 'Push通知'),
       title: notice.title || 'お知らせ',
       body: notice.body || '',
       image: '',
@@ -1896,6 +1917,25 @@ function buildNoticeFeedItems() {
   }).sort(function (a, b) {
     return (b.timestamp || 0) - (a.timestamp || 0);
   });
+}
+
+/**
+ * お知らせ一覧のカテゴリ選択肢を更新する
+ */
+function updateNoticeCategoryFilter(items) {
+  const select = document.getElementById('noticeCategoryFilter');
+  if (!select || select.dataset.populated === 'true') return;
+
+  const categories = Array.from(new Set(items.map(i => i.category))).filter(Boolean).sort();
+  const options = ['<option value="">全て</option>'];
+  categories.forEach(cat => {
+    options.push(`<option value="${cat}">${cat}</option>`);
+  });
+  
+  const current = select.value;
+  select.innerHTML = options.join('');
+  select.value = current;
+  select.dataset.populated = 'true';
 }
 
 function buildBlogCategoryTypeMap(categories) {
@@ -4154,6 +4194,7 @@ function askSuggestedSupportQuestion(question) {
   if (input) input.value = question;
   sendSupportChat(question);
 }
+
 
 async function sendSupportChat(prefilledText) {
   if (isSupportChatSending) return;
