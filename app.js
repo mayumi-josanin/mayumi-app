@@ -1819,7 +1819,6 @@ function renderPushNotices() {
         <div class="blog-icon">${item.icon}</div>
         <div style="flex:1">
           <div class="blog-meta">
-            <span class="blog-date">${escapeHtml(item.dateLabel)}</span>
             <span class="blog-cat">${escapeHtml(item.category)}</span>
           </div>
           <div class="blog-title">${escapeHtml(item.title)}</div>
@@ -1843,8 +1842,8 @@ function renderPushNotices() {
 
 function buildNoticeFeedItems() {
   const minimumTimestamp = getNoticeItemTimestamp(NOTICE_FEED_START_DATE);
-  
-  const getLabel = function(type, defaultLabel) {
+
+  const getLabel = function (type, defaultLabel) {
     if (!allBlogCategories || !Array.isArray(allBlogCategories)) return defaultLabel;
     const found = allBlogCategories.find(c => c && c.type === '通知' && c.name && c.name.startsWith(type + ':'));
     if (found) return found.name.split(':')[1] || defaultLabel;
@@ -1916,7 +1915,8 @@ function buildNoticeFeedItems() {
   });
 
   return blogFeed.concat(calendarFeed, menuFeed, pushFeed).filter(function (item) {
-    return (item.timestamp || 0) >= minimumTimestamp || (item.timestamp === 0);
+    // 2026-04-01 以降のみを表示（厳格化）
+    return (item.timestamp || 0) >= minimumTimestamp;
   }).sort(function (a, b) {
     const diff = (b.timestamp || 0) - (a.timestamp || 0);
     if (diff !== 0) return diff;
@@ -1932,7 +1932,13 @@ function updateNoticeCategoryFilter(items) {
   const select = document.getElementById('noticeCategoryFilter');
   if (!select || select.dataset.populated === 'true') return;
 
-  const categories = Array.from(new Set(items.map(i => i.category))).filter(Boolean).sort();
+  // 管理画面で「通知」セクションに設定されたカテゴリのみを抽出
+  const categories = (allBlogCategories || [])
+    .filter(c => c && c.type === '通知')
+    .map(c => c.name)
+    .filter(Boolean)
+    .sort();
+
   const options = ['<option value="">全て</option>'];
   categories.forEach(cat => {
     options.push(`<option value="${cat}">${cat}</option>`);
