@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzFPyJe1495VO7LU1G7HlcuoD6xvwdBQwPHr3_4JiFl8kUoG7Pk_qdyg8Nnann-y_XQtA/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.33';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyJQXs1PJtc8y4lZASzW8ToAgXR18EsvrpHZL0aZYZN3atC9hRfIG5OrJOw1NjM66ULKA/exec';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.02.36';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -54,6 +54,13 @@ let calendarData = [];
 let calendarLoaded = false;
 let currentMonthDate = new Date();
 let selectedDate = new Date();
+const PASSCODE_SET_STORAGE_KEY = 'mayumi_passcode_set';
+const LOCAL_PASSCODE_HASH_STORAGE_KEY = 'mayumi_local_passcode_hash';
+const PASSCODE_SKIP_ONCE_SESSION_KEY = 'mayumi_passcode_skip_once';
+const PASSCODE_RESUME_LOCK_DELAY_MS = 1500;
+let isPasscodeAuthenticated = false;
+let initAppStarted = false;
+let appHiddenAt = 0;
 const REWARD_GACHA_PRIZE_POOL = [
   { key: 'A', rankLabel: 'A賞', rewardName: 'A賞プレゼント', capsuleColor: '#f5cb6c', accentColor: '#b0791b', message: '当日のおたのしみプレゼントをご用意しています。', weight: 10 },
   { key: 'B', rankLabel: 'B賞', rewardName: 'B賞プレゼント', capsuleColor: '#f3b7c9', accentColor: '#b86282', message: '当日のおたのしみプレゼントをご用意しています。', weight: 20 },
@@ -119,6 +126,92 @@ function compareVersionStrings(left, right) {
     if (leftPart < rightPart) return -1;
   }
   return 0;
+}
+
+function normalizePasscodeInput(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function normalizePhoneInput(value) {
+  return String(value == null ? '' : value).replace(/\D/g, '');
+}
+
+function normalizeNameInput(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function normalizeDateOnlyInput(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function isValidPasscodeValue(value) {
+  return /^(?:\d{4}|\d{6})$/.test(normalizePasscodeInput(value));
+}
+
+function getStoredLocalPasscodeHash() {
+  try {
+    return String(localStorage.getItem(LOCAL_PASSCODE_HASH_STORAGE_KEY) || '');
+  } catch (e) {
+    return '';
+  }
+}
+
+function hasConfiguredLocalPasscode() {
+  return !!getStoredLocalPasscodeHash();
+}
+
+function fallbackHashString(text) {
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return 'fallback:' + String(hash >>> 0).padStart(10, '0');
+}
+
+async function hashPasscodeValue(passcode) {
+  const source = 'mayumi-lock:' + normalizePasscodeInput(passcode);
+  if (window.crypto && window.crypto.subtle && typeof TextEncoder !== 'undefined') {
+    try {
+      const encoded = new TextEncoder().encode(source);
+      const digest = await window.crypto.subtle.digest('SHA-256', encoded);
+      return Array.from(new Uint8Array(digest)).map(function (byte) {
+        return byte.toString(16).padStart(2, '0');
+      }).join('');
+    } catch (e) { }
+  }
+  return fallbackHashString(source);
+}
+
+async function storeLocalPasscode(passcode) {
+  const hash = await hashPasscodeValue(passcode);
+  try {
+    localStorage.setItem(LOCAL_PASSCODE_HASH_STORAGE_KEY, hash);
+    localStorage.setItem(PASSCODE_SET_STORAGE_KEY, 'true');
+  } catch (e) { }
+  return hash;
+}
+
+async function verifyLocalPasscode(passcode) {
+  const storedHash = getStoredLocalPasscodeHash();
+  if (!storedHash) return false;
+  return storedHash === await hashPasscodeValue(passcode);
+}
+
+function markPasscodeUnlockSkippedOnce() {
+  try {
+    sessionStorage.setItem(PASSCODE_SKIP_ONCE_SESSION_KEY, 'true');
+  } catch (e) { }
+}
+
+function consumePasscodeUnlockSkippedOnce() {
+  try {
+    if (sessionStorage.getItem(PASSCODE_SKIP_ONCE_SESSION_KEY) === 'true') {
+      sessionStorage.removeItem(PASSCODE_SKIP_ONCE_SESSION_KEY);
+      return true;
+    }
+  } catch (e) { }
+  return false;
 }
 
 function triggerConfetti() {
@@ -4434,13 +4527,435 @@ function handleBannerChange(input) {
   });
 }
 
-function saveProfile() {
+function clearPasscodeOverlayError() {
+  const input = document.getElementById('lockPasscode');
+  const error = document.getElementById('lockPasscodeErr');
+  if (input) input.classList.remove('error');
+  if (error) error.classList.remove('show');
+}
+
+function prefillForgotPasscodeForm(fieldMap) {
+  const settings = fieldMap || {};
+  const nameInput = document.getElementById(settings.nameId);
+  const phoneInput = document.getElementById(settings.phoneId);
+  const birthdayInput = document.getElementById(settings.birthdayId);
+  const passcodeInput = document.getElementById(settings.passcodeId);
+  const sourcePhoneInput = settings.sourcePhoneId ? document.getElementById(settings.sourcePhoneId) : null;
+  const profileName = _profile && _profile.name ? _profile.name : '';
+  const profilePhone = _profile && _profile.phone ? _profile.phone : '';
+  const profileBirthday = _profile && _profile.birthday ? _profile.birthday : '';
+
+  if (nameInput) {
+    nameInput.value = normalizeNameInput(nameInput.value) || profileName;
+  }
+  if (phoneInput) {
+    const currentPhone = normalizePasscodeInput(phoneInput.value);
+    const sourcePhone = sourcePhoneInput ? normalizePasscodeInput(sourcePhoneInput.value) : '';
+    phoneInput.value = currentPhone || sourcePhone || profilePhone;
+  }
+  if (birthdayInput) {
+    birthdayInput.value = normalizeDateOnlyInput(birthdayInput.value) || profileBirthday;
+  }
+  if (passcodeInput) {
+    passcodeInput.value = '';
+  }
+}
+
+async function applyRecoveredUserState(user, passcode, successMessage) {
+  const u = user || {};
+  const profile = {
+    memberId: u.memberId,
+    name: u.name,
+    kana: u.kana,
+    phone: u.phone,
+    avatar: u.avatar,
+    memo: u.memo,
+    status: u.status,
+    birthday: u.birthday,
+    address: u.address,
+    regDate: u.regDate
+  };
+
+  _profile = profile;
+  CUSTOMER_NAME = profile && profile.name ? profile.name : '';
+  localStorage.setItem('mayumi_profile', JSON.stringify(profile));
+  localStorage.setItem('mayumi_stamp', String(u.stampCount || 0));
+  localStorage.setItem('mayumi_stamp_card', String(u.stampCardNum || 1));
+  localStorage.setItem('mayumi_earned_rewards', u.rewards || '[]');
+  await storeLocalPasscode(passcode);
+  isPasscodeAuthenticated = true;
+  markPasscodeUnlockSkippedOnce();
+
+  showToast(successMessage || 'ログインしました🌿');
+  setTimeout(function () {
+    location.reload();
+  }, 1500);
+}
+
+function togglePasscodeOverlayView(view) {
+  const login = document.getElementById('passcodeLoginContent');
+  const restore = document.getElementById('passcodeRestoreContent');
+  const reset = document.getElementById('passcodeResetContent');
+  if (login) login.style.display = view === 'login' ? 'block' : 'none';
+  if (restore) restore.style.display = view === 'restore' ? 'block' : 'none';
+  if (reset) reset.style.display = view === 'reset' ? 'block' : 'none';
+  if (view === 'reset') {
+    prefillForgotPasscodeForm({
+      nameId: 'passcodeResetName',
+      phoneId: 'passcodeResetPhone',
+      birthdayId: 'passcodeResetBirthday',
+      passcodeId: 'passcodeResetNewPasscode',
+      sourcePhoneId: 'passcodeRestorePhone'
+    });
+  }
+  clearPasscodeOverlayError();
+}
+
+function openPasscodeOverlay() {
+  if (!_profile || !hasConfiguredLocalPasscode()) return;
+  const overlay = document.getElementById('passcodeOverlay');
+  const input = document.getElementById('lockPasscode');
+  const restorePhone = document.getElementById('passcodeRestorePhone');
+  const restorePasscode = document.getElementById('passcodeRestorePasscode');
+  const resetName = document.getElementById('passcodeResetName');
+  const resetPhone = document.getElementById('passcodeResetPhone');
+  const resetBirthday = document.getElementById('passcodeResetBirthday');
+  const resetPasscode = document.getElementById('passcodeResetNewPasscode');
+  if (input) input.value = '';
+  if (restorePhone) restorePhone.value = _profile.phone || '';
+  if (restorePasscode) restorePasscode.value = '';
+  if (resetName) resetName.value = _profile.name || '';
+  if (resetPhone) resetPhone.value = _profile.phone || '';
+  if (resetBirthday) resetBirthday.value = _profile.birthday || '';
+  if (resetPasscode) resetPasscode.value = '';
+  togglePasscodeOverlayView('login');
+  if (overlay) overlay.classList.add('open');
+  setTimeout(function () {
+    if (input) input.focus();
+  }, 60);
+}
+
+function closePasscodeOverlay() {
+  const overlay = document.getElementById('passcodeOverlay');
+  if (overlay) overlay.classList.remove('open');
+  clearPasscodeOverlayError();
+}
+
+function shouldRequirePasscodeLock() {
+  if (!_profile || !hasConfiguredLocalPasscode()) return false;
+  const onboarding = document.getElementById('onboardingScreen');
+  const setupOverlay = document.getElementById('setupOverlay');
+  const migrationOverlay = document.getElementById('migrationOverlay');
+  if (onboarding && onboarding.classList.contains('show')) return false;
+  if (setupOverlay && setupOverlay.classList.contains('open')) return false;
+  if (migrationOverlay && migrationOverlay.classList.contains('open')) return false;
+  return true;
+}
+
+async function unlockAppWithPasscode() {
+  const input = document.getElementById('lockPasscode');
+  const error = document.getElementById('lockPasscodeErr');
+  const btn = document.getElementById('unlockBtn');
+  const passcode = normalizePasscodeInput(input ? input.value : '');
+
+  if (!isValidPasscodeValue(passcode)) {
+    if (input) input.classList.add('error');
+    if (error) error.classList.add('show');
+    showToast('4桁または6桁の数字で入力してください');
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '確認中...';
+  }
+  clearPasscodeOverlayError();
+
+  try {
+    const isMatched = await verifyLocalPasscode(passcode);
+    if (!isMatched) {
+      if (input) input.classList.add('error');
+      if (error) error.classList.add('show');
+      showToast('パスコードが一致しません');
+      return;
+    }
+    isPasscodeAuthenticated = true;
+    closePasscodeOverlay();
+    showToast('ログインしました🌿');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'ログインする';
+    }
+  }
+}
+
+async function restoreAccountByForm(options) {
+  const settings = options || {};
+  const phoneInput = document.getElementById(settings.phoneId);
+  const passcodeInput = document.getElementById(settings.passcodeId);
+  const btn = document.getElementById(settings.buttonId);
+  const phone = normalizePhoneInput(phoneInput ? phoneInput.value : '');
+  const passcode = normalizePasscodeInput(passcodeInput ? passcodeInput.value : '');
+
+  if (!phone || !passcode) {
+    showToast('電話番号とパスコードを入力してください');
+    return;
+  }
+  if (!isValidPasscodeValue(passcode)) {
+    showToast('パスコードは4桁または6桁の数字で入力してください');
+    return;
+  }
+
+  const isConfirmed = await showAppConfirm('入力された情報でログインしますか？\n現在の端末のデータは上書きされます。', {
+    title: 'ログイン・復元',
+    confirmLabel: 'ログインする',
+    cancelLabel: '戻る'
+  });
+  if (!isConfirmed) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.originalText = btn.dataset.originalText || btn.textContent;
+    btn.textContent = 'ログイン中...';
+  }
+  showToast('会員データを確認しています...');
+
+  try {
+    const res = await postToGAS({
+      type: 'recoverAccount',
+      phone: phone,
+      passcode: passcode
+    });
+
+    if (res && res.status === 'ok' && res.user) {
+      const u = res.user;
+      await applyRecoveredUserState(u, passcode, 'おかえりなさい、' + u.name + ' 様！\nデータを復元しました🌿');
+      return;
+    }
+
+    await showAppAlert(res && res.message ? res.message : '一致する会員情報が見つかりませんでした。入力内容を確認してください。', {
+      title: '復元エラー',
+      confirmLabel: '閉じる'
+    });
+  } catch (e) {
+    console.error('restoreAccount error:', e);
+    showToast('通信エラーが発生しました');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.originalText || 'ログインして復元する ↺';
+    }
+  }
+}
+
+function restoreAccountFromLockScreen() {
+  return restoreAccountByForm({
+    phoneId: 'passcodeRestorePhone',
+    passcodeId: 'passcodeRestorePasscode',
+    buttonId: 'passcodeRestoreBtn'
+  });
+}
+
+async function resetForgottenPasscodeByForm(options) {
+  const settings = options || {};
+  const nameInput = document.getElementById(settings.nameId);
+  const phoneInput = document.getElementById(settings.phoneId);
+  const birthdayInput = document.getElementById(settings.birthdayId);
+  const passcodeInput = document.getElementById(settings.passcodeId);
+  const btn = document.getElementById(settings.buttonId);
+  const name = normalizeNameInput(nameInput ? nameInput.value : '');
+  const phone = normalizePhoneInput(phoneInput ? phoneInput.value : '');
+  const birthday = normalizeDateOnlyInput(birthdayInput ? birthdayInput.value : '');
+  const newPasscode = normalizePasscodeInput(passcodeInput ? passcodeInput.value : '');
+
+  if (!name || !phone || !birthday || !newPasscode) {
+    showToast('お名前・電話番号・生年月日・新しいパスコードを入力してください');
+    return;
+  }
+  if (!isValidPasscodeValue(newPasscode)) {
+    showToast('新しいパスコードは4桁または6桁の数字で入力してください');
+    return;
+  }
+
+  const isConfirmed = await showAppConfirm('入力された情報でパスコードを再設定しますか？\n再設定後、この端末へログインします。', {
+    title: 'パスコードの再設定',
+    confirmLabel: '再設定する',
+    cancelLabel: '戻る'
+  });
+  if (!isConfirmed) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.originalText = btn.dataset.originalText || btn.textContent;
+    btn.textContent = '再設定中...';
+  }
+  showToast('会員情報を確認しています...');
+
+  try {
+    const res = await postToGAS({
+      type: 'resetForgottenPasscode',
+      memberId: _profile && _profile.memberId ? _profile.memberId : '',
+      name: name,
+      phone: phone,
+      birthday: birthday,
+      newPasscode: newPasscode
+    });
+
+    if (res && res.status === 'ok' && res.user) {
+      const u = res.user;
+      await applyRecoveredUserState(u, newPasscode, 'パスコードを再設定しました。\n' + u.name + ' 様としてログインしました🌿');
+      return;
+    }
+
+    await showAppAlert(res && res.message ? res.message : '本人確認ができませんでした。入力内容を確認してください。', {
+      title: '再設定エラー',
+      confirmLabel: '閉じる'
+    });
+  } catch (e) {
+    console.error('resetForgottenPasscode error:', e);
+    showToast('通信エラーが発生しました');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.originalText || '再設定してログインする';
+    }
+  }
+}
+
+function resetForgottenPasscodeFromLockScreen() {
+  return resetForgottenPasscodeByForm({
+    nameId: 'passcodeResetName',
+    phoneId: 'passcodeResetPhone',
+    birthdayId: 'passcodeResetBirthday',
+    passcodeId: 'passcodeResetNewPasscode',
+    buttonId: 'passcodeResetBtn'
+  });
+}
+
+function toggleSetupView(view) {
+  const setup = document.getElementById('setupFormContent');
+  const restore = document.getElementById('restoreFormContent');
+  const change = document.getElementById('changePasscodeContent');
+  const forgot = document.getElementById('forgotPasscodeContent');
+
+  if (view === 'restore') {
+    if (setup) setup.style.display = 'none';
+    if (restore) restore.style.display = 'block';
+    if (change) change.style.display = 'none';
+    if (forgot) forgot.style.display = 'none';
+  } else if (view === 'forgot') {
+    if (setup) setup.style.display = 'none';
+    if (restore) restore.style.display = 'none';
+    if (change) change.style.display = 'none';
+    if (forgot) forgot.style.display = 'block';
+    prefillForgotPasscodeForm({
+      nameId: 'forgotPasscodeName',
+      phoneId: 'forgotPasscodePhone',
+      birthdayId: 'forgotPasscodeBirthday',
+      passcodeId: 'forgotPasscodeNew',
+      sourcePhoneId: 'restorePhone'
+    });
+  } else if (view === 'change') {
+    if (setup) setup.style.display = 'none';
+    if (restore) restore.style.display = 'none';
+    if (change) change.style.display = 'block';
+    if (forgot) forgot.style.display = 'none';
+  } else {
+    if (setup) setup.style.display = 'block';
+    if (restore) restore.style.display = 'none';
+    if (change) change.style.display = 'none';
+    if (forgot) forgot.style.display = 'none';
+  }
+}
+
+function openChangePasscode() {
+  document.getElementById('newPasscode').value = '';
+  toggleSetupView('change');
+  const cancelBtn = document.getElementById('setupCancelBtn');
+  if (cancelBtn) cancelBtn.style.display = 'inline-block';
+  openModal('setupOverlay');
+}
+
+async function saveNewPasscode() {
+  if (!_profile || !_profile.memberId) return;
+  const newPass = normalizePasscodeInput(document.getElementById('newPasscode').value);
+
+  if (!isValidPasscodeValue(newPass)) {
+    showToast('4桁または6桁の数字を入力してください');
+    return;
+  }
+
+  const btn = document.getElementById('changePasscodeBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    const data = {
+      type: 'updateUser',
+      memberId: _profile.memberId,
+      passcode: newPass
+    };
+    const res = await postToGAS(data);
+    if (res && res.status === 'ok') {
+      await storeLocalPasscode(newPass);
+      isPasscodeAuthenticated = true;
+      showToast('パスコードを変更しました🌿');
+      closeSetupModal();
+    } else {
+      showToast('変更に失敗しました');
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('通信エラーが発生しました');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '変更を保存';
+  }
+}
+
+
+async function restoreAccount() {
+  return restoreAccountByForm({
+    phoneId: 'restorePhone',
+    passcodeId: 'restorePasscode',
+    buttonId: 'restoreBtn'
+  });
+}
+
+async function resetForgottenPasscode() {
+  return resetForgottenPasscodeByForm({
+    nameId: 'forgotPasscodeName',
+    phoneId: 'forgotPasscodePhone',
+    birthdayId: 'forgotPasscodeBirthday',
+    passcodeId: 'forgotPasscodeNew',
+    buttonId: 'forgotPasscodeBtn'
+  });
+}
+
+async function saveProfile() {
   const nameEl = document.getElementById('setupName');
   const nameErr = document.getElementById('setupNameErr');
   const name = nameEl.value.trim();
   const phone = document.getElementById('setupPhone').value.trim();
   const birthday = document.getElementById('setupBirthday').value;
   const address = document.getElementById('setupAddress').value.trim();
+  const isNew = !_profile;
+  let passcode = '';
+
+  if (isNew) {
+    const passcodeEl = document.getElementById('setupPasscode');
+    const passcodeErr = document.getElementById('setupPasscodeErr');
+    passcode = normalizePasscodeInput(passcodeEl.value);
+    if (!isValidPasscodeValue(passcode)) {
+      passcodeEl.classList.add('error');
+      passcodeErr.classList.add('show');
+      passcodeEl.focus();
+      return;
+    }
+    passcodeEl.classList.remove('error');
+    passcodeErr.classList.remove('show');
+  }
 
   // バリデーション
   if (!name) {
@@ -4452,7 +4967,6 @@ function saveProfile() {
   nameEl.classList.remove('error');
   nameErr.classList.remove('show');
 
-  const isNew = !_profile;
   const now = new Date();
   // 登録/更新日時を yyyy/M/d H:mm 形式にする
   const regDate = formatCustomerDateYmd(now);
@@ -4468,6 +4982,10 @@ function saveProfile() {
     if (_avatarData) localStorage.setItem('mayumi_avatar', _avatarData);
     if (_bannerData) localStorage.setItem('mayumi_banner', _bannerData);
   } catch (e) { }
+  if (isNew && passcode) {
+    await storeLocalPasscode(passcode);
+    isPasscodeAuthenticated = true;
+  }
   CUSTOMER_NAME = name;
 
   // UIを先に更新する
@@ -4513,6 +5031,7 @@ function saveProfile() {
       address: address,
       kana: '',
       memo: '',
+      passcode: isNew ? passcode : undefined,
       pushSubscription: getCurrentPushSubscriptionValue(isPushEnabled())
     });
     await syncRewardStatus(true);
@@ -4524,8 +5043,56 @@ function saveProfile() {
   })();
 }
 
+function openMigrationModal() {
+  document.getElementById('migrationPhone').value = _profile.phone || '';
+  document.getElementById('migrationPasscode').value = '';
+  document.getElementById('migrationOverlay').classList.add('open');
+}
+
+async function saveMigrationPasscode() {
+  const phone = document.getElementById('migrationPhone').value.trim();
+  const passcode = normalizePasscodeInput(document.getElementById('migrationPasscode').value);
+  const btn = document.getElementById('migrationBtn');
+
+  if (!phone || !isValidPasscodeValue(passcode)) {
+    showToast('電話番号と4桁または6桁のパスコードを入力してください');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    const data = {
+      type: 'updateUser',
+      memberId: _profile.memberId,
+      phone: phone,
+      passcode: passcode
+    };
+    const res = await postToGAS(data);
+    if (res && res.status === 'ok') {
+      _profile.phone = phone; // Update local profile
+      localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
+      await storeLocalPasscode(passcode);
+      isPasscodeAuthenticated = true;
+      showToast('セキュリティ設定を完了しました🌿');
+      document.getElementById('migrationOverlay').classList.remove('open');
+      updateProfileUI(); // Refresh UI
+    } else {
+      showToast('設定に失敗しました');
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('通信エラーが発生しました');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '設定してアプリを使う';
+  }
+}
+
 function openEditProfile() {
   if (!_profile) { openSetupModal(false); return; }
+  toggleSetupView('setup'); // Ensure setup view is visible and not restore or change
   // 編集モード：現在の値をセット
   document.getElementById('setupName').value = _profile.name || '';
   document.getElementById('setupPhone').value = _profile.phone || '';
@@ -4544,12 +5111,25 @@ function openEditProfile() {
   document.getElementById('setupBtn').textContent = '変更を保存する ✅';
   document.getElementById('setupCancelBtn').style.display = 'block';
   document.getElementById('avatarEditWrap').style.display = 'block';
+
+  // Hide passcode field when editing (passcode has its own modal)
+  const passcodeEl = document.getElementById('setupPasscode');
+  if (passcodeEl && passcodeEl.parentElement) {
+    passcodeEl.parentElement.style.display = 'none';
+  }
+
+  // Hide login switch link
+  const setupRestoreLinkWrap = document.getElementById('setupRestoreLinkWrap');
+  if (setupRestoreLinkWrap) setupRestoreLinkWrap.style.display = 'none';
+
   document.getElementById('setupOverlay').classList.add('open');
 }
 
 function openSetupModal(isFirst) {
+  toggleSetupView('setup'); // Ensure setup view is visible
   document.getElementById('setupName').value = '';
   document.getElementById('setupPhone').value = '';
+  document.getElementById('setupPasscode').value = '';
   const defStatus = document.querySelector('input[name="setupStatus"][value="妊娠中"]');
   if (defStatus) defStatus.checked = true;
   // アバタープレビューリセット
@@ -4563,6 +5143,17 @@ function openSetupModal(isFirst) {
   document.getElementById('setupBtn').textContent = '登録してアプリを始める 🌿';
   document.getElementById('setupCancelBtn').style.display = 'none';
   document.getElementById('avatarEditWrap').style.display = 'block';
+
+  // Show passcode field
+  const passcodeEl = document.getElementById('setupPasscode');
+  if (passcodeEl && passcodeEl.parentElement) {
+    passcodeEl.parentElement.style.display = 'block';
+  }
+
+  // Show login switch link
+  const setupRestoreLinkWrap = document.getElementById('setupRestoreLinkWrap');
+  if (setupRestoreLinkWrap) setupRestoreLinkWrap.style.display = 'block';
+
   document.getElementById('setupOverlay').classList.add('open');
 }
 
@@ -4571,6 +5162,8 @@ function closeSetupModal() {
   // エラー状態リセット
   document.getElementById('setupName').classList.remove('error');
   document.getElementById('setupNameErr').classList.remove('show');
+  document.getElementById('setupPasscode').classList.remove('error');
+  document.getElementById('setupPasscodeErr').classList.remove('show');
 }
 
 function updateProfileUI() {
@@ -4612,6 +5205,7 @@ function updateProfileUI() {
 
 function checkFirstLaunch() {
   if (!_profile) {
+    isPasscodeAuthenticated = false;
     // 初回起動：オンボーディングを即座に表示
     const screen = document.getElementById('onboardingScreen');
     if (screen) screen.classList.add('show');
@@ -4621,6 +5215,21 @@ function checkFirstLaunch() {
     if (homePage) homePage.classList.add('active');
     CUSTOMER_NAME = _profile.name;
     updateProfileUI();
+
+    // 既存ユーザーで起動用パスコードが未設定の場合は設定を促す
+    if (!hasConfiguredLocalPasscode()) {
+      isPasscodeAuthenticated = true;
+      openMigrationModal();
+      return;
+    }
+
+    if (consumePasscodeUnlockSkippedOnce()) {
+      isPasscodeAuthenticated = true;
+      return;
+    }
+
+    isPasscodeAuthenticated = false;
+    openPasscodeOverlay();
   }
 }
 
@@ -4874,6 +5483,9 @@ async function handleNativeNotificationFallback() {
 
 // ===== 初期化 (並列実行で高速化) =====
 async function initApp() {
+  if (initAppStarted) return;
+  initAppStarted = true;
+
   // 最初に初回起動チェックを行い、UI（オンボーディング or ホーム）を表示する
   checkFirstLaunch();
 
@@ -5019,12 +5631,25 @@ async function initApp() {
     updateNavBadges();
   }).catch(e => console.error('Initial load error:', e));
 }
-initApp().catch(e => console.error('initApp error:', e));
 
 // アプリ再表示時にデータを自動更新（タスクキル後の再起動対応）
 let lastFetchTime = Date.now();
 document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden') {
+    appHiddenAt = Date.now();
+    return;
+  }
+
   if (document.visibilityState === 'visible') {
+    if (shouldRequirePasscodeLock() &&
+      isPasscodeAuthenticated &&
+      appHiddenAt &&
+      (Date.now() - appHiddenAt) >= PASSCODE_RESUME_LOCK_DELAY_MS) {
+      isPasscodeAuthenticated = false;
+      openPasscodeOverlay();
+    }
+    appHiddenAt = 0;
+
     ensureSupportedAppVersion().then(function (versionGate) {
       if (versionGate && versionGate.blocked) {
         showToast('アプリの更新が必要です');
@@ -5402,4 +6027,10 @@ function calculateDashiPricing(qty) {
   };
 }
 
-if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initApp); } else { initApp(); }
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function () {
+    initApp().catch(function (e) { console.error('initApp error:', e); });
+  });
+} else {
+  initApp().catch(function (e) { console.error('initApp error:', e); });
+}
