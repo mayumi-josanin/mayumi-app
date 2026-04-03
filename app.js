@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyLCgSn45Wy-aTZXa-1LNj55TUoqKLi3gq-LBImy_wjHgE7_2llp89cpF1NmuxrejKTqQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.50';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.51';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -93,7 +93,8 @@ let appUpdateContext = {
   needsReload: false,
   waitingServiceWorker: false,
   message: '',
-  webBundleVersion: ''
+  webBundleVersion: '',
+  reloadStarted: false
 };
 let itemSeenState = readJsonStorage(ITEM_SEEN_STORAGE_KEY, {});
 let favoriteEntries = readJsonStorage(FAVORITES_STORAGE_KEY, []);
@@ -782,19 +783,17 @@ function renderAccessibilitySettings() {
 }
 
 function showAppUpdateBanner(message, webBundleVersion) {
-  const banner = document.getElementById('appUpdateBanner');
-  const text = document.getElementById('appUpdateBannerText');
-  if (!banner || !text) return;
   appUpdateContext.needsReload = true;
-  appUpdateContext.message = message || '最新版があります。アプリを開き直すと最新の内容が反映されます。';
+  appUpdateContext.message = message || '最新版があります。再読み込みして最新の内容を反映します。';
   appUpdateContext.webBundleVersion = webBundleVersion || '';
-  text.textContent = appUpdateContext.message;
-  banner.classList.add('show');
+  setTimeout(function () {
+    applyPendingAppUpdate().catch(function (e) {
+      console.error('applyPendingAppUpdate auto error:', e);
+    });
+  }, 50);
 }
 
 function hideAppUpdateBanner(persistDismiss) {
-  const banner = document.getElementById('appUpdateBanner');
-  if (banner) banner.classList.remove('show');
   if (persistDismiss) {
     try {
       localStorage.setItem(UPDATE_BANNER_DISMISSED_AT_STORAGE_KEY, String(Date.now()));
@@ -803,6 +802,9 @@ function hideAppUpdateBanner(persistDismiss) {
 }
 
 async function applyPendingAppUpdate() {
+  if (appUpdateContext.reloadStarted) return;
+  appUpdateContext.reloadStarted = true;
+  appUpdateContext.needsReload = true;
   if ('serviceWorker' in navigator) {
     try {
       const registrations = await navigator.serviceWorker.getRegistrations();
@@ -2588,8 +2590,8 @@ async function refreshAppData() {
     });
 
     if (shouldReloadForCodeUpdate) {
-      showAppUpdateBanner('最新版があります。アプリを開き直すと最新の画面と機能が反映されます。', versionGate && versionGate.config ? versionGate.config.webBundleVersion : '');
-      showToast('最新版があります。アプリを開き直すと反映されます');
+      await applyPendingAppUpdate();
+      return;
     } else {
       hideAppUpdateBanner(false);
       showToast('最新情報を反映しました ✨');
@@ -7232,7 +7234,8 @@ async function initApp() {
     return;
   }
   if (versionGate.needsWebUpdate) {
-    showAppUpdateBanner('最新版があります。アプリを開き直すと最新の内容が反映されます。', versionGate && versionGate.config ? versionGate.config.webBundleVersion : '');
+    await applyPendingAppUpdate();
+    return;
   }
 
   loadStampRewards();
