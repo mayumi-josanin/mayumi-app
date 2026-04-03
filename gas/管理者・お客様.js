@@ -147,7 +147,7 @@ const DEFAULT_APP_RUNTIME_CONFIG = {
   iosStoreUrl: '',
   updateTitle: 'アップデートが必要です',
   updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
-  webBundleVersion: '2026.04.04.52'
+  webBundleVersion: '2026.04.04.51'
 };
 
 const MUTATING_GET_ACTIONS = {
@@ -235,7 +235,8 @@ function sanitizeAppRuntimeConfig_(raw) {
     iosStoreUrl: String(input.iosStoreUrl || DEFAULT_APP_RUNTIME_CONFIG.iosStoreUrl).trim(),
     updateTitle: String(input.updateTitle || DEFAULT_APP_RUNTIME_CONFIG.updateTitle).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateTitle,
     updateMessage: String(input.updateMessage || DEFAULT_APP_RUNTIME_CONFIG.updateMessage).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateMessage,
-    webBundleVersion: String(input.webBundleVersion || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion
+    // 現在配布中のネイティブ版との整合を優先し、返却値は固定で揃える
+    webBundleVersion: DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion
   };
 
   if (compareVersions_(config.latestAppVersion, config.minimumSupportedVersion) < 0) {
