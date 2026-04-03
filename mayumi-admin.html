@@ -728,6 +728,10 @@
               <label>本文</label>
               <textarea id="blogBody" rows="5" placeholder="お知らせの内容を入力..."></textarea>
             </div>
+            <div class="form-group">
+              <label>公開開始日時（空欄ならすぐ公開）</label>
+              <input type="datetime-local" id="blogPublishAt">
+            </div>
             <div class="flex" style="gap:10px;">
               <button type="submit" id="blogSubmitBtn" class="btn" style="flex:2; font-size: 15px; padding: 12px;"
                 onclick="document.getElementById('blogStatus').value='公開'">🌟 公開して投稿する</button>
@@ -880,6 +884,10 @@
                 <span style="font-size: 12px; color: var(--text-light);">※商品一覧の背景色になります</span>
               </div>
             </div>
+            <div class="form-group">
+              <label>公開開始日時（空欄ならすぐ公開）</label>
+              <input type="datetime-local" id="prodPublishAt">
+            </div>
             <div class="flex" style="gap:10px;">
               <button type="submit" id="prodSubmitBtn" class="btn" style="flex:2;"
                 onclick="document.getElementById('prodStatus').value='公開'">🌟 公開して追加する</button>
@@ -992,8 +1000,31 @@
               <label>通知本文</label>
               <textarea id="pushBody" rows="2" placeholder="通知の内容を入力してください..."></textarea>
             </div>
-            <button class="btn" style="width: 100%; font-size: 15px; padding: 12px;" onclick="sendBroadcastPush()">🚀
-              通知を一斉送信する</button>
+            <div class="flex" style="gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+              <div class="form-group" style="flex:1; min-width:180px; margin-bottom:0;">
+                <label>開く画面</label>
+                <select id="pushTargetPage">
+                  <option value="home">ホーム</option>
+                  <option value="shop">ショップ</option>
+                  <option value="calendar">カレンダー</option>
+                  <option value="news">NEWS</option>
+                  <option value="notices">お知らせ一覧</option>
+                  <option value="mypage">マイページ</option>
+                  <option value="menu-list">メニュー一覧</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex:1; min-width:220px; margin-bottom:0;">
+                <label>配信予定日時</label>
+                <input type="datetime-local" id="pushScheduledAt">
+              </div>
+            </div>
+            <div class="flex" style="gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="previewPushNotice()">👁 プレビュー</button>
+              <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="savePushDraft()">📁 下書き保存</button>
+              <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="schedulePushNotice()">🕒 予約保存</button>
+              <button class="btn" type="button" style="flex:2; min-width:160px; font-size: 15px; padding: 12px;" onclick="sendBroadcastPush()">🚀
+                通知を一斉送信する</button>
+            </div>
           </div>
 
           <table>
@@ -1047,6 +1078,61 @@
               </tr>
             </thead>
             <tbody id="pushNoticesList">
+              <tr>
+                <td colspan="5" style="text-align:center;">読み込み中...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex space-between mb-2" style="margin-top:40px; flex-wrap:wrap; align-items:flex-start;">
+          <h2>🧩 重複会員候補</h2>
+          <div class="flex">
+            <button class="btn btn-outline" onclick="loadDuplicateUsers()">🔄 更新</button>
+          </div>
+        </div>
+        <div class="card table-wrapper">
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+            同じ電話番号、氏名と生年月日、氏名が一致する候補を一覧表示します。統合すると、残す会員IDへ注文・スタンプ・端末情報を集約し、他の会員はゴミ箱へ移動します。
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>判定理由</th>
+                <th>候補会員</th>
+                <th>統合</th>
+              </tr>
+            </thead>
+            <tbody id="duplicateUsersList">
+              <tr>
+                <td colspan="3" style="text-align:center;">読み込み中...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex space-between mb-2" style="margin-top:40px; flex-wrap:wrap; align-items:flex-start;">
+          <h2>🛟 バックアップ / ゴミ箱</h2>
+          <div class="flex" style="gap:8px;">
+            <button class="btn btn-outline" onclick="loadBackupStatus()">🔄 状況更新</button>
+            <button class="btn" type="button" onclick="runManualBackup()">💾 今すぐバックアップ</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div id="backupStatusBody" style="font-size:13px; color:var(--text-mid);">読み込み中...</div>
+        </div>
+        <div class="card table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>削除日時</th>
+                <th>種類</th>
+                <th>内容</th>
+                <th>理由</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="trashItemsList">
               <tr>
                 <td colspan="5" style="text-align:center;">読み込み中...</td>
               </tr>
@@ -1169,6 +1255,10 @@
                   <!-- 最近使用した色がここに表示される -->
                 </div>
               </div>
+            </div>
+            <div class="form-group">
+              <label>公開開始日時（空欄ならすぐ公開）</label>
+              <input type="datetime-local" id="calPublishAt">
             </div>
             <div class="flex" style="gap:10px;">
               <button type="submit" id="calSubmitBtn" class="btn" style="flex:2;"
@@ -1313,6 +1403,10 @@
                 <option value="予約受付中">予約受付中</option>
                 <option value="予約対象外">予約対象外</option>
               </select>
+            </div>
+            <div class="form-group">
+              <label>公開開始日時（空欄ならすぐ公開）</label>
+              <input type="datetime-local" id="menuPublishAt">
             </div>
 
             <div class="flex" style="gap:10px; margin-top:20px;">
@@ -2183,6 +2277,31 @@
     </div>
   </div>
 
+  <div id="pushPreviewModal" class="modal">
+    <div class="modal-content" style="max-width:560px;">
+      <h3 style="margin-bottom: 15px;">👁 Push通知プレビュー</h3>
+      <div id="pushPreviewBody"></div>
+      <div class="flex" style="margin-top: 18px; gap:10px;">
+        <button class="btn btn-outline" onclick="document.getElementById('pushPreviewModal').classList.remove('active')" style="flex:1;">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dangerConfirmModal" class="modal">
+    <div class="modal-content" style="max-width:520px;">
+      <h3 id="dangerConfirmTitle" style="margin-bottom: 12px;">確認</h3>
+      <div id="dangerConfirmMessage" style="font-size:13px; color:var(--text-mid); line-height:1.8;"></div>
+      <div class="form-group" style="margin-top:14px;">
+        <label id="dangerConfirmLabel">続行するには指定の文字を入力してください</label>
+        <input type="text" id="dangerConfirmInput" autocomplete="off">
+      </div>
+      <div class="flex" style="margin-top: 18px; gap:10px;">
+        <button class="btn" id="dangerConfirmSubmitBtn" style="flex:1; background:var(--danger);">実行する</button>
+        <button class="btn btn-outline" type="button" onclick="closeDangerConfirmModal()" style="flex:1;">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbz5cIeCDi5x3KaNuAV4SYHVTiIWr0kDq4xSPToQDU1jqeeerxTZU3uxDpxI5ubv3kcR1Q/exec';
 
@@ -2213,6 +2332,9 @@
     let allBlogs = [];
     let allCalendarEvents = [];
     let allAdminNoticeOverviewItems = [];
+    let allDuplicateUserGroups = [];
+    let allTrashItems = [];
+    let latestBackupStatus = null;
     let editingRewardEntries = [];
     let allMenuRevenueRecords = [];
     let allProductRevenueRecords = [];
@@ -2223,6 +2345,7 @@
     let adminAppRuntimeConfig = { ...DEFAULT_APP_RUNTIME_CONFIG };
     let adminUsersLoadVersion = 0;
     let deferredAdminInstallPrompt = null;
+    let pendingDangerConfirm = null;
     const MENU_REVENUE_TYPES = ['母乳外来', 'ビジリス', '教室', 'その他'];
     const ADMIN_NOTICE_FEED_START_DATE = '2026-04-01';
     const API_GET_TIMEOUT_MS = 45000;
@@ -2614,6 +2737,46 @@
       target.textContent = `${visibleCount} / ${totalCount} 件を表示`;
     }
 
+    function closeDangerConfirmModal() {
+      const modal = document.getElementById('dangerConfirmModal');
+      if (modal) modal.classList.remove('active');
+      const input = document.getElementById('dangerConfirmInput');
+      if (input) input.value = '';
+      if (pendingDangerConfirm && typeof pendingDangerConfirm.resolve === 'function') {
+        pendingDangerConfirm.resolve(false);
+      }
+      pendingDangerConfirm = null;
+    }
+
+    function requestDangerousConfirm(options = {}) {
+      return new Promise(resolve => {
+        if (pendingDangerConfirm && typeof pendingDangerConfirm.resolve === 'function') {
+          pendingDangerConfirm.resolve(false);
+        }
+        pendingDangerConfirm = { resolve };
+        const keyword = String(options.keyword || '実行').trim();
+        document.getElementById('dangerConfirmTitle').textContent = options.title || '確認';
+        document.getElementById('dangerConfirmMessage').innerHTML = escapeHtml(options.message || '').replace(/\n/g, '<br>');
+        document.getElementById('dangerConfirmLabel').textContent = `続行するには「${keyword}」と入力してください`;
+        document.getElementById('dangerConfirmSubmitBtn').textContent = options.confirmLabel || '実行する';
+        const input = document.getElementById('dangerConfirmInput');
+        input.value = '';
+        const modal = document.getElementById('dangerConfirmModal');
+        modal.classList.add('active');
+        setTimeout(() => input.focus(), 50);
+        document.getElementById('dangerConfirmSubmitBtn').onclick = () => {
+          if (input.value.trim() !== keyword) {
+            alert(`「${keyword}」と入力してください`);
+            input.focus();
+            return;
+          }
+          modal.classList.remove('active');
+          pendingDangerConfirm = null;
+          resolve(true);
+        };
+      });
+    }
+
     function normalizeAdminOrderStatus(status) {
       const value = String(status || '').trim();
       if (!value || value === '未受取' || value === '受付中' || value === 'pending') return '受付中';
@@ -2786,7 +2949,13 @@
         else if (type === 'PUSH') label = '件の通知履歴';
         else label = '件の注文履歴';
 
-        if (!confirm(`${count}${label}を削除しますか？\nこの操作は元に戻せません。`)) return;
+        const confirmed = await requestDangerousConfirm({
+          title: '一括削除の確認',
+          message: `${count}${label}をゴミ箱へ移動します。`,
+          keyword: '削除',
+          confirmLabel: '削除する'
+        });
+        if (!confirmed) return;
 
         showToast('一括削除中...');
         let res;
@@ -2942,7 +3111,7 @@
         return;
       }
       if (pageId === 'users') {
-        await Promise.all([loadAdminUsers(), loadAdminPushNotices()]);
+        await Promise.all([loadAdminUsers(), loadAdminPushNotices(), loadDuplicateUsers(), loadAdminTrashItems(), loadBackupStatus()]);
         return;
       }
       if (pageId === 'notice-management') {
@@ -3947,7 +4116,13 @@
     }
 
     async function deleteUser(memberId, rowIdx, name) {
-      if (!confirm(`会員「${name || '名前なし'}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+      const confirmed = await requestDangerousConfirm({
+        title: '会員削除の確認',
+        message: `会員「${name || '名前なし'}」をゴミ箱へ移動します。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
       showToast('削除中...');
       const res = await apiRequest('', {
         type: 'deleteUser',
@@ -3961,6 +4136,182 @@
         await loadAdminUsers();
       } else {
         showToast('削除に失敗しました: ' + (res && res.message ? res.message : '不明なエラー'));
+      }
+    }
+
+    async function loadBackupStatus() {
+      const box = document.getElementById('backupStatusBody');
+      if (box) box.textContent = '読み込み中...';
+      const res = await apiRequest('getBackupStatus');
+      latestBackupStatus = res && res.status === 'ok' ? res : null;
+      if (!latestBackupStatus) {
+        if (box) box.textContent = 'バックアップ状況の取得に失敗しました';
+        return;
+      }
+      const lines = [
+        `最終バックアップ: ${formatDisplayDate(latestBackupStatus.lastBackupAt || '') || '未実行'}`,
+        `日次バックアップ: ${latestBackupStatus.hasDailyTrigger ? '有効' : '未設定'}`,
+        `予約Push実行トリガー: ${latestBackupStatus.hasPushSchedulerTrigger ? '有効' : '未設定'}`
+      ];
+      if (latestBackupStatus.lastBackupUrl) {
+        lines.push(`<a href="${latestBackupStatus.lastBackupUrl}" target="_blank" rel="noopener">最新バックアップを開く</a>`);
+      }
+      if (box) box.innerHTML = lines.map(line => `<div style="margin-bottom:6px;">${line}</div>`).join('');
+    }
+
+    async function runManualBackup() {
+      const confirmed = await requestDangerousConfirm({
+        title: '手動バックアップの確認',
+        message: '現在のスプレッドシート全体を Google Drive にバックアップします。',
+        keyword: '保存',
+        confirmLabel: 'バックアップする'
+      });
+      if (!confirmed) return;
+      showToast('バックアップを作成中...');
+      const res = await apiRequest('', { type: 'runManualBackup', reason: 'manual-admin' }, true);
+      if (res && res.status === 'ok') {
+        showToast('バックアップを作成しました');
+        loadBackupStatus();
+      } else {
+        showToast('バックアップに失敗しました');
+      }
+    }
+
+    async function loadDuplicateUsers() {
+      const body = document.getElementById('duplicateUsersList');
+      if (body) body.innerHTML = '<tr><td colspan="3" style="text-align:center;">読み込み中...</td></tr>';
+      const res = await apiRequest('getDuplicateUsers');
+      if (res && res.status === 'ok') {
+        allDuplicateUserGroups = res.groups || [];
+      } else {
+        allDuplicateUserGroups = [];
+      }
+      renderDuplicateUsers();
+    }
+
+    function renderDuplicateUsers() {
+      const body = document.getElementById('duplicateUsersList');
+      if (!body) return;
+      if (!allDuplicateUserGroups.length) {
+        body.innerHTML = '<tr><td colspan="3" style="text-align:center;">重複候補はありません</td></tr>';
+        return;
+      }
+      body.innerHTML = allDuplicateUserGroups.map(group => {
+        const usersHtml = (group.users || []).map(user => `
+          <div style="padding:8px 10px; border:1px solid var(--border); border-radius:10px; margin-bottom:8px; background:#fff;">
+            <div style="font-weight:700;">${escapeHtml(user.name || '名前なし')} <span style="font-size:12px; color:var(--text-light);">(${escapeHtml(user.memberId || '')})</span></div>
+            <div style="font-size:12px; color:var(--text-mid); margin-top:4px;">
+              電話番号: ${escapeHtml(user.phone || '---')} / 生年月日: ${escapeHtml(user.birthday || '---')} / 更新: ${escapeHtml(formatDisplayDate(user.updatedAt || ''))}
+            </div>
+          </div>
+        `).join('');
+        const target = group.users && group.users[0];
+        const sourceIds = (group.users || []).slice(1).map(user => user.memberId);
+        const button = target && sourceIds.length
+          ? `<button class="btn" type="button" onclick='mergeDuplicateGroup(${JSON.stringify(target.memberId)}, ${JSON.stringify(sourceIds)}, ${JSON.stringify(target.name || "")})'>最新の会員IDへ統合</button>`
+          : '<span style="font-size:12px; color:var(--text-light);">統合対象なし</span>';
+        return `
+          <tr>
+            <td style="white-space:pre-line;">${escapeHtml((group.reasons || []).join(' / '))}</td>
+            <td>${usersHtml}</td>
+            <td style="white-space:nowrap;">${button}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function mergeDuplicateGroup(targetMemberId, sourceMemberIds, targetName) {
+      const count = Array.isArray(sourceMemberIds) ? sourceMemberIds.length : 0;
+      if (!targetMemberId || !count) return;
+      const confirmed = await requestDangerousConfirm({
+        title: '会員統合の確認',
+        message: `「${targetName || targetMemberId}」を残し、他の ${count} 件を統合します。統合後、元の会員はゴミ箱へ移動します。`,
+        keyword: '統合',
+        confirmLabel: '統合する'
+      });
+      if (!confirmed) return;
+      showToast('会員を統合中...');
+      const res = await apiRequest('', {
+        type: 'mergeUsers',
+        targetMemberId: targetMemberId,
+        sourceMemberIds: sourceMemberIds
+      }, true);
+      if (res && res.status === 'ok') {
+        showToast('会員を統合しました');
+        await Promise.all([loadAdminUsers(), loadDuplicateUsers(), loadAdminTrashItems()]);
+      } else {
+        showToast('統合に失敗しました');
+      }
+    }
+
+    async function loadAdminTrashItems() {
+      const body = document.getElementById('trashItemsList');
+      if (body) body.innerHTML = '<tr><td colspan="5" style="text-align:center;">読み込み中...</td></tr>';
+      const res = await apiRequest('getAdminTrashItems');
+      if (res && res.status === 'ok') {
+        allTrashItems = res.items || [];
+      } else {
+        allTrashItems = [];
+      }
+      renderAdminTrashItems();
+    }
+
+    function renderAdminTrashItems() {
+      const body = document.getElementById('trashItemsList');
+      if (!body) return;
+      if (!allTrashItems.length) {
+        body.innerHTML = '<tr><td colspan="5" style="text-align:center;">ゴミ箱は空です</td></tr>';
+        return;
+      }
+      body.innerHTML = allTrashItems.map(item => `
+        <tr>
+          <td style="font-size:12px;">${escapeHtml(formatDisplayDate(item.deletedAt || ''))}</td>
+          <td>${escapeHtml(item.sourceLabel || item.sheet || '')}</td>
+          <td>${escapeHtml(item.title || item.memberId || '---')}</td>
+          <td style="font-size:12px;">${escapeHtml(item.reason || '---')}</td>
+          <td>
+            <div class="flex" style="gap:6px; flex-wrap:wrap;">
+              <button class="btn btn-outline" type="button" style="padding:4px 8px; font-size:11px;" onclick='restoreTrashItem(${JSON.stringify(item.sheet)}, ${Number(item.rowIdx || 0)}, ${JSON.stringify(item.title || item.memberId || "")})'>復元</button>
+              <button class="btn" type="button" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff;" onclick='hardDeleteTrashItem(${JSON.stringify(item.sheet)}, ${Number(item.rowIdx || 0)}, ${JSON.stringify(item.title || item.memberId || "")})'>完全削除</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function restoreTrashItem(sheet, rowIdx, label) {
+      const confirmed = await requestDangerousConfirm({
+        title: '復元の確認',
+        message: `「${label || 'この項目'}」をゴミ箱から復元します。`,
+        keyword: '復元',
+        confirmLabel: '復元する'
+      });
+      if (!confirmed) return;
+      showToast('復元中...');
+      const res = await apiRequest('', { type: 'restoreDeletedRecord', sheet, rowIdx }, true);
+      if (res && res.status === 'ok') {
+        showToast('復元しました');
+        await Promise.all([loadAdminTrashItems(), refreshActiveAdminPageData()]);
+      } else {
+        showToast('復元に失敗しました');
+      }
+    }
+
+    async function hardDeleteTrashItem(sheet, rowIdx, label) {
+      const confirmed = await requestDangerousConfirm({
+        title: '完全削除の確認',
+        message: `「${label || 'この項目'}」を完全に削除します。完全削除後は戻せません。`,
+        keyword: '完全削除',
+        confirmLabel: '完全削除する'
+      });
+      if (!confirmed) return;
+      showToast('完全削除中...');
+      const res = await apiRequest('', { type: 'hardDeleteRecord', sheet, rowIdx }, true);
+      if (res && res.status === 'ok') {
+        showToast('完全削除しました');
+        await Promise.all([loadAdminTrashItems(), refreshActiveAdminPageData()]);
+      } else {
+        showToast('完全削除に失敗しました');
       }
     }
 
@@ -4553,13 +4904,20 @@
       }
       notices.forEach(n => {
         const tr = document.createElement('tr');
-        const dateStr = formatDisplayDate(n.date);
+        const dateStr = formatDisplayDate(n.sentAt || n.scheduledAt || n.updatedAt || n.date);
         const deleteTitle = JSON.stringify(n.title || '');
         tr.innerHTML = `
           <td><input type="checkbox" class="push-sel" data-idx="${n.rowIdx}"></td>
           <td style="font-size:11px;">${escapeHtml(dateStr)}</td>
-          <td style="font-weight:bold;">${escapeHtml(n.title || '')}</td>
-          <td style="font-size:12px;">${escapeHtml(n.body || '')}</td>
+          <td>
+            <div style="font-weight:bold;">${escapeHtml(n.title || '')}</div>
+            <div style="font-size:11px; color:var(--text-light); margin-top:4px;">${escapeHtml(n.status || '送信済み')} / ${escapeHtml(n.targetPage || 'home')}</div>
+          </td>
+          <td style="font-size:12px;">
+            <div>${escapeHtml(n.body || '')}</div>
+            ${n.scheduledAt ? `<div style="margin-top:4px; font-size:11px; color:var(--text-light);">予約: ${escapeHtml(formatDisplayDate(n.scheduledAt || ''))}</div>` : ''}
+            ${n.result ? `<div style="margin-top:4px; font-size:11px; color:var(--text-light);">結果: ${escapeHtml(n.result)}</div>` : ''}
+          </td>
           <td>
             <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deletePushNotice(${n.rowIdx}, ${deleteTitle})">🗑</button>
           </td>
@@ -4569,7 +4927,13 @@
     }
 
     async function deletePushNotice(rowIdx, title) {
-      if (!confirm(`通知「${title}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+      const confirmed = await requestDangerousConfirm({
+        title: '通知削除の確認',
+        message: `通知「${title}」をゴミ箱へ移動します。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
       showToast('削除中...');
       const res = await apiRequest('', { type: 'deleteRow', sheet: 'PUSH', rowIdx: rowIdx }, true);
       if (res && res.status === 'ok') {
@@ -4578,6 +4942,70 @@
       } else {
         const errMsg = res ? (res.message || 'ステータスが不適切です') : 'レスポンスがありません';
         showToast('削除に失敗しました: ' + errMsg);
+      }
+    }
+
+    function collectPushNoticePayload() {
+      return {
+        title: document.getElementById('pushTitle').value.trim(),
+        body: document.getElementById('pushBody').value.trim(),
+        targetStatus: 'all',
+        targetPage: document.getElementById('pushTargetPage').value,
+        scheduledAt: document.getElementById('pushScheduledAt').value || ''
+      };
+    }
+
+    function previewPushNotice() {
+      const payload = collectPushNoticePayload();
+      if (!payload.title || !payload.body) {
+        alert('タイトルと本文を入力してください');
+        return;
+      }
+      document.getElementById('pushPreviewBody').innerHTML = `
+        <div style="font-size:12px; color:var(--text-light); margin-bottom:8px;">送信先画面: ${escapeHtml(payload.targetPage)}</div>
+        ${payload.scheduledAt ? `<div style="font-size:12px; color:var(--text-light); margin-bottom:8px;">配信予定: ${escapeHtml(payload.scheduledAt)}</div>` : ''}
+        <div style="font-size:16px; font-weight:700; margin-bottom:10px;">${escapeHtml(payload.title)}</div>
+        <div style="font-size:13px; color:var(--text-mid); white-space:pre-wrap;">${escapeHtml(payload.body)}</div>
+      `;
+      document.getElementById('pushPreviewModal').classList.add('active');
+    }
+
+    async function savePushDraft() {
+      const payload = collectPushNoticePayload();
+      if (!payload.title || !payload.body) {
+        alert('タイトルと本文を入力してください');
+        return;
+      }
+      showToast('下書きを保存中...');
+      const res = await apiRequest('', { type: 'broadcastPush', mode: 'draft', ...payload }, true);
+      if (res && res.status === 'ok') {
+        showToast('下書きを保存しました');
+        loadAdminPushNotices();
+      } else {
+        showToast('下書き保存に失敗しました');
+      }
+    }
+
+    async function schedulePushNotice() {
+      const payload = collectPushNoticePayload();
+      if (!payload.title || !payload.body || !payload.scheduledAt) {
+        alert('タイトル・本文・配信予定日時を入力してください');
+        return;
+      }
+      const confirmed = await requestDangerousConfirm({
+        title: '通知予約の確認',
+        message: `${payload.scheduledAt} に通知を予約します。`,
+        keyword: '予約',
+        confirmLabel: '予約する'
+      });
+      if (!confirmed) return;
+      showToast('予約を保存中...');
+      const res = await apiRequest('', { type: 'broadcastPush', mode: 'schedule', ...payload }, true);
+      if (res && res.status === 'ok') {
+        showToast('通知を予約しました');
+        loadAdminPushNotices();
+      } else {
+        showToast('通知予約に失敗しました');
       }
     }
 
@@ -6551,7 +6979,13 @@
     }
 
     async function deleteOrder(orderId) {
-      if (!confirm('この注文履歴を削除しますか？\nこの操作は元に戻せません。')) return;
+      const confirmed = await requestDangerousConfirm({
+        title: '注文削除の確認',
+        message: `注文ID「${orderId}」をゴミ箱へ移動します。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
       showToast('削除中...');
       const res = await apiRequest('', { type: 'deleteOrders', orderIds: [orderId] }, true);
       if (res && res.status === 'ok') {
@@ -6649,7 +7083,8 @@
         icon: document.getElementById('blogIcon').value,
         image: imageUrl,
         body: document.getElementById('blogBody').value,
-        status: status
+        status: status,
+        publishAt: document.getElementById('blogPublishAt').value || ''
       };
 
       const res = await apiRequest('', payload, true);
@@ -6754,12 +7189,11 @@
       document.getElementById('blogCategory').value = b.category;
       document.getElementById('blogIcon').value = b.icon;
       document.getElementById('blogBody').value = b.body;
+      document.getElementById('blogPublishAt').value = formatDateForDateTimeLocal(b.publishAt || '');
 
-      // 本文から画像URLを探してプレビューに表示（もしあれば）
-      const imgMatch = b.body.match(/📷\s*(https?:\/\/\S+)/);
-      if (imgMatch) {
+      if (b.imageUrl) {
         const img = document.getElementById('imagePreview');
-        img.src = imgMatch[1];
+        img.src = b.imageUrl;
         img.style.display = 'block';
         if (document.getElementById('blogPreviewLabel')) {
           document.getElementById('blogPreviewLabel').innerText = '✅ 登録済みの画像';
@@ -6778,6 +7212,7 @@
       document.getElementById('blogStatus').value = '公開';
       document.getElementById('blogForm').reset();
       document.getElementById('blogDate').valueAsDate = new Date();
+      document.getElementById('blogPublishAt').value = '';
       document.getElementById('blogSubmitBtn').innerText = '🌟 この内容で投稿する';
       document.getElementById('blogCancelEditBtn').style.display = 'none';
       document.getElementById('imagePreview').style.display = 'none';
@@ -6851,7 +7286,8 @@
         bg: document.getElementById('prodBg').value,
         status: status,
         description: document.getElementById('prodDesc').value,
-        descriptionImage: prodDescImageUrl || (rowIdx ? (allProducts.find(p => p.rowIdx == rowIdx) || {}).descriptionImage : '')
+        descriptionImage: prodDescImageUrl || (rowIdx ? (allProducts.find(p => p.rowIdx == rowIdx) || {}).descriptionImage : ''),
+        publishAt: document.getElementById('prodPublishAt').value || ''
       };
 
       const res = await apiRequest('', payload, true);
@@ -6999,6 +7435,7 @@
       document.getElementById('prodCost').value = p.costPrice || '';
       document.getElementById('prodBg').value = p.bg;
       document.getElementById('prodDesc').value = p.description || '';
+      document.getElementById('prodPublishAt').value = formatDateForDateTimeLocal(p.publishAt || '');
 
       if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
         const img = document.getElementById('prodImagePreview');
@@ -7039,6 +7476,7 @@
       document.getElementById('prodDescImagePreview').style.display = 'none';
       if (document.getElementById('prodDescPreviewLabel')) document.getElementById('prodDescPreviewLabel').style.display = 'none';
       document.getElementById('prodBg').value = '#d4e8c8';
+      document.getElementById('prodPublishAt').value = '';
       prodImageBase64 = null;
       prodDescImageBase64 = null;
     }
@@ -7058,7 +7496,13 @@
     }
 
     async function deleteBlog(rowIdx, title) {
-      if (!confirm('「' + title + '」を削除しますか？\nこの操作は元に戻せません。')) return;
+      const confirmed = await requestDangerousConfirm({
+        title: 'NEWS削除の確認',
+        message: `「${title}」をゴミ箱へ移動します。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
       showToast('削除中...');
       const res = await apiRequest('', { type: 'deleteRow', sheet: 'BLOG', rowIdx: rowIdx }, true);
       if (res && res.status === 'ok') {
@@ -7070,7 +7514,13 @@
     }
 
     async function deleteProduct(rowIdx, name) {
-      if (!confirm('「' + name + '」を削除しますか？\nこの操作は元に戻せません。')) return;
+      const confirmed = await requestDangerousConfirm({
+        title: '商品削除の確認',
+        message: `「${name}」をゴミ箱へ移動します。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
       showToast('削除中...');
       const res = await apiRequest('', { type: 'deleteRow', sheet: 'PRODUCTS', rowIdx: rowIdx }, true);
       if (res && res.status === 'ok') {
@@ -7171,7 +7621,8 @@
         desc: document.getElementById('calDesc').value,
         color: document.getElementById('calColor').value,
         image: calImageUrl,
-        status: status
+        status: status,
+        publishAt: document.getElementById('calPublishAt').value || ''
       };
 
       // 追加モードで日付が1つも選択されていない場合
@@ -7352,6 +7803,7 @@
       document.getElementById('calTitle').value = c.title;
       document.getElementById('calDesc').value = c.desc;
       document.getElementById('calColor').value = c.color;
+      document.getElementById('calPublishAt').value = formatDateForDateTimeLocal(c.publishAt || '');
 
       if (c.image) {
         const img = document.getElementById('calImagePreview');
@@ -7382,6 +7834,7 @@
       document.getElementById('calCancelEditBtn').style.display = 'none';
       document.getElementById('calDate').valueAsDate = new Date();
       document.getElementById('calColor').value = '#e57373';
+      document.getElementById('calPublishAt').value = '';
       document.getElementById('calImagePreview').style.display = 'none';
       if (document.getElementById('calPreviewLabel')) document.getElementById('calPreviewLabel').style.display = 'none';
       calImageBase64 = null;
@@ -7394,7 +7847,13 @@
     }
 
     async function deleteCalendar(rowIdx, title) {
-      if (!confirm('「' + title + '」を削除しますか？\nこの操作は元に戻せません。')) return;
+      const confirmed = await requestDangerousConfirm({
+        title: 'イベント削除の確認',
+        message: `「${title}」をゴミ箱へ移動します。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
       showToast('削除中...');
       const res = await apiRequest('', { type: 'deleteRow', sheet: 'CALENDAR', rowIdx: rowIdx }, true);
       if (res && res.status === 'ok') {
@@ -7406,20 +7865,25 @@
     }
 
     async function sendBroadcastPush() {
-      const title = document.getElementById('pushTitle').value.trim();
-      const body = document.getElementById('pushBody').value.trim();
-      const targetStatus = 'all';
-      if (!title || !body) {
+      const payload = collectPushNoticePayload();
+      if (!payload.title || !payload.body) {
         alert('タイトルと本文を入力してください');
         return;
       }
-      if (!confirm('通知を送信しますか？')) return;
+      const confirmed = await requestDangerousConfirm({
+        title: '通知送信の確認',
+        message: '入力された内容でPush通知を即時送信します。',
+        keyword: '送信',
+        confirmLabel: '送信する'
+      });
+      if (!confirmed) return;
 
       showToast('Push通知を送信中...');
-      const res = await apiRequest('', { type: 'broadcastPush', title, body, targetStatus }, true);
+      const res = await apiRequest('', { type: 'broadcastPush', mode: 'send', ...payload }, true);
       if (res && res.status === 'ok') {
         showToast('送信完了しました！');
         document.getElementById('pushBody').value = '';
+        document.getElementById('pushScheduledAt').value = '';
       } else {
         alert('送信エラー: ' + (res ? res.message : '不明なエラー'));
       }
@@ -7537,7 +8001,8 @@
         description: description,
         reservationStatus: reservationStatus,
         publishStatus: publishStatus,
-        imageUrl: imageUrl // 画像URLを含めて送信（新規・既存問わず）
+        imageUrl: imageUrl, // 画像URLを含めて送信（新規・既存問わず）
+        publishAt: document.getElementById('menuPublishAt').value || ''
       };
 
       const res = await apiRequest('', payload, true);
@@ -7559,6 +8024,7 @@
       document.getElementById('menuName').value = m.name;
       document.getElementById('menuDescription').value = m.description || '';
       document.getElementById('menuReservationStatus').value = m.reservationStatus;
+      document.getElementById('menuPublishAt').value = formatDateForDateTimeLocal(m.publishAt || '');
       document.getElementById('menuExistingImageUrl').value = m.imageUrl || ''; // 既存の画像URLを保持
 
       if (m.imageUrl) {
@@ -7578,6 +8044,7 @@
       document.getElementById('menuForm').reset();
       document.getElementById('menuRowIdx').value = '';
       document.getElementById('menuCategory').value = '';
+      document.getElementById('menuPublishAt').value = '';
       document.getElementById('menuExistingImageUrl').value = ''; // リセット時にクリア
       document.getElementById('menuImagePreviewArea').style.display = 'none';
       menuImageBase64 = null;
@@ -7587,7 +8054,13 @@
     }
 
     async function deleteMenu(rowIdx, name) {
-      if (!confirm(`「${name}」を削除してもよろしいですか？`)) return;
+      const confirmed = await requestDangerousConfirm({
+        title: 'メニュー削除の確認',
+        message: `「${name}」をゴミ箱へ移動します。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
 
       showToast('削除中...');
       const res = await apiRequest('', { type: 'deleteMenu', rowIdx: rowIdx }, true);

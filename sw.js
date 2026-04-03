@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mayumi-app-v4';
+const CACHE_NAME = 'mayumi-app-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -38,11 +38,19 @@ async function staleWhileRevalidate(request) {
 
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : { title: 'まゆみ助産院', body: '新しいお知らせがあります' };
+  const targetPage = data && data.data && data.data.openPage ? String(data.data.openPage) : String(data.openPage || '');
+  const targetUrl = data && data.url
+    ? data.url
+    : ('./index.html' + (targetPage ? ('?open=' + encodeURIComponent(targetPage)) : ''));
   const options = {
     body: data.body,
     icon: './icon.png',
     badge: './icon.png',
-    vibrate: [200, 100, 200]
+    vibrate: [200, 100, 200],
+    data: {
+      url: targetUrl,
+      openPage: targetPage
+    }
   };
   event.waitUntil(
     self.registration.showNotification(data.title, options)
@@ -51,9 +59,19 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(
-    clients.openWindow('./index.html')
-  );
+  const targetUrl = event.notification && event.notification.data && event.notification.data.url
+    ? event.notification.data.url
+    : './index.html';
+  event.waitUntil((async () => {
+    const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (allClients && allClients.length) {
+      const client = allClients[0];
+      if ('focus' in client) await client.focus();
+      if ('navigate' in client) await client.navigate(targetUrl);
+      return;
+    }
+    await clients.openWindow(targetUrl);
+  })());
 });
 
 self.addEventListener('install', (event) => {

@@ -69,6 +69,14 @@
     <span>最新情報を更新しています...</span>
   </div>
 
+  <div id="appUpdateBanner" class="app-update-banner">
+    <div class="app-update-banner-text" id="appUpdateBannerText">最新版があります。更新すると最新の内容が反映されます。</div>
+    <div class="app-update-banner-actions">
+      <button class="btn primary" type="button" onclick="applyPendingAppUpdate()">更新する</button>
+      <button class="btn secondary" type="button" onclick="hideAppUpdateBanner(true)">あとで</button>
+    </div>
+  </div>
+
   <div id="toast" class="toast"></div>
 
   <!-- PASSCODE LOCK SCREEN -->
@@ -650,6 +658,54 @@
           <button class="btn secondary" id="issueTransferCodeBtn" style="margin:0;font-size:12px;padding:9px"
             onclick="issueTransferCode()">引き継ぎコードを発行する</button>
         </div>
+        <div class="card"
+          style="margin-top:12px;padding:14px 16px;border-radius:12px;background:var(--warm-white);border:1px solid var(--border);">
+          <div id="retryQueueStatus" style="font-size:12px;color:var(--text-mid);line-height:1.8;"><b>同期状況:</b> 確認中です</div>
+        </div>
+      </div>
+
+      <div class="section" style="padding-top:20px">
+        <h2 class="sec-title">📱 ご利用中の端末</h2>
+        <div id="deviceSessionList">
+          <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">読み込み中...</div>
+        </div>
+      </div>
+
+      <div class="section" style="padding-top:20px">
+        <h2 class="sec-title">⭐ お気に入り</h2>
+        <div id="favoriteList">
+          <div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">お気に入りはまだありません</div>
+        </div>
+      </div>
+
+      <div class="section" style="padding-top:20px">
+        <h2 class="sec-title">👓 見やすさ設定</h2>
+        <div class="card"
+          style="padding:15px;border-radius:12px;background:var(--warm-white);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:14px;font-weight:bold;color:var(--text-dark);">文字サイズ</div>
+            <div style="font-size:11px;color:var(--text-light);margin-top:4px;">現在: <span id="textSizeStatus">標準</span></div>
+          </div>
+          <button class="btn secondary" type="button" style="margin:0;padding:8px 14px;font-size:12px;border-radius:20px;"
+            onclick="cycleTextSizeSetting()">切り替える</button>
+        </div>
+        <div class="card"
+          style="padding:15px;border-radius:12px;background:var(--warm-white);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;">
+          <div>
+            <div style="font-size:14px;font-weight:bold;color:var(--text-dark);">はっきり表示</div>
+            <div style="font-size:11px;color:var(--text-light);margin-top:4px;">現在: <span id="highContrastStatus">オフ</span></div>
+          </div>
+          <button class="btn secondary" type="button" style="margin:0;padding:8px 14px;font-size:12px;border-radius:20px;"
+            onclick="toggleHighContrastSetting()">オン / オフ</button>
+        </div>
+      </div>
+
+      <div class="section" style="padding-top:20px">
+        <h2 class="sec-title">📲 この端末での使い方</h2>
+        <div class="card"
+          style="padding:16px;border-radius:14px;background:linear-gradient(135deg,#fffdf8,#f6f8f2);border:1px solid var(--border);">
+          <div id="deviceGuidanceContent" style="font-size:12px;color:var(--text-light);line-height:1.8;">読み込み中...</div>
+        </div>
       </div>
 
       <div class="section" style="padding-top:20px">
@@ -798,6 +854,7 @@
       </div>
       <div id="prodModalPrice" class="prod-price">¥0</div>
       <div id="prodModalDesc" class="prod-desc">商品説明</div>
+      <div id="prodModalFavoriteWrap" style="margin-top:12px;"></div>
       <div class="qty-row">
         <span class="qty-label">個数</span>
         <div class="qty-ctrl">
