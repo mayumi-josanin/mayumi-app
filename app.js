@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyLCgSn45Wy-aTZXa-1LNj55TUoqKLi3gq-LBImy_wjHgE7_2llp89cpF1NmuxrejKTqQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.51';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.52';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -1077,8 +1077,8 @@ async function ensureSupportedAppVersion() {
     compareVersionStrings(appInfo.version || '0.0.0', config.minimumSupportedVersion || '0.0.0') < 0;
 
   // 2. Webプログラム（HTML/JS）の更新判定
-  // CURRENT_WEB_BUNDLE_VERSION が GAS側の設定より古い場合に検知
-  const needsWebUpdate = config.webBundleVersion && config.webBundleVersion !== CURRENT_WEB_BUNDLE_VERSION;
+  // GAS側の指定バージョンのほうが新しい時だけ更新を要求する
+  const needsWebUpdate = compareVersionStrings(config.webBundleVersion || '0.0.0', CURRENT_WEB_BUNDLE_VERSION) > 0;
 
   if (needsNativeUpdate && config.iosStoreUrl) {
     fillRequiredUpdateModal(config, appInfo);
