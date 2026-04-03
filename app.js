@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyLCgSn45Wy-aTZXa-1LNj55TUoqKLi3gq-LBImy_wjHgE7_2llp89cpF1NmuxrejKTqQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.49';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.50';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -786,7 +786,7 @@ function showAppUpdateBanner(message, webBundleVersion) {
   const text = document.getElementById('appUpdateBannerText');
   if (!banner || !text) return;
   appUpdateContext.needsReload = true;
-  appUpdateContext.message = message || '最新版があります。更新すると最新の内容が反映されます。';
+  appUpdateContext.message = message || '最新版があります。アプリを開き直すと最新の内容が反映されます。';
   appUpdateContext.webBundleVersion = webBundleVersion || '';
   text.textContent = appUpdateContext.message;
   banner.classList.add('show');
@@ -2588,8 +2588,8 @@ async function refreshAppData() {
     });
 
     if (shouldReloadForCodeUpdate) {
-      showAppUpdateBanner('最新版があります。更新すると最新の画面と機能が反映されます。', versionGate && versionGate.config ? versionGate.config.webBundleVersion : '');
-      showToast('最新版があります。画面上部の更新ボタンから反映できます');
+      showAppUpdateBanner('最新版があります。アプリを開き直すと最新の画面と機能が反映されます。', versionGate && versionGate.config ? versionGate.config.webBundleVersion : '');
+      showToast('最新版があります。アプリを開き直すと反映されます');
     } else {
       hideAppUpdateBanner(false);
       showToast('最新情報を反映しました ✨');
@@ -7232,7 +7232,7 @@ async function initApp() {
     return;
   }
   if (versionGate.needsWebUpdate) {
-    showAppUpdateBanner('最新版があります。更新すると最新の内容が反映されます。', versionGate && versionGate.config ? versionGate.config.webBundleVersion : '');
+    showAppUpdateBanner('最新版があります。アプリを開き直すと最新の内容が反映されます。', versionGate && versionGate.config ? versionGate.config.webBundleVersion : '');
   }
 
   loadStampRewards();
