@@ -1061,6 +1061,16 @@
       <div class="setup-icon">
         <img src="icon.png" alt="Logo" style="width:64px;height:64px;border-radius:15px;object-fit:cover;">
       </div>
+      <div id="setupChoiceContent" style="display:none;">
+        <div class="setup-title">はじめにお選びください</div>
+        <div class="setup-desc">以前アプリを登録したことがある方と、はじめて登録する方で進み方が異なります。<br>当てはまる方を選んでください。</div>
+        <div class="setup-note-card" style="text-align:left;">
+          以前アプリを登録したことがある方が、ここで新しく登録すると、同じお名前でも<b>別の会員ID</b>が作られることがあります。<br>
+          再インストール、機種変更、ホーム画面追加後の再利用は、<b>「以前登録した方はこちら」</b>からお進みください。
+        </div>
+        <button class="btn primary" type="button" onclick="toggleSetupView('restore')" style="margin-top:16px;">以前登録した方はこちら ↺</button>
+        <button class="btn secondary" type="button" onclick="toggleSetupView('setup')" style="margin-top:10px;">はじめて登録する方はこちら</button>
+      </div>
       <div id="setupFormContent">
         <div class="setup-title" id="setupTitle">ようこそ！</div>
         <div class="setup-desc" id="setupDesc">まゆみ助産院アプリへようこそ。<br>はじめにプロフィールを登録してください。</div>
@@ -1115,9 +1125,9 @@
         <button class="btn primary" id="setupBtn" onclick="saveProfile()" style="margin-top:4px">登録してアプリを始める 🌿</button>
         <div id="setupRestoreLinkWrap"
           style="text-align:center; margin-top:20px; font-size:12px; color:var(--text-light);">
-          既にアカウントをお持ちですか？<br>
+          以前アプリを登録したことがある方は、ここで新規登録せず復元をお選びください。<br>
           <span onclick="toggleSetupView('restore')"
-            style="color:var(--sage-dark); font-weight:bold; cursor:pointer; text-decoration:underline; display:inline-block; margin-top:6px;">データの引き継ぎ・復元はこちら
+            style="color:var(--sage-dark); font-weight:bold; cursor:pointer; text-decoration:underline; display:inline-block; margin-top:6px;">以前登録した方のデータ引き継ぎ・復元はこちら
             ↺</span>
         </div>
       </div>
@@ -1168,7 +1178,7 @@
           ↺</button>
         <button class="setup-inline-link" type="button" onclick="toggleSetupView('forgot')"
           style="margin-top:12px;">パスコードを忘れた場合の再設定はこちら</button>
-        <button class="btn secondary" onclick="toggleSetupView('setup')" style="margin-top:10px">新規登録に戻る</button>
+        <button class="btn secondary" onclick="toggleSetupView('choice')" style="margin-top:10px">最初の選択に戻る</button>
       </div>
 
       <div id="forgotPasscodeContent" style="display:none;">

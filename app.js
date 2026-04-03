@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyLCgSn45Wy-aTZXa-1LNj55TUoqKLi3gq-LBImy_wjHgE7_2llp89cpF1NmuxrejKTqQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.03.46';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.03.47';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -1383,13 +1383,13 @@ const FALLBACK_BLOG = [
 /* SUPPORT_FAQ_FALLBACK_START */
 const SUPPORT_FAQ_FALLBACK = [
   { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,全体', answer: 'このアプリでは、ホーム、ショップ、カレンダー、NEWS、マイページ、お知らせ一覧、スタンプQR読み取り、商品注文、注文履歴確認、特典確認、通知設定、引き継ぎコード発行、使い方サポートが利用できます。予約や個別相談は公式LINEをご利用ください。', priority: 120 },
-  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回登録', answer: '初回起動時は案内に沿ってプロフィール登録画面が開きます。お名前は必須で、電話番号・生年月日・住所は必要に応じて入力できます。保存すると会員IDが発行され、アプリを使い始められます。登録後の変更はマイページの「✏️ プロフィールを編集」からできます。', priority: 116 },
+  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回登録', answer: '初回起動時は、まず「以前登録した方」と「はじめて登録する方」の選択画面が出ます。はじめて登録する方は、そのままプロフィール登録へ進み、お名前・電話番号・生年月日・住所などを入力してください。保存すると会員IDが発行され、アプリを使い始められます。登録後の変更はマイページの「✏️ プロフィールを編集」からできます。', priority: 116 },
   { category: 'ログイン', question: '起動時のパスコード設定について知りたい', keywords: 'パスコード,ログイン,起動時,4桁,6桁,設定,オン,オフ', answer: '新しく登録する方も、すでに登録済みの方も、まずは4桁または6桁のパスコードを設定して使います。その後、アプリを開くたびにパスコード入力を求めるかどうかは、マイページの「ログイン時のパスコード」からオン・オフを切り替えられます。', priority: 115 },
   { category: 'ログイン', question: 'パスコードの変更方法を知りたい', keywords: 'パスコード,変更,変える,ログイン,再設定', answer: 'マイページを開き、「🔐 パスコードを変更」を押してください。現在のパスコードを確認したあと、新しい4桁または6桁のパスコードへ変更できます。', priority: 114 },
   { category: 'ログイン', question: 'パスコードを忘れたときの再設定方法を知りたい', keywords: 'パスコード,忘れた,再設定,ログインできない', answer: 'ログイン画面、または「ログイン・引き継ぎ」画面にある「パスコードを忘れた場合の再設定はこちら」から再設定できます。登録したお名前・電話番号・生年月日を入力し、新しい4桁または6桁のパスコードを設定してください。', priority: 113 },
-  { category: '引き継ぎ', question: 'データの引き継ぎ・復元方法を知りたい', keywords: '引き継ぎ,復元,機種変更,データ移行,ログイン,再インストール', answer: 'ログイン画面、または初回画面の「データの引き継ぎ・復元はこちら ↺」から進めます。引き継ぎコードがある場合は、引き継ぎコードと新しいパスコードを入力してください。引き継ぎコードがない場合は、お名前に加えて電話番号・生年月日・現在のパスコードのうち1つ以上を入力すると復元できます。', priority: 112 },
+  { category: '引き継ぎ', question: 'データの引き継ぎ・復元方法を知りたい', keywords: '引き継ぎ,復元,機種変更,データ移行,ログイン,再インストール', answer: 'ログイン画面、または初回画面で「以前登録した方はこちら ↺」を選ぶと復元画面へ進めます。引き継ぎコードがある場合は、引き継ぎコードと新しいパスコードを入力してください。引き継ぎコードがない場合は、お名前に加えて電話番号・生年月日・現在のパスコードのうち1つ以上を入力すると復元できます。', priority: 112 },
   { category: '引き継ぎ', question: '引き継ぎコードの発行方法を知りたい', keywords: '引き継ぎコード,発行,機種変更,再インストール,コード', answer: 'マイページの「↺ 引き継ぎコードの発行」から発行できます。機種変更や再インストールの前に発行しておくと、新しい端末の「データの引き継ぎ・復元」で使えます。コードは1回限り・1週間有効です。', priority: 111 },
-  { category: '会員登録', question: '会員登録が重複しないようにする方法を知りたい', keywords: '重複,二重,会員登録,同じ名前,会員ID,ブラウザ,ホーム画面', answer: 'ブラウザで先に会員登録し、そのあとホーム画面に追加してもう一度新規登録すると、同じお名前でも別の会員IDが作られることがあります。ホーム画面に追加したあとに初回登録するか、すでに登録済みの方は新規登録ではなく「データの引き継ぎ・復元はこちら ↺」からログイン・復元してください。', priority: 110 },
+  { category: '会員登録', question: '会員登録が重複しないようにする方法を知りたい', keywords: '重複,二重,会員登録,同じ名前,会員ID,ブラウザ,ホーム画面', answer: 'アプリを開いた最初の画面で、「以前登録した方はこちら」と「はじめて登録する方はこちら」に分かれています。以前登録したことがある方は、新規登録へ進まず、必ず「以前登録した方はこちら ↺」から復元してください。ブラウザで先に登録した方や、再インストール後の方も同じです。', priority: 110 },
   { category: 'ホーム画面', question: 'ホーム画面への追加方法を知りたい', keywords: 'ホーム画面,追加,インストール,iphone,android,safari,chrome', answer: 'iPhone は Safari でサイトを開き、共有ボタンから「ホーム画面に追加」を選びます。Android は Chrome のメニューから「ホーム画面に追加」または「アプリをインストール」を選びます。すでに会員登録済みの場合は、追加後に新規登録せず「データの引き継ぎ・復元」からお入りください。', priority: 109 },
   { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで「カートに追加」してください。内容を確認して注文すると、注文履歴はマイページで確認できます。', priority: 108 },
   { category: '注文', question: '注文履歴の見方を知りたい', keywords: '注文履歴,履歴,受取,受付中,キャンセル', answer: 'マイページの「ご注文履歴」から確認できます。受付中の注文や受け取り前の注文が表示され、受付中のものはキャンセルできる場合があります。', priority: 107 },
@@ -4548,7 +4548,7 @@ function getBuiltInSupportReply(messageNorm) {
     return buildSupportReply(
       [
         '端末の引き継ぎについてです。',
-        'ログイン画面、または初回画面の「データの引き継ぎ・復元はこちら ↺」から進めます。',
+        'ログイン画面、または初回画面の「以前登録した方はこちら ↺」から進めます。',
         '引き継ぎコードがある場合は、引き継ぎコードと新しいパスコードを入力してください。',
         '引き継ぎコードがない場合は、お名前に加えて電話番号・生年月日・現在のパスコードのうち1つ以上を入力すると復元できます。',
         '機種変更前は、マイページの「↺ 引き継ぎコードの発行」からコードを出しておくとスムーズです。'
@@ -4561,7 +4561,7 @@ function getBuiltInSupportReply(messageNorm) {
     return buildSupportReply(
       [
         'アプリの削除・復元についてです。',
-        '再インストール後は、ログイン画面の「データの引き継ぎ・復元はこちら ↺」から会員情報を戻せます。',
+        '再インストール後は、ログイン画面や初回画面で「以前登録した方はこちら ↺」を選ぶと会員情報を戻せます。',
         '引き継ぎコードがある場合はコードで復元できます。ない場合も、お名前と電話番号・生年月日・現在のパスコードのうち1つ以上で復元できます。',
         '再インストール前にマイページで引き継ぎコードを発行しておくと、よりスムーズです。'
       ],
@@ -4586,7 +4586,7 @@ function getBuiltInSupportReply(messageNorm) {
         'アプリの対応端末についてです。',
         'iPhone と Android のどちらでもご利用いただけます。',
         'ホーム画面へ追加する場合は、iPhone は Safari、Android は Chrome から行ってください。',
-        'すでに会員登録済みの方は、ホーム画面追加後に新規登録せず「データの引き継ぎ・復元」からお入りください。'
+        'すでに会員登録済みの方は、ホーム画面追加後に新規登録せず「以前登録した方はこちら」からお入りください。'
       ],
       ['ホーム画面への追加方法を知りたい', '会員登録が重複しないようにする方法を知りたい']
     );
@@ -5331,10 +5331,13 @@ function resetForgottenPasscodeFromLockScreen() {
 }
 
 function toggleSetupView(view) {
+  const choice = document.getElementById('setupChoiceContent');
   const setup = document.getElementById('setupFormContent');
   const restore = document.getElementById('restoreFormContent');
   const change = document.getElementById('changePasscodeContent');
   const forgot = document.getElementById('forgotPasscodeContent');
+
+  if (choice) choice.style.display = view === 'choice' ? 'block' : 'none';
 
   if (view === 'restore') {
     if (setup) setup.style.display = 'none';
@@ -5365,6 +5368,11 @@ function toggleSetupView(view) {
     if (setup) setup.style.display = 'none';
     if (restore) restore.style.display = 'none';
     if (change) change.style.display = 'block';
+    if (forgot) forgot.style.display = 'none';
+  } else if (view === 'choice') {
+    if (setup) setup.style.display = 'none';
+    if (restore) restore.style.display = 'none';
+    if (change) change.style.display = 'none';
     if (forgot) forgot.style.display = 'none';
   } else {
     if (setup) setup.style.display = 'block';
@@ -5692,14 +5700,15 @@ function openEditProfile() {
   }
 
   // Hide login switch link
-  const toggleLink = document.querySelector('.setup-sheet span[onclick="toggleSetupView(\'restore\')"]');
-  if (toggleLink) toggleLink.parentElement.style.display = 'none';
+  const restoreLinkWrap = document.getElementById('setupRestoreLinkWrap');
+  if (restoreLinkWrap) restoreLinkWrap.style.display = 'none';
 
   document.getElementById('setupOverlay').classList.add('open');
 }
 
 function openSetupModal(isFirst) {
-  toggleSetupView('setup'); // Ensure setup view is visible
+  const shouldShowChoice = !_profile;
+  toggleSetupView(shouldShowChoice ? 'choice' : 'setup');
   document.getElementById('setupName').value = '';
   document.getElementById('setupPhone').value = '';
   document.getElementById('setupPasscode').value = '';
@@ -5724,8 +5733,8 @@ function openSetupModal(isFirst) {
   }
 
   // Show login switch link
-  const toggleLink = document.querySelector('.setup-sheet span[onclick="toggleSetupView(\'restore\')"]');
-  if (toggleLink) toggleLink.parentElement.style.display = 'block';
+  const restoreLinkWrap = document.getElementById('setupRestoreLinkWrap');
+  if (restoreLinkWrap) restoreLinkWrap.style.display = 'block';
 
   document.getElementById('setupOverlay').classList.add('open');
 }
