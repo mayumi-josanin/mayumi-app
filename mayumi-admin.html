@@ -4,7 +4,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#5a7a4e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="まゆみ管理">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>まゆみ助産院 管理ダッシュボード</title>
+  <link rel="manifest" href="admin-manifest.json">
+  <link rel="apple-touch-icon" href="admin-apple-touch-icon.png">
   <link
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&family=Zen+Old+Mincho:wght@400;700&display=swap"
     rel="stylesheet">
@@ -67,6 +74,84 @@
       border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .install-btn {
+      display: none;
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .install-btn.ready {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .install-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 14px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--cream);
+      color: var(--sage-dark);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.6;
+    }
+
+    .install-guide-section {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .install-guide-section h4 {
+      font-size: 15px;
+      color: var(--sage-dark);
+      margin-bottom: 8px;
+    }
+
+    .install-guide-section ol {
+      padding-left: 20px;
+      color: var(--text-dark);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .install-guide-section li + li {
+      margin-top: 6px;
+    }
+
+    .install-url-box {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      background: var(--cream);
+      border: 1px solid var(--border);
+    }
+
+    .install-url-label {
+      font-size: 11px;
+      color: var(--text-mid);
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+
+    .install-url-text {
+      font-size: 12px;
+      color: var(--text-dark);
+      line-height: 1.7;
+      word-break: break-all;
     }
 
     /* レイアウト */
@@ -297,6 +382,25 @@
 
     /* レスポンシブ */
     @media (max-width: 768px) {
+      header {
+        gap: 10px;
+      }
+
+      header h1 {
+        font-size: 16px;
+        line-height: 1.4;
+      }
+
+      .header-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .settings-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+
       .sidebar {
         display: none;
       }
@@ -415,6 +519,61 @@
       font-size: 12px;
       color: var(--text-light);
     }
+
+    /* 並び替えリストのスタイル */
+    .sortable-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .sortable-item {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 15px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      cursor: grab;
+      user-select: none;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .sortable-item:active {
+      cursor: grabbing;
+    }
+    .sortable-item.dragging {
+      opacity: 0.5;
+      background: var(--cream);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .sortable-item:hover {
+      border-color: var(--sage);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .sortable-handle {
+      color: var(--text-light);
+      font-size: 18px;
+    }
+    .sortable-content {
+      flex: 1;
+    }
+    .sortable-title {
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+    .sortable-meta {
+      font-size: 11px;
+      color: var(--text-mid);
+    }
+    .sortable-type {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--cream);
+      color: var(--text-mid);
+      margin-right: 8px;
+    }
   </style>
 </head>
 
@@ -422,7 +581,10 @@
 
   <header>
     <h1>まゆみ助産院 管理画面</h1>
-    <button class="settings-btn" onclick="openSettings()">⚙ 初期設定</button>
+    <div class="header-actions">
+      <button id="installAdminBtn" class="settings-btn install-btn" onclick="openAdminInstallGuide()">📲 追加</button>
+      <button class="settings-btn" onclick="openSettings()">⚙ 初期設定</button>
+    </div>
   </header>
 
   <div class="app-container">
@@ -443,6 +605,9 @@
       <div class="nav-item" onclick="switchPage('users', this)">
         <span>👥</span>会員管理
       </div>
+      <div class="nav-item" onclick="switchPage('notice-management', this)">
+        <span>📢</span>お知らせ管理
+      </div>
       <div class="nav-item" onclick="switchPage('analytics', this)">
         <span>📊</span>データ分析
       </div>
@@ -457,9 +622,6 @@
       </div>
       <div class="nav-item" onclick="switchPage('stamp-rewards', this)">
         <span>🎟️</span>スタンプ・特典管理
-      </div>
-      <div class="nav-item" onclick="switchPage('qrcode', this)">
-        <span>📱</span>QRコード表示
       </div>
     </aside>
 
@@ -527,8 +689,8 @@
             <input type="hidden" id="blogRowIdx" value="">
             <input type="hidden" id="blogStatus" value="公開">
             <div class="form-group">
-              <label>日付</label>
-              <input type="date" id="blogDate" required>
+              <label>日時</label>
+              <input type="datetime-local" id="blogDate" required>
             </div>
             <div class="form-group">
               <label>タイトル</label>
@@ -891,6 +1053,54 @@
             </tbody>
           </table>
         </div>
+
+      </section>
+
+      <!-- === お知らせ管理ページ === -->
+      <section id="page-notice-management" class="page">
+        <div class="flex space-between mb-2">
+          <h2>お知らせ管理</h2>
+          <div class="flex">
+            <button class="btn btn-outline" onclick="loadAdminNoticeOverview()">🔄 更新</button>
+          </div>
+        </div>
+        <div class="card compact-card">
+          <div class="summary-grid" id="noticeOverviewSummaryCards"></div>
+          <div class="filter-toolbar" style="margin-top:14px;">
+            <input type="search" id="noticeOverviewSearchInput" placeholder="タイトル・内容で検索" oninput="applyAdminNoticeOverviewFilters()">
+            <select id="noticeOverviewSourceFilter" onchange="applyAdminNoticeOverviewFilters()" style="width:180px;">
+              <option value="all">全ての配信元</option>
+              <option value="blog">NEWS</option>
+              <option value="calendar">カレンダー</option>
+              <option value="product">ショップ</option>
+              <option value="menu">ホーム</option>
+            </select>
+            <button type="button" class="btn btn-outline" onclick="resetAdminNoticeOverviewFilters()">条件をクリア</button>
+            <div class="filter-meta" id="noticeOverviewFilterMeta"></div>
+          </div>
+        </div>
+        <div class="card table-wrapper">
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+            お客様アプリの「お知らせ一覧」に出す内容を、配信日時の新しい順で確認できます。ここでの公開切替はお知らせ一覧だけに反映され、NEWS・カレンダー・ショップ・ホームの元データの公開設定には影響しません。編集は元データの管理画面へ移動し、削除はここから直接行えます。
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>配信日時</th>
+                <th>カテゴリ</th>
+                <th>配信元</th>
+                <th>タイトル / 内容</th>
+                <th>お知らせ一覧</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="noticeOverviewListBody">
+              <tr>
+                <td colspan="6" style="text-align:center;">読み込み中...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <!-- === カレンダー管理ページ === -->
@@ -911,9 +1121,9 @@
             <input type="hidden" id="calStatus" value="公開">
             <div class="flex mb-2">
               <div class="form-group" style="flex:1;">
-                <label>日付選択</label>
+                <label>日時選択</label>
                 <div class="flex">
-                  <input type="date" id="calDate">
+                  <input type="datetime-local" id="calDate">
                   <button type="button" class="btn primary" style="margin-left:8px; padding:0 15px; white-space:nowrap;"
                     onclick="addSelectedDate()">追加</button>
                 </div>
@@ -1070,6 +1280,12 @@
             <input type="hidden" id="menuExistingImageUrl" value="">
 
             <div class="form-group">
+              <label>カテゴリ</label>
+              <input type="text" id="menuCategory" list="menuCategoryOptions" placeholder="例：産後ケア" required>
+              <datalist id="menuCategoryOptions"></datalist>
+            </div>
+
+            <div class="form-group">
               <label>メニュー名</label>
               <input type="text" id="menuName" placeholder="例：骨盤ケア・整体" required>
             </div>
@@ -1116,15 +1332,17 @@
           <table>
             <thead>
               <tr>
+                <th style="width:40px;"></th>
                 <th>画像</th>
-                <th>メニュー名</th>
-                <th>予約状況</th>
+                <th>カテゴリ</th>
+                <th>メニュー内容</th>
+                <th>更新日時</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody id="menusDraftsList">
               <tr>
-                <td colspan="4" style="text-align:center;">下書きはありません</td>
+                <td colspan="6" style="text-align:center;">下書きはありません</td>
               </tr>
             </tbody>
           </table>
@@ -1135,15 +1353,17 @@
           <table>
             <thead>
               <tr>
+                <th style="width:40px;"></th>
                 <th>画像</th>
-                <th>メニュー名</th>
-                <th>予約状況</th>
+                <th>カテゴリ</th>
+                <th>メニュー内容</th>
+                <th>更新日時</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody id="menusList">
               <tr>
-                <td colspan="4" style="text-align:center;">読み込み中...</td>
+                <td colspan="6" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -1214,10 +1434,11 @@
                   onclick="addMenuRevenueDraftEntry()">＋ 行を追加</button>
               </div>
             </div>
+            <div id="menuRevenueEditMeta" style="display:none; margin:-2px 0 12px; font-size:12px; color:var(--text-mid);"></div>
             <div id="menuRevenueEntriesEditor"></div>
             <div class="flex" style="gap:10px;">
-              <button type="submit" class="btn">まとめて保存する</button>
-              <button type="button" class="btn btn-outline" onclick="resetMenuRevenueForm()">入力をクリア</button>
+              <button type="submit" class="btn" id="menuRevenueSubmitBtn">まとめて保存する</button>
+              <button type="button" class="btn btn-outline" id="menuRevenueResetBtn" onclick="resetMenuRevenueForm()">入力をクリア</button>
             </div>
           </form>
         </div>
@@ -1235,13 +1456,51 @@
           </div>
         </div>
 
+        <div class="card mb-2">
+          <div class="card-title">🛒 商品収益を記録</div>
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+            店頭販売分などを日ごとにまとめて記録できます。商品名は商品管理の商品一覧と連動し、登録した内容は商品別販売数・商品別収益詳細・収益サマリーに反映されます。
+          </div>
+          <form id="productRevenueForm" onsubmit="submitProductRevenueRecord(event)">
+            <div class="flex" style="gap:12px; flex-wrap:wrap; align-items:flex-end;">
+              <div class="form-group" style="flex:1; min-width:180px;">
+                <label>記録日</label>
+                <input type="date" id="productRevenueDate" required>
+              </div>
+              <div style="margin-bottom:18px;">
+                <button type="button" id="productRevenueAddRowBtn" class="btn btn-outline"
+                  onclick="addProductRevenueDraftEntry()">＋ 行を追加</button>
+              </div>
+            </div>
+            <div id="productRevenueEditMeta" style="display:none; margin:-2px 0 12px; font-size:12px; color:var(--text-mid);"></div>
+            <div id="productRevenueEntriesEditor"></div>
+            <div class="flex" style="gap:10px;">
+              <button type="submit" class="btn" id="productRevenueSubmitBtn">まとめて保存する</button>
+              <button type="button" class="btn btn-outline" id="productRevenueResetBtn" onclick="resetProductRevenueForm()">入力をクリア</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card mb-2">
+          <div class="card-title">🧾 登録済み商品収益</div>
+          <div class="filter-toolbar" style="margin-bottom:12px;">
+            <select id="productRevenueMonthFilter" onchange="renderProductRevenueRecords()" style="width:180px;">
+              <option value="all">全期間</option>
+            </select>
+            <div class="filter-meta" id="productRevenueRecordsMeta"></div>
+          </div>
+          <div id="productRevenueRecordsBody">
+            <div style="text-align:center; color:var(--text-mid);">読み込み中...</div>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-title">📦 商品別収益詳細 (月別)</div>
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
             月を選択するとその月に売れた商品の価格帯ごとの 個数 / 売上 / 利益 を確認できます。天然だし調味粉は割引価格ごとに表示します。
           </div>
           <div class="filter-toolbar" style="margin-bottom:14px;">
-            <select id="detailedAnalyticsMonthFilter" onchange="renderDetailedProductAnalytics(this.value)"
+            <select id="detailedAnalyticsMonthFilter" onchange="renderDetailedAnalytics(this.value)"
               style="width:180px;">
               <option value="">月を選択してください</option>
             </select>
@@ -1262,6 +1521,30 @@
               <tbody id="detailedProductAnalyticsBody">
                 <tr>
                   <td colspan="7" style="text-align:center; color:var(--text-mid);">月を選択してください</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" id="detailedMenuAnalyticsCard" style="display:none;">
+          <div class="card-title">🍴 メニュー別収益詳細 (月別)</div>
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+            選択した月のメニュー別の 件数 / 売上 / 単価別内訳 を確認できます。「その他」で入力した固有名称も個別に表示されます。
+          </div>
+          <div class="table-wrapper">
+            <table id="detailedMenuAnalyticsTable">
+              <thead>
+                <tr>
+                  <th>メニュー名</th>
+                  <th style="text-align:center;">合計件数</th>
+                  <th style="text-align:center;">合計売上</th>
+                  <th style="text-align:left;">単価別内訳</th>
+                </tr>
+              </thead>
+              <tbody id="detailedMenuAnalyticsBody">
+                <tr>
+                  <td colspan="4" style="text-align:center; color:var(--text-mid);">月を選択してください</td>
                 </tr>
               </tbody>
             </table>
@@ -1292,34 +1575,68 @@
 
         <div class="card">
           <div class="card-title">➕ 新規カテゴリ追加</div>
-          <div class="flex" style="gap:10px;">
-            <input type="text" id="newCategoryName" placeholder="例：健康情報" style="flex:1;">
-            <select id="newCategoryType"
-              style="width:120px; padding:8px; border:1px solid var(--border); border-radius:8px;">
-              <option value="ブログ">ブログ</option>
-              <option value="お知らせ">お知らせ</option>
-            </select>
-            <button class="btn" style="width:100px;" onclick="addCategory()">追加</button>
+          <div class="flex" style="gap:10px; flex-wrap:wrap;">
+            <div class="form-group" style="flex:2; margin-bottom:0;">
+              <input type="text" id="newCategoryName" placeholder="例：健康情報" style="width:100%;">
+            </div>
+            <div class="form-group" style="flex:1; margin-bottom:0;">
+              <select id="newCategoryType" style="width:100%;">
+                <option value="ブログ">NEWS</option>
+                <option value="メニュー">メニュー一覧</option>
+                <option value="通知">お知らせ一覧（通知）</option>
+              </select>
+            </div>
+            <button class="btn" style="width:100px; height:42px;" onclick="addCategory()">追加</button>
           </div>
         </div>
 
-        <div class="card">
+        <div class="card" style="background:#fff;">
           <div class="card-title">📋 登録済みカテゴリ一覧</div>
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>カテゴリ名</th>
-                  <th style="width:100px; text-align:center;">分類</th>
-                  <th style="width:80px; text-align:center;">操作</th>
-                </tr>
-              </thead>
-              <tbody id="categoryListBody">
-                <tr>
-                  <td colspan="3" style="text-align:center;">読み込み中...</td>
-                </tr>
-              </tbody>
-            </table>
+          <p style="font-size:12px; color:var(--text-mid); margin-bottom:15px;">※各カテゴリはそれぞれのセクションで分類・フィルタとして使用されます。</p>
+          
+          <div style="margin-bottom:25px;">
+            <h4 style="border-left:4px solid var(--primary); padding-left:10px; margin-bottom:10px;">📰 NEWS用カテゴリ</h4>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>カテゴリ名</th>
+                    <th style="width:80px; text-align:center;">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="categoryListBodyNews"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="margin-bottom:25px;">
+            <h4 style="border-left:4px solid var(--sage); padding-left:10px; margin-bottom:10px;">🛒 メニュー一覧用カテゴリ</h4>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>カテゴリ名</th>
+                    <th style="width:80px; text-align:center;">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="categoryListBodyMenu"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <h4 style="border-left:4px solid #f09433; padding-left:10px; margin-bottom:10px;">📢 お知らせ一覧（通知）用カテゴリ</h4>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>カテゴリ名</th>
+                    <th style="width:80px; text-align:center;">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="categoryListBodyNotice"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
@@ -1470,6 +1787,7 @@
       </section>
 
       <!-- === QRコード表示ページ === -->
+
       <section id="page-qrcode" class="page">
         <div class="flex space-between mb-2">
           <h2>アプリ配布用QRコード</h2>
@@ -1511,7 +1829,7 @@
             <div
               style="display: flex; gap: 5px; align-items: center; margin-top: 15px; overflow-x: auto; padding-bottom: 5px;">
               <div style="flex: 0 0 100px;">
-                <img src="www/instr_ios_1.png"
+                <img src="assets/instr_ios_1.png"
                   style="width: 100%; border: 1px solid #eee; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);"
                   alt="図①">
                 <div style="font-size: 10px; text-align: center; color: var(--text-mid); margin-top: 5px;">図① 共有ボタン
@@ -1519,7 +1837,7 @@
               </div>
               <div style="font-size: 20px; color: var(--sage-light); font-weight: bold;">➜</div>
               <div style="flex: 0 0 100px;">
-                <img src="www/instr_ios_2.png"
+                <img src="assets/instr_ios_2.png"
                   style="width: 100%; border: 1px solid #eee; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);"
                   alt="図②">
                 <div style="font-size: 10px; text-align: center; color: var(--text-mid); margin-top: 5px;">図② 項目を選択
@@ -1527,7 +1845,7 @@
               </div>
               <div style="font-size: 20px; color: var(--sage-light); font-weight: bold;">➜</div>
               <div style="flex: 0 0 100px;">
-                <img src="www/instr_ios_3.png"
+                <img src="assets/instr_ios_3.png"
                   style="width: 100%; border: 1px solid #eee; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);"
                   alt="図③">
                 <div style="font-size: 10px; text-align: center; color: var(--text-mid); margin-top: 5px;">図③ ロゴを確認
@@ -1544,7 +1862,7 @@
               <li>右上のメニュー（3つの点）をタップします。</li>
               <li><strong>「ホーム画面に追加」</strong>または<strong>「アプリをインストール」</strong>をタップします。</li>
               <li>「インストール」をタップすると、ホーム画面にアイコンが追加されます。<br>
-                <img src="www/icon.png"
+                <img src="assets/icon.png"
                   style="width: 60px; height: 60px; border-radius: 12px; margin-top: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #eee;"
                   alt="App Icon">
               </li>
@@ -1573,6 +1891,9 @@
     <div class="bottom-nav-item" onclick="switchPage('users', this)">
       <span class="bottom-icon">👥</span>会員
     </div>
+    <div class="bottom-nav-item" onclick="switchPage('notice-management', this)">
+      <span class="bottom-icon">📢</span>お知らせ
+    </div>
     <div class="bottom-nav-item" onclick="switchPage('analytics', this)">
       <span class="bottom-icon">📊</span>分析
     </div>
@@ -1589,7 +1910,7 @@
       <span class="bottom-icon">🎟️</span>特典
     </div>
     <div class="bottom-nav-item" onclick="switchPage('qrcode', this)">
-      <span class="bottom-icon">📱</span>QR表示
+      <span class="bottom-icon">📱</span>QR
     </div>
   </nav>
 
@@ -1644,6 +1965,44 @@
           style="flex:1; border-color:var(--danger); color:var(--danger);">初期値リセット</button>
         <button class="btn btn-outline" onclick="document.getElementById('settingsModal').classList.remove('active')"
           style="flex:1;">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="adminInstallModal" class="modal">
+    <div class="modal-content" style="max-width:560px;">
+      <h3 style="margin-bottom: 15px;">📲 管理画面をホーム画面に追加</h3>
+      <p style="font-size:13px; line-height:1.8; color:var(--text-mid); margin-bottom:12px;">
+        管理画面をスマホのホーム画面に追加すると、通常のアプリのようにすぐ開けます。iPhone は Safari、Android は Chrome で開いた状態で追加してください。
+      </p>
+      <div id="adminInstallStatusBadge" class="install-status-badge">この端末で追加する方法を確認できます</div>
+      <div class="install-url-box">
+        <div class="install-url-label">管理画面URL</div>
+        <div id="adminInstallUrlText" class="install-url-text"></div>
+      </div>
+
+      <div class="install-guide-section">
+        <h4>🍏 iPhone / iPad の場合</h4>
+        <ol>
+          <li>Safari で管理画面を開いたまま、画面下の <strong>共有ボタン</strong> を押します。</li>
+          <li>メニューを下へスクロールして <strong>ホーム画面に追加</strong> を押します。</li>
+          <li>名前を確認して <strong>追加</strong> を押すと、ホーム画面に管理画面アイコンが追加されます。</li>
+        </ol>
+      </div>
+
+      <div class="install-guide-section">
+        <h4>🤖 Android の場合</h4>
+        <ol>
+          <li>Chrome で管理画面を開きます。</li>
+          <li>この画面の <strong>この端末に追加する</strong> を押すか、右上メニューから <strong>アプリをインストール</strong> / <strong>ホーム画面に追加</strong> を選びます。</li>
+          <li><strong>インストール</strong> を押すと、ホーム画面から管理画面を直接開けるようになります。</li>
+        </ol>
+      </div>
+
+      <div class="flex" style="margin-top:18px; gap:10px; flex-wrap:wrap;">
+        <button class="btn" id="adminInstallPrimaryBtn" onclick="triggerAdminInstallPrompt()" style="flex:1; min-width:180px;">この端末に追加する</button>
+        <button class="btn btn-outline" onclick="copyAdminInstallUrl()" style="flex:1; min-width:140px;">URLをコピー</button>
+        <button class="btn btn-outline" onclick="document.getElementById('adminInstallModal').classList.remove('active')" style="flex:1; min-width:120px;">閉じる</button>
       </div>
     </div>
   </div>
@@ -1811,8 +2170,9 @@
       <div class="form-group">
         <label>分類</label>
         <select id="editCategoryType">
-          <option value="ブログ">ブログ</option>
-          <option value="お知らせ">お知らせ</option>
+          <option value="ブログ">NEWS</option>
+          <option value="メニュー">メニュー一覧</option>
+          <option value="通知">お知らせ一覧（通知）</option>
         </select>
       </div>
       <div class="flex" style="margin-top: 15px; gap:10px;">
@@ -1852,12 +2212,19 @@
     let allPushNotices = [];
     let allBlogs = [];
     let allCalendarEvents = [];
+    let allAdminNoticeOverviewItems = [];
     let editingRewardEntries = [];
     let allMenuRevenueRecords = [];
+    let allProductRevenueRecords = [];
     let menuRevenueDraftEntries = [];
+    let productRevenueDraftEntries = [];
+    let editingMenuRevenueRowIdx = 0;
+    let editingProductRevenueRowIdx = 0;
     let adminAppRuntimeConfig = { ...DEFAULT_APP_RUNTIME_CONFIG };
     let adminUsersLoadVersion = 0;
-    const MENU_REVENUE_TYPES = ['母乳外来', 'ビジリス', '教室'];
+    let deferredAdminInstallPrompt = null;
+    const MENU_REVENUE_TYPES = ['母乳外来', 'ビジリス', '教室', 'その他'];
+    const ADMIN_NOTICE_FEED_START_DATE = '2026-04-01';
     const API_GET_TIMEOUT_MS = 45000;
     const API_POST_TIMEOUT_MS = 45000;
     const API_GET_RETRY_COUNT = 1;
@@ -1865,13 +2232,54 @@
     const pendingGetRequests = new Map();
     const ADMIN_API_CACHE_PREFIX = 'mayumi-admin-api-cache:';
     const ADMIN_API_CACHE_TTL_MS = 1000 * 60 * 15;
+    const SHEETS = {
+      BLOG: 'ブログ・お知らせ',
+      CALENDAR: 'カレンダー',
+      MENUS: 'MENUS',
+      PUSH_NOTICES: 'PUSH_NOTICES'
+    };
 
-    document.getElementById('blogDate').valueAsDate = new Date();
-    document.getElementById('calDate').valueAsDate = new Date();
-    document.getElementById('menuRevenueDate').valueAsDate = new Date();
+    function syncGasUrlInputValue() {
+      const input = document.getElementById('gasUrlInput');
+      if (input) input.value = GAS_URL;
+    }
+
+    function applyAdminGasUrl(nextUrl, options = {}) {
+      const normalized = String(nextUrl || '').trim();
+      if (!normalized) return;
+      GAS_URL = normalized;
+      if (options.persist !== false) {
+        localStorage.setItem('MAYUMI_GAS_URL', GAS_URL);
+      }
+      syncGasUrlInputValue();
+    }
 
     window.onload = async () => {
+      // DOM要素の初期化
+      const blogDate = document.getElementById('blogDate');
+      if (blogDate) {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+        blogDate.value = localISOTime;
+      }
+      
+      const calDate = document.getElementById('calDate');
+      if (calDate) {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+        calDate.value = localISOTime;
+      }
+      
+      const menuRevenueDate = document.getElementById('menuRevenueDate');
+      if (menuRevenueDate) menuRevenueDate.valueAsDate = new Date();
+      const productRevenueDate = document.getElementById('productRevenueDate');
+      if (productRevenueDate) productRevenueDate.valueAsDate = new Date();
+
+      initializeAdminInstallSupport();
       resetMenuRevenueForm();
+      resetProductRevenueForm();
       if (!GAS_URL) {
         openSettings();
       } else {
@@ -1879,11 +2287,201 @@
       }
     };
 
+    // --- 汎用ドラッグ＆ドロップロジック ---
+
+    function addDragEvents(el, container) {
+      el.addEventListener('dragstart', (e) => {
+        el.classList.add('dragging');
+      });
+
+      el.addEventListener('dragend', () => {
+        el.classList.remove('dragging');
+      });
+
+      container.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const afterElement = getDragAfterElement(container, e.clientY);
+        const dragging = document.querySelector('.dragging');
+        if (afterElement == null) {
+          container.appendChild(dragging);
+        } else {
+          container.insertBefore(dragging, afterElement);
+        }
+      });
+    }
+
+    function getDragAfterElement(container, y) {
+      const draggableElements = [...container.querySelectorAll('.sortable-item:not(.dragging)')];
+      return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+          return { offset: offset, element: child };
+        } else {
+          return closest;
+        }
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+
+
+
     function showToast(msg) {
       const t = document.getElementById('toast');
       t.innerText = msg;
       t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    function isAdminStandaloneMode() {
+      return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    }
+
+    function isIosDevice() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent);
+    }
+
+    function getAdminInstallUrl() {
+      return location.origin && location.origin !== 'null'
+        ? `${location.origin}${location.pathname}`
+        : location.href.split('#')[0];
+    }
+
+    function updateAdminInstallUi() {
+      const installBtn = document.getElementById('installAdminBtn');
+      const primaryBtn = document.getElementById('adminInstallPrimaryBtn');
+      const statusBadge = document.getElementById('adminInstallStatusBadge');
+      const urlText = document.getElementById('adminInstallUrlText');
+      const standalone = isAdminStandaloneMode();
+      const canPromptInstall = !!deferredAdminInstallPrompt;
+
+      if (urlText) {
+        urlText.textContent = getAdminInstallUrl();
+      }
+
+      if (installBtn) {
+        if (standalone) {
+          installBtn.classList.remove('ready');
+        } else {
+          installBtn.classList.add('ready');
+          installBtn.textContent = canPromptInstall ? '📲 追加' : '📲 追加方法';
+        }
+      }
+
+      if (statusBadge) {
+        if (standalone) {
+          statusBadge.textContent = 'この端末ではすでにホーム画面へ追加されています';
+        } else if (canPromptInstall) {
+          statusBadge.textContent = 'この端末では、この画面からそのまま管理画面を追加できます';
+        } else if (isIosDevice()) {
+          statusBadge.textContent = 'iPhone / iPad は Safari の共有ボタンからホーム画面へ追加してください';
+        } else {
+          statusBadge.textContent = 'Chrome などのメニューからもホーム画面へ追加できます';
+        }
+      }
+
+      if (primaryBtn) {
+        if (standalone) {
+          primaryBtn.style.display = 'none';
+        } else if (canPromptInstall) {
+          primaryBtn.style.display = 'inline-flex';
+          primaryBtn.textContent = 'この端末に追加する';
+          primaryBtn.disabled = false;
+        } else {
+          primaryBtn.style.display = 'none';
+          primaryBtn.disabled = false;
+        }
+      }
+    }
+
+    function openAdminInstallGuide() {
+      updateAdminInstallUi();
+      document.getElementById('adminInstallModal').classList.add('active');
+    }
+
+    async function copyAdminInstallUrl() {
+      const url = getAdminInstallUrl();
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+          showToast('管理画面のURLをコピーしました');
+          return;
+        }
+      } catch (err) {
+        console.warn('Clipboard copy failed', err);
+      }
+
+      const textArea = document.createElement('textarea');
+      textArea.value = url;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        showToast('管理画面のURLをコピーしました');
+      } catch (err) {
+        showToast('URLのコピーに失敗しました');
+      } finally {
+        document.body.removeChild(textArea);
+      }
+    }
+
+    async function triggerAdminInstallPrompt() {
+      if (isAdminStandaloneMode()) {
+        showToast('この端末ではすでにホーム画面へ追加済みです');
+        return;
+      }
+      if (!deferredAdminInstallPrompt) {
+        showToast(isIosDevice()
+          ? 'Safari の共有ボタンから「ホーム画面に追加」を選んでください'
+          : 'この端末ではブラウザのメニューから「ホーム画面に追加」または「アプリをインストール」を選んでください');
+        return;
+      }
+
+      const prompt = deferredAdminInstallPrompt;
+      deferredAdminInstallPrompt = null;
+      updateAdminInstallUi();
+      try {
+        await prompt.prompt();
+        if (prompt.userChoice) {
+          await prompt.userChoice;
+        }
+      } catch (err) {
+        console.warn('Admin install prompt was not completed', err);
+      } finally {
+        updateAdminInstallUi();
+      }
+    }
+
+    function initializeAdminInstallSupport() {
+      updateAdminInstallUi();
+
+      if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+        navigator.serviceWorker.register('./admin-sw.js').catch(function (err) {
+          console.warn('Admin service worker registration failed', err);
+        });
+      }
+
+      window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        deferredAdminInstallPrompt = event;
+        updateAdminInstallUi();
+      });
+
+      window.addEventListener('appinstalled', function () {
+        deferredAdminInstallPrompt = null;
+        updateAdminInstallUi();
+        showToast('管理画面をホーム画面へ追加しました');
+      });
+
+      if (window.matchMedia) {
+        const standaloneQuery = window.matchMedia('(display-mode: standalone)');
+        if (standaloneQuery && standaloneQuery.addEventListener) {
+          standaloneQuery.addEventListener('change', updateAdminInstallUi);
+        }
+      }
     }
 
     function buildAdminApiCacheKey(action, data) {
@@ -2146,14 +2744,26 @@
 
     function toggleSelectAll(type, trigger) {
       try {
-        const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : (type === 'PUSH' ? 'push-sel' : 'order-sel')));
+        const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : (type === 'PUSH' ? 'push-sel' : (type === 'NOTICES' ? 'notice-sel' : 'order-sel'))));
         const isChecked = !!(trigger && typeof trigger === 'object' ? trigger.checked : trigger);
         const scope = trigger && typeof trigger.closest === 'function'
-          ? (trigger.closest('table') || trigger.closest('.table-wrapper') || getBulkActionRoot(trigger))
+          ? (trigger.closest('table') || trigger.closest('.table-wrapper') || trigger.closest('.card') || getBulkActionRoot(trigger))
           : getBulkActionRoot(null);
         scope.querySelectorAll('.' + cls).forEach(el => el.checked = isChecked);
       } catch (err) {
         console.error('Error in toggleSelectAll:', err);
+      }
+    }
+
+    function formatDateForDateTimeLocal(dateStr) {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(dateStr.replace(' ', 'T'));
+        if (isNaN(d.getTime())) return '';
+        const offset = d.getTimezoneOffset() * 60000;
+        return (new Date(d - offset)).toISOString().slice(0, 16);
+      } catch (e) {
+        return '';
       }
     }
 
@@ -2293,9 +2903,12 @@
       allPushNotices = [];
       allBlogs = [];
       allCalendarEvents = [];
+      allAdminNoticeOverviewItems = [];
       editingRewardEntries = [];
       allMenuRevenueRecords = [];
+      allProductRevenueRecords = [];
       menuRevenueDraftEntries = [];
+      productRevenueDraftEntries = [];
       allOrders = [];
       currentOrderItems = [];
       allProducts = [];
@@ -2330,6 +2943,10 @@
       }
       if (pageId === 'users') {
         await Promise.all([loadAdminUsers(), loadAdminPushNotices()]);
+        return;
+      }
+      if (pageId === 'notice-management') {
+        await loadAdminNoticeOverview();
         return;
       }
       if (pageId === 'analytics') {
@@ -2459,17 +3076,17 @@
                 </ol>
                 <div style="display: flex; gap: 5px; align-items: center; margin-top: 15px;">
                   <div style="flex: 1; text-align: center;">
-                    <img src="www/instr_ios_1.png" style="width: 100%; border: 1px solid #eee; border-radius: 5px;" alt="Step 1">
+                    <img src="assets/instr_ios_1.png" style="width: 100%; border: 1px solid #eee; border-radius: 5px;" alt="Step 1">
                     <div style="font-size: 8px; color: #9a8070; margin-top: 3px;">図①</div>
                   </div>
                   <div style="font-size: 16px; color: #b5c9a8; font-weight: bold;">➜</div>
                   <div style="flex: 1; text-align: center;">
-                    <img src="www/instr_ios_2.png" style="width: 100%; border: 1px solid #eee; border-radius: 5px;" alt="Step 2">
+                    <img src="assets/instr_ios_2.png" style="width: 100%; border: 1px solid #eee; border-radius: 5px;" alt="Step 2">
                     <div style="font-size: 8px; color: #9a8070; margin-top: 3px;">図②</div>
                   </div>
                   <div style="font-size: 16px; color: #b5c9a8; font-weight: bold;">➜</div>
                   <div style="flex: 1; text-align: center;">
-                    <img src="www/instr_ios_3.png" style="width: 100%; border: 1px solid #eee; border-radius: 5px;" alt="Step 3">
+                    <img src="assets/instr_ios_3.png" style="width: 100%; border: 1px solid #eee; border-radius: 5px;" alt="Step 3">
                     <div style="font-size: 8px; color: #9a8070; margin-top: 3px;">図③</div>
                   </div>
                 </div>
@@ -2481,7 +3098,7 @@
                   <li>右上の<strong>メニュー（3つの点）</strong>をタップします。</li>
                   <li><strong>「ホーム画面に追加」</strong>または<strong>「アプリをインストール」</strong>をタップします。</li>
                   <li>画面の指示に従って<strong>「インストール」</strong>をタップすると完了です。<br>
-                    <img src="www/icon.png" style="width: 60px; height: 60px; border-radius: 12px; margin-top: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" alt="App Icon">
+                    <img src="assets/icon.png" style="width: 60px; height: 60px; border-radius: 12px; margin-top: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" alt="App Icon">
                   </li>
                 </ol>
               </div>
@@ -2547,7 +3164,7 @@
             ${getUserAvatarMarkup(u)}
           </td>
           <td>${escapeHtml(u.memberId || '')}</td>
-          <td style="font-size:11px;color:#666;">${escapeHtml(u.timestamp || '')}</td>
+          <td style="font-size:11px;color:#666;">${formatDisplayDate(u.timestamp || '')}</td>
           <td>${escapeHtml(u.name || '')}</td>
           <td>${escapeHtml(u.phone || '')}</td>
           <td>${escapeHtml(u.birthday || '')}</td>
@@ -2681,19 +3298,21 @@
 
     function formatDisplayDate(value, includeTime = false) {
       if (!value) return 'ー';
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return escapeHtml(String(value));
-      return date.toLocaleString('ja-JP', includeTime ? {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      } : {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
+      const raw = String(value).trim();
+      const date = value instanceof Date
+        ? value
+        : new Date(typeof value === 'number' ? value : raw.replace(' ', 'T'));
+      if (!Number.isNaN(date.getTime())) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}/${month}/${day}`;
+      }
+      const simpleMatch = raw.split(/[ T]/)[0].match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})$/);
+      if (simpleMatch) {
+        return `${simpleMatch[1]}/${String(simpleMatch[2]).padStart(2, '0')}/${String(simpleMatch[3]).padStart(2, '0')}`;
+      }
+      return escapeHtml(raw);
     }
 
     function toDateInputValue(value) {
@@ -3345,6 +3964,533 @@
       }
     }
 
+    function normalizeAdminManagedCategoryType(rawType) {
+      const value = String(rawType || '').trim();
+      if (!value) return '';
+      if (value === '通知') return '通知';
+      if (value === 'メニュー') return 'メニュー';
+      if (value === 'お知らせ') return 'お知らせ';
+      if (value === 'ブログ') return 'ブログ';
+      if (/notice/i.test(value)) return '通知';
+      if (/menu/i.test(value)) return 'メニュー';
+      if (/blog/i.test(value)) return 'ブログ';
+      if (/news/i.test(value)) return 'お知らせ';
+      return value;
+    }
+
+    function normalizeAdminCategoryLookupKey(value) {
+      return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[ぁ-ん]/g, function (char) {
+          return String.fromCharCode(char.charCodeAt(0) + 0x60);
+        })
+        .replace(/[\s\u3000_\-\/]/g, '');
+    }
+
+    function getAdminManagedCategoryNamesByTypes(types) {
+      const allowed = {};
+      (types || []).forEach(function (type) {
+        const normalized = normalizeAdminManagedCategoryType(type);
+        if (normalized) allowed[normalized] = true;
+      });
+
+      const names = [];
+      const seen = {};
+      (allCategories || []).forEach(function (item) {
+        const type = normalizeAdminManagedCategoryType(item && item.type);
+        const name = String(item && item.name || '').trim();
+        if (!name || !allowed[type] || seen[name]) return;
+        seen[name] = true;
+        names.push(name);
+      });
+      return names;
+    }
+
+    function getAdminManagedNoticeCategoryMap() {
+      const defaults = [
+        { kind: 'blog', fallback: 'NEWS', aliases: ['news', 'ニュース'] },
+        { kind: 'calendar', fallback: 'カレンダー', aliases: ['カレンダー', 'calendar'] },
+        { kind: 'product', fallback: 'ショップ', aliases: ['ショップ', 'shop'] },
+        { kind: 'menu', fallback: 'ホーム', aliases: ['ホーム', 'home'] }
+      ];
+      const masterNames = getAdminManagedCategoryNamesByTypes(['通知']);
+      const entries = masterNames.map(function (name) {
+        return { name: name, key: normalizeAdminCategoryLookupKey(name) };
+      });
+      const assigned = {};
+      const used = {};
+
+      defaults.forEach(function (item) {
+        const lookupKeys = item.aliases.map(normalizeAdminCategoryLookupKey).concat([normalizeAdminCategoryLookupKey(item.fallback)]);
+        const matchedIndex = entries.findIndex(function (entry, index) {
+          return !used[index] && lookupKeys.indexOf(entry.key) !== -1;
+        });
+        if (matchedIndex >= 0) {
+          assigned[item.kind] = entries[matchedIndex].name;
+          used[matchedIndex] = true;
+        }
+      });
+
+      const remaining = entries.filter(function (entry, index) {
+        return !used[index];
+      }).map(function (entry) {
+        return entry.name;
+      });
+
+      defaults.forEach(function (item) {
+        if (!assigned[item.kind] && remaining.length) {
+          assigned[item.kind] = remaining.shift();
+        }
+        if (!assigned[item.kind]) assigned[item.kind] = item.fallback;
+      });
+
+      return assigned;
+    }
+
+    function resolveAdminManagedNoticeCategory(kind, fallback) {
+      const map = getAdminManagedNoticeCategoryMap();
+      return map[kind] || fallback || '';
+    }
+
+    function parseAdminNoticeTimestamp(rawValue) {
+      if (!rawValue && rawValue !== 0) return 0;
+      if (rawValue instanceof Date) return rawValue.getTime();
+      if (typeof rawValue === 'number' && Number.isFinite(rawValue)) return rawValue;
+      const raw = String(rawValue || '').trim();
+      if (!raw) return 0;
+
+      const parsed = new Date(raw.replace(/\./g, '-').replace(' ', 'T'));
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.getTime();
+      }
+
+      const simpleMatch = raw.match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})$/);
+      if (simpleMatch) {
+        return new Date(Number(simpleMatch[1]), Number(simpleMatch[2]) - 1, Number(simpleMatch[3])).getTime();
+      }
+      return 0;
+    }
+
+    function buildAdminNoticePublishMeta(options) {
+      const updatedAt = String(options && options.updatedAt || '').trim();
+      const fallbackDate = String(options && options.fallbackDate || '').trim();
+      const sortRaw = updatedAt || (options && options.useFallbackDateForSort ? fallbackDate : '');
+      const labelRaw = updatedAt || (options && options.useFallbackDateForLabel ? fallbackDate : '');
+      const visibilityRaw = updatedAt || (options && options.useFallbackDateForVisibility ? fallbackDate : '');
+      return {
+        timestamp: parseAdminNoticeTimestamp(sortRaw),
+        visibilityTimestamp: parseAdminNoticeTimestamp(visibilityRaw),
+        dateLabel: formatDisplayDate(labelRaw)
+      };
+    }
+
+    function isAdminNoticeCalendarHolidayEvent(event) {
+      const title = String(event && event.title || '');
+      const desc = String(event && event.desc || '');
+      return /休診|休み|休業/.test(title + ' ' + desc);
+    }
+
+    function isAdminNoticeCalendarVisitEvent(event) {
+      const title = String(event && event.title || '');
+      return title.indexOf('往診') !== -1;
+    }
+
+    function getAdminNoticeSourceLabel(kind) {
+      const labels = {
+        blog: 'NEWS',
+        calendar: 'カレンダー',
+        product: 'ショップ',
+        menu: 'ホーム'
+      };
+      return labels[kind] || kind;
+    }
+
+    function normalizeAdminNoticePublishStatus(status) {
+      return String(status || '').trim() === '非公開' ? '非公開' : '公開';
+    }
+
+    function summarizeAdminNoticeText(text, maxLength) {
+      const normalized = String(text || '')
+        .replace(/📷\s*https?:\/\/\S+/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const limit = Number(maxLength || 120);
+      if (!normalized) return '本文なし';
+      return normalized.length > limit ? normalized.slice(0, limit) + '…' : normalized;
+    }
+
+    function buildAdminNoticeOverviewItems() {
+      const minimumTimestamp = parseAdminNoticeTimestamp(ADMIN_NOTICE_FEED_START_DATE);
+
+      const blogFeed = (allBlogs || []).filter(function (item) {
+        return normalizeAdminNoticePublishStatus(item.publishStatus || item.status) === '公開';
+      }).map(function (item, index) {
+        const publishMeta = buildAdminNoticePublishMeta({
+          updatedAt: item.updatedAt,
+          fallbackDate: item.date,
+          useFallbackDateForSort: true,
+          useFallbackDateForLabel: true,
+          useFallbackDateForVisibility: true
+        });
+        return {
+          kind: 'blog',
+          rowIdx: Number(item.rowIdx || 0),
+          sourceWeight: ((allBlogs || []).length - index),
+          sortOrder: Number(item.sortOrder || 0),
+          timestamp: publishMeta.timestamp,
+          visibilityTimestamp: publishMeta.visibilityTimestamp,
+          dateLabel: publishMeta.dateLabel,
+          category: resolveAdminManagedNoticeCategory('blog', 'NEWS'),
+          sourceLabel: getAdminNoticeSourceLabel('blog'),
+          status: normalizeAdminNoticePublishStatus(item.noticeStatus || item.publishStatus || item.status),
+          title: String(item.title || ''),
+          body: String(item.body || '')
+        };
+      });
+
+      const calendarFeed = (allCalendarEvents || []).filter(function (event) {
+        return normalizeAdminNoticePublishStatus(event.publishStatus || event.status) === '公開'
+          && !isAdminNoticeCalendarHolidayEvent(event)
+          && !isAdminNoticeCalendarVisitEvent(event);
+      }).map(function (event, index) {
+        const publishMeta = buildAdminNoticePublishMeta({
+          updatedAt: event.updatedAt,
+          fallbackDate: event.date,
+          useFallbackDateForVisibility: true
+        });
+        return {
+          kind: 'calendar',
+          rowIdx: Number(event.rowIdx || 0),
+          sourceWeight: index,
+          sortOrder: Number(event.sortOrder || 0),
+          timestamp: publishMeta.timestamp,
+          visibilityTimestamp: publishMeta.visibilityTimestamp,
+          dateLabel: publishMeta.dateLabel,
+          category: resolveAdminManagedNoticeCategory('calendar', 'カレンダー'),
+          sourceLabel: getAdminNoticeSourceLabel('calendar'),
+          status: normalizeAdminNoticePublishStatus(event.noticeStatus || event.publishStatus || event.status),
+          title: String(event.title || ''),
+          body: String(event.desc || '')
+        };
+      });
+
+      const productFeed = (allProducts || []).filter(function (product) {
+        return normalizeAdminNoticePublishStatus(product.status) === '公開';
+      }).map(function (product, index) {
+        const publishMeta = buildAdminNoticePublishMeta({
+          updatedAt: product.updatedAt
+        });
+        return {
+          kind: 'product',
+          rowIdx: Number(product.rowIdx || 0),
+          sourceWeight: ((allProducts || []).length - index),
+          sortOrder: Number(product.sortOrder || 0),
+          timestamp: publishMeta.timestamp,
+          visibilityTimestamp: publishMeta.visibilityTimestamp,
+          dateLabel: publishMeta.dateLabel,
+          category: resolveAdminManagedNoticeCategory('product', 'ショップ'),
+          sourceLabel: getAdminNoticeSourceLabel('product'),
+          status: normalizeAdminNoticePublishStatus(product.noticeStatus || product.status),
+          title: String(product.name || ''),
+          body: String(product.description || '')
+        };
+      });
+
+      const menuFeed = (allMenus || []).filter(function (menu) {
+        return normalizeAdminNoticePublishStatus(menu.publishStatus || menu.status) === '公開';
+      }).map(function (menu, index) {
+        const publishMeta = buildAdminNoticePublishMeta({
+          updatedAt: menu.updatedAt,
+          fallbackDate: menu.date,
+          useFallbackDateForSort: true,
+          useFallbackDateForLabel: true,
+          useFallbackDateForVisibility: true
+        });
+        return {
+          kind: 'menu',
+          rowIdx: Number(menu.rowIdx || 0),
+          sourceWeight: index,
+          sortOrder: Number(menu.sortOrder || 0),
+          timestamp: publishMeta.timestamp,
+          visibilityTimestamp: publishMeta.visibilityTimestamp,
+          dateLabel: publishMeta.dateLabel,
+          category: resolveAdminManagedNoticeCategory('menu', 'ホーム'),
+          sourceLabel: getAdminNoticeSourceLabel('menu'),
+          status: normalizeAdminNoticePublishStatus(menu.noticeStatus || menu.publishStatus || menu.status),
+          title: String(menu.name || ''),
+          body: String(menu.description || '')
+        };
+      });
+
+      return blogFeed.concat(calendarFeed, productFeed, menuFeed).filter(function (item) {
+        const visibilityTimestamp = Number(item.visibilityTimestamp || item.timestamp || 0);
+        if (!visibilityTimestamp) return true;
+        return visibilityTimestamp >= minimumTimestamp;
+      }).sort(function (a, b) {
+        const diff = (b.timestamp || 0) - (a.timestamp || 0);
+        if (diff !== 0) return diff;
+        const sortA = a.sortOrder || 0;
+        const sortB = b.sortOrder || 0;
+        if (sortA !== sortB) return sortB - sortA;
+        return (b.sourceWeight || 0) - (a.sourceWeight || 0);
+      });
+    }
+
+    function renderAdminNoticeOverviewList(items) {
+      const tbody = document.getElementById('noticeOverviewListBody');
+      if (!tbody) return;
+      const rows = Array.isArray(items) ? items : allAdminNoticeOverviewItems;
+      if (!rows.length) {
+        const message = allAdminNoticeOverviewItems.length === 0 ? '管理対象のお知らせはありません' : '条件に一致する配信内容はありません';
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${message}</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(function (item) {
+        const deleteTitle = JSON.stringify(item.title || item.sourceLabel || 'この内容').replace(/"/g, '&quot;');
+        const status = normalizeAdminNoticePublishStatus(item.status);
+        return `
+          <tr>
+            <td style="font-size:11px; white-space:nowrap;">${escapeHtml(item.dateLabel || 'ー')}</td>
+            <td><span class="badge" style="background:#f7efe5; color:var(--text-dark);">${escapeHtml(item.category || '')}</span></td>
+            <td style="white-space:nowrap;">${escapeHtml(item.sourceLabel || '')}</td>
+            <td style="min-width:320px;">
+              <div style="font-weight:bold; word-break:break-word;">${escapeHtml(item.title || 'タイトルなし')}</div>
+              <div style="font-size:12px; color:var(--text-mid); margin-top:4px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(summarizeAdminNoticeText(item.body, 180))}</div>
+            </td>
+            <td style="text-align:center; white-space:nowrap;">
+              <select onchange="updateAdminNoticeOverviewItemStatus('${item.kind}', ${item.rowIdx}, this.value, this)" style="font-size:12px; padding:4px 8px; border:1px solid var(--border); border-radius:999px; background:${status === '公開' ? '#e8f5e9' : '#f5f5f5'}; color:${status === '公開' ? '#2e7d32' : '#757575'}; font-weight:bold;">
+                <option value="公開" ${status === '公開' ? 'selected' : ''}>公開</option>
+                <option value="非公開" ${status === '非公開' ? 'selected' : ''}>非公開</option>
+              </select>
+            </td>
+            <td style="white-space:nowrap;">
+              <div class="flex" style="gap:5px; justify-content:center;">
+                <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editAdminNoticeOverviewItem('${item.kind}', ${item.rowIdx})">📝</button>
+                <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff;" onclick="deleteAdminNoticeOverviewItem('${item.kind}', ${item.rowIdx}, ${deleteTitle})">🗑</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateAdminNoticeOverviewSummary(filteredItems) {
+      renderSummaryCards('noticeOverviewSummaryCards', [
+        { label: '配信総数', value: allAdminNoticeOverviewItems.length },
+        { label: 'NEWS', value: allAdminNoticeOverviewItems.filter(function (item) { return item.kind === 'blog'; }).length },
+        { label: 'カレンダー', value: allAdminNoticeOverviewItems.filter(function (item) { return item.kind === 'calendar'; }).length },
+        { label: 'ショップ', value: allAdminNoticeOverviewItems.filter(function (item) { return item.kind === 'product'; }).length },
+        { label: 'ホーム', value: allAdminNoticeOverviewItems.filter(function (item) { return item.kind === 'menu'; }).length },
+        { label: '現在表示中', value: filteredItems.length }
+      ]);
+      updateFilterMeta('noticeOverviewFilterMeta', filteredItems.length, allAdminNoticeOverviewItems.length, '配信中のお知らせはありません');
+    }
+
+    function applyAdminNoticeOverviewFilters() {
+      const query = normalizeFilterText(document.getElementById('noticeOverviewSearchInput') ? document.getElementById('noticeOverviewSearchInput').value : '');
+      const sourceFilter = document.getElementById('noticeOverviewSourceFilter') ? document.getElementById('noticeOverviewSourceFilter').value : 'all';
+      const filteredItems = allAdminNoticeOverviewItems.filter(function (item) {
+        if (sourceFilter !== 'all' && item.kind !== sourceFilter) return false;
+        if (!query) return true;
+        const haystack = normalizeFilterText([
+          item.dateLabel,
+          item.category,
+          item.sourceLabel,
+          item.status,
+          item.title,
+          item.body
+        ].join(' '));
+        return haystack.includes(query);
+      });
+
+      updateAdminNoticeOverviewSummary(filteredItems);
+      renderAdminNoticeOverviewList(filteredItems);
+    }
+
+    function resetAdminNoticeOverviewFilters() {
+      if (document.getElementById('noticeOverviewSearchInput')) document.getElementById('noticeOverviewSearchInput').value = '';
+      if (document.getElementById('noticeOverviewSourceFilter')) document.getElementById('noticeOverviewSourceFilter').value = 'all';
+      applyAdminNoticeOverviewFilters();
+    }
+
+    function applyAdminNoticeOverviewSourceResponses(sourceResponses) {
+      if (sourceResponses.categories && sourceResponses.categories.status === 'ok') {
+        allCategories = sourceResponses.categories.categories || [];
+      }
+      if (sourceResponses.blogs && sourceResponses.blogs.status === 'ok') {
+        allBlogs = sourceResponses.blogs.blogs || [];
+      }
+      if (sourceResponses.products && sourceResponses.products.status === 'ok') {
+        allProducts = Array.isArray(sourceResponses.products.products) ? sourceResponses.products.products : [];
+      }
+      if (sourceResponses.calendar && sourceResponses.calendar.status === 'ok') {
+        allCalendarEvents = sourceResponses.calendar.events || [];
+      }
+      if (sourceResponses.menus && sourceResponses.menus.status === 'ok') {
+        allMenus = sourceResponses.menus.menus || [];
+      }
+    }
+
+    async function loadAdminNoticeOverview() {
+      const tbody = document.getElementById('noticeOverviewListBody');
+      if (!tbody) return;
+
+      const cachedResponses = {
+        categories: readAdminApiCache('getCategories'),
+        blogs: readAdminApiCache('getAdminBlogs'),
+        products: readAdminApiCache('getAdminProducts'),
+        calendar: readAdminApiCache('getAdminCalendar'),
+        menus: readAdminApiCache('getAdminMenus')
+      };
+      const hasCached = Object.keys(cachedResponses).some(function (key) {
+        return cachedResponses[key] && cachedResponses[key].status === 'ok';
+      });
+
+      if (hasCached) {
+        applyAdminNoticeOverviewSourceResponses(cachedResponses);
+        allAdminNoticeOverviewItems = buildAdminNoticeOverviewItems();
+        applyAdminNoticeOverviewFilters();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">読み込み中...</td></tr>';
+      }
+
+      const responses = await Promise.all([
+        apiRequest('getCategories'),
+        apiRequest('getAdminBlogs'),
+        apiRequest('getAdminProducts'),
+        apiRequest('getAdminCalendar'),
+        apiRequest('getAdminMenus')
+      ]);
+
+      const sourceResponses = {
+        categories: responses[0],
+        blogs: responses[1],
+        products: responses[2],
+        calendar: responses[3],
+        menus: responses[4]
+      };
+      const hasFresh = Object.keys(sourceResponses).some(function (key) {
+        return sourceResponses[key] && sourceResponses[key].status === 'ok';
+      });
+
+      if (hasFresh) {
+        applyAdminNoticeOverviewSourceResponses(sourceResponses);
+        allAdminNoticeOverviewItems = buildAdminNoticeOverviewItems();
+        applyAdminNoticeOverviewFilters();
+      } else if (!hasCached) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">配信内容の取得に失敗しました</td></tr>';
+      }
+    }
+
+    function findAdminSidebarNavByPageId(pageId) {
+      return Array.from(document.querySelectorAll('.sidebar .nav-item')).find(function (node) {
+        return String(node.getAttribute('onclick') || '').indexOf(`switchPage('${pageId}'`) !== -1;
+      }) || null;
+    }
+
+    async function openAdminPageById(pageId) {
+      if (getActiveAdminPageId() === pageId) {
+        await loadPageData(pageId);
+        return;
+      }
+      const navEl = findAdminSidebarNavByPageId(pageId);
+      if (navEl) {
+        await switchPage(pageId, navEl);
+      } else {
+        await loadPageData(pageId);
+      }
+    }
+
+    async function editAdminNoticeOverviewItem(kind, rowIdx) {
+      const editMap = {
+        blog: { pageId: 'blogs', fn: 'editBlog' },
+        product: { pageId: 'products', fn: 'editProduct' },
+        calendar: { pageId: 'calendar', fn: 'editCalendar' },
+        menu: { pageId: 'menus', fn: 'editMenu' }
+      };
+      const target = editMap[kind];
+      if (!target || !rowIdx) return;
+      await openAdminPageById(target.pageId);
+      if (typeof window[target.fn] === 'function') {
+        window[target.fn](Number(rowIdx));
+      }
+    }
+
+    async function updateAdminNoticeOverviewItemStatus(kind, rowIdx, nextStatus, selectElement) {
+      const normalizedStatus = normalizeAdminNoticePublishStatus(nextStatus);
+      const targetRowIdx = Number(rowIdx || 0);
+      if (!kind || targetRowIdx <= 1) return;
+
+      const payloadFactoryMap = {
+        blog: function () {
+          return { type: 'updateNoticeVisibility', sheet: 'BLOG', rowIdx: targetRowIdx, status: normalizedStatus };
+        },
+        calendar: function () {
+          return { type: 'updateNoticeVisibility', sheet: 'CALENDAR', rowIdx: targetRowIdx, status: normalizedStatus };
+        },
+        product: function () {
+          return { type: 'updateNoticeVisibility', sheet: 'PRODUCTS', rowIdx: targetRowIdx, status: normalizedStatus };
+        },
+        menu: function () {
+          return { type: 'updateNoticeVisibility', sheet: 'MENUS', rowIdx: targetRowIdx, status: normalizedStatus };
+        }
+      };
+      const cacheKeyMap = {
+        blog: ['getAdminBlogs'],
+        calendar: ['getAdminCalendar'],
+        product: ['getAdminProducts'],
+        menu: ['getAdminMenus']
+      };
+      const payloadFactory = payloadFactoryMap[kind];
+      if (!payloadFactory) return;
+      const payload = payloadFactory();
+      if (!payload) {
+        showToast('公開状態の更新対象が見つかりません');
+        await loadAdminNoticeOverview();
+        return;
+      }
+
+      if (selectElement) selectElement.disabled = true;
+      showToast('公開状態を更新中...');
+      const res = await apiRequest('', payload, true);
+      if (selectElement) selectElement.disabled = false;
+
+      if (res && res.status === 'ok') {
+        invalidateAdminApiCache(cacheKeyMap[kind] || []);
+        showToast('公開状態を更新しました');
+      } else {
+        showToast('公開状態の更新に失敗しました: ' + (res && res.message ? res.message : '不明なエラー'));
+      }
+      await loadAdminNoticeOverview();
+    }
+
+    async function deleteAdminNoticeOverviewItem(kind, rowIdx, title) {
+      const deleteMap = {
+        blog: { label: 'NEWS記事', pageId: 'blogs', cacheKeys: ['getAdminBlogs'], payload: function () { return { type: 'deleteRow', sheet: 'BLOG', rowIdx: rowIdx }; } },
+        product: { label: '商品', pageId: 'products', cacheKeys: ['getAdminProducts'], payload: function () { return { type: 'deleteRow', sheet: 'PRODUCTS', rowIdx: rowIdx }; } },
+        calendar: { label: 'カレンダー項目', pageId: 'calendar', cacheKeys: ['getAdminCalendar'], payload: function () { return { type: 'deleteRow', sheet: 'CALENDAR', rowIdx: rowIdx }; } },
+        menu: { label: 'メニュー', pageId: 'menus', cacheKeys: ['getAdminMenus'], payload: function () { return { type: 'deleteMenu', rowIdx: rowIdx }; } }
+      };
+      const target = deleteMap[kind];
+      if (!target || !rowIdx) return;
+
+      if (!confirm(`「${title || target.label}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+      showToast('削除中...');
+      const res = await apiRequest('', target.payload(), true);
+      if (res && res.status === 'ok') {
+        invalidateAdminApiCache(target.cacheKeys);
+        showToast(`${target.label}を削除しました`);
+        if (getActiveAdminPageId() === target.pageId) {
+          await loadPageData(target.pageId);
+        }
+        await loadAdminNoticeOverview();
+      } else {
+        showToast('削除に失敗しました: ' + (res && res.message ? res.message : '不明なエラー'));
+      }
+    }
+
     /* === お知らせ（Push通知）管理 === */
     async function loadAdminPushNotices() {
       const tbody = document.getElementById('pushNoticesList');
@@ -3380,7 +4526,7 @@
       const filteredNotices = allPushNotices.filter(notice => {
         if (!query) return true;
         const haystack = normalizeFilterText([
-          notice.date ? new Date(notice.date).toLocaleString('ja-JP') : '',
+          formatDisplayDate(notice.date || ''),
           notice.title,
           notice.body
         ].join(' '));
@@ -3407,7 +4553,7 @@
       }
       notices.forEach(n => {
         const tr = document.createElement('tr');
-        const dateStr = new Date(n.date).toLocaleString('ja-JP');
+        const dateStr = formatDisplayDate(n.date);
         const deleteTitle = JSON.stringify(n.title || '');
         tr.innerHTML = `
           <td><input type="checkbox" class="push-sel" data-idx="${n.rowIdx}"></td>
@@ -3440,12 +4586,15 @@
       const pbody = document.getElementById('profitBody');
       const menuBody = document.getElementById('menuRevenueBody');
       const recordsBody = document.getElementById('menuRevenueRecordsBody');
-      if (!tbody || !pbody || !menuBody || !recordsBody) return;
+      const productRecordsBody = document.getElementById('productRevenueRecordsBody');
+      if (!tbody || !pbody || !menuBody || !recordsBody || !productRecordsBody) return;
 
       const cachedAnalytics = readAdminApiCache('getAnalytics');
       const cachedRecords = readAdminApiCache('getMenuRevenueRecords');
+      const cachedProductRecords = readAdminApiCache('getProductRevenueRecords');
       let usedCachedAnalytics = false;
       let usedCachedRecords = false;
+      let usedCachedProductRecords = false;
 
       if (cachedAnalytics && cachedAnalytics.status === 'ok') {
         renderAnalytics(cachedAnalytics);
@@ -3465,13 +4614,24 @@
         recordsBody.innerHTML = '<div style="text-align:center; color:var(--text-mid);">読み込み中...</div>';
       }
 
+      if (cachedProductRecords && cachedProductRecords.status === 'ok') {
+        allProductRevenueRecords = cachedProductRecords.records || [];
+        updateProductRevenueMonthFilterOptions();
+        renderProductRevenueRecords();
+        usedCachedProductRecords = true;
+      } else {
+        productRecordsBody.innerHTML = '<div style="text-align:center; color:var(--text-mid);">読み込み中...</div>';
+      }
+
       // 1. 商品一覧（マスタ）のデータを取得して同期する（商品管理との連動）
       if (!allProducts || allProducts.length === 0) {
         await ensureAdminProductsLoaded();
       }
+      renderProductRevenueDraftEntries();
 
       const res = await apiRequest('getAnalytics');
       const recordsRes = await apiRequest('getMenuRevenueRecords');
+      const productRecordsRes = await apiRequest('getProductRevenueRecords');
 
       if (recordsRes && recordsRes.status === 'ok') {
         allMenuRevenueRecords = recordsRes.records || [];
@@ -3480,6 +4640,16 @@
       } else {
         if (!usedCachedRecords) {
           recordsBody.innerHTML = '<div style="text-align:center; color:red;">メニュー収益の取得に失敗しました</div>';
+        }
+      }
+
+      if (productRecordsRes && productRecordsRes.status === 'ok') {
+        allProductRevenueRecords = productRecordsRes.records || [];
+        updateProductRevenueMonthFilterOptions();
+        renderProductRevenueRecords();
+      } else {
+        if (!usedCachedProductRecords) {
+          productRecordsBody.innerHTML = '<div style="text-align:center; color:red;">商品収益の取得に失敗しました</div>';
         }
       }
 
@@ -3504,15 +4674,18 @@
         if (cachedRes && cachedRes.status === 'ok') {
           allProducts = Array.isArray(cachedRes.products) ? cachedRes.products : [];
           updateProductCategoryOptions();
+          renderProductRevenueDraftEntries();
         }
       }
       const res = await apiRequest('getAdminProducts');
       if (res && res.status === 'ok') {
         allProducts = Array.isArray(res.products) ? res.products : [];
         updateProductCategoryOptions();
+        renderProductRevenueDraftEntries();
         return true;
       }
       allProducts = [];
+      renderProductRevenueDraftEntries();
       return false;
     }
 
@@ -3542,7 +4715,9 @@
       let displayProducts = [];
       if (allProducts && allProducts.length > 0) {
         // 商品管理画面に登録されている全ての商品名を取得（追加・削除に自動追従）
-        displayProducts = allProducts.map(p => p.name);
+        displayProducts = Array.from(new Set(allProducts.map(function (product) {
+          return String(product && product.name || '').trim();
+        }).filter(Boolean)));
       } else {
         // 万が一取得できなかった場合のフォールバック
         displayProducts = res.products || [];
@@ -3665,11 +4840,20 @@
           filteredMonths.map(m => `<option value="${m}">${m}</option>`).join('');
         if (filteredMonths.includes(currentVal)) {
           detailMonthFilter.value = currentVal;
+          renderDetailedAnalytics(currentVal);
         }
       }
 
       // グローバル保存 (詳細描画で使うため)
       window.lastAnalyticsResult = res;
+    }
+
+    /**
+     * 商品別およびメニュー別の収益詳細を描画
+     */
+    function renderDetailedAnalytics(monthKey) {
+      renderDetailedProductAnalytics(monthKey);
+      renderDetailedMenuAnalytics(monthKey);
     }
 
     /**
@@ -3684,8 +4868,9 @@
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-mid);">月を選択してください</td></tr>';
         return;
       }
-
+      
       const detailsMap = res.matrix[monthKey].productDetails || {};
+      // (省略: 商品詳細の描画ロジックは既存のまま)
       const detailRows = Object.keys(detailsMap).map(key => detailsMap[key]).sort((a, b) => {
         const nameA = String(a && a.name || '');
         const nameB = String(b && b.name || '');
@@ -3729,14 +4914,86 @@
         tbody.appendChild(tr);
       });
     }
+    /**
+     * メニュー別の収益内訳を描画
+     */
+    function renderDetailedMenuAnalytics(monthKey) {
+      const card = document.getElementById('detailedMenuAnalyticsCard');
+      const tbody = document.getElementById('detailedMenuAnalyticsBody');
+      const res = window.lastAnalyticsResult;
+      if (!tbody || !res) return;
+
+      if (!monthKey || !res.matrix[monthKey]) {
+        if (card) card.style.display = 'none';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-mid);">月を選択してください</td></tr>';
+        return;
+      }
+
+      if (card) card.style.display = 'block';
+
+      const menuDetailsMap = res.matrix[monthKey].menuDetails || {};
+      const menuRows = Object.keys(menuDetailsMap).map(key => menuDetailsMap[key]).sort((a, b) => {
+        return a.name.localeCompare(b.name);
+      });
+
+      if (menuRows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-mid);">メニュー売上データがありません</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      menuRows.forEach(stats => {
+        const breakdownHtml = Object.keys(stats.breakdown || {}).sort((a, b) => Number(a) - Number(b)).map(price => {
+          const item = stats.breakdown[price];
+          return `<div style="font-size:11px; margin-bottom:2px;">¥${Number(price).toLocaleString()}: ${item.count}件 (¥${item.revenue.toLocaleString()})</div>`;
+        }).join('');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight:bold;">${escapeHtml(stats.name)}</td>
+          <td style="text-align:center;">${Number(stats.count || 0).toLocaleString()}件</td>
+          <td style="text-align:center; font-weight:bold; color:var(--primary);">¥${Number(stats.revenue || 0).toLocaleString()}</td>
+          <td style="text-align:left; color:var(--text-mid);">${breakdownHtml || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
 
     function createEmptyMenuRevenueDraftEntry(defaultMenuType = '母乳外来') {
       return {
         menuType: MENU_REVENUE_TYPES.indexOf(defaultMenuType) !== -1 ? defaultMenuType : '母乳外来',
+        otherMenuName: '',
         count: 1,
         unitPrice: '',
         note: ''
       };
+    }
+
+    function updateMenuRevenueFormModeUI() {
+      const meta = document.getElementById('menuRevenueEditMeta');
+      const submitBtn = document.getElementById('menuRevenueSubmitBtn');
+      const resetBtn = document.getElementById('menuRevenueResetBtn');
+      const addRowBtn = document.getElementById('menuRevenueAddRowBtn');
+      const dateInput = document.getElementById('menuRevenueDate');
+      const isEditing = editingMenuRevenueRowIdx >= 2;
+      const currentEntry = menuRevenueDraftEntries[0] || createEmptyMenuRevenueDraftEntry();
+      const dateLabel = formatDisplayDate(dateInput && dateInput.value);
+      const menuLabel = currentEntry.menuType === 'その他'
+        ? String(currentEntry.otherMenuName || 'その他').trim() || 'その他'
+        : String(currentEntry.menuType || 'メニュー').trim() || 'メニュー';
+
+      if (meta) {
+        meta.style.display = isEditing ? 'block' : 'none';
+        meta.innerHTML = isEditing
+          ? `編集中: ${escapeHtml(dateLabel)} / ${escapeHtml(menuLabel)} の1件を更新します。保存するとこの行だけ上書きされます。`
+          : '';
+      }
+      if (submitBtn) submitBtn.textContent = isEditing ? 'この1件を更新する' : 'まとめて保存する';
+      if (resetBtn) resetBtn.textContent = isEditing ? '編集をやめる' : '入力をクリア';
+      if (addRowBtn) {
+        addRowBtn.disabled = isEditing;
+        addRowBtn.title = isEditing ? '編集中は1件ずつ更新します。編集をやめると複数行入力に戻れます。' : '';
+      }
     }
 
     function addMenuRevenueDraftEntry(defaultMenuType) {
@@ -3758,7 +5015,7 @@
       if (field === 'menuType' && value !== '母乳外来' && !menuRevenueDraftEntries[index].unitPrice) {
         menuRevenueDraftEntries[index].unitPrice = '';
       }
-      if (field !== 'note') {
+      if (field !== 'note' && field !== 'otherMenuName') {
         renderMenuRevenueDraftEntries();
       }
     }
@@ -3786,6 +5043,9 @@
                 <select onchange="updateMenuRevenueDraftEntry(${index}, 'menuType', this.value)">
                   ${MENU_REVENUE_TYPES.map(type => `<option value="${type}" ${entry.menuType === type ? 'selected' : ''}>${type}</option>`).join('')}
                 </select>
+                ${entry.menuType === 'その他' ? `
+                  <input type="text" placeholder="メニュー名を入力" style="margin-top:8px;" value="${escapeHtml(entry.otherMenuName || '')}" oninput="updateMenuRevenueDraftEntry(${index}, 'otherMenuName', this.value)">
+                ` : ''}
               </div>
               <div class="form-group" style="flex:1; min-width:120px;">
                 <label>件数</label>
@@ -3810,6 +5070,7 @@
           </div>
         `;
       }).join('');
+      updateMenuRevenueFormModeUI();
     }
 
     function resetMenuRevenueForm() {
@@ -3817,8 +5078,36 @@
       if (form) form.reset();
       const dateInput = document.getElementById('menuRevenueDate');
       if (dateInput) dateInput.valueAsDate = new Date();
+      editingMenuRevenueRowIdx = 0;
       menuRevenueDraftEntries = [createEmptyMenuRevenueDraftEntry()];
       renderMenuRevenueDraftEntries();
+    }
+
+    function editMenuRevenueRecord(rowIdx) {
+      const targetRowIdx = Number(rowIdx);
+      const record = allMenuRevenueRecords.find(function (item) {
+        return Number(item.rowIdx) === targetRowIdx;
+      });
+      if (!record) {
+        showToast('編集対象のメニュー収益が見つかりません');
+        return;
+      }
+      editingMenuRevenueRowIdx = targetRowIdx;
+      const dateInput = document.getElementById('menuRevenueDate');
+      if (dateInput) dateInput.value = toDateInputValue(record.date);
+      menuRevenueDraftEntries = [{
+        menuType: MENU_REVENUE_TYPES.indexOf(record.menuType) !== -1 ? record.menuType : 'その他',
+        otherMenuName: MENU_REVENUE_TYPES.indexOf(record.menuType) !== -1 ? '' : String(record.menuType || ''),
+        count: Math.max(1, Number(record.count) || 1),
+        unitPrice: Math.max(0, Number(record.unitPrice) || 0),
+        note: String(record.note || '')
+      }];
+      renderMenuRevenueDraftEntries();
+      const form = document.getElementById('menuRevenueForm');
+      if (form && typeof form.scrollIntoView === 'function') {
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      showToast('メニュー収益の編集内容を読み込みました');
     }
 
     function renderMenuRevenueRecords() {
@@ -3890,7 +5179,8 @@
               <div style="text-align:right;">¥${Number(record.unitPrice || 0).toLocaleString()}</div>
               <div style="text-align:right; font-weight:bold;">¥${Number(record.totalAmount || 0).toLocaleString()}</div>
               <div style="font-size:12px; color:var(--text-mid);">${escapeHtml(record.note || 'メモなし')}</div>
-              <div style="text-align:right;">
+              <div style="display:flex; justify-content:flex-end; gap:6px;">
+                <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="editMenuRevenueRecord(${record.rowIdx})">編集</button>
                 <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteMenuRevenueRecord(${record.rowIdx})">🗑</button>
               </div>
             </div>
@@ -3957,6 +5247,7 @@
       if (event) event.preventDefault();
 
       const date = document.getElementById('menuRevenueDate').value;
+      const isEditing = editingMenuRevenueRowIdx >= 2;
 
       if (!date) {
         showToast('記録日を入力してください');
@@ -3964,9 +5255,10 @@
       }
 
       const records = menuRevenueDraftEntries.map(function (entry, index) {
+        const finalType = entry.menuType === 'その他' ? (entry.otherMenuName || 'その他').trim() : entry.menuType;
         return {
           rowNumber: index + 1,
-          menuType: entry.menuType,
+          menuType: finalType,
           count: Math.max(1, Number(entry.count) || 1),
           unitPrice: Math.max(0, Number(entry.unitPrice) || 0),
           note: (entry.note || '').trim()
@@ -3974,59 +5266,559 @@
       });
 
       const invalidEntry = records.find(function (record) {
-        return MENU_REVENUE_TYPES.indexOf(record.menuType) === -1 || record.unitPrice <= 0;
+        return !record.menuType || record.unitPrice <= 0;
       });
       if (invalidEntry) {
         showToast(`入力行 ${invalidEntry.rowNumber} のメニューまたは単価を確認してください`);
         return;
       }
 
-      showToast('メニュー収益を保存中...');
-      const res = await apiRequest('', {
-        type: 'saveMenuRevenueRecord',
-        date: date,
-        records: records.map(function (record) {
-          return {
+      if (isEditing && records.length !== 1) {
+        showToast('編集中は1件ずつ更新してください');
+        return;
+      }
+
+      showToast(isEditing ? 'メニュー収益を更新中...' : 'メニュー収益を保存中...');
+      const payload = isEditing
+        ? {
+            type: 'saveMenuRevenueRecord',
+            rowIdx: editingMenuRevenueRowIdx,
             date: date,
-            menuType: record.menuType,
-            count: record.count,
-            unitPrice: record.unitPrice,
-            note: record.note
+            menuType: records[0].menuType,
+            count: records[0].count,
+            unitPrice: records[0].unitPrice,
+            note: records[0].note
+          }
+        : {
+            type: 'saveMenuRevenueRecord',
+            date: date,
+            records: records.map(function (record) {
+              return {
+                date: date,
+                menuType: record.menuType,
+                count: record.count,
+                unitPrice: record.unitPrice,
+                note: record.note
+              };
+            })
           };
-        })
-      }, true);
+      const res = await apiRequest('', payload, true);
 
       if (res && res.status === 'ok') {
-        const savedCount = Number(res.savedCount || records.length);
-        showToast(`メニュー収益を保存しました (${savedCount}件)`);
+        if (isEditing) {
+          showToast('メニュー収益を更新しました');
+        } else {
+          const savedCount = Number(res.savedCount || records.length);
+          showToast(`メニュー収益を保存しました (${savedCount}件)`);
+        }
         resetMenuRevenueForm();
         loadAnalytics();
       } else {
-        showToast('保存に失敗しました: ' + getMenuRevenueActionErrorMessage(res, 'saveMenuRevenueRecord'));
+        showToast((isEditing ? '更新に失敗しました: ' : '保存に失敗しました: ') + getMenuRevenueActionErrorMessage(res, 'saveMenuRevenueRecord'));
       }
     }
 
     async function deleteMenuRevenueRecord(rowIdx) {
       if (!confirm('このメニュー収益記録を削除しますか？\nこの操作は元に戻せません。')) return;
       showToast('削除中...');
-      const res = await apiRequest('', { type: 'deleteMenuRevenueRecord', rowIdx: rowIdx }, true);
+      const targetRowIdx = Number(rowIdx);
+      const res = await apiRequest('', { type: 'deleteMenuRevenueRecord', rowIdx: targetRowIdx }, true);
       if (res && res.status === 'ok') {
+        if (editingMenuRevenueRowIdx === targetRowIdx) {
+          resetMenuRevenueForm();
+        }
         showToast('メニュー収益記録を削除しました');
         loadAnalytics();
       } else {
         showToast('削除に失敗しました: ' + getMenuRevenueActionErrorMessage(res, 'deleteMenuRevenueRecord'));
       }
     }
+
+    function getDefaultProductRevenueName() {
+      return Array.isArray(allProducts) && allProducts.length ? String(allProducts[0].name || '').trim() : '';
+    }
+
+    function getProductMasterByName(productName) {
+      const name = String(productName || '').trim();
+      if (!name) return null;
+      return (allProducts || []).find(function (product) {
+        return String(product && product.name || '').trim() === name;
+      }) || null;
+    }
+
+    function createEmptyProductRevenueDraftEntry(defaultProductName) {
+      const productName = String(defaultProductName || getDefaultProductRevenueName() || '').trim();
+      const master = getProductMasterByName(productName);
+      return {
+        productName: productName,
+        qty: 1,
+        unitPrice: master ? Number(master.price || 0) : '',
+        unitCost: master ? Number(master.costPrice || 0) : '',
+        note: ''
+      };
+    }
+
+    function updateProductRevenueFormModeUI() {
+      const meta = document.getElementById('productRevenueEditMeta');
+      const submitBtn = document.getElementById('productRevenueSubmitBtn');
+      const resetBtn = document.getElementById('productRevenueResetBtn');
+      const addRowBtn = document.getElementById('productRevenueAddRowBtn');
+      const dateInput = document.getElementById('productRevenueDate');
+      const isEditing = editingProductRevenueRowIdx >= 2;
+      const currentEntry = productRevenueDraftEntries[0] || createEmptyProductRevenueDraftEntry();
+      const dateLabel = formatDisplayDate(dateInput && dateInput.value);
+      const productLabel = String(currentEntry.productName || '商品').trim() || '商品';
+
+      if (meta) {
+        meta.style.display = isEditing ? 'block' : 'none';
+        meta.innerHTML = isEditing
+          ? `編集中: ${escapeHtml(dateLabel)} / ${escapeHtml(productLabel)} の1件を更新します。保存するとこの行だけ上書きされます。`
+          : '';
+      }
+      if (submitBtn) submitBtn.textContent = isEditing ? 'この1件を更新する' : 'まとめて保存する';
+      if (resetBtn) resetBtn.textContent = isEditing ? '編集をやめる' : '入力をクリア';
+      if (addRowBtn) {
+        addRowBtn.disabled = isEditing;
+        addRowBtn.title = isEditing ? '編集中は1件ずつ更新します。編集をやめると複数行入力に戻れます。' : '';
+      }
+    }
+
+    function addProductRevenueDraftEntry(defaultProductName) {
+      productRevenueDraftEntries.push(createEmptyProductRevenueDraftEntry(defaultProductName));
+      renderProductRevenueDraftEntries();
+    }
+
+    function removeProductRevenueDraftEntry(index) {
+      productRevenueDraftEntries.splice(index, 1);
+      if (!productRevenueDraftEntries.length) {
+        productRevenueDraftEntries = [createEmptyProductRevenueDraftEntry()];
+      }
+      renderProductRevenueDraftEntries();
+    }
+
+    function updateProductRevenueDraftEntry(index, field, value) {
+      if (!productRevenueDraftEntries[index]) return;
+      productRevenueDraftEntries[index][field] = value;
+      if (field === 'productName') {
+        const master = getProductMasterByName(value);
+        if (master) {
+          productRevenueDraftEntries[index].unitPrice = Number(master.price || 0) || '';
+          productRevenueDraftEntries[index].unitCost = Number(master.costPrice || 0) || '';
+        }
+      }
+      if (isDashiProductName(productRevenueDraftEntries[index].productName)) {
+        const pricing = calculateDashiPricing(productRevenueDraftEntries[index].qty);
+        productRevenueDraftEntries[index].unitPrice = pricing.avgUnitPrice > 0 ? Number(pricing.avgUnitPrice.toFixed(2)) : '';
+      }
+      renderProductRevenueDraftEntries();
+    }
+
+    function getProductRevenueDraftPricingStats(entry) {
+      const productName = String(entry && entry.productName || '').trim();
+      const qty = Math.max(1, Number(entry && entry.qty) || 1);
+      const isDashi = isDashiProductName(productName);
+      let unitPrice = Math.max(0, Number(entry && entry.unitPrice) || 0);
+      let unitCost = Math.max(0, Number(entry && entry.unitCost) || 0);
+      if (isDashi && unitCost <= 0) unitCost = 1490;
+
+      let totalAmount = qty * unitPrice;
+      let totalProfit = totalAmount - (qty * unitCost);
+      let priceBreakdownText = '';
+      if (isDashi) {
+        const pricing = calculateDashiPricing(qty);
+        unitPrice = Number(pricing.avgUnitPrice || 0);
+        totalAmount = Number(pricing.totalRevenue || 0);
+        totalProfit = totalAmount - (qty * unitCost);
+        priceBreakdownText = formatDashiPriceBreakdownText(pricing.priceBreakdown);
+      }
+
+      return {
+        isDashi: isDashi,
+        qty: qty,
+        unitPrice: unitPrice,
+        unitCost: unitCost,
+        totalAmount: totalAmount,
+        totalProfit: totalProfit,
+        priceBreakdownText: priceBreakdownText
+      };
+    }
+
+    function renderProductRevenueDraftEntries() {
+      const container = document.getElementById('productRevenueEntriesEditor');
+      if (!container) return;
+      if (!productRevenueDraftEntries.length) {
+        productRevenueDraftEntries = [createEmptyProductRevenueDraftEntry()];
+      }
+
+      const hasProducts = Array.isArray(allProducts) && allProducts.some(function (product) {
+        return String(product && product.name || '').trim();
+      });
+
+      container.innerHTML = productRevenueDraftEntries.map(function (entry, index) {
+        const stats = getProductRevenueDraftPricingStats(entry);
+        const qty = stats.qty;
+        const unitPrice = stats.unitPrice;
+        const unitCost = stats.unitCost;
+        const totalAmount = stats.totalAmount;
+        const totalProfit = stats.totalProfit;
+        const isDashi = stats.isDashi;
+        const unitPriceInputValue = unitPrice > 0
+          ? escapeHtml(Number.isInteger(unitPrice) ? String(unitPrice) : String(Number(unitPrice.toFixed(2))))
+          : '';
+        let productOptionsHtml = (allProducts || []).map(function (product) {
+          const name = String(product && product.name || '').trim();
+          if (!name) return '';
+          return `<option value="${escapeHtml(name)}" ${name === String(entry.productName || '').trim() ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+        }).join('');
+        if (entry.productName && !getProductMasterByName(entry.productName)) {
+          productOptionsHtml = `<option value="${escapeHtml(String(entry.productName))}" selected>${escapeHtml(String(entry.productName))}（現在は商品管理に未登録）</option>` + productOptionsHtml;
+        }
+        const dashiBreakdownHtml = isDashi && stats.priceBreakdownText
+          ? `<div style="margin-top:10px; padding:10px 12px; border-radius:10px; background:rgba(138, 158, 126, .08); color:var(--text-mid); font-size:12px; line-height:1.7;">数量別価格を自動適用: ${escapeHtml(stats.priceBreakdownText)}</div>`
+          : '';
+
+        return `
+          <div class="menu-revenue-entry" style="border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px; background:#fafafa;">
+            <div class="flex space-between" style="align-items:center; margin-bottom:10px;">
+              <div style="font-weight:bold;">入力行 ${index + 1}</div>
+              <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="removeProductRevenueDraftEntry(${index})" ${productRevenueDraftEntries.length === 1 ? 'disabled' : ''}>削除</button>
+            </div>
+            <div class="flex" style="gap:12px; flex-wrap:wrap;">
+              <div class="form-group" style="flex:2; min-width:220px;">
+                <label>商品名</label>
+                <select onchange="updateProductRevenueDraftEntry(${index}, 'productName', this.value)" ${hasProducts ? '' : 'disabled'}>
+                  ${hasProducts ? productOptionsHtml : '<option value="">商品管理で商品を登録してください</option>'}
+                </select>
+              </div>
+              <div class="form-group" style="flex:1; min-width:110px;">
+                <label>販売数</label>
+                <input type="number" min="1" value="${escapeHtml(String(qty))}" onchange="updateProductRevenueDraftEntry(${index}, 'qty', this.value)">
+              </div>
+              <div class="form-group" style="flex:1; min-width:140px;">
+                <label>${isDashi ? '実質単価 (自動)' : '販売単価 (円)'}</label>
+                <input type="number" min="1" placeholder="例：3000" value="${unitPriceInputValue}" onchange="updateProductRevenueDraftEntry(${index}, 'unitPrice', this.value)" ${isDashi ? 'readonly style="background:#f3f1ed; color:var(--text-mid);"' : ''}>
+              </div>
+              <div class="form-group" style="flex:1; min-width:140px;">
+                <label>原価単価 (円)</label>
+                <input type="number" min="0" placeholder="例：1200" value="${(entry.unitCost !== '' || (isDashi && unitCost > 0)) ? escapeHtml(String(unitCost)) : ''}" onchange="updateProductRevenueDraftEntry(${index}, 'unitCost', this.value)">
+              </div>
+            </div>
+            <div class="flex" style="gap:12px; flex-wrap:wrap;">
+              <div class="form-group" style="flex:1; min-width:180px;">
+                <label>売上合計</label>
+                <div style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold;">
+                  ${unitPrice > 0 ? '¥' + totalAmount.toLocaleString() : 'ー'}
+                </div>
+              </div>
+              <div class="form-group" style="flex:1; min-width:180px;">
+                <label>利益合計</label>
+                <div style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold; color:var(--primary);">
+                  ${unitPrice > 0 ? '¥' + totalProfit.toLocaleString() : 'ー'}
+                </div>
+              </div>
+            </div>
+            ${dashiBreakdownHtml}
+            <div class="form-group" style="margin-bottom:0;">
+              <label>メモ (任意)</label>
+              <input type="text" placeholder="例：店頭販売分" value="${escapeHtml(entry.note || '')}" oninput="updateProductRevenueDraftEntry(${index}, 'note', this.value)">
+            </div>
+          </div>
+        `;
+      }).join('');
+      updateProductRevenueFormModeUI();
+    }
+
+    function resetProductRevenueForm() {
+      const form = document.getElementById('productRevenueForm');
+      if (form) form.reset();
+      const dateInput = document.getElementById('productRevenueDate');
+      if (dateInput) dateInput.valueAsDate = new Date();
+      editingProductRevenueRowIdx = 0;
+      productRevenueDraftEntries = [createEmptyProductRevenueDraftEntry()];
+      renderProductRevenueDraftEntries();
+    }
+
+    function editProductRevenueRecord(rowIdx) {
+      const targetRowIdx = Number(rowIdx);
+      const record = allProductRevenueRecords.find(function (item) {
+        return Number(item.rowIdx) === targetRowIdx;
+      });
+      if (!record) {
+        showToast('編集対象の商品収益が見つかりません');
+        return;
+      }
+      editingProductRevenueRowIdx = targetRowIdx;
+      const dateInput = document.getElementById('productRevenueDate');
+      if (dateInput) dateInput.value = toDateInputValue(record.date);
+      productRevenueDraftEntries = [{
+        productName: String(record.productName || ''),
+        qty: Math.max(1, Number(record.qty) || 1),
+        unitPrice: Math.max(0, Number(record.unitPrice) || 0),
+        unitCost: Math.max(0, Number(record.unitCost) || 0),
+        note: String(record.note || '')
+      }];
+      renderProductRevenueDraftEntries();
+      const form = document.getElementById('productRevenueForm');
+      if (form && typeof form.scrollIntoView === 'function') {
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      showToast('商品収益の編集内容を読み込みました');
+    }
+
+    function updateProductRevenueMonthFilterOptions() {
+      const select = document.getElementById('productRevenueMonthFilter');
+      if (!select) return;
+      const previousValue = select.value || 'all';
+      const monthValues = Array.from(new Set(allProductRevenueRecords.map(function (record) {
+        return String(record.date || '').slice(0, 7);
+      }).filter(Boolean))).sort().reverse();
+      let html = '<option value="all">全期間</option>';
+      monthValues.forEach(function (monthValue) {
+        html += `<option value="${monthValue}">${monthValue}</option>`;
+      });
+      select.innerHTML = html;
+      if (monthValues.includes(previousValue)) {
+        select.value = previousValue;
+      } else if (monthValues.length) {
+        select.value = monthValues[0];
+      } else {
+        select.value = 'all';
+      }
+    }
+
+    function getProductRevenueActionErrorMessage(res, actionType) {
+      const message = res && res.message ? String(res.message) : '';
+      if (message.includes(`未定義のPOSTアクションです: ${actionType}`) || message.includes('未定義のGETアクションです: getProductRevenueRecords')) {
+        return 'GAS が未更新です。最新の mayumi_gas_script_3_1.js を反映して再デプロイしてください。';
+      }
+      return message || '通信エラー';
+    }
+
+    function renderProductRevenueRecords() {
+      const container = document.getElementById('productRevenueRecordsBody');
+      const meta = document.getElementById('productRevenueRecordsMeta');
+      const monthFilter = document.getElementById('productRevenueMonthFilter');
+      if (!container) return;
+      if (!allProductRevenueRecords.length) {
+        if (meta) meta.textContent = '0件';
+        container.innerHTML = '<div style="text-align:center; color:var(--text-mid);">登録済みの商品収益はありません</div>';
+        return;
+      }
+
+      const selectedMonth = monthFilter ? monthFilter.value : 'all';
+      const filteredRecords = selectedMonth === 'all'
+        ? allProductRevenueRecords.slice()
+        : allProductRevenueRecords.filter(function (record) {
+          return String(record.date || '').slice(0, 7) === selectedMonth;
+        });
+
+      if (meta) {
+        const totalAmount = filteredRecords.reduce(function (sum, record) {
+          return sum + Number(record.totalAmount || 0);
+        }, 0);
+        const totalProfit = filteredRecords.reduce(function (sum, record) {
+          return sum + Number(record.profit || 0);
+        }, 0);
+        meta.textContent = `${filteredRecords.length}件 / 売上¥${totalAmount.toLocaleString()} / 利益¥${totalProfit.toLocaleString()}`;
+      }
+
+      if (!filteredRecords.length) {
+        container.innerHTML = '<div style="text-align:center; color:var(--text-mid);">条件に一致する商品収益はありません</div>';
+        return;
+      }
+
+      const grouped = filteredRecords.reduce(function (acc, record) {
+        const dateKey = record.date || '';
+        if (!acc[dateKey]) acc[dateKey] = [];
+        acc[dateKey].push(record);
+        return acc;
+      }, {});
+      const dateKeys = Object.keys(grouped).sort(function (a, b) {
+        return new Date(b).getTime() - new Date(a).getTime();
+      });
+
+      container.innerHTML = dateKeys.map(function (dateKey, index) {
+        const records = grouped[dateKey];
+        const dayQty = records.reduce(function (sum, record) {
+          return sum + Number(record.qty || 0);
+        }, 0);
+        const dayTotal = records.reduce(function (sum, record) {
+          return sum + Number(record.totalAmount || 0);
+        }, 0);
+        const dayProfit = records.reduce(function (sum, record) {
+          return sum + Number(record.profit || 0);
+        }, 0);
+
+        const rowsHtml = records.map(function (record) {
+          const unitPriceNumber = Number(record.unitPrice || 0);
+          const unitPriceText = Number.isInteger(unitPriceNumber)
+            ? unitPriceNumber.toLocaleString()
+            : unitPriceNumber.toLocaleString('ja-JP', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+          const unitPriceHtml = record.priceBreakdownText
+            ? `<div style="text-align:right;"><div>実質 ¥${unitPriceText}</div><div style="font-size:11px; color:var(--text-mid); margin-top:2px; line-height:1.5;">${escapeHtml(record.priceBreakdownText)}</div></div>`
+            : `<div style="text-align:right;">¥${unitPriceText}</div>`;
+          return `
+            <div style="display:grid; grid-template-columns:minmax(150px, 1.4fr) minmax(70px, 80px) minmax(90px, 110px) minmax(90px, 110px) minmax(110px, 130px) minmax(110px, 130px) 1fr auto; gap:10px; align-items:center; padding:10px 0; border-top:1px solid var(--border);">
+              <div style="font-weight:bold;">${escapeHtml(record.productName || '')}</div>
+              <div style="text-align:center;">${escapeHtml(String(Number(record.qty) || 0))}個</div>
+              <div>${unitPriceHtml}</div>
+              <div style="text-align:right;">¥${Number(record.unitCost || 0).toLocaleString()}</div>
+              <div style="text-align:right; font-weight:bold;">¥${Number(record.totalAmount || 0).toLocaleString()}</div>
+              <div style="text-align:right; font-weight:bold; color:var(--primary);">¥${Number(record.profit || 0).toLocaleString()}</div>
+              <div style="font-size:12px; color:var(--text-mid);">${escapeHtml(record.note || 'メモなし')}</div>
+              <div style="display:flex; justify-content:flex-end; gap:6px;">
+                <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="editProductRevenueRecord(${record.rowIdx})">編集</button>
+                <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteProductRevenueRecord(${record.rowIdx})">🗑</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <details ${index === 0 ? 'open' : ''} style="border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:12px; background:#fafafa;">
+            <summary style="cursor:pointer; list-style:none;">
+              <div class="flex space-between" style="align-items:center; gap:12px; flex-wrap:wrap;">
+                <div>
+                  <div style="font-weight:bold; font-size:15px;">${formatDisplayDate(dateKey)}</div>
+                  <div style="font-size:12px; color:var(--text-mid); margin-top:4px;">${records.length}行 / 合計${dayQty}個 / 売上¥${dayTotal.toLocaleString()} / 利益¥${dayProfit.toLocaleString()}</div>
+                </div>
+              </div>
+            </summary>
+            <div style="margin-top:12px;">
+              <div style="display:grid; grid-template-columns:minmax(150px, 1.4fr) minmax(70px, 80px) minmax(90px, 110px) minmax(90px, 110px) minmax(110px, 130px) minmax(110px, 130px) 1fr auto; gap:10px; font-size:11px; color:var(--text-mid); padding-bottom:8px;">
+                <div>商品名</div>
+                <div style="text-align:center;">個数</div>
+                <div style="text-align:right;">単価</div>
+                <div style="text-align:right;">原価</div>
+                <div style="text-align:right;">売上</div>
+                <div style="text-align:right;">利益</div>
+                <div>メモ</div>
+                <div></div>
+              </div>
+              ${rowsHtml}
+            </div>
+          </details>
+        `;
+      }).join('');
+    }
+
+    async function submitProductRevenueRecord(event) {
+      if (event) event.preventDefault();
+
+      const date = document.getElementById('productRevenueDate').value;
+      const isEditing = editingProductRevenueRowIdx >= 2;
+      if (!date) {
+        showToast('記録日を入力してください');
+        return;
+      }
+      if (!allProducts || !allProducts.length) {
+        showToast('先に商品管理で商品を登録してください');
+        return;
+      }
+
+      const records = productRevenueDraftEntries.map(function (entry, index) {
+        const stats = getProductRevenueDraftPricingStats(entry);
+        return {
+          rowNumber: index + 1,
+          productName: String(entry.productName || '').trim(),
+          qty: stats.qty,
+          unitPrice: Math.max(0, Number(stats.unitPrice) || 0),
+          unitCost: Math.max(0, Number(stats.unitCost) || 0),
+          note: String(entry.note || '').trim()
+        };
+      });
+
+      const invalidEntry = records.find(function (record) {
+        return !record.productName || record.unitPrice <= 0;
+      });
+      if (invalidEntry) {
+        showToast(`入力行 ${invalidEntry.rowNumber} の商品名または単価を確認してください`);
+        return;
+      }
+
+      if (isEditing && records.length !== 1) {
+        showToast('編集中は1件ずつ更新してください');
+        return;
+      }
+
+      showToast(isEditing ? '商品収益を更新中...' : '商品収益を保存中...');
+      const payload = isEditing
+        ? {
+            type: 'saveProductRevenueRecord',
+            rowIdx: editingProductRevenueRowIdx,
+            date: date,
+            productName: records[0].productName,
+            qty: records[0].qty,
+            unitPrice: records[0].unitPrice,
+            unitCost: records[0].unitCost,
+            note: records[0].note
+          }
+        : {
+            type: 'saveProductRevenueRecord',
+            date: date,
+            records: records.map(function (record) {
+              return {
+                date: date,
+                productName: record.productName,
+                qty: record.qty,
+                unitPrice: record.unitPrice,
+                unitCost: record.unitCost,
+                note: record.note
+              };
+            })
+          };
+      const res = await apiRequest('', payload, true);
+
+      if (res && res.status === 'ok') {
+        if (isEditing) {
+          showToast('商品収益を更新しました');
+        } else {
+          const savedCount = Number(res.savedCount || records.length);
+          showToast(`商品収益を保存しました (${savedCount}件)`);
+        }
+        resetProductRevenueForm();
+        loadAnalytics();
+      } else {
+        showToast((isEditing ? '更新に失敗しました: ' : '保存に失敗しました: ') + getProductRevenueActionErrorMessage(res, 'saveProductRevenueRecord'));
+      }
+    }
+
+    async function deleteProductRevenueRecord(rowIdx) {
+      if (!confirm('この商品収益記録を削除しますか？\nこの操作は元に戻せません。')) return;
+      showToast('削除中...');
+      const targetRowIdx = Number(rowIdx);
+      const res = await apiRequest('', { type: 'deleteProductRevenueRecord', rowIdx: targetRowIdx }, true);
+      if (res && res.status === 'ok') {
+        if (editingProductRevenueRowIdx === targetRowIdx) {
+          resetProductRevenueForm();
+        }
+        showToast('商品収益記録を削除しました');
+        loadAnalytics();
+      } else {
+        showToast('削除に失敗しました: ' + getProductRevenueActionErrorMessage(res, 'deleteProductRevenueRecord'));
+      }
+    }
+
     async function loadCategoryMaster() {
-      const tbody = document.getElementById('categoryListBody');
-      if (!tbody) return;
+      const newsBody = document.getElementById('categoryListBodyNews');
+      const menuBody = document.getElementById('categoryListBodyMenu');
+      const noticeBody = document.getElementById('categoryListBodyNotice');
+      if (!newsBody || !menuBody || !noticeBody) return;
+
+      const setAllLoading = () => {
+        const loadingHtml = '<tr><td colspan="2" style="text-align:center;">読み込み中...</td></tr>';
+        newsBody.innerHTML = loadingHtml;
+        menuBody.innerHTML = '<tr><td colspan="2" style="text-align:center;">読み込み中...</td></tr>';
+        noticeBody.innerHTML = '<tr><td colspan="2" style="text-align:center;">読み込み中...</td></tr>';
+      };
+
       const cachedRes = readAdminApiCache('getCategories');
       if (cachedRes && cachedRes.status === 'ok') {
         allCategories = cachedRes.categories || [];
         renderCategoryList();
         updateAllCategorySelectors();
       } else {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">読み込み中...</td></tr>';
+        setAllLoading();
       }
 
       const res = await apiRequest('getCategories');
@@ -4035,36 +5827,60 @@
         renderCategoryList();
         updateAllCategorySelectors();
       } else {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:red;">カテゴリの取得に失敗しました</td></tr>';
+        const errorHtml = '<tr><td colspan="2" style="text-align:center;color:red;">取得失敗</td></tr>';
+        newsBody.innerHTML = errorHtml;
       }
     }
 
     function renderCategoryList() {
-      const tbody = document.getElementById('categoryListBody');
-      if (!tbody) return;
-      const html = allCategories.map(cat => {
-        if (!cat) return '';
+      const newsBody = document.getElementById('categoryListBodyNews');
+      const menuBody = document.getElementById('categoryListBodyMenu');
+      const noticeBody = document.getElementById('categoryListBodyNotice');
+      if (!newsBody || !menuBody || !noticeBody) return;
+
+      const newsItems = [], menuItems = [], noticeItems = [];
+      allCategories.forEach(cat => {
+        const type = typeof cat === 'string' ? 'ブログ' : (cat.type || 'ブログ');
+        if (type === 'メニュー') menuItems.push(cat);
+        else if (type === '通知') noticeItems.push(cat);
+        else newsItems.push(cat);
+      });
+
+      const renderRow = (cat, showTypeSelect = false) => {
         const name = typeof cat === 'string' ? cat : (cat.name || '');
         const type = typeof cat === 'string' ? 'ブログ' : (cat.type || 'ブログ');
         const safeName = name.replace(/'/g, "\\'");
         const jsonCat = JSON.stringify(typeof cat === 'string' ? { name: cat, type: 'ブログ' } : cat).replace(/"/g, '&quot;');
+        
+        let typeCol = '';
+        if (showTypeSelect) {
+          typeCol = `
+            <td style="text-align:center;">
+              <select onchange="updateCategoryType('${safeName}', this.value)" style="font-size:11px; padding:2px 4px; width:auto; border-radius:4px;">
+                <option value="お知らせ" ${type === 'お知らせ' ? 'selected' : ''}>お知らせ</option>
+                <option value="ブログ" ${type === 'ブログ' ? 'selected' : ''}>ブログ</option>
+                <option value="メニュー" ${type === 'メニュー' ? 'selected' : ''}>メニュー</option>
+                <option value="通知" ${type === '通知' ? 'selected' : ''}>通知</option>
+              </select>
+            </td>
+          `;
+        }
+
         return `
-        <tr>
-          <td style="font-weight:bold;">${name}</td>
-          <td style="text-align:center;">
-            <select onchange="updateCategoryType('${safeName}', this.value)" style="font-size:12px; padding:2px 4px; width:auto;">
-              <option value="お知らせ" ${type === 'お知らせ' ? 'selected' : ''}>お知らせ</option>
-              <option value="ブログ" ${type === 'ブログ' ? 'selected' : ''}>ブログ</option>
-            </select>
-          </td>
-          <td style="text-align:center;">
-            <button class="btn" style="padding:4px 8px; font-size:11px; margin-right:5px;" onclick="openEditCategoryModal(${jsonCat})">🖊️</button>
-            <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteCategory('${safeName}')">🗑</button>
-          </td>
-        </tr>
-      `;
-      }).join('') || '<tr><td colspan="3" style="text-align:center;">カテゴリがありません</td></tr>';
-      tbody.innerHTML = html;
+          <tr>
+            <td style="font-weight:bold;">${escapeHtml(name)}</td>
+            ${typeCol}
+            <td style="text-align:center;">
+              <button class="btn" style="padding:4px 8px; font-size:11px; margin-right:5px; background:var(--warm-white); color:var(--text-dark); border:1px solid var(--border);" onclick="openEditCategoryModal(${jsonCat})">🖊️</button>
+              <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteCategory('${safeName}')">🗑</button>
+            </td>
+          </tr>
+        `;
+      };
+
+      newsBody.innerHTML = newsItems.map(c => renderRow(c, false)).join('') || '<tr><td colspan="2" style="text-align:center;">カテゴリがありません</td></tr>';
+      menuBody.innerHTML = menuItems.map(c => renderRow(c, false)).join('') || '<tr><td colspan="2" style="text-align:center;">カテゴリがありません</td></tr>';
+      noticeBody.innerHTML = noticeItems.map(c => renderRow(c, false)).join('') || '<tr><td colspan="2" style="text-align:center;">カテゴリがありません</td></tr>';
     }
 
     async function updateCategoryType(catName, newType) {
@@ -4147,55 +5963,64 @@
 
         const currentValue = 'value' in el ? el.value : '';
         let html = '';
+        
+        // ニュース関連のカテゴリのみを抽出
+        const newsCats = allCategories.filter(c => {
+          const type = typeof c === 'string' ? 'ブログ' : (c.type || 'ブログ');
+          return type === 'お知らせ' || type === 'ブログ';
+        });
+
         if (id === 'blogCategoryFilter') {
           html = '<option value="">全てのカテゴリ</option>';
-          allCategories.forEach(cat => {
+          newsCats.forEach(cat => {
             const name = typeof cat === 'string' ? cat : cat.name;
-            html += `<option value="${name}">${name}</option>`;
+            html += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
           });
         } else if (id === 'blogCategory') {
-          // ブログ作成フォーム用：分類ごとにグループ化
-          const newsCats = allCategories.filter(c => c.type === 'お知らせ');
-          const blogCats = allCategories.filter(c => c.type === 'ブログ');
+          const newsOnly = newsCats.filter(c => c.type === 'お知らせ');
+          const blogOnly = newsCats.filter(c => c.type === 'ブログ');
 
-          if (newsCats.length > 0) {
+          if (newsOnly.length > 0) {
             html += '<optgroup label="お知らせ分類">';
-            newsCats.forEach(c => html += `<option value="${c.name}">${c.name}</option>`);
+            newsOnly.forEach(c => html += `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`);
             html += '</optgroup>';
           }
-          if (blogCats.length > 0) {
+          if (blogOnly.length > 0) {
             html += '<optgroup label="ブログ分類">';
-            blogCats.forEach(c => html += `<option value="${c.name}">${c.name}</option>`);
+            blogOnly.forEach(c => html += `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`);
             html += '</optgroup>';
           }
-          // fallback if empty
-          if (html === '') {
-            allCategories.forEach(cat => {
-              const name = typeof cat === 'string' ? cat : cat.name;
-              html += `<option value="${name}">${name}</option>`;
-            });
-          }
-        } else {
-          allCategories.forEach(cat => {
-            const name = typeof cat === 'string' ? cat : cat.name;
-            html += `<option value="${name}">${name}</option>`;
-          });
         }
 
         el.innerHTML = html;
         if ('value' in el && currentValue) el.value = currentValue;
       });
+      
+      // 商品カテゴリとメニューカテゴリの更新も連動させる
+      updateProductCategoryOptions();
+      updateMenuCategoryOptions();
     }
 
     function updateProductCategoryOptions() {
       const datalist = document.getElementById('productCategoryOptions');
       if (!datalist) return;
 
-      const categories = Array.from(new Set((allProducts || [])
-        .map(product => String(product.category || '').trim())
-        .filter(Boolean)));
+      const menuCats = allCategories.filter(c => (typeof c !== 'string' && c.type === 'メニュー'))
+        .map(c => c.name);
 
-      datalist.innerHTML = categories.map(category => `<option value="${escapeHtml(category)}"></option>`).join('');
+      datalist.innerHTML = menuCats.map(category => `<option value="${escapeHtml(category)}"></option>`).join('');
+    }
+
+    function updateMenuCategoryOptions() {
+      const datalist = document.getElementById('menuCategoryOptions');
+      if (!datalist) return;
+
+      const menuCats = allCategories.filter(c => {
+        const type = typeof c === 'string' ? 'ブログ' : (c.type || 'ブログ');
+        return type === 'メニュー';
+      }).map(c => typeof c === 'string' ? c : c.name).filter(Boolean);
+
+      datalist.innerHTML = menuCats.map(category => `<option value="${escapeHtml(category)}"></option>`).join('');
     }
 
     async function loadAdminSupportFaq() {
@@ -4243,7 +6068,7 @@
             <td style="font-size:12px; color:var(--text-mid); white-space:pre-wrap;">${escapeHtml(item.keywords)}</td>
             <td style="font-size:12px; color:var(--text-mid); white-space:pre-wrap;">${escapeHtml(item.answer)}</td>
             <td style="text-align:center;">${Number(item.priority || 0)}</td>
-            <td style="font-size:11px;">${escapeHtml(item.updatedAt)}</td>
+            <td style="font-size:11px;">${formatDisplayDate(item.updatedAt)}</td>
             <td style="text-align:center;">
               <div class="flex" style="gap:5px; justify-content:center;">
                 <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editSupportFaq(${item.rowIdx})">📝</button>
@@ -4387,7 +6212,7 @@
         return pendingGetRequests.get(requestKey);
       }
 
-      const requestPromise = (async () => {
+      const performRequest = async (baseUrl) => {
         let attempt = 0;
         const maxAttempts = isPost ? 1 : (API_GET_RETRY_COUNT + 1);
         while (attempt < maxAttempts) {
@@ -4395,7 +6220,7 @@
           const timeoutMs = isPost ? API_POST_TIMEOUT_MS : API_GET_TIMEOUT_MS;
           const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
           try {
-            let url = GAS_URL;
+            let url = baseUrl;
             let options = { redirect: "follow" }; // GASのリダイレクト対応
             if (controller) options.signal = controller.signal;
 
@@ -4441,6 +6266,19 @@
           }
         }
         return null;
+      };
+
+      const requestPromise = (async () => {
+        const primaryResult = await performRequest(GAS_URL);
+        if (!isPost && GAS_URL !== DEFAULT_GAS_URL && (!primaryResult || primaryResult.status !== 'ok')) {
+          const fallbackResult = await performRequest(DEFAULT_GAS_URL);
+          if (fallbackResult && fallbackResult.status === 'ok') {
+            applyAdminGasUrl(DEFAULT_GAS_URL);
+            showToast('接続先を最新設定に戻しました');
+            return fallbackResult;
+          }
+        }
+        return primaryResult;
       })();
 
       if (requestKey) {
@@ -4539,7 +6377,7 @@
 
         tr.innerHTML = `
           <td><input type="checkbox" class="order-sel" data-id="${o.orderId}"></td>
-          <td style="font-size:11px;">${o.date ? new Date(o.date).toLocaleDateString('ja-JP') : '-'}</td>
+          <td style="font-size:11px;">${o.date ? formatDisplayDate(o.date) : '-'}</td>
           <td>
             <div style="font-size:12px; font-weight:bold;">${escapeHtml(o.memberId || '-')}</div>
             <div style="font-size:11px; color:var(--text-mid);">${escapeHtml(o.customerName || '')}</div>
@@ -4911,7 +6749,7 @@
       if (!b) return;
 
       document.getElementById('blogRowIdx').value = b.rowIdx;
-      document.getElementById('blogDate').value = b.date;
+      document.getElementById('blogDate').value = formatDateForDateTimeLocal(b.updatedAt || b.date);
       document.getElementById('blogTitle').value = b.title;
       document.getElementById('blogCategory').value = b.category;
       document.getElementById('blogIcon').value = b.icon;
@@ -5158,7 +6996,7 @@
       document.getElementById('prodCat').value = p.category;
       document.getElementById('prodName').value = p.name;
       document.getElementById('prodPrice').value = p.price;
-      document.getElementById('prodCost').value = ''; // 仕入値は再設定が必要
+      document.getElementById('prodCost').value = p.costPrice || '';
       document.getElementById('prodBg').value = p.bg;
       document.getElementById('prodDesc').value = p.description || '';
 
@@ -5509,7 +7347,7 @@
       if (!c) return;
 
       document.getElementById('calRowIdx').value = c.rowIdx;
-      document.getElementById('calDate').value = c.date;
+      document.getElementById('calDate').value = formatDateForDateTimeLocal(c.date);
       document.getElementById('selectedDatesArea').style.display = 'none'; // 編集時はリスト非表示
       document.getElementById('calTitle').value = c.title;
       document.getElementById('calDesc').value = c.desc;
@@ -5600,8 +7438,8 @@
       if (cachedRes && cachedRes.status === 'ok') {
         allMenus = cachedRes.menus || [];
       } else {
-        draftBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">読み込み中...</td></tr>';
-        publishBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">読み込み中...</td></tr>';
+        draftBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">読み込み中...</td></tr>';
+        publishBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">読み込み中...</td></tr>';
       }
 
       const res = await apiRequest('getAdminMenus');
@@ -5612,30 +7450,29 @@
         let publishHtml = '';
 
         allMenus.forEach(m => {
+          const deleteName = JSON.stringify(String(m.name || '')).replace(/"/g, '&quot;');
+          const menuSummary = `
+            <div style="font-weight:bold; margin-bottom:4px; word-break:break-word;">${escapeHtml(m.name || '')}</div>
+            <div style="font-size:12px; color:var(--text-mid); white-space:pre-wrap; word-break:break-word;">${escapeHtml(m.description || '概要説明は未入力です')}</div>
+          `;
           const rowHtml = `
-            <tr>
+            <tr class="sortable-item" draggable="true" data-sheet="${SHEETS.MENUS}" data-row-idx="${m.rowIdx}">
+              <td class="sortable-handle" style="cursor:grab;">☰</td>
               <td>
                 ${m.imageUrl ? `<img src="${m.imageUrl}" style="width:50px; height:50px; object-fit:cover; border-radius:4px;">` : 'ー'}
               </td>
-              <td style="font-weight:bold;">${m.name}</td>
-              <td style="text-align:center;">
-                <select 
-                  class="form-control" 
-                  style="font-size:12px; padding:4px; max-width:120px; text-align:center; border:1px solid var(--border); border-radius:4px; background-color:${m.reservationStatus === '予約受付中' ? '#e8f5e9' : '#ffebee'}"
-                  onchange="quickUpdateMenuStatus(${m.rowIdx}, this.value, this)"
-                >
-                  <option value="予約受付中" ${m.reservationStatus === '予約受付中' ? 'selected' : ''}>予約受付中</option>
-                  <option value="予約対象外" ${m.reservationStatus === '予約対象外' ? 'selected' : ''}>予約対象外</option>
-                </select>
-              </td>
+              <td style="white-space:nowrap;">${escapeHtml(m.category || '未設定')}</td>
+              <td style="min-width:340px;">${menuSummary}</td>
+              <td style="font-size:11px; white-space:nowrap;">${escapeHtml(formatDisplayDate(m.updatedAt || m.date))}</td>
               <td>
                 <div class="flex" style="gap:5px;">
                   <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editMenu(${m.rowIdx})">📝</button>
-                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff;" onclick="deleteMenu(${m.rowIdx}, '${m.name.replace(/'/g, "\\'")}')">🗑</button>
+                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff;" onclick="deleteMenu(${m.rowIdx}, ${deleteName})">🗑</button>
                 </div>
               </td>
             </tr>
           `;
+
           if (m.publishStatus === '公開') {
             publishHtml += rowHtml;
           } else {
@@ -5643,11 +7480,16 @@
           }
         });
 
-        draftBody.innerHTML = draftHtml || '<tr><td colspan="4" style="text-align:center;">下書きはありません</td></tr>';
-        publishBody.innerHTML = publishHtml || '<tr><td colspan="4" style="text-align:center;">公開済みのメニューはありません</td></tr>';
+        draftBody.innerHTML = draftHtml || '<tr><td colspan="6" style="text-align:center;">下書きはありません</td></tr>';
+        publishBody.innerHTML = publishHtml || '<tr><td colspan="6" style="text-align:center;">公開済みのメニューはありません</td></tr>';
+
+        // 行にドラッグイベントを追加
+        [draftBody, publishBody].forEach(tbody => {
+          tbody.querySelectorAll('tr').forEach(tr => addDragEvents(tr, tbody));
+        });
       } else {
-        draftBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">エラーが発生しました</td></tr>';
-        publishBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">エラーが発生しました</td></tr>';
+        draftBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">エラーが発生しました</td></tr>';
+        publishBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">エラーが発生しました</td></tr>';
       }
     }
 
@@ -5656,13 +7498,14 @@
     async function submitMenu(event) {
       event.preventDefault();
       const rowIdx = document.getElementById('menuRowIdx').value;
+      const category = document.getElementById('menuCategory').value.trim();
       const name = document.getElementById('menuName').value;
       const description = document.getElementById('menuDescription').value;
       const reservationStatus = document.getElementById('menuReservationStatus').value;
       const publishStatus = document.getElementById('menuPublishStatus').value;
 
-      if (!name) {
-        alert('メニュー名を入力してください');
+      if (!category || !name) {
+        alert('カテゴリとメニュー名を入力してください');
         return;
       }
 
@@ -5689,6 +7532,7 @@
       const payload = {
         type: type,
         rowIdx: rowIdx,
+        category: category,
         name: name,
         description: description,
         reservationStatus: reservationStatus,
@@ -5711,6 +7555,7 @@
       if (!m) return;
 
       document.getElementById('menuRowIdx').value = m.rowIdx;
+      document.getElementById('menuCategory').value = m.category || '';
       document.getElementById('menuName').value = m.name;
       document.getElementById('menuDescription').value = m.description || '';
       document.getElementById('menuReservationStatus').value = m.reservationStatus;
@@ -5732,6 +7577,7 @@
     function cancelMenuEdit() {
       document.getElementById('menuForm').reset();
       document.getElementById('menuRowIdx').value = '';
+      document.getElementById('menuCategory').value = '';
       document.getElementById('menuExistingImageUrl').value = ''; // リセット時にクリア
       document.getElementById('menuImagePreviewArea').style.display = 'none';
       menuImageBase64 = null;
@@ -5750,6 +7596,27 @@
         loadAdminMenus();
       } else {
         showToast('削除に失敗しました');
+      }
+    }
+
+    async function saveMenuOrder(tbodyId = 'menusList') {
+      const list = document.getElementById(tbodyId);
+      const items = [...list.querySelectorAll('.sortable-item')];
+      const count = items.length;
+      
+      const updates = items.map((el, index) => ({
+        sheet: SHEETS.MENUS,
+        rowIdx: Number(el.dataset.rowIdx),
+        sortOrder: (count - index) * 1000 + 1000000
+      }));
+
+      showToast('メニュー順序を保存中...');
+      const res = await apiRequest('updateItemOrder', { updates });
+      if (res && res.status === 'ok') {
+        showToast('メニュー順序を保存しました');
+        loadAdminMenus();
+      } else {
+        showToast('保存に失敗しました: ' + (res ? res.message : ''));
       }
     }
 
@@ -5889,26 +7756,62 @@
       return text === '天然だし調味粉' || text === '天然だし調理粉';
     }
 
+    function buildDashiTierBreakdown(countValue) {
+      const count = Math.max(0, Number(countValue) || 0);
+      const breakdown = { '20': 0, '25': 0, '30': 0, '35': 0 };
+      if (count <= 0) return breakdown;
+      if (count <= 2) {
+        breakdown['20'] = count;
+        return breakdown;
+      }
+      if (count === 3) {
+        breakdown['20'] = 2;
+        breakdown['25'] = 1;
+        return breakdown;
+      }
+      if (count === 4) {
+        breakdown['20'] = 3;
+        breakdown['30'] = 1;
+        return breakdown;
+      }
+      if (count === 5) {
+        breakdown['20'] = 4;
+        breakdown['35'] = 1;
+        return breakdown;
+      }
+      breakdown['25'] = count;
+      return breakdown;
+    }
+
+    function formatDashiPriceBreakdownText(breakdown) {
+      const tiers = [
+        { key: '20', label: '2,380円(20%OFF)' },
+        { key: '25', label: '2,235円(25%OFF)' },
+        { key: '30', label: '2,086円(30%OFF)' },
+        { key: '35', label: '1,937円(35%OFF)' }
+      ];
+      return tiers.map(function (tier) {
+        const qty = Number(breakdown && breakdown[tier.key] || 0);
+        if (!qty) return '';
+        return tier.label + ' × ' + qty + '個';
+      }).filter(Boolean).join(' / ');
+    }
+
     function calculateDashiPricing(qty) {
       const count = Math.max(0, Number(qty) || 0);
-      if (count <= 0) return { totalRevenue: 0, avgUnitPrice: 2980 };
+      if (count <= 0) return { totalRevenue: 0, avgUnitPrice: 2980, priceBreakdown: buildDashiTierBreakdown(0) };
 
+      const breakdown = buildDashiTierBreakdown(count);
+      const tierPrices = { '20': 2380, '25': 2235, '30': 2086, '35': 1937 };
       let totalRevenue = 0;
-      if (count <= 2) {
-        totalRevenue = 2380 * count;
-      } else if (count === 3) {
-        totalRevenue = (2380 * 2) + 2235;
-      } else if (count === 4) {
-        totalRevenue = (2380 * 3) + 2086;
-      } else if (count === 5) {
-        totalRevenue = (2380 * 4) + 1937;
-      } else {
-        totalRevenue = 2235 * count;
-      }
+      Object.keys(breakdown).forEach(function (key) {
+        totalRevenue += Number(tierPrices[key] || 0) * Number(breakdown[key] || 0);
+      });
 
       return {
         totalRevenue: totalRevenue,
-        avgUnitPrice: totalRevenue / count
+        avgUnitPrice: totalRevenue / count,
+        priceBreakdown: breakdown
       };
     }
 

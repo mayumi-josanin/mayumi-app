@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>まゆみ助産院 お客様アプリ 操作マニュアル</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 14mm 12mm 16mm;
+    }
+
+    :root {
+      --ink: #2f2b28;
+      --muted: #6d655f;
+      --line: #ddd3ca;
+      --sage: #9caf88;
+      --sage-dark: #6b7b5d;
+      --cream: #fbf7f2;
+      --warm: #f2e7db;
+      --accent: #d8865e;
+      --alert: #b55338;
+      --panel: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #f7f2ec;
+      font-family: "Hiragino Sans", "Yu Gothic", "YuGothic", "Noto Sans JP", sans-serif;
+      line-height: 1.8;
+      font-size: 11pt;
+      counter-reset: manual-page;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 190mm;
+      margin: 0 auto 10mm;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 5mm;
+      box-shadow: 0 4mm 10mm rgba(60, 46, 35, 0.08);
+      overflow: hidden;
+      page-break-after: always;
+      counter-increment: manual-page;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+    }
+
+    .page-inner {
+      padding: 14mm 13mm 15mm;
+    }
+
+    .cover {
+      min-height: 265mm;
+      position: relative;
+      isolation: isolate;
+      background:
+        radial-gradient(circle at top right, rgba(156, 175, 136, 0.25), transparent 30%),
+        radial-gradient(circle at left bottom, rgba(216, 134, 94, 0.16), transparent 28%),
+        linear-gradient(180deg, #fffefc 0%, #f8f2eb 55%, #f5ede4 100%);
+    }
+
+    .cover::before,
+    .cover::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      z-index: -1;
+      filter: blur(1px);
+    }
+
+    .cover::before {
+      width: 180mm;
+      height: 180mm;
+      right: -60mm;
+      top: -68mm;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.88) 0%, rgba(255,255,255,0) 70%);
+    }
+
+    .cover::after {
+      width: 120mm;
+      height: 120mm;
+      left: -34mm;
+      bottom: -28mm;
+      background: radial-gradient(circle, rgba(255, 237, 223, 0.72) 0%, rgba(255,237,223,0) 72%);
+    }
+
+    .cover-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .cover-top img {
+      width: 62px;
+      height: 62px;
+      border-radius: 18px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      background: #fff;
+      object-fit: cover;
+    }
+
+    .kicker {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: rgba(156, 175, 136, 0.16);
+      color: var(--sage-dark);
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
+      line-height: 1.4;
+    }
+
+    h1 {
+      margin-top: 18px;
+      font-size: 26pt;
+      letter-spacing: 0.03em;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+      font-size: 17pt;
+      color: #443933;
+    }
+
+    h3 {
+      margin-bottom: 6px;
+      font-size: 12.5pt;
+      color: #4e433d;
+    }
+
+    p {
+      margin: 0 0 10px;
+    }
+
+    .lead {
+      margin-top: 16px;
+      font-size: 13pt;
+      color: #4e433d;
+      line-height: 1.9;
+    }
+
+    .cover-ribbon {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 18px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.95), rgba(255, 243, 235, 0.9));
+      border: 1px solid rgba(216, 134, 94, 0.22);
+      color: #8c583f;
+      font-size: 9.5pt;
+      font-weight: 700;
+    }
+
+    .meta {
+      margin-top: 28px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .meta-card,
+    .panel,
+    .notice,
+    .step-card,
+    .tip-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .meta-card {
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .meta-label {
+      font-size: 8.5pt;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .meta-value {
+      margin-top: 4px;
+      font-size: 12pt;
+      font-weight: 700;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .summary-item {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #fff 0%, #faf7f3 100%);
+      border: 1px solid var(--line);
+    }
+
+    .summary-item strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 11pt;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid rgba(156, 175, 136, 0.24);
+    }
+
+    .section-no {
+      font-size: 10pt;
+      font-weight: 700;
+      color: var(--sage-dark);
+      letter-spacing: 0.08em;
+    }
+
+    .panel {
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+
+    .notice {
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      background: #fffdf9;
+    }
+
+    .notice strong {
+      color: var(--alert);
+    }
+
+    .toc {
+      columns: 2;
+      column-gap: 26px;
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .toc li {
+      margin-bottom: 8px;
+    }
+
+    .flow-list,
+    .plain-list,
+    .check-list {
+      margin: 0;
+      padding-left: 22px;
+    }
+
+    .flow-list li,
+    .plain-list li,
+    .check-list li {
+      margin-bottom: 7px;
+    }
+
+    .check-list {
+      list-style: "□ ";
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 10pt;
+    }
+
+    .table th,
+    .table td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      vertical-align: top;
+    }
+
+    .table th {
+      background: #f6efe7;
+      text-align: left;
+      width: 26%;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .device-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .device-card {
+      padding: 12px 13px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff 0%, #faf7f2 100%);
+    }
+
+    .device-card h3 {
+      margin-bottom: 6px;
+    }
+
+    .soft-intro {
+      margin-bottom: 12px;
+      color: #5a514c;
+    }
+
+    .warn-box {
+      padding: 12px 14px;
+      margin-top: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(181, 83, 56, 0.18);
+      background: linear-gradient(180deg, #fffaf8 0%, #fff2ec 100%);
+    }
+
+    .warn-box strong {
+      color: var(--alert);
+    }
+
+    .step-card,
+    .tip-card {
+      padding: 11px 12px;
+    }
+
+    .step-card .tag,
+    .tip-card .tag {
+      display: inline-block;
+      margin-bottom: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 8.5pt;
+      font-weight: 700;
+      background: rgba(156, 175, 136, 0.18);
+      color: var(--sage-dark);
+    }
+
+    .tip-card .tag {
+      background: rgba(216, 134, 94, 0.14);
+      color: #8d4e32;
+    }
+
+    .footer-note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 9pt;
+    }
+
+    .small {
+      font-size: 9.5pt;
+      color: var(--muted);
+    }
+
+    .page-no {
+      margin-top: 16px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 0;
+    }
+
+    .page-no::before {
+      content: counter(manual-page);
+      font-size: 8.5pt;
+    }
+  </style>
+</head>
+<body>
+  <section class="page cover">
+    <div class="page-inner">
+      <div class="cover-top">
+        <img src="../お客様アプリに使用するファイル及びデータ/www/icon.png" alt="まゆみ助産院アプリアイコン">
+        <div>
+          <div class="kicker">MAYUMI JOSANIN CUSTOMER APP</div>
+          <div style="margin-top:6px;font-size:10pt;color:var(--muted);">利用者さま向け 最新版やさしい操作ガイド</div>
+        </div>
+      </div>
+
+      <div class="cover-ribbon">登録・ログイン・引き継ぎ・注文・スタンプ・通知・トラブル対応までこの1冊で確認できます</div>
+      <h1>やさしくわかる<br>まゆみ助産院 お客様アプリ操作マニュアル</h1>
+      <p class="lead">「どこを押せばいいの？」「復元はどうやるの？」「通知やカメラがうまくいかない」といった場面を想定して、実際の現在のアプリ機能に合わせてまとめ直した最新版マニュアルです。初めて使う方も、すでに登録済みの方も、順番どおり見れば迷いにくいように構成しています。</p>
+
+      <div class="meta">
+        <div class="meta-card">
+          <div class="meta-label">対象</div>
+          <div class="meta-value">お客様・利用者さま向け</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">更新日</div>
+          <div class="meta-value">2026/04/03</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">主な更新内容</div>
+          <div class="meta-value">パスコード / 引き継ぎコード / 復元 / 詳細トラブル対応</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">対象機能</div>
+          <div class="meta-value">ホーム・メニュー・ショップ・カレンダー・NEWS・お知らせ一覧・マイページ</div>
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-item">
+          <strong>このアプリでできること</strong>
+          プロフィール登録、起動時パスコード設定、データ引き継ぎ・復元、引き継ぎコード発行、スタンプ取得、特典ガチャ、商品注文、注文履歴確認、カレンダー確認、NEWS確認、お知らせ一覧確認、通知設定、使い方サポートが利用できます。
+        </div>
+        <div class="summary-item">
+          <strong>このアプリでできないこと</strong>
+          予約確定、診療相談、個別相談、予約変更・キャンセルはアプリ内ではできません。これらは公式LINEや院へのご連絡をご利用ください。
+        </div>
+      </div>
+
+      <div class="notice" style="margin-top:22px;">
+        <strong>最初に大切なご案内</strong><br>
+        ホーム画面のアイコンから使う方は、<strong>できるだけ先にホーム画面へ追加してから登録</strong>してください。<br>
+        すでに登録済みの方は、新しい端末やホーム画面追加後に <strong>新規登録し直さず</strong>、必ず「データの引き継ぎ・復元」からお入りください。
+      </div>
+
+      <div class="page-no">1</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">CONTENTS</div>
+        <h2>目次</h2>
+      </div>
+
+      <ol class="toc">
+        <li>アプリ全体の見方</li>
+        <li>使い始める前に必ず確認したいこと</li>
+        <li>初回登録の流れ</li>
+        <li>起動時パスコードとログインの使い方</li>
+        <li>データ引き継ぎ・復元・機種変更の方法</li>
+        <li>ホーム画面の使い方</li>
+        <li>スタンプ取得とカメラの使い方</li>
+        <li>特典ガチャと特典取得状況</li>
+        <li>ショップ・カート・注文方法</li>
+        <li>注文履歴の見方</li>
+        <li>メニュー一覧の見方</li>
+        <li>カレンダーの見方</li>
+        <li>NEWS とお知らせ一覧の見方</li>
+        <li>マイページの使い方</li>
+        <li>通知設定・更新・使い方サポート</li>
+        <li>トラブル対応集</li>
+        <li>困ったときの連絡先</li>
+      </ol>
+
+      <div class="panel" style="margin-top:18px;">
+        <h3>このマニュアルの見方</h3>
+        <ul class="check-list">
+          <li>新しく使い始める方は「2. 使い始める前に必ず確認したいこと」から順にご覧ください。</li>
+          <li>すでに登録済みの方は「4. 起動時パスコード」と「5. データ引き継ぎ・復元」を先に確認すると安心です。</li>
+          <li>不具合や困りごとは後半の「16. トラブル対応集」を見ると、該当する対処を探しやすくなります。</li>
+        </ul>
+      </div>
+
+      <div class="card-grid">
+        <div class="tip-card">
+          <div class="tag">赤いバッジ</div>
+          赤い点やバッジは、新しい情報や未確認の情報がある合図です。タップして内容を確認してください。
+        </div>
+        <div class="tip-card">
+          <div class="tag">使い方相談</div>
+          右下の「💬 使い方相談」またはマイページの「🤖 使い方サポート」から、操作方法の質問ができます。
+        </div>
+      </div>
+
+      <div class="page-no">2</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">01</div>
+        <h2>アプリ全体の見方</h2>
+      </div>
+
+      <table class="table">
+        <tr>
+          <th>画面上部</th>
+          <td>
+            <strong>🔄 更新</strong> 最新の情報を取り直します。<br>
+            <strong>📢 お知らせ一覧</strong> NEWS・カレンダー・ショップ・ホームの更新情報をまとめて確認できます。<br>
+            <strong>🛒 カート</strong> 追加した商品を確認できます。<br>
+            <strong>👤 マイページ</strong> プロフィール、特典、通知設定、注文履歴を確認できます。
+          </td>
+        </tr>
+        <tr>
+          <th>下部メニュー</th>
+          <td>
+            <strong>ホーム</strong> スタンプ、最新情報、メニュー入口、外部リンクの入口です。<br>
+            <strong>ショップ</strong> 商品確認と注文ができます。<br>
+            <strong>カレンダー</strong> 月ごとの予定やイベントを確認できます。<br>
+            <strong>NEWS</strong> 記事やお知らせを読めます。<br>
+            <strong>マイページ</strong> 会員情報や各種設定を確認できます。
+          </td>
+        </tr>
+        <tr>
+          <th>右下ボタン</th>
+          <td><strong>💬 使い方相談</strong> 操作方法専用チャットです。診療や個別相談は公式LINEをご利用ください。</td>
+        </tr>
+      </table>
+
+      <div class="panel">
+        <h3>まず覚えておくと安心なこと</h3>
+        <ul class="plain-list">
+          <li>会員IDはマイページ上部に表示されます。</li>
+          <li>スタンプは来院時のQR読み取りで増えます。</li>
+          <li>注文はアプリからできますが、予約確定はできません。</li>
+          <li>起動時のパスコードは一度設定したあと、毎回入力するかどうかをマイページで切り替えられます。</li>
+          <li>機種変更前には、できるだけマイページで引き継ぎコードを発行しておくと安心です。</li>
+        </ul>
+      </div>
+
+      <div class="notice">
+        <strong>できないことの確認</strong><br>
+        このアプリは、予約の確定・診療相談・個別相談・予約変更のアプリではありません。これらは <strong>公式LINE</strong> からご連絡ください。
+      </div>
+
+      <div class="page-no">3</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">02</div>
+        <h2>使い始める前に必ず確認したいこと</h2>
+      </div>
+
+      <p class="soft-intro">このアプリでいちばん多いトラブルは、<strong>ブラウザで先に登録したあと、ホーム画面に追加してもう一度新規登録してしまうこと</strong>です。ここを先に確認しておくと、同じお名前で別の会員IDができる事故を防ぎやすくなります。</p>
+
+      <div class="warn-box">
+        <strong>重複登録を防ぐ基本ルール</strong><br>
+        ホーム画面のアイコンから使いたい方は、<strong>先にホーム画面へ追加してから、そのアイコンから会員登録</strong>してください。<br>
+        すでに会員登録済みの方は、新しい入口から開いたときに <strong>新規登録し直さず</strong>、「データの引き継ぎ・復元はこちら ↺」からお入りください。
+      </div>
+
+      <div class="panel">
+        <h3>iPhone の方</h3>
+        <ol class="flow-list">
+          <li><strong>Safari</strong> でアプリのページを開きます。</li>
+          <li>共有ボタンを押します。</li>
+          <li>「ホーム画面に追加」を選びます。</li>
+          <li>表示された場合は「Webアプリとして開く」をオンにして追加します。</li>
+          <li>追加後はホーム画面のアイコンから開いて使ってください。</li>
+        </ol>
+      </div>
+
+      <div class="panel">
+        <h3>Android の方</h3>
+        <ol class="flow-list">
+          <li><strong>Chrome</strong> でアプリのページを開きます。</li>
+          <li>右上の「︙」メニューを押します。</li>
+          <li>「ホーム画面に追加」または「アプリをインストール」を選びます。</li>
+          <li>画面の案内に従って追加します。</li>
+          <li>追加後はホーム画面のアイコンから開いて使ってください。</li>
+        </ol>
+      </div>
+
+      <div class="card-grid">
+        <div class="step-card">
+          <div class="tag">すでに登録済みの方</div>
+          ホーム画面に追加したあと、情報が引き継がれていないように見えても、まずは新規登録ではなく復元を試してください。
+        </div>
+        <div class="step-card">
+          <div class="tag">同じ開き方で使う</div>
+          「ホーム画面のアイコンから使う」「Safariで開く」など、使う入口をできるだけ統一するとトラブルが減ります。
+        </div>
+      </div>
+
+      <div class="page-no">4</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">03</div>
+        <h2>初回登録の流れ</h2>
+      </div>
+
+      <p class="soft-intro">はじめて使う方は、プロフィール登録とパスコード設定を行います。登録済みの方でも、パスコード未設定の場合は最初に設定画面が出ます。</p>
+
+      <h3>新しく登録する方</h3>
+      <ol class="flow-list">
+        <li>アプリを開き、「はじめる」を押します。</li>
+        <li>プロフィール登録画面で <strong>お名前</strong> を入力します。お名前は必須です。</li>
+        <li>必要に応じて、電話番号・生年月日・住所・アイコン画像・背景画像を入力します。</li>
+        <li><strong>4桁または6桁の数字</strong>でパスコードを設定します。</li>
+        <li>「登録してアプリを始める」を押すと、ホーム画面へ進みます。</li>
+      </ol>
+
+      <h3>すでに登録済みの方で、まだパスコードを設定していない場合</h3>
+      <ol class="flow-list">
+        <li>アプリを開くと、パスコード設定の案内が表示されます。</li>
+        <li><strong>4桁または6桁の数字</strong>でパスコードを設定します。</li>
+        <li>設定後は通常どおりホーム画面へ進めます。</li>
+      </ol>
+
+      <div class="card-grid">
+        <div class="step-card">
+          <div class="tag">必須</div>
+          お名前、パスコード
+        </div>
+        <div class="step-card">
+          <div class="tag">あとで変更できる項目</div>
+          電話番号、生年月日、住所、アイコン画像、背景画像
+        </div>
+      </div>
+
+      <div class="notice">
+        <strong>登録できないとき</strong><br>
+        お名前が空欄だと登録できません。<br>
+        パスコードは <strong>4桁または6桁の数字のみ</strong> です。英字や5桁は使えません。
+      </div>
+
+      <div class="page-no">5</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">04</div>
+        <h2>起動時パスコードとログインの使い方</h2>
+      </div>
+
+      <p class="soft-intro">パスコードは、アプリを安全に開くための数字です。いちど設定したあと、毎回入力するかどうかはお客様ご自身で選べます。</p>
+
+      <h3>アプリを開くとき</h3>
+      <ol class="flow-list">
+        <li>起動時パスコードがオンの場合は、ログイン画面が表示されます。</li>
+        <li>設定した4桁または6桁の数字を入力します。</li>
+        <li>正しく入力するとホーム画面に入れます。</li>
+        <li>ログイン画面には「データの引き継ぎ・復元はこちら ↺」も表示されます。</li>
+      </ol>
+
+      <h3>毎回パスコードを入れるかどうかの切り替え</h3>
+      <ol class="flow-list">
+        <li>マイページを開きます。</li>
+        <li>「ログイン時のパスコード」を確認します。</li>
+        <li>ボタンを押して、オン / オフを切り替えます。</li>
+        <li>オンにすると次回から毎回入力、オフにすると次回から省略できます。</li>
+      </ol>
+
+      <h3>パスコードを変更したいとき</h3>
+      <ol class="flow-list">
+        <li>マイページの「🔐 パスコードを変更」を押します。</li>
+        <li>現在のパスコードを確認します。</li>
+        <li>新しい4桁または6桁の数字を設定します。</li>
+      </ol>
+
+      <div class="panel">
+        <h3>パスコードを忘れたとき</h3>
+        <ul class="plain-list">
+          <li>ログイン画面の「パスコードを忘れた場合の再設定はこちら」から進めます。</li>
+          <li>お名前・電話番号・生年月日を入力し、新しいパスコードを設定します。</li>
+          <li>再設定後は、その新しいパスコードで入れます。</li>
+        </ul>
+      </div>
+
+      <div class="notice">
+        <strong>注意</strong><br>
+        パスコードをオフにしても、プロフィールや注文履歴は消えません。<br>
+        ただし端末を他の方も使う場合は、起動時パスコードをオンにしておくと安心です。
+      </div>
+
+      <div class="page-no">6</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">05</div>
+        <h2>データ引き継ぎ・復元・機種変更の方法</h2>
+      </div>
+
+      <p class="soft-intro">機種変更や再インストールのときは、<strong>新規登録ではなく復元</strong> を使います。復元には「引き継ぎコードを使う方法」と「登録情報で復元する方法」があります。</p>
+
+      <h3>引き継ぎコードを発行する方法</h3>
+      <ol class="flow-list">
+        <li>旧端末でマイページを開きます。</li>
+        <li>「↺ 引き継ぎコードの発行」を押します。</li>
+        <li>表示された8桁のコードを控えます。</li>
+        <li>有効期限を確認します。コードは <strong>1回限り・1週間有効</strong> です。</li>
+      </ol>
+
+      <h3>新しい端末で復元する方法</h3>
+      <ol class="flow-list">
+        <li>アプリを開き、「データの引き継ぎ・復元はこちら ↺」へ進みます。</li>
+        <li>引き継ぎコードがある場合は、<strong>引き継ぎコード + 新しい端末で使うパスコード</strong> を入力します。</li>
+        <li>引き継ぎコードがない場合は、<strong>お名前</strong> を入力し、さらに <strong>電話番号・生年月日・現在のパスコードのうち1つ以上</strong> を入力します。</li>
+        <li>「ログインして復元する ↺」を押します。</li>
+        <li>復元が成功すると、そのままホーム画面へ進みます。</li>
+      </ol>
+
+      <div class="panel">
+        <h3>再インストール前後のおすすめ確認</h3>
+        <ul class="plain-list">
+          <li>旧端末が使えるうちに引き継ぎコードを発行しておく</li>
+          <li>新端末では新規登録しない</li>
+          <li>復元後はマイページで会員IDとお名前を確認する</li>
+          <li>必要に応じて通知設定をオンにし直す</li>
+          <li>注文履歴や特典状況が見えるか確認する</li>
+        </ul>
+      </div>
+
+      <div class="warn-box">
+        <strong>復元に失敗しやすい例</strong><br>
+        新しい端末で先に新規登録してしまう / 引き継ぎコードの有効期限が切れている / お名前が登録時と違う表記になっている / 現在のパスコードではなく新しいパスコードを入力している、などで復元できないことがあります。
+      </div>
+
+      <div class="page-no">7</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">06</div>
+        <h2>ホーム画面の使い方</h2>
+      </div>
+
+      <p class="soft-intro">ホーム画面はアプリの入口です。スタンプ、最新情報、メニュー、外部リンクをひとまとめに確認できます。</p>
+
+      <table class="table">
+        <tr>
+          <th>スタンプを取得する</th>
+          <td>院内のQRコードを読み取ってスタンプをためます。</td>
+        </tr>
+        <tr>
+          <th>現在のスタンプカード</th>
+          <td>今のスタンプ数、何枚目のカードか、あと何個で達成かを確認できます。</td>
+        </tr>
+        <tr>
+          <th>おすすめ商品</th>
+          <td>人気商品をすぐに確認できます。タップすると商品詳細が開きます。</td>
+        </tr>
+        <tr>
+          <th>最新のお知らせ・ブログ</th>
+          <td>直近のNEWSが表示されます。「もっと見る」でNEWSページへ進めます。</td>
+        </tr>
+        <tr>
+          <th>まゆみ助産院のメニュー</th>
+          <td>施術やサービス内容の一覧入口です。予約確定は公式LINEから行います。</td>
+        </tr>
+        <tr>
+          <th>公式サイト・SNS</th>
+          <td>公式ホームページ、Instagram、Facebook、公式LINE、まゆみのブログへ進めます。</td>
+        </tr>
+      </table>
+
+      <div class="panel">
+        <h3>ホーム画面を開くことが多い場面</h3>
+        <ul class="plain-list">
+          <li>来院時にスタンプを取りたいとき</li>
+          <li>新しいお知らせがないか確認したいとき</li>
+          <li>メニュー一覧へ進みたいとき</li>
+          <li>公式LINEやSNSへ移動したいとき</li>
+        </ul>
+      </div>
+
+      <div class="page-no">8</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">07</div>
+        <h2>スタンプ取得とカメラの使い方</h2>
+      </div>
+
+      <p class="soft-intro">来院時はホーム画面からスタンプを取得します。読み取りにはカメラ許可が必要です。</p>
+
+      <h3>スタンプ取得の流れ</h3>
+      <ol class="flow-list">
+        <li>ホーム画面の「📷 カメラを起動して読み取る」を押します。</li>
+        <li>アプリ内で「カメラを使用します。許可してください」という案内が出たら内容を確認します。</li>
+        <li>続けて表示される iPhone / Android の確認画面で「許可」を押します。</li>
+        <li>院内のQRコードをカメラに向けます。</li>
+        <li>読み取りに成功するとスタンプが1つ追加されます。</li>
+      </ol>
+
+      <div class="notice">
+        <strong>スタンプ取得のルール</strong><br>
+        スタンプは <strong>1日1回まで</strong> です。<br>
+        同じ日に再度読み取ると「本日はすでにスタンプを取得済みです」と表示されることがあります。
+      </div>
+
+      <div class="panel">
+        <h3>カメラが起動しないとき</h3>
+        <ul class="plain-list">
+          <li>確認画面で「許可しない」を選んでいないか確認してください。</li>
+          <li>端末本体の設定で、このアプリまたはブラウザのカメラ許可がオンか確認してください。</li>
+          <li>いちど閉じてから再度「📷 カメラを起動して読み取る」を押してください。</li>
+          <li>暗い場所では読み取りにくいため、明るい場所で試してください。</li>
+        </ul>
+      </div>
+
+      <div class="page-no">9</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">08</div>
+        <h2>特典ガチャと特典取得状況</h2>
+      </div>
+
+      <p class="soft-intro">スタンプが10個たまると特典ガチャを回せます。結果はマイページに保存されます。</p>
+
+      <h3>10個たまったあと</h3>
+      <ol class="flow-list">
+        <li>ホーム画面に「🎯 特典ガチャを回す」が表示されます。</li>
+        <li>ボタンを押してガチャを回します。</li>
+        <li>結果が保存されると、ホーム画面に「🌸 新しいスタンプカードを取得」が表示されます。</li>
+        <li>そのボタンを押すと次のスタンプカードへ進めます。</li>
+      </ol>
+
+      <h3>特典取得状況の見方</h3>
+      <ol class="flow-list">
+        <li>マイページの「🎁 特典取得状況」を開きます。</li>
+        <li>獲得済みの特典、使用済みかどうか、有効期限を確認します。</li>
+        <li>使える特典がある場合は「使用する」を押します。</li>
+        <li>確認画面で確定すると、受付で見せる完了画面が表示されます。</li>
+      </ol>
+
+      <div class="panel">
+        <h3>特典利用時の注意</h3>
+        <ul class="plain-list">
+          <li>特典は達成当日から使用できます。</li>
+          <li>有効期限は獲得日から1か月です。</li>
+          <li>いちど「使用する」を押した特典は元に戻せません。</li>
+          <li>特典の受け取りは受付へ直接お問い合わせください。</li>
+        </ul>
+      </div>
+
+      <div class="notice">
+        <strong>よくある見落とし</strong><br>
+        スタンプが10個たまっても、<strong>ガチャを回す前には新しいカードを開始できません</strong>。<br>
+        まず特典ガチャを回してから、次のカードへ進んでください。
+      </div>
+
+      <div class="page-no">10</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">09</div>
+        <h2>ショップ・カート・注文方法</h2>
+      </div>
+
+      <p class="soft-intro">ショップでは商品説明を見て、カートに入れて注文できます。注文は院内受け取り・現金払いです。</p>
+
+      <h3>商品を見る流れ</h3>
+      <ol class="flow-list">
+        <li>下部メニューの「ショップ」を開きます。</li>
+        <li>商品をタップして詳細画面を開きます。</li>
+        <li>商品説明や説明画像がある場合は内容を確認します。</li>
+        <li>個数を「＋」「－」で調整します。</li>
+      </ol>
+
+      <h3>カートに入れて注文する流れ</h3>
+      <ol class="flow-list">
+        <li>「カートに追加する」を押します。</li>
+        <li>画面上部の「🛒」を押してカートを開きます。</li>
+        <li>商品名、個数、合計金額を確認します。</li>
+        <li>必要に応じて個数変更や削除を行います。</li>
+        <li>「ご注文を確定する」を押すと注文完了です。</li>
+      </ol>
+
+      <table class="table">
+        <tr>
+          <th>受け取り方法</th>
+          <td>院内受け取り</td>
+        </tr>
+        <tr>
+          <th>支払い方法</th>
+          <td>現金払い</td>
+        </tr>
+        <tr>
+          <th>注文できる条件</th>
+          <td>プロフィール登録が必要です。未登録の場合は先に登録画面が表示されます。</td>
+        </tr>
+      </table>
+
+      <div class="panel">
+        <h3>ショップで覚えておきたいこと</h3>
+        <ul class="plain-list">
+          <li>商品によって説明画像や詳しい説明が表示されます。</li>
+          <li>商品内容は更新で変わることがあります。気になるときは上部の「🔄」で更新してください。</li>
+          <li>注文完了後は、マイページの注文履歴から状況を確認できます。</li>
+        </ul>
+      </div>
+
+      <div class="page-no">11</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">10</div>
+        <h2>注文履歴の見方</h2>
+      </div>
+
+      <p class="soft-intro">注文後の確認は、マイページの「📋 ご注文履歴」で行います。</p>
+
+      <ol class="flow-list">
+        <li>マイページを開きます。</li>
+        <li>「📋 ご注文履歴」を下へスクロールして確認します。</li>
+        <li>注文番号、注文日、商品名、個数、合計金額、状態を確認します。</li>
+        <li>受付中の注文には「キャンセルする」が表示されることがあります。</li>
+        <li>受け取り前の注文には「受け取りました」が表示されることがあります。</li>
+      </ol>
+
+      <div class="panel">
+        <h3>状態の見方</h3>
+        <ul class="plain-list">
+          <li><strong>受付中</strong> まだ受け取り前の状態です。</li>
+          <li><strong>受取済</strong> 受け取り済みとして記録されています。</li>
+          <li><strong>キャンセル済</strong> キャンセル済みの注文です。</li>
+        </ul>
+      </div>
+
+      <div class="notice">
+        <strong>履歴が見つからないとき</strong><br>
+        まず上部の「🔄」で更新し、それでも出ない場合はマイページを開き直してください。<br>
+        「再読み込み」ボタンが表示されている場合は、そのボタンも試してください。
+      </div>
+
+      <div class="page-no">12</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">11</div>
+        <h2>メニュー一覧の見方</h2>
+      </div>
+
+      <p class="soft-intro">ホーム画面の「メニュー一覧を見る 🍴」から、院のメニュー内容を確認できます。</p>
+
+      <ol class="flow-list">
+        <li>ホーム画面の「メニュー一覧を見る 🍴」を押します。</li>
+        <li>メニュー一覧ページで、カテゴリーから見たい内容を絞り込めます。</li>
+        <li>各メニューをタップすると、内容を詳しく確認できます。</li>
+        <li>画像がある場合は画像つきで表示されます。</li>
+      </ol>
+
+      <div class="notice">
+        <strong>大切な確認</strong><br>
+        メニュー一覧は <strong>内容確認用</strong> です。アプリから予約を確定することはできません。<br>
+        予約やご相談は、公式LINEへ進んでご連絡ください。
+      </div>
+
+      <div class="panel">
+        <h3>こんなときに使います</h3>
+        <ul class="plain-list">
+          <li>施術やサービス内容を見たいとき</li>
+          <li>どんなメニューがあるかを一覧で見たいとき</li>
+          <li>予約前に内容を確認したいとき</li>
+        </ul>
+      </div>
+
+      <div class="page-no">13</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">12</div>
+        <h2>カレンダーの見方</h2>
+      </div>
+
+      <p class="soft-intro">診療日やイベント予定を確認したいときは、カレンダーページを使います。</p>
+
+      <ol class="flow-list">
+        <li>下部メニューの「カレンダー」を開きます。</li>
+        <li>画面上部の「◀」「▶」で月を切り替えます。</li>
+        <li>日付をタップすると、その日のイベントが表示されます。</li>
+        <li>「今月のイベント一覧」から、その月の予定をまとめて確認できます。</li>
+        <li>イベントをタップすると、詳細内容を開いて確認できます。</li>
+      </ol>
+
+      <div class="notice">
+        <strong>注意</strong><br>
+        カレンダーは予定確認用です。予約確定・変更・キャンセルはこの画面からはできません。<br>
+        予約に関するご連絡は公式LINEをご利用ください。
+      </div>
+
+      <div class="page-no">14</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">13</div>
+        <h2>NEWS とお知らせ一覧の見方</h2>
+      </div>
+
+      <p class="soft-intro">NEWS は記事を読むページ、お知らせ一覧は更新情報をまとめて見るページです。似ていますが役割が違います。</p>
+
+      <h3>NEWS の見方</h3>
+      <ol class="flow-list">
+        <li>下部メニューの「NEWS」を開きます。</li>
+        <li>記事一覧が新しい順に表示されます。</li>
+        <li>カテゴリ選択を使うと、見たいカテゴリだけに絞れます。</li>
+        <li>記事をタップすると本文を詳しく読めます。</li>
+      </ol>
+
+      <h3>お知らせ一覧の見方</h3>
+      <ol class="flow-list">
+        <li>画面上部の「📢」を押します。</li>
+        <li><strong>NEWS・カレンダー・ショップ・ホーム</strong> の更新情報が表示されます。</li>
+        <li>一覧は <strong>配信日時 / 更新日時が新しい順</strong> に上から並びます。</li>
+        <li>カテゴリを選ぶと、見たい種類だけに絞れます。</li>
+        <li>カードをタップすると内容を詳しく確認できます。</li>
+      </ol>
+
+      <div class="panel">
+        <h3>NEWS とお知らせ一覧の違い</h3>
+        <ul class="plain-list">
+          <li><strong>NEWS</strong> は記事や投稿そのものを読むページです。</li>
+          <li><strong>お知らせ一覧</strong> は複数機能の新着をまとめて確認するページです。</li>
+        </ul>
+      </div>
+
+      <div class="page-no">15</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">14</div>
+        <h2>マイページの使い方</h2>
+      </div>
+
+      <p class="soft-intro">マイページでは、会員情報の確認・変更、パスコード設定、引き継ぎコード発行、特典、通知、注文履歴をまとめて確認できます。</p>
+
+      <table class="table">
+        <tr>
+          <th>プロフィール</th>
+          <td>お名前、電話番号、生年月日、住所、登録日、会員ID、アイコンを確認できます。「✏️ プロフィールを編集」から変更できます。</td>
+        </tr>
+        <tr>
+          <th>パスコード変更</th>
+          <td>「🔐 パスコードを変更」から変更できます。</td>
+        </tr>
+        <tr>
+          <th>ログイン時のパスコード</th>
+          <td>起動時に毎回パスコードを求めるかどうかをオン / オフで切り替えられます。</td>
+        </tr>
+        <tr>
+          <th>引き継ぎコードの発行</th>
+          <td>機種変更や再インストール前に、復元用の8桁コードを発行できます。</td>
+        </tr>
+        <tr>
+          <th>特典取得状況</th>
+          <td>獲得済み特典、使用状況、有効期限を確認できます。</td>
+        </tr>
+        <tr>
+          <th>通知設定</th>
+          <td>Push通知のオン / オフを切り替えます。</td>
+        </tr>
+        <tr>
+          <th>使い方サポート</th>
+          <td>操作方法をチャットで確認できます。</td>
+        </tr>
+        <tr>
+          <th>ご注文履歴</th>
+          <td>注文内容、状態、合計金額、受け取り状況を確認できます。</td>
+        </tr>
+      </table>
+
+      <div class="panel">
+        <h3>プロフィール編集の流れ</h3>
+        <ol class="flow-list">
+          <li>マイページで「✏️ プロフィールを編集」を押します。</li>
+          <li>必要な項目を変更します。</li>
+          <li>必要に応じてアイコン画像や背景画像も変更します。</li>
+          <li>保存するとホーム画面やマイページ表示に反映されます。</li>
+        </ol>
+      </div>
+
+      <div class="page-no">16</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">15</div>
+        <h2>通知設定・更新・使い方サポート</h2>
+      </div>
+
+      <h3>通知設定</h3>
+      <ol class="flow-list">
+        <li>マイページの「🔔 通知設定」を開きます。</li>
+        <li>「通知オフ（タップでオン）」または「通知オン 🔔（タップでオフ）」を押します。</li>
+        <li>必要に応じて端末側の確認画面で「許可」を押します。</li>
+      </ol>
+
+      <div class="panel">
+        <h3>通知が届くために必要なこと</h3>
+        <ul class="plain-list">
+          <li>アプリ内の通知設定がオンになっていること</li>
+          <li>iPhone / Android 本体側で通知が許可されていること</li>
+          <li>ブラウザ版の場合は、ブラウザ側の通知許可もオンになっていること</li>
+        </ul>
+      </div>
+
+      <h3>最新情報へ更新する方法</h3>
+      <ol class="flow-list">
+        <li>画面上部の「🔄」を押します。</li>
+        <li>NEWS、商品、カレンダー、メニュー、FAQ、特典状況などの最新情報を再取得します。</li>
+        <li>更新が終わると、新しい情報やバッジ表示が反映されます。</li>
+      </ol>
+
+      <h3>使い方サポートの使い方</h3>
+      <ol class="flow-list">
+        <li>右下の「💬 使い方相談」またはマイページの「🤖 使い方サポート」を押します。</li>
+        <li>「注文履歴の見方を教えてください」など、そのまま質問を入力します。</li>
+        <li>回答や候補質問が表示されるので、続けて確認できます。</li>
+      </ol>
+
+      <div class="notice">
+        <strong>サポートチャットの役割</strong><br>
+        使い方サポートは <strong>操作方法の案内専用</strong> です。診療相談や個別相談は公式LINEをご利用ください。
+      </div>
+
+      <div class="page-no">17</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">16-A</div>
+        <h2>トラブル対応集 1<br>登録・ログイン・復元まわり</h2>
+      </div>
+
+      <table class="table">
+        <tr>
+          <th>新規登録できない</th>
+          <td>
+            1. お名前が入力されているか確認してください。<br>
+            2. パスコードが4桁または6桁の数字だけになっているか確認してください。<br>
+            3. 通信状態を確認し、上部の「🔄」や再起動後に再度お試しください。
+          </td>
+        </tr>
+        <tr>
+          <th>同じ名前で別の会員IDになった</th>
+          <td>
+            1. ブラウザ版とホーム画面版で別登録した可能性があります。<br>
+            2. これ以上新規登録し直さず、マイページで会員IDを確認してください。<br>
+            3. 受付または公式LINEへ、お名前と確認できた会員IDをお知らせください。
+          </td>
+        </tr>
+        <tr>
+          <th>パスコードが通らない</th>
+          <td>
+            1. 4桁または6桁の数字だけを入れているか確認してください。<br>
+            2. 古いパスコードと新しいパスコードを間違えていないか確認してください。<br>
+            3. どうしても入れない場合は「パスコードを忘れた場合の再設定はこちら」から再設定してください。
+          </td>
+        </tr>
+        <tr>
+          <th>起動時パスコードをやめたい</th>
+          <td>
+            1. マイページを開きます。<br>
+            2. 「ログイン時のパスコード」を押してオフに切り替えます。<br>
+            3. 次回から起動時入力を省略できます。
+          </td>
+        </tr>
+        <tr>
+          <th>パスコードを忘れた</th>
+          <td>
+            1. ログイン画面またはログイン・引き継ぎ画面の再設定導線から進みます。<br>
+            2. お名前・電話番号・生年月日を入力します。<br>
+            3. 新しい4桁または6桁の数字を設定してください。
+          </td>
+        </tr>
+        <tr>
+          <th>復元できない</th>
+          <td>
+            1. 引き継ぎコードがある場合は、8桁すべて正しく入力してください。<br>
+            2. 引き継ぎコードがない場合は、お名前に加えて電話番号・生年月日・現在のパスコードのうち1つ以上が必要です。<br>
+            3. 新しい端末用のパスコードも必ず入力してください。<br>
+            4. すでに新規登録してしまった場合は、それ以上登録し直さずご相談ください。
+          </td>
+        </tr>
+        <tr>
+          <th>引き継ぎコードが使えない</th>
+          <td>
+            1. 有効期限が切れていないか確認してください。<br>
+            2. コードは1回限りです。すでに使ったコードは再利用できません。<br>
+            3. 旧端末が使えるなら、マイページで新しい引き継ぎコードを発行してください。
+          </td>
+        </tr>
+      </table>
+
+      <div class="page-no">18</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">16-B</div>
+        <h2>トラブル対応集 2<br>カメラ・スタンプ・注文・通知・表示まわり</h2>
+      </div>
+
+      <table class="table">
+        <tr>
+          <th>カメラが起動しない</th>
+          <td>
+            1. カメラ許可の確認画面で「許可」を選んだか確認してください。<br>
+            2. 端末本体の設定で、このアプリまたはブラウザのカメラ許可をオンにしてください。<br>
+            3. いったん閉じてから再度「📷 カメラを起動して読み取る」を押してください。
+          </td>
+        </tr>
+        <tr>
+          <th>QRを読み取れない</th>
+          <td>
+            1. QRコード全体が画面に入るようにしてください。<br>
+            2. 暗い場所では読み取りにくいため、明るい場所でお試しください。<br>
+            3. カメラレンズが汚れていないか確認してください。
+          </td>
+        </tr>
+        <tr>
+          <th>スタンプが増えない</th>
+          <td>
+            1. その日のスタンプをすでに取得していないか確認してください。<br>
+            2. 10個達成後で、先に特典ガチャを回す必要がないか確認してください。<br>
+            3. プロフィール登録済みか確認してください。<br>
+            4. 上部の「🔄」で更新してから再確認してください。
+          </td>
+        </tr>
+        <tr>
+          <th>特典ガチャが出ない</th>
+          <td>
+            1. スタンプが10個たまっているか確認してください。<br>
+            2. すでにそのカードでガチャを回している場合は、「🌸 新しいスタンプカードを取得」が出ていないか確認してください。<br>
+            3. 上部の「🔄」で更新してください。
+          </td>
+        </tr>
+        <tr>
+          <th>注文できない</th>
+          <td>
+            1. プロフィール登録が完了しているか確認してください。<br>
+            2. カートに商品が入っているか確認してください。<br>
+            3. 通信状況を確認し、再度お試しください。
+          </td>
+        </tr>
+        <tr>
+          <th>注文履歴が出ない</th>
+          <td>
+            1. マイページを開き直してください。<br>
+            2. 「再読み込み」ボタンがあれば押してください。<br>
+            3. 上部の「🔄」で更新してください。<br>
+            4. それでも出ない場合は通信状況を確認してください。
+          </td>
+        </tr>
+        <tr>
+          <th>通知が届かない</th>
+          <td>
+            1. マイページの通知設定がオンか確認してください。<br>
+            2. iPhone / Android 本体側の通知許可を確認してください。<br>
+            3. ブラウザ版の場合は、ブラウザ側の通知許可も確認してください。<br>
+            4. 一度オフにして、もう一度オンにすると直る場合があります。
+          </td>
+        </tr>
+        <tr>
+          <th>NEWSやお知らせ一覧が古い</th>
+          <td>
+            1. 上部の「🔄」を押して最新情報を取り直してください。<br>
+            2. NEWSは記事ページ、お知らせ一覧は更新まとめページです。見ている場所が合っているか確認してください。<br>
+            3. それでも反映されない場合は、アプリを閉じて開き直してください。
+          </td>
+        </tr>
+        <tr>
+          <th>アプリが重い / 固まる / 画面が変わらない</th>
+          <td>
+            1. いったんアプリを閉じて開き直してください。<br>
+            2. 端末を再起動してください。<br>
+            3. 通信が不安定な場所では読み込みに時間がかかることがあります。<br>
+            4. 「アップデートが必要です」と出る場合は最新バージョンへ更新してください。
+          </td>
+        </tr>
+      </table>
+
+      <div class="page-no">19</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">17</div>
+        <h2>困ったときの連絡先</h2>
+      </div>
+
+      <div class="card-grid">
+        <div class="step-card">
+          <div class="tag">アプリの使い方</div>
+          右下の「💬 使い方相談」またはマイページの「🤖 使い方サポート」をご利用ください。
+        </div>
+        <div class="step-card">
+          <div class="tag">予約・個別相談</div>
+          ホームまたはマイページの「🔗 公式サイト・SNS」から <strong>公式LINE</strong> を開いてご連絡ください。
+        </div>
+        <div class="step-card">
+          <div class="tag">重複登録・復元不可</div>
+          新しく登録し直さず、受付または公式LINEへ「お名前」「会員ID」「現在の状況」をお知らせください。
+        </div>
+        <div class="step-card">
+          <div class="tag">特典・スタンプ相談</div>
+          マイページで確認後、必要があれば受付へ直接お問い合わせください。
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:12px;">
+        <h3>最後に</h3>
+        <p>迷ったときは、まず <strong>ホーム</strong> か <strong>マイページ</strong> に戻ると整理しやすくなります。最新情報が反映されない場合は <strong>🔄 更新</strong>、機種変更前は <strong>引き継ぎコードの発行</strong>、すでに登録済みなら <strong>新規登録ではなく復元</strong>、この3つを覚えておくと多くのトラブルを防げます。</p>
+      </div>
+
+      <p class="footer-note">本マニュアルは、2026/04/03 時点のお客様アプリの仕様に合わせて更新した最新版です。</p>
+      <div class="page-no">20</div>
+    </div>
+  </section>
+</body>
+</html>
