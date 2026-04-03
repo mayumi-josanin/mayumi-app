@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyLCgSn45Wy-aTZXa-1LNj55TUoqKLi3gq-LBImy_wjHgE7_2llp89cpF1NmuxrejKTqQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.03.45';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.03.46';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -106,6 +106,112 @@ async function waitForCapacitorPushPlugin(timeoutMs) {
 
 function isNativeAppRuntime() {
   return getCurrentPlatformName() !== 'web';
+}
+
+function getCameraPermissionDeviceLabel() {
+  const ua = navigator && navigator.userAgent ? String(navigator.userAgent) : '';
+  const platform = getCurrentPlatformName();
+  if (platform === 'ios' || /iPhone|iPad|iPod/i.test(ua)) return 'iPhone';
+  if (platform === 'android' || /Android/i.test(ua)) return 'Android';
+  return '端末';
+}
+
+function getCameraPermissionTargetLabel() {
+  if (isLikelyCapacitorRuntime()) {
+    return 'アプリ';
+  }
+  const ua = navigator && navigator.userAgent ? String(navigator.userAgent) : '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'Safari';
+  if (/Android/i.test(ua)) return 'Chrome';
+  return 'ブラウザ';
+}
+
+async function getCameraPermissionState() {
+  try {
+    if (!navigator.permissions || typeof navigator.permissions.query !== 'function') {
+      return 'unknown';
+    }
+    const status = await navigator.permissions.query({ name: 'camera' });
+    if (status && typeof status.state === 'string') {
+      return status.state;
+    }
+  } catch (e) {
+    console.log('camera permission query unsupported:', e);
+  }
+  return 'unknown';
+}
+
+async function openCameraPermissionSettings() {
+  try {
+    const appPlugin = window.Capacitor && Capacitor.Plugins ? Capacitor.Plugins.App : null;
+    if (appPlugin && typeof appPlugin.openSettings === 'function') {
+      await appPlugin.openSettings();
+      return true;
+    }
+  } catch (e) {
+    console.error('openCameraPermissionSettings App.openSettings error:', e);
+  }
+
+  const ua = navigator && navigator.userAgent ? String(navigator.userAgent) : '';
+  const canAttemptScheme = isLikelyCapacitorRuntime() || /iPhone|iPad|iPod|Android/i.test(ua);
+  if (!canAttemptScheme) return false;
+
+  try {
+    window.location.href = 'app-settings:';
+    return true;
+  } catch (e) {
+    console.error('openCameraPermissionSettings app-settings error:', e);
+  }
+  return false;
+}
+
+async function showCameraPermissionRecoveryDialog(permissionState) {
+  const deviceLabel = getCameraPermissionDeviceLabel();
+  const targetLabel = getCameraPermissionTargetLabel();
+  const isDenied = permissionState === 'denied';
+
+  if (!isDenied) {
+    return showAppConfirm(
+      'スタンプ取得にはカメラの許可が必要です。\nこのあと表示される確認画面で「許可」を選んでください。',
+      {
+        title: 'カメラの許可が必要です',
+        confirmLabel: '許可を確認する',
+        cancelLabel: '閉じる'
+      }
+    );
+  }
+
+  const shouldOpenSettings = await showAppConfirm(
+    deviceLabel + 'でカメラの許可がオフになっています。\n「設定を開く」を押して、' + targetLabel + 'のカメラを許可してください。',
+    {
+      title: 'カメラの許可がオフです',
+      confirmLabel: '設定を開く',
+      cancelLabel: '閉じる'
+    }
+  );
+
+  if (!shouldOpenSettings) return false;
+
+  const opened = await openCameraPermissionSettings();
+  if (opened) {
+    await showAppAlert(
+      '設定画面を開いています。\nカメラを許可したあと、もう一度「カメラを起動して読み取る」を押してください。',
+      {
+        title: '設定で許可してください',
+        confirmLabel: 'OK'
+      }
+    );
+    return false;
+  }
+
+  await showAppAlert(
+    targetLabel + 'または' + deviceLabel + 'の設定でカメラを許可したあと、もう一度お試しください。',
+    {
+      title: 'カメラの許可が必要です',
+      confirmLabel: 'OK'
+    }
+  );
+  return false;
 }
 
 function getVersionParts(version) {
@@ -6272,18 +6378,16 @@ async function openScannerModal() {
     showToast('10個達成！新しいカードを取得してください');
     return;
   }
-  const shouldOpen = await showAppConfirm(
-    'スタンプ取得のためにカメラを使用します。\nこのあと表示される確認画面で「許可」を選んでください。',
-    {
-      title: 'カメラの使用確認',
-      confirmLabel: '許可する',
-      cancelLabel: '戻る'
-    }
-  );
+  const permissionState = await getCameraPermissionState();
+  if (permissionState === 'denied') {
+    await showCameraPermissionRecoveryDialog('denied');
+    return;
+  }
+  const shouldOpen = await showCameraPermissionRecoveryDialog(permissionState);
   if (!shouldOpen) return;
   const modal = document.getElementById('scannerModal');
   if (modal) modal.classList.add('open');
-  startScanner();
+  await startScanner();
 }
 
 function closeScannerModal(e) {
@@ -6300,7 +6404,7 @@ function closeScannerModal(e) {
   }
 }
 
-function startScanner() {
+async function startScanner() {
   if (_qrStarting) return;
   const video = document.getElementById('qr-video');
   const canvasElement = document.getElementById('qr-canvas');
@@ -6316,6 +6420,13 @@ function startScanner() {
   }
   const canvas = canvasElement.getContext('2d');
   const scanLine = document.getElementById('qr-scan-line');
+  const permissionState = await getCameraPermissionState();
+
+  if (permissionState === 'denied') {
+    closeScannerModal();
+    await showCameraPermissionRecoveryDialog('denied');
+    return;
+  }
 
   _qrStarting = true;
   _qrScanning = true;
@@ -6342,6 +6453,7 @@ function startScanner() {
 
       let helpMsg = 'カメラの起動に失敗しました。';
       const errorName = String(err && err.name || '');
+      const isPermissionError = errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError' || errorName === 'SecurityError';
       if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
         helpMsg = 'カメラの使用が許可されていません。\nこのあと表示される確認で「許可」を選ぶか、iPhone / Android の設定でブラウザまたはアプリのカメラを許可してください。';
       } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
@@ -6352,14 +6464,27 @@ function startScanner() {
         helpMsg = '接続が保護されていないため、カメラを利用できません。\nHTTPSで開き直してください。';
       }
 
-      const shouldRetry = await showAppConfirm(helpMsg + '\n\nもう一度カメラの許可を確認しますか？', {
-        title: 'カメラの許可が必要です',
-        confirmLabel: '再度許可する',
+      if (isPermissionError) {
+        closeScannerModal();
+        const latestPermissionState = await getCameraPermissionState();
+        const inferredState = latestPermissionState === 'unknown' ? 'denied' : latestPermissionState;
+        const shouldRetry = await showCameraPermissionRecoveryDialog(inferredState);
+        if (shouldRetry) {
+          const modal = document.getElementById('scannerModal');
+          if (modal) modal.classList.add('open');
+          await startScanner();
+        }
+        return;
+      }
+
+      const shouldRetry = await showAppConfirm(helpMsg + '\n\nもう一度カメラを起動しますか？', {
+        title: 'カメラを利用できません',
+        confirmLabel: 'もう一度試す',
         cancelLabel: '閉じる'
       });
 
       if (shouldRetry) {
-        startScanner();
+        await startScanner();
       } else {
         closeScannerModal();
       }
