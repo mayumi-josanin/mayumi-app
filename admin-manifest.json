@@ -1,0 +1,24 @@
+{
+  "name": "まゆみ助産院 管理画面",
+  "short_name": "まゆみ管理",
+  "description": "まゆみ助産院の管理ダッシュボード",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#5a7a4e",
+  "icons": [
+    {
+      "src": "./admin-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./admin-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
