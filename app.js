@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyLCgSn45Wy-aTZXa-1LNj55TUoqKLi3gq-LBImy_wjHgE7_2llp89cpF1NmuxrejKTqQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.48';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.49';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -59,15 +59,154 @@ const LOCAL_PASSCODE_HASH_STORAGE_KEY = 'mayumi_local_passcode_hash';
 const PASSCODE_LOGIN_ENABLED_STORAGE_KEY = 'mayumi_passcode_login_enabled';
 const PASSCODE_SKIP_ONCE_SESSION_KEY = 'mayumi_passcode_skip_once';
 const PASSCODE_RESUME_LOCK_DELAY_MS = 1500;
+const SECURE_STORE_DB_NAME = 'mayumi_secure_store';
+const SECURE_STORE_NAME = 'kv';
+const SECURE_STORE_VERSION = 1;
+const SECURE_PASSCODE_HASH_KEY = 'local_passcode_hash';
+const DEVICE_SESSION_ID_STORAGE_KEY = 'mayumi_device_session_id';
+const RETRY_QUEUE_STORAGE_KEY = 'mayumi_retry_queue';
+const FAVORITES_STORAGE_KEY = 'mayumi_favorites';
+const ITEM_SEEN_STORAGE_KEY = 'mayumi_seen_items';
+const ITEM_SEEN_BASELINE_STORAGE_KEY = 'mayumi_seen_items_initialized';
+const ACCESSIBILITY_STORAGE_KEY = 'mayumi_accessibility';
+const UPDATE_BANNER_DISMISSED_AT_STORAGE_KEY = 'mayumi_update_banner_dismissed_at';
+const APP_INSTALL_CONTEXT_STORAGE_KEY = 'mayumi_install_context';
+const DEVICE_SESSIONS_CACHE_STORAGE_KEY = 'mayumi_device_sessions_cache';
+const RETRY_QUEUE_MAX = 30;
+const RETRYABLE_ACTIONS = {
+  order: true,
+  updateUser: true,
+  syncUserRewardStatus: true,
+  syncUserDeviceSession: true,
+  removeUserDeviceSession: true,
+  unsubscribePush: true
+};
 let isPasscodeAuthenticated = false;
 let initAppStarted = false;
 let appHiddenAt = 0;
+let currentUserDevices = [];
+let currentDeviceSessionId = '';
+let secureStoreDbPromise = null;
+let cachedLocalPasscodeHash = '';
+let retryQueueBusy = false;
+let appUpdateContext = {
+  needsReload: false,
+  waitingServiceWorker: false,
+  message: '',
+  webBundleVersion: ''
+};
+let itemSeenState = readJsonStorage(ITEM_SEEN_STORAGE_KEY, {});
+let favoriteEntries = readJsonStorage(FAVORITES_STORAGE_KEY, []);
+let accessibilitySettings = Object.assign({
+  textSize: 'standard',
+  highContrast: false
+}, readJsonStorage(ACCESSIBILITY_STORAGE_KEY, {}));
 const REWARD_GACHA_PRIZE_POOL = [
   { key: 'A', rankLabel: 'A賞', rewardName: 'A賞プレゼント', capsuleColor: '#f5cb6c', accentColor: '#b0791b', message: '当日のおたのしみプレゼントをご用意しています。', weight: 10 },
   { key: 'B', rankLabel: 'B賞', rewardName: 'B賞プレゼント', capsuleColor: '#f3b7c9', accentColor: '#b86282', message: '当日のおたのしみプレゼントをご用意しています。', weight: 20 },
   { key: 'C', rankLabel: 'C賞', rewardName: 'C賞プレゼント', capsuleColor: '#b9d8a7', accentColor: '#628f58', message: '当日のおたのしみプレゼントをご用意しています。', weight: 30 },
   { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: '当日のおたのしみプレゼントをご用意しています。', weight: 40 }
 ];
+
+function readJsonStorage(key, fallbackValue) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallbackValue;
+    const parsed = JSON.parse(raw);
+    return parsed == null ? fallbackValue : parsed;
+  } catch (e) {
+    return fallbackValue;
+  }
+}
+
+function writeJsonStorage(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) { }
+}
+
+function removeStoredValue(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (e) { }
+}
+
+function openSecureStoreDb() {
+  if (!('indexedDB' in window)) return Promise.resolve(null);
+  if (secureStoreDbPromise) return secureStoreDbPromise;
+  secureStoreDbPromise = new Promise(function (resolve) {
+    try {
+      const request = indexedDB.open(SECURE_STORE_DB_NAME, SECURE_STORE_VERSION);
+      request.onupgradeneeded = function () {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(SECURE_STORE_NAME)) {
+          db.createObjectStore(SECURE_STORE_NAME);
+        }
+      };
+      request.onsuccess = function () {
+        resolve(request.result);
+      };
+      request.onerror = function () {
+        resolve(null);
+      };
+    } catch (e) {
+      resolve(null);
+    }
+  });
+  return secureStoreDbPromise;
+}
+
+async function secureStoreGet(key) {
+  const db = await openSecureStoreDb();
+  if (!db) return '';
+  return new Promise(function (resolve) {
+    try {
+      const tx = db.transaction(SECURE_STORE_NAME, 'readonly');
+      const store = tx.objectStore(SECURE_STORE_NAME);
+      const request = store.get(key);
+      request.onsuccess = function () {
+        resolve(String(request.result || ''));
+      };
+      request.onerror = function () {
+        resolve('');
+      };
+    } catch (e) {
+      resolve('');
+    }
+  });
+}
+
+async function secureStoreSet(key, value) {
+  const db = await openSecureStoreDb();
+  if (!db) return false;
+  return new Promise(function (resolve) {
+    try {
+      const tx = db.transaction(SECURE_STORE_NAME, 'readwrite');
+      tx.objectStore(SECURE_STORE_NAME).put(String(value || ''), key);
+      tx.oncomplete = function () { resolve(true); };
+      tx.onerror = function () { resolve(false); };
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+
+async function initSecureLocalStore() {
+  const storedHash = await secureStoreGet(SECURE_PASSCODE_HASH_KEY);
+  if (storedHash) {
+    cachedLocalPasscodeHash = storedHash;
+    return cachedLocalPasscodeHash;
+  }
+  try {
+    const legacyHash = String(localStorage.getItem(LOCAL_PASSCODE_HASH_STORAGE_KEY) || '');
+    if (legacyHash) {
+      cachedLocalPasscodeHash = legacyHash;
+      await secureStoreSet(SECURE_PASSCODE_HASH_KEY, legacyHash);
+      localStorage.removeItem(LOCAL_PASSCODE_HASH_STORAGE_KEY);
+    }
+  } catch (e) { }
+  return cachedLocalPasscodeHash;
+}
 
 function getCurrentPlatformName() {
   try {
@@ -274,6 +413,7 @@ function isValidTransferCodeValue(value) {
 }
 
 function getStoredLocalPasscodeHash() {
+  if (cachedLocalPasscodeHash) return cachedLocalPasscodeHash;
   try {
     return String(localStorage.getItem(LOCAL_PASSCODE_HASH_STORAGE_KEY) || '');
   } catch (e) {
@@ -347,10 +487,12 @@ async function hashPasscodeValue(passcode) {
 
 async function storeLocalPasscode(passcode) {
   const hash = await hashPasscodeValue(passcode);
+  cachedLocalPasscodeHash = hash;
   try {
-    localStorage.setItem(LOCAL_PASSCODE_HASH_STORAGE_KEY, hash);
     localStorage.setItem(PASSCODE_SET_STORAGE_KEY, 'true');
   } catch (e) { }
+  await secureStoreSet(SECURE_PASSCODE_HASH_KEY, hash);
+  removeStoredValue(LOCAL_PASSCODE_HASH_STORAGE_KEY);
   ensurePasscodeLoginPreference(true);
   return hash;
 }
@@ -375,6 +517,352 @@ function consumePasscodeUnlockSkippedOnce() {
     }
   } catch (e) { }
   return false;
+}
+
+function getInstallModeLabel() {
+  const isStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+  const isIosStandalone = window.navigator && window.navigator.standalone === true;
+  if (isLikelyCapacitorRuntime()) return 'アプリ';
+  if (isStandalone || isIosStandalone) return 'ホーム画面';
+  return 'ブラウザ';
+}
+
+function getCurrentDeviceSessionId() {
+  if (currentDeviceSessionId) return currentDeviceSessionId;
+  try {
+    currentDeviceSessionId = String(localStorage.getItem(DEVICE_SESSION_ID_STORAGE_KEY) || '').trim();
+  } catch (e) { }
+  if (currentDeviceSessionId) return currentDeviceSessionId;
+  currentDeviceSessionId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+    ? window.crypto.randomUUID()
+    : ('device-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+  try {
+    localStorage.setItem(DEVICE_SESSION_ID_STORAGE_KEY, currentDeviceSessionId);
+  } catch (e) { }
+  return currentDeviceSessionId;
+}
+
+function buildCurrentDeviceLabel() {
+  const ua = navigator && navigator.userAgent ? String(navigator.userAgent) : '';
+  const deviceKind = /iPhone/i.test(ua) ? 'iPhone'
+    : /iPad/i.test(ua) ? 'iPad'
+      : /Android/i.test(ua) ? 'Android'
+        : /Macintosh/i.test(ua) ? 'Mac'
+          : /Windows/i.test(ua) ? 'Windows'
+            : 'この端末';
+  return deviceKind + ' / ' + getInstallModeLabel();
+}
+
+function buildCurrentDeviceSessionPayload() {
+  return {
+    deviceId: getCurrentDeviceSessionId(),
+    label: buildCurrentDeviceLabel(),
+    platform: getCurrentPlatformName(),
+    appVersion: CURRENT_WEB_BUNDLE_VERSION,
+    passcodeEnabled: !!(_profile && hasConfiguredLocalPasscode() && isPasscodeLoginEnabled()),
+    pushEnabled: isPushEnabled()
+  };
+}
+
+function cacheDeviceSessions(devices) {
+  currentUserDevices = Array.isArray(devices) ? devices.slice() : [];
+  writeJsonStorage(DEVICE_SESSIONS_CACHE_STORAGE_KEY, currentUserDevices);
+}
+
+function getCachedDeviceSessions() {
+  if (Array.isArray(currentUserDevices) && currentUserDevices.length) return currentUserDevices.slice();
+  currentUserDevices = readJsonStorage(DEVICE_SESSIONS_CACHE_STORAGE_KEY, []);
+  return currentUserDevices.slice();
+}
+
+function getRetryQueue() {
+  return readJsonStorage(RETRY_QUEUE_STORAGE_KEY, []).filter(function (entry) {
+    return entry && entry.payload && entry.payload.type;
+  });
+}
+
+function saveRetryQueue(queue) {
+  writeJsonStorage(RETRY_QUEUE_STORAGE_KEY, (queue || []).slice(0, RETRY_QUEUE_MAX));
+  renderRetryQueueStatus();
+}
+
+function getRetryPayloadKey(payload) {
+  const action = String(payload && payload.type || '');
+  if (!action) return '';
+  if (action === 'order') return action + ':' + String(payload.orderId || '');
+  if (action === 'updateUser') return action + ':' + String(payload.memberId || '');
+  if (action === 'syncUserRewardStatus') return action + ':' + String(payload.memberId || '');
+  if (action === 'syncUserDeviceSession' || action === 'removeUserDeviceSession') {
+    return action + ':' + String(payload.memberId || '') + ':' + String(payload.deviceId || '');
+  }
+  if (action === 'unsubscribePush') return action + ':' + String(payload.memberId || '') + ':' + String(payload.playerId || payload.pushToken || '');
+  return action + ':' + JSON.stringify(payload);
+}
+
+function enqueueRetryPayload(payload) {
+  const key = getRetryPayloadKey(payload);
+  if (!key) return;
+  const queue = getRetryQueue();
+  const existingIndex = queue.findIndex(function (entry) {
+    return entry.key === key;
+  });
+  const nextEntry = {
+    key: key,
+    payload: payload,
+    createdAt: Date.now(),
+    retryCount: existingIndex >= 0 ? Number(queue[existingIndex].retryCount || 0) : 0
+  };
+  if (existingIndex >= 0) queue.splice(existingIndex, 1, nextEntry);
+  else queue.unshift(nextEntry);
+  saveRetryQueue(queue);
+}
+
+function isRetryableAction(action) {
+  return !!RETRYABLE_ACTIONS[String(action || '').trim()];
+}
+
+async function flushRetryQueue() {
+  if (retryQueueBusy || !navigator.onLine) return;
+  const queue = getRetryQueue();
+  if (!queue.length) {
+    renderRetryQueueStatus();
+    return;
+  }
+  retryQueueBusy = true;
+  try {
+    let remaining = queue.slice();
+    for (let i = 0; i < queue.length; i++) {
+      const entry = queue[i];
+      const result = await postToGAS(entry.payload, {
+        skipRetryQueue: true,
+        silent: true
+      });
+      if (result && (result.status === 'ok' || result.duplicate === true)) {
+        remaining = remaining.filter(function (queued) {
+          return queued.key !== entry.key;
+        });
+        saveRetryQueue(remaining);
+      } else {
+        remaining = remaining.map(function (queued) {
+          if (queued.key !== entry.key) return queued;
+          queued.retryCount = Number(queued.retryCount || 0) + 1;
+          return queued;
+        });
+        saveRetryQueue(remaining);
+        break;
+      }
+    }
+  } finally {
+    retryQueueBusy = false;
+    renderRetryQueueStatus();
+  }
+}
+
+function getItemSeenMap() {
+  return itemSeenState && typeof itemSeenState === 'object' ? itemSeenState : {};
+}
+
+function saveItemSeenMap(map) {
+  itemSeenState = map || {};
+  writeJsonStorage(ITEM_SEEN_STORAGE_KEY, itemSeenState);
+}
+
+function buildContentItemKey(kind, item) {
+  if (item && item.sourceKey) return String(item.sourceKey);
+  return [
+    String(kind || '').trim(),
+    String(item && (item.rowIdx || item.originalIndex || item.memberId || item.id || item.name || item.title) || '').trim(),
+    String(item && (item.updatedAt || item.date || item.publishAt || item.time || '') || '').trim()
+  ].join('::');
+}
+
+function getContentItemTimestamp(item) {
+  return parseLooseDateToTimestamp(item && (item.updatedAt || item.date || item.publishAt || item.time || ''));
+}
+
+function isContentItemUnread(kind, item) {
+  const key = buildContentItemKey(kind, item);
+  if (!key) return false;
+  const seenAt = Number(getItemSeenMap()[key] || 0);
+  const updatedAt = getContentItemTimestamp(item);
+  return updatedAt > 0 && seenAt < updatedAt;
+}
+
+function markContentItemSeen(kind, item) {
+  const key = buildContentItemKey(kind, item);
+  if (!key) return;
+  const map = Object.assign({}, getItemSeenMap());
+  map[key] = Math.max(Date.now(), getContentItemTimestamp(item) || 0);
+  saveItemSeenMap(map);
+}
+
+function ensureSeenBaselineInitialized() {
+  try {
+    if (localStorage.getItem(ITEM_SEEN_BASELINE_STORAGE_KEY) === 'true') return false;
+  } catch (e) { }
+  const map = Object.assign({}, getItemSeenMap());
+  (blogItems || []).forEach(function (item) { map[buildContentItemKey('blog', item)] = getContentItemTimestamp(item) || Date.now(); });
+  (calendarData || []).forEach(function (item) { map[buildContentItemKey('calendar', item)] = getContentItemTimestamp(item) || Date.now(); });
+  (PRODUCTS || []).forEach(function (item) { map[buildContentItemKey('product', item)] = getContentItemTimestamp(item) || Date.now(); });
+  (USER_MENUS || []).forEach(function (item) { map[buildContentItemKey('menu', item)] = getContentItemTimestamp(item) || Date.now(); });
+  saveItemSeenMap(map);
+  try {
+    localStorage.setItem(ITEM_SEEN_BASELINE_STORAGE_KEY, 'true');
+  } catch (e) { }
+  return true;
+}
+
+function getFavoriteEntries() {
+  if (!Array.isArray(favoriteEntries)) favoriteEntries = [];
+  return favoriteEntries;
+}
+
+function saveFavoriteEntries(entries) {
+  favoriteEntries = Array.isArray(entries) ? entries.slice(0, 100) : [];
+  writeJsonStorage(FAVORITES_STORAGE_KEY, favoriteEntries);
+  renderFavoriteList();
+}
+
+function isFavoriteKey(key) {
+  return getFavoriteEntries().some(function (entry) {
+    return entry && entry.key === key;
+  });
+}
+
+function toggleFavoriteEntry(entry) {
+  if (!entry || !entry.key) return false;
+  const current = getFavoriteEntries();
+  const next = current.filter(function (item) {
+    return item.key !== entry.key;
+  });
+  const existed = next.length !== current.length;
+  if (!existed) {
+    next.unshift(Object.assign({
+      savedAt: Date.now()
+    }, entry));
+  }
+  saveFavoriteEntries(next);
+  return !existed;
+}
+
+function getTextSizeScale() {
+  if (accessibilitySettings.textSize === 'large') return 'large';
+  if (accessibilitySettings.textSize === 'xlarge') return 'xlarge';
+  return 'standard';
+}
+
+function applyAccessibilitySettings() {
+  document.body.classList.toggle('high-contrast', accessibilitySettings.highContrast === true);
+  document.body.dataset.textScale = getTextSizeScale();
+  writeJsonStorage(ACCESSIBILITY_STORAGE_KEY, accessibilitySettings);
+  renderAccessibilitySettings();
+}
+
+function cycleTextSizeSetting() {
+  const order = ['standard', 'large', 'xlarge'];
+  const current = order.indexOf(getTextSizeScale());
+  accessibilitySettings.textSize = order[(current + 1) % order.length];
+  applyAccessibilitySettings();
+}
+
+function toggleHighContrastSetting() {
+  accessibilitySettings.highContrast = accessibilitySettings.highContrast !== true;
+  applyAccessibilitySettings();
+}
+
+function renderAccessibilitySettings() {
+  const sizeLabel = document.getElementById('textSizeStatus');
+  const contrastLabel = document.getElementById('highContrastStatus');
+  if (sizeLabel) {
+    sizeLabel.textContent = accessibilitySettings.textSize === 'xlarge' ? '大きめ' : accessibilitySettings.textSize === 'large' ? '少し大きめ' : '標準';
+  }
+  if (contrastLabel) {
+    contrastLabel.textContent = accessibilitySettings.highContrast ? 'オン' : 'オフ';
+  }
+}
+
+function showAppUpdateBanner(message, webBundleVersion) {
+  const banner = document.getElementById('appUpdateBanner');
+  const text = document.getElementById('appUpdateBannerText');
+  if (!banner || !text) return;
+  appUpdateContext.needsReload = true;
+  appUpdateContext.message = message || '最新版があります。更新すると最新の内容が反映されます。';
+  appUpdateContext.webBundleVersion = webBundleVersion || '';
+  text.textContent = appUpdateContext.message;
+  banner.classList.add('show');
+}
+
+function hideAppUpdateBanner(persistDismiss) {
+  const banner = document.getElementById('appUpdateBanner');
+  if (banner) banner.classList.remove('show');
+  if (persistDismiss) {
+    try {
+      localStorage.setItem(UPDATE_BANNER_DISMISSED_AT_STORAGE_KEY, String(Date.now()));
+    } catch (e) { }
+  }
+}
+
+async function applyPendingAppUpdate() {
+  if ('serviceWorker' in navigator) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      let waiting = null;
+      registrations.forEach(function (registration) {
+        if (registration.waiting) waiting = registration.waiting;
+      });
+      if (waiting) {
+        waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+    } catch (e) {
+      console.error('applyPendingAppUpdate waiting worker error:', e);
+    }
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set('upd', Date.now());
+  window.location.href = url.toString();
+}
+
+function renderRetryQueueStatus() {
+  const count = getRetryQueue().length;
+  const el = document.getElementById('retryQueueStatus');
+  if (!el) return;
+  if (!count) {
+    el.innerHTML = '<b>同期状況:</b> すべて最新です';
+    return;
+  }
+  el.innerHTML = '<b>同期状況:</b> ' + count + '件の送信待ちがあります。通信が戻ると自動で再送します。';
+}
+
+function renderCurrentDeviceGuidance() {
+  const el = document.getElementById('deviceGuidanceContent');
+  if (!el) return;
+  const platform = getCurrentPlatformName();
+  const installMode = getInstallModeLabel();
+  let lines = [];
+  if (platform === 'ios') {
+    lines = [
+      'iPhone版をご利用中です。カメラや通知が反応しない時は、iPhoneの「設定」からまゆみ助産院アプリの権限をご確認ください。',
+      '再インストールや機種変更の前に、マイページで引き継ぎコードを発行しておくと復元しやすくなります。'
+    ];
+  } else if (platform === 'android') {
+    lines = [
+      'Android版をご利用中です。カメラや通知が反応しない時は、Androidの「設定」からアプリの権限と電池最適化をご確認ください。',
+      'ホーム画面から開いている場合でも、まず以前登録した方の復元を使うと会員IDの重複を防げます。'
+    ];
+  } else if (installMode === 'ホーム画面') {
+    lines = [
+      'ホーム画面追加版をご利用中です。端末設定でSafariまたはChromeのカメラ・通知権限が必要です。',
+      '再インストールや端末変更の際は、新規登録ではなく復元を選んでください。'
+    ];
+  } else {
+    lines = [
+      'ブラウザ版をご利用中です。カメラや通知はSafariまたはChromeの権限設定に影響されます。',
+      'よく使う場合はホーム画面に追加すると、次回以降すぐ開けます。'
+    ];
+  }
+  el.innerHTML = '<div class="device-guidance-chip">' + escapeHtml(buildCurrentDeviceLabel()) + '</div><ul class="device-guidance-list">' + lines.map(function (line) {
+    return '<li>' + escapeHtml(line) + '</li>';
+  }).join('') + '</ul>';
 }
 
 function triggerConfetti() {
@@ -614,8 +1102,9 @@ async function getFromGAS(action, params) {
 
 // GASへデータ送信（GET/POST自動切り替え）
 // payload: { type:'order|updateUser|uploadImage|...', ... }
-async function postToGAS(payload) {
+async function postToGAS(payload, options) {
   if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return;
+  const opts = options || {};
   try {
     const action = payload.type;
     let res;
@@ -626,6 +1115,8 @@ async function postToGAS(payload) {
       action === 'uploadImage' ||
       action === 'askSupportChat' ||
       action === 'syncUserRewardStatus' ||
+      action === 'syncUserDeviceSession' ||
+      action === 'removeUserDeviceSession' ||
       action === 'unsubscribePush' ||
       action === 'drawRewardGacha' ||
       action === 'recoverAccount' ||
@@ -647,9 +1138,33 @@ async function postToGAS(payload) {
 
     const json = await res.json();
     console.log('postToGAS response:', json);
+    if (opts.skipRetryQueue !== true && (!json || json.status === 'error') && isRetryableAction(action)) {
+      enqueueRetryPayload(payload);
+      return {
+        status: 'queued',
+        queued: true,
+        message: '通信が不安定なため、送信待ちにしました。'
+      };
+    }
+    if (json && (json.status === 'ok' || json.duplicate === true) && opts.skipRetryQueue !== true) {
+      flushRetryQueue().catch(function (error) {
+        console.error('flushRetryQueue after success error:', error);
+      });
+    }
     return json;
   } catch (e) {
     console.log('postToGAS error:', e);
+    if (opts.skipRetryQueue !== true && isRetryableAction(payload && payload.type)) {
+      enqueueRetryPayload(payload);
+      if (!opts.silent) {
+        showToast('通信が不安定なため、送信待ちにしました');
+      }
+      return {
+        status: 'queued',
+        queued: true,
+        message: '通信が不安定なため、送信待ちにしました。'
+      };
+    }
     return null;
   }
 }
@@ -1555,10 +2070,14 @@ async function loadProducts() {
     const iconBadge = product.icon && !/^https?:\/\//i.test(product.icon) && !/^data:/i.test(product.icon)
       ? `<span class="shop-icon-badge">${escapeHtml(product.icon)}</span>`
       : '';
+    const unreadBadge = buildUnreadBadgeHtml('product', product);
+    const favoriteBadge = isFavoriteKey(buildContentItemKey('product', product)) ? '<span class="item-favorite-badge">★</span>' : '';
     card.innerHTML = `
       <div class="shop-img ${product.bg}">
         <img src="${imageSource}" alt="${product.name}">
         ${iconBadge}
+        ${unreadBadge}
+        ${favoriteBadge}
       </div>
       <div class="shop-info">
         <div class="shop-name">${product.name}</div>
@@ -1766,6 +2285,7 @@ function nextMonth() {
 function openCalendarEventDetail(idx) {
   const event = calendarData[idx];
   if (!event) return;
+  markContentItemSeen('calendar', event);
   const detail = document.getElementById('calendarEventDetailContent');
   if (!detail) return;
   const safeTitle = escapeHtml(event.title || '');
@@ -1783,8 +2303,62 @@ function openCalendarEventDetail(idx) {
       </div>
       <div>${safeDesc}</div>
     </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+      ${buildFavoriteActionMarkup('calendar', event)}
+      <button class="btn secondary favorite-action-btn" type="button" onclick="downloadCalendarEventIcs(${idx})">端末カレンダーに追加</button>
+    </div>
   `;
+  renderCalendarEventLists();
+  updateNavBadges();
   openModal('calendarEventDetailModal');
+}
+
+function escapeIcsText(value) {
+  return String(value || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+function downloadCalendarEventIcs(idx) {
+  const event = calendarData[idx];
+  if (!event) return;
+  const eventDate = String(event.date || '').trim();
+  const dateMatch = eventDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) {
+    showToast('このイベントは端末カレンダーへ追加できません');
+    return;
+  }
+  const startDate = dateMatch[1] + dateMatch[2] + dateMatch[3];
+  const endDateObj = new Date(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3]) + 1);
+  const endDate = endDateObj.getFullYear() + String(endDateObj.getMonth() + 1).padStart(2, '0') + String(endDateObj.getDate()).padStart(2, '0');
+  const icsBody = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Mayumi App//JP',
+    'BEGIN:VEVENT',
+    'UID:' + escapeIcsText(buildContentItemKey('calendar', event)),
+    'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z'),
+    'DTSTART;VALUE=DATE:' + startDate,
+    'DTEND;VALUE=DATE:' + endDate,
+    'SUMMARY:' + escapeIcsText(event.title || 'まゆみ助産院イベント'),
+    'DESCRIPTION:' + escapeIcsText(event.desc || ''),
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+  const blob = new Blob([icsBody], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = (event.title || 'mayumi-event') + '.ics';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(function () {
+    URL.revokeObjectURL(url);
+  }, 1500);
+  showToast('端末カレンダー追加用のファイルを開きました');
 }
 
 async function loadCalendar() {
@@ -1883,7 +2457,7 @@ function buildCalendarEventListItem(event, showDate) {
   const imageHtml = safeImage
     ? `<div class="cal-evt-img-box"><img src="${safeImage}" alt="${safeTitle}" loading="lazy"></div>`
     : '<div class="cal-evt-img-box"><div class="cal-evt-img-placeholder">📅</div></div>';
-  return `<div class="cal-evt-item" onclick="openCalendarEventDetail(${eventIndex})">${dateHtml}${imageHtml}<div class="cal-evt-color" style="background:${safeColor};"></div><div class="cal-evt-details"><div class="cal-evt-title">${safeTitle}</div><div class="cal-evt-desc">${safeDesc}</div></div></div>`;
+  return `<div class="cal-evt-item" onclick="openCalendarEventDetail(${eventIndex})">${dateHtml}${imageHtml}<div class="cal-evt-color" style="background:${safeColor};"></div><div class="cal-evt-details"><div class="cal-evt-title">${safeTitle} ${buildUnreadBadgeHtml('calendar', event)}</div><div class="cal-evt-desc">${safeDesc}</div></div></div>`;
 }
 
 // ===== お知らせ一覧用 統合ハッシュ =====
@@ -2014,13 +2588,10 @@ async function refreshAppData() {
     });
 
     if (shouldReloadForCodeUpdate) {
-      showToast('アプリを最新版へ読み込み直しています...');
-      setTimeout(() => {
-        const url = new URL(window.location.href);
-        url.searchParams.set('upd', Date.now());
-        window.location.href = url.toString();
-      }, 1200);
+      showAppUpdateBanner('最新版があります。更新すると最新の画面と機能が反映されます。', versionGate && versionGate.config ? versionGate.config.webBundleVersion : '');
+      showToast('最新版があります。画面上部の更新ボタンから反映できます');
     } else {
+      hideAppUpdateBanner(false);
       showToast('最新情報を反映しました ✨');
     }
   } catch (e) {
@@ -2081,7 +2652,7 @@ function renderBlogList(containerId, limit, filterType = null, filterCategory = 
       bodyHtml = `<div class="blog-body-preview">${formattedBody}</div>`;
     }
 
-    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${item.icon || '📢'}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${displayDate}</span><span class="blog-cat">${item.category}</span></div><div class="blog-title">${item.title}</div>${bodyHtml}${imageHtml}</div></div>`;
+    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${item.icon || '📢'}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${displayDate}</span><span class="blog-cat">${item.category}</span>${buildUnreadBadgeHtml('blog', item)}</div><div class="blog-title">${item.title}</div>${bodyHtml}${imageHtml}</div></div>`;
     div.onclick = () => openBlogDetail(item);
     el.appendChild(div);
   });
@@ -2241,23 +2812,66 @@ function renderPushNotices() {
           <div class="blog-meta">
             <span class="blog-cat">${escapeHtml(item.category)}</span>
             <span class="blog-date">${escapeHtml(item.dateLabel || '')}</span>
+            ${buildUnreadBadgeHtml(item.kind, item)}
           </div>
           <div class="blog-title">${escapeHtml(item.title)}</div>
           <div class="blog-body-preview">${escapeHtml(item.body || '').replace(/\n/g, '<br>')}</div>
         </div>
       </div>
     `;
-    card.onclick = function () {
-      openBlogDetail({
-        category: item.category,
-        title: item.title,
-        date: item.dateLabel,
-        body: item.body,
-        image: item.image || '',
-        hasEmbeddedImage: item.hasEmbeddedImage === true
-      });
-    };
+    card.onclick = function () { openNoticeFeedItem(item); };
     container.appendChild(card);
+  });
+}
+
+function openNoticeFeedItem(item) {
+  if (!item) return;
+  if (item.kind === 'blog') {
+    const blog = blogItems.find(function (entry) {
+      return buildContentItemKey('blog', entry) === item.sourceKey;
+    });
+    if (blog) {
+      openBlogDetail(blog);
+      return;
+    }
+  }
+  if (item.kind === 'calendar') {
+    const calendarIndex = calendarData.findIndex(function (entry) {
+      return buildContentItemKey('calendar', entry) === item.sourceKey;
+    });
+    if (calendarIndex >= 0) {
+      openCalendarEventDetail(calendarIndex);
+      return;
+    }
+  }
+  if (item.kind === 'product') {
+    const productIndex = PRODUCTS.findIndex(function (entry) {
+      return buildContentItemKey('product', entry) === item.sourceKey;
+    });
+    if (productIndex >= 0) {
+      switchPage('shop');
+      openProductModal(productIndex);
+      return;
+    }
+  }
+  if (item.kind === 'menu') {
+    const menuIndex = USER_MENUS.findIndex(function (entry) {
+      return buildContentItemKey('menu', entry) === item.sourceKey;
+    });
+    if (menuIndex >= 0) {
+      switchPage('menu-list');
+      openMenuDetail(menuIndex);
+      return;
+    }
+  }
+  markContentItemSeen(item.kind || 'blog', item);
+  openBlogDetail({
+    category: item.category,
+    title: item.title,
+    date: item.dateLabel,
+    body: item.body,
+    image: item.image || '',
+    hasEmbeddedImage: item.hasEmbeddedImage === true
   });
 }
 
@@ -2302,6 +2916,7 @@ function buildNoticeFeedItems() {
     });
     return {
       kind: 'blog',
+      sourceKey: buildContentItemKey('blog', item),
       sourceWeight: (blogItems.length - index),
       sortOrder: Number(item.sortOrder || 0),
       timestamp: publishMeta.timestamp,
@@ -2327,6 +2942,7 @@ function buildNoticeFeedItems() {
     });
     return {
       kind: 'calendar',
+      sourceKey: buildContentItemKey('calendar', event),
       sourceWeight: index,
       sortOrder: Number(event.sortOrder || 0),
       timestamp: publishMeta.timestamp,
@@ -2346,6 +2962,7 @@ function buildNoticeFeedItems() {
     });
     return {
       kind: 'product',
+      sourceKey: buildContentItemKey('product', product),
       sourceWeight: (PRODUCTS.length - index),
       sortOrder: Number(product.sortOrder || 0),
       timestamp: publishMeta.timestamp,
@@ -2370,6 +2987,7 @@ function buildNoticeFeedItems() {
     });
     return {
       kind: 'menu',
+      sourceKey: buildContentItemKey('menu', menu),
       sourceWeight: index,
       sortOrder: Number(menu.sortOrder || 0),
       timestamp: publishMeta.timestamp,
@@ -2588,7 +3206,134 @@ function formatNoticeDateLabel(rawValue) {
 function formatPushNoticeDate(rawValue) {
   return formatCustomerDateYmd(rawValue);
 }
+
+function buildUnreadBadgeHtml(kind, item) {
+  return isContentItemUnread(kind, item) ? '<span class="item-new-badge">NEW</span>' : '';
+}
+
+function buildFavoriteActionMarkup(kind, item) {
+  const entry = buildFavoriteEntry(kind, item);
+  if (!entry) return '';
+  return '<button class="btn secondary favorite-action-btn" type="button" onclick="toggleFavoriteByKey(\'' + encodeURIComponent(entry.key) + '\')">' +
+    (isFavoriteKey(entry.key) ? '★ お気に入りから外す' : '☆ お気に入りに追加') +
+    '</button>';
+}
+
+function buildFavoriteEntry(kind, item) {
+  if (!item) return null;
+  if (kind === 'product') {
+    return {
+      key: buildContentItemKey('product', item),
+      kind: 'product',
+      page: 'shop',
+      title: item.name || '商品',
+      subtitle: item.category || 'ショップ',
+      body: item.description || '',
+      image: item.icon || '',
+      dateLabel: formatCustomerDateYmd(item.updatedAt || item.date || ''),
+      contentIndex: PRODUCTS.indexOf(item)
+    };
+  }
+  if (kind === 'blog') {
+    return {
+      key: buildContentItemKey('blog', item),
+      kind: 'blog',
+      page: 'blog',
+      title: item.title || 'NEWS',
+      subtitle: item.category || 'NEWS',
+      body: item.body || '',
+      image: item.image || item.imageUrl || '',
+      dateLabel: formatCustomerDateYmd(item.updatedAt || item.date || ''),
+      contentIndex: blogItems.indexOf(item)
+    };
+  }
+  if (kind === 'menu') {
+    return {
+      key: buildContentItemKey('menu', item),
+      kind: 'menu',
+      page: 'menu-list',
+      title: item.name || 'メニュー',
+      subtitle: item.category || 'ホーム',
+      body: item.description || '',
+      image: item.imageUrl || '',
+      dateLabel: formatCustomerDateYmd(item.updatedAt || item.date || ''),
+      contentIndex: USER_MENUS.indexOf(item)
+    };
+  }
+  if (kind === 'calendar') {
+    return {
+      key: buildContentItemKey('calendar', item),
+      kind: 'calendar',
+      page: 'calendar',
+      title: item.title || 'イベント',
+      subtitle: 'カレンダー',
+      body: item.desc || '',
+      image: item.image || '',
+      dateLabel: formatCustomerDateYmd(item.updatedAt || item.date || ''),
+      contentIndex: calendarData.indexOf(item)
+    };
+  }
+  return null;
+}
+
+function toggleFavoriteByKey(key) {
+  const resolvedKey = decodeURIComponent(String(key || ''));
+  const existing = getFavoriteEntries().find(function (entry) {
+    return entry && entry.key === resolvedKey;
+  });
+  if (existing) {
+    saveFavoriteEntries(getFavoriteEntries().filter(function (entry) {
+      return entry.key !== resolvedKey;
+    }));
+    showToast('お気に入りから外しました');
+  } else {
+    const entry = (PRODUCTS || []).map(function (item) { return buildFavoriteEntry('product', item); })
+      .concat((blogItems || []).map(function (item) { return buildFavoriteEntry('blog', item); }))
+      .concat((USER_MENUS || []).map(function (item) { return buildFavoriteEntry('menu', item); }))
+      .concat((calendarData || []).map(function (item) { return buildFavoriteEntry('calendar', item); }))
+      .find(function (item) { return item && item.key === resolvedKey; });
+    if (!entry) return;
+    toggleFavoriteEntry(entry);
+    showToast('お気に入りに追加しました');
+  }
+  renderFavoriteList();
+  refreshActiveDetailViews();
+}
+
+function refreshActiveDetailViews() {
+  if (document.getElementById('blogDetailModal').classList.contains('open')) {
+    const currentTitle = document.querySelector('#blogDetailContent .blog-detail-title');
+    if (currentTitle) {
+      const blog = blogItems.find(function (item) {
+        return item.title === currentTitle.textContent;
+      });
+      if (blog) openBlogDetail(blog);
+    }
+  }
+  if (document.getElementById('menuDetailModal').classList.contains('open')) {
+    const titleNode = document.querySelector('#menuDetailContent .blog-detail-title');
+    if (titleNode) {
+      const menu = USER_MENUS.find(function (item) {
+        return item.name === titleNode.textContent;
+      });
+      if (menu) openMenuDetail(USER_MENUS.indexOf(menu));
+    }
+  }
+  if (document.getElementById('calendarEventDetailModal').classList.contains('open')) {
+    const titleNode = document.querySelector('#calendarEventDetailContent .blog-detail-title');
+    if (titleNode) {
+      const event = calendarData.find(function (item) {
+        return item.title === titleNode.textContent;
+      });
+      if (event) openCalendarEventDetail(calendarData.indexOf(event));
+    }
+  }
+  if (document.getElementById('productModal').classList.contains('open') && currentProdIdx != null) {
+    openProductModal(currentProdIdx);
+  }
+}
 function openBlogDetail(item) {
+  markContentItemSeen(item && item.kind ? item.kind : 'blog', item);
   let detailImageHtml = '';
   if (item.image && !item.hasEmbeddedImage) {
     detailImageHtml = `<div style="margin-bottom: 12px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><img src="${item.image}" style="width: 100%; height: auto; display: block;" alt="Blog Image"></div>`;
@@ -2610,7 +3355,17 @@ function openBlogDetail(item) {
     <div class="blog-detail-title">${item.title}</div>
     <div class="blog-detail-date">${displayDate}</div>
     ${detailImageHtml}
-    <div class="blog-detail-body">${formattedBody}</div>`;
+    <div class="blog-detail-body">${formattedBody}</div>
+    <div style="margin-top:14px;">${buildFavoriteActionMarkup('blog', item)}</div>`;
+  if (document.getElementById('page-blog').classList.contains('active')) {
+    renderDividedBlogList();
+  } else {
+    renderBlogList('homeNewsList', 3);
+  }
+  if (document.getElementById('page-notices').classList.contains('active')) {
+    renderPushNotices();
+  }
+  updateNavBadges();
   openModal('blogDetailModal');
 }
 
@@ -2618,6 +3373,7 @@ function openBlogDetail(item) {
 function openProductModal(idx) {
   currentProdIdx = idx; modalQty = 1;
   const p = PRODUCTS[idx];
+  markContentItemSeen('product', p);
   const img = document.getElementById('prodModalImg');
   img.className = 'prod-img';
 
@@ -2641,7 +3397,10 @@ function openProductModal(idx) {
   }
   document.getElementById('prodModalDesc').innerHTML = descHtml || '商品説明はありません';
   document.getElementById('prodModalDesc').style.display = 'none'; // 初期非表示
+  const favoriteWrap = document.getElementById('prodModalFavoriteWrap');
+  if (favoriteWrap) favoriteWrap.innerHTML = buildFavoriteActionMarkup('product', p);
   document.getElementById('modalQtyDisp').textContent = 1;
+  updateNavBadges();
   openModal('productModal');
 }
 
@@ -2785,15 +3544,20 @@ async function finalizeOrder(payLabel) {
       time: ts
     });
 
-    if (!res || res.status !== 'ok') {
+    if (!res || (res.status !== 'ok' && res.status !== 'queued')) {
       showToast('注文の送信に失敗しました');
       return;
     }
 
+    if (res.status === 'queued') {
+      order.status = 'sync_pending';
+    }
     orders.unshift(order);
     cart = [];
     updateCartUI();
-    document.getElementById('orderCompleteMsg').innerHTML = `お支払い：${payLabel}<br><br>ご来院時にスタッフにお声がけください。`;
+    document.getElementById('orderCompleteMsg').innerHTML = res.status === 'queued'
+      ? `お支払い：${payLabel}<br><br>通信回復後に注文を送信します。注文内容はこの端末に保持されています。`
+      : `お支払い：${payLabel}<br><br>ご来院時にスタッフにお声がけください。`;
     openModal('orderCompleteModal');
   } catch (e) {
     showToast('注文の送信に失敗しました');
@@ -2939,8 +3703,9 @@ function renderOrderHistoryUI() {
     const isCancelled = o.status === 'cancelled' || o.status === 'キャンセル済' || o.status === 'キャンセル';
     const isActionLocked = isCancelSubmitting || isReceiptSubmitting;
     const receiptButtonLabel = isReceiptSubmitting && receiptSubmittingOrderId === o.id ? '更新中...' : '受け取りました';
-    const sl = o.status === 'pending' ? '受付中' : (isCancelled ? 'キャンセル済' : '完了');
-    const sc = o.status === 'pending' ? 's-pending' : (isCancelled ? 's-cancelled' : 's-done');
+    const isSyncPending = o.status === 'sync_pending';
+    const sl = isSyncPending ? '送信待ち' : (o.status === 'pending' ? '受付中' : (isCancelled ? 'キャンセル済' : '完了'));
+    const sc = isSyncPending ? 's-pending' : (o.status === 'pending' ? 's-pending' : (isCancelled ? 's-cancelled' : 's-done'));
 
     const names = o.items.map(c => {
       const itemName = c.name || (productItems.find(p => p.id === c.idx) ? productItems.find(p => p.id === c.idx).name : '不明な商品');
@@ -2963,7 +3728,7 @@ function renderOrderHistoryUI() {
           </div>
           <div style="margin-top:8px; display:flex; gap:8px;">
             ${o.status === 'pending' ? `<button class="btn danger" style="flex:1;padding:8px" onclick="openCancelModal('${o.id}')" ${isActionLocked ? 'disabled' : ''}>キャンセルする</button>` : ''}
-            ${(!o.checked && !isCancelled) ? `<button class="btn primary" style="flex:1;padding:8px;background:var(--sage)" onclick="confirmReceipt('${o.id}')" ${isActionLocked ? 'disabled' : ''}>${receiptButtonLabel}</button>` : ''}
+            ${(!o.checked && !isCancelled && !isSyncPending) ? `<button class="btn primary" style="flex:1;padding:8px;background:var(--sage)" onclick="confirmReceipt('${o.id}')" ${isActionLocked ? 'disabled' : ''}>${receiptButtonLabel}</button>` : ''}
             ${(o.checked) ? `<div style="flex:1;padding:8px;background:#f0f0f0;color:#888;text-align:center;border-radius:8px;font-size:12px;font-weight:bold;">受取完了</div>` : ''}
           </div>
         `;
@@ -3096,6 +3861,14 @@ function switchPage(name) {
   if (name === 'mypage') {
     renderOrderHistory();
     renderSurveys();
+    renderFavoriteList();
+    renderUserDevices();
+    renderRetryQueueStatus();
+    renderAccessibilitySettings();
+    renderCurrentDeviceGuidance();
+    loadUserDevices().catch(function (error) {
+      console.error('loadUserDevices switchPage error:', error);
+    });
     if (typeof syncNativePushStatus === 'function') syncNativePushStatus();
   }
   if (name === 'survey') {
@@ -3237,6 +4010,11 @@ async function applyPushEnabledState(enabled, options) {
   if (opts.syncProfile !== false) {
     await syncPushPreferenceToProfile(nextEnabled, opts.subscriptionValue);
   }
+  if (_profile && _profile.memberId) {
+    syncCurrentDeviceSession({ silent: true }).catch(function (error) {
+      console.error('syncCurrentDeviceSession after push setting error:', error);
+    });
+  }
 }
 
 // 起動時にlocalStorageから通知ボタンの状態を即座に復元
@@ -3325,6 +4103,9 @@ async function togglePasscodeLoginSetting() {
     closePasscodeOverlay();
     markPasscodeUnlockSkippedOnce();
   }
+  syncCurrentDeviceSession({ silent: true }).catch(function (error) {
+    console.error('syncCurrentDeviceSession after togglePasscodeLoginSetting error:', error);
+  });
   showToast(nextEnabled ? '起動時のパスコード入力をオンにしました' : '起動時のパスコード入力をオフにしました');
 }
 
@@ -5146,6 +5927,10 @@ async function applyRecoveredUserState(user, passcode, successMessage) {
   updateProfileUI();
   updateStampUI();
   renderEarnedRewards();
+  cacheDeviceSessions(Array.isArray(u.deviceSessions) ? u.deviceSessions : []);
+  syncCurrentDeviceSession({ silent: true }).catch(function (error) {
+    console.error('syncCurrentDeviceSession after recovery error:', error);
+  });
   const homePage = document.getElementById('page-home');
   if (homePage) homePage.classList.add('active');
   switchPage('home');
@@ -5526,8 +6311,16 @@ async function saveNewPasscode() {
     if (res && res.status === 'ok') {
       await storeLocalPasscode(newPass);
       isPasscodeAuthenticated = true;
+      syncCurrentDeviceSession({ silent: true }).catch(function (error) {
+        console.error('syncCurrentDeviceSession after saveNewPasscode error:', error);
+      });
       updateTransferCodeDisplay(null);
       showToast('パスコードを変更しました🌿');
+      closeSetupModal();
+    } else if (res && res.status === 'queued') {
+      await storeLocalPasscode(newPass);
+      isPasscodeAuthenticated = true;
+      showToast('パスコードを変更しました。通信回復後に同期します');
       closeSetupModal();
     } else {
       showToast('変更に失敗しました');
@@ -5651,6 +6444,16 @@ async function saveProfile() {
   nameEl.classList.remove('error');
   nameErr.classList.remove('show');
 
+  if (isNew) {
+    const candidates = await checkExistingMemberCandidates(name, phone, birthday);
+    const movedToRestore = await promptRecoveryCandidates(candidates, {
+      name: name,
+      phone: phone,
+      birthday: birthday
+    });
+    if (movedToRestore) return;
+  }
+
   const now = new Date();
   // 登録/更新日時を yyyy/M/d H:mm 形式にする
   const regDate = formatCustomerDateYmd(now);
@@ -5718,6 +6521,7 @@ async function saveProfile() {
       passcode: isNew ? passcode : undefined,
       pushSubscription: getCurrentPushSubscriptionValue(isPushEnabled())
     });
+    await syncCurrentDeviceSession({ silent: true });
     await syncRewardStatus(true);
 
     // OneSignal タグ設定
@@ -5766,7 +6570,21 @@ async function saveMigrationPasscode() {
       localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
       await storeLocalPasscode(passcode);
       isPasscodeAuthenticated = true;
+      syncCurrentDeviceSession({ silent: true }).catch(function (error) {
+        console.error('syncCurrentDeviceSession after saveMigrationPasscode error:', error);
+      });
       showToast('パスコード設定を完了しました🌿');
+      document.getElementById('migrationOverlay').classList.remove('open');
+      const homePage = document.getElementById('page-home');
+      if (homePage) homePage.classList.add('active');
+      switchPage('home');
+      updateProfileUI();
+    } else if (res && res.status === 'queued') {
+      _profile.phone = phone;
+      localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
+      await storeLocalPasscode(passcode);
+      isPasscodeAuthenticated = true;
+      showToast('設定を保存しました。通信回復後に同期します');
       document.getElementById('migrationOverlay').classList.remove('open');
       const homePage = document.getElementById('page-home');
       if (homePage) homePage.classList.add('active');
@@ -5899,6 +6717,180 @@ function updateProfileUI() {
       }
     }
   });
+  renderFavoriteList();
+  renderUserDevices();
+  renderRetryQueueStatus();
+  renderAccessibilitySettings();
+  renderCurrentDeviceGuidance();
+}
+
+function renderFavoriteList() {
+  const list = document.getElementById('favoriteList');
+  if (!list) return;
+  const favorites = getFavoriteEntries();
+  if (!favorites.length) {
+    list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:22px 0">お気に入りはまだありません</div>';
+    return;
+  }
+  list.innerHTML = favorites.map(function (entry) {
+    const subtitle = escapeHtml(entry.subtitle || '');
+    const title = escapeHtml(entry.title || '');
+    const dateLabel = escapeHtml(entry.dateLabel || '');
+    const encodedKey = encodeURIComponent(entry.key || '');
+    return `<div class="favorite-card"><div class="favorite-main" onclick="openFavoriteEntry('${encodedKey}')"><div class="favorite-meta">${subtitle}${dateLabel ? '<span class="favorite-date">' + dateLabel + '</span>' : ''}</div><div class="favorite-title">${title}</div></div><button class="favorite-remove-btn" type="button" onclick="removeFavoriteEntry('${encodedKey}')">削除</button></div>`;
+  }).join('');
+}
+
+function openFavoriteEntry(key) {
+  const resolvedKey = decodeURIComponent(String(key || ''));
+  const entry = getFavoriteEntries().find(function (item) {
+    return item && item.key === resolvedKey;
+  });
+  if (!entry) return;
+  switchPage(entry.page || 'home');
+  if (entry.kind === 'product') {
+    const productIndex = PRODUCTS.findIndex(function (item) { return buildContentItemKey('product', item) === resolvedKey; });
+    if (productIndex >= 0) openProductModal(productIndex);
+  }
+  if (entry.kind === 'blog') {
+    const blogItem = blogItems.find(function (item) { return buildContentItemKey('blog', item) === resolvedKey; });
+    if (blogItem) openBlogDetail(blogItem);
+  }
+  if (entry.kind === 'menu') {
+    const menuIndex = USER_MENUS.findIndex(function (item) { return buildContentItemKey('menu', item) === resolvedKey; });
+    if (menuIndex >= 0) openMenuDetail(menuIndex);
+  }
+  if (entry.kind === 'calendar') {
+    const calendarIndex = calendarData.findIndex(function (item) { return buildContentItemKey('calendar', item) === resolvedKey; });
+    if (calendarIndex >= 0) openCalendarEventDetail(calendarIndex);
+  }
+}
+
+function removeFavoriteEntry(key) {
+  const resolvedKey = decodeURIComponent(String(key || ''));
+  saveFavoriteEntries(getFavoriteEntries().filter(function (entry) {
+    return entry.key !== resolvedKey;
+  }));
+  showToast('お気に入りから外しました');
+  refreshActiveDetailViews();
+}
+
+async function syncCurrentDeviceSession(options) {
+  if (!_profile || !_profile.memberId) return;
+  const opts = options || {};
+  const response = await postToGAS(Object.assign({
+    type: 'syncUserDeviceSession',
+    memberId: _profile.memberId
+  }, buildCurrentDeviceSessionPayload()), {
+    skipRetryQueue: opts.skipRetryQueue === true,
+    silent: opts.silent === true
+  });
+  if (response && response.status === 'ok' && Array.isArray(response.devices)) {
+    cacheDeviceSessions(response.devices);
+    renderUserDevices();
+  }
+}
+
+async function loadUserDevices() {
+  if (!_profile || !_profile.memberId) {
+    cacheDeviceSessions([]);
+    renderUserDevices();
+    return;
+  }
+  const response = await getFromGAS('getUserDevices', { memberId: _profile.memberId });
+  if (response && response.status === 'ok' && Array.isArray(response.devices)) {
+    cacheDeviceSessions(response.devices);
+  }
+  renderUserDevices();
+}
+
+function renderUserDevices() {
+  const list = document.getElementById('deviceSessionList');
+  if (!list) return;
+  const devices = getCachedDeviceSessions();
+  if (!devices.length) {
+    list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:22px 0">この端末情報は次回同期時に表示されます</div>';
+    return;
+  }
+  const currentDeviceId = getCurrentDeviceSessionId();
+  list.innerHTML = devices.map(function (device) {
+    const isCurrent = String(device.deviceId || '') === currentDeviceId;
+    const flags = [];
+    if (device.passcodeEnabled) flags.push('パスコードON');
+    if (device.pushEnabled) flags.push('通知ON');
+    return `<div class="device-session-card"><div class="device-session-head"><div><div class="device-session-title">${escapeHtml(device.label || 'この端末')}</div><div class="device-session-sub">${escapeHtml(device.platform || '')}${device.appVersion ? ' / ' + escapeHtml(device.appVersion) : ''}</div></div><div class="device-session-chip">${isCurrent ? '使用中' : '登録済み'}</div></div><div class="device-session-meta">最終利用: ${escapeHtml(formatCustomerDateYmdHm(device.lastSeenAt) || formatCustomerDateYmd(device.lastSeenAt) || '---')}</div><div class="device-session-flags">${flags.length ? flags.map(function (flag) { return '<span>' + escapeHtml(flag) + '</span>'; }).join('') : '<span>設定情報なし</span>'}</div>${isCurrent ? '' : '<button class="btn secondary device-session-remove" type="button" onclick="removeUserDeviceSession(\'' + escapeHtml(device.deviceId) + '\')">この端末を一覧から外す</button>'}</div>`;
+  }).join('');
+}
+
+async function removeUserDeviceSession(deviceId) {
+  if (!_profile || !_profile.memberId || !deviceId) return;
+  const confirmed = await showAppConfirm('この端末を一覧から外しますか？\n古い端末や使っていない端末だけを外してください。', {
+    title: '端末一覧',
+    confirmLabel: '外す',
+    cancelLabel: '戻る',
+    confirmVariant: 'danger'
+  });
+  if (!confirmed) return;
+  const response = await postToGAS({
+    type: 'removeUserDeviceSession',
+    memberId: _profile.memberId,
+    deviceId: deviceId
+  });
+  if (response && (response.status === 'ok' || response.status === 'queued')) {
+    cacheDeviceSessions((response && response.devices) || getCachedDeviceSessions().filter(function (device) {
+      return device.deviceId !== deviceId;
+    }));
+    renderUserDevices();
+    showToast(response.status === 'queued' ? '通信回復後に端末一覧へ反映します' : '端末一覧から外しました');
+  }
+}
+
+async function checkExistingMemberCandidates(name, phone, birthday) {
+  if (!name && !phone && !birthday) return [];
+  const response = await getFromGAS('getRecoveryCandidates', {
+    name: name,
+    phone: phone,
+    birthday: birthday
+  });
+  if (response && response.status === 'ok' && Array.isArray(response.candidates)) {
+    return response.candidates;
+  }
+  return [];
+}
+
+function prefillRecoveryFormsFromProfile(values) {
+  const payload = values || {};
+  [
+    ['restoreName', payload.name],
+    ['restorePhone', payload.phone],
+    ['restoreBirthday', payload.birthday],
+    ['passcodeRestoreName', payload.name],
+    ['passcodeRestorePhone', payload.phone],
+    ['passcodeRestoreBirthday', payload.birthday]
+  ].forEach(function (pair) {
+    const el = document.getElementById(pair[0]);
+    if (el && pair[1] !== undefined) el.value = pair[1] || '';
+  });
+}
+
+async function promptRecoveryCandidates(candidates, formValues) {
+  if (!candidates || !candidates.length) return false;
+  const summary = candidates.slice(0, 3).map(function (candidate) {
+    const reasonText = Array.isArray(candidate.reasons) ? candidate.reasons.join('・') : '一致';
+    return '・' + (candidate.name || '会員') + ' / ' + (candidate.memberId || '---') + ' / 一致: ' + reasonText;
+  }).join('\n');
+  const shouldMove = await showAppConfirm(
+    '以前登録した可能性がある会員が見つかりました。\n新規登録ではなく復元を使うと、同じお名前で別の会員IDが増えるのを防げます。\n\n' + summary + '\n\n復元画面へ移動しますか？',
+    {
+      title: '以前登録した情報が見つかりました',
+      confirmLabel: '復元へ進む',
+      cancelLabel: '新規登録を続ける'
+    }
+  );
+  if (!shouldMove) return false;
+  prefillRecoveryFormsFromProfile(formValues);
+  toggleSetupView('restore');
+  return true;
 }
 
 function checkFirstLaunch() {
@@ -5944,9 +6936,48 @@ function startAppFromOnboarding() {
   }, 600); // フェードアウトを待つ
 }
 
+function normalizeOpenPageTarget(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  const map = {
+    home: 'home',
+    shop: 'shop',
+    news: 'blog',
+    blog: 'blog',
+    calendar: 'calendar',
+    notices: 'notices',
+    notice: 'notices',
+    menu: 'menu-list',
+    'menu-list': 'menu-list',
+    mypage: 'mypage',
+    profile: 'mypage'
+  };
+  return map[raw] || '';
+}
+
+function openPageFromNotificationTarget(target) {
+  const page = normalizeOpenPageTarget(target);
+  if (!page) return false;
+  if (!_profile && page !== 'home') {
+    openSetupModal(true);
+    return true;
+  }
+  switchPage(page);
+  return true;
+}
+
 // ===== URLパラメータからのスタンプ付与処理 =====
 function checkUrlParams() {
   const params = new URLSearchParams(window.location.search);
+  const openTarget = params.get('open');
+  if (openTarget) {
+    setTimeout(function () {
+      openPageFromNotificationTarget(openTarget);
+    }, 400);
+    params.delete('open');
+    const nextUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+    window.history.replaceState({}, document.title, nextUrl);
+    return;
+  }
   if (params.get('action') === 'add_stamp') {
     setTimeout(() => {
       // すでにプロフィール登録済みの場合のみスタンプを付与
@@ -6188,6 +7219,10 @@ async function handleNativeNotificationFallback() {
 async function initApp() {
   if (initAppStarted) return;
   initAppStarted = true;
+  await initSecureLocalStore();
+  applyAccessibilitySettings();
+  renderRetryQueueStatus();
+  renderCurrentDeviceGuidance();
 
   // 最初に初回起動チェックを行い、UI（オンボーディング or ホーム）を表示する
   checkFirstLaunch();
@@ -6195,6 +7230,9 @@ async function initApp() {
   const versionGate = await ensureSupportedAppVersion();
   if (versionGate.blocked) {
     return;
+  }
+  if (versionGate.needsWebUpdate) {
+    showAppUpdateBanner('最新版があります。更新すると最新の内容が反映されます。', versionGate && versionGate.config ? versionGate.config.webBundleVersion : '');
   }
 
   loadStampRewards();
@@ -6305,12 +7343,29 @@ async function initApp() {
       PushNotifications.addListener('pushNotificationReceived', async (n) => {
         console.log('Native Push Received:', n);
         showToast('通知を受信しました: ' + (n.title || '新しい通知'));
+        refreshNoticeFeed().catch(function (error) {
+          console.error('refreshNoticeFeed from native push error:', error);
+        });
         try {
           // @capawesome/capacitor-badge スタイル
           const count = await Badge.get();
           await Badge.set({ count: (count.count || 0) + 1 });
         } catch (e) {
           console.error('Badge Update Exception:', e);
+        }
+      });
+
+      PushNotifications.addListener('pushNotificationActionPerformed', async (action) => {
+        console.log('Native Push Action:', action);
+        try {
+          await Badge.clear();
+        } catch (e) { }
+        const payload = action && action.notification && action.notification.data ? action.notification.data : {};
+        const target = payload.openPage || payload.targetPage || payload.page || '';
+        if (target) {
+          setTimeout(function () {
+            openPageFromNotificationTarget(target);
+          }, 250);
         }
       });
 
@@ -6331,7 +7386,27 @@ async function initApp() {
     refreshOrderHistory: false
   }).then(() => {
     isDataLoaded = true;
+    const initializedBaseline = ensureSeenBaselineInitialized();
+    if (initializedBaseline) {
+      renderBlogList('homeNewsList', 3);
+      if (document.getElementById('page-blog').classList.contains('active')) renderDividedBlogList();
+      if (document.getElementById('page-notices').classList.contains('active')) renderPushNotices();
+      renderMenus();
+      renderCalendarEventLists();
+      loadProducts().catch(function (error) {
+        console.error('loadProducts baseline refresh error:', error);
+      });
+    }
     updateNavBadges();
+    loadUserDevices().catch(function (error) {
+      console.error('loadUserDevices error:', error);
+    });
+    syncCurrentDeviceSession({ silent: true }).catch(function (error) {
+      console.error('syncCurrentDeviceSession init error:', error);
+    });
+    flushRetryQueue().catch(function (error) {
+      console.error('flushRetryQueue init error:', error);
+    });
   }).catch(e => console.error('Initial load error:', e));
 }
 initApp().catch(e => console.error('initApp error:', e));
@@ -6386,6 +7461,13 @@ document.addEventListener('visibilitychange', function () {
         updateNavBadges();
       }
 
+      syncCurrentDeviceSession({ silent: true }).catch(function (error) {
+        console.error('syncCurrentDeviceSession resume error:', error);
+      });
+      flushRetryQueue().catch(function (error) {
+        console.error('flushRetryQueue resume error:', error);
+      });
+
       // アプリ復帰時にバッジをクリア (iOS用)
       if (window.Capacitor) {
         import('@capawesome/capacitor-badge').then(({ Badge }) => {
@@ -6414,6 +7496,23 @@ setInterval(function () {
     console.error('periodic notice feed refresh error:', e);
   });
 }, 90000);
+
+window.addEventListener('online', function () {
+  flushRetryQueue().catch(function (error) {
+    console.error('flushRetryQueue online error:', error);
+  });
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (!appUpdateContext.needsReload) return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.get('upd')) {
+      url.searchParams.set('upd', Date.now());
+      window.location.href = url.toString();
+    }
+  });
+}
 
 
 
@@ -6749,7 +7848,7 @@ function renderMenus() {
             <div style="flex:1; display:flex; align-items:center; min-width:0;">
               <div style="flex:1; min-width:0;">
                 ${m.category ? `<div style="font-size:11px; color:var(--sage-dark); font-weight:700; margin-bottom:6px;">${escapeHtml(m.category)}</div>` : ''}
-                <h3 style="margin:0; font-size:1.2rem; color:var(--text-main); font-weight:700; line-height:1.4; flex:1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${m.name}</h3>
+                <h3 style="margin:0; font-size:1.2rem; color:var(--text-main); font-weight:700; line-height:1.4; flex:1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${m.name} ${buildUnreadBadgeHtml('menu', m)} ${isFavoriteKey(buildContentItemKey('menu', m)) ? '<span class="item-favorite-badge inline">★</span>' : ''}</h3>
               </div>
             </div>
             <div style="color:var(--text-light); font-size:18px; margin-left:5px; flex-shrink:0;">›</div>
@@ -6762,6 +7861,7 @@ function renderMenus() {
 function openMenuDetail(idx) {
   const m = USER_MENUS[idx];
   if (!m) return;
+  markContentItemSeen('menu', m);
 
   let imageHtml = '';
   if (m.imageUrl) {
@@ -6777,7 +7877,10 @@ function openMenuDetail(idx) {
         <div class="blog-detail-title" style="margin-bottom:16px;">${m.name}</div>
         ${imageHtml}
         <div class="blog-detail-body" style="font-size:15px; line-height:1.8; color:var(--text-main);">${formattedDesc}</div>
+        <div style="margin-top:14px;">${buildFavoriteActionMarkup('menu', m)}</div>
       `;
+  renderMenus();
+  updateNavBadges();
   openModal('menuDetailModal');
 }
 
