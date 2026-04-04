@@ -3185,7 +3185,7 @@ function getContentDisplayImageUrl(rawValue) {
   if (!value) return '';
   const driveFileId = extractDriveFileId(value);
   if (!driveFileId) return value;
-  return 'https://drive.google.com/uc?export=view&id=' + driveFileId;
+  return 'https://lh3.googleusercontent.com/d/' + driveFileId + '=w1600';
 }
 
 function parseLooseDateToTimestamp(rawValue) {
