@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.57';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.58';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -2370,7 +2370,7 @@ function renderCalendarEventLists() {
     return String(event.date || '').slice(0, 7) === monthYearStr &&
       !isCalendarHolidayEvent(event) &&
       !isCalendarVisitEvent(event);
-  });
+  }).sort(compareCalendarEventsByDateAsc);
 
   const displayDate = formatCalendarDisplayDate(selectedKey);
   const dailyHeader = `<h3 style="margin:0; font-size:15px; color:#9d5b5b; padding-bottom:8px; border-bottom:1px dashed #f7d2d2; margin-bottom:12px;">${escapeHtml(displayDate)}の予定</h3>`;
@@ -2620,7 +2620,23 @@ function getCalendarEventsByDate(dateKey) {
   return calendarData.filter(function (event) {
     const eventDate = String(event.date || '').split(/[ T]/)[0];
     return eventDate === dateKey;
-  });
+  }).sort(compareCalendarEventsByDateAsc);
+}
+
+function compareCalendarEventsByDateAsc(a, b) {
+  const aRange = getCalendarEventDateRange(a);
+  const bRange = getCalendarEventDateRange(b);
+  const aStart = String(aRange && aRange.startDate || '');
+  const bStart = String(bRange && bRange.startDate || '');
+  if (aStart !== bStart) return aStart.localeCompare(bStart);
+
+  const aTitle = String(a && a.title || '');
+  const bTitle = String(b && b.title || '');
+  if (aTitle !== bTitle) return aTitle.localeCompare(bTitle, 'ja');
+
+  const aDesc = String(a && a.desc || '');
+  const bDesc = String(b && b.desc || '');
+  return aDesc.localeCompare(bDesc, 'ja');
 }
 
 function isCalendarHolidayEvent(event) {
@@ -4060,11 +4076,18 @@ function switchPage(name) {
     // 拡声器ページを開いた山時点で統合ハッシュを保存 → バッジを溈ませる
     localStorage.setItem('last_seen_notices_hash', computeNoticeListHash());
     document.getElementById('badge-notices').style.display = 'none';
-    renderPushNotices();
     if (isDataLoaded) {
+      const noticeList = document.getElementById('noticeList');
+      if (noticeList) {
+        noticeList.innerHTML = '<div style="text-align:center; padding:40px 20px; color:var(--text-mid);">最新のお知らせ一覧を確認中...</div>';
+      }
       refreshNoticeFeed().catch(function (e) {
         console.error('notice feed refresh error:', e);
+      }).finally(function () {
+        renderPushNotices();
       });
+    } else {
+      renderPushNotices();
     }
   }
   if (name === 'home') {
