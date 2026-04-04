@@ -1,6 +1,9 @@
-const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v1';
+const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v2';
+const ADMIN_ENTRY_CANDIDATES = [
+  './mayumi-admin.html',
+  './index.html'
+];
 const ADMIN_SHELL_ASSETS = [
-  './index.html',
   './admin-manifest.json',
   './admin-icon-192.png',
   './admin-icon-512.png',
@@ -15,7 +18,24 @@ self.addEventListener('install', function (event) {
   event.waitUntil(
     caches.open(ADMIN_CACHE_NAME)
       .then(function (cache) {
-        return cache.addAll(ADMIN_SHELL_ASSETS);
+        return Promise.all(
+          ADMIN_SHELL_ASSETS.map(function (asset) {
+            return cache.add(asset).catch(function () {
+              return null;
+            });
+          }).concat(
+            ADMIN_ENTRY_CANDIDATES.map(function (asset) {
+              return fetch(asset, { cache: 'no-cache' })
+                .then(function (response) {
+                  if (!response || !response.ok) return null;
+                  return cache.put(asset, response.clone());
+                })
+                .catch(function () {
+                  return null;
+                });
+            })
+          )
+        );
       })
       .then(function () {
         return self.skipWaiting();
@@ -45,17 +65,21 @@ self.addEventListener('fetch', function (event) {
   if (requestUrl.origin !== self.location.origin) return;
 
   if (event.request.mode === 'navigate') {
+    const fallbackKey = requestUrl.pathname.endsWith('/mayumi-admin.html') ? './mayumi-admin.html' : './index.html';
     event.respondWith(
       fetch(event.request)
         .then(function (response) {
           const cloned = response.clone();
           caches.open(ADMIN_CACHE_NAME).then(function (cache) {
-            cache.put('./index.html', cloned);
+            cache.put(fallbackKey, cloned);
           });
           return response;
         })
         .catch(function () {
-          return caches.match('./index.html');
+          return caches.match(fallbackKey)
+            .then(function (cached) {
+              return cached || caches.match('./mayumi-admin.html') || caches.match('./index.html');
+            });
         })
     );
     return;

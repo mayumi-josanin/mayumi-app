@@ -2966,7 +2966,19 @@
       updateAdminInstallUi();
 
       if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-        navigator.serviceWorker.register('./admin-sw.js').catch(function (err) {
+        let adminSwReloaded = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (adminSwReloaded) return;
+          adminSwReloaded = true;
+          location.reload();
+        });
+        navigator.serviceWorker.register('./admin-sw.js').then(function (registration) {
+          if (registration && registration.update) {
+            registration.update().catch(function (err) {
+              console.warn('Admin service worker update failed', err);
+            });
+          }
+        }).catch(function (err) {
           console.warn('Admin service worker registration failed', err);
         });
       }
