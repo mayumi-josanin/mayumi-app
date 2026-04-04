@@ -1719,37 +1719,6 @@
         </div>
 
         <div class="card mb-2">
-          <div class="card-title">👥 会員登録経路分析</div>
-          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
-            新規登録、復元、引き継ぎコード利用、重複候補からの復旧など、会員データがどの経路で作成・復元されたかを月別で確認できます。
-          </div>
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr id="registrationRouteHeader">
-                  <th>月 / 経路</th>
-                </tr>
-              </thead>
-              <tbody id="registrationRouteBody">
-                <tr>
-                  <td colspan="1" style="text-align:center;">読み込み中...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card mb-2">
-          <div class="card-title">🏷️ 人気カテゴリ分析</div>
-          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
-            NEWS、商品、メニュー、カレンダーで使用されているカテゴリ件数を多い順で確認できます。
-          </div>
-          <div id="popularCategoryAnalysisBody" class="summary-grid">
-            <div style="font-size:12px; color:var(--text-mid);">読み込み中...</div>
-          </div>
-        </div>
-
-        <div class="card mb-2">
           <div class="card-title">📝 メニュー収益を記録</div>
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
             営業日ごとに複数メニューをまとめて記録できます。売上合計は 件数 × 単価、粗利は 売上合計 - (件数 × 原価単価) で集計し、分析に反映します。
@@ -6507,6 +6476,12 @@
         });
       }
 
+      window.lastAnalyticsResult = res;
+      window.lastAnalyticsMonths = filteredMonths;
+      renderMonthComparisonTable(filteredMonths, res);
+      renderGrossProfitSummaryCards(filteredMonths, res);
+      renderMonthlyAnalyticsCharts(filteredMonths, res);
+
       // --- 商品別販売数 ---
       // ヘッダーの生成
       let headerHtml = '<th>月 / 商品名</th>';
@@ -6521,20 +6496,19 @@
       tbody.innerHTML = '';
       if (filteredMonths.length === 0 || displayProducts.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${displayProducts.length + 1}" style="text-align:center;">対象データがありません</td></tr>`;
-        return;
-      }
-
-      filteredMonths.forEach(m => {
-        const tr = document.createElement('tr');
-        let trHtml = `<td><b>${m}</b></td>`;
-        displayProducts.forEach(p => {
-          const productStats = (res.matrix[m] && res.matrix[m].products && res.matrix[m].products[p]);
-          const qty = (productStats && typeof productStats === 'object') ? productStats.qty : (productStats || 0);
-          trHtml += `<td style="text-align:center;">${qty || '-'}</td>`;
+      } else {
+        filteredMonths.forEach(m => {
+          const tr = document.createElement('tr');
+          let trHtml = `<td><b>${m}</b></td>`;
+          displayProducts.forEach(p => {
+            const productStats = (res.matrix[m] && res.matrix[m].products && res.matrix[m].products[p]);
+            const qty = (productStats && typeof productStats === 'object') ? productStats.qty : (productStats || 0);
+            trHtml += `<td style="text-align:center;">${qty || '-'}</td>`;
+          });
+          tr.innerHTML = trHtml;
+          tbody.appendChild(tr);
         });
-        tr.innerHTML = trHtml;
-        tbody.appendChild(tr);
-      });
+      }
 
       // 月選択ドロップダウンの更新
       const detailMonthFilter = document.getElementById('detailedAnalyticsMonthFilter');
@@ -6547,16 +6521,6 @@
           renderDetailedAnalytics(currentVal);
         }
       }
-
-      renderMonthComparisonTable(filteredMonths, res);
-      renderGrossProfitSummaryCards(filteredMonths, res);
-      renderMonthlyAnalyticsCharts(filteredMonths, res);
-      renderRegistrationRouteAnalytics(res.registrationRoutes || null);
-      renderPopularCategoryAnalytics(res.categoryUsage || null);
-
-      // グローバル保存 (詳細描画で使うため)
-      window.lastAnalyticsResult = res;
-      window.lastAnalyticsMonths = filteredMonths;
     }
 
     function shiftMonthKey(monthKey, diffMonths) {
