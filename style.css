@@ -960,6 +960,8 @@
 
     .blog-media-frame--detail {
       margin-bottom: 12px;
+      min-height: 240px;
+      padding: 10px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
@@ -976,7 +978,7 @@
     }
 
     .blog-media-image--detail {
-      max-height: 70vh;
+      max-height: none;
     }
 
     .blog-inline-image {
@@ -995,7 +997,7 @@
 
     .blog-inline-image--detail {
       margin: 12px 0;
-      max-height: 70vh;
+      max-height: none;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
