@@ -1278,7 +1278,7 @@
         </div>
         <div class="card table-wrapper">
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
-            お客様アプリの「お知らせ一覧」に出す内容を、配信日時の新しい順で確認できます。ここでの公開切替と削除はお知らせ一覧だけに反映され、NEWS・カレンダー・ショップ・ホームの元データの公開設定や掲載内容には影響しません。編集は元データの管理画面へ移動してください。
+            お客様アプリの「お知らせ一覧」に出す内容を、配信日時の新しい順で確認できます。ここでの公開切替と削除はお知らせ一覧だけに反映され、NEWS・カレンダー・ショップ・ホームの元データの公開設定や掲載内容には影響しません。削除した項目はこの一覧とお客様アプリ側のお知らせ一覧から完全に消えます。編集は元データの管理画面へ移動してください。
           </div>
           <table>
             <thead>
@@ -3261,6 +3261,7 @@
         updateOrder: '注文更新',
         updateRecordStatus: '公開状態更新',
         updateNoticeVisibility: 'お知らせ公開状態更新',
+        deleteNoticeListing: 'お知らせ一覧削除',
         updateItemOrder: '並び順更新',
         uploadImage: '画像アップロード',
         saveAppRuntimeConfig: 'アプリ設定変更',
@@ -3289,7 +3290,7 @@
       const dangerTypes = new Set([
         'deleteRow', 'deleteRows', 'deleteOrders', 'deleteUser', 'deleteCategory', 'deleteSupportFaq',
         'deleteMenu', 'deleteAdminTemplate', 'deleteMenuRevenueRecord', 'deleteProductRevenueRecord',
-        'mergeUsers', 'restoreDeletedRecord', 'hardDeleteRecord', 'runManualBackup',
+        'mergeUsers', 'restoreDeletedRecord', 'hardDeleteRecord', 'runManualBackup', 'deleteNoticeListing',
         'saveAppRuntimeConfig', 'saveAdminSecurityConfig'
       ]);
       return {
@@ -5583,7 +5584,8 @@
       const minimumTimestamp = parseAdminNoticeTimestamp(ADMIN_NOTICE_FEED_START_DATE);
 
       const blogFeed = (allBlogs || []).filter(function (item) {
-        return normalizeAdminNoticePublishStatus(item.publishStatus || item.status) === '公開';
+        return normalizeAdminNoticePublishStatus(item.publishStatus || item.status) === '公開'
+          && !String(item.noticeDeletedAt || '').trim();
       }).map(function (item, index) {
         const publishMeta = buildAdminNoticePublishMeta({
           updatedAt: item.updatedAt,
@@ -5610,6 +5612,7 @@
 
       const calendarFeed = (allCalendarEvents || []).filter(function (event) {
         return normalizeAdminNoticePublishStatus(event.publishStatus || event.status) === '公開'
+          && !String(event.noticeDeletedAt || '').trim()
           && !isAdminNoticeCalendarHolidayEvent(event)
           && !isAdminNoticeCalendarVisitEvent(event);
       }).map(function (event, index) {
@@ -5635,7 +5638,8 @@
       });
 
       const productFeed = (allProducts || []).filter(function (product) {
-        return normalizeAdminNoticePublishStatus(product.status) === '公開';
+        return normalizeAdminNoticePublishStatus(product.status) === '公開'
+          && !String(product.noticeDeletedAt || '').trim();
       }).map(function (product, index) {
         const publishMeta = buildAdminNoticePublishMeta({
           updatedAt: product.updatedAt
@@ -5657,7 +5661,8 @@
       });
 
       const menuFeed = (allMenus || []).filter(function (menu) {
-        return normalizeAdminNoticePublishStatus(menu.publishStatus || menu.status) === '公開';
+        return normalizeAdminNoticePublishStatus(menu.publishStatus || menu.status) === '公開'
+          && !String(menu.noticeDeletedAt || '').trim();
       }).map(function (menu, index) {
         const publishMeta = buildAdminNoticePublishMeta({
           updatedAt: menu.updatedAt,
@@ -5939,24 +5944,23 @@
       if (!target) return;
 
       const confirmed = await requestDangerousConfirm({
-        title: 'お知らせ一覧から削除する確認',
-        message: `「${title || target.label}」をお知らせ一覧から削除します。元データ自体は削除されません。`,
+        title: 'お知らせ一覧から完全削除する確認',
+        message: `「${title || target.label}」をお知らせ一覧とお客様アプリから完全に削除します。元データ自体は削除されません。`,
         keyword: '削除',
-        confirmLabel: '一覧から削除する'
+        confirmLabel: '完全に削除する'
       });
       if (!confirmed) return;
 
-      showToast('お知らせ一覧から削除中...');
+      showToast('お知らせ一覧から完全削除中...');
       const res = await apiRequest('', {
-        type: 'updateNoticeVisibility',
+        type: 'deleteNoticeListing',
         sheet: target.sheet,
-        rowIdx: targetRowIdx,
-        status: '非公開'
+        rowIdx: targetRowIdx
       }, true);
 
       if (res && res.status === 'ok') {
         invalidateAdminApiCache(target.cacheKeys);
-        showToast('お知らせ一覧から削除しました');
+        showToast('お知らせ一覧から完全に削除しました');
         await loadAdminNoticeOverview();
       } else {
         showToast('削除に失敗しました: ' + (res && res.message ? res.message : '不明なエラー'));
