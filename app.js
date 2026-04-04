@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.58';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.59';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -26,6 +26,7 @@ try { stampCardNum = parseInt(localStorage.getItem('mayumi_stamp_card') || '1') 
 let STAMP_REWARD_CONFIG = [];
 let CURRENT_MONTHLY_REWARD = null;
 const STAMP_HISTORY_STORAGE_KEY = 'mayumi_stamp_history';
+const LAST_STAMP_AT_STORAGE_KEY = 'mayumi_last_stamp_at';
 let EARNED_REWARDS = [];
 try { EARNED_REWARDS = JSON.parse(localStorage.getItem('mayumi_earned_rewards') || '[]'); } catch (e) { }
 let STAMP_HISTORY = [];
@@ -1261,6 +1262,30 @@ function normalizeStampHistoryList(history) {
   });
 }
 
+function selectLatestRewardDateTime(values) {
+  return (Array.isArray(values) ? values : []).reduce(function (latest, value) {
+    const normalized = normalizeRewardDateTime(value);
+    if (!normalized) return latest;
+    if (!latest) return normalized;
+    return new Date(normalized).getTime() >= new Date(latest).getTime() ? normalized : latest;
+  }, '');
+}
+
+function getLatestStampHistoryDateTime(history) {
+  const normalizedHistory = normalizeStampHistoryList(history);
+  return normalizedHistory.length ? normalizedHistory[0].acquiredDate : '';
+}
+
+function deriveLastStampAt(statusLike, normalizedHistory) {
+  const source = statusLike || {};
+  const history = normalizedHistory || normalizeStampHistoryList(source.stampHistory);
+  return selectLatestRewardDateTime([
+    source.lastStampAt,
+    history.length ? history[0].acquiredDate : '',
+    source.lastStampDate
+  ]);
+}
+
 function mergeRewardLists(leftRewards, rightRewards) {
   const merged = {};
   normalizeRewardList([].concat(leftRewards || [], rightRewards || [])).forEach(function (reward) {
@@ -1283,12 +1308,19 @@ function mergeRewardLists(leftRewards, rightRewards) {
 function mergeRewardStatuses(primaryStatus, secondaryStatus) {
   const primary = getComparableRewardStatus(primaryStatus);
   const secondary = getComparableRewardStatus(secondaryStatus);
+  const mergedStampHistory = normalizeStampHistoryList([].concat(primary.stampHistory || [], secondary.stampHistory || []));
+  const mergedLastStampAt = selectLatestRewardDateTime([
+    deriveLastStampAt(primary, primary.stampHistory),
+    deriveLastStampAt(secondary, secondary.stampHistory),
+    mergedStampHistory.length ? mergedStampHistory[0].acquiredDate : ''
+  ]);
   return {
     stampCount: Math.max(Number(primary.stampCount || 0), Number(secondary.stampCount || 0)),
     stampCardNum: Math.max(Number(primary.stampCardNum || 1), Number(secondary.stampCardNum || 1)),
     rewards: mergeRewardLists(primary.rewards, secondary.rewards),
-    stampHistory: normalizeStampHistoryList([].concat(primary.stampHistory || [], secondary.stampHistory || [])),
-    lastStampDate: [primary.lastStampDate, secondary.lastStampDate].sort().pop() || '',
+    stampHistory: mergedStampHistory,
+    lastStampDate: normalizeStampDateKey(primary.lastStampDate || secondary.lastStampDate || mergedLastStampAt),
+    lastStampAt: mergedLastStampAt,
     stampAchievedDate: [primary.stampAchievedDate, secondary.stampAchievedDate].sort().pop() || ''
   };
 }
@@ -1500,17 +1532,26 @@ function resetRewardGachaModal() {
 
 function getLocalRewardStatus() {
   let lastStampDate = '';
+  let lastStampAt = '';
   let stampAchievedDate = '';
   try {
     lastStampDate = normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date') || '');
+    lastStampAt = normalizeRewardDateTime(localStorage.getItem(LAST_STAMP_AT_STORAGE_KEY) || '');
     stampAchievedDate = normalizeRewardDateTime(localStorage.getItem('mayumi_stamp_10_date') || '');
   } catch (e) { }
+  const normalizedStampHistory = normalizeStampHistoryList(STAMP_HISTORY);
+  const normalizedLastStampAt = deriveLastStampAt({
+    lastStampAt: lastStampAt,
+    lastStampDate: lastStampDate,
+    stampHistory: normalizedStampHistory
+  }, normalizedStampHistory);
   return {
     stampCount: Math.max(0, Math.min(10, Number(stampCount) || 0)),
     stampCardNum: Math.max(1, Number(stampCardNum) || 1),
     rewards: normalizeRewardList(EARNED_REWARDS),
-    stampHistory: normalizeStampHistoryList(STAMP_HISTORY),
-    lastStampDate: lastStampDate,
+    stampHistory: normalizedStampHistory,
+    lastStampDate: normalizeStampDateKey(lastStampDate || normalizedLastStampAt),
+    lastStampAt: normalizedLastStampAt,
     stampAchievedDate: stampAchievedDate
   };
 }
@@ -1527,12 +1568,15 @@ function hasMeaningfulRewardStatus(status) {
 
 function getComparableRewardStatus(status) {
   const normalized = status || getLocalRewardStatus();
+  const stampHistory = normalizeStampHistoryList(normalized.stampHistory);
+  const lastStampAt = deriveLastStampAt(normalized, stampHistory);
   return {
     stampCount: Math.max(0, Math.min(10, Number(normalized.stampCount) || 0)),
     stampCardNum: Math.max(1, Number(normalized.stampCardNum) || 1),
     rewards: normalizeRewardList(normalized.rewards),
-    stampHistory: normalizeStampHistoryList(normalized.stampHistory),
-    lastStampDate: normalizeStampDateKey(normalized.lastStampDate),
+    stampHistory: stampHistory,
+    lastStampDate: normalizeStampDateKey(normalized.lastStampDate || lastStampAt),
+    lastStampAt: lastStampAt,
     stampAchievedDate: normalizeRewardDateTime(normalized.stampAchievedDate)
   };
 }
@@ -1554,6 +1598,8 @@ function applyRewardStatusLocally(status) {
     localStorage.setItem(STAMP_HISTORY_STORAGE_KEY, JSON.stringify(STAMP_HISTORY));
     if (next.lastStampDate) localStorage.setItem('mayumi_last_stamp_date', next.lastStampDate);
     else localStorage.removeItem('mayumi_last_stamp_date');
+    if (next.lastStampAt) localStorage.setItem(LAST_STAMP_AT_STORAGE_KEY, next.lastStampAt);
+    else localStorage.removeItem(LAST_STAMP_AT_STORAGE_KEY);
     if (next.stampAchievedDate) localStorage.setItem('mayumi_stamp_10_date', next.stampAchievedDate);
     else localStorage.removeItem('mayumi_stamp_10_date');
   } catch (e) { }
@@ -1580,6 +1626,7 @@ async function syncRewardStatus(force) {
     rewards: localStatus.rewards,
     stampHistory: localStatus.stampHistory,
     lastStampDate: localStatus.lastStampDate,
+    lastStampAt: localStatus.lastStampAt,
     stampAchievedDate: localStatus.stampAchievedDate
   });
   if (res && res.status === 'ok' && res.rewardStatus) {
@@ -1669,6 +1716,7 @@ function addStamp() {
   try {
     localStorage.setItem('mayumi_stamp', String(stampCount));
     localStorage.setItem('mayumi_last_stamp_date', today);
+    localStorage.setItem(LAST_STAMP_AT_STORAGE_KEY, acquiredAt);
     if (stampCount === 10) {
       localStorage.setItem('mayumi_stamp_10_date', acquiredAt);
     }
@@ -1754,6 +1802,7 @@ async function drawRewardGacha() {
         stampCardNum: stampCardNum,
         rewards: [localReward].concat(normalizeRewardList(EARNED_REWARDS)),
         lastStampDate: normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date') || ''),
+        lastStampAt: normalizeRewardDateTime(localStorage.getItem(LAST_STAMP_AT_STORAGE_KEY) || ''),
         stampAchievedDate: normalizeRewardDateTime(localStorage.getItem('mayumi_stamp_10_date') || '')
       });
       applyRewardStatusLocally(nextStatus);
@@ -6160,6 +6209,11 @@ async function applyRecoveredUserState(user, passcode, successMessage) {
   stampCardNum = Number(u.stampCardNum || 1) || 1;
   EARNED_REWARDS = recoveredRewards;
   STAMP_HISTORY = recoveredStampHistory;
+  const recoveredLastStampAt = deriveLastStampAt({
+    lastStampAt: u.lastStampAt,
+    lastStampDate: u.lastStampDate,
+    stampHistory: recoveredStampHistory
+  }, recoveredStampHistory);
   localStorage.setItem('mayumi_profile', JSON.stringify(profile));
   localStorage.setItem('mayumi_stamp', String(stampCount));
   localStorage.setItem('mayumi_stamp_card', String(stampCardNum));
@@ -6167,6 +6221,8 @@ async function applyRecoveredUserState(user, passcode, successMessage) {
   localStorage.setItem(STAMP_HISTORY_STORAGE_KEY, JSON.stringify(STAMP_HISTORY));
   if (u.lastStampDate) localStorage.setItem('mayumi_last_stamp_date', u.lastStampDate);
   else localStorage.removeItem('mayumi_last_stamp_date');
+  if (recoveredLastStampAt) localStorage.setItem(LAST_STAMP_AT_STORAGE_KEY, recoveredLastStampAt);
+  else localStorage.removeItem(LAST_STAMP_AT_STORAGE_KEY);
   if (u.stampAchievedAt) localStorage.setItem('mayumi_stamp_10_date', u.stampAchievedAt);
   else localStorage.removeItem('mayumi_stamp_10_date');
   await storeLocalPasscode(passcode);
