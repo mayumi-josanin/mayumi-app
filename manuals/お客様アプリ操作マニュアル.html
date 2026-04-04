@@ -387,6 +387,38 @@
       margin: 0;
     }
 
+    @media screen {
+      body {
+        font-size: 12pt;
+      }
+
+      .page {
+        max-width: 220mm;
+      }
+
+      .page-inner {
+        padding: 16mm 15mm 18mm;
+      }
+
+      .guide-figure {
+        margin: 18px -8mm 24px;
+      }
+
+      .guide-figure img {
+        width: calc(100% + 16mm);
+        max-width: none;
+      }
+
+      .guide-grid {
+        gap: 18px;
+        margin: 18px -6mm 24px;
+      }
+
+      .guide-grid .guide-figure img {
+        width: calc(100% + 12mm);
+      }
+    }
+
     .warn-box {
       padding: 14px 16px;
       margin-top: 12px;
