@@ -853,9 +853,6 @@
     }
 
     .shop-price {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
       font-size: 13px;
       font-weight: 700;
       color: var(--brown);
@@ -1133,42 +1130,9 @@
     }
 
     .cart-item-price {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
       font-size: 13px;
       font-weight: 700;
       color: var(--brown);
-    }
-
-    .price-original {
-      display: block;
-      font-size: 11px;
-      font-weight: 500;
-      color: #8e8e8e;
-      text-decoration: line-through;
-    }
-
-    .price-special {
-      display: block;
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--danger);
-      line-height: 1.45;
-    }
-
-    .price-special small {
-      font-size: 10px;
-      font-weight: 500;
-      color: inherit;
-    }
-
-    .price-period-note {
-      display: block;
-      font-size: 10px;
-      font-weight: 500;
-      color: #9a5e50;
-      line-height: 1.4;
     }
 
     .cart-qty-row {
