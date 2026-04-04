@@ -2168,7 +2168,7 @@ function getProductPricing(product, quantity) {
       if (specialTotal <= total || !highlightLabel) {
         unitPrice = specialUnitPrice;
         total = specialTotal;
-        highlightLabel = '今だけこの金額で！';
+        highlightLabel = '';
         isSpecialPrice = specialUnitPrice < regularUnitPrice;
       }
     }
@@ -2190,7 +2190,7 @@ function getProductPricing(product, quantity) {
     originalTotal: regularTotal,
     total: (specialUnitPrice > 0 ? specialUnitPrice : regularUnitPrice) * qty,
     isSpecialPrice: specialUnitPrice > 0 && specialUnitPrice < regularUnitPrice,
-    highlightLabel: (specialUnitPrice > 0 && specialUnitPrice < regularUnitPrice) ? '今だけこの金額で！' : '',
+    highlightLabel: (specialUnitPrice > 0 && specialUnitPrice < regularUnitPrice) ? 'special' : '',
     periodLabel: periodLabel
   };
 }
@@ -2205,10 +2205,13 @@ function buildProductPriceMarkup(product, quantity, options) {
   const effectiveAmount = mode === 'total' ? pricing.total : pricing.unitPrice;
   const taxLabel = includeTax ? '<small>（税込）</small>' : '';
 
-  if (pricing.highlightLabel && effectiveAmount < regularAmount) {
+  if (effectiveAmount < regularAmount && (pricing.isSpecialPrice || pricing.highlightLabel)) {
     return `
-      <span class="price-original">通常 ¥${regularAmount.toLocaleString()}</span>
-      <span class="price-special">${escapeHtml(pricing.highlightLabel)} ¥${effectiveAmount.toLocaleString()}${taxLabel}</span>
+      <span class="price-compare">
+        <span class="price-original">¥${regularAmount.toLocaleString()}</span>
+        <span class="price-arrow">→</span>
+        <span class="price-special">¥${effectiveAmount.toLocaleString()}${taxLabel}</span>
+      </span>
       ${showPeriod && pricing.periodLabel ? `<span class="price-period-note">${escapeHtml(pricing.periodLabel)}</span>` : ''}
     `;
   }

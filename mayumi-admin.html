@@ -974,7 +974,7 @@
               <div class="form-group" style="flex:2;">
                 <label>特別価格の表示</label>
                 <div style="font-size:12px; color:var(--danger); padding:10px 12px; background:#fff4f2; border:1px solid #f1d2ca; border-radius:10px;">
-                  今だけこの金額で！ と赤字で表示されます
+                  通常価格 → 特別価格 の形で表示し、特別価格のみ赤字になります
                 </div>
               </div>
             </div>
@@ -3212,12 +3212,11 @@
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
             <span class="badge">${escapeHtml(category)}</span>
             <span class="badge badge-green">販売価格 ¥${price.toLocaleString()}</span>
-            ${specialPrice > 0 && specialPrice < price ? `<span class="badge badge-danger">特別価格 ¥${specialPrice.toLocaleString()}</span>` : ''}
             ${cost > 0 ? `<span class="badge">原価 ¥${cost.toLocaleString()}</span>` : ''}
             <span class="badge ${stockQty <= 0 ? 'badge-danger' : ''}">${escapeHtml(inventoryLabel)}</span>
           </div>
           <div style="font-size:22px; font-weight:700; margin-bottom:12px; line-height:1.5;">${escapeHtml(name)}</div>
-          ${specialPrice > 0 && specialPrice < price ? `<div style="margin-bottom:12px;"><div style="font-size:12px; color:#8b8b8b; text-decoration:line-through;">通常価格 ¥${price.toLocaleString()}</div><div style="font-size:20px; font-weight:700; color:var(--danger);">今だけこの金額で！ ¥${specialPrice.toLocaleString()}</div>${salePeriodLabel ? `<div style="font-size:11px; color:#8f5a4a; margin-top:4px;">対象期間: ${escapeHtml(salePeriodLabel)}</div>` : ''}</div>` : ''}
+          ${specialPrice > 0 && specialPrice < price ? `<div style="margin-bottom:12px;"><div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;"><div style="font-size:12px; color:#8b8b8b; text-decoration:line-through;">¥${price.toLocaleString()}</div><div style="font-size:12px; color:#8b8b8b; font-weight:700;">→</div><div style="font-size:20px; font-weight:700; color:var(--danger);">¥${specialPrice.toLocaleString()}</div></div>${salePeriodLabel ? `<div style="font-size:11px; color:#8f5a4a; margin-top:4px;">対象期間: ${escapeHtml(salePeriodLabel)}</div>` : ''}</div>` : ''}
           <div style="white-space:pre-wrap; line-height:1.9; color:#534a41;">${escapeHtml(desc)}</div>
           ${mainImageHtml}
           ${descImageHtml}
