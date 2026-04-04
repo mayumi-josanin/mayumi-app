@@ -34,8 +34,9 @@
       color: var(--ink);
       background: #f7f2ec;
       font-family: "Hiragino Sans", "Yu Gothic", "YuGothic", "Noto Sans JP", sans-serif;
-      line-height: 1.8;
-      font-size: 11pt;
+      line-height: 1.92;
+      font-size: 11.4pt;
+      letter-spacing: 0.01em;
       counter-reset: manual-page;
     }
 
@@ -57,7 +58,7 @@
     }
 
     .page-inner {
-      padding: 14mm 13mm 15mm;
+      padding: 15mm 14mm 16mm;
     }
 
     .cover {
@@ -135,26 +136,26 @@
     }
 
     h2 {
-      margin-bottom: 10px;
-      font-size: 17pt;
+      margin-bottom: 11px;
+      font-size: 18pt;
       color: #443933;
     }
 
     h3 {
-      margin-bottom: 6px;
-      font-size: 12.5pt;
+      margin-bottom: 7px;
+      font-size: 13.2pt;
       color: #4e433d;
     }
 
     p {
-      margin: 0 0 10px;
+      margin: 0 0 12px;
     }
 
     .lead {
       margin-top: 16px;
-      font-size: 13pt;
+      font-size: 13.6pt;
       color: #4e433d;
-      line-height: 1.9;
+      line-height: 2;
     }
 
     .cover-ribbon {
@@ -184,7 +185,7 @@
     .step-card,
     .tip-card {
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 16px;
       background: #fff;
     }
 
@@ -214,8 +215,8 @@
     }
 
     .summary-item {
-      padding: 12px 14px;
-      border-radius: 14px;
+      padding: 13px 15px;
+      border-radius: 16px;
       background: linear-gradient(180deg, #fff 0%, #faf7f3 100%);
       border: 1px solid var(--line);
     }
@@ -243,13 +244,13 @@
     }
 
     .panel {
-      padding: 12px 14px;
-      margin-bottom: 12px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
     }
 
     .notice {
-      padding: 12px 14px;
-      margin-bottom: 12px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
       background: #fffdf9;
     }
 
@@ -265,7 +266,7 @@
     }
 
     .toc li {
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
 
     .flow-list,
@@ -278,7 +279,7 @@
     .flow-list li,
     .plain-list li,
     .check-list li {
-      margin-bottom: 7px;
+      margin-bottom: 9px;
     }
 
     .check-list {
@@ -289,14 +290,15 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 8px;
-      font-size: 10pt;
+      font-size: 10.5pt;
     }
 
     .table th,
     .table td {
       border: 1px solid var(--line);
-      padding: 8px 9px;
+      padding: 10px 11px;
       vertical-align: top;
+      line-height: 1.85;
     }
 
     .table th {
@@ -319,25 +321,45 @@
     }
 
     .device-card {
-      padding: 12px 13px;
-      border-radius: 14px;
+      padding: 14px 15px;
+      border-radius: 16px;
       border: 1px solid var(--line);
       background: linear-gradient(180deg, #fff 0%, #faf7f2 100%);
     }
 
+    .device-card + .device-card {
+      margin-top: 12px;
+    }
+
     .device-card h3 {
-      margin-bottom: 6px;
+      margin-bottom: 7px;
     }
 
     .soft-intro {
-      margin-bottom: 12px;
+      margin-bottom: 14px;
+      font-size: 11.3pt;
+      line-height: 1.95;
       color: #5a514c;
     }
 
+    .device-subtitle {
+      margin: 12px 0 8px;
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #4f433d;
+    }
+
+    .device-note {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 10pt;
+      line-height: 1.85;
+    }
+
     .warn-box {
-      padding: 12px 14px;
+      padding: 14px 16px;
       margin-top: 12px;
-      border-radius: 14px;
+      border-radius: 16px;
       border: 1px solid rgba(181, 83, 56, 0.18);
       background: linear-gradient(180deg, #fffaf8 0%, #fff2ec 100%);
     }
@@ -348,7 +370,7 @@
 
     .step-card,
     .tip-card {
-      padding: 11px 12px;
+      padding: 13px 14px;
     }
 
     .step-card .tag,
@@ -375,7 +397,7 @@
     }
 
     .small {
-      font-size: 9.5pt;
+      font-size: 9.8pt;
       color: var(--muted);
     }
 
@@ -396,7 +418,7 @@
   <section class="page cover">
     <div class="page-inner">
       <div class="cover-top">
-        <img src="../お客様アプリに使用するファイル及びデータ/www/icon.png" alt="まゆみ助産院アプリアイコン">
+        <img src="../icon.png" alt="まゆみ助産院アプリアイコン">
         <div>
           <div class="kicker">MAYUMI JOSANIN CUSTOMER APP</div>
           <div style="margin-top:6px;font-size:10pt;color:var(--muted);">利用者さま向け 最新版やさしい操作ガイド</div>
@@ -414,11 +436,11 @@
         </div>
         <div class="meta-card">
           <div class="meta-label">更新日</div>
-          <div class="meta-value">2026/04/03</div>
+          <div class="meta-value">2026/04/04</div>
         </div>
         <div class="meta-card">
           <div class="meta-label">主な更新内容</div>
-          <div class="meta-value">パスコード / 引き継ぎコード / 復元 / 詳細トラブル対応</div>
+          <div class="meta-value">パスコード / 引き継ぎコード / 復元 / カメラ許可の詳細手順 / 詳細トラブル対応</div>
         </div>
         <div class="meta-card">
           <div class="meta-label">対象機能</div>
@@ -824,13 +846,65 @@
         <h3>カメラが起動しないとき</h3>
         <ul class="plain-list">
           <li>確認画面で「許可しない」を選んでいないか確認してください。</li>
-          <li>端末本体の設定で、このアプリまたはブラウザのカメラ許可がオンか確認してください。</li>
-          <li>いちど閉じてから再度「📷 カメラを起動して読み取る」を押してください。</li>
+          <li>iPhone と Android で設定場所が異なるため、次のページの詳しい手順を確認してください。</li>
+          <li>設定が終わったら、いちど閉じてから再度「📷 カメラを起動して読み取る」を押してください。</li>
           <li>暗い場所では読み取りにくいため、明るい場所で試してください。</li>
         </ul>
       </div>
 
       <div class="page-no">9</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="page-inner">
+      <div class="section-head">
+        <div class="section-no">07 補足</div>
+        <h2>📷 カメラが起動しないときの詳しい設定方法</h2>
+      </div>
+
+      <p class="soft-intro">セキュリティ設定により、カメラへのアクセスがブロックされていることがあります。お使いのスマートフォンに合わせて、以下の手順でカメラの「許可」をお願いいたします。</p>
+
+      <div class="device-card">
+        <h3>【iPhoneをご利用のお客様】</h3>
+        <p class="device-note">ホーム画面に追加したアイコンから起動している場合、大元となる <strong>Safari</strong> の設定を変更する必要があります。アプリ個別の設定画面に「通知」しか表示されないのは正常です。</p>
+
+        <div class="device-subtitle">設定手順</div>
+        <ol class="flow-list">
+          <li>iPhone の <strong>「設定」</strong> を開きます。</li>
+          <li>少し下にスクロールし、<strong>「Safari」</strong> を押します。</li>
+          <li><strong>「Webサイトの設定」</strong> の中にある <strong>「カメラ」</strong> を押します。</li>
+          <li><strong>「許可」</strong> にチェックを入れます。</li>
+        </ol>
+      </div>
+
+      <div class="device-card">
+        <h3>【Androidをご利用のお客様】</h3>
+        <p class="device-note">Android は、機種や開き方によって設定先が少し違います。ご自身の画面の状態に近い方を確認してください。</p>
+
+        <div class="device-subtitle">① 設定画面に「通知」しか見当たらない場合</div>
+        <ol class="flow-list">
+          <li>スマートフォンの <strong>「設定」</strong> を開きます。</li>
+          <li><strong>「アプリ」</strong> を押し、今回開いているアプリまたはアイコンを選びます。</li>
+          <li><strong>「権限」</strong> を押します。</li>
+          <li><strong>「カメラ」</strong> を選び、<strong>「アプリの使用中のみ許可」</strong> に変更します。</li>
+        </ol>
+
+        <div class="device-subtitle">② アイコンの右下に Chrome のマークがついている場合</div>
+        <ol class="flow-list">
+          <li>通常の <strong>「Google Chrome」</strong> アプリを開きます。</li>
+          <li>右上の <strong>「︙」</strong> を押し、<strong>「設定」</strong> を選びます。</li>
+          <li><strong>「サイトの設定」</strong> → <strong>「カメラ」</strong> の順に押します。</li>
+          <li>一覧からスタンプラリーのサイトを探して押し、<strong>「許可」</strong> に変更します。</li>
+        </ol>
+      </div>
+
+      <div class="notice">
+        <strong>設定が終わったら</strong><br>
+        設定が完了したら、一度画面を閉じて、もう一度ホーム画面のアイコンからアプリを開き直し、カメラが起動するかお試しください。
+      </div>
+
+      <div class="page-no">10</div>
     </div>
   </section>
 
@@ -1256,8 +1330,10 @@
           <th>カメラが起動しない</th>
           <td>
             1. カメラ許可の確認画面で「許可」を選んだか確認してください。<br>
-            2. 端末本体の設定で、このアプリまたはブラウザのカメラ許可をオンにしてください。<br>
-            3. いったん閉じてから再度「📷 カメラを起動して読み取る」を押してください。
+            2. iPhone は「設定 → Safari → カメラ → 許可」を確認してください。<br>
+            3. Android は「設定 → アプリ → 権限 → カメラ」、または Chrome の「設定 → サイトの設定 → カメラ」を確認してください。<br>
+            4. 設定が終わったら、ホーム画面のアイコンから開き直して再度お試しください。<br>
+            5. 詳しい手順は前の「📷 カメラが起動しないときの詳しい設定方法」をご覧ください。
           </td>
         </tr>
         <tr>
@@ -1365,7 +1441,7 @@
         <p>迷ったときは、まず <strong>ホーム</strong> か <strong>マイページ</strong> に戻ると整理しやすくなります。最新情報が反映されない場合は <strong>🔄 更新</strong>、機種変更前は <strong>引き継ぎコードの発行</strong>、すでに登録済みなら <strong>新規登録ではなく復元</strong>、この3つを覚えておくと多くのトラブルを防げます。</p>
       </div>
 
-      <p class="footer-note">本マニュアルは、2026/04/03 時点のお客様アプリの仕様に合わせて更新した最新版です。</p>
+      <p class="footer-note">本マニュアルは、2026/04/04 時点のお客様アプリの仕様に合わせて更新した最新版です。カメラ許可の詳しい設定手順と、読みやすいレイアウト調整を反映しています。</p>
       <div class="page-no">20</div>
     </div>
   </section>
