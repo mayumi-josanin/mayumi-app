@@ -68,7 +68,8 @@ const USER_HEADERS = [
   '登録経路',
   '登録経路詳細',
   '登録経路更新日時',
-  'スタンプ履歴JSON'
+  'スタンプ履歴JSON',
+  '最終スタンプ取得日時'
 ];
 
 const USER_COL = {
@@ -98,7 +99,8 @@ const USER_COL = {
   REGISTRATION_SOURCE: 24,
   REGISTRATION_SOURCE_DETAIL: 25,
   REGISTRATION_SOURCE_UPDATED_AT: 26,
-  STAMP_HISTORY_JSON: 27
+  STAMP_HISTORY_JSON: 27,
+  LAST_STAMP_AT: 28
 };
 const TRANSFER_CODE_LENGTH = 8;
 const TRANSFER_CODE_TTL_HOURS = 168; // 1週間 (24*7)
@@ -159,7 +161,7 @@ const DEFAULT_APP_RUNTIME_CONFIG = {
   iosStoreUrl: '',
   updateTitle: 'アップデートが必要です',
   updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
-  webBundleVersion: '2026.04.04.51'
+  webBundleVersion: '2026.04.04.59'
 };
 const DEFAULT_ADMIN_SECURITY_CONFIG = {
   roleMode: 'owner',
@@ -2555,6 +2557,7 @@ function configureUsersSheet_(sheet) {
   sheet.setColumnWidth(USER_COL.DELETED_AT, 160);
   sheet.setColumnWidth(USER_COL.MERGED_INTO, 120);
   sheet.setColumnWidth(USER_COL.STAMP_HISTORY_JSON, 260);
+  sheet.setColumnWidth(USER_COL.LAST_STAMP_AT, 160);
 }
 
 function ensureUsersSheetStructure_(sheet) {
@@ -2819,17 +2822,27 @@ function sanitizeStampHistoryList_(entries) {
   });
 }
 
+function deriveLastStampAt_(data, stampHistory) {
+  return normalizeDateTimeValue_(data && data.lastStampAt)
+    || (Array.isArray(stampHistory) && stampHistory[0] && stampHistory[0].acquiredDate)
+    || normalizeDateTimeValue_(data && data.lastStampDate)
+    || '';
+}
+
 function sanitizeRewardStatus_(data) {
   const rewardsInput = Array.isArray(data && data.rewards) ? data.rewards : [];
   const rewards = rewardsInput.map(function (reward, index) {
     return sanitizeRewardEntry_(reward, 'reward-' + (index + 1) + '-' + new Date().getTime());
   });
+  const stampHistory = sanitizeStampHistoryList_(data && data.stampHistory);
+  const lastStampAt = deriveLastStampAt_(data, stampHistory);
   return {
     stampCount: Math.max(0, Math.min(10, Number(data && data.stampCount) || 0)),
     stampCardNum: Math.max(1, Number(data && data.stampCardNum) || 1),
     rewards: rewards,
-    stampHistory: sanitizeStampHistoryList_(data && data.stampHistory),
-    lastStampDate: normalizeDateOnlyValue_(data && data.lastStampDate),
+    stampHistory: stampHistory,
+    lastStampDate: normalizeDateOnlyValue_(data && data.lastStampDate || lastStampAt),
+    lastStampAt: lastStampAt,
     stampAchievedDate: normalizeDateTimeValue_(data && data.stampAchievedDate)
   };
 }
@@ -2877,6 +2890,7 @@ function getDefaultRewardStatus_() {
     rewards: [],
     stampHistory: [],
     lastStampDate: '',
+    lastStampAt: '',
     stampAchievedDate: ''
   };
 }
@@ -2889,6 +2903,7 @@ function getRewardStatusFromRow_(row) {
     rewards: parseRewardsJson_(row[USER_COL.REWARDS - 1]),
     stampHistory: parseStampHistoryJson_(row[USER_COL.STAMP_HISTORY_JSON - 1]),
     lastStampDate: row[USER_COL.LAST_STAMP_DATE - 1],
+    lastStampAt: row[USER_COL.LAST_STAMP_AT - 1],
     stampAchievedDate: row[USER_COL.STAMP_ACHIEVED_AT - 1]
   });
 }
@@ -2901,6 +2916,7 @@ function applyRewardStatusToRow_(row, rewardStatus) {
   next[USER_COL.LAST_STAMP_DATE - 1] = rewardStatus.lastStampDate || '';
   next[USER_COL.STAMP_ACHIEVED_AT - 1] = rewardStatus.stampAchievedDate || '';
   next[USER_COL.STAMP_HISTORY_JSON - 1] = serializeStampHistoryJson_(rewardStatus.stampHistory);
+  next[USER_COL.LAST_STAMP_AT - 1] = rewardStatus.lastStampAt || '';
   return next;
 }
 
@@ -5298,6 +5314,7 @@ function buildRecoverAccountUserFromRow_(row) {
     rewards: String(row[USER_COL.REWARDS - 1] || '[]'),
     stampHistory: String(row[USER_COL.STAMP_HISTORY_JSON - 1] || '[]'),
     lastStampDate: String(row[USER_COL.LAST_STAMP_DATE - 1] || ''),
+    lastStampAt: String(row[USER_COL.LAST_STAMP_AT - 1] || ''),
     stampAchievedAt: String(row[USER_COL.STAMP_ACHIEVED_AT - 1] || ''),
     regDate: formatDateOnly_(new Date(row[USER_COL.TIMESTAMP - 1]))
   };
@@ -5619,6 +5636,7 @@ function handleSyncUserRewardStatus(data) {
       rewards: data.rewards !== undefined ? data.rewards : currentRewardStatus.rewards,
       stampHistory: data.stampHistory !== undefined ? data.stampHistory : currentRewardStatus.stampHistory,
       lastStampDate: data.lastStampDate !== undefined ? data.lastStampDate : currentRewardStatus.lastStampDate,
+      lastStampAt: data.lastStampAt !== undefined ? data.lastStampAt : currentRewardStatus.lastStampAt,
       stampAchievedDate: data.stampAchievedDate !== undefined ? data.stampAchievedDate : currentRewardStatus.stampAchievedDate
     });
     range.setValues([applyRewardStatusToRow_(currentRow, rewardStatus)]);
@@ -5896,12 +5914,14 @@ function handleUpdateAdminRewardStatus(data) {
       rewards: data.rewards !== undefined ? data.rewards : currentStatus.rewards,
       stampHistory: data.stampHistory !== undefined ? data.stampHistory : currentStatus.stampHistory,
       lastStampDate: data.lastStampDate !== undefined ? data.lastStampDate : currentStatus.lastStampDate,
+      lastStampAt: data.lastStampAt !== undefined ? data.lastStampAt : currentStatus.lastStampAt,
       stampAchievedDate: data.stampAchievedDate !== undefined ? data.stampAchievedDate : currentStatus.stampAchievedDate
     });
     
     // デモ用：取得制限（日付）の強制クリア
     if (data.clearLastStampDate === true) {
       nextStatus.lastStampDate = '';
+      nextStatus.lastStampAt = '';
     }
     
     range.setValues([applyRewardStatusToRow_(currentRow, nextStatus)]);
@@ -5968,7 +5988,8 @@ function getAdminUsers() {
       const registrationSource = buildUserRegistrationSourceFromRow_(row);
       const memberId = String(row[USER_COL.MEMBER_ID - 1] || '');
       const userOrderStats = orderStats[memberId] || { orderCount: 0, pendingOrderCount: 0, lastOrderAt: '', orderTotal: 0 };
-      const latestStampActivityAt = (rewardStatus.stampHistory && rewardStatus.stampHistory[0] && rewardStatus.stampHistory[0].acquiredDate)
+      const latestStampActivityAt = rewardStatus.lastStampAt
+        || (rewardStatus.stampHistory && rewardStatus.stampHistory[0] && rewardStatus.stampHistory[0].acquiredDate)
         || rewardStatus.lastStampDate
         || rewardStatus.stampAchievedDate
         || '';
@@ -5992,6 +6013,7 @@ function getAdminUsers() {
         rewards: rewardStatus.rewards,
         stampHistory: rewardStatus.stampHistory,
         lastStampDate: rewardStatus.lastStampDate,
+        lastStampAt: rewardStatus.lastStampAt,
         stampAchievedDate: rewardStatus.stampAchievedDate,
         latestStampActivityAt: latestStampActivityAt,
         registrationSource: registrationSource.source,
@@ -6176,6 +6198,7 @@ function handleMergeUsers(data) {
         rewards: mergeRewardEntries_(mergedRewards.rewards, getRewardStatusFromRow_(row).rewards),
         stampHistory: mergeStampHistoryEntries_(mergedRewards.stampHistory, getRewardStatusFromRow_(row).stampHistory),
         lastStampDate: mergedRewards.lastStampDate || getRewardStatusFromRow_(row).lastStampDate,
+        lastStampAt: mergedRewards.lastStampAt || getRewardStatusFromRow_(row).lastStampAt,
         stampAchievedDate: mergedRewards.stampAchievedDate || getRewardStatusFromRow_(row).stampAchievedDate
       });
       mergedSessions = mergeDeviceSessionLists_(mergedSessions, getUserDeviceSessionsFromRow_(row));
