@@ -5,19 +5,19 @@
 
 const CONFIG = {
   // LINE Messaging API設定
-  CHANNEL_ACCESS_TOKEN: 'REDACTED',
-  USER_ID: 'REDACTED',
+  CHANNEL_ACCESS_TOKEN: 'SET_IN_APPS_SCRIPT_PROJECT',
+  USER_ID: 'SET_IN_APPS_SCRIPT_PROJECT',
 
-  GMAIL_TO: 'REDACTED',
+  GMAIL_TO: 'josanin.mayumi@gmail.com',
   SHEET_NAME: 'まゆみ助産院_管理',
   ADMIN_NAME: 'まゆみ助産院',
   // OneSignal設定
-  ONESIGNAL_APP_ID: 'REDACTED',
-  ONESIGNAL_REST_API_KEY: 'REDACTED',
+  ONESIGNAL_APP_ID: 'SET_IN_APPS_SCRIPT_PROJECT',
+  ONESIGNAL_REST_API_KEY: 'SET_IN_APPS_SCRIPT_PROJECT',
 
   // Google Reviews API設定
-  GOOGLE_CLIENT_ID: 'REDACTED',
-  GOOGLE_CLIENT_SECRET: 'REDACTED',
+  GOOGLE_CLIENT_ID: 'SET_IN_APPS_SCRIPT_PROJECT',
+  GOOGLE_CLIENT_SECRET: 'SET_IN_APPS_SCRIPT_PROJECT',
 };
 // ★★★★★★★★★★★★★★★★★★★★
 
@@ -35,7 +35,10 @@ const SHEETS = {
   MENU_REVENUE: 'MENU_REVENUE',
   PRODUCT_REVENUE: 'PRODUCT_REVENUE',
   APP_SUPPORT_FAQ: 'APP_SUPPORT_FAQ',
-  BACKUP_LOG: 'BACKUP_LOG'
+  BACKUP_LOG: 'BACKUP_LOG',
+  ADMIN_AUDIT_LOG: 'ADMIN_AUDIT_LOG',
+  SUPPORT_CHAT_LOG: 'SUPPORT_CHAT_LOG',
+  ADMIN_TEMPLATES: 'ADMIN_TEMPLATES'
 };
 
 const USER_HEADERS = [
@@ -141,6 +144,7 @@ const DATA_CACHE_VERSION_PROPERTY = 'DATA_CACHE_VERSION';
 const DATA_CACHE_TTL_SEC = 120;
 const DATA_CACHE_MAX_CHARS = 90000;
 const APP_RUNTIME_CONFIG_PROPERTY = 'APP_RUNTIME_CONFIG';
+const ADMIN_SECURITY_CONFIG_PROPERTY = 'ADMIN_SECURITY_CONFIG';
 const DEFAULT_APP_RUNTIME_CONFIG = {
   latestAppVersion: '1.1.0',
   minimumSupportedVersion: '0.0.0',
@@ -148,6 +152,11 @@ const DEFAULT_APP_RUNTIME_CONFIG = {
   updateTitle: 'アップデートが必要です',
   updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
   webBundleVersion: '2026.04.04.51'
+};
+const DEFAULT_ADMIN_SECURITY_CONFIG = {
+  roleMode: 'owner',
+  actionPin: '',
+  operatorName: '管理者'
 };
 
 const MUTATING_GET_ACTIONS = {
@@ -286,6 +295,306 @@ function handleSaveAppRuntimeConfig(data) {
   }
 }
 
+function sanitizeAdminSecurityConfig_(raw) {
+  const input = raw && typeof raw === 'object' ? raw : {};
+  const roleMode = ['viewer', 'editor', 'owner'].indexOf(String(input.roleMode || '').trim()) !== -1
+    ? String(input.roleMode || '').trim()
+    : DEFAULT_ADMIN_SECURITY_CONFIG.roleMode;
+  const actionPin = String(input.actionPin || '').trim().replace(/[^0-9]/g, '').slice(0, 8);
+  return {
+    roleMode: roleMode,
+    actionPin: actionPin,
+    operatorName: String(input.operatorName || DEFAULT_ADMIN_SECURITY_CONFIG.operatorName).trim() || DEFAULT_ADMIN_SECURITY_CONFIG.operatorName
+  };
+}
+
+function getAdminSecurityConfig() {
+  try {
+    const raw = PropertiesService.getScriptProperties().getProperty(ADMIN_SECURITY_CONFIG_PROPERTY);
+    let saved = null;
+    if (raw) {
+      try {
+        saved = JSON.parse(raw);
+      } catch (err) {
+        Logger.log('getAdminSecurityConfig parse error: ' + err.toString());
+      }
+    }
+    return {
+      status: 'ok',
+      config: sanitizeAdminSecurityConfig_(saved)
+    };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function handleSaveAdminSecurityConfig(data) {
+  try {
+    const nextConfig = sanitizeAdminSecurityConfig_((data && data.config) || data || {});
+    PropertiesService.getScriptProperties().setProperty(ADMIN_SECURITY_CONFIG_PROPERTY, JSON.stringify(nextConfig));
+    return { status: 'ok', config: nextConfig };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function ensureAdminAuditLogSheet_() {
+  const ss = getOrCreateSpreadsheet();
+  let sheet = ss.getSheetByName(SHEETS.ADMIN_AUDIT_LOG);
+  if (!sheet) sheet = ss.insertSheet(SHEETS.ADMIN_AUDIT_LOG);
+  const headers = ['日時', '種別', '結果', '対象', '概要', '操作者', '詳細JSON'];
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
+  }
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  styleHeader(sheet, headers.length, '#455a64');
+  [170, 150, 90, 180, 320, 140, 420].forEach(function (width, index) {
+    sheet.setColumnWidth(index + 1, width);
+  });
+  return sheet;
+}
+
+function safeJsonStringify_(value) {
+  try {
+    return JSON.stringify(value);
+  } catch (err) {
+    return '';
+  }
+}
+
+function summarizeAuditTarget_(type, data, result) {
+  if (!type) return '';
+  if (type === 'deleteOrders' || type === 'updateOrder' || type === 'updateAdminOrder' || type === 'createOrder') {
+    return String((data && (data.orderId || (Array.isArray(data.orderIds) ? data.orderIds[0] : ''))) || '').trim();
+  }
+  if (type === 'deleteUser' || type === 'updateUser' || type === 'updateAdminUser' || type === 'mergeUsers') {
+    return String((data && (data.memberId || data.targetMemberId || data.name)) || '').trim();
+  }
+  if (type === 'addProduct' || type === 'updateProduct') return String(data && data.name || '').trim();
+  if (type === 'addBlog' || type === 'updateBlog') return String(data && data.title || '').trim();
+  if (type === 'addCalendar' || type === 'updateCalendar') return String(data && data.title || '').trim();
+  if (type === 'broadcastPush') return String(data && data.title || '').trim();
+  if (type === 'saveSupportFaq' || type === 'deleteSupportFaq') return String(data && data.question || data && data.rowIdx || '').trim();
+  if (type === 'saveAdminTemplate' || type === 'deleteAdminTemplate') return String(data && data.title || data && data.templateId || '').trim();
+  return String(result && result.message || '').trim();
+}
+
+function summarizeAuditDescription_(type, data, result) {
+  if (type === 'broadcastPush') {
+    const mode = String(data && data.mode || 'send');
+    const count = Number(result && result.recipientCount || 0);
+    return [mode, data && data.targetStatus, count ? ('対象 ' + count + '件') : ''].filter(Boolean).join(' / ');
+  }
+  if (type === 'mergeUsers') {
+    return '統合元 ' + ((data && data.sourceMemberIds && data.sourceMemberIds.length) || 0) + '件';
+  }
+  if (type === 'deleteOrders') {
+    return '削除 ' + ((data && data.orderIds && data.orderIds.length) || 0) + '件';
+  }
+  return String(result && result.message || '').trim();
+}
+
+function appendAdminAuditLog_(type, data, result) {
+  try {
+    const sheet = ensureAdminAuditLogSheet_();
+    const securityConfig = getAdminSecurityConfig();
+    const operatorName = securityConfig && securityConfig.status === 'ok'
+      ? securityConfig.config.operatorName
+      : DEFAULT_ADMIN_SECURITY_CONFIG.operatorName;
+    sheet.appendRow([
+      formatDateTime_(new Date()),
+      String(type || '').trim(),
+      result && result.status === 'ok' ? '成功' : '失敗',
+      summarizeAuditTarget_(type, data, result),
+      summarizeAuditDescription_(type, data, result),
+      operatorName,
+      safeJsonStringify_({
+        request: data || {},
+        result: result || {}
+      })
+    ]);
+  } catch (err) {
+    Logger.log('appendAdminAuditLog_ error: ' + err.toString());
+  }
+}
+
+function getAdminAuditLogs() {
+  try {
+    const sheet = ensureAdminAuditLogSheet_();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { status: 'ok', logs: [] };
+    const values = sheet.getRange(2, 1, lastRow - 1, 7).getDisplayValues();
+    const logs = values.map(function (row, index) {
+      return {
+        rowIdx: index + 2,
+        timestamp: row[0] || '',
+        type: row[1] || '',
+        result: row[2] || '',
+        target: row[3] || '',
+        summary: row[4] || '',
+        operator: row[5] || '',
+        detailJson: row[6] || ''
+      };
+    }).reverse();
+    return { status: 'ok', logs: logs };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function ensureSupportChatLogSheet_() {
+  const ss = getOrCreateSpreadsheet();
+  let sheet = ss.getSheetByName(SHEETS.SUPPORT_CHAT_LOG);
+  if (!sheet) sheet = ss.insertSheet(SHEETS.SUPPORT_CHAT_LOG);
+  const headers = ['日時', '質問', '一致質問', '一致カテゴリ', '一致有無', '会員ID', '回答要約'];
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
+  }
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  styleHeader(sheet, headers.length, '#5d4037');
+  [170, 300, 260, 160, 90, 120, 320].forEach(function (width, index) {
+    sheet.setColumnWidth(index + 1, width);
+  });
+  return sheet;
+}
+
+function appendSupportChatLog_(payload) {
+  try {
+    const sheet = ensureSupportChatLogSheet_();
+    sheet.appendRow([
+      formatDateTime_(new Date()),
+      String(payload && payload.message || '').trim(),
+      String(payload && payload.matchedQuestion || '').trim(),
+      String(payload && payload.category || '').trim(),
+      payload && payload.matchedQuestion ? '一致' : '未一致',
+      String(payload && payload.memberId || '').trim(),
+      String(payload && payload.answer || '').trim().slice(0, 500)
+    ]);
+  } catch (err) {
+    Logger.log('appendSupportChatLog_ error: ' + err.toString());
+  }
+}
+
+function getSupportChatAnalytics() {
+  try {
+    const sheet = ensureSupportChatLogSheet_();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return { status: 'ok', summary: { total: 0, matched: 0, unmatched: 0 }, topQuestions: [], unmatchedExamples: [] };
+    }
+    const values = sheet.getRange(2, 1, lastRow - 1, 7).getDisplayValues();
+    const topMap = {};
+    const unmatchedExamples = [];
+    let matched = 0;
+    values.forEach(function (row) {
+      const question = String(row[1] || '').trim();
+      const matchedQuestion = String(row[2] || '').trim();
+      const isMatched = String(row[4] || '').trim() === '一致';
+      if (isMatched) matched++;
+      if (question) {
+        topMap[question] = (topMap[question] || 0) + 1;
+      }
+      if (!isMatched && question && unmatchedExamples.length < 10) {
+        unmatchedExamples.push({
+          askedAt: row[0] || '',
+          question: question
+        });
+      }
+    });
+    const topQuestions = Object.keys(topMap).map(function (question) {
+      return { question: question, count: topMap[question] };
+    }).sort(function (a, b) {
+      return b.count - a.count;
+    }).slice(0, 10);
+    return {
+      status: 'ok',
+      summary: {
+        total: values.length,
+        matched: matched,
+        unmatched: values.length - matched
+      },
+      topQuestions: topQuestions,
+      unmatchedExamples: unmatchedExamples
+    };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function ensureAdminTemplatesSheet_() {
+  const ss = getOrCreateSpreadsheet();
+  let sheet = ss.getSheetByName(SHEETS.ADMIN_TEMPLATES);
+  if (!sheet) sheet = ss.insertSheet(SHEETS.ADMIN_TEMPLATES);
+  const headers = ['テンプレートID', '種別', 'タイトル', '本文', '更新日時'];
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
+  }
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  styleHeader(sheet, headers.length, '#8d6e63');
+  [140, 120, 220, 360, 170].forEach(function (width, index) {
+    sheet.setColumnWidth(index + 1, width);
+  });
+  return sheet;
+}
+
+function getAdminTemplates() {
+  try {
+    const sheet = ensureAdminTemplatesSheet_();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { status: 'ok', templates: [] };
+    const values = sheet.getRange(2, 1, lastRow - 1, 5).getDisplayValues();
+    const templates = values.map(function (row, index) {
+      return {
+        rowIdx: index + 2,
+        templateId: row[0] || '',
+        kind: row[1] || '',
+        title: row[2] || '',
+        body: row[3] || '',
+        updatedAt: row[4] || ''
+      };
+    }).filter(function (item) { return item.templateId; }).reverse();
+    return { status: 'ok', templates: templates };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function handleSaveAdminTemplate(data) {
+  try {
+    const kind = String(data && data.kind || '').trim() || '汎用';
+    const title = String(data && data.title || '').trim();
+    const body = String(data && data.body || '').trim();
+    if (!title) return { status: 'error', message: 'テンプレート名を入力してください' };
+    if (!body) return { status: 'error', message: '本文を入力してください' };
+    const sheet = ensureAdminTemplatesSheet_();
+    const rowIdx = Number(data && data.rowIdx || 0);
+    const templateId = rowIdx > 1
+      ? String(sheet.getRange(rowIdx, 1).getDisplayValue() || '').trim()
+      : 'TPL-' + Utilities.getUuid().slice(0, 8).toUpperCase();
+    const row = [templateId, kind, title, body, formatDateTime_(new Date())];
+    if (rowIdx > 1) {
+      sheet.getRange(rowIdx, 1, 1, row.length).setValues([row]);
+    } else {
+      sheet.appendRow(row);
+    }
+    return { status: 'ok', templateId: templateId };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function handleDeleteAdminTemplate(data) {
+  try {
+    const rowIdx = Number(data && data.rowIdx || 0);
+    if (rowIdx <= 1) return { status: 'error', message: '削除対象が見つかりません' };
+    const sheet = ensureAdminTemplatesSheet_();
+    sheet.deleteRow(rowIdx);
+    return { status: 'ok' };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
 function ensureTimeTriggerExists_(handlerName, builderFn) {
   const triggers = getProjectTriggersSafe_();
   if (!triggers) return false;
@@ -368,14 +677,36 @@ function getOrCreateBackupLogSheet_(ss) {
   return sheet;
 }
 
+function getRecentBackupLogEntries_() {
+  const ss = getOrCreateSpreadsheet();
+  const sheet = getOrCreateBackupLogSheet_(ss);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, 1, lastRow - 1, 5).getDisplayValues()
+    .map(function (row) {
+      return {
+        createdAt: row[0] || '',
+        reason: row[1] || '',
+        fileName: row[2] || '',
+        fileId: row[3] || '',
+        url: row[4] || ''
+      };
+    })
+    .reverse()
+    .slice(0, 10);
+}
+
 function getBackupStatus() {
   try {
     const triggerState = ensureMaintenanceTriggers_();
     const props = PropertiesService.getScriptProperties();
     const triggers = getProjectTriggersSafe_();
+    const recentLogs = getRecentBackupLogEntries_();
+    const lastBackupAt = String(props.getProperty(LAST_BACKUP_AT_PROPERTY) || '');
+    const staleThreshold = Date.now() - (1000 * 60 * 60 * 36);
     return {
       status: 'ok',
-      lastBackupAt: String(props.getProperty(LAST_BACKUP_AT_PROPERTY) || ''),
+      lastBackupAt: lastBackupAt,
       lastBackupUrl: String(props.getProperty(LAST_BACKUP_URL_PROPERTY) || ''),
       hasDailyTrigger: !!(triggers && triggers.some(function (trigger) {
         return trigger.getHandlerFunction() === DAILY_MAINTENANCE_TRIGGER_HANDLER;
@@ -384,7 +715,9 @@ function getBackupStatus() {
         return trigger.getHandlerFunction() === SCHEDULED_PUSH_TRIGGER_HANDLER;
       })),
       triggerPermissionAvailable: !!triggers,
-      triggerSetupAttempted: !!(triggerState.dailyReady || triggerState.pushReady)
+      triggerSetupAttempted: !!(triggerState.dailyReady || triggerState.pushReady),
+      isBackupStale: !lastBackupAt || parseLooseDateToTimestamp_(lastBackupAt) < staleThreshold,
+      recentLogs: recentLogs
     };
   } catch (err) {
     return { status: 'error', message: err.toString() };
@@ -406,6 +739,115 @@ function runDailyMaintenance() {
   ensureMaintenanceTriggers_();
   createSpreadsheetBackup_('daily');
   processScheduledPushQueue();
+}
+
+function getPendingOrderSummary_() {
+  const orders = getAdminOrders({ showAll: true });
+  if (!orders || orders.status !== 'ok') return { total: 0, pending: 0, received: 0 };
+  const list = Array.isArray(orders.orders) ? orders.orders : [];
+  return {
+    total: list.length,
+    pending: list.filter(function (order) { return normalizeOrderStatus_(order.status) === '受付中'; }).length,
+    received: list.filter(function (order) { return normalizeOrderStatus_(order.status) === '受取済'; }).length
+  };
+}
+
+function getProductInventoryAlerts_() {
+  const products = getAdminProducts();
+  if (!products || products.status !== 'ok') return [];
+  return (products.products || []).filter(function (product) {
+    const stockQty = Number(product.stockQty || 0);
+    const lowStockThreshold = Number(product.lowStockThreshold || 0);
+    return stockQty <= 0 || (lowStockThreshold > 0 && stockQty <= lowStockThreshold);
+  }).slice(0, 10);
+}
+
+function getPublishSchedule() {
+  try {
+    const nowTs = Date.now();
+    const items = [];
+    const collect = function (source, records, getLabel) {
+      (records || []).forEach(function (record) {
+        const publishAt = String(record.publishAt || '').trim();
+        if (!publishAt) return;
+        const ts = parseLooseDateToTimestamp_(publishAt);
+        if (!ts || ts <= nowTs) return;
+        items.push({
+          source: source,
+          title: getLabel(record),
+          publishAt: publishAt,
+          rowIdx: Number(record.rowIdx || 0)
+        });
+      });
+    };
+    const blogs = getAdminBlogs();
+    const products = getAdminProducts();
+    const calendar = getAdminCalendar();
+    const menus = getAdminMenus();
+    collect('NEWS', blogs && blogs.blogs, function (item) { return item.title || 'NEWS'; });
+    collect('ショップ', products && products.products, function (item) { return item.name || '商品'; });
+    collect('カレンダー', calendar && calendar.events, function (item) { return item.title || 'イベント'; });
+    collect('ホーム', menus && menus.menus, function (item) { return item.name || 'メニュー'; });
+    items.sort(function (a, b) {
+      return parseLooseDateToTimestamp_(a.publishAt) - parseLooseDateToTimestamp_(b.publishAt);
+    });
+    return { status: 'ok', items: items };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function getAdminDashboardData() {
+  try {
+    const orders = getPendingOrderSummary_();
+    const duplicates = getDuplicateUsers();
+    const backup = getBackupStatus();
+    const schedule = getPublishSchedule();
+    const push = getPushNotices();
+    const products = getAdminProducts();
+    const users = getAdminUsers();
+    const alerts = [];
+    if (backup && backup.status === 'ok' && backup.isBackupStale) {
+      alerts.push({ level: 'warning', label: 'バックアップ未更新', detail: '36時間以上バックアップが更新されていません' });
+    }
+    if (backup && backup.status === 'ok' && !backup.hasDailyTrigger) {
+      alerts.push({ level: 'warning', label: '日次バックアップ', detail: '日次トリガーが未設定です' });
+    }
+    if (orders.pending > 0) {
+      alerts.push({ level: 'info', label: '未対応注文', detail: orders.pending + '件の受付中注文があります' });
+    }
+    const failedPush = push && push.status === 'ok'
+      ? (push.notices || []).filter(function (notice) { return String(notice.status || '').trim() === PUSH_STATUS_FAILED; }).length
+      : 0;
+    if (failedPush > 0) {
+      alerts.push({ level: 'warning', label: 'Push失敗', detail: failedPush + '件の送信失敗があります' });
+    }
+    const lowStockProducts = getProductInventoryAlerts_();
+    if (lowStockProducts.length) {
+      alerts.push({ level: 'warning', label: '在庫警告', detail: lowStockProducts.length + '件の商品で在庫警告があります' });
+    }
+    const duplicateCount = duplicates && duplicates.status === 'ok' ? (duplicates.groups || []).length : 0;
+    if (duplicateCount > 0) {
+      alerts.push({ level: 'warning', label: '重複会員候補', detail: duplicateCount + '組の重複候補があります' });
+    }
+    return {
+      status: 'ok',
+      summary: {
+        users: users && users.status === 'ok' ? (users.users || []).length : 0,
+        ordersPending: orders.pending,
+        products: products && products.status === 'ok' ? (products.products || []).length : 0,
+        scheduledPublishes: schedule && schedule.status === 'ok' ? (schedule.items || []).length : 0,
+        failedPushes: failedPush,
+        duplicateGroups: duplicateCount
+      },
+      alerts: alerts,
+      lowStockProducts: lowStockProducts,
+      recentBackups: backup && backup.status === 'ok' ? (backup.recentLogs || []) : [],
+      upcomingPublishes: schedule && schedule.status === 'ok' ? (schedule.items || []).slice(0, 12) : []
+    };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
 }
 
 function buildSheetHeaderMap_(sheet) {
@@ -577,14 +1019,14 @@ function ensurePushNoticeSheetStructure_() {
   if (!sheet) {
     sheet = ss.insertSheet(SHEETS.PUSH);
   }
-  const headers = ['日時', 'タイトル', '本文', '送信対象', 'ステータス', '配信予定日時', '対象ページ', 'プレビュー本文', '通知ID', '送信結果', '更新日時'];
+  const headers = ['日時', 'タイトル', '本文', '送信対象', '送信対象詳細', '送信件数', 'ステータス', '配信予定日時', '対象ページ', 'プレビュー本文', '通知ID', '送信結果', '更新日時'];
   const maxCols = sheet.getMaxColumns();
   if (maxCols < headers.length) {
     sheet.insertColumnsAfter(maxCols, headers.length - maxCols);
   }
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   styleHeader(sheet, headers.length, '#6a5acd');
-  [170, 220, 320, 120, 120, 170, 120, 320, 160, 220, 170].forEach(function (width, index) {
+  [170, 220, 320, 120, 260, 110, 120, 170, 120, 320, 160, 220, 170].forEach(function (width, index) {
     sheet.setColumnWidth(index + 1, width);
   });
   return {
@@ -594,13 +1036,15 @@ function ensurePushNoticeSheetStructure_() {
       title: 2,
       body: 3,
       targetStatus: 4,
-      status: 5,
-      scheduledAt: 6,
-      targetPage: 7,
-      previewBody: 8,
-      notificationId: 9,
-      result: 10,
-      updatedAt: 11
+      targetDetail: 5,
+      recipientCount: 6,
+      status: 7,
+      scheduledAt: 8,
+      targetPage: 9,
+      previewBody: 10,
+      notificationId: 11,
+      result: 12,
+      updatedAt: 13
     }
   };
 }
@@ -619,11 +1063,14 @@ function buildAppNotificationUrl_(targetPage) {
 }
 
 function buildPushNoticeRowFromInput_(data, status) {
+  const targetUsers = Array.isArray(data && data.targetUsers) ? data.targetUsers : [];
   return {
     sentAt: normalizeDateTimeValue_(data && data.sentAt),
     title: String(data && data.title || '').trim(),
     body: String(data && data.body || '').trim(),
     targetStatus: String(data && data.targetStatus || 'all').trim() || 'all',
+    targetDetail: String(data && data.targetDetail || (targetUsers.length ? safeJsonStringify_(targetUsers) : '')).trim(),
+    recipientCount: Number(data && data.recipientCount || targetUsers.length || 0),
     status: String(status || data && data.status || PUSH_STATUS_DRAFT).trim() || PUSH_STATUS_DRAFT,
     scheduledAt: normalizeDateTimeValue_(data && data.scheduledAt),
     targetPage: normalizeTargetPage_(data && data.targetPage),
@@ -640,6 +1087,8 @@ function writePushNoticeRow_(sheet, rowIdx, columns, rowData) {
   payload[columns.title - 1] = rowData.title || '';
   payload[columns.body - 1] = rowData.body || '';
   payload[columns.targetStatus - 1] = rowData.targetStatus || 'all';
+  payload[columns.targetDetail - 1] = rowData.targetDetail || '';
+  payload[columns.recipientCount - 1] = Number(rowData.recipientCount || 0);
   payload[columns.status - 1] = rowData.status || PUSH_STATUS_DRAFT;
   payload[columns.scheduledAt - 1] = rowData.scheduledAt || '';
   payload[columns.targetPage - 1] = rowData.targetPage || 'home';
@@ -655,6 +1104,17 @@ function writePushNoticeRow_(sheet, rowIdx, columns, rowData) {
   return sheet.getLastRow();
 }
 
+function parsePushTargetUsers_(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+}
+
 function buildOneSignalPayload_(record) {
   const payload = {
     app_id: CONFIG.ONESIGNAL_APP_ID,
@@ -665,7 +1125,13 @@ function buildOneSignalPayload_(record) {
       openPage: normalizeTargetPage_(record.targetPage)
     }
   };
-  if (record.targetStatus && record.targetStatus !== 'all') {
+  const targetUsers = parsePushTargetUsers_(record.targetUsers || record.targetDetail);
+  const subscriptionIds = targetUsers
+    .map(function (user) { return String(user && (user.subscription || user.subscriptionId) || '').trim(); })
+    .filter(Boolean);
+  if (subscriptionIds.length) {
+    payload.include_subscription_ids = subscriptionIds;
+  } else if (record.targetStatus && record.targetStatus !== 'all') {
     payload.filters = [
       { field: 'tag', key: 'status', relation: '=', value: record.targetStatus }
     ];
@@ -720,6 +1186,8 @@ function processScheduledPushQueue() {
         title: row[columns.title - 1],
         body: row[columns.body - 1],
         targetStatus: row[columns.targetStatus - 1],
+        targetDetail: row[columns.targetDetail - 1],
+        recipientCount: row[columns.recipientCount - 1],
         targetPage: row[columns.targetPage - 1],
         previewBody: row[columns.previewBody - 1]
       }, PUSH_STATUS_SCHEDULED);
@@ -800,11 +1268,20 @@ function doGet(e) {
       case 'getAppRuntimeConfig':
         result = getAppRuntimeConfig();
         break;
+      case 'getAdminSecurityConfig':
+        result = getAdminSecurityConfig();
+        break;
       case 'getCustomerOrders':
         result = getCustomerOrders(e.parameter.data ? JSON.parse(decodeURIComponent(e.parameter.data)) : null);
         break;
       case 'getAnalytics':
         result = getAnalyticsData();
+        break;
+      case 'getAdminDashboardData':
+        result = getAdminDashboardData();
+        break;
+      case 'getPublishSchedule':
+        result = getPublishSchedule();
         break;
       case 'getMenuRevenueRecords':
         result = getMenuRevenueRecords();
@@ -840,8 +1317,17 @@ function doGet(e) {
       case 'getAdminTrashItems':
         result = getAdminTrashItems();
         break;
+      case 'getAdminAuditLogs':
+        result = getAdminAuditLogs();
+        break;
       case 'getBackupStatus':
         result = getBackupStatus();
+        break;
+      case 'getSupportChatAnalytics':
+        result = getSupportChatAnalytics();
+        break;
+      case 'getAdminTemplates':
+        result = getAdminTemplates();
         break;
       case 'getUserDevices':
         result = getUserDevices(e.parameter.data ? JSON.parse(decodeURIComponent(e.parameter.data)) : null);
@@ -1025,6 +1511,9 @@ function doPost(e) {
       case 'saveAppRuntimeConfig':
         result = handleSaveAppRuntimeConfig(data);
         break;
+      case 'saveAdminSecurityConfig':
+        result = handleSaveAdminSecurityConfig(data);
+        break;
       case 'runManualBackup':
         result = handleRunManualBackup(data);
         break;
@@ -1039,6 +1528,12 @@ function doPost(e) {
         break;
       case 'deleteProductRevenueRecord':
         result = handleDeleteProductRevenueRecord(data);
+        break;
+      case 'saveAdminTemplate':
+        result = handleSaveAdminTemplate(data);
+        break;
+      case 'deleteAdminTemplate':
+        result = handleDeleteAdminTemplate(data);
         break;
       case 'addMenu':
         result = handleAddMenu(data);
@@ -1064,6 +1559,9 @@ function doPost(e) {
     }
     if (result && result.status === 'ok' && !NON_INVALIDATING_POST_TYPES[type]) {
       bumpDataCacheVersion_();
+    }
+    if (type !== 'askSupportChat' && type !== 'uploadImage' && type !== 'postGoogleReviewReply') {
+      appendAdminAuditLog_(type, data, result);
     }
     return createJsonResponse(result);
   } catch (err) {
@@ -1115,7 +1613,7 @@ function normalizeOrderStatus_(status) {
 
 function handleOrder(data) {
   const ss = getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(SHEETS.ORDERS);
+  const sheet = ensureOrdersSheetStructure_(ss.getSheetByName(SHEETS.ORDERS));
   const usersSheet = getOrCreateUsersSheet_(ss);
 
   const now = data.time || getCurrentTime();
@@ -1169,7 +1667,8 @@ function handleOrder(data) {
       index === 0 ? data.payment : '',  // K: 支払方法
       index === 0 ? '受付中' : '',      // L: ステータス
       '',                    // M: 受取確認
-      data.memberId || ''    // N: 会員ID
+      data.memberId || '',   // N: 会員ID
+      index === 0 ? String(data.internalNote || '') : '' // O: 管理メモ
     ]);
     sheet.getRange(r, 13).insertCheckboxes(); // M列にチェックボックスを挿入
   });
@@ -1219,7 +1718,7 @@ function handleOrder(data) {
 // ========== 管理者用：新規注文作成 ==========
 function createOrder(data) {
   const ss = getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(SHEETS.ORDERS);
+  const sheet = ensureOrdersSheetStructure_(ss.getSheetByName(SHEETS.ORDERS));
   if (!sheet) return { status: 'error', message: 'ORDERS sheet not found' };
   const usersSheet = getOrCreateUsersSheet_(ss);
 
@@ -1263,7 +1762,8 @@ function createOrder(data) {
       '手動入力',              // K: 支払方法
       normalizeOrderStatus_(data.status || '受付中'),   // L: ステータス
       data.checked || false,   // M: 受取確認
-      data.memberId || ''      // N: 会員ID
+      data.memberId || '',     // N: 会員ID
+      index === 0 ? String(data.internalNote || '') : '' // O: 管理メモ
     ]);
     sheet.getRange(r, 13).insertCheckboxes();
     if (data.checked) sheet.getRange(r, 13).setValue(true);
@@ -1275,7 +1775,7 @@ function createOrder(data) {
 // ========== 管理者用：注文詳細更新 ==========
 function updateAdminOrder(data) {
   const ss = getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(SHEETS.ORDERS);
+  const sheet = ensureOrdersSheetStructure_(ss.getSheetByName(SHEETS.ORDERS));
   if (!sheet) return { status: 'error', message: 'ORDERS sheet not found' };
 
   const targetId = String(data.orderId).trim();
@@ -1300,6 +1800,7 @@ function updateAdminOrder(data) {
   const finalStatus = normalizeOrderStatus_(data.status || baseRow[11]);
   const finalChecked = data.checked !== undefined ? data.checked : baseRow[12];
   const finalMemberId = data.memberId !== undefined ? data.memberId : baseRow[13];
+  const finalInternalNote = data.internalNote !== undefined ? data.internalNote : baseRow[14];
 
   // 削除
   rowsToDelete.forEach(row => sheet.deleteRow(row));
@@ -1329,7 +1830,8 @@ function updateAdminOrder(data) {
       '手動修正', // 支払方法は固定
       finalStatus,
       finalChecked,
-      finalMemberId
+      finalMemberId,
+      index === 0 ? String(finalInternalNote || '') : ''
     ]);
     sheet.getRange(r, 13).insertCheckboxes();
     if (finalChecked) sheet.getRange(r, 13).setValue(true);
@@ -1521,6 +2023,8 @@ function getProducts() {
     if (!row[1] || String(row[5]).trim() === '非公開') continue;
     if (isSoftDeletedByColumns_(row, deleteCols.statusCol, deleteCols.deletedAtCol)) continue;
     if (!isPublishAtAvailable_(row[publishAtCol - 1])) continue;
+    const stockQty = Number(row[9] || 0);
+    const lowStockThreshold = Number(row[10] || 0);
     products.push({
       category: String(row[0]),
       name: String(row[1]),
@@ -1530,6 +2034,10 @@ function getProducts() {
       description: String(row[6] || ''),
       descriptionImage: String(row[7] || ''),
       updatedAt: formatMaybeDateTime_(row[8]),
+      stockQty: stockQty,
+      lowStockThreshold: lowStockThreshold,
+      isSoldOut: stockQty <= 0,
+      isLowStock: lowStockThreshold > 0 && stockQty > 0 && stockQty <= lowStockThreshold,
       publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
       noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[5] || '公開')
     });
@@ -1915,6 +2423,24 @@ function getOrCreateUsersSheet_(ss) {
   return ensureUsersSheetStructure_(sheet);
 }
 
+function ensureOrdersSheetStructure_(sheet) {
+  if (!sheet) return null;
+  const headers = ['注文ID', '注文日時', '注文者名', '商品名', '個数', '単価', '仕入値', '小計', '純利益', '合計金額', '支払方法', 'ステータス', '受取確認', '会員ID', '管理メモ'];
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
+  }
+  const current = sheet.getRange(1, 1, 1, headers.length).getDisplayValues()[0];
+  let needsHeader = false;
+  headers.forEach(function (label, index) {
+    if (String(current[index] || '').trim() !== label) needsHeader = true;
+  });
+  if (needsHeader) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+  sheet.setColumnWidth(15, 260);
+  return sheet;
+}
+
 function padDatePart_(value) {
   return String(value).padStart(2, '0');
 }
@@ -1942,7 +2468,7 @@ function ensureUpdatedAtColumn_(sheet, headerLabel) {
 
 function ensureProductSheetStructure_(sheet) {
   if (!sheet) return;
-  const headers = ['カテゴリ', '商品名', '価格（円）', 'アイコン', '背景色コード', '公開設定', '商品説明', '商品説明画像', '更新日時'];
+  const headers = ['カテゴリ', '商品名', '価格（円）', 'アイコン', '背景色コード', '公開設定', '商品説明', '商品説明画像', '更新日時', '在庫数', '在庫警告閾値'];
   const currentMaxCols = sheet.getMaxColumns();
   if (currentMaxCols < headers.length) {
     sheet.insertColumnsAfter(currentMaxCols, headers.length - currentMaxCols);
@@ -1951,6 +2477,8 @@ function ensureProductSheetStructure_(sheet) {
   sheet.setColumnWidth(7, 260);
   sheet.setColumnWidth(8, 220);
   sheet.setColumnWidth(9, 180);
+  sheet.setColumnWidth(10, 90);
+  sheet.setColumnWidth(11, 120);
   ensureNoticeVisibilityColumn_(sheet, 6, '公開');
 }
 
@@ -2345,7 +2873,7 @@ function clearUserPushSubscription_(memberId) {
 function getAdminOrders(params) {
   const showAll = params && params.showAll === true;
   const ss = getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(SHEETS.ORDERS);
+  const sheet = ensureOrdersSheetStructure_(ss.getSheetByName(SHEETS.ORDERS));
   if (!sheet) return { status: 'ok', orders: [] };
   const deleteCols = ensureSoftDeleteColumns_(sheet);
 
@@ -2372,6 +2900,7 @@ function getAdminOrders(params) {
         status: normalizeOrderStatus_(row[11] || '受付中'),
         checked: row[12] === true,
         memberId: String(row[13] || ''),
+        internalNote: String(row[14] || ''),
         rowIndices: []
       };
     }
@@ -2405,7 +2934,7 @@ function getAdminUserOrders(params) {
   if (!memberId) return { status: 'error', message: '会員IDが必要です' };
 
   const ss = getOrCreateSpreadsheet();
-  const sheet = ss.getSheetByName(SHEETS.ORDERS);
+  const sheet = ensureOrdersSheetStructure_(ss.getSheetByName(SHEETS.ORDERS));
   if (!sheet) return { status: 'ok', orders: [] };
   const deleteCols = ensureSoftDeleteColumns_(sheet);
 
@@ -2434,6 +2963,7 @@ function getAdminUserOrders(params) {
         status: normalizeOrderStatus_(row[11] || '受付中'),
         checked: row[12] === true,
         memberId: memberId,
+        internalNote: String(row[14] || ''),
         rowIndices: []
       };
     }
@@ -2806,6 +3336,8 @@ function getAdminProducts() {
       description: String(row[6] || ''),
       descriptionImage: String(row[7] || ''),
       updatedAt: formatMaybeDateTime_(row[8]),
+      stockQty: Number(row[9] || 0),
+      lowStockThreshold: Number(row[10] || 0),
       publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
       noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[5] || '公開')
     });
@@ -2834,7 +3366,9 @@ function handleAddProduct(data) {
       data.status || '公開',
       data.description || '',
       data.descriptionImage || '',
-      updatedAt
+      updatedAt,
+      Number(data.stockQty || 0),
+      Number(data.lowStockThreshold || 0)
     ]);
     if (publishAtCol) {
       prodSheet.getRange(prodSheet.getLastRow(), publishAtCol).setValue(normalizePublishAtValue_(data.publishAt));
@@ -2903,6 +3437,8 @@ function handleUpdateProduct(data) {
     if (data.bg) sheet.getRange(rowIdx, 5).setValue(data.bg);
     if (data.status) sheet.getRange(rowIdx, 6).setValue(data.status);
     if (data.description !== undefined) sheet.getRange(rowIdx, 7).setValue(data.description);
+    if (data.stockQty !== undefined) sheet.getRange(rowIdx, 10).setValue(Number(data.stockQty || 0));
+    if (data.lowStockThreshold !== undefined) sheet.getRange(rowIdx, 11).setValue(Number(data.lowStockThreshold || 0));
     if (data.descriptionImage !== undefined) sheet.getRange(rowIdx, 8).setValue(data.descriptionImage);
     sheet.getRange(rowIdx, 9).setValue(getCurrentTime());
     if (publishAtCol && data.publishAt !== undefined) {
@@ -4877,10 +5413,51 @@ function handleUpdateAdminRewardStatus(data) {
   }
 }
 
+function buildOrderStatsByMemberId_() {
+  const stats = {};
+  const ss = getOrCreateSpreadsheet();
+  const sheet = ensureOrdersSheetStructure_(ss.getSheetByName(SHEETS.ORDERS));
+  if (!sheet || sheet.getLastRow() < 2) return stats;
+  const deleteCols = ensureSoftDeleteColumns_(sheet);
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+  const orderSeen = {};
+  rows.forEach(function (row) {
+    if (isSoftDeletedByColumns_(row, deleteCols.statusCol, deleteCols.deletedAtCol)) return;
+    const memberId = String(row[13] || '').trim();
+    const orderId = String(row[0] || '').trim();
+    if (!memberId || !orderId) return;
+    if (!stats[memberId]) {
+      stats[memberId] = {
+        orderCount: 0,
+        pendingOrderCount: 0,
+        lastOrderAt: '',
+        orderTotal: 0
+      };
+    }
+    const key = memberId + '::' + orderId;
+    if (!orderSeen[key]) {
+      orderSeen[key] = true;
+      stats[memberId].orderCount += 1;
+      if (normalizeOrderStatus_(row[11] || '') === '受付中') {
+        stats[memberId].pendingOrderCount += 1;
+      }
+      const currentTs = parseLooseDateToTimestamp_(row[1]);
+      const lastTs = parseLooseDateToTimestamp_(stats[memberId].lastOrderAt);
+      if (currentTs >= lastTs) {
+        stats[memberId].lastOrderAt = formatMaybeDateTime_(row[1]);
+      }
+      const orderTotal = Number(String(row[9] || '').replace(/[^0-9.-]+/g, '')) || 0;
+      stats[memberId].orderTotal += orderTotal;
+    }
+  });
+  return stats;
+}
+
 function getAdminUsers() {
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
+    const orderStats = buildOrderStatsByMemberId_();
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', users: [] };
@@ -4889,9 +5466,11 @@ function getAdminUsers() {
     const users = data.map((row, index) => {
       if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) return null;
       const rewardStatus = getRewardStatusFromRow_(row);
+      const memberId = String(row[USER_COL.MEMBER_ID - 1] || '');
+      const userOrderStats = orderStats[memberId] || { orderCount: 0, pendingOrderCount: 0, lastOrderAt: '', orderTotal: 0 };
       return {
         rowIdx: index + 2,
-        memberId: String(row[USER_COL.MEMBER_ID - 1] || ''),
+        memberId: memberId,
         timestamp: (row[USER_COL.TIMESTAMP - 1] instanceof Date) ? Utilities.formatDate(row[USER_COL.TIMESTAMP - 1], 'Asia/Tokyo', 'yyyy/M/d H:mm') : String(row[USER_COL.TIMESTAMP - 1] || ''),
         name: String(row[USER_COL.NAME - 1] || ''),
         kana: String(row[USER_COL.KANA - 1] || ''),
@@ -4903,11 +5482,16 @@ function getAdminUsers() {
         birthday: (row[USER_COL.BIRTHDAY - 1] instanceof Date) ? Utilities.formatDate(row[USER_COL.BIRTHDAY - 1], 'Asia/Tokyo', 'yyyy/M/d') : String(row[USER_COL.BIRTHDAY - 1] || '').replace(/-/g, '/'),
         address: String(row[USER_COL.ADDRESS - 1] || ''),
         deviceSessions: getUserDeviceSessionsFromRow_(row),
+        deviceCount: getUserDeviceSessionsFromRow_(row).length,
         stampCount: rewardStatus.stampCount,
         stampCardNum: rewardStatus.stampCardNum,
         rewards: rewardStatus.rewards,
         lastStampDate: rewardStatus.lastStampDate,
-        stampAchievedDate: rewardStatus.stampAchievedDate
+        stampAchievedDate: rewardStatus.stampAchievedDate,
+        orderCount: userOrderStats.orderCount,
+        pendingOrderCount: userOrderStats.pendingOrderCount,
+        lastOrderAt: userOrderStats.lastOrderAt,
+        orderTotal: userOrderStats.orderTotal
       };
     }).filter(Boolean).reverse(); // 最新を上に
 
@@ -5010,7 +5594,13 @@ function getDuplicateUsers() {
         name: user.name,
         phone: user.phone,
         birthday: user.birthday,
-        updatedAt: user.timestamp
+        updatedAt: user.timestamp,
+        stampCount: user.stampCount,
+        orderCount: user.orderCount,
+        pendingOrderCount: user.pendingOrderCount,
+        lastOrderAt: user.lastOrderAt,
+        orderTotal: user.orderTotal,
+        deviceCount: user.deviceCount
       };
     });
     return { status: 'ok', groups: buildDuplicateUsersFromRows_(rows) };
@@ -5133,6 +5723,8 @@ function getPushNotices() {
         title: String(row[columns.title - 1] || ''),
         body: String(row[columns.body - 1] || ''),
         targetStatus: String(row[columns.targetStatus - 1] || 'all'),
+        targetDetail: String(row[columns.targetDetail - 1] || ''),
+        recipientCount: Number(row[columns.recipientCount - 1] || 0),
         status: String(row[columns.status - 1] || ''),
         targetPage: normalizeTargetPage_(row[columns.targetPage - 1]),
         previewBody: String(row[columns.previewBody - 1] || ''),
@@ -5154,22 +5746,35 @@ function getPushNotices() {
 function getPushUsers() {
   try {
     const ss = getOrCreateSpreadsheet();
-    const sheet = ss.getSheetByName(SHEETS.USERS);
+    const sheet = getOrCreateUsersSheet_(ss);
     if (!sheet) return { status: 'ok', users: [] };
-    ensureUsersSheetStructure_(sheet);
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', users: [] };
 
+    const orderStats = buildOrderStatsByMemberId_();
     const data = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
     const users = [];
     data.forEach(row => {
       if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) return;
       if (row[USER_COL.PUSH - 1]) {
+        const memberId = String(row[USER_COL.MEMBER_ID - 1] || '').trim();
+        const rewardStatus = getRewardStatusFromRow_(row);
+        const deviceSessions = getUserDeviceSessionsFromRow_(row);
+        const userOrderStats = orderStats[memberId] || { orderCount: 0, pendingOrderCount: 0, lastOrderAt: '', orderTotal: 0 };
         users.push({
-          memberId: row[USER_COL.MEMBER_ID - 1],
+          memberId: memberId,
           name: row[USER_COL.NAME - 1],
-          subscription: row[USER_COL.PUSH - 1]
+          phone: row[USER_COL.PHONE - 1],
+          birthday: normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]),
+          status: String(row[USER_COL.STATUS - 1] || ''),
+          subscription: row[USER_COL.PUSH - 1],
+          stampCount: rewardStatus.stampCount,
+          rewardCount: (rewardStatus.rewards || []).filter(function (reward) { return !reward.used; }).length,
+          orderCount: userOrderStats.orderCount,
+          pendingOrderCount: userOrderStats.pendingOrderCount,
+          lastOrderAt: userOrderStats.lastOrderAt,
+          deviceCount: deviceSessions.length
         });
       }
     });
@@ -5189,17 +5794,30 @@ function broadcastPush(data) {
     const sheet = ensured.sheet;
     const columns = ensured.columns;
     const mode = String(data && data.mode || 'send').trim();
+    const targetUsers = Array.isArray(data && data.targetUsers) ? data.targetUsers : [];
     const record = buildPushNoticeRowFromInput_(data, mode === 'draft' ? PUSH_STATUS_DRAFT : mode === 'schedule' ? PUSH_STATUS_SCHEDULED : PUSH_STATUS_SENT);
     const rowIdx = writePushNoticeRow_(sheet, Number(data && data.rowIdx || 0), columns, record);
 
     if (mode === 'draft') {
-      return { status: 'ok', message: '通知を下書き保存しました', rowIdx: rowIdx };
+      return { status: 'ok', message: '通知を下書き保存しました', rowIdx: rowIdx, recipientCount: record.recipientCount };
     }
     if (mode === 'schedule') {
       if (!record.scheduledAt) {
         return { status: 'error', message: '配信予定日時を入力してください' };
       }
-      return { status: 'ok', message: '通知を予約しました', rowIdx: rowIdx };
+      return { status: 'ok', message: '通知を予約しました', rowIdx: rowIdx, recipientCount: record.recipientCount };
+    }
+    if (mode === 'test') {
+      if (!targetUsers.length) {
+        return { status: 'error', message: 'テスト送信先を選択してください' };
+      }
+      const result = sendPushNoticePayload_(record);
+      record.sentAt = formatDateTime_(new Date());
+      record.status = PUSH_STATUS_SENT;
+      record.notificationId = result.id;
+      record.result = 'テスト送信済み';
+      writePushNoticeRow_(sheet, rowIdx, columns, record);
+      return { status: 'ok', message: 'テスト通知を送信しました', rowIdx: rowIdx, recipientCount: targetUsers.length };
     }
 
     const result = sendPushNoticePayload_(record);
@@ -5208,7 +5826,7 @@ function broadcastPush(data) {
     record.notificationId = result.id;
     record.result = '送信済み';
     writePushNoticeRow_(sheet, rowIdx, columns, record);
-    return { status: 'ok', message: '通知を送信しました', rowIdx: rowIdx };
+    return { status: 'ok', message: '通知を送信しました', rowIdx: rowIdx, recipientCount: record.recipientCount };
   } catch (err) {
     Logger.log("broadcastPush error: " + err.toString());
     return { status: 'error', message: err.toString() };
@@ -5960,20 +6578,36 @@ function askSupportChat(data) {
         .map(function (row) { return row.item.question; })
         .slice(0, 3);
 
-      return {
+      const response = {
         status: 'ok',
         answer: top.item.answer,
         matchedQuestion: top.item.question,
         suggestions: related.length ? related : buildSupportSuggestions_(entries, top.item.rowIdx)
       };
+      appendSupportChatLog_({
+        message: message,
+        matchedQuestion: top.item.question,
+        category: top.item.category,
+        memberId: data.memberId,
+        answer: top.item.answer
+      });
+      return response;
     }
 
-    return {
+    const fallback = {
       status: 'ok',
       answer: buildSupportFallbackAnswer_(message),
       matchedQuestion: '',
       suggestions: buildSupportSuggestions_(entries, -1)
     };
+    appendSupportChatLog_({
+      message: message,
+      matchedQuestion: '',
+      category: '',
+      memberId: data.memberId,
+      answer: fallback.answer
+    });
+    return fallback;
   } catch (err) {
     return { status: 'error', message: err.toString() };
   }

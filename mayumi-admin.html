@@ -645,6 +645,11 @@
           </div>
         </div>
         <div class="card compact-card">
+          <div class="summary-grid" id="adminDashboardCards"></div>
+          <div id="adminAlertsList" style="margin-top:14px;"></div>
+          <div id="publishScheduleList" style="margin-top:14px;"></div>
+        </div>
+        <div class="card compact-card">
           <div class="summary-grid" id="ordersSummaryCards"></div>
           <div class="filter-toolbar" style="margin-top:14px;">
             <input type="search" id="orderSearchInput" placeholder="注文ID・会員ID・名前・商品で検索" oninput="applyOrderFilters()">
@@ -654,6 +659,13 @@
               <option value="received">受取済</option>
             </select>
             <button type="button" class="btn btn-outline" onclick="resetOrderFilters()">条件をクリア</button>
+            <select id="orderBulkStatusSelect" style="width:180px;">
+              <option value="">一括変更の状態</option>
+              <option value="受付中">受付中</option>
+              <option value="受取済">受取済</option>
+            </select>
+            <button type="button" class="btn btn-outline" onclick="bulkUpdateOrdersStatus()">一括ステータス更新</button>
+            <button type="button" class="btn btn-outline" onclick="exportOrdersCsv()">CSV出力</button>
             <div class="filter-meta" id="ordersFilterMeta"></div>
           </div>
         </div>
@@ -733,6 +745,7 @@
               <input type="datetime-local" id="blogPublishAt">
             </div>
             <div class="flex" style="gap:10px;">
+              <button type="button" class="btn btn-outline" style="flex:1; font-size:15px; padding:12px;" onclick="previewBlogDraft()">👁 プレビュー</button>
               <button type="submit" id="blogSubmitBtn" class="btn" style="flex:2; font-size: 15px; padding: 12px;"
                 onclick="document.getElementById('blogStatus').value='公開'">🌟 公開して投稿する</button>
               <button type="submit" id="blogDraftBtn" class="btn btn-outline"
@@ -851,6 +864,16 @@
                 <input type="number" id="prodCost" placeholder="利益計算用 例：1000" required>
               </div>
             </div>
+            <div class="flex mb-2">
+              <div class="form-group" style="flex:1;">
+                <label>在庫数</label>
+                <input type="number" id="prodStockQty" placeholder="例：20" min="0" value="0">
+              </div>
+              <div class="form-group" style="flex:1;">
+                <label>在庫警告閾値</label>
+                <input type="number" id="prodLowStockThreshold" placeholder="例：3" min="0" value="0">
+              </div>
+            </div>
             <div class="form-group mb-2">
               <label>商品説明</label>
               <textarea id="prodDesc" rows="3" placeholder="商品の特徴や詳細を入力してください..."></textarea>
@@ -889,6 +912,7 @@
               <input type="datetime-local" id="prodPublishAt">
             </div>
             <div class="flex" style="gap:10px;">
+              <button type="button" class="btn btn-outline" style="flex:1;" onclick="previewProductDraft()">👁 プレビュー</button>
               <button type="submit" id="prodSubmitBtn" class="btn" style="flex:2;"
                 onclick="document.getElementById('prodStatus').value='公開'">🌟 公開して追加する</button>
               <button type="submit" id="prodDraftBtn" class="btn btn-outline"
@@ -925,6 +949,7 @@
                 <th>カテゴリ</th>
                 <th>商品名</th>
                 <th>価格(円)</th>
+                <th>在庫</th>
                 <th style="width:250px;">商品説明</th>
                 <th>公開設定</th>
                 <th>操作</th>
@@ -932,7 +957,7 @@
             </thead>
             <tbody id="productsDraftsList">
               <tr>
-                <td colspan="8" style="text-align:center;">読み込み中...</td>
+                <td colspan="9" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -949,6 +974,7 @@
                 <th>カテゴリ</th>
                 <th>商品名</th>
                 <th>価格(円)</th>
+                <th>在庫</th>
                 <th style="width:250px;">商品説明</th>
                 <th>公開設定</th>
                 <th>操作</th>
@@ -956,7 +982,7 @@
             </thead>
             <tbody id="productsList">
               <tr>
-                <td colspan="8" style="text-align:center;">読み込み中...</td>
+                <td colspan="9" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -1001,6 +1027,15 @@
               <textarea id="pushBody" rows="2" placeholder="通知の内容を入力してください..."></textarea>
             </div>
             <div class="flex" style="gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+              <div class="form-group" style="flex:1; min-width:220px; margin-bottom:0;">
+                <label>配信対象</label>
+                <select id="pushAudienceMode" onchange="updatePushAudienceMeta()">
+                  <option value="all">Push許可中の全員</option>
+                  <option value="pending-orders">受付中注文がある会員</option>
+                  <option value="reward-available">未使用特典がある会員</option>
+                  <option value="no-orders">注文履歴がない会員</option>
+                </select>
+              </div>
               <div class="form-group" style="flex:1; min-width:180px; margin-bottom:0;">
                 <label>開く画面</label>
                 <select id="pushTargetPage">
@@ -1018,9 +1053,19 @@
                 <input type="datetime-local" id="pushScheduledAt">
               </div>
             </div>
+            <div class="flex" style="gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+              <div class="form-group" style="flex:1; min-width:220px; margin-bottom:0;">
+                <label>テスト送信先</label>
+                <select id="pushTestRecipient">
+                  <option value="">会員を選択してください</option>
+                </select>
+              </div>
+              <div id="pushAudienceMeta" style="flex:2; min-width:220px; font-size:12px; color:var(--text-mid); align-self:flex-end; padding-bottom:10px;"></div>
+            </div>
             <div class="flex" style="gap:8px; flex-wrap:wrap;">
               <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="previewPushNotice()">👁 プレビュー</button>
               <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="savePushDraft()">📁 下書き保存</button>
+              <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="sendPushTest()">🧪 テスト送信</button>
               <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="schedulePushNotice()">🕒 予約保存</button>
               <button class="btn" type="button" style="flex:2; min-width:160px; font-size: 15px; padding: 12px;" onclick="sendBroadcastPush()">🚀
                 通知を一斉送信する</button>
@@ -1122,9 +1167,25 @@
           <div id="backupStatusBody" style="font-size:13px; color:var(--text-mid);">読み込み中...</div>
         </div>
         <div class="card table-wrapper">
+          <div class="filter-toolbar" style="margin-bottom:12px;">
+            <input type="search" id="trashSearchInput" placeholder="会員名・注文ID・タイトルで検索" oninput="renderAdminTrashItems()">
+            <select id="trashSourceFilter" onchange="renderAdminTrashItems()" style="width:180px;">
+              <option value="all">全ての種類</option>
+              <option value="会員">会員</option>
+              <option value="注文">注文</option>
+              <option value="NEWS">NEWS</option>
+              <option value="ショップ">ショップ</option>
+              <option value="カレンダー">カレンダー</option>
+              <option value="ホーム">ホーム</option>
+              <option value="Push通知">Push通知</option>
+            </select>
+            <button type="button" class="btn btn-outline" onclick="bulkRestoreTrashItems()">一括復元</button>
+            <button type="button" class="btn btn-outline" onclick="bulkHardDeleteTrashItems()" style="border-color:var(--danger); color:var(--danger);">一括完全削除</button>
+          </div>
           <table>
             <thead>
               <tr>
+                <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('TRASH', this)"></th>
                 <th>削除日時</th>
                 <th>種類</th>
                 <th>内容</th>
@@ -1134,7 +1195,44 @@
             </thead>
             <tbody id="trashItemsList">
               <tr>
-                <td colspan="5" style="text-align:center;">読み込み中...</td>
+                <td colspan="6" style="text-align:center;">読み込み中...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex space-between mb-2" style="margin-top:40px; flex-wrap:wrap; align-items:flex-start;">
+          <h2>📒 操作履歴</h2>
+          <div class="flex" style="gap:8px;">
+            <button class="btn btn-outline" onclick="loadAdminAuditLogs()">🔄 更新</button>
+            <button class="btn btn-outline" onclick="exportAdminAuditLogsCsv()">CSV出力</button>
+          </div>
+        </div>
+        <div class="card compact-card">
+          <div class="filter-toolbar">
+            <input type="search" id="auditSearchInput" placeholder="種別・対象・概要・操作者で検索" oninput="renderAdminAuditLogs()">
+            <select id="auditResultFilter" onchange="renderAdminAuditLogs()" style="width:180px;">
+              <option value="all">結果: 全て</option>
+              <option value="成功">成功</option>
+              <option value="失敗">失敗</option>
+            </select>
+          </div>
+        </div>
+        <div class="card table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>日時</th>
+                <th>種別</th>
+                <th>対象</th>
+                <th>概要</th>
+                <th>操作者</th>
+                <th>結果</th>
+              </tr>
+            </thead>
+            <tbody id="adminAuditLogList">
+              <tr>
+                <td colspan="6" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -1261,6 +1359,7 @@
               <input type="datetime-local" id="calPublishAt">
             </div>
             <div class="flex" style="gap:10px;">
+              <button type="button" class="btn btn-outline" style="flex:1;" onclick="previewCalendarDraft()">👁 プレビュー</button>
               <button type="submit" id="calSubmitBtn" class="btn" style="flex:2;"
                 onclick="document.getElementById('calStatus').value='公開'">📅 公開して追加する</button>
               <button type="submit" id="calDraftBtn" class="btn btn-outline"
@@ -1410,6 +1509,7 @@
             </div>
 
             <div class="flex" style="gap:10px; margin-top:20px;">
+              <button type="button" class="btn btn-outline" style="flex:1;" onclick="previewMenuDraft()">👁 プレビュー</button>
               <button type="submit" id="menuSubmitBtn" class="btn" style="flex:2;"
                 onclick="document.getElementById('menuPublishStatus').value='公開'">🍴 公開して保存する</button>
               <button type="submit" id="menuDraftBtn" class="btn btn-outline"
@@ -1695,6 +1795,7 @@
                 <thead>
                   <tr>
                     <th>カテゴリ名</th>
+                    <th style="width:90px; text-align:center;">使用数</th>
                     <th style="width:80px; text-align:center;">操作</th>
                   </tr>
                 </thead>
@@ -1710,6 +1811,7 @@
                 <thead>
                   <tr>
                     <th>カテゴリ名</th>
+                    <th style="width:90px; text-align:center;">使用数</th>
                     <th style="width:80px; text-align:center;">操作</th>
                   </tr>
                 </thead>
@@ -1725,6 +1827,7 @@
                 <thead>
                   <tr>
                     <th>カテゴリ名</th>
+                    <th style="width:90px; text-align:center;">使用数</th>
                     <th style="width:80px; text-align:center;">操作</th>
                   </tr>
                 </thead>
@@ -1786,6 +1889,79 @@
             </select>
             <button type="button" class="btn btn-outline" onclick="resetSupportFaqFilters()">条件をクリア</button>
             <div class="filter-meta" id="supportFaqFilterMeta"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📊 チャット利用分析</div>
+          <div class="summary-grid" id="supportChatAnalyticsCards"></div>
+          <div class="table-wrapper" style="margin-top:14px;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:80px;">件数</th>
+                  <th>よくある質問</th>
+                </tr>
+              </thead>
+              <tbody id="supportChatAnalyticsBody">
+                <tr>
+                  <td colspan="2" style="text-align:center;">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-wrapper" style="margin-top:14px;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:160px;">日時</th>
+                  <th>未一致の質問</th>
+                </tr>
+              </thead>
+              <tbody id="supportChatUnmatchedBody">
+                <tr>
+                  <td colspan="2" style="text-align:center;">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🗂 定型文テンプレート</div>
+          <div class="flex" style="gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+            <select id="adminTemplateKind" style="width:180px;">
+              <option value="Push通知">Push通知</option>
+              <option value="NEWS">NEWS</option>
+              <option value="FAQ">FAQ</option>
+              <option value="汎用">汎用</option>
+            </select>
+            <input type="text" id="adminTemplateTitle" placeholder="テンプレート名" style="flex:1; min-width:180px;">
+          </div>
+          <div class="form-group">
+            <textarea id="adminTemplateBody" rows="4" placeholder="定型文を入力してください"></textarea>
+          </div>
+          <div class="flex" style="gap:10px; margin-bottom:14px;">
+            <button class="btn" type="button" onclick="saveAdminTemplate()">保存する</button>
+            <button class="btn btn-outline" type="button" onclick="resetAdminTemplateForm()">入力をクリア</button>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:120px;">種別</th>
+                  <th style="width:180px;">テンプレート名</th>
+                  <th>本文</th>
+                  <th style="width:140px;">更新日時</th>
+                  <th style="width:130px;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="adminTemplateListBody">
+                <tr>
+                  <td colspan="5" style="text-align:center;">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -2053,6 +2229,23 @@
         <label>更新案内メッセージ</label>
         <textarea id="runtimeUpdateMessageInput" rows="3" placeholder="例：このアプリを引き続き利用するには最新版へ更新してください。"></textarea>
       </div>
+      <div style="font-size:13px; font-weight:bold; margin-bottom:10px;">管理画面の権限・安全設定</div>
+      <div class="form-group">
+        <label>操作権限</label>
+        <select id="adminRoleModeInput">
+          <option value="owner">owner（全操作可）</option>
+          <option value="editor">editor（編集中心）</option>
+          <option value="viewer">viewer（閲覧のみ）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>操作記録の表示名</label>
+        <input type="text" id="adminOperatorNameInput" placeholder="例：院長 / スタッフ">
+      </div>
+      <div class="form-group" style="margin-bottom:15px;">
+        <label>危険操作用PIN（4〜8桁、空欄なら未設定）</label>
+        <input type="password" id="adminActionPinInput" inputmode="numeric" placeholder="例：1234">
+      </div>
       <div class="flex" style="gap: 10px;">
         <button class="btn" onclick="saveSettings()" style="flex:1;">保存</button>
         <button class="btn btn-outline" onclick="resetGasUrlToDefault()"
@@ -2141,6 +2334,10 @@
             <option value="受取済">受取済</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>管理メモ</label>
+          <textarea id="editOrderInternalNote" rows="3" placeholder="院内メモ、受け渡し注意点など"></textarea>
+        </div>
         <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
           <input type="checkbox" id="editOrderChecked" style="width: 18px; height: 18px;">
           <label style="margin-bottom: 0;">受取確認済み（一覧から非表示にする）</label>
@@ -2155,6 +2352,37 @@
   </div>
 
   <div id="toast" class="toast"></div>
+
+  <div id="contentPreviewModal" class="modal">
+    <div class="modal-content" style="max-width:720px;">
+      <h3 id="contentPreviewTitle" style="margin-bottom:14px;">プレビュー</h3>
+      <div id="contentPreviewBody" style="font-size:13px; line-height:1.9;"></div>
+      <div class="flex" style="margin-top:18px;">
+        <button type="button" class="btn btn-outline" style="flex:1;" onclick="document.getElementById('contentPreviewModal').classList.remove('active')">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="duplicateCompareModal" class="modal">
+    <div class="modal-content" style="max-width:880px;">
+      <h3 style="margin-bottom:14px;">🧩 重複会員の比較</h3>
+      <div id="duplicateCompareBody"></div>
+      <div class="flex" style="margin-top:18px; gap:10px;">
+        <button type="button" class="btn" id="duplicateMergeConfirmBtn" style="flex:1;">最新会員へ統合する</button>
+        <button type="button" class="btn btn-outline" style="flex:1;" onclick="document.getElementById('duplicateCompareModal').classList.remove('active')">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="userSummaryModal" class="modal">
+    <div class="modal-content" style="max-width:720px;">
+      <h3 style="margin-bottom:14px;">👤 会員サマリー</h3>
+      <div id="userSummaryBody"></div>
+      <div class="flex" style="margin-top:18px;">
+        <button type="button" class="btn btn-outline" style="flex:1;" onclick="document.getElementById('userSummaryModal').classList.remove('active')">閉じる</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 会員編集モーダル -->
   <div id="userEditModal" class="modal">
@@ -2328,6 +2556,10 @@
         <label id="dangerConfirmLabel">続行するには指定の文字を入力してください</label>
         <input type="text" id="dangerConfirmInput" autocomplete="off">
       </div>
+      <div class="form-group" id="dangerConfirmPinGroup" style="margin-top:10px; display:none;">
+        <label>危険操作用PIN</label>
+        <input type="password" id="dangerConfirmPinInput" inputmode="numeric" autocomplete="off">
+      </div>
       <div class="flex" style="margin-top: 18px; gap:10px;">
         <button class="btn" id="dangerConfirmSubmitBtn" style="flex:1; background:var(--danger);">実行する</button>
         <button class="btn btn-outline" type="button" onclick="closeDangerConfirmModal()" style="flex:1;">キャンセル</button>
@@ -2367,6 +2599,14 @@
     let allAdminNoticeOverviewItems = [];
     let allDuplicateUserGroups = [];
     let allTrashItems = [];
+    let allAdminAuditLogs = [];
+    let allPushUsers = [];
+    let allAdminTemplates = [];
+    let supportChatAnalytics = null;
+    let adminDashboardData = null;
+    let adminPublishSchedule = [];
+    let adminSecurityConfig = { roleMode: 'owner', actionPin: '', operatorName: '管理者' };
+    let editingAdminTemplateRowIdx = 0;
     let latestBackupStatus = null;
     let editingRewardEntries = [];
     let allMenuRevenueRecords = [];
@@ -2770,11 +3010,231 @@
       target.textContent = `${visibleCount} / ${totalCount} 件を表示`;
     }
 
+    function exportCsvFile(filename, headers, rows) {
+      const csvRows = [headers || []].concat(rows || []);
+      const csvText = csvRows.map(row => (row || []).map(value => {
+        const text = String(value == null ? '' : value);
+        return `"${text.replace(/"/g, '""')}"`;
+      }).join(',')).join('\n');
+      const blob = new Blob(["\uFEFF" + csvText], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(link.href), 0);
+    }
+
+    function buildPreviewImageHtml(src, label) {
+      const imageSrc = String(src || '').trim();
+      if (!imageSrc) return '';
+      return `
+        <div style="margin-top:14px;">
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:6px;">${escapeHtml(label || '画像')}</div>
+          <img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(label || 'preview')}" style="display:block; width:100%; max-height:260px; object-fit:cover; border-radius:14px; border:1px solid var(--border); background:#fff;">
+        </div>
+      `;
+    }
+
+    function getPreviewImageSrc(id) {
+      const el = document.getElementById(id);
+      return el && el.src ? String(el.src) : '';
+    }
+
+    function openContentPreview(title, html) {
+      const titleEl = document.getElementById('contentPreviewTitle');
+      const bodyEl = document.getElementById('contentPreviewBody');
+      if (!titleEl || !bodyEl) return;
+      titleEl.textContent = title || 'プレビュー';
+      bodyEl.innerHTML = html || '<div style="color:var(--text-mid);">プレビューを表示できませんでした</div>';
+      document.getElementById('contentPreviewModal').classList.add('active');
+    }
+
+    function previewBlogDraft() {
+      const title = document.getElementById('blogTitle').value.trim() || 'タイトル未入力';
+      const category = document.getElementById('blogCategory').value.trim() || '未設定';
+      const icon = document.getElementById('blogIcon').value.trim();
+      const date = document.getElementById('blogDate').value;
+      const body = document.getElementById('blogBody').value.trim() || '本文はまだ入力されていません。';
+      const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('imagePreview'), '記事画像');
+      openContentPreview('NEWSプレビュー', `
+        <div style="padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+            <span class="badge">${escapeHtml(category)}</span>
+            ${icon ? `<span class="badge badge-green">${escapeHtml(icon)}</span>` : ''}
+            <span style="font-size:12px; color:var(--text-light);">${escapeHtml(formatDisplayDate(date || ''))}</span>
+          </div>
+          <div style="font-size:20px; font-weight:700; margin-bottom:12px; line-height:1.6;">${escapeHtml(title)}</div>
+          <div style="white-space:pre-wrap; color:var(--text-main); line-height:1.9;">${escapeHtml(body)}</div>
+          ${imageHtml}
+        </div>
+      `);
+    }
+
+    function previewProductDraft() {
+      const name = document.getElementById('prodName').value.trim() || '商品名未入力';
+      const category = document.getElementById('prodCat').value.trim() || '未設定';
+      const price = Number(document.getElementById('prodPrice').value || 0);
+      const cost = Number(document.getElementById('prodCost').value || 0);
+      const stockQty = Number(document.getElementById('prodStockQty').value || 0);
+      const lowStockThreshold = Number(document.getElementById('prodLowStockThreshold').value || 0);
+      const bgColor = document.getElementById('prodBg').value || '#f5f3ee';
+      const desc = document.getElementById('prodDesc').value.trim() || '説明はまだ入力されていません。';
+      const mainImageHtml = buildPreviewImageHtml(getPreviewImageSrc('prodImagePreview'), '商品画像');
+      const descImageHtml = buildPreviewImageHtml(getPreviewImageSrc('prodDescImagePreview'), '説明画像');
+      const inventoryLabel = stockQty <= 0
+        ? '売り切れ'
+        : (lowStockThreshold > 0 && stockQty <= lowStockThreshold ? `残り少なめ（在庫 ${stockQty}）` : `在庫 ${stockQty}`);
+      openContentPreview('商品プレビュー', `
+        <div style="padding:20px; border-radius:22px; background:${escapeHtml(bgColor)}; color:#2f2a24;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+            <span class="badge">${escapeHtml(category)}</span>
+            <span class="badge badge-green">販売価格 ¥${price.toLocaleString()}</span>
+            ${cost > 0 ? `<span class="badge">原価 ¥${cost.toLocaleString()}</span>` : ''}
+            <span class="badge ${stockQty <= 0 ? 'badge-danger' : ''}">${escapeHtml(inventoryLabel)}</span>
+          </div>
+          <div style="font-size:22px; font-weight:700; margin-bottom:12px; line-height:1.5;">${escapeHtml(name)}</div>
+          <div style="white-space:pre-wrap; line-height:1.9; color:#534a41;">${escapeHtml(desc)}</div>
+          ${mainImageHtml}
+          ${descImageHtml}
+        </div>
+      `);
+    }
+
+    function previewCalendarDraft() {
+      const title = document.getElementById('calTitle').value.trim() || 'イベント名未入力';
+      const desc = document.getElementById('calDesc').value.trim() || '説明はまだ入力されていません。';
+      const color = document.getElementById('calColor').value || '#e57373';
+      const currentDate = document.getElementById('calDate').value;
+      const dateList = selectedDates.length ? selectedDates.slice() : (currentDate ? [currentDate] : []);
+      const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('calImagePreview'), 'イベント画像');
+      openContentPreview('カレンダープレビュー', `
+        <div style="padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+            <div style="width:18px; height:18px; border-radius:999px; background:${escapeHtml(color)}; border:1px solid rgba(0,0,0,.08);"></div>
+            <div style="font-size:19px; font-weight:700;">${escapeHtml(title)}</div>
+          </div>
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">対象日: ${escapeHtml(dateList.length ? dateList.map(item => formatDisplayDate(item)).join(' / ') : '未選択')}</div>
+          <div style="white-space:pre-wrap; line-height:1.9; color:var(--text-main);">${escapeHtml(desc)}</div>
+          ${imageHtml}
+        </div>
+      `);
+    }
+
+    function previewMenuDraft() {
+      const category = document.getElementById('menuCategory').value.trim() || '未設定';
+      const name = document.getElementById('menuName').value.trim() || 'メニュー名未入力';
+      const desc = document.getElementById('menuDescription').value.trim() || '概要説明はまだ入力されていません。';
+      const reservationStatus = document.getElementById('menuReservationStatus').value || '未設定';
+      const publishStatus = document.getElementById('menuPublishStatus').value || '未設定';
+      const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('menuImagePreview'), 'メニュー画像');
+      openContentPreview('メニュープレビュー', `
+        <div style="padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+            <span class="badge">${escapeHtml(category)}</span>
+            <span class="badge">${escapeHtml(reservationStatus)}</span>
+            <span class="badge ${publishStatus === '公開' ? 'badge-green' : ''}">${escapeHtml(publishStatus)}</span>
+          </div>
+          <div style="font-size:22px; font-weight:700; line-height:1.5; margin-bottom:12px;">${escapeHtml(name)}</div>
+          <div style="white-space:pre-wrap; line-height:1.9; color:var(--text-main);">${escapeHtml(desc)}</div>
+          ${imageHtml}
+        </div>
+      `);
+    }
+
+    function getAdminRequestPermissionMeta(action, data = null, isPost = false) {
+      if (!isPost) return { level: 'view', label: 'データ取得' };
+      const type = String((data && data.type) || action || '').trim();
+      const mode = String((data && data.mode) || '').trim();
+      const sheet = String((data && data.sheet) || '').trim();
+      const labelMap = {
+        addBlog: 'NEWS追加',
+        updateBlog: 'NEWS更新',
+        addProduct: '商品追加',
+        updateProduct: '商品更新',
+        addCalendar: 'イベント追加',
+        updateCalendar: 'イベント更新',
+        addMenu: 'メニュー追加',
+        updateMenu: 'メニュー更新',
+        addCategory: 'カテゴリ追加',
+        updateCategory: 'カテゴリ更新',
+        saveSupportFaq: 'FAQ保存',
+        saveMenuRevenueRecord: 'メニュー収益保存',
+        saveProductRevenueRecord: '商品収益保存',
+        saveAdminTemplate: 'テンプレート保存',
+        updateAdminUser: '会員情報更新',
+        updateAdminRewardStatus: 'スタンプ・特典更新',
+        updateOrder: '注文更新',
+        updateRecordStatus: '公開状態更新',
+        updateNoticeVisibility: 'お知らせ公開状態更新',
+        updateItemOrder: '並び順更新',
+        uploadImage: '画像アップロード',
+        saveAppRuntimeConfig: 'アプリ設定変更',
+        saveAdminSecurityConfig: '権限設定変更',
+        deleteRow: `${sheet || 'データ'}削除`,
+        deleteRows: `${sheet || 'データ'}一括削除`,
+        deleteOrders: '注文削除',
+        deleteUser: '会員削除',
+        deleteCategory: 'カテゴリ削除',
+        deleteSupportFaq: 'FAQ削除',
+        deleteMenu: 'メニュー削除',
+        deleteAdminTemplate: 'テンプレート削除',
+        deleteMenuRevenueRecord: 'メニュー収益削除',
+        deleteProductRevenueRecord: '商品収益削除',
+        mergeUsers: '会員統合',
+        restoreDeletedRecord: 'ゴミ箱復元',
+        hardDeleteRecord: '完全削除',
+        runManualBackup: '手動バックアップ'
+      };
+      if (type === 'broadcastPush') {
+        if (mode === 'draft') return { level: 'edit', label: '通知下書き保存' };
+        if (mode === 'test') return { level: 'danger', label: 'テスト通知送信' };
+        if (mode === 'schedule') return { level: 'danger', label: '通知予約' };
+        return { level: 'danger', label: '通知送信' };
+      }
+      const dangerTypes = new Set([
+        'deleteRow', 'deleteRows', 'deleteOrders', 'deleteUser', 'deleteCategory', 'deleteSupportFaq',
+        'deleteMenu', 'deleteAdminTemplate', 'deleteMenuRevenueRecord', 'deleteProductRevenueRecord',
+        'mergeUsers', 'restoreDeletedRecord', 'hardDeleteRecord', 'runManualBackup',
+        'saveAppRuntimeConfig', 'saveAdminSecurityConfig'
+      ]);
+      return {
+        level: dangerTypes.has(type) ? 'danger' : 'edit',
+        label: labelMap[type] || '保存操作'
+      };
+    }
+
+    function getAdminRoleMode() {
+      return String((adminSecurityConfig && adminSecurityConfig.roleMode) || 'owner');
+    }
+
+    function canAdminPerform(actionLevel) {
+      const role = getAdminRoleMode();
+      if (role === 'owner') return true;
+      if (role === 'viewer') return actionLevel === 'view';
+      if (role === 'editor') return actionLevel !== 'danger';
+      return true;
+    }
+
+    function enforceAdminPermission(actionLevel, label) {
+      if (canAdminPerform(actionLevel)) return true;
+      const message = actionLevel === 'danger'
+        ? `現在の権限では ${label || '危険操作'} は実行できません`
+        : `現在の権限では ${label || 'この操作'} は実行できません`;
+      showToast(message);
+      return false;
+    }
+
     function closeDangerConfirmModal() {
       const modal = document.getElementById('dangerConfirmModal');
       if (modal) modal.classList.remove('active');
       const input = document.getElementById('dangerConfirmInput');
       if (input) input.value = '';
+      const pinInput = document.getElementById('dangerConfirmPinInput');
+      if (pinInput) pinInput.value = '';
+      const pinGroup = document.getElementById('dangerConfirmPinGroup');
+      if (pinGroup) pinGroup.style.display = 'none';
       if (pendingDangerConfirm && typeof pendingDangerConfirm.resolve === 'function') {
         pendingDangerConfirm.resolve(false);
       }
@@ -2783,6 +3243,10 @@
 
     function requestDangerousConfirm(options = {}) {
       return new Promise(resolve => {
+        if (!enforceAdminPermission('danger', options.title || '危険操作')) {
+          resolve(false);
+          return;
+        }
         if (pendingDangerConfirm && typeof pendingDangerConfirm.resolve === 'function') {
           pendingDangerConfirm.resolve(false);
         }
@@ -2793,7 +3257,12 @@
         document.getElementById('dangerConfirmLabel').textContent = `続行するには「${keyword}」と入力してください`;
         document.getElementById('dangerConfirmSubmitBtn').textContent = options.confirmLabel || '実行する';
         const input = document.getElementById('dangerConfirmInput');
+        const pinInput = document.getElementById('dangerConfirmPinInput');
+        const pinGroup = document.getElementById('dangerConfirmPinGroup');
+        const requirePin = !!(adminSecurityConfig && adminSecurityConfig.actionPin);
         input.value = '';
+        if (pinInput) pinInput.value = '';
+        if (pinGroup) pinGroup.style.display = requirePin ? 'block' : 'none';
         const modal = document.getElementById('dangerConfirmModal');
         modal.classList.add('active');
         setTimeout(() => input.focus(), 50);
@@ -2801,6 +3270,11 @@
           if (input.value.trim() !== keyword) {
             alert(`「${keyword}」と入力してください`);
             input.focus();
+            return;
+          }
+          if (requirePin && pinInput && pinInput.value.trim() !== adminSecurityConfig.actionPin) {
+            alert('PINが一致しません');
+            pinInput.focus();
             return;
           }
           modal.classList.remove('active');
@@ -2940,7 +3414,7 @@
 
     function toggleSelectAll(type, trigger) {
       try {
-        const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : (type === 'PUSH' ? 'push-sel' : (type === 'NOTICES' ? 'notice-sel' : 'order-sel'))));
+        const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : (type === 'PUSH' ? 'push-sel' : (type === 'NOTICES' ? 'notice-sel' : (type === 'TRASH' ? 'trash-sel' : 'order-sel')))));
         const isChecked = !!(trigger && typeof trigger === 'object' ? trigger.checked : trigger);
         const scope = trigger && typeof trigger.closest === 'function'
           ? (trigger.closest('table') || trigger.closest('.table-wrapper') || trigger.closest('.card') || getBulkActionRoot(trigger))
@@ -3023,14 +3497,27 @@
       applyAdminAppRuntimeConfigToInputs(adminAppRuntimeConfig);
       if (GAS_URL) {
         await loadAdminAppRuntimeConfig();
+        const securityRes = await apiRequest('getAdminSecurityConfig');
+        if (securityRes && securityRes.status === 'ok' && securityRes.config) {
+          adminSecurityConfig = securityRes.config;
+        }
       }
+      document.getElementById('adminRoleModeInput').value = (adminSecurityConfig && adminSecurityConfig.roleMode) || 'owner';
+      document.getElementById('adminOperatorNameInput').value = (adminSecurityConfig && adminSecurityConfig.operatorName) || '管理者';
+      document.getElementById('adminActionPinInput').value = (adminSecurityConfig && adminSecurityConfig.actionPin) || '';
       document.getElementById('settingsModal').classList.add('active');
     }
 
     async function saveSettings() {
+      if (!enforceAdminPermission('danger', '設定変更')) return;
       const gUrl = document.getElementById('gasUrlInput').value.trim();
       const aUrl = document.getElementById('appPublicUrlInput').value.trim();
       const runtimeConfig = collectAdminAppRuntimeConfigFromInputs();
+      const securityConfig = {
+        roleMode: document.getElementById('adminRoleModeInput').value,
+        operatorName: document.getElementById('adminOperatorNameInput').value,
+        actionPin: document.getElementById('adminActionPinInput').value
+      };
 
       if (compareAdminVersions(runtimeConfig.minimumSupportedVersion, '0.0.0') > 0 && !runtimeConfig.iosStoreUrl) {
         showToast('最低対応バージョンを設定する場合は App Store URL も入力してください');
@@ -3054,8 +3541,15 @@
           return;
         }
         adminAppRuntimeConfig = sanitizeAdminAppRuntimeConfig(saveConfigRes.config || runtimeConfig);
+        const saveSecurityRes = await apiRequest('', { type: 'saveAdminSecurityConfig', config: securityConfig }, true);
+        if (!saveSecurityRes || saveSecurityRes.status !== 'ok') {
+          showToast((saveSecurityRes && saveSecurityRes.message) || '権限設定の保存に失敗しました');
+          return;
+        }
+        adminSecurityConfig = saveSecurityRes.config || securityConfig;
       } else {
         adminAppRuntimeConfig = runtimeConfig;
+        adminSecurityConfig = securityConfig;
       }
 
       document.getElementById('settingsModal').classList.remove('active');
@@ -3071,12 +3565,17 @@
       }
     }
 
-    function resetGasUrlToDefault() {
-      if (confirm('設定を初期値にリセットしてページを再読み込みしますか？')) {
-        localStorage.removeItem('MAYUMI_GAS_URL');
-        localStorage.removeItem('MAYUMI_APP_PUBLIC_URL');
-        location.reload();
-      }
+    async function resetGasUrlToDefault() {
+      const confirmed = await requestDangerousConfirm({
+        title: '初期値リセットの確認',
+        message: 'GAS URL と公開URLの設定を初期値に戻し、ページを再読み込みします。',
+        keyword: '初期化',
+        confirmLabel: '初期化する'
+      });
+      if (!confirmed) return;
+      localStorage.removeItem('MAYUMI_GAS_URL');
+      localStorage.removeItem('MAYUMI_APP_PUBLIC_URL');
+      location.reload();
     }
 
     async function switchPage(pageId, navEl) {
@@ -3126,7 +3625,7 @@
 
     async function loadPageData(pageId) {
       if (pageId === 'orders') {
-        await loadAdminOrders();
+        await Promise.all([loadAdminOrders(), loadAdminDashboardData()]);
         return;
       }
       if (pageId === 'blogs') {
@@ -3144,7 +3643,7 @@
         return;
       }
       if (pageId === 'users') {
-        await Promise.all([loadAdminUsers(), loadAdminPushNotices(), loadDuplicateUsers(), loadAdminTrashItems(), loadBackupStatus()]);
+        await Promise.all([loadAdminUsers(), loadPushUsers(), loadAdminPushNotices(), loadDuplicateUsers(), loadAdminTrashItems(), loadBackupStatus(), loadAdminAuditLogs()]);
         return;
       }
       if (pageId === 'notice-management') {
@@ -3164,7 +3663,7 @@
         return;
       }
       if (pageId === 'support-bot') {
-        await loadAdminSupportFaq();
+        await Promise.all([loadAdminSupportFaq(), loadSupportChatAnalytics(), loadAdminTemplates()]);
         return;
       }
       if (pageId === 'stamp-rewards') {
@@ -3368,14 +3867,23 @@
           </td>
           <td>${escapeHtml(u.memberId || '')}</td>
           <td style="font-size:11px;color:#666;">${formatDisplayDate(u.timestamp || '')}</td>
-          <td>${escapeHtml(u.name || '')}</td>
+          <td>
+            <div style="font-weight:700;">${escapeHtml(u.name || '')}</div>
+            <div style="font-size:11px; color:var(--text-light); margin-top:4px;">
+              注文 ${Number(u.orderCount || 0)}件 / 受付中 ${Number(u.pendingOrderCount || 0)}件 / 端末 ${Number(u.deviceCount || 0)}台
+            </div>
+          </td>
           <td>${escapeHtml(u.phone || '')}</td>
           <td>${escapeHtml(u.birthday || '')}</td>
           <td>${escapeHtml(u.address || '')}</td>
           <td style="text-align:center;">${u.pushEnabled ? '🔔' : 'ー'}</td>
-          <td>${escapeHtml(u.memo || '')}</td>
+          <td>
+            <div>${escapeHtml(u.memo || '')}</div>
+            <div style="font-size:11px; color:var(--text-light); margin-top:4px;">最終注文: ${escapeHtml(formatDisplayDate(u.lastOrderAt || '') || '---')}</div>
+          </td>
           <td>
             <div class="flex" style="gap:5px;">
+              <button type="button" class="btn btn-outline" title="会員サマリー" style="padding:4px 8px; font-size:11px;" onclick='openUserSummaryModal(${memberIdExpr}, ${rowIdxExpr})'>ℹ️</button>
               <button type="button" class="btn btn-outline" title="注文詳細を確認" style="padding:4px 8px; font-size:11px;" onclick='openUserOrdersModal(${memberIdExpr}, ${rowIdxExpr})'>📦</button>
               <button type="button" class="btn" title="会員情報を編集" style="padding:4px 8px; font-size:11px;" onclick='editUser(${memberIdExpr}, ${u.rowIdx})'>📝</button>
               <button type="button" class="btn" title="会員を削除" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick='deleteUser(${memberIdExpr}, ${u.rowIdx}, ${deleteName})'>🗑</button>
@@ -3390,6 +3898,7 @@
       renderSummaryCards('usersSummaryCards', [
         { label: '会員総数', value: allUsers.length },
         { label: 'Push許可あり', value: allUsers.filter(user => user.pushEnabled).length },
+        { label: '未対応注文あり', value: allUsers.filter(user => Number(user.pendingOrderCount || 0) > 0).length },
         { label: 'Push許可なし', value: allUsers.filter(user => !user.pushEnabled).length },
         { label: '現在表示中', value: filteredUsers.length }
       ]);
@@ -3562,6 +4071,7 @@
             <td>
               <span class="badge" style="${statusInfo.badgeStyle}">${statusInfo.label}</span>
               <div style="font-size:11px; color:var(--text-mid); margin-top:6px;">${statusInfo.subLabel}</div>
+              ${order && order.internalNote ? `<div style="font-size:11px; color:var(--text-mid); margin-top:6px; white-space:pre-wrap;">メモ: ${escapeHtml(order.internalNote)}</div>` : ''}
             </td>
             <td>
               <div class="flex" style="gap:6px; flex-wrap:wrap;">
@@ -4249,7 +4759,13 @@
     }
 
     async function demoForceUpdateStamps(rowIdx, count) {
-      if (!confirm(`【デモ用操作】\nスタンプを ${count} 個に設定しますか？\n(当日の取得制限も解除されます)`)) return;
+      const confirmed = await requestDangerousConfirm({
+        title: 'スタンプ強制設定の確認',
+        message: `デモ用操作として、スタンプを ${count} 個に設定します。\n当日の取得制限も解除されます。`,
+        keyword: '設定',
+        confirmLabel: '設定する'
+      });
+      if (!confirmed) return;
 
       showToast('デモデータを更新中...');
       const res = await apiRequest('', {
@@ -4286,6 +4802,37 @@
       document.getElementById('editUserMemo').value = u.memo || '';
 
       document.getElementById('userEditModal').classList.add('active');
+    }
+
+    function openUserSummaryModal(memberId, rowIdx) {
+      const normalizedMemberId = String(memberId || '').trim();
+      const numericRowIdx = Number(rowIdx || 0);
+      const user = allUsers.find(item => String(item.memberId || '').trim() === normalizedMemberId || Number(item.rowIdx || 0) === numericRowIdx);
+      if (!user) return;
+      const unusedRewards = Array.isArray(user.rewards) ? user.rewards.filter(reward => !reward.used) : [];
+      const body = document.getElementById('userSummaryBody');
+      if (body) {
+        body.innerHTML = `
+          <div class="summary-grid">
+            <div class="summary-card"><div class="summary-label">会員ID</div><div class="summary-value">${escapeHtml(user.memberId || '')}</div></div>
+            <div class="summary-card"><div class="summary-label">注文数</div><div class="summary-value">${Number(user.orderCount || 0)}</div></div>
+            <div class="summary-card"><div class="summary-label">受付中注文</div><div class="summary-value">${Number(user.pendingOrderCount || 0)}</div></div>
+            <div class="summary-card"><div class="summary-label">端末数</div><div class="summary-value">${Number(user.deviceCount || 0)}</div></div>
+            <div class="summary-card"><div class="summary-label">スタンプ</div><div class="summary-value">${Number(user.stampCount || 0)}</div></div>
+            <div class="summary-card"><div class="summary-label">未使用特典</div><div class="summary-value">${unusedRewards.length}</div></div>
+          </div>
+          <div style="margin-top:16px; font-size:13px; line-height:1.9;">
+            氏名: ${escapeHtml(user.name || '')}<br>
+            電話番号: ${escapeHtml(user.phone || '---')}<br>
+            生年月日: ${escapeHtml(user.birthday || '---')}<br>
+            住所: ${escapeHtml(user.address || '---')}<br>
+            最終注文: ${escapeHtml(formatDisplayDate(user.lastOrderAt || '') || '---')}<br>
+            累計売上: ¥${Number(user.orderTotal || 0).toLocaleString()}<br>
+            メモ: ${escapeHtml(user.memo || '---')}
+          </div>
+        `;
+      }
+      document.getElementById('userSummaryModal').classList.add('active');
     }
 
     async function saveUserEdit() {
@@ -4337,9 +4884,16 @@
     }
 
     async function deleteUser(memberId, rowIdx, name) {
+      const user = allUsers.find(item => String(item.memberId || '').trim() === String(memberId || '').trim() || Number(item.rowIdx || 0) === Number(rowIdx || 0));
+      const impactLines = user ? [
+        `注文 ${Number(user.orderCount || 0)}件`,
+        `受付中 ${Number(user.pendingOrderCount || 0)}件`,
+        `スタンプ ${Number(user.stampCount || 0)}個`,
+        `未使用特典 ${(Array.isArray(user.rewards) ? user.rewards.filter(reward => !reward.used).length : 0)}件`
+      ].join(' / ') : '';
       const confirmed = await requestDangerousConfirm({
         title: '会員削除の確認',
-        message: `会員「${name || '名前なし'}」をゴミ箱へ移動します。`,
+        message: `会員「${name || '名前なし'}」をゴミ箱へ移動します。\n影響: ${impactLines || '会員情報のみ確認可能'}`,
         keyword: '削除',
         confirmLabel: '削除する'
       });
@@ -4374,10 +4928,54 @@
         `日次バックアップ: ${latestBackupStatus.hasDailyTrigger ? '有効' : '未設定'}`,
         `予約Push実行トリガー: ${latestBackupStatus.hasPushSchedulerTrigger ? '有効' : '未設定'}`
       ];
+      if (latestBackupStatus.isBackupStale) {
+        lines.push('<span style="color:var(--danger); font-weight:bold;">バックアップが古くなっています</span>');
+      }
       if (latestBackupStatus.lastBackupUrl) {
         lines.push(`<a href="${latestBackupStatus.lastBackupUrl}" target="_blank" rel="noopener">最新バックアップを開く</a>`);
       }
+      if (Array.isArray(latestBackupStatus.recentLogs) && latestBackupStatus.recentLogs.length) {
+        lines.push('<div style="margin-top:10px; font-weight:bold;">最近のバックアップ履歴</div>');
+        lines.push(latestBackupStatus.recentLogs.map(log => `<div style="font-size:12px; color:var(--text-mid);">${escapeHtml(formatDisplayDate(log.createdAt || ''))} / ${escapeHtml(log.reason || '')} / <a href="${escapeHtml(log.url || '')}" target="_blank" rel="noopener">${escapeHtml(log.fileName || '')}</a></div>`).join(''));
+      }
       if (box) box.innerHTML = lines.map(line => `<div style="margin-bottom:6px;">${line}</div>`).join('');
+    }
+
+    async function loadAdminDashboardData() {
+      const res = await apiRequest('getAdminDashboardData');
+      adminDashboardData = res && res.status === 'ok' ? res : null;
+      renderAdminDashboard();
+    }
+
+    function renderAdminDashboard() {
+      if (!adminDashboardData || adminDashboardData.status !== 'ok') {
+        renderSummaryCards('adminDashboardCards', []);
+        const alerts = document.getElementById('adminAlertsList');
+        const schedule = document.getElementById('publishScheduleList');
+        if (alerts) alerts.innerHTML = '<div style="color:var(--text-mid);">ダッシュボードの取得に失敗しました</div>';
+        if (schedule) schedule.innerHTML = '';
+        return;
+      }
+      renderSummaryCards('adminDashboardCards', [
+        { label: '会員数', value: Number(adminDashboardData.summary.users || 0) },
+        { label: '受付中注文', value: Number(adminDashboardData.summary.ordersPending || 0) },
+        { label: '公開予約', value: Number(adminDashboardData.summary.scheduledPublishes || 0) },
+        { label: '重複候補', value: Number(adminDashboardData.summary.duplicateGroups || 0) },
+        { label: 'Push失敗', value: Number(adminDashboardData.summary.failedPushes || 0) }
+      ]);
+      const alerts = document.getElementById('adminAlertsList');
+      if (alerts) {
+        alerts.innerHTML = (adminDashboardData.alerts || []).length
+          ? (adminDashboardData.alerts || []).map(alert => `<div style="padding:10px 12px; border-radius:10px; margin-bottom:8px; background:${alert.level === 'warning' ? '#fff3e0' : '#f4f7fb'}; color:var(--text-dark);"><strong>${escapeHtml(alert.label || '')}</strong><div style="font-size:12px; color:var(--text-mid); margin-top:4px;">${escapeHtml(alert.detail || '')}</div></div>`).join('')
+          : '<div style="font-size:12px; color:var(--text-mid);">現在のアラートはありません。</div>';
+      }
+      const schedule = document.getElementById('publishScheduleList');
+      if (schedule) {
+        const items = adminDashboardData.upcomingPublishes || [];
+        schedule.innerHTML = `<div style="font-weight:700; margin-bottom:8px;">公開予約一覧</div>` + (items.length
+          ? items.map(item => `<div style="font-size:12px; color:var(--text-mid); margin-bottom:6px;">${escapeHtml(formatDisplayDate(item.publishAt || ''))} / ${escapeHtml(item.source || '')} / ${escapeHtml(item.title || '')}</div>`).join('')
+          : '<div style="font-size:12px; color:var(--text-mid);">公開予約はありません。</div>');
+      }
     }
 
     async function runManualBackup() {
@@ -4429,7 +5027,7 @@
         const target = group.users && group.users[0];
         const sourceIds = (group.users || []).slice(1).map(user => user.memberId);
         const button = target && sourceIds.length
-          ? `<button class="btn" type="button" onclick='mergeDuplicateGroup(${JSON.stringify(target.memberId)}, ${JSON.stringify(sourceIds)}, ${JSON.stringify(target.name || "")})'>最新の会員IDへ統合</button>`
+          ? `<div class="flex" style="gap:6px; flex-wrap:wrap;"><button class="btn btn-outline" type="button" onclick='openDuplicateCompareModal(${JSON.stringify(group.key)})'>比較する</button><button class="btn" type="button" onclick='mergeDuplicateGroup(${JSON.stringify(target.memberId)}, ${JSON.stringify(sourceIds)}, ${JSON.stringify(target.name || "")})'>最新の会員IDへ統合</button></div>`
           : '<span style="font-size:12px; color:var(--text-light);">統合対象なし</span>';
         return `
           <tr>
@@ -4439,6 +5037,41 @@
           </tr>
         `;
       }).join('');
+    }
+
+    function openDuplicateCompareModal(groupKey) {
+      const group = allDuplicateUserGroups.find(item => String(item.key || '') === String(groupKey || ''));
+      if (!group) return;
+      const body = document.getElementById('duplicateCompareBody');
+      const target = group.users && group.users[0];
+      const sourceIds = (group.users || []).slice(1).map(user => user.memberId);
+      if (body) {
+        body.innerHTML = `
+          <div style="font-size:12px; color:var(--text-mid); margin-bottom:12px;">判定理由: ${escapeHtml((group.reasons || []).join(' / '))}</div>
+          <div class="flex" style="gap:12px; flex-wrap:wrap;">
+            ${(group.users || []).map(user => `
+              <div style="flex:1; min-width:220px; border:1px solid var(--border); border-radius:12px; padding:14px; background:#fff;">
+                <div style="font-weight:700; margin-bottom:8px;">${escapeHtml(user.name || '')}</div>
+                <div style="font-size:12px; color:var(--text-mid); line-height:1.8;">
+                  会員ID: ${escapeHtml(user.memberId || '')}<br>
+                  電話番号: ${escapeHtml(user.phone || '---')}<br>
+                  生年月日: ${escapeHtml(user.birthday || '---')}<br>
+                  注文: ${Number(user.orderCount || 0)}件 / 受付中 ${Number(user.pendingOrderCount || 0)}件<br>
+                  合計売上: ¥${Number(user.orderTotal || 0).toLocaleString()}<br>
+                  スタンプ: ${Number(user.stampCount || 0)}個<br>
+                  端末: ${Number(user.deviceCount || 0)}台<br>
+                  更新: ${escapeHtml(formatDisplayDate(user.updatedAt || ''))}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+      const mergeBtn = document.getElementById('duplicateMergeConfirmBtn');
+      if (mergeBtn) {
+        mergeBtn.onclick = () => mergeDuplicateGroup(target ? target.memberId : '', sourceIds, target ? target.name : '');
+      }
+      document.getElementById('duplicateCompareModal').classList.add('active');
     }
 
     async function mergeDuplicateGroup(targetMemberId, sourceMemberIds, targetName) {
@@ -4459,6 +5092,7 @@
       }, true);
       if (res && res.status === 'ok') {
         showToast('会員を統合しました');
+        document.getElementById('duplicateCompareModal').classList.remove('active');
         await Promise.all([loadAdminUsers(), loadDuplicateUsers(), loadAdminTrashItems()]);
       } else {
         showToast('統合に失敗しました');
@@ -4480,12 +5114,21 @@
     function renderAdminTrashItems() {
       const body = document.getElementById('trashItemsList');
       if (!body) return;
-      if (!allTrashItems.length) {
-        body.innerHTML = '<tr><td colspan="5" style="text-align:center;">ゴミ箱は空です</td></tr>';
+      const query = normalizeFilterText(document.getElementById('trashSearchInput') ? document.getElementById('trashSearchInput').value : '');
+      const source = document.getElementById('trashSourceFilter') ? document.getElementById('trashSourceFilter').value : 'all';
+      const items = allTrashItems.filter(item => {
+        if (source !== 'all' && String(item.sourceLabel || item.source || '').trim() !== source) return false;
+        if (!query) return true;
+        const haystack = normalizeFilterText([item.title, item.memberId, item.reason, item.sourceLabel || item.source].join(' '));
+        return haystack.includes(query);
+      });
+      if (!items.length) {
+        body.innerHTML = `<tr><td colspan="6" style="text-align:center;">${allTrashItems.length ? '条件に一致するゴミ箱項目はありません' : 'ゴミ箱は空です'}</td></tr>`;
         return;
       }
-      body.innerHTML = allTrashItems.map(item => `
+      body.innerHTML = items.map(item => `
         <tr>
+          <td><input type="checkbox" class="trash-sel" data-sheet="${escapeHtml(item.sheet || '')}" data-idx="${Number(item.rowIdx || 0)}"></td>
           <td style="font-size:12px;">${escapeHtml(formatDisplayDate(item.deletedAt || ''))}</td>
           <td>${escapeHtml(item.sourceLabel || item.sheet || '')}</td>
           <td>${escapeHtml(item.title || item.memberId || '---')}</td>
@@ -4498,6 +5141,93 @@
           </td>
         </tr>
       `).join('');
+    }
+
+    function getSelectedTrashItems() {
+      return Array.from(document.querySelectorAll('.trash-sel:checked')).map(el => ({
+        sheet: el.getAttribute('data-sheet'),
+        rowIdx: Number(el.getAttribute('data-idx') || 0)
+      })).filter(item => item.sheet && item.rowIdx > 1);
+    }
+
+    async function bulkRestoreTrashItems() {
+      const targets = getSelectedTrashItems();
+      if (!targets.length) {
+        showToast('復元する項目を選択してください');
+        return;
+      }
+      const confirmed = await requestDangerousConfirm({
+        title: '一括復元の確認',
+        message: `${targets.length}件をゴミ箱から復元します。`,
+        keyword: '復元',
+        confirmLabel: '復元する'
+      });
+      if (!confirmed) return;
+      for (const target of targets) {
+        await apiRequest('', { type: 'restoreDeletedRecord', sheet: target.sheet, rowIdx: target.rowIdx }, true);
+      }
+      showToast('一括復元しました');
+      await Promise.all([loadAdminTrashItems(), refreshActiveAdminPageData()]);
+    }
+
+    async function bulkHardDeleteTrashItems() {
+      const targets = getSelectedTrashItems();
+      if (!targets.length) {
+        showToast('完全削除する項目を選択してください');
+        return;
+      }
+      const confirmed = await requestDangerousConfirm({
+        title: '一括完全削除の確認',
+        message: `${targets.length}件を完全削除します。`,
+        keyword: '完全削除',
+        confirmLabel: '完全削除する'
+      });
+      if (!confirmed) return;
+      for (const target of targets) {
+        await apiRequest('', { type: 'hardDeleteRecord', sheet: target.sheet, rowIdx: target.rowIdx }, true);
+      }
+      showToast('一括完全削除しました');
+      await Promise.all([loadAdminTrashItems(), refreshActiveAdminPageData()]);
+    }
+
+    async function loadAdminAuditLogs() {
+      const res = await apiRequest('getAdminAuditLogs');
+      allAdminAuditLogs = res && res.status === 'ok' ? (res.logs || []) : [];
+      renderAdminAuditLogs();
+    }
+
+    function renderAdminAuditLogs() {
+      const body = document.getElementById('adminAuditLogList');
+      if (!body) return;
+      const query = normalizeFilterText(document.getElementById('auditSearchInput') ? document.getElementById('auditSearchInput').value : '');
+      const resultFilter = document.getElementById('auditResultFilter') ? document.getElementById('auditResultFilter').value : 'all';
+      const items = allAdminAuditLogs.filter(item => {
+        if (resultFilter !== 'all' && item.result !== resultFilter) return false;
+        if (!query) return true;
+        const haystack = normalizeFilterText([item.type, item.target, item.summary, item.operator].join(' '));
+        return haystack.includes(query);
+      });
+      body.innerHTML = items.length ? items.map(item => `
+        <tr>
+          <td>${escapeHtml(formatDisplayDate(item.timestamp || ''))}</td>
+          <td>${escapeHtml(item.type || '')}</td>
+          <td>${escapeHtml(item.target || '')}</td>
+          <td style="font-size:12px;">${escapeHtml(item.summary || '')}</td>
+          <td>${escapeHtml(item.operator || '')}</td>
+          <td>${escapeHtml(item.result || '')}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="6" style="text-align:center;">操作履歴はありません</td></tr>';
+    }
+
+    function exportAdminAuditLogsCsv() {
+      exportCsvFile('admin-audit-log.csv', ['日時', '種別', '対象', '概要', '操作者', '結果'], allAdminAuditLogs.map(item => [
+        item.timestamp || '',
+        item.type || '',
+        item.target || '',
+        item.summary || '',
+        item.operator || '',
+        item.result || ''
+      ]));
     }
 
     async function restoreTrashItem(sheet, rowIdx, label) {
@@ -5048,7 +5778,13 @@
       const target = deleteMap[kind];
       if (!target || !rowIdx) return;
 
-      if (!confirm(`「${title || target.label}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+      const confirmed = await requestDangerousConfirm({
+        title: `${target.label}削除の確認`,
+        message: `「${title || target.label}」をゴミ箱へ移動します。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
       showToast('削除中...');
       const res = await apiRequest('', target.payload(), true);
       if (res && res.status === 'ok') {
@@ -5064,6 +5800,22 @@
     }
 
     /* === お知らせ（Push通知）管理 === */
+    async function loadPushUsers() {
+      const res = await apiRequest('getPushUsers');
+      if (res && res.status === 'ok') {
+        allPushUsers = Array.isArray(res.users) ? res.users : [];
+      } else {
+        allPushUsers = [];
+      }
+      const select = document.getElementById('pushTestRecipient');
+      if (select) {
+        select.innerHTML = '<option value="">会員を選択してください</option>' + allPushUsers.map(user => (
+          `<option value="${escapeHtml(String(user.memberId || ''))}">${escapeHtml(String(user.name || ''))} (${escapeHtml(String(user.memberId || ''))})</option>`
+        )).join('');
+      }
+      updatePushAudienceMeta();
+    }
+
     async function loadAdminPushNotices() {
       const tbody = document.getElementById('pushNoticesList');
       if (!tbody) return;
@@ -5132,11 +5884,12 @@
           <td style="font-size:11px;">${escapeHtml(dateStr)}</td>
           <td>
             <div style="font-weight:bold;">${escapeHtml(n.title || '')}</div>
-            <div style="font-size:11px; color:var(--text-light); margin-top:4px;">${escapeHtml(n.status || '送信済み')} / ${escapeHtml(n.targetPage || 'home')}</div>
+            <div style="font-size:11px; color:var(--text-light); margin-top:4px;">${escapeHtml(n.status || '送信済み')} / ${escapeHtml(n.targetPage || 'home')} / ${escapeHtml(n.targetStatus || 'all')}</div>
           </td>
           <td style="font-size:12px;">
             <div>${escapeHtml(n.body || '')}</div>
             ${n.scheduledAt ? `<div style="margin-top:4px; font-size:11px; color:var(--text-light);">予約: ${escapeHtml(formatDisplayDate(n.scheduledAt || ''))}</div>` : ''}
+            ${n.recipientCount ? `<div style="margin-top:4px; font-size:11px; color:var(--text-light);">対象件数: ${escapeHtml(String(n.recipientCount))}件</div>` : ''}
             ${n.result ? `<div style="margin-top:4px; font-size:11px; color:var(--text-light);">結果: ${escapeHtml(n.result)}</div>` : ''}
           </td>
           <td>
@@ -5166,11 +5919,43 @@
       }
     }
 
+    function buildSelectedPushAudience() {
+      const mode = document.getElementById('pushAudienceMode') ? document.getElementById('pushAudienceMode').value : 'all';
+      const targetUsers = allPushUsers.filter(user => {
+        if (mode === 'pending-orders') return Number(user.pendingOrderCount || 0) > 0;
+        if (mode === 'reward-available') return Number(user.rewardCount || 0) > 0;
+        if (mode === 'no-orders') return Number(user.orderCount || 0) === 0;
+        return true;
+      });
+      return {
+        mode: mode,
+        users: targetUsers,
+        label: mode === 'pending-orders' ? '受付中注文がある会員' :
+          mode === 'reward-available' ? '未使用特典がある会員' :
+            mode === 'no-orders' ? '注文履歴がない会員' : 'Push許可中の全員'
+      };
+    }
+
+    function updatePushAudienceMeta() {
+      const target = document.getElementById('pushAudienceMeta');
+      if (!target) return;
+      const audience = buildSelectedPushAudience();
+      target.textContent = `${audience.label} / ${audience.users.length}件`;
+    }
+
     function collectPushNoticePayload() {
+      const audience = buildSelectedPushAudience();
       return {
         title: document.getElementById('pushTitle').value.trim(),
         body: document.getElementById('pushBody').value.trim(),
-        targetStatus: 'all',
+        targetStatus: audience.mode,
+        targetDetail: audience.label,
+        targetUsers: audience.users.map(user => ({
+          memberId: user.memberId,
+          name: user.name,
+          subscription: user.subscription
+        })),
+        recipientCount: audience.users.length,
         targetPage: document.getElementById('pushTargetPage').value,
         scheduledAt: document.getElementById('pushScheduledAt').value || ''
       };
@@ -5184,11 +5969,45 @@
       }
       document.getElementById('pushPreviewBody').innerHTML = `
         <div style="font-size:12px; color:var(--text-light); margin-bottom:8px;">送信先画面: ${escapeHtml(payload.targetPage)}</div>
+        <div style="font-size:12px; color:var(--text-light); margin-bottom:8px;">配信対象: ${escapeHtml(payload.targetDetail || payload.targetStatus || 'all')} / ${escapeHtml(String(payload.recipientCount || 0))}件</div>
         ${payload.scheduledAt ? `<div style="font-size:12px; color:var(--text-light); margin-bottom:8px;">配信予定: ${escapeHtml(payload.scheduledAt)}</div>` : ''}
         <div style="font-size:16px; font-weight:700; margin-bottom:10px;">${escapeHtml(payload.title)}</div>
         <div style="font-size:13px; color:var(--text-mid); white-space:pre-wrap;">${escapeHtml(payload.body)}</div>
       `;
       document.getElementById('pushPreviewModal').classList.add('active');
+    }
+
+    async function sendPushTest() {
+      const payload = collectPushNoticePayload();
+      const memberId = document.getElementById('pushTestRecipient') ? document.getElementById('pushTestRecipient').value : '';
+      const targetUser = allPushUsers.find(user => String(user.memberId || '') === String(memberId || ''));
+      if (!payload.title || !payload.body) {
+        alert('タイトルと本文を入力してください');
+        return;
+      }
+      if (!targetUser) {
+        alert('テスト送信先を選択してください');
+        return;
+      }
+      showToast('テスト送信中...');
+      const res = await apiRequest('', {
+        type: 'broadcastPush',
+        mode: 'test',
+        ...payload,
+        targetUsers: [{
+          memberId: targetUser.memberId,
+          name: targetUser.name,
+          subscription: targetUser.subscription
+        }],
+        targetDetail: `テスト送信:${targetUser.name || targetUser.memberId}`,
+        recipientCount: 1
+      }, true);
+      if (res && res.status === 'ok') {
+        showToast('テスト通知を送信しました');
+        loadAdminPushNotices();
+      } else {
+        showToast('テスト送信に失敗しました');
+      }
     }
 
     async function savePushDraft() {
@@ -5968,7 +6787,13 @@
     }
 
     async function deleteMenuRevenueRecord(rowIdx) {
-      if (!confirm('このメニュー収益記録を削除しますか？\nこの操作は元に戻せません。')) return;
+      const confirmed = await requestDangerousConfirm({
+        title: 'メニュー収益削除の確認',
+        message: 'このメニュー収益記録を削除します。',
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
       showToast('削除中...');
       const targetRowIdx = Number(rowIdx);
       const res = await apiRequest('', { type: 'deleteMenuRevenueRecord', rowIdx: targetRowIdx }, true);
@@ -6433,7 +7258,13 @@
     }
 
     async function deleteProductRevenueRecord(rowIdx) {
-      if (!confirm('この商品収益記録を削除しますか？\nこの操作は元に戻せません。')) return;
+      const confirmed = await requestDangerousConfirm({
+        title: '商品収益削除の確認',
+        message: 'この商品収益記録を削除します。',
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
       showToast('削除中...');
       const targetRowIdx = Number(rowIdx);
       const res = await apiRequest('', { type: 'deleteProductRevenueRecord', rowIdx: targetRowIdx }, true);
@@ -6487,6 +7318,20 @@
       const noticeBody = document.getElementById('categoryListBodyNotice');
       if (!newsBody || !menuBody || !noticeBody) return;
 
+      const usageCounts = {};
+      allBlogs.forEach(item => {
+        const key = String(item.category || '').trim();
+        if (key) usageCounts[key] = (usageCounts[key] || 0) + 1;
+      });
+      allMenus.forEach(item => {
+        const key = String(item.category || '').trim();
+        if (key) usageCounts[key] = (usageCounts[key] || 0) + 1;
+      });
+      allAdminNoticeOverviewItems.forEach(item => {
+        const key = String(item.category || '').trim();
+        if (key) usageCounts[key] = (usageCounts[key] || 0) + 1;
+      });
+
       const newsItems = [], menuItems = [], noticeItems = [];
       allCategories.forEach(cat => {
         const type = typeof cat === 'string' ? 'ブログ' : (cat.type || 'ブログ');
@@ -6518,6 +7363,7 @@
         return `
           <tr>
             <td style="font-weight:bold;">${escapeHtml(name)}</td>
+            <td style="text-align:center;">${Number(usageCounts[name] || 0)}</td>
             ${typeCol}
             <td style="text-align:center;">
               <button class="btn" style="padding:4px 8px; font-size:11px; margin-right:5px; background:var(--warm-white); color:var(--text-dark); border:1px solid var(--border);" onclick="openEditCategoryModal(${jsonCat})">🖊️</button>
@@ -6527,9 +7373,9 @@
         `;
       };
 
-      newsBody.innerHTML = newsItems.map(c => renderRow(c, false)).join('') || '<tr><td colspan="2" style="text-align:center;">カテゴリがありません</td></tr>';
-      menuBody.innerHTML = menuItems.map(c => renderRow(c, false)).join('') || '<tr><td colspan="2" style="text-align:center;">カテゴリがありません</td></tr>';
-      noticeBody.innerHTML = noticeItems.map(c => renderRow(c, false)).join('') || '<tr><td colspan="2" style="text-align:center;">カテゴリがありません</td></tr>';
+      newsBody.innerHTML = newsItems.map(c => renderRow(c, false)).join('') || '<tr><td colspan="3" style="text-align:center;">カテゴリがありません</td></tr>';
+      menuBody.innerHTML = menuItems.map(c => renderRow(c, false)).join('') || '<tr><td colspan="3" style="text-align:center;">カテゴリがありません</td></tr>';
+      noticeBody.innerHTML = noticeItems.map(c => renderRow(c, false)).join('') || '<tr><td colspan="3" style="text-align:center;">カテゴリがありません</td></tr>';
     }
 
     async function updateCategoryType(catName, newType) {
@@ -6592,7 +7438,13 @@
     }
 
     async function deleteCategory(name) {
-      if (!confirm(`カテゴリ「${name}」を削除しますか？\n※この操作はブログや商品のカテゴリ設定には影響しませんが、選択肢から消えます。`)) return;
+      const confirmed = await requestDangerousConfirm({
+        title: 'カテゴリ削除の確認',
+        message: `カテゴリ「${name}」を削除します。\n既存データのカテゴリ名はそのまま残りますが、選択肢から外れます。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
 
       showToast('削除中...');
       const res = await apiRequest('', { type: 'deleteCategory', name: name }, true);
@@ -6670,6 +7522,131 @@
       }).map(c => typeof c === 'string' ? c : c.name).filter(Boolean);
 
       datalist.innerHTML = menuCats.map(category => `<option value="${escapeHtml(category)}"></option>`).join('');
+    }
+
+    async function loadSupportChatAnalytics() {
+      const res = await apiRequest('getSupportChatAnalytics');
+      supportChatAnalytics = res && res.status === 'ok' ? res : { summary: { total: 0, matched: 0, unmatched: 0 }, topQuestions: [], unmatchedExamples: [] };
+      renderSupportChatAnalytics();
+    }
+
+    function renderSupportChatAnalytics() {
+      const analytics = supportChatAnalytics || { summary: { total: 0, matched: 0, unmatched: 0 }, topQuestions: [], unmatchedExamples: [] };
+      renderSummaryCards('supportChatAnalyticsCards', [
+        { label: '質問総数', value: Number(analytics.summary && analytics.summary.total || 0) },
+        { label: '一致', value: Number(analytics.summary && analytics.summary.matched || 0) },
+        { label: '未一致', value: Number(analytics.summary && analytics.summary.unmatched || 0) }
+      ]);
+      const topBody = document.getElementById('supportChatAnalyticsBody');
+      const unmatchedBody = document.getElementById('supportChatUnmatchedBody');
+      if (topBody) {
+        topBody.innerHTML = (analytics.topQuestions || []).length
+          ? analytics.topQuestions.map(item => `<tr><td style="text-align:center;">${Number(item.count || 0)}</td><td>${escapeHtml(item.question || '')}</td></tr>`).join('')
+          : '<tr><td colspan="2" style="text-align:center;">履歴はまだありません</td></tr>';
+      }
+      if (unmatchedBody) {
+        unmatchedBody.innerHTML = (analytics.unmatchedExamples || []).length
+          ? analytics.unmatchedExamples.map(item => `<tr><td>${escapeHtml(formatDisplayDate(item.askedAt || ''))}</td><td>${escapeHtml(item.question || '')}</td></tr>`).join('')
+          : '<tr><td colspan="2" style="text-align:center;">未一致の質問はありません</td></tr>';
+      }
+    }
+
+    async function loadAdminTemplates() {
+      const res = await apiRequest('getAdminTemplates');
+      allAdminTemplates = res && res.status === 'ok' ? (res.templates || []) : [];
+      renderAdminTemplates();
+    }
+
+    function renderAdminTemplates() {
+      const body = document.getElementById('adminTemplateListBody');
+      if (!body) return;
+      if (!allAdminTemplates.length) {
+        body.innerHTML = '<tr><td colspan="5" style="text-align:center;">テンプレートは未登録です</td></tr>';
+        return;
+      }
+      body.innerHTML = allAdminTemplates.map(item => `
+        <tr>
+          <td>${escapeHtml(item.kind || '')}</td>
+          <td>${escapeHtml(item.title || '')}</td>
+          <td style="white-space:pre-wrap; font-size:12px;">${escapeHtml(item.body || '')}</td>
+          <td>${escapeHtml(formatDisplayDate(item.updatedAt || ''))}</td>
+          <td style="text-align:center;">
+            <div class="flex" style="gap:5px; justify-content:center;">
+              <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="useAdminTemplate(${Number(item.rowIdx || 0)})">使う</button>
+              <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff;" onclick="deleteAdminTemplate(${Number(item.rowIdx || 0)})">🗑</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function resetAdminTemplateForm() {
+      editingAdminTemplateRowIdx = 0;
+      if (document.getElementById('adminTemplateKind')) document.getElementById('adminTemplateKind').value = 'Push通知';
+      if (document.getElementById('adminTemplateTitle')) document.getElementById('adminTemplateTitle').value = '';
+      if (document.getElementById('adminTemplateBody')) document.getElementById('adminTemplateBody').value = '';
+    }
+
+    async function saveAdminTemplate() {
+      const kind = document.getElementById('adminTemplateKind').value;
+      const title = document.getElementById('adminTemplateTitle').value.trim();
+      const body = document.getElementById('adminTemplateBody').value.trim();
+      if (!title || !body) {
+        alert('テンプレート名と本文を入力してください');
+        return;
+      }
+      const res = await apiRequest('', {
+        type: 'saveAdminTemplate',
+        rowIdx: editingAdminTemplateRowIdx,
+        kind: kind,
+        title: title,
+        body: body
+      }, true);
+      if (res && res.status === 'ok') {
+        showToast('テンプレートを保存しました');
+        resetAdminTemplateForm();
+        loadAdminTemplates();
+      } else {
+        showToast('テンプレート保存に失敗しました');
+      }
+    }
+
+    function useAdminTemplate(rowIdx) {
+      const item = allAdminTemplates.find(template => Number(template.rowIdx || 0) === Number(rowIdx || 0));
+      if (!item) return;
+      editingAdminTemplateRowIdx = item.rowIdx;
+      document.getElementById('adminTemplateKind').value = item.kind || 'Push通知';
+      document.getElementById('adminTemplateTitle').value = item.title || '';
+      document.getElementById('adminTemplateBody').value = item.body || '';
+      if (item.kind === 'Push通知') {
+        document.getElementById('pushTitle').value = item.title || '';
+        document.getElementById('pushBody').value = item.body || '';
+      } else if (item.kind === 'NEWS') {
+        document.getElementById('blogTitle').value = item.title || '';
+        document.getElementById('blogBody').value = item.body || '';
+      } else if (item.kind === 'FAQ') {
+        document.getElementById('supportFaqQuestion').value = item.title || '';
+        document.getElementById('supportFaqAnswer').value = item.body || '';
+      }
+      showToast('テンプレートを読み込みました');
+    }
+
+    async function deleteAdminTemplate(rowIdx) {
+      const item = allAdminTemplates.find(template => Number(template.rowIdx || 0) === Number(rowIdx || 0));
+      const confirmed = await requestDangerousConfirm({
+        title: 'テンプレート削除の確認',
+        message: `テンプレート「${item ? item.title : 'このテンプレート'}」を削除します。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
+      const res = await apiRequest('', { type: 'deleteAdminTemplate', rowIdx: rowIdx }, true);
+      if (res && res.status === 'ok') {
+        showToast('テンプレートを削除しました');
+        loadAdminTemplates();
+      } else {
+        showToast('テンプレート削除に失敗しました');
+      }
     }
 
     async function loadAdminSupportFaq() {
@@ -6838,7 +7815,13 @@
     async function deleteSupportFaq(rowIdx) {
       const item = allSupportFaq.find(faq => faq.rowIdx === rowIdx);
       const label = item ? item.question : 'このFAQ';
-      if (!confirm(`「${label}」を削除しますか？`)) return;
+      const confirmed = await requestDangerousConfirm({
+        title: 'FAQ削除の確認',
+        message: `「${label}」を削除します。`,
+        keyword: '削除',
+        confirmLabel: '削除する'
+      });
+      if (!confirmed) return;
 
       showToast('削除中...');
       const res = await apiRequest('', { type: 'deleteSupportFaq', rowIdx: rowIdx }, true);
@@ -6854,6 +7837,12 @@
       if (!GAS_URL) {
         showToast('⚙ 初期設定からGASのURLを設定してください');
         return null;
+      }
+      if (isPost) {
+        const permission = getAdminRequestPermissionMeta(action, data, isPost);
+        if (!enforceAdminPermission(permission.level, permission.label)) {
+          return null;
+        }
       }
       const cachedFallback = !isPost ? readAdminApiCache(action, data, ADMIN_API_CACHE_TTL_MS) : null;
       const requestKey = !isPost ? `${action}::${JSON.stringify(data || {})}` : null;
@@ -7053,6 +8042,49 @@
       });
     }
 
+    function getSelectedOrderIds() {
+      return Array.from(document.querySelectorAll('.order-sel:checked')).map(el => String(el.getAttribute('data-id') || '')).filter(Boolean);
+    }
+
+    async function bulkUpdateOrdersStatus() {
+      const orderIds = getSelectedOrderIds();
+      const status = document.getElementById('orderBulkStatusSelect') ? document.getElementById('orderBulkStatusSelect').value : '';
+      if (!orderIds.length) {
+        showToast('更新する注文を選択してください');
+        return;
+      }
+      if (!status) {
+        showToast('一括変更の状態を選択してください');
+        return;
+      }
+      const confirmed = await requestDangerousConfirm({
+        title: '注文一括更新の確認',
+        message: `${orderIds.length}件の注文を「${status}」に変更します。`,
+        keyword: '更新',
+        confirmLabel: '更新する'
+      });
+      if (!confirmed) return;
+      for (const orderId of orderIds) {
+        await apiRequest('', { type: 'updateOrder', orderId: orderId, status: status, checked: status === '受取済' }, true);
+      }
+      invalidateAdminApiCache(['getAdminOrders', 'getAdminUserOrders']);
+      showToast('注文ステータスを一括更新しました');
+      loadAdminOrders();
+    }
+
+    function exportOrdersCsv() {
+      exportCsvFile('orders.csv', ['注文ID', '日時', '会員ID', '氏名', '商品', 'ステータス', '受取確認', '管理メモ'], allOrders.map(order => [
+        order.orderId || '',
+        order.date || '',
+        order.memberId || '',
+        order.customerName || '',
+        (order.items || []).map(item => `${item.name} x${item.qty}`).join(' / '),
+        order.status || '',
+        order.checked ? '済' : '',
+        order.internalNote || ''
+      ]));
+    }
+
     async function openOrderModal(orderId = null) {
       const modal = document.getElementById('orderEditModal');
       const title = document.getElementById('orderModalTitle');
@@ -7088,6 +8120,7 @@
         document.getElementById('editOrderCustomerName').value = o.customerName || '';
         document.getElementById('editOrderMemberId').value = o.memberId || '';
         document.getElementById('editOrderStatus').value = normalizeAdminOrderStatus(o.status);
+        document.getElementById('editOrderInternalNote').value = o.internalNote || '';
         document.getElementById('editOrderChecked').checked = o.checked || false;
         currentOrderItems = (o.items || []).map(it => ({ name: it.name, qty: it.qty, price: it.price }));
       } else {
@@ -7096,6 +8129,7 @@
         document.getElementById('editOrderId').value = '';
         document.getElementById('editOrderDate').valueAsDate = new Date();
         document.getElementById('editOrderStatus').value = '受付中';
+        document.getElementById('editOrderInternalNote').value = '';
         currentOrderItems = [];
       }
 
@@ -7184,6 +8218,7 @@
         items: currentOrderItems,
         total: total,
         status: document.getElementById('editOrderStatus').value,
+        internalNote: document.getElementById('editOrderInternalNote').value,
         checked: document.getElementById('editOrderChecked').checked
       };
 
@@ -7498,6 +8533,7 @@
 
       btn.innerText = '商品データを保存中...';
       const rowIdx = document.getElementById('prodRowIdx').value;
+      const currentProduct = rowIdx ? (allProducts.find(p => p.rowIdx == rowIdx) || {}) : {};
 
       const payload = {
         type: rowIdx ? 'updateProduct' : 'addProduct',
@@ -7506,11 +8542,13 @@
         name: document.getElementById('prodName').value,
         price: Number(document.getElementById('prodPrice').value),
         costPrice: Number(document.getElementById('prodCost').value),
-        icon: prodIconUrl,
+        icon: prodIconUrl || currentProduct.icon || '',
         bg: document.getElementById('prodBg').value,
         status: status,
+        stockQty: Number(document.getElementById('prodStockQty').value || 0),
+        lowStockThreshold: Number(document.getElementById('prodLowStockThreshold').value || 0),
         description: document.getElementById('prodDesc').value,
-        descriptionImage: prodDescImageUrl || (rowIdx ? (allProducts.find(p => p.rowIdx == rowIdx) || {}).descriptionImage : ''),
+        descriptionImage: prodDescImageUrl || currentProduct.descriptionImage || '',
         publishAt: document.getElementById('prodPublishAt').value || ''
       };
 
@@ -7541,16 +8579,16 @@
         updateProductCategoryOptions();
         applyProductFilters();
       } else {
-        tbodyPub.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
-        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="8" style="text-align:center;">読み込み中...</td></tr>';
+        tbodyPub.innerHTML = '<tr><td colspan="9" style="text-align:center;">読み込み中...</td></tr>';
+        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="9" style="text-align:center;">読み込み中...</td></tr>';
       }
 
       const loaded = await ensureAdminProductsLoaded(true);
       if (loaded) {
         applyProductFilters();
       } else {
-        tbodyPub.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">商品データの取得に失敗しました</td></tr>';
-        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">商品データの取得に失敗しました</td></tr>';
+        tbodyPub.innerHTML = '<tr><td colspan="9" style="text-align:center; color:red;">商品データの取得に失敗しました</td></tr>';
+        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="9" style="text-align:center; color:red;">商品データの取得に失敗しました</td></tr>';
       }
     }
 
@@ -7583,6 +8621,10 @@
           <td>
             <input type="number" id="p_price_${product.rowIdx}" value="${escapeHtml(String(product.price || ''))}" style="width:80px;">
           </td>
+          <td style="font-size:12px; text-align:center;">
+            <div>残り ${Number(product.stockQty || 0)}</div>
+            <div style="color:${Number(product.stockQty || 0) <= 0 ? 'var(--danger)' : 'var(--text-light)'};">警告 ${Number(product.lowStockThreshold || 0)}</div>
+          </td>
           <td>
             <textarea id="p_desc_${product.rowIdx}" style="width:100%; min-height:60px; font-size:11px;">${escapeHtml(product.description || '')}</textarea>
           </td>
@@ -7594,6 +8636,7 @@
           </td>
           <td>
             <div class="flex" style="gap:4px;">
+              <button class="btn btn-outline" style="padding:5px 10px; font-size:11px;" onclick="cloneProduct(${product.rowIdx})">複製</button>
               <button class="btn" style="padding:5px 10px; font-size:11px;" onclick="editProduct(${product.rowIdx})">📝</button>
               <button class="btn" style="padding:5px 10px; font-size:11px;" onclick="saveProduct(${product.rowIdx})">保存</button>
               <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteProduct(${product.rowIdx}, ${deleteName})">🗑</button>
@@ -7613,11 +8656,11 @@
 
       tbodyDraft.innerHTML = drafts.length
         ? drafts.map(buildProductRowHtml).join('')
-        : `<tr><td colspan="8" style="text-align:center;">${allProducts.some(product => product.status === '非公開') ? '条件に一致する下書き商品はありません' : '下書き保存はありません'}</td></tr>`;
+        : `<tr><td colspan="9" style="text-align:center;">${allProducts.some(product => product.status === '非公開') ? '条件に一致する下書き商品はありません' : '下書き保存はありません'}</td></tr>`;
 
       tbodyPub.innerHTML = published.length
         ? published.map(buildProductRowHtml).join('')
-        : `<tr><td colspan="8" style="text-align:center;">${allProducts.some(product => product.status !== '非公開') ? '条件に一致する公開商品はありません' : '投稿済み商品はありません'}</td></tr>`;
+        : `<tr><td colspan="9" style="text-align:center;">${allProducts.some(product => product.status !== '非公開') ? '条件に一致する公開商品はありません' : '投稿済み商品はありません'}</td></tr>`;
     }
 
     function applyProductFilters() {
@@ -7657,6 +8700,8 @@
       document.getElementById('prodName').value = p.name;
       document.getElementById('prodPrice').value = p.price;
       document.getElementById('prodCost').value = p.costPrice || '';
+      document.getElementById('prodStockQty').value = Number(p.stockQty || 0);
+      document.getElementById('prodLowStockThreshold').value = Number(p.lowStockThreshold || 0);
       document.getElementById('prodBg').value = p.bg;
       document.getElementById('prodDesc').value = p.description || '';
       document.getElementById('prodPublishAt').value = formatDateForDateTimeLocal(p.publishAt || '');
@@ -7701,19 +8746,43 @@
       if (document.getElementById('prodDescPreviewLabel')) document.getElementById('prodDescPreviewLabel').style.display = 'none';
       document.getElementById('prodBg').value = '#d4e8c8';
       document.getElementById('prodPublishAt').value = '';
+      document.getElementById('prodStockQty').value = 0;
+      document.getElementById('prodLowStockThreshold').value = 0;
       prodImageBase64 = null;
       prodDescImageBase64 = null;
+    }
+
+    function cloneProduct(rowIdx) {
+      const product = allProducts.find(item => Number(item.rowIdx || 0) === Number(rowIdx || 0));
+      if (!product) return;
+      editProduct(rowIdx);
+      document.getElementById('prodRowIdx').value = '';
+      document.getElementById('prodName').value = `${product.name || ''}（複製）`;
+      document.getElementById('productFormTitle').innerText = '📄 商品を複製して追加する';
+      document.getElementById('prodSubmitBtn').innerText = '商品を追加する';
+      document.getElementById('prodCancelEditBtn').style.display = 'block';
+      showToast('複製元の商品をフォームへ読み込みました');
     }
 
     async function saveProduct(rowIdx) {
       const price = document.getElementById(`p_price_${rowIdx}`).value;
       const desc = document.getElementById(`p_desc_${rowIdx}`).value;
       const status = document.getElementById(`p_status_${rowIdx}`).value;
+      const product = allProducts.find(item => Number(item.rowIdx || 0) === Number(rowIdx || 0));
 
       showToast('商品を更新中...');
-      const res = await apiRequest('', { type: 'updateProduct', rowIdx: rowIdx, price: price, description: desc, status: status }, true);
+      const res = await apiRequest('', {
+        type: 'updateProduct',
+        rowIdx: rowIdx,
+        price: price,
+        description: desc,
+        status: status,
+        stockQty: product ? product.stockQty : 0,
+        lowStockThreshold: product ? product.lowStockThreshold : 0
+      }, true);
       if (res && res.status === 'ok') {
         showToast('商品情報を更新しました');
+        loadAdminProducts();
       } else {
         showToast('更新に失敗しました');
       }
@@ -8308,7 +9377,7 @@
       }));
 
       showToast('メニュー順序を保存中...');
-      const res = await apiRequest('updateItemOrder', { updates });
+      const res = await apiRequest('', { type: 'updateItemOrder', updates }, true);
       if (res && res.status === 'ok') {
         showToast('メニュー順序を保存しました');
         loadAdminMenus();
