@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.56';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.57';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -2115,9 +2115,6 @@ function normalizeProductEntry(product, index) {
     category: String(item.category || ''),
     name: String(item.name || ''),
     price: Number(item.price || 0),
-    specialPrice: Number(item.specialPrice || 0),
-    specialPriceStartAt: String(item.specialPriceStartAt || ''),
-    specialPriceEndAt: String(item.specialPriceEndAt || ''),
     icon: String(item.icon || ''),
     bg: String(item.bg || ['c1', 'c2', 'c3', 'c4'][index % 4] || 'c1'),
     imgKey: String(item.imgKey || ''),
@@ -2128,70 +2125,26 @@ function normalizeProductEntry(product, index) {
   };
 }
 
-function isProductSpecialPriceActive(product, nowTimestamp) {
-  const regularPrice = Number(product && product.price || 0);
-  const specialPrice = Number(product && product.specialPrice || 0);
-  if (!(specialPrice > 0) || !(regularPrice <= 0 || specialPrice < regularPrice)) return false;
-  const now = Number.isFinite(nowTimestamp) ? nowTimestamp : Date.now();
-  const startAt = parseLooseDateToTimestamp(product && product.specialPriceStartAt);
-  const endAt = parseLooseDateToTimestamp(product && product.specialPriceEndAt);
-  if (startAt && now < startAt) return false;
-  if (endAt && now > endAt) return false;
-  return true;
-}
-
-function formatProductSpecialPricePeriod(product) {
-  const startLabel = formatCustomerDateYmdHm(product && product.specialPriceStartAt);
-  const endLabel = formatCustomerDateYmdHm(product && product.specialPriceEndAt);
-  if (startLabel && endLabel) return startLabel + '〜' + endLabel;
-  if (startLabel) return startLabel + '〜';
-  if (endLabel) return '〜' + endLabel;
-  return '';
-}
-
 function getProductPricing(product, quantity) {
   const qty = Math.max(1, Number(quantity || 1));
   const regularUnitPrice = Number(product && product.price || 0);
   const regularTotal = regularUnitPrice * qty;
-  const specialUnitPrice = isProductSpecialPriceActive(product) ? Number(product.specialPrice || 0) : 0;
-  const periodLabel = specialUnitPrice > 0 ? formatProductSpecialPricePeriod(product) : '';
 
   if (isDashiProductName(product && product.name)) {
     const dashiPricing = calculateDashiPricing(qty);
-    let unitPrice = Number(dashiPricing.avgUnitPrice || regularUnitPrice || 0);
-    let total = Number(dashiPricing.totalRevenue || regularTotal || 0);
-    let highlightLabel = (qty > 1 && total < regularTotal) ? '限定価格' : '';
-    let isSpecialPrice = false;
-
-    if (specialUnitPrice > 0) {
-      const specialTotal = specialUnitPrice * qty;
-      if (specialTotal <= total || !highlightLabel) {
-        unitPrice = specialUnitPrice;
-        total = specialTotal;
-        highlightLabel = '';
-        isSpecialPrice = specialUnitPrice < regularUnitPrice;
-      }
-    }
-
     return {
       regularUnitPrice: regularUnitPrice,
-      unitPrice: unitPrice,
+      unitPrice: Number(dashiPricing.avgUnitPrice || regularUnitPrice || 0),
       originalTotal: regularTotal,
-      total: total,
-      isSpecialPrice: isSpecialPrice,
-      highlightLabel: highlightLabel,
-      periodLabel: isSpecialPrice ? periodLabel : ''
+      total: Number(dashiPricing.totalRevenue || regularTotal || 0)
     };
   }
 
   return {
     regularUnitPrice: regularUnitPrice,
-    unitPrice: specialUnitPrice > 0 ? specialUnitPrice : regularUnitPrice,
+    unitPrice: regularUnitPrice,
     originalTotal: regularTotal,
-    total: (specialUnitPrice > 0 ? specialUnitPrice : regularUnitPrice) * qty,
-    isSpecialPrice: specialUnitPrice > 0 && specialUnitPrice < regularUnitPrice,
-    highlightLabel: (specialUnitPrice > 0 && specialUnitPrice < regularUnitPrice) ? 'special' : '',
-    periodLabel: periodLabel
+    total: regularUnitPrice * qty
   };
 }
 
@@ -2200,19 +2153,8 @@ function buildProductPriceMarkup(product, quantity, options) {
   const pricing = getProductPricing(product, quantity);
   const mode = opts.mode === 'total' ? 'total' : 'unit';
   const includeTax = opts.includeTax !== false;
-  const showPeriod = !!opts.showPeriod;
-  const regularAmount = mode === 'total' ? pricing.originalTotal : pricing.regularUnitPrice;
   const effectiveAmount = mode === 'total' ? pricing.total : pricing.unitPrice;
   const taxLabel = includeTax ? '<small>（税込）</small>' : '';
-  const hasSpecialPricing = effectiveAmount < regularAmount && (pricing.isSpecialPrice || pricing.highlightLabel);
-
-  if (showPeriod && hasSpecialPricing && pricing.periodLabel) {
-    return `
-      ¥${effectiveAmount.toLocaleString()}${taxLabel}
-      <span class="price-period-note">${escapeHtml(pricing.periodLabel)}</span>
-    `;
-  }
-
   return `¥${effectiveAmount.toLocaleString()}${taxLabel}`;
 }
 
