@@ -3593,6 +3593,12 @@
       }
     }
 
+    function formatNowForDateTimeLocal() {
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+    }
+
     async function bulkDelete(type, btnElement) {
       try {
         const cls = type === 'BLOG' ? 'blog-sel' : (type === 'PRODUCTS' ? 'product-sel' : (type === 'CALENDAR' ? 'cal-sel' : (type === 'PUSH' ? 'push-sel' : 'order-sel')));
@@ -9226,7 +9232,7 @@
       document.getElementById('blogRowIdx').value = '';
       document.getElementById('blogStatus').value = '公開';
       document.getElementById('blogForm').reset();
-      document.getElementById('blogDate').valueAsDate = new Date();
+      document.getElementById('blogDate').value = formatNowForDateTimeLocal();
       document.getElementById('blogPublishAt').value = '';
       document.getElementById('blogSubmitBtn').innerText = '🌟 この内容で投稿する';
       document.getElementById('blogCancelEditBtn').style.display = 'none';
@@ -9826,7 +9832,7 @@
       document.getElementById('calendarFormTitle').innerText = '✨ 新しいイベントを追加する';
       document.getElementById('calSubmitBtn').innerText = 'イベントを追加する';
       document.getElementById('calCancelEditBtn').style.display = 'none';
-      document.getElementById('calDate').valueAsDate = new Date();
+      document.getElementById('calDate').value = formatNowForDateTimeLocal();
       document.getElementById('calColor').value = '#e57373';
       document.getElementById('calCategory').value = '';
       document.getElementById('calPublishAt').value = '';
