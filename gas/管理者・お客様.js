@@ -773,6 +773,9 @@ function doGet(e) {
       case 'getAdminOrders':
         result = getAdminOrders(e.parameter.data ? JSON.parse(decodeURIComponent(e.parameter.data)) : null);
         break;
+      case 'getAdminUserOrders':
+        result = getAdminUserOrders(e.parameter.data ? JSON.parse(decodeURIComponent(e.parameter.data)) : null);
+        break;
       case 'getAdminBlogs':
         result = getAdminBlogs();
         break;
@@ -2394,6 +2397,66 @@ function getAdminOrders(params) {
 
   // 新しい順
   orders.reverse();
+  return { status: 'ok', orders: orders };
+}
+
+function getAdminUserOrders(params) {
+  const memberId = String(params && params.memberId || '').trim();
+  if (!memberId) return { status: 'error', message: '会員IDが必要です' };
+
+  const ss = getOrCreateSpreadsheet();
+  const sheet = ss.getSheetByName(SHEETS.ORDERS);
+  if (!sheet) return { status: 'ok', orders: [] };
+  const deleteCols = ensureSoftDeleteColumns_(sheet);
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { status: 'ok', orders: [] };
+
+  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  const orderMap = {};
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    if (isSoftDeletedByColumns_(row, deleteCols.statusCol, deleteCols.deletedAtCol)) continue;
+    if (String(row[13] || '').trim() !== memberId) continue;
+
+    const orderId = String(row[0] || '').trim();
+    if (!orderId) continue;
+
+    if (!orderMap[orderId]) {
+      orderMap[orderId] = {
+        orderId: orderId,
+        date: (row[1] instanceof Date) ? Utilities.formatDate(row[1], 'Asia/Tokyo', 'yyyy/M/d H:mm') : String(row[1] || ''),
+        customerName: String(row[2] || ''),
+        items: [],
+        total: String(row[9] || ''),
+        payment: String(row[10] || ''),
+        status: normalizeOrderStatus_(row[11] || '受付中'),
+        checked: row[12] === true,
+        memberId: memberId,
+        rowIndices: []
+      };
+    }
+
+    orderMap[orderId].items.push({
+      name: String(row[3] || ''),
+      qty: Number(row[4]) || 0,
+      price: Number(row[5]) || 0
+    });
+    orderMap[orderId].rowIndices.push(i + 2);
+  }
+
+  const orders = Object.keys(orderMap).map(function (id) {
+    const order = orderMap[id];
+    order.rowIdx = order.rowIndices[0] || 0;
+    order.itemName = order.items.map(function (item) {
+      return item.name + ' (' + item.qty + ')';
+    }).join('\n');
+    return order;
+  }).sort(function (a, b) {
+    return parseLooseDateToTimestamp_(b.date) - parseLooseDateToTimestamp_(a.date);
+  });
+
   return { status: 'ok', orders: orders };
 }
 

@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyLCgSn45Wy-aTZXa-1LNj55TUoqKLi3gq-LBImy_wjHgE7_2llp89cpF1NmuxrejKTqQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.52';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.53';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -2308,6 +2308,7 @@ function openCalendarEventDetail(idx) {
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
       ${buildFavoriteActionMarkup('calendar', event)}
       <button class="btn secondary favorite-action-btn" type="button" onclick="downloadCalendarEventIcs(${idx})">端末カレンダーに追加</button>
+      <button class="btn secondary favorite-action-btn" type="button" onclick="openGoogleCalendarEvent(${idx})">Googleカレンダーに追加</button>
     </div>
   `;
   renderCalendarEventLists();
@@ -2323,18 +2324,44 @@ function escapeIcsText(value) {
     .replace(/;/g, '\\;');
 }
 
+function getCalendarEventDateRange(event) {
+  const eventDate = String(event && event.date || '').trim();
+  const dateMatch = eventDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) return null;
+  const startDate = dateMatch[1] + dateMatch[2] + dateMatch[3];
+  const endDateObj = new Date(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3]) + 1);
+  const endDate = endDateObj.getFullYear()
+    + String(endDateObj.getMonth() + 1).padStart(2, '0')
+    + String(endDateObj.getDate()).padStart(2, '0');
+  return { startDate, endDate };
+}
+
+function openGoogleCalendarEvent(idx) {
+  const event = calendarData[idx];
+  if (!event) return;
+  const range = getCalendarEventDateRange(event);
+  if (!range) {
+    showToast('このイベントはGoogleカレンダーへ追加できません');
+    return;
+  }
+  const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+    + '&text=' + encodeURIComponent(event.title || 'まゆみ助産院イベント')
+    + '&dates=' + encodeURIComponent(range.startDate + '/' + range.endDate)
+    + '&details=' + encodeURIComponent(event.desc || '');
+  const opened = window.open(url, '_blank', 'noopener');
+  if (!opened) {
+    window.location.href = url;
+  }
+}
+
 function downloadCalendarEventIcs(idx) {
   const event = calendarData[idx];
   if (!event) return;
-  const eventDate = String(event.date || '').trim();
-  const dateMatch = eventDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!dateMatch) {
+  const range = getCalendarEventDateRange(event);
+  if (!range) {
     showToast('このイベントは端末カレンダーへ追加できません');
     return;
   }
-  const startDate = dateMatch[1] + dateMatch[2] + dateMatch[3];
-  const endDateObj = new Date(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3]) + 1);
-  const endDate = endDateObj.getFullYear() + String(endDateObj.getMonth() + 1).padStart(2, '0') + String(endDateObj.getDate()).padStart(2, '0');
   const icsBody = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -2342,8 +2369,8 @@ function downloadCalendarEventIcs(idx) {
     'BEGIN:VEVENT',
     'UID:' + escapeIcsText(buildContentItemKey('calendar', event)),
     'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z'),
-    'DTSTART;VALUE=DATE:' + startDate,
-    'DTEND;VALUE=DATE:' + endDate,
+    'DTSTART;VALUE=DATE:' + range.startDate,
+    'DTEND;VALUE=DATE:' + range.endDate,
     'SUMMARY:' + escapeIcsText(event.title || 'まゆみ助産院イベント'),
     'DESCRIPTION:' + escapeIcsText(event.desc || ''),
     'END:VEVENT',
