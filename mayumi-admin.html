@@ -1278,7 +1278,7 @@
         </div>
         <div class="card table-wrapper">
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
-            お客様アプリの「お知らせ一覧」に出す内容を、配信日時の新しい順で確認できます。ここでの公開切替はお知らせ一覧だけに反映され、NEWS・カレンダー・ショップ・ホームの元データの公開設定には影響しません。編集は元データの管理画面へ移動し、削除はここから直接行えます。
+            お客様アプリの「お知らせ一覧」に出す内容を、配信日時の新しい順で確認できます。ここでの公開切替と削除はお知らせ一覧だけに反映され、NEWS・カレンダー・ショップ・ホームの元データの公開設定や掲載内容には影響しません。編集は元データの管理画面へ移動してください。
           </div>
           <table>
             <thead>
@@ -5919,30 +5919,37 @@
     }
 
     async function deleteAdminNoticeOverviewItem(kind, rowIdx, title) {
-      const deleteMap = {
-        blog: { label: 'NEWS記事', pageId: 'blogs', cacheKeys: ['getAdminBlogs'], payload: function () { return { type: 'deleteRow', sheet: 'BLOG', rowIdx: rowIdx }; } },
-        product: { label: '商品', pageId: 'products', cacheKeys: ['getAdminProducts'], payload: function () { return { type: 'deleteRow', sheet: 'PRODUCTS', rowIdx: rowIdx }; } },
-        calendar: { label: 'カレンダー項目', pageId: 'calendar', cacheKeys: ['getAdminCalendar'], payload: function () { return { type: 'deleteRow', sheet: 'CALENDAR', rowIdx: rowIdx }; } },
-        menu: { label: 'メニュー', pageId: 'menus', cacheKeys: ['getAdminMenus'], payload: function () { return { type: 'deleteMenu', rowIdx: rowIdx }; } }
+      const targetRowIdx = Number(rowIdx || 0);
+      if (!kind || targetRowIdx <= 1) return;
+
+      const targetMap = {
+        blog: { label: 'NEWS記事', sheet: 'BLOG', cacheKeys: ['getAdminBlogs'] },
+        calendar: { label: 'カレンダー項目', sheet: 'CALENDAR', cacheKeys: ['getAdminCalendar'] },
+        product: { label: '商品', sheet: 'PRODUCTS', cacheKeys: ['getAdminProducts'] },
+        menu: { label: 'メニュー', sheet: 'MENUS', cacheKeys: ['getAdminMenus'] }
       };
-      const target = deleteMap[kind];
-      if (!target || !rowIdx) return;
+      const target = targetMap[kind];
+      if (!target) return;
 
       const confirmed = await requestDangerousConfirm({
-        title: `${target.label}削除の確認`,
-        message: `「${title || target.label}」をゴミ箱へ移動します。`,
+        title: 'お知らせ一覧から削除する確認',
+        message: `「${title || target.label}」をお知らせ一覧から削除します。元データ自体は削除されません。`,
         keyword: '削除',
-        confirmLabel: '削除する'
+        confirmLabel: '一覧から削除する'
       });
       if (!confirmed) return;
-      showToast('削除中...');
-      const res = await apiRequest('', target.payload(), true);
+
+      showToast('お知らせ一覧から削除中...');
+      const res = await apiRequest('', {
+        type: 'updateNoticeVisibility',
+        sheet: target.sheet,
+        rowIdx: targetRowIdx,
+        status: '非公開'
+      }, true);
+
       if (res && res.status === 'ok') {
         invalidateAdminApiCache(target.cacheKeys);
-        showToast(`${target.label}を削除しました`);
-        if (getActiveAdminPageId() === target.pageId) {
-          await loadPageData(target.pageId);
-        }
+        showToast('お知らせ一覧から削除しました');
         await loadAdminNoticeOverview();
       } else {
         showToast('削除に失敗しました: ' + (res && res.message ? res.message : '不明なエラー'));
