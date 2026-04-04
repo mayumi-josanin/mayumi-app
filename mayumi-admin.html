@@ -10304,6 +10304,79 @@
       };
     }
 
+    let adminUiErrorToastAt = 0;
+
+    function reportAdminUiActionError(actionLabel, error) {
+      console.error('[管理画面エラー]', actionLabel || '操作', error);
+      const now = Date.now();
+      if (now - adminUiErrorToastAt < 1500) return;
+      adminUiErrorToastAt = now;
+      showToast((actionLabel || '操作') + '中に問題が発生しました。もう一度お試しください。');
+    }
+
+    function wrapAdminActionSafely(fnName, actionLabel) {
+      const original = window[fnName];
+      if (typeof original !== 'function' || original.__adminSafeWrapped) return;
+      const wrapped = async function () {
+        try {
+          return await original.apply(this, arguments);
+        } catch (error) {
+          reportAdminUiActionError(actionLabel, error);
+          return null;
+        }
+      };
+      wrapped.__adminSafeWrapped = true;
+      window[fnName] = wrapped;
+    }
+
+    function installAdminActionSafetyGuards() {
+      [
+        ['switchPage', '画面切替'],
+        ['refreshActiveAdminPageData', '画面更新'],
+        ['loadInitialAdminData', '初期表示'],
+        ['loadPageData', '画面更新'],
+        ['loadAdminOrders', '注文一覧更新'],
+        ['loadAdminDashboardData', 'サマリー更新'],
+        ['loadBackupStatus', 'バックアップ状況更新'],
+        ['loadAdminBlogs', 'NEWS更新'],
+        ['loadAdminProducts', '商品更新'],
+        ['loadAdminUsers', '会員一覧更新'],
+        ['loadAdminPushNotices', '通知履歴更新'],
+        ['loadDuplicateUsers', '重複会員更新'],
+        ['loadAdminTrashItems', 'ゴミ箱更新'],
+        ['loadAdminNoticeOverview', 'お知らせ一覧更新'],
+        ['loadAdminCalendar', 'カレンダー更新'],
+        ['loadAdminMenus', 'メニュー更新'],
+        ['loadAnalytics', '分析更新'],
+        ['loadCategoryMaster', 'カテゴリ更新'],
+        ['loadAdminSupportFaq', 'FAQ更新'],
+        ['loadSupportChatAnalytics', 'チャット分析更新'],
+        ['loadAdminTemplates', 'テンプレート更新'],
+        ['loadAdminRewardStatuses', 'スタンプ・特典更新']
+      ].forEach(function (entry) {
+        wrapAdminActionSafely(entry[0], entry[1]);
+      });
+
+      if (window.__adminGlobalErrorGuardInstalled) return;
+      window.__adminGlobalErrorGuardInstalled = true;
+
+      window.addEventListener('error', function (event) {
+        if (!event) return;
+        const message = event.message ? String(event.message) : '';
+        if (!message) return;
+        reportAdminUiActionError('画面表示', event.error || new Error(message));
+      });
+
+      window.addEventListener('unhandledrejection', function (event) {
+        reportAdminUiActionError('通信・更新処理', event ? event.reason : null);
+        if (event && typeof event.preventDefault === 'function') {
+          event.preventDefault();
+        }
+      });
+    }
+
+    installAdminActionSafetyGuards();
+
   </script>
 
   <!-- 画像クロップ用モーダル -->
