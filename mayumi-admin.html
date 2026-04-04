@@ -3710,11 +3710,33 @@
     }
 
     async function loadInitialAdminData() {
-      await loadPageData(getActiveAdminPageId());
+      try {
+        await loadPageData(getActiveAdminPageId());
+      } catch (err) {
+        console.error('初期データ読み込みに失敗しました', err);
+        showToast('管理画面の初期読み込みに失敗しました');
+      }
     }
 
     async function refreshActiveAdminPageData() {
-      await loadPageData(getActiveAdminPageId());
+      try {
+        await loadPageData(getActiveAdminPageId());
+      } catch (err) {
+        console.error('管理画面の再読み込みに失敗しました', err);
+        showToast('管理画面の再読み込みに失敗しました');
+      }
+    }
+
+    async function runAdminLoadTasks(tasks, errorMessage) {
+      const normalizedTasks = Array.isArray(tasks) ? tasks.filter(Boolean) : [];
+      if (!normalizedTasks.length) return [];
+      const results = await Promise.allSettled(normalizedTasks.map(task => Promise.resolve().then(task)));
+      const rejected = results.filter(result => result.status === 'rejected');
+      if (rejected.length) {
+        rejected.forEach(result => console.error(errorMessage || '管理画面の読み込みに失敗しました', result.reason));
+        showToast(errorMessage || '一部のデータ読み込みに失敗しました');
+      }
+      return results;
     }
 
     async function loadPageData(pageId) {
@@ -3723,7 +3745,10 @@
         return;
       }
       if (pageId === 'system-management') {
-        await Promise.all([loadAdminDashboardData(), loadBackupStatus()]);
+        await runAdminLoadTasks([
+          () => loadAdminDashboardData(),
+          () => loadBackupStatus()
+        ], 'システム管理の一部データ取得に失敗しました');
         return;
       }
       if (pageId === 'blogs') {
@@ -3741,7 +3766,13 @@
         return;
       }
       if (pageId === 'users') {
-        await Promise.all([loadAdminUsers(), loadAdminPushNotices(), loadDuplicateUsers(), loadAdminTrashItems(), loadBackupStatus()]);
+        await runAdminLoadTasks([
+          () => loadAdminUsers(),
+          () => loadAdminPushNotices(),
+          () => loadDuplicateUsers(),
+          () => loadAdminTrashItems(),
+          () => loadBackupStatus()
+        ], '会員管理の一部データ取得に失敗しました');
         return;
       }
       if (pageId === 'notice-management') {
@@ -3761,7 +3792,11 @@
         return;
       }
       if (pageId === 'support-bot') {
-        await Promise.all([loadAdminSupportFaq(), loadSupportChatAnalytics(), loadAdminTemplates()]);
+        await runAdminLoadTasks([
+          () => loadAdminSupportFaq(),
+          () => loadSupportChatAnalytics(),
+          () => loadAdminTemplates()
+        ], 'チャットbot管理の一部データ取得に失敗しました');
         return;
       }
       if (pageId === 'stamp-rewards') {
