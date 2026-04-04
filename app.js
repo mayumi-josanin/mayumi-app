@@ -2067,7 +2067,7 @@ async function loadProducts() {
     card.className = 'shop-card';
     card.setAttribute('onclick', `openProductModal(${index})`);
     const imageSource = (product.icon && (product.icon.startsWith('http') || product.icon.startsWith('data:')))
-      ? product.icon
+      ? getContentDisplayImageUrl(product.icon)
       : (PROD_IMAGES[product.imgKey] || `https://placehold.jp/24/c18151/ffffff/150x150.png?text=${encodeURIComponent(product.name)}`);
     const iconBadge = product.icon && !/^https?:\/\//i.test(product.icon) && !/^data:/i.test(product.icon)
       ? `<span class="shop-icon-badge">${escapeHtml(product.icon)}</span>`
@@ -2510,7 +2510,7 @@ function buildCalendarEventListItem(event, showDate) {
   const safeTitle = escapeHtml(event.title || '');
   const safeDesc = escapeHtml(event.desc || '') || '詳細はありません。';
   const safeDate = escapeHtml(formatCalendarCompactDate(event.date || ''));
-  const safeImage = escapeHtml(event.image || '');
+  const safeImage = getContentDisplayImageUrl(event.image || '');
   const safeColor = getCalendarSafeColor(event.color);
   const dateHtml = showDate ? `<div class="cal-evt-date">${safeDate}</div>` : '';
   const imageHtml = safeImage
@@ -3508,9 +3508,9 @@ function renderCart() {
     // 表示用画像の決定
     let imgSrcHtml = p.icon;
     if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
-      imgSrcHtml = `<img src="${p.icon}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
+      imgSrcHtml = `<img src="${getContentDisplayImageUrl(p.icon)}" class="cart-thumb-image" alt="">`;
     } else if (p.imgKey && PROD_IMAGES[p.imgKey]) {
-      imgSrcHtml = `<img src="${PROD_IMAGES[p.imgKey]}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
+      imgSrcHtml = `<img src="${PROD_IMAGES[p.imgKey]}" class="cart-thumb-image" alt="">`;
     }
 
     let subtotal = p.price * c.qty;
@@ -7907,7 +7907,7 @@ function renderMenus() {
     html += `
           <div class="news-item" onclick="openMenuDetail(${m.originalIndex})" style="padding:15px; border-radius:16px; margin-bottom:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); background:#fff; border:1px solid #f0ede8; cursor:pointer; display:flex; align-items:center; gap:15px;">
             ${m.imageUrl ?
-        `<img src="${m.imageUrl}" style="width:80px; height:80px; object-fit:cover; border-radius:10px; flex-shrink:0;">` :
+        `<img src="${getContentDisplayImageUrl(m.imageUrl)}" class="menu-list-thumb" alt="${escapeHtml(m.name || 'メニュー画像')}">` :
         `<div style="width:80px; height:80px; background:var(--bg-gray); border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text-light); font-size:24px;">🍴</div>`
       }
             <div style="flex:1; display:flex; align-items:center; min-width:0;">
