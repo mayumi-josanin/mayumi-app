@@ -2685,25 +2685,19 @@ function renderBlogList(containerId, limit, filterType = null, filterCategory = 
     const div = document.createElement('div');
     div.className = 'blog-card';
     const displayDate = formatCustomerDateYmd(item.date);
-    const hasBodyImage = /📷\s*https?:\/\/\S+/i.test(String(item.body || ''));
-
-    let imageHtml = '';
-    const rawImageUrl = item.hasEmbeddedImage ? '' : getContentDisplayImageUrl(item.image || item.imageUrl || '');
-    if (rawImageUrl) {
-      imageHtml = `<div class="blog-media-frame blog-media-frame--list"><img src="${rawImageUrl}" class="blog-media-image blog-media-image--list" alt="Blog Image"></div>`;
-    }
 
     let bodyHtml = '';
     if (item.body) {
-      // '📷 'で始まるURLをimgタグに、'\n'を'<br>'に変換
-      let formattedBody = item.body.replace(/📷 (https?:\/\/[^\s]+)/g, function (match, url) {
-        const imgUrl = getContentDisplayImageUrl(url);
-        return `<img src="${imgUrl}" class="blog-inline-image blog-inline-image--list">`;
-      }).replace(/\n/g, '<br>');
-      bodyHtml = `<div class="blog-body-preview${hasBodyImage ? ' blog-body-preview--media' : ''}">${formattedBody}</div>`;
+      const previewText = String(item.body || '')
+        .replace(/(^|\n)\s*📷\s*https?:\/\/\S+/g, '$1')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+      if (previewText) {
+        bodyHtml = `<div class="blog-body-preview">${escapeHtml(previewText).replace(/\n/g, '<br>')}</div>`;
+      }
     }
 
-    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${item.icon || '📢'}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${displayDate}</span><span class="blog-cat">${item.category}</span>${buildUnreadBadgeHtml('blog', item)}</div><div class="blog-title">${item.title}</div>${bodyHtml}${imageHtml}</div></div>`;
+    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${item.icon || '📢'}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${displayDate}</span><span class="blog-cat">${item.category}</span>${buildUnreadBadgeHtml('blog', item)}</div><div class="blog-title">${item.title}</div>${bodyHtml}</div></div>`;
     div.onclick = () => openBlogDetail(item);
     el.appendChild(div);
   });
