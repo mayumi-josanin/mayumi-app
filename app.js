@@ -25,11 +25,8 @@ let stampCardNum = 1;
 try { stampCardNum = parseInt(localStorage.getItem('mayumi_stamp_card') || '1') || 1; } catch (e) { }
 let STAMP_REWARD_CONFIG = [];
 let CURRENT_MONTHLY_REWARD = null;
-const STAMP_HISTORY_STORAGE_KEY = 'mayumi_stamp_history';
 let EARNED_REWARDS = [];
 try { EARNED_REWARDS = JSON.parse(localStorage.getItem('mayumi_earned_rewards') || '[]'); } catch (e) { }
-let STAMP_HISTORY = [];
-try { STAMP_HISTORY = JSON.parse(localStorage.getItem(STAMP_HISTORY_STORAGE_KEY) || '[]'); } catch (e) { }
 let cart = [], orders = [];
 let isOrderSubmitting = false;
 let isCancelSubmitting = false;
@@ -926,7 +923,7 @@ function updateStampModalPresentation(isMilestone) {
     ? (rewardDrawn
       ? 'おめでとうございます。<br>このカードのガチャ結果は保存済みです。次のスタンプカードを始められます。'
       : 'おめでとうございます。<br>特典ガチャを回して、ごほうびを受け取ってください。')
-    : 'おめでとうございます。<br>マイページの「スタンプ・特典履歴」で特典をご確認いただけます。';
+    : 'おめでとうございます。<br>マイページの「特典取得状況」で特典をご確認いただけます。';
   icon.textContent = isMilestone ? '🎉' : '🌿';
   icon.classList.toggle('milestone', !!isMilestone);
   if (actionBtn) {
@@ -1228,84 +1225,6 @@ function normalizeRewardList(rewards) {
   });
 }
 
-function normalizeSingleStampHistoryEntry(entry, index) {
-  const cardNum = Math.max(1, Number(entry && entry.cardNum) || 1);
-  const stampNumber = Math.max(1, Math.min(10, Number(entry && (entry.stampNumber !== undefined ? entry.stampNumber : entry.stampCount)) || 1));
-  const acquiredDate = normalizeRewardDateTime(entry && (entry.acquiredDate || entry.earnedDate || entry.date)) || new Date().toISOString();
-  return {
-    id: entry && entry.id ? String(entry.id) : `stamp-${cardNum}-${stampNumber}-${index + 1}`,
-    cardNum: cardNum,
-    stampNumber: stampNumber,
-    acquiredDate: acquiredDate,
-    dateKey: normalizeStampDateKey(entry && (entry.dateKey || entry.acquiredDate || entry.earnedDate || entry.date))
-  };
-}
-
-function normalizeStampHistoryList(history) {
-  if (!Array.isArray(history)) return [];
-  const merged = {};
-  history.forEach(function (entry, index) {
-    const normalized = normalizeSingleStampHistoryEntry(entry, index);
-    const key = `${normalized.cardNum}:${normalized.stampNumber}`;
-    if (!merged[key] || new Date(normalized.acquiredDate).getTime() >= new Date(merged[key].acquiredDate).getTime()) {
-      merged[key] = normalized;
-    }
-  });
-  return Object.keys(merged).map(function (key) {
-    return merged[key];
-  }).sort(function (a, b) {
-    const diff = new Date(b.acquiredDate).getTime() - new Date(a.acquiredDate).getTime();
-    if (diff !== 0) return diff;
-    if (Number(b.cardNum) !== Number(a.cardNum)) return Number(b.cardNum) - Number(a.cardNum);
-    return Number(b.stampNumber) - Number(a.stampNumber);
-  });
-}
-
-function mergeRewardLists(leftRewards, rightRewards) {
-  const merged = {};
-  normalizeRewardList([].concat(leftRewards || [], rightRewards || [])).forEach(function (reward) {
-    const key = [String(reward.id || ''), String(reward.cardNum || ''), String(reward.rewardName || ''), String(reward.earnedDate || '')].join('|');
-    if (!merged[key]) {
-      merged[key] = reward;
-      return;
-    }
-    if (reward.used && !merged[key].used) {
-      merged[key] = reward;
-    }
-  });
-  return Object.keys(merged).map(function (key) {
-    return merged[key];
-  }).sort(function (a, b) {
-    return new Date(b.earnedDate).getTime() - new Date(a.earnedDate).getTime();
-  });
-}
-
-function mergeRewardStatuses(primaryStatus, secondaryStatus) {
-  const primary = getComparableRewardStatus(primaryStatus);
-  const secondary = getComparableRewardStatus(secondaryStatus);
-  return {
-    stampCount: Math.max(Number(primary.stampCount || 0), Number(secondary.stampCount || 0)),
-    stampCardNum: Math.max(Number(primary.stampCardNum || 1), Number(secondary.stampCardNum || 1)),
-    rewards: mergeRewardLists(primary.rewards, secondary.rewards),
-    stampHistory: normalizeStampHistoryList([].concat(primary.stampHistory || [], secondary.stampHistory || [])),
-    lastStampDate: [primary.lastStampDate, secondary.lastStampDate].sort().pop() || '',
-    stampAchievedDate: [primary.stampAchievedDate, secondary.stampAchievedDate].sort().pop() || ''
-  };
-}
-
-function recordStampHistoryEntry(cardNum, stampNumber, acquiredDate) {
-  STAMP_HISTORY = normalizeStampHistoryList([{
-    id: `stamp-${cardNum}-${stampNumber}`,
-    cardNum: Math.max(1, Number(cardNum) || 1),
-    stampNumber: Math.max(1, Math.min(10, Number(stampNumber) || 1)),
-    acquiredDate: normalizeRewardDateTime(acquiredDate) || new Date().toISOString()
-  }].concat(STAMP_HISTORY));
-  try {
-    localStorage.setItem(STAMP_HISTORY_STORAGE_KEY, JSON.stringify(STAMP_HISTORY));
-  } catch (e) { }
-  return STAMP_HISTORY;
-}
-
 function getRewardGachaPrizeMeta(rewardName) {
   const normalized = String(rewardName || '').trim();
   const matched = REWARD_GACHA_PRIZE_POOL.find(function (prize) {
@@ -1509,7 +1428,6 @@ function getLocalRewardStatus() {
     stampCount: Math.max(0, Math.min(10, Number(stampCount) || 0)),
     stampCardNum: Math.max(1, Number(stampCardNum) || 1),
     rewards: normalizeRewardList(EARNED_REWARDS),
-    stampHistory: normalizeStampHistoryList(STAMP_HISTORY),
     lastStampDate: lastStampDate,
     stampAchievedDate: stampAchievedDate
   };
@@ -1520,7 +1438,6 @@ function hasMeaningfulRewardStatus(status) {
   return Number(status.stampCount || 0) > 0 ||
     Number(status.stampCardNum || 1) > 1 ||
     (Array.isArray(status.rewards) && status.rewards.length > 0) ||
-    (Array.isArray(status.stampHistory) && status.stampHistory.length > 0) ||
     !!status.lastStampDate ||
     !!status.stampAchievedDate;
 }
@@ -1531,7 +1448,6 @@ function getComparableRewardStatus(status) {
     stampCount: Math.max(0, Math.min(10, Number(normalized.stampCount) || 0)),
     stampCardNum: Math.max(1, Number(normalized.stampCardNum) || 1),
     rewards: normalizeRewardList(normalized.rewards),
-    stampHistory: normalizeStampHistoryList(normalized.stampHistory),
     lastStampDate: normalizeStampDateKey(normalized.lastStampDate),
     stampAchievedDate: normalizeRewardDateTime(normalized.stampAchievedDate)
   };
@@ -1546,12 +1462,10 @@ function applyRewardStatusLocally(status) {
   stampCount = next.stampCount;
   stampCardNum = next.stampCardNum;
   EARNED_REWARDS = next.rewards;
-  STAMP_HISTORY = next.stampHistory;
   try {
     localStorage.setItem('mayumi_stamp', String(stampCount));
     localStorage.setItem('mayumi_stamp_card', String(stampCardNum));
     localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
-    localStorage.setItem(STAMP_HISTORY_STORAGE_KEY, JSON.stringify(STAMP_HISTORY));
     if (next.lastStampDate) localStorage.setItem('mayumi_last_stamp_date', next.lastStampDate);
     else localStorage.removeItem('mayumi_last_stamp_date');
     if (next.stampAchievedDate) localStorage.setItem('mayumi_stamp_10_date', next.stampAchievedDate);
@@ -1578,7 +1492,6 @@ async function syncRewardStatus(force) {
     stampCount: localStatus.stampCount,
     stampCardNum: localStatus.stampCardNum,
     rewards: localStatus.rewards,
-    stampHistory: localStatus.stampHistory,
     lastStampDate: localStatus.lastStampDate,
     stampAchievedDate: localStatus.stampAchievedDate
   });
@@ -1649,7 +1562,6 @@ function updateStampUI() {
 
 function addStamp() {
   const today = getTodayStampKey();
-  const acquiredAt = new Date().toISOString();
   let lastStampDate = '';
   try {
     lastStampDate = normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date'));
@@ -1665,17 +1577,15 @@ function addStamp() {
   }
 
   stampCount += 1;
-  recordStampHistoryEntry(stampCardNum, stampCount, acquiredAt);
   try {
     localStorage.setItem('mayumi_stamp', String(stampCount));
     localStorage.setItem('mayumi_last_stamp_date', today);
     if (stampCount === 10) {
-      localStorage.setItem('mayumi_stamp_10_date', acquiredAt);
+      localStorage.setItem('mayumi_stamp_10_date', new Date().toISOString());
     }
   } catch (e) { }
 
   updateStampUI();
-  renderEarnedRewards();
   const reachedMilestone = stampCount === 10;
   if (reachedMilestone) {
     triggerConfetti();
@@ -1838,55 +1748,14 @@ function renderEarnedRewards() {
   const container = document.getElementById('earnedRewardsList');
   if (!container) return;
 
-  const stampHistoryItems = normalizeStampHistoryList(STAMP_HISTORY).map(function (entry) {
-    return {
-      type: 'stamp',
-      occurredAt: entry.acquiredDate,
-      entry: entry
-    };
-  });
-  const rewardHistoryItems = normalizeRewardList(EARNED_REWARDS).map(function (reward) {
-    return {
-      type: 'reward',
-      occurredAt: reward.earnedDate,
-      entry: reward
-    };
-  });
-  const historyItems = stampHistoryItems.concat(rewardHistoryItems).sort(function (a, b) {
-    return new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime();
-  });
-
-  if (!historyItems.length) {
-    container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">スタンプ・特典の履歴はありません</div>';
+  if (!EARNED_REWARDS.length) {
+    container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">獲得した特典はありません</div>';
     return;
   }
 
   const now = new Date();
   let html = '';
-  historyItems.forEach(function (item) {
-    if (item.type === 'stamp') {
-      const stampEntry = item.entry;
-      const acquiredStr = formatCustomerDateYmdHm(stampEntry.acquiredDate) || formatCustomerDateYmd(stampEntry.acquiredDate);
-      const isMilestone = Number(stampEntry.stampNumber) === 10;
-      html += `
-        <div style="padding:16px; border-radius:16px; margin-bottom:12px; display:flex; flex-direction:column; box-shadow:0 4px 12px rgba(0,0,0,0.05); background:#f8fcf6; border:1px solid rgba(126, 154, 109, 0.28);">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
-            <span style="font-weight:600; font-size:12px; color:#567244; background:rgba(181, 201, 168, 0.24); padding:4px 10px; border-radius:100px;">来院スタンプ ${stampEntry.cardNum}枚目カード</span>
-            <span style="font-size:11px; padding:3px 8px; border-radius:12px; background:${isMilestone ? 'var(--primary)' : '#e6f2df'}; color:${isMilestone ? '#fff' : '#567244'};">${isMilestone ? '🎉 10個達成' : `🌿 ${stampEntry.stampNumber}個目`}</span>
-          </div>
-          <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:8px;">${stampEntry.cardNum}枚目カードの${stampEntry.stampNumber}個目のスタンプを取得しました</div>
-          <div style="font-size:13px; color:var(--sage-dark); font-weight:500; line-height:1.5; margin-bottom:12px; padding:10px; background:#fff; border-radius:8px;">
-            ${isMilestone
-              ? 'スタンプが10個たまりました。ホームから特典ガチャを回し、マイページの履歴で結果を確認できます。'
-              : '来院スタンプを取得しました。スタンプが10個たまると特典ガチャに進めます。'}
-          </div>
-          <div style="font-size:12px; color:var(--text-light); line-height:1.5;">取得日時: ${acquiredStr}</div>
-        </div>
-      `;
-      return;
-    }
-
-    const reward = item.entry;
+  EARNED_REWARDS.forEach(function (reward) {
     const expiry = new Date(reward.expiryDate);
     const isExpired = now > expiry;
     let statusHtml = '';
@@ -2058,9 +1927,9 @@ const SUPPORT_FAQ_FALLBACK = [
       { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院,カメラ', answer: 'ホーム画面の「📷 カメラを起動して読み取る」を押し、表示された案内でカメラを許可してから院内QRコードを読み取ってください。読み取りに成功するとスタンプが1つ追加されます。', priority: 110 },
       { category: 'スタンプ', question: 'スタンプは1日何回取得できますか？', keywords: 'スタンプ,1日,一日,何回,回数', answer: '来院スタンプは1日1回までです。同じ日に再度読み取ると、すでに取得済みの案内が表示されます。', priority: 108 },
       { category: 'トラブル', question: 'カメラが起動しないときはどうすればいいですか？', keywords: 'カメラ,起動しない,許可,権限,QR,読めない', answer: 'スタンプ取得時にカメラ許可の確認が出た場合は「許可」を選んでください。すでに拒否している場合は、表示される「設定を開く」から設定画面へ進み、iPhone や Android のカメラ許可をオンにしてから、もう一度「📷 カメラを起動して読み取る」を押してください。', priority: 106 },
-      { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。ガチャ後はホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。', priority: 104 },
-      { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,どこ,確認,プレゼント,ガチャ', answer: '特典はマイページの「🎁 スタンプ・特典履歴」で確認できます。未使用の特典、使用済みの特典、受取期限を確認できます。', priority: 102 },
-      { category: 'スタンプ特典', question: '特典の有効期限を知りたい', keywords: '特典,期限,有効期限,いつまで', answer: '特典の受取期限は、スタンプ10個を達成した日から1か月です。期限はマイページの「🎁 スタンプ・特典履歴」に表示されます。', priority: 100 },
+      { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。結果はマイページの「🎁 特典取得状況」で確認できます。ガチャ後はホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。', priority: 104 },
+      { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,どこ,確認,プレゼント,ガチャ', answer: '特典はマイページの「🎁 特典取得状況」で確認できます。未使用の特典、使用済みの特典、受取期限を確認できます。', priority: 102 },
+      { category: 'スタンプ特典', question: '特典の有効期限を知りたい', keywords: '特典,期限,有効期限,いつまで', answer: '特典の受取期限は、スタンプ10個を達成した日から1か月です。期限はマイページの「🎁 特典取得状況」に表示されます。', priority: 100 },
       { category: '通知', question: '通知をオン・オフにしたい', keywords: '通知,オン,オフ,push,プッシュ,許可', answer: 'マイページの「🔔 通知設定」からオン・オフを切り替えられます。アプリ内でオンにしても届かない場合は、iPhone や Android 本体側の通知許可もご確認ください。', priority: 98 },
       { category: '通知', question: '通知が届かないときはどうすればいいですか？', keywords: '通知,届かない,push,プッシュ,こない', answer: 'まずマイページの「🔔 通知設定」がオンか確認してください。そのうえで、iPhone や Android 本体側の通知許可、通信状態、アプリの最新化をご確認ください。必要に応じて画面上部の🔄で最新情報を再取得してください。', priority: 96 },
       { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,最新,再読み込み,リロード,refresh,最新情報', answer: '画面上部の「🔄」ボタンを押すと、最新のNEWS、商品、カレンダー、メニュー、FAQ、注文履歴などを更新できます。通常の情報更新は再インストール不要です。', priority: 94 },
@@ -2080,16 +1949,16 @@ const SUPPORT_FAQ_FALLBACK = [
 /* SUPPORT_FAQ_FALLBACK_END */
 
 const SUPPORT_APP_GUIDE = [
-  { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,全体', answer: 'このアプリでは、スタンプQRの読み取り、商品注文、カレンダー確認、NEWS確認、プロフィール変更、通知設定、スタンプ・特典履歴の確認ができます。予約や個別相談は公式LINEをご利用ください。', priority: 120 },
+  { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,全体', answer: 'このアプリでは、スタンプQRの読み取り、商品注文、カレンダー確認、NEWS確認、プロフィール変更、通知設定、特典取得状況の確認ができます。予約や個別相談は公式LINEをご利用ください。', priority: 120 },
   { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,下部', answer: '画面下部にはホーム、ショップ、カレンダー、NEWS、マイページがあります。画面上部からはお知らせ一覧、カート、マイページ、更新ボタンも利用できます。', priority: 115 },
   { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,home,見方', answer: 'ホーム画面では、スタンプカード、QR読み取り、おすすめ商品、最新のお知らせ、メニュー一覧、公式サイト・SNSへのリンクを確認できます。', priority: 100 },
   { category: 'プロフィール', question: 'プロフィール画像は変えられますか？', keywords: 'プロフィール画像,アイコン,写真,画像,変更', answer: 'はい。マイページの「✏️ プロフィールを編集」からアイコン画像を変更できます。変更後はマイページやホームの表示に反映されます。', priority: 98 },
   { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,名前,電話,住所', answer: 'マイページの「✏️ プロフィールを編集」を開き、必要な項目を変更して保存してください。', priority: 97 },
   { category: '通知', question: '通知をオフにしたい', keywords: '通知,オフ,push,プッシュ,解除', answer: 'マイページの「通知設定」でボタンをタップすると通知をオフにできます。端末側の通知設定も必要に応じてご確認ください。', priority: 96 },
-  { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,最新,再読み込み,リロード,refresh', answer: '画面上部の「🔄」ボタンを押すと、最新のお知らせ・商品・カレンダー・FAQ・スタンプ・特典履歴などを更新できます。', priority: 95 },
+  { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,最新,再読み込み,リロード,refresh', answer: '画面上部の「🔄」ボタンを押すと、最新のお知らせ・商品・カレンダー・FAQ・特典状況などを更新できます。', priority: 95 },
   { category: '更新', question: 'アップデートが必要と表示されたらどうすればいいですか？', keywords: 'アップデート,更新が必要,app store,最新版', answer: '起動時に「アップデートが必要です」と表示された場合は、案内に従って最新版へ更新してください。軽微な情報更新は「🔄」ボタンで反映できます。', priority: 94 },
   { category: '予約', question: '予約はアプリからできますか？', keywords: '予約,よやく,line,予約方法', answer: 'このアプリから予約確定はできません。予約や個別相談は公式LINEからご連絡ください。メニュー一覧では内容確認のみできます。', priority: 93 },
-  { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。ガチャ結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。', priority: 92 },
+  { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。ガチャ結果はマイページの「🎁 特典取得状況」で確認できます。', priority: 92 },
   { category: 'NEWS', question: 'まゆみのブログとは何ですか？', keywords: 'まゆみのブログ,ブログ,外部ブログ', answer: '「まゆみのブログ」はマイページの「🔗 公式サイト・SNS」内にある外部ブログへのリンクです。院長の日々の想いや詳しい記事を読むことができます。ニュース内の「つぶやき」とは別物です。', priority: 88 },
   { category: 'NEWS', question: 'まゆみのつぶやきってどこで見られますか？', keywords: 'つぶやき,NEWS,カテゴリ,告知,メッセージ', answer: '「まゆみのつぶやき」はNEWSページの右上のカテゴリ選択で「まゆみのつぶやき」を選ぶと表示されます。アプリ内で手軽に読める院長からの短いメッセージや、大切なお知らせが配信されます。', priority: 86 }
 ];
@@ -2115,9 +1984,6 @@ function normalizeProductEntry(product, index) {
     category: String(item.category || ''),
     name: String(item.name || ''),
     price: Number(item.price || 0),
-    specialPrice: Number(item.specialPrice || 0),
-    specialPriceStartAt: String(item.specialPriceStartAt || ''),
-    specialPriceEndAt: String(item.specialPriceEndAt || ''),
     icon: String(item.icon || ''),
     bg: String(item.bg || ['c1', 'c2', 'c3', 'c4'][index % 4] || 'c1'),
     imgKey: String(item.imgKey || ''),
@@ -2126,94 +1992,6 @@ function normalizeProductEntry(product, index) {
     updatedAt: String(item.updatedAt || ''),
     noticeStatus: normalizeNoticeVisibilityStatus(item.noticeStatus)
   };
-}
-
-function isProductSpecialPriceActive(product, nowTimestamp) {
-  const regularPrice = Number(product && product.price || 0);
-  const specialPrice = Number(product && product.specialPrice || 0);
-  if (!(specialPrice > 0) || !(regularPrice <= 0 || specialPrice < regularPrice)) return false;
-  const now = Number.isFinite(nowTimestamp) ? nowTimestamp : Date.now();
-  const startAt = parseLooseDateToTimestamp(product && product.specialPriceStartAt);
-  const endAt = parseLooseDateToTimestamp(product && product.specialPriceEndAt);
-  if (startAt && now < startAt) return false;
-  if (endAt && now > endAt) return false;
-  return true;
-}
-
-function formatProductSpecialPricePeriod(product) {
-  const startLabel = formatCustomerDateYmdHm(product && product.specialPriceStartAt);
-  const endLabel = formatCustomerDateYmdHm(product && product.specialPriceEndAt);
-  if (startLabel && endLabel) return startLabel + '〜' + endLabel;
-  if (startLabel) return startLabel + '〜';
-  if (endLabel) return '〜' + endLabel;
-  return '';
-}
-
-function getProductPricing(product, quantity) {
-  const qty = Math.max(1, Number(quantity || 1));
-  const regularUnitPrice = Number(product && product.price || 0);
-  const regularTotal = regularUnitPrice * qty;
-  const specialUnitPrice = isProductSpecialPriceActive(product) ? Number(product.specialPrice || 0) : 0;
-  const periodLabel = specialUnitPrice > 0 ? formatProductSpecialPricePeriod(product) : '';
-
-  if (isDashiProductName(product && product.name)) {
-    const dashiPricing = calculateDashiPricing(qty);
-    let unitPrice = Number(dashiPricing.avgUnitPrice || regularUnitPrice || 0);
-    let total = Number(dashiPricing.totalRevenue || regularTotal || 0);
-    let highlightLabel = (qty > 1 && total < regularTotal) ? '限定価格' : '';
-    let isSpecialPrice = false;
-
-    if (specialUnitPrice > 0) {
-      const specialTotal = specialUnitPrice * qty;
-      if (specialTotal <= total || !highlightLabel) {
-        unitPrice = specialUnitPrice;
-        total = specialTotal;
-        highlightLabel = '今だけこの金額で！';
-        isSpecialPrice = specialUnitPrice < regularUnitPrice;
-      }
-    }
-
-    return {
-      regularUnitPrice: regularUnitPrice,
-      unitPrice: unitPrice,
-      originalTotal: regularTotal,
-      total: total,
-      isSpecialPrice: isSpecialPrice,
-      highlightLabel: highlightLabel,
-      periodLabel: isSpecialPrice ? periodLabel : ''
-    };
-  }
-
-  return {
-    regularUnitPrice: regularUnitPrice,
-    unitPrice: specialUnitPrice > 0 ? specialUnitPrice : regularUnitPrice,
-    originalTotal: regularTotal,
-    total: (specialUnitPrice > 0 ? specialUnitPrice : regularUnitPrice) * qty,
-    isSpecialPrice: specialUnitPrice > 0 && specialUnitPrice < regularUnitPrice,
-    highlightLabel: (specialUnitPrice > 0 && specialUnitPrice < regularUnitPrice) ? '今だけこの金額で！' : '',
-    periodLabel: periodLabel
-  };
-}
-
-function buildProductPriceMarkup(product, quantity, options) {
-  const opts = options || {};
-  const pricing = getProductPricing(product, quantity);
-  const mode = opts.mode === 'total' ? 'total' : 'unit';
-  const includeTax = opts.includeTax !== false;
-  const showPeriod = !!opts.showPeriod;
-  const regularAmount = mode === 'total' ? pricing.originalTotal : pricing.regularUnitPrice;
-  const effectiveAmount = mode === 'total' ? pricing.total : pricing.unitPrice;
-  const taxLabel = includeTax ? '<small>（税込）</small>' : '';
-
-  if (pricing.highlightLabel && effectiveAmount < regularAmount) {
-    return `
-      <span class="price-original">通常 ¥${regularAmount.toLocaleString()}</span>
-      <span class="price-special">${escapeHtml(pricing.highlightLabel)} ¥${effectiveAmount.toLocaleString()}${taxLabel}</span>
-      ${showPeriod && pricing.periodLabel ? `<span class="price-period-note">${escapeHtml(pricing.periodLabel)}</span>` : ''}
-    `;
-  }
-
-  return `¥${effectiveAmount.toLocaleString()}${taxLabel}`;
 }
 
 async function loadProducts() {
@@ -2305,7 +2083,7 @@ async function loadProducts() {
       </div>
       <div class="shop-info">
         <div class="shop-name">${product.name}</div>
-        <div class="shop-price">${buildProductPriceMarkup(product, 1, { mode: 'unit', includeTax: true, showPeriod: true })}</div>
+        <div class="shop-price">¥${Number(product.price || 0).toLocaleString()}<small>（税込）</small></div>
       </div>
     `;
     return card;
@@ -2390,12 +2168,8 @@ async function loadStampRewards() {
     if (remote && remote.status === 'ok' && remote.rewardStatus) {
       const remoteStatus = getComparableRewardStatus(remote.rewardStatus);
       if (hasMeaningfulRewardStatus(remoteStatus)) {
-        const mergedStatus = mergeRewardStatuses(remoteStatus, localStatus);
-        applyRewardStatusLocally(mergedStatus);
-        lastSyncedRewardStatus = mergedStatus;
-        if (!rewardStatusEquals(mergedStatus, remoteStatus)) {
-          await syncRewardStatus(true);
-        }
+        applyRewardStatusLocally(remoteStatus);
+        lastSyncedRewardStatus = remoteStatus;
       } else if (hasMeaningfulRewardStatus(localStatus)) {
         await syncRewardStatus(true);
       }
@@ -3679,7 +3453,7 @@ function openProductModal(idx) {
     img.textContent = p.icon || '🌿';
   }
   document.getElementById('prodModalName').textContent = p.name;
-  document.getElementById('prodModalPrice').innerHTML = buildProductPriceMarkup(p, 1, { mode: 'unit', includeTax: true, showPeriod: true });
+  document.getElementById('prodModalPrice').textContent = '¥' + p.price.toLocaleString() + '（税込）';
 
   let descHtml = (p.description || '').replace(/\n/g, '<br>');
   if (p.descriptionImage && p.descriptionImage.startsWith('http')) {
@@ -3739,9 +3513,15 @@ function renderCart() {
       imgSrcHtml = `<img src="${PROD_IMAGES[p.imgKey]}" class="cart-thumb-image" alt="">`;
     }
 
-    const pricing = getProductPricing(p, c.qty);
-    let subtotal = pricing.total;
-    let priceNote = buildProductPriceMarkup(p, c.qty, { mode: 'total', includeTax: false, showPeriod: false });
+    let subtotal = p.price * c.qty;
+    let priceNote = `¥${(p.price * c.qty).toLocaleString()}`;
+    if (isDashiProductName(p.name)) {
+      const pricing = calculateDashiPricing(c.qty);
+      subtotal = pricing.totalRevenue;
+      if (c.qty > 1) {
+        priceNote = `<span style="text-decoration:line-through; font-size:11px; color:#999;">¥${(p.price * c.qty).toLocaleString()}</span> <br><span style="color:var(--danger); font-weight:700;">限定価格 ¥${subtotal.toLocaleString()}</span>`;
+      }
+    }
     total += subtotal;
 
     el.innerHTML = `<div class="cart-thumb ${p.bg}">${imgSrcHtml}</div><div class="cart-info"><div class="cart-item-name">${p.name}</div><div class="cart-item-price">${priceNote}</div><div class="cart-qty-row"><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},-1)">－</button><span class="qty-ctrl-num">${c.qty}</span><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},1)">＋</button></div></div><div class="cart-del" onclick="rmCartItem(${ci})">🗑</div>`;
@@ -3784,7 +3564,10 @@ async function finalizeOrder(payLabel) {
   const cartSnapshot = cart.map(c => ({ idx: c.idx, qty: c.qty }));
   const total = cartSnapshot.reduce((sum, c) => {
     const prod = PRODUCTS[c.idx];
-    return sum + getProductPricing(prod, c.qty).total;
+    if (isDashiProductName(prod.name)) {
+      return sum + calculateDashiPricing(c.qty).totalRevenue;
+    }
+    return sum + (prod.price * c.qty);
   }, 0);
   // GAS側の getCurrentTime() と同じ形式: M/d HH:mm
   const now = new Date();
@@ -3809,7 +3592,10 @@ async function finalizeOrder(payLabel) {
       address: activityProfile.address,
       items: order.items.map(c => {
         const prod = PRODUCTS[c.idx];
-        const effectivePrice = getProductPricing(prod, c.qty).unitPrice;
+        let effectivePrice = prod.price;
+        if (isDashiProductName(prod.name)) {
+          effectivePrice = calculateDashiPricing(c.qty).avgUnitPrice;
+        }
         return {
           name: prod.name,
           qty: c.qty,
@@ -4958,7 +4744,7 @@ function getFeatureSupportReply(messageNorm) {
         topic,
         [
           'スタンプが10個たまるとホーム画面から特典ガチャを回せます。',
-          'ガチャ結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。',
+          'ガチャ結果はマイページの「🎁 特典取得状況」で確認できます。',
           'ガチャ後は、ホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。'
         ],
         ['スタンプ特典の使い方を知りたい', '新しいカードを始めるには？']
@@ -4986,7 +4772,7 @@ function getFeatureSupportReply(messageNorm) {
         topic,
         [
           '特典の受取期限は、スタンプ10個を達成した日から1か月です。',
-          'マイページの「🎁 スタンプ・特典履歴」に期限が表示されます。',
+          'マイページの「🎁 特典取得状況」に期限が表示されます。',
           '受け取りについては受付へ直接お問い合わせください。'
         ],
         ['スタンプ特典の使い方を知りたい', '特典はどこで確認できますか？']
@@ -4998,7 +4784,7 @@ function getFeatureSupportReply(messageNorm) {
         availableRewards.length
           ? [
             `現在、未使用の特典が${availableRewards.length}件あります。`,
-            'マイページの「🎁 スタンプ・特典履歴」で確認できます。',
+            'マイページの「🎁 特典取得状況」で確認できます。',
             '特典は達成当日から使用でき、一度使用すると再使用できません。'
           ]
           : [
@@ -5012,7 +4798,7 @@ function getFeatureSupportReply(messageNorm) {
       topic,
       [
         'スタンプ特典の使い方です。',
-        '1. マイページの「🎁 スタンプ・特典履歴」を開きます。',
+        '1. マイページの「🎁 特典取得状況」を開きます。',
         '2. 獲得済みの特典を確認し、必要なら「使用する」を押します。',
         '3. 特典は達成当日から使用できます。',
         '4. 一度使用すると再使用できません。受け取りは受付へ直接お問い合わせください。'
@@ -5184,8 +4970,8 @@ function getSupportStatusReply(messageNorm) {
         ? [
           `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。10個達成済みです。`,
           hasCurrentCardReward()
-            ? '次の流れ: 1. マイページの「スタンプ・特典履歴」を確認 2. 必要なら特典を使用 3. ホームの「新しいスタンプカードを取得」で次のカードを開始してください。'
-            : '次の流れ: 1. ホームの「特典ガチャを回す」でごほうびを受け取る 2. マイページの「スタンプ・特典履歴」で確認 3. ガチャ後に「新しいスタンプカードを取得」で次のカードを開始してください。',
+            ? '次の流れ: 1. マイページの「特典取得状況」を確認 2. 必要なら特典を使用 3. ホームの「新しいスタンプカードを取得」で次のカードを開始してください。'
+            : '次の流れ: 1. ホームの「特典ガチャを回す」でごほうびを受け取る 2. マイページの「特典取得状況」で確認 3. ガチャ後に「新しいスタンプカードを取得」で次のカードを開始してください。',
           '補足: 来院スタンプは1日1回までです。'
         ]
         : [
@@ -5203,7 +4989,7 @@ function getSupportStatusReply(messageNorm) {
     const itemCount = cart.reduce(function (sum, item) { return sum + Number(item.qty || 0); }, 0);
     const total = cart.reduce(function (sum, item) {
       const product = PRODUCTS[item.idx];
-      return sum + (product ? getProductPricing(product, Number(item.qty || 0)).total : 0);
+      return sum + ((product ? product.price : 0) * Number(item.qty || 0));
     }, 0);
     return buildSupportReply(
       itemCount > 0
@@ -5527,7 +5313,7 @@ function getBuiltInSupportReply(messageNorm) {
     return buildSupportReply(
       [
         'スタンプ特典の使い方です。',
-        '1. マイページの「スタンプ・特典履歴」を開きます。',
+        '1. マイページの「特典取得状況」を開きます。',
         '2. 獲得済み特典を確認し、必要な場合は「使用する」を押します。',
         '3. 特典は達成当日から使用できます。',
         '4. 受取期限は獲得から1か月です。',
@@ -6157,7 +5943,6 @@ function updateTransferCodeDisplay(details) {
 async function applyRecoveredUserState(user, passcode, successMessage) {
   const u = user || {};
   let recoveredRewards = [];
-  let recoveredStampHistory = [];
   try {
     if (Array.isArray(u.rewards)) {
       recoveredRewards = normalizeRewardList(u.rewards);
@@ -6166,15 +5951,6 @@ async function applyRecoveredUserState(user, passcode, successMessage) {
     }
   } catch (e) {
     recoveredRewards = [];
-  }
-  try {
-    if (Array.isArray(u.stampHistory)) {
-      recoveredStampHistory = normalizeStampHistoryList(u.stampHistory);
-    } else {
-      recoveredStampHistory = normalizeStampHistoryList(JSON.parse(String(u.stampHistory || '[]')));
-    }
-  } catch (e) {
-    recoveredStampHistory = [];
   }
   const profile = {
     memberId: u.memberId,
@@ -6194,12 +5970,10 @@ async function applyRecoveredUserState(user, passcode, successMessage) {
   stampCount = Number(u.stampCount || 0) || 0;
   stampCardNum = Number(u.stampCardNum || 1) || 1;
   EARNED_REWARDS = recoveredRewards;
-  STAMP_HISTORY = recoveredStampHistory;
   localStorage.setItem('mayumi_profile', JSON.stringify(profile));
   localStorage.setItem('mayumi_stamp', String(stampCount));
   localStorage.setItem('mayumi_stamp_card', String(stampCardNum));
   localStorage.setItem('mayumi_earned_rewards', JSON.stringify(EARNED_REWARDS));
-  localStorage.setItem(STAMP_HISTORY_STORAGE_KEY, JSON.stringify(STAMP_HISTORY));
   if (u.lastStampDate) localStorage.setItem('mayumi_last_stamp_date', u.lastStampDate);
   else localStorage.removeItem('mayumi_last_stamp_date');
   if (u.stampAchievedAt) localStorage.setItem('mayumi_stamp_10_date', u.stampAchievedAt);
