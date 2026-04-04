@@ -6290,45 +6290,72 @@
         productRecordsBody.innerHTML = '<div style="text-align:center; color:var(--text-mid);">読み込み中...</div>';
       }
 
-      // 1. 商品一覧（マスタ）のデータを取得して同期する（商品管理との連動）
+      // 商品マスタは分析本体の表示を止めない
       if (!allProducts || allProducts.length === 0) {
-        await ensureAdminProductsLoaded();
+        ensureAdminProductsLoaded()
+          .catch(function (err) {
+            console.warn('商品マスタの取得に失敗しました', err);
+          })
+          .finally(function () {
+            renderProductRevenueDraftEntries();
+          });
+      } else {
+        renderProductRevenueDraftEntries();
       }
-      renderProductRevenueDraftEntries();
 
-      const res = await apiRequest('getAnalytics');
-      const recordsRes = await apiRequest('getMenuRevenueRecords');
-      const productRecordsRes = await apiRequest('getProductRevenueRecords');
+      const wrapSettled = function (promise) {
+        return Promise.resolve(promise)
+          .then(function (value) {
+            return { status: 'fulfilled', value: value };
+          })
+          .catch(function (reason) {
+            return { status: 'rejected', reason: reason };
+          });
+      };
+
+      const [analyticsResult, menuRecordsResult, productRecordsResult] = await Promise.all([
+        wrapSettled(apiRequest('getAnalytics')),
+        wrapSettled(apiRequest('getMenuRevenueRecords')),
+        wrapSettled(apiRequest('getProductRevenueRecords'))
+      ]);
+
+      const res = analyticsResult.status === 'fulfilled' ? analyticsResult.value : null;
+      const recordsRes = menuRecordsResult.status === 'fulfilled' ? menuRecordsResult.value : null;
+      const productRecordsRes = productRecordsResult.status === 'fulfilled' ? productRecordsResult.value : null;
 
       if (recordsRes && recordsRes.status === 'ok') {
         allMenuRevenueRecords = recordsRes.records || [];
         updateMenuRevenueMonthFilterOptions();
         renderMenuRevenueRecords();
-      } else {
-        if (!usedCachedRecords) {
-          recordsBody.innerHTML = '<div style="text-align:center; color:red;">メニュー収益の取得に失敗しました</div>';
-        }
+      } else if (!usedCachedRecords) {
+        recordsBody.innerHTML = '<div style="text-align:center; color:red;">メニュー収益の取得に失敗しました</div>';
       }
 
       if (productRecordsRes && productRecordsRes.status === 'ok') {
         allProductRevenueRecords = productRecordsRes.records || [];
         updateProductRevenueMonthFilterOptions();
         renderProductRevenueRecords();
-      } else {
-        if (!usedCachedProductRecords) {
-          productRecordsBody.innerHTML = '<div style="text-align:center; color:red;">商品収益の取得に失敗しました</div>';
-        }
+      } else if (!usedCachedProductRecords) {
+        productRecordsBody.innerHTML = '<div style="text-align:center; color:red;">商品収益の取得に失敗しました</div>';
       }
 
       if (res && res.status === 'ok') {
-        renderAnalytics(res);
-      } else {
-        if (!usedCachedAnalytics) {
-          const err = '<tr><td colspan="1" style="text-align:center; color:red;">データ取得に失敗しました</td></tr>';
-          tbody.innerHTML = err;
-          pbody.innerHTML = err;
-          menuBody.innerHTML = err;
+        try {
+          renderAnalytics(res);
+        } catch (err) {
+          console.error('分析描画に失敗しました', err);
+          if (!usedCachedAnalytics) {
+            const errHtml = '<tr><td colspan="1" style="text-align:center; color:red;">分析表示に失敗しました。再読み込みしてください。</td></tr>';
+            tbody.innerHTML = errHtml;
+            pbody.innerHTML = errHtml;
+            menuBody.innerHTML = errHtml;
+          }
         }
+      } else if (!usedCachedAnalytics) {
+        const err = '<tr><td colspan="1" style="text-align:center; color:red;">データ取得に失敗しました</td></tr>';
+        tbody.innerHTML = err;
+        pbody.innerHTML = err;
+        menuBody.innerHTML = err;
       }
     }
 
@@ -6707,14 +6734,14 @@
       const currentMenuTarget = (document.getElementById('monthlyMenuTarget') || {}).value || '__all__';
       const currentProductTarget = (document.getElementById('monthlyProductTarget') || {}).value || '__all__';
 
-      const menuNames = Array.from(new Set(orderedMonths.flatMap(function (monthKey) {
-        return Object.keys((res.matrix[monthKey] && res.matrix[monthKey].menuDetails) || {});
-      }).filter(Boolean))).sort(function (a, b) {
+      const menuNames = Array.from(new Set(orderedMonths.reduce(function (names, monthKey) {
+        return names.concat(Object.keys((res.matrix[monthKey] && res.matrix[monthKey].menuDetails) || {}));
+      }, []).filter(Boolean))).sort(function (a, b) {
         return String(a).localeCompare(String(b), 'ja');
       });
-      const productNames = Array.from(new Set(((res.products || []).concat(orderedMonths.flatMap(function (monthKey) {
-        return Object.keys((res.matrix[monthKey] && res.matrix[monthKey].products) || {});
-      })))).filter(Boolean)).sort(function (a, b) {
+      const productNames = Array.from(new Set(((res.products || []).concat(orderedMonths.reduce(function (names, monthKey) {
+        return names.concat(Object.keys((res.matrix[monthKey] && res.matrix[monthKey].products) || {}));
+      }, [])))).filter(Boolean)).sort(function (a, b) {
         return String(a).localeCompare(String(b), 'ja');
       });
 
