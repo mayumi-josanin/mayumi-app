@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mayumi-app-v7';
+const CACHE_NAME = 'mayumi-app-v8';
 const ASSETS = [
   './',
   './index.html',
