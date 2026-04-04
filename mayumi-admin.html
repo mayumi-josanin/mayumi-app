@@ -608,6 +608,9 @@
       <div class="nav-item" onclick="switchPage('notice-management', this)">
         <span>📢</span>お知らせ管理
       </div>
+      <div class="nav-item" onclick="switchPage('system-management', this)">
+        <span>🛠️</span>システム管理
+      </div>
       <div class="nav-item" onclick="switchPage('analytics', this)">
         <span>📊</span>データ分析
       </div>
@@ -645,11 +648,6 @@
           </div>
         </div>
         <div class="card compact-card">
-          <div class="summary-grid" id="adminDashboardCards"></div>
-          <div id="adminAlertsList" style="margin-top:14px;"></div>
-          <div id="publishScheduleList" style="margin-top:14px;"></div>
-        </div>
-        <div class="card compact-card">
           <div class="summary-grid" id="ordersSummaryCards"></div>
           <div class="filter-toolbar" style="margin-top:14px;">
             <input type="search" id="orderSearchInput" placeholder="注文ID・会員ID・名前・商品で検索" oninput="applyOrderFilters()">
@@ -657,6 +655,9 @@
               <option value="all">全ての状態</option>
               <option value="pending">受付中</option>
               <option value="received">受取済</option>
+            </select>
+            <select id="orderProductFilter" onchange="applyOrderFilters()" style="width:220px;">
+              <option value="all">全ての商品</option>
             </select>
             <button type="button" class="btn btn-outline" onclick="resetOrderFilters()">条件をクリア</button>
             <select id="orderBulkStatusSelect" style="width:180px;">
@@ -688,6 +689,26 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section id="page-system-management" class="page">
+        <div class="flex space-between mb-2" style="flex-wrap:wrap; align-items:flex-start;">
+          <h2>🛠️ システム管理</h2>
+          <div class="flex" style="gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-outline" onclick="loadAdminDashboardData()">🔄 サマリー更新</button>
+            <button class="btn btn-outline" onclick="loadBackupStatus()">🔄 バックアップ状況更新</button>
+            <button class="btn" type="button" onclick="runManualBackup()">💾 今すぐバックアップ</button>
+          </div>
+        </div>
+        <div class="card compact-card">
+          <div class="summary-grid" id="adminDashboardCards"></div>
+          <div id="adminAlertsList" style="margin-top:14px;"></div>
+          <div id="publishScheduleList" style="margin-top:14px;"></div>
+        </div>
+        <div class="card" style="margin-top:20px;">
+          <div class="card-title">バックアップ状況</div>
+          <div id="systemBackupStatusBody" style="font-size:13px; color:var(--text-mid);">読み込み中...</div>
         </div>
       </section>
 
@@ -2164,6 +2185,9 @@
     <div class="bottom-nav-item" onclick="switchPage('notice-management', this)">
       <span class="bottom-icon">📢</span>お知らせ
     </div>
+    <div class="bottom-nav-item" onclick="switchPage('system-management', this)">
+      <span class="bottom-icon">🛠️</span>システム
+    </div>
     <div class="bottom-nav-item" onclick="switchPage('analytics', this)">
       <span class="bottom-icon">📊</span>分析
     </div>
@@ -3625,7 +3649,11 @@
 
     async function loadPageData(pageId) {
       if (pageId === 'orders') {
-        await Promise.all([loadAdminOrders(), loadAdminDashboardData()]);
+        await loadAdminOrders();
+        return;
+      }
+      if (pageId === 'system-management') {
+        await Promise.all([loadAdminDashboardData(), loadBackupStatus()]);
         return;
       }
       if (pageId === 'blogs') {
@@ -4915,12 +4943,12 @@
     }
 
     async function loadBackupStatus() {
-      const box = document.getElementById('backupStatusBody');
-      if (box) box.textContent = '読み込み中...';
+      const boxes = [document.getElementById('backupStatusBody'), document.getElementById('systemBackupStatusBody')].filter(Boolean);
+      boxes.forEach(box => { box.textContent = '読み込み中...'; });
       const res = await apiRequest('getBackupStatus');
       latestBackupStatus = res && res.status === 'ok' ? res : null;
       if (!latestBackupStatus) {
-        if (box) box.textContent = 'バックアップ状況の取得に失敗しました';
+        boxes.forEach(box => { box.textContent = 'バックアップ状況の取得に失敗しました'; });
         return;
       }
       const lines = [
@@ -4938,7 +4966,8 @@
         lines.push('<div style="margin-top:10px; font-weight:bold;">最近のバックアップ履歴</div>');
         lines.push(latestBackupStatus.recentLogs.map(log => `<div style="font-size:12px; color:var(--text-mid);">${escapeHtml(formatDisplayDate(log.createdAt || ''))} / ${escapeHtml(log.reason || '')} / <a href="${escapeHtml(log.url || '')}" target="_blank" rel="noopener">${escapeHtml(log.fileName || '')}</a></div>`).join(''));
       }
-      if (box) box.innerHTML = lines.map(line => `<div style="margin-bottom:6px;">${line}</div>`).join('');
+      const html = lines.map(line => `<div style="margin-bottom:6px;">${line}</div>`).join('');
+      boxes.forEach(box => { box.innerHTML = html; });
     }
 
     async function loadAdminDashboardData() {
@@ -7944,6 +7973,7 @@
       const cachedRes = readAdminApiCache('getAdminOrders', requestData);
       if (cachedRes && cachedRes.status === 'ok') {
         allOrders = cachedRes.orders || [];
+        updateOrderProductFilterOptions();
         applyOrderFilters();
       } else {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
@@ -7951,10 +7981,33 @@
       const res = await apiRequest('getAdminOrders', requestData);
       if (res && res.status === 'ok') {
         allOrders = res.orders || [];
+        updateOrderProductFilterOptions();
         applyOrderFilters();
       } else {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">データ取得に失敗しました</td></tr>';
       }
+    }
+
+    function getOrderItemNames(order) {
+      const names = [];
+      if (order && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+          const name = String(item && item.name || '').trim();
+          if (name) names.push(name);
+        });
+      }
+      const singleName = String(order && order.itemName || '').trim();
+      if (singleName) names.push(singleName);
+      return Array.from(new Set(names));
+    }
+
+    function updateOrderProductFilterOptions() {
+      const select = document.getElementById('orderProductFilter');
+      if (!select) return;
+      const currentValue = select.value || 'all';
+      const itemNames = Array.from(new Set(allOrders.flatMap(order => getOrderItemNames(order)))).sort((a, b) => a.localeCompare(b, 'ja'));
+      select.innerHTML = '<option value="all">全ての商品</option>' + itemNames.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+      select.value = itemNames.includes(currentValue) ? currentValue : 'all';
     }
 
     function updateOrdersSummary(filteredOrders) {
@@ -7970,20 +8023,23 @@
     function applyOrderFilters() {
       const query = normalizeFilterText(document.getElementById('orderSearchInput') ? document.getElementById('orderSearchInput').value : '');
       const statusFilter = document.getElementById('orderStatusFilter') ? document.getElementById('orderStatusFilter').value : 'all';
+      const productFilter = document.getElementById('orderProductFilter') ? document.getElementById('orderProductFilter').value : 'all';
 
       const filteredOrders = allOrders.filter(order => {
         const normalizedStatus = normalizeAdminOrderStatus(order.status);
         if (statusFilter === 'pending' && normalizedStatus !== '受付中') return false;
         if (statusFilter === 'received' && normalizedStatus !== '受取済') return false;
+        const itemNames = getOrderItemNames(order);
+        if (productFilter !== 'all' && !itemNames.includes(productFilter)) return false;
         if (!query) return true;
 
-        const itemNames = (order.items || []).map(item => item.name).join(' ');
+        const itemNameText = itemNames.join(' ');
         const haystack = normalizeFilterText([
           order.orderId,
           order.memberId,
           order.customerName,
           order.itemName,
-          itemNames
+          itemNameText
         ].join(' '));
         return haystack.includes(query);
       });
@@ -7995,6 +8051,7 @@
     function resetOrderFilters() {
       if (document.getElementById('orderSearchInput')) document.getElementById('orderSearchInput').value = '';
       if (document.getElementById('orderStatusFilter')) document.getElementById('orderStatusFilter').value = 'all';
+      if (document.getElementById('orderProductFilter')) document.getElementById('orderProductFilter').value = 'all';
       applyOrderFilters();
     }
 
