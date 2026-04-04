@@ -503,6 +503,84 @@
       line-height: 1.1;
     }
 
+    .monthly-charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .monthly-chart-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      background: linear-gradient(180deg, #fffdf9 0%, #fff 100%);
+    }
+
+    .monthly-chart-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 4px;
+    }
+
+    .monthly-chart-subtitle {
+      font-size: 11px;
+      color: var(--text-light);
+      margin-bottom: 12px;
+    }
+
+    .monthly-bar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .monthly-bar-row {
+      display: grid;
+      grid-template-columns: 68px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .monthly-bar-label {
+      font-size: 12px;
+      color: var(--text-mid);
+      font-weight: 700;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .monthly-bar-track {
+      position: relative;
+      height: 16px;
+      border-radius: 999px;
+      background: #f3ece3;
+      overflow: hidden;
+    }
+
+    .monthly-bar-fill {
+      height: 100%;
+      min-width: 8px;
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+
+    .monthly-bar-value {
+      font-size: 12px;
+      color: var(--text-dark);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .monthly-chart-empty {
+      padding: 12px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-mid);
+      background: var(--cream);
+      border-radius: 10px;
+    }
+
     .filter-toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -1593,6 +1671,16 @@
         <div class="card mb-2">
           <div class="card-title">📊 粗利サマリー</div>
           <div class="summary-grid" id="grossProfitSummaryCards"></div>
+        </div>
+
+        <div class="card mb-2">
+          <div class="card-title">📊 月別データグラフ</div>
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+            メニュー売上、物販売上、総売上、総粗利を月ごとの棒グラフで確認できます。
+          </div>
+          <div id="monthlyAnalyticsCharts" class="monthly-charts-grid">
+            <div class="monthly-chart-empty">読み込み中...</div>
+          </div>
         </div>
 
         <div class="card mb-2">
@@ -6439,6 +6527,7 @@
 
       renderMonthComparisonTable(filteredMonths, res);
       renderGrossProfitSummaryCards(filteredMonths, res);
+      renderMonthlyAnalyticsCharts(filteredMonths, res);
       renderRegistrationRouteAnalytics(res.registrationRoutes || null);
       renderPopularCategoryAnalytics(res.categoryUsage || null);
 
@@ -6513,6 +6602,58 @@
         { label: '物販粗利', value: `¥${Number(stats.profit || 0).toLocaleString()}` },
         { label: 'メニュー粗利', value: `¥${Number(stats.menuProfitTotal || 0).toLocaleString()}` }
       ]);
+    }
+
+    function renderMonthlyAnalyticsCharts(months, res) {
+      const container = document.getElementById('monthlyAnalyticsCharts');
+      if (!container) return;
+      if (!Array.isArray(months) || !months.length || !res || !res.matrix) {
+        container.innerHTML = '<div class="monthly-chart-empty">グラフ表示できる月別データがありません</div>';
+        return;
+      }
+
+      const charts = [
+        { title: 'メニュー売上', subtitle: '月ごとのメニュー売上合計', color: 'linear-gradient(90deg, #8a9e7e 0%, #5a7a4e 100%)', key: 'menuRevenueTotal' },
+        { title: '物販売上', subtitle: '月ごとの商品売上合計', color: 'linear-gradient(90deg, #d9a46d 0%, #b8752e 100%)', key: 'sales' },
+        { title: '総売上', subtitle: 'メニュー + 物販の売上合計', color: 'linear-gradient(90deg, #5a88b3 0%, #1a4a73 100%)', key: 'combinedRevenue' },
+        { title: '総粗利', subtitle: '原価を引いた粗利合計', color: 'linear-gradient(90deg, #63ad74 0%, #2e7d32 100%)', key: 'combinedProfit' }
+      ];
+
+      container.innerHTML = charts.map(function (chart) {
+        const rows = months.map(function (monthKey) {
+          const stats = res.matrix[monthKey] || {};
+          return {
+            monthKey: monthKey,
+            value: Number(stats[chart.key] || 0)
+          };
+        });
+        const maxValue = rows.reduce(function (max, row) {
+          return Math.max(max, Number(row.value || 0));
+        }, 0);
+        const rowHtml = rows.map(function (row) {
+          const ratio = maxValue > 0 ? (row.value / maxValue) * 100 : 0;
+          const width = row.value > 0 ? Math.max(ratio, 8) : 0;
+          return `
+            <div class="monthly-bar-row">
+              <div class="monthly-bar-label">${escapeHtml(row.monthKey)}</div>
+              <div class="monthly-bar-track">
+                <div class="monthly-bar-fill" style="width:${width}%; background:${chart.color};"></div>
+              </div>
+              <div class="monthly-bar-value">¥${Number(row.value || 0).toLocaleString()}</div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="monthly-chart-card">
+            <div class="monthly-chart-title">📊 ${escapeHtml(chart.title)}</div>
+            <div class="monthly-chart-subtitle">${escapeHtml(chart.subtitle)}</div>
+            <div class="monthly-bar-list">
+              ${rowHtml || '<div class="monthly-chart-empty">データがありません</div>'}
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function renderRegistrationRouteAnalytics(routeData) {
