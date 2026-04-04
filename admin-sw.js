@@ -1,4 +1,4 @@
-const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v2';
+const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v3';
 const ADMIN_SHELL_ASSETS = [
   './mayumi-admin.html',
   './admin-manifest.json',
