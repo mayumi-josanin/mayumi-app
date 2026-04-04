@@ -2685,30 +2685,22 @@ function renderBlogList(containerId, limit, filterType = null, filterCategory = 
     const div = document.createElement('div');
     div.className = 'blog-card';
     const displayDate = formatCustomerDateYmd(item.date);
+    const hasBodyImage = /📷\s*https?:\/\/\S+/i.test(String(item.body || ''));
 
     let imageHtml = '';
-    const rawImageUrl = item.hasEmbeddedImage ? '' : getDisplayImageUrl(item.image || item.imageUrl || '');
+    const rawImageUrl = item.hasEmbeddedImage ? '' : getContentDisplayImageUrl(item.image || item.imageUrl || '');
     if (rawImageUrl) {
-      let displayUrl = rawImageUrl;
-      if (displayUrl.includes('drive.google.com')) {
-        const idMatch = displayUrl.match(/id=([a-zA-Z0-9_-]+)/) || displayUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (idMatch) displayUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[1] + '&sz=w1000';
-      }
-      imageHtml = `<div style="margin-top: 8px; border-radius: 8px; overflow: hidden;"><img src="${displayUrl}" style="width: 100%; height: auto; display: block;" alt="Blog Image"></div>`;
+      imageHtml = `<div class="blog-media-frame blog-media-frame--list"><img src="${rawImageUrl}" class="blog-media-image blog-media-image--list" alt="Blog Image"></div>`;
     }
 
     let bodyHtml = '';
     if (item.body) {
       // '📷 'で始まるURLをimgタグに、'\n'を'<br>'に変換
       let formattedBody = item.body.replace(/📷 (https?:\/\/[^\s]+)/g, function (match, url) {
-        let imgUrl = url;
-        if (imgUrl.includes('drive.google.com')) {
-          const idMatch = imgUrl.match(/id=([a-zA-Z0-9_-]+)/) || imgUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-          if (idMatch) imgUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[1] + '&sz=w1000';
-        }
-        return `<img src="${imgUrl}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; display: block; object-fit: contain;">`;
+        const imgUrl = getContentDisplayImageUrl(url);
+        return `<img src="${imgUrl}" class="blog-inline-image blog-inline-image--list">`;
       }).replace(/\n/g, '<br>');
-      bodyHtml = `<div class="blog-body-preview">${formattedBody}</div>`;
+      bodyHtml = `<div class="blog-body-preview${hasBodyImage ? ' blog-body-preview--media' : ''}">${formattedBody}</div>`;
     }
 
     div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${item.icon || '📢'}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${displayDate}</span><span class="blog-cat">${item.category}</span>${buildUnreadBadgeHtml('blog', item)}</div><div class="blog-title">${item.title}</div>${bodyHtml}${imageHtml}</div></div>`;
@@ -3178,6 +3170,30 @@ function getDisplayImageUrl(rawValue) {
   return '';
 }
 
+function extractDriveFileId(rawValue) {
+  const value = String(rawValue || '').trim();
+  if (!value) return '';
+  const idPatterns = [
+    /[?&]id=([a-zA-Z0-9_-]+)/,
+    /\/d\/([a-zA-Z0-9_-]+)/,
+    /\/thumbnail\?id=([a-zA-Z0-9_-]+)/,
+    /\/uc\?(?:[^#]*&)?id=([a-zA-Z0-9_-]+)/
+  ];
+  for (let i = 0; i < idPatterns.length; i++) {
+    const matched = value.match(idPatterns[i]);
+    if (matched && matched[1]) return matched[1];
+  }
+  return '';
+}
+
+function getContentDisplayImageUrl(rawValue) {
+  const value = getDisplayImageUrl(rawValue);
+  if (!value) return '';
+  const driveFileId = extractDriveFileId(value);
+  if (!driveFileId) return value;
+  return 'https://drive.google.com/uc?export=view&id=' + driveFileId;
+}
+
 function parseLooseDateToTimestamp(rawValue) {
   if (typeof rawValue === 'number' && Number.isFinite(rawValue)) return rawValue;
   const raw = String(rawValue || '').trim();
@@ -3395,17 +3411,12 @@ function openBlogDetail(item) {
   markContentItemSeen(item && item.kind ? item.kind : 'blog', item);
   let detailImageHtml = '';
   if (item.image && !item.hasEmbeddedImage) {
-    detailImageHtml = `<div style="margin-bottom: 12px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"><img src="${item.image}" style="width: 100%; height: auto; display: block;" alt="Blog Image"></div>`;
+    detailImageHtml = `<div class="blog-media-frame blog-media-frame--detail"><img src="${getContentDisplayImageUrl(item.image)}" class="blog-media-image blog-media-image--detail" alt="Blog Image"></div>`;
   }
 
   let formattedBody = (item.body || '')
     .replace(/📷 (https?:\/\/[^\s]+)/g, function (match, url) {
-      let imgUrl = url;
-      if (imgUrl.includes('drive.google.com')) {
-        const idMatch = imgUrl.match(/id=([a-zA-Z0-9_-]+)/) || imgUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (idMatch) imgUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[1] + '&sz=w1000';
-      }
-      return `<img src="${imgUrl}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1); object-fit: contain;">`;
+      return `<img src="${getContentDisplayImageUrl(url)}" class="blog-inline-image blog-inline-image--detail">`;
     }).replace(/\n/g, '<br>');
   const displayDate = formatCustomerDateYmd(item.date);
 
