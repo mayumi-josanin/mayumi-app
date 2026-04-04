@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyLCgSn45Wy-aTZXa-1LNj55TUoqKLi3gq-LBImy_wjHgE7_2llp89cpF1NmuxrejKTqQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.53';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.54';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -2324,12 +2324,42 @@ function escapeIcsText(value) {
     .replace(/;/g, '\\;');
 }
 
+function normalizeCalendarEventDateParts(dateValue) {
+  if (!dateValue) return null;
+  if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) {
+    return {
+      year: dateValue.getFullYear(),
+      month: dateValue.getMonth() + 1,
+      day: dateValue.getDate()
+    };
+  }
+  const raw = String(dateValue).trim();
+  if (!raw) return null;
+  const datePart = raw.split(/[ T]/)[0];
+  const directMatch = datePart.match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})$/);
+  if (directMatch) {
+    return {
+      year: Number(directMatch[1]),
+      month: Number(directMatch[2]),
+      day: Number(directMatch[3])
+    };
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return {
+    year: parsed.getFullYear(),
+    month: parsed.getMonth() + 1,
+    day: parsed.getDate()
+  };
+}
+
 function getCalendarEventDateRange(event) {
-  const eventDate = String(event && event.date || '').trim();
-  const dateMatch = eventDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!dateMatch) return null;
-  const startDate = dateMatch[1] + dateMatch[2] + dateMatch[3];
-  const endDateObj = new Date(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3]) + 1);
+  const parts = normalizeCalendarEventDateParts(event && event.date);
+  if (!parts) return null;
+  const startDate = String(parts.year).padStart(4, '0')
+    + String(parts.month).padStart(2, '0')
+    + String(parts.day).padStart(2, '0');
+  const endDateObj = new Date(parts.year, parts.month - 1, parts.day + 1);
   const endDate = endDateObj.getFullYear()
     + String(endDateObj.getMonth() + 1).padStart(2, '0')
     + String(endDateObj.getDate()).padStart(2, '0');
