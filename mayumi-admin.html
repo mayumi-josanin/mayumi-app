@@ -806,7 +806,7 @@
 
             <div class="form-group">
               <label>★画像をアップロード（スマホのライブラリから選択可能）</label>
-              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き画面が開きます</div>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
               <input type="file" id="blogImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'blog')">
               <div id="blogPreviewLabel"
@@ -838,6 +838,13 @@
             <div class="form-group">
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="blogPublishAt">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="blogSendPush">
+                <span>この保存でPush通知を送信する</span>
+              </label>
+              <div style="font-size:11px; color:#666; margin-top:5px;">※公開中として保存される場合のみ送信されます。初期値はオフです。</div>
             </div>
             <div class="flex" style="gap:10px;">
               <button type="button" class="btn btn-outline" style="flex:1; font-size:15px; padding:12px;" onclick="previewBlogDraft()">👁 プレビュー</button>
@@ -961,6 +968,28 @@
             </div>
             <div class="flex mb-2">
               <div class="form-group" style="flex:1;">
+                <label>特別価格(円)</label>
+                <input type="number" id="prodSpecialPrice" placeholder="例：2500" min="0">
+              </div>
+              <div class="form-group" style="flex:2;">
+                <label>特別価格の表示</label>
+                <div style="font-size:12px; color:var(--danger); padding:10px 12px; background:#fff4f2; border:1px solid #f1d2ca; border-radius:10px;">
+                  今だけこの金額で！ と赤字で表示されます
+                </div>
+              </div>
+            </div>
+            <div class="flex mb-2">
+              <div class="form-group" style="flex:1;">
+                <label>特別価格の開始日時</label>
+                <input type="datetime-local" id="prodSpecialPriceStartAt">
+              </div>
+              <div class="form-group" style="flex:1;">
+                <label>特別価格の終了日時</label>
+                <input type="datetime-local" id="prodSpecialPriceEndAt">
+              </div>
+            </div>
+            <div class="flex mb-2">
+              <div class="form-group" style="flex:1;">
                 <label>在庫数</label>
                 <input type="number" id="prodStockQty" placeholder="例：20" min="0" value="0">
               </div>
@@ -975,7 +1004,7 @@
             </div>
             <div class="form-group">
               <label>★画像（アイコン）をアップロード（スマホのライブラリから選択可能）</label>
-              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き（正方形）画面が開きます</div>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
               <input type="file" id="prodImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'prod')">
               <div id="prodPreviewLabel"
@@ -1005,6 +1034,13 @@
             <div class="form-group">
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="prodPublishAt">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="prodSendPush">
+                <span>この保存でPush通知を送信する</span>
+              </label>
+              <div style="font-size:11px; color:#666; margin-top:5px;">※公開中として保存される場合のみ送信されます。初期値はオフです。</div>
             </div>
             <div class="flex" style="gap:10px;">
               <button type="button" class="btn btn-outline" style="flex:1;" onclick="previewProductDraft()">👁 プレビュー</button>
@@ -1108,65 +1144,6 @@
         </div>
 
         <div class="card table-wrapper">
-          <div class="card-title">📣 全員へPush通知を送信</div>
-          <div style="padding: 10px; background: var(--cream); border-radius: 8px; margin-bottom: 20px;">
-            <p style="font-size: 12px; color: var(--text-mid); margin-bottom: 10px;">
-              Push通知を許可しているすべてのユーザーのスマートフォンに通知を送信します。
-            </p>
-            <div class="form-group">
-              <label>通知タイトル</label>
-              <input type="text" id="pushTitle" placeholder="例：新しいブログを公開しました！" value="まゆみ助産院">
-            </div>
-            <div class="form-group">
-              <label>通知本文</label>
-              <textarea id="pushBody" rows="2" placeholder="通知の内容を入力してください..."></textarea>
-            </div>
-            <div class="flex" style="gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-              <div class="form-group" style="flex:1; min-width:220px; margin-bottom:0;">
-                <label>配信対象</label>
-                <select id="pushAudienceMode" onchange="updatePushAudienceMeta()">
-                  <option value="all">Push許可中の全員</option>
-                  <option value="pending-orders">受付中注文がある会員</option>
-                  <option value="reward-available">未使用特典がある会員</option>
-                  <option value="no-orders">注文履歴がない会員</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex:1; min-width:180px; margin-bottom:0;">
-                <label>開く画面</label>
-                <select id="pushTargetPage">
-                  <option value="home">ホーム</option>
-                  <option value="shop">ショップ</option>
-                  <option value="calendar">カレンダー</option>
-                  <option value="news">NEWS</option>
-                  <option value="notices">お知らせ一覧</option>
-                  <option value="mypage">マイページ</option>
-                  <option value="menu-list">メニュー一覧</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex:1; min-width:220px; margin-bottom:0;">
-                <label>配信予定日時</label>
-                <input type="datetime-local" id="pushScheduledAt">
-              </div>
-            </div>
-            <div class="flex" style="gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-              <div class="form-group" style="flex:1; min-width:220px; margin-bottom:0;">
-                <label>テスト送信先</label>
-                <select id="pushTestRecipient">
-                  <option value="">会員を選択してください</option>
-                </select>
-              </div>
-              <div id="pushAudienceMeta" style="flex:2; min-width:220px; font-size:12px; color:var(--text-mid); align-self:flex-end; padding-bottom:10px;"></div>
-            </div>
-            <div class="flex" style="gap:8px; flex-wrap:wrap;">
-              <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="previewPushNotice()">👁 プレビュー</button>
-              <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="savePushDraft()">📁 下書き保存</button>
-              <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="sendPushTest()">🧪 テスト送信</button>
-              <button class="btn btn-outline" type="button" style="flex:1; min-width:120px;" onclick="schedulePushNotice()">🕒 予約保存</button>
-              <button class="btn" type="button" style="flex:2; min-width:160px; font-size: 15px; padding: 12px;" onclick="sendBroadcastPush()">🚀
-                通知を一斉送信する</button>
-            </div>
-          </div>
-
           <table>
             <thead>
               <tr>
@@ -1393,7 +1370,7 @@
 
             <div class="form-group">
               <label>★画像（フライヤー・写真など）をアップロード（スマホのライブラリから選択可能）</label>
-              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き画面が開きます</div>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
               <input type="file" id="calImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'cal')">
               <div id="calPreviewLabel"
@@ -1419,6 +1396,13 @@
             <div class="form-group">
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="calPublishAt">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="calSendPush">
+                <span>この保存でPush通知を送信する</span>
+              </label>
+              <div style="font-size:11px; color:#666; margin-top:5px;">※公開中として保存される場合のみ送信されます。初期値はオフです。</div>
             </div>
             <div class="flex" style="gap:10px;">
               <button type="button" class="btn btn-outline" style="flex:1;" onclick="previewCalendarDraft()">👁 プレビュー</button>
@@ -1550,7 +1534,7 @@
 
             <div class="form-group">
               <label>画像（フライヤー・写真など）をアップロード</label>
-              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き画面が開きます</div>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
               <input type="file" id="menuImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'menu')">
               <div id="menuImagePreviewArea" style="margin-top:10px; display:none;">
@@ -1570,6 +1554,13 @@
             <div class="form-group">
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="menuPublishAt">
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="menuSendPush">
+                <span>この保存でPush通知を送信する</span>
+              </label>
+              <div style="font-size:11px; color:#666; margin-top:5px;">※公開中として保存される場合のみ送信されます。初期値はオフです。</div>
             </div>
 
             <div class="flex" style="gap:10px; margin-top:20px;">
@@ -2684,6 +2675,7 @@
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
     if (currentStored && (
+      currentStored.includes('AKfycbz5cIeCDi5x3KaNuAV4SYHVTiIWr0kDq4xSPToQDU1jqeeerxTZU3uxDpxI5ubv3kcR1Q') ||
       currentStored.includes('AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww') ||
       currentStored.includes('AKfycbzFi4hL2mSh8VjshupIulGGI3G6V0Q2A3na_6bPPBRcpS3sQMBecN3x93f5XuHuqZgtxQ')
     )) {
@@ -3200,12 +3192,18 @@
       const category = document.getElementById('prodCat').value.trim() || '未設定';
       const price = Number(document.getElementById('prodPrice').value || 0);
       const cost = Number(document.getElementById('prodCost').value || 0);
+      const specialPrice = Number(document.getElementById('prodSpecialPrice').value || 0);
+      const specialStartAt = document.getElementById('prodSpecialPriceStartAt').value || '';
+      const specialEndAt = document.getElementById('prodSpecialPriceEndAt').value || '';
       const stockQty = Number(document.getElementById('prodStockQty').value || 0);
       const lowStockThreshold = Number(document.getElementById('prodLowStockThreshold').value || 0);
       const bgColor = document.getElementById('prodBg').value || '#f5f3ee';
       const desc = document.getElementById('prodDesc').value.trim() || '説明はまだ入力されていません。';
       const mainImageHtml = buildPreviewImageHtml(getPreviewImageSrc('prodImagePreview'), '商品画像');
       const descImageHtml = buildPreviewImageHtml(getPreviewImageSrc('prodDescImagePreview'), '説明画像');
+      const salePeriodLabel = specialStartAt || specialEndAt
+        ? [specialStartAt || 'すぐ開始', specialEndAt || '終了日時なし'].join(' 〜 ')
+        : '';
       const inventoryLabel = stockQty <= 0
         ? '売り切れ'
         : (lowStockThreshold > 0 && stockQty <= lowStockThreshold ? `残り少なめ（在庫 ${stockQty}）` : `在庫 ${stockQty}`);
@@ -3214,10 +3212,12 @@
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
             <span class="badge">${escapeHtml(category)}</span>
             <span class="badge badge-green">販売価格 ¥${price.toLocaleString()}</span>
+            ${specialPrice > 0 && specialPrice < price ? `<span class="badge badge-danger">特別価格 ¥${specialPrice.toLocaleString()}</span>` : ''}
             ${cost > 0 ? `<span class="badge">原価 ¥${cost.toLocaleString()}</span>` : ''}
             <span class="badge ${stockQty <= 0 ? 'badge-danger' : ''}">${escapeHtml(inventoryLabel)}</span>
           </div>
           <div style="font-size:22px; font-weight:700; margin-bottom:12px; line-height:1.5;">${escapeHtml(name)}</div>
+          ${specialPrice > 0 && specialPrice < price ? `<div style="margin-bottom:12px;"><div style="font-size:12px; color:#8b8b8b; text-decoration:line-through;">通常価格 ¥${price.toLocaleString()}</div><div style="font-size:20px; font-weight:700; color:var(--danger);">今だけこの金額で！ ¥${specialPrice.toLocaleString()}</div>${salePeriodLabel ? `<div style="font-size:11px; color:#8f5a4a; margin-top:4px;">対象期間: ${escapeHtml(salePeriodLabel)}</div>` : ''}</div>` : ''}
           <div style="white-space:pre-wrap; line-height:1.9; color:#534a41;">${escapeHtml(desc)}</div>
           ${mainImageHtml}
           ${descImageHtml}
@@ -3770,7 +3770,7 @@
         return;
       }
       if (pageId === 'users') {
-        await Promise.all([loadAdminUsers(), loadPushUsers(), loadAdminPushNotices(), loadDuplicateUsers(), loadAdminTrashItems(), loadBackupStatus()]);
+        await Promise.all([loadAdminUsers(), loadAdminPushNotices(), loadDuplicateUsers(), loadAdminTrashItems(), loadBackupStatus()]);
         return;
       }
       if (pageId === 'notice-management') {
@@ -8241,8 +8241,10 @@
       document.getElementById('adminTemplateTitle').value = item.title || '';
       document.getElementById('adminTemplateBody').value = item.body || '';
       if (item.kind === 'Push通知') {
-        document.getElementById('pushTitle').value = item.title || '';
-        document.getElementById('pushBody').value = item.body || '';
+        const pushTitleInput = document.getElementById('pushTitle');
+        const pushBodyInput = document.getElementById('pushBody');
+        if (pushTitleInput) pushTitleInput.value = item.title || '';
+        if (pushBodyInput) pushBodyInput.value = item.body || '';
       } else if (item.kind === 'NEWS') {
         document.getElementById('blogTitle').value = item.title || '';
         document.getElementById('blogBody').value = item.body || '';
@@ -8926,6 +8928,7 @@
     let selectedImageBase64 = null;
     let selectedImageMime = null;
     let selectedImageName = null;
+    let currentBlogImageUrl = '';
 
     let prodImageBase64 = null;
     let prodImageMime = null;
@@ -8938,6 +8941,16 @@
     let prodDescImageBase64 = null;
     let prodDescImageMime = null;
     let prodDescImageName = null;
+
+    function shouldSendContentPush(checkboxId) {
+      const checkbox = document.getElementById(checkboxId);
+      return !!(checkbox && checkbox.checked);
+    }
+
+    function resetContentPushToggle(checkboxId) {
+      const checkbox = document.getElementById(checkboxId);
+      if (checkbox) checkbox.checked = false;
+    }
 
     async function submitBlog(e) {
       e.preventDefault();
@@ -8982,6 +8995,7 @@
 
       // 2. ブログ情報を投稿する
       const rowIdx = document.getElementById('blogRowIdx').value;
+      const preservedImageUrl = String(currentBlogImageUrl || '').trim();
       btn.innerText = 'データを保存中...';
       const payload = {
         type: rowIdx ? 'updateBlog' : 'addBlog',
@@ -8990,10 +9004,11 @@
         title: document.getElementById('blogTitle').value,
         category: document.getElementById('blogCategory').value,
         icon: document.getElementById('blogIcon').value,
-        image: imageUrl,
+        image: imageUrl || preservedImageUrl,
         body: document.getElementById('blogBody').value,
         status: status,
-        publishAt: document.getElementById('blogPublishAt').value || ''
+        publishAt: document.getElementById('blogPublishAt').value || '',
+        sendPushNotification: shouldSendContentPush('blogSendPush')
       };
 
       const res = await apiRequest('', payload, true);
@@ -9006,6 +9021,8 @@
         showToast(rowIdx ? 'ブログを更新しました！' : 'お知らせを投稿しました！ 🎉');
         cancelBlogEdit(); // フォームのリセットとモード戻し
         selectedImageBase64 = null;
+        selectedImageMime = null;
+        selectedImageName = null;
         loadAdminBlogs();
       } else {
         showToast('投稿に失敗しました');
@@ -9091,6 +9108,12 @@
     function editBlog(rowIdx) {
       const b = allBlogs.find(item => item.rowIdx === rowIdx);
       if (!b) return;
+      currentBlogImageUrl = String(b.imageUrl || '').trim();
+      selectedImageBase64 = null;
+      selectedImageMime = null;
+      selectedImageName = null;
+      const fileInput = document.getElementById('blogImageFile');
+      if (fileInput) fileInput.value = '';
 
       document.getElementById('blogRowIdx').value = b.rowIdx;
       document.getElementById('blogDate').value = formatDateForDateTimeLocal(b.updatedAt || b.date);
@@ -9099,14 +9122,21 @@
       document.getElementById('blogIcon').value = b.icon;
       document.getElementById('blogBody').value = b.body;
       document.getElementById('blogPublishAt').value = formatDateForDateTimeLocal(b.publishAt || '');
+      resetContentPushToggle('blogSendPush');
 
-      if (b.imageUrl) {
-        const img = document.getElementById('imagePreview');
+      const img = document.getElementById('imagePreview');
+      if (currentBlogImageUrl) {
         img.src = b.imageUrl;
         img.style.display = 'block';
         if (document.getElementById('blogPreviewLabel')) {
           document.getElementById('blogPreviewLabel').innerText = '✅ 登録済みの画像';
           document.getElementById('blogPreviewLabel').style.display = 'block';
+        }
+      } else {
+        img.removeAttribute('src');
+        img.style.display = 'none';
+        if (document.getElementById('blogPreviewLabel')) {
+          document.getElementById('blogPreviewLabel').style.display = 'none';
         }
       }
 
@@ -9124,9 +9154,14 @@
       document.getElementById('blogPublishAt').value = '';
       document.getElementById('blogSubmitBtn').innerText = '🌟 この内容で投稿する';
       document.getElementById('blogCancelEditBtn').style.display = 'none';
+      document.getElementById('imagePreview').removeAttribute('src');
       document.getElementById('imagePreview').style.display = 'none';
       if (document.getElementById('blogPreviewLabel')) document.getElementById('blogPreviewLabel').style.display = 'none';
       selectedImageBase64 = null;
+      selectedImageMime = null;
+      selectedImageName = null;
+      currentBlogImageUrl = '';
+      resetContentPushToggle('blogSendPush');
     }
 
     /* === 商品管理 === */
@@ -9192,6 +9227,9 @@
         name: document.getElementById('prodName').value,
         price: Number(document.getElementById('prodPrice').value),
         costPrice: Number(document.getElementById('prodCost').value),
+        specialPrice: document.getElementById('prodSpecialPrice').value || '',
+        specialPriceStartAt: document.getElementById('prodSpecialPriceStartAt').value || '',
+        specialPriceEndAt: document.getElementById('prodSpecialPriceEndAt').value || '',
         icon: prodIconUrl || currentProduct.icon || '',
         bg: document.getElementById('prodBg').value,
         status: status,
@@ -9199,7 +9237,8 @@
         lowStockThreshold: Number(document.getElementById('prodLowStockThreshold').value || 0),
         description: document.getElementById('prodDesc').value,
         descriptionImage: prodDescImageUrl || currentProduct.descriptionImage || '',
-        publishAt: document.getElementById('prodPublishAt').value || ''
+        publishAt: document.getElementById('prodPublishAt').value || '',
+        sendPushNotification: shouldSendContentPush('prodSendPush')
       };
 
       const res = await apiRequest('', payload, true);
@@ -9350,11 +9389,15 @@
       document.getElementById('prodName').value = p.name;
       document.getElementById('prodPrice').value = p.price;
       document.getElementById('prodCost').value = p.costPrice || '';
+      document.getElementById('prodSpecialPrice').value = Number(p.specialPrice || 0) > 0 ? Number(p.specialPrice || 0) : '';
+      document.getElementById('prodSpecialPriceStartAt').value = formatDateForDateTimeLocal(p.specialPriceStartAt || '');
+      document.getElementById('prodSpecialPriceEndAt').value = formatDateForDateTimeLocal(p.specialPriceEndAt || '');
       document.getElementById('prodStockQty').value = Number(p.stockQty || 0);
       document.getElementById('prodLowStockThreshold').value = Number(p.lowStockThreshold || 0);
       document.getElementById('prodBg').value = p.bg;
       document.getElementById('prodDesc').value = p.description || '';
       document.getElementById('prodPublishAt').value = formatDateForDateTimeLocal(p.publishAt || '');
+      resetContentPushToggle('prodSendPush');
 
       if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
         const img = document.getElementById('prodImagePreview');
@@ -9396,10 +9439,18 @@
       if (document.getElementById('prodDescPreviewLabel')) document.getElementById('prodDescPreviewLabel').style.display = 'none';
       document.getElementById('prodBg').value = '#d4e8c8';
       document.getElementById('prodPublishAt').value = '';
+      document.getElementById('prodSpecialPrice').value = '';
+      document.getElementById('prodSpecialPriceStartAt').value = '';
+      document.getElementById('prodSpecialPriceEndAt').value = '';
       document.getElementById('prodStockQty').value = 0;
       document.getElementById('prodLowStockThreshold').value = 0;
       prodImageBase64 = null;
+      prodImageMime = null;
+      prodImageName = null;
       prodDescImageBase64 = null;
+      prodDescImageMime = null;
+      prodDescImageName = null;
+      resetContentPushToggle('prodSendPush');
     }
 
     function cloneProduct(rowIdx) {
@@ -9566,7 +9617,8 @@
         color: document.getElementById('calColor').value,
         image: calImageUrl,
         status: status,
-        publishAt: document.getElementById('calPublishAt').value || ''
+        publishAt: document.getElementById('calPublishAt').value || '',
+        sendPushNotification: shouldSendContentPush('calSendPush')
       };
 
       // 追加モードで日付が1つも選択されていない場合
@@ -9589,6 +9641,8 @@
         cancelCalendarEdit();
         loadAdminCalendar();
         calImageBase64 = null;
+        calImageMime = null;
+        calImageName = null;
       } else {
         showToast('追加に失敗しました。');
       }
@@ -9751,6 +9805,7 @@
       document.getElementById('calDesc').value = c.desc;
       document.getElementById('calColor').value = c.color;
       document.getElementById('calPublishAt').value = formatDateForDateTimeLocal(c.publishAt || '');
+      resetContentPushToggle('calSendPush');
 
       if (c.image) {
         const img = document.getElementById('calImagePreview');
@@ -9786,6 +9841,9 @@
       document.getElementById('calImagePreview').style.display = 'none';
       if (document.getElementById('calPreviewLabel')) document.getElementById('calPreviewLabel').style.display = 'none';
       calImageBase64 = null;
+      calImageMime = null;
+      calImageName = null;
+      resetContentPushToggle('calSendPush');
     }
 
     async function updateCalendarStatus(rowIdx, status) {
@@ -9812,34 +9870,10 @@
       }
     }
 
-    async function sendBroadcastPush() {
-      const payload = collectPushNoticePayload();
-      if (!payload.title || !payload.body) {
-        alert('タイトルと本文を入力してください');
-        return;
-      }
-      const confirmed = await requestDangerousConfirm({
-        title: '通知送信の確認',
-        message: '入力された内容でPush通知を即時送信します。',
-        keyword: '送信',
-        confirmLabel: '送信する'
-      });
-      if (!confirmed) return;
-
-      showToast('Push通知を送信中...');
-      const res = await apiRequest('', { type: 'broadcastPush', mode: 'send', ...payload }, true);
-      if (res && res.status === 'ok') {
-        showToast('送信完了しました！');
-        document.getElementById('pushBody').value = '';
-        document.getElementById('pushScheduledAt').value = '';
-      } else {
-        alert('送信エラー: ' + (res ? res.message : '不明なエラー'));
-      }
-    }
-
-
     // ========== メニュー管理ロジック ==========
     let menuImageBase64 = null;
+    let menuImageMime = null;
+    let menuImageName = null;
 
     async function loadAdminMenus() {
       const draftBody = document.getElementById('menusDraftsList');
@@ -9930,8 +9964,8 @@
         try {
           const res = await apiRequest('', {
             type: 'uploadImage',
-            filename: `menu_${Date.now()}.jpg`,
-            mimeType: 'image/jpeg',
+            filename: menuImageName || `menu_${Date.now()}.jpg`,
+            mimeType: menuImageMime || 'image/jpeg',
             base64: menuImageBase64
           }, true);
           if (res && res.url) imageUrl = res.url;
@@ -9950,7 +9984,8 @@
         reservationStatus: reservationStatus,
         publishStatus: publishStatus,
         imageUrl: imageUrl, // 画像URLを含めて送信（新規・既存問わず）
-        publishAt: document.getElementById('menuPublishAt').value || ''
+        publishAt: document.getElementById('menuPublishAt').value || '',
+        sendPushNotification: shouldSendContentPush('menuSendPush')
       };
 
       const res = await apiRequest('', payload, true);
@@ -9966,6 +10001,9 @@
     function editMenu(rowIdx) {
       const m = allMenus.find(item => item.rowIdx === rowIdx);
       if (!m) return;
+      menuImageBase64 = null;
+      menuImageMime = null;
+      menuImageName = null;
 
       document.getElementById('menuRowIdx').value = m.rowIdx;
       document.getElementById('menuCategory').value = m.category || '';
@@ -9974,6 +10012,7 @@
       document.getElementById('menuReservationStatus').value = m.reservationStatus;
       document.getElementById('menuPublishAt').value = formatDateForDateTimeLocal(m.publishAt || '');
       document.getElementById('menuExistingImageUrl').value = m.imageUrl || ''; // 既存の画像URLを保持
+      resetContentPushToggle('menuSendPush');
 
       if (m.imageUrl) {
         document.getElementById('menuImagePreview').src = m.imageUrl;
@@ -9996,6 +10035,9 @@
       document.getElementById('menuExistingImageUrl').value = ''; // リセット時にクリア
       document.getElementById('menuImagePreviewArea').style.display = 'none';
       menuImageBase64 = null;
+      menuImageMime = null;
+      menuImageName = null;
+      resetContentPushToggle('menuSendPush');
       document.getElementById('menuFormTitle').textContent = '✨ 新しいメニューを追加する';
       document.getElementById('menuSubmitBtn').textContent = '🍴 公開して保存する';
       document.getElementById('menuCancelEditBtn').style.display = 'none';
@@ -10066,106 +10108,164 @@
         loadAdminMenus();
       }
     }
-    // ===== 画像クロップ機能 =====
-    let cropper = null;
-    let currentCropType = null;
+    // ===== 画像取り込み機能 =====
+    const IMAGE_UPLOAD_MAX_EDGE = 1600;
 
-    function openImageCropModal(event, type) {
+    function getOptimizedImageMime(file) {
+      const mimeType = String(file && file.type ? file.type : '').toLowerCase();
+      if (mimeType === 'image/png' || mimeType === 'image/webp') return mimeType;
+      return 'image/jpeg';
+    }
+
+    function buildOptimizedImageName(originalName, mimeType) {
+      const baseName = String(originalName || 'upload')
+        .replace(/\.[^.]+$/, '')
+        .replace(/[^a-zA-Z0-9._-]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'upload';
+      let extension = 'jpg';
+      if (mimeType === 'image/png') extension = 'png';
+      if (mimeType === 'image/webp') extension = 'webp';
+      return `${baseName}.${extension}`;
+    }
+
+    function updatePreparedImagePreview(type, dataUrl) {
+      let previewId = '';
+      let labelId = '';
+      let previewAreaId = '';
+
+      if (type === 'blog') {
+        previewId = 'imagePreview';
+        labelId = 'blogPreviewLabel';
+      } else if (type === 'prod') {
+        previewId = 'prodImagePreview';
+        labelId = 'prodPreviewLabel';
+      } else if (type === 'prodDesc') {
+        previewId = 'prodDescImagePreview';
+        labelId = 'prodDescPreviewLabel';
+      } else if (type === 'cal') {
+        previewId = 'calImagePreview';
+        labelId = 'calPreviewLabel';
+      } else if (type === 'menu') {
+        previewId = 'menuImagePreview';
+        previewAreaId = 'menuImagePreviewArea';
+      }
+
+      const preview = previewId ? document.getElementById(previewId) : null;
+      if (preview) {
+        preview.src = dataUrl;
+        preview.style.display = 'block';
+      }
+
+      if (previewAreaId) {
+        const area = document.getElementById(previewAreaId);
+        if (area) area.style.display = 'block';
+      }
+
+      if (labelId) {
+        const label = document.getElementById(labelId);
+        if (label) {
+          label.innerText = '✅ 選択中のプレビュー（全体表示）';
+          label.style.display = 'block';
+        }
+      }
+    }
+
+    function storePreparedImage(type, dataUrl, mimeType, fileName) {
+      const base64 = String(dataUrl || '').split(',')[1] || '';
+
+      if (type === 'blog') {
+        selectedImageBase64 = base64;
+        selectedImageMime = mimeType;
+        selectedImageName = fileName;
+      } else if (type === 'prod') {
+        prodImageBase64 = base64;
+        prodImageMime = mimeType;
+        prodImageName = fileName;
+      } else if (type === 'prodDesc') {
+        prodDescImageBase64 = base64;
+        prodDescImageMime = mimeType;
+        prodDescImageName = fileName;
+      } else if (type === 'cal') {
+        calImageBase64 = base64;
+        calImageMime = mimeType;
+        calImageName = fileName;
+      } else if (type === 'menu') {
+        menuImageBase64 = base64;
+        menuImageMime = mimeType;
+        menuImageName = fileName;
+      }
+
+      updatePreparedImagePreview(type, dataUrl);
+    }
+
+    function optimizeImageForUpload(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const image = new Image();
+          image.onload = () => {
+            const sourceWidth = image.naturalWidth || image.width || 1;
+            const sourceHeight = image.naturalHeight || image.height || 1;
+            const maxEdge = Math.max(sourceWidth, sourceHeight);
+            const scale = maxEdge > IMAGE_UPLOAD_MAX_EDGE ? (IMAGE_UPLOAD_MAX_EDGE / maxEdge) : 1;
+            const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+            const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+            const mimeType = getOptimizedImageMime(file);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            if (!ctx) {
+              reject(new Error('画像処理に必要な描画コンテキストを取得できませんでした。'));
+              return;
+            }
+
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            if (mimeType === 'image/jpeg') {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, targetWidth, targetHeight);
+            }
+
+            ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+            const quality = mimeType === 'image/png' ? undefined : 0.9;
+            resolve({
+              dataUrl: canvas.toDataURL(mimeType, quality),
+              mimeType: mimeType,
+              fileName: buildOptimizedImageName(file.name, mimeType)
+            });
+          };
+          image.onerror = () => reject(new Error('画像の読み込みに失敗しました。'));
+          image.src = event.target.result;
+        };
+        reader.onerror = () => reject(new Error('画像ファイルの読み込みに失敗しました。'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function openImageCropModal(event, type) {
       const file = event.target.files[0];
       if (!file) return;
 
-      currentCropType = type;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const cropImage = document.getElementById('cropImage');
-        cropImage.src = e.target.result;
-        document.getElementById('imageCropModal').style.display = 'flex';
-
-        if (cropper) cropper.destroy();
-
-        let aspectRatio = NaN; // Free crop by default
-        if (type === 'blog') aspectRatio = NaN;
-        if (type === 'prod') aspectRatio = 1; // Square for products
-        if (type === 'prodDesc') aspectRatio = NaN;
-        if (type === 'cal') aspectRatio = NaN;
-        if (type === 'menu') aspectRatio = NaN;
-
-        cropper = new Cropper(cropImage, {
-          viewMode: 1,
-          aspectRatio: aspectRatio,
-          autoCropArea: 0.8,
-          background: false
-        });
-      };
-      reader.readAsDataURL(file);
-      event.target.value = ''; // Reset input so same file can be selected again
+      try {
+        const optimized = await optimizeImageForUpload(file);
+        storePreparedImage(type, optimized.dataUrl, optimized.mimeType, optimized.fileName);
+        showToast('画像全体を保ったまま取り込みました');
+      } catch (error) {
+        console.error('Image prepare failed', error);
+        alert('画像の準備に失敗しました。別の画像で再度お試しください。');
+      } finally {
+        event.target.value = '';
+      }
     }
 
     function closeCropModal() {
-      document.getElementById('imageCropModal').style.display = 'none';
-      if (cropper) cropper.destroy();
-      cropper = null;
+      const modal = document.getElementById('imageCropModal');
+      if (modal) modal.style.display = 'none';
     }
 
     function applyCrop() {
-      if (!cropper) return;
-      const canvas = cropper.getCroppedCanvas({
-        maxWidth: 1200,
-        maxHeight: 1200
-      });
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-
-      if (currentCropType === 'blog') {
-        const img = document.getElementById('imagePreview');
-        img.src = dataUrl;
-        img.style.display = 'block';
-        if (document.getElementById('blogPreviewLabel')) {
-          document.getElementById('blogPreviewLabel').innerText = '✅ 選択中のプレビュー';
-          document.getElementById('blogPreviewLabel').style.display = 'block';
-        }
-        selectedImageBase64 = dataUrl.split(',')[1];
-        selectedImageMime = 'image/jpeg';
-        selectedImageName = 'cropped.jpg';
-      } else if (currentCropType === 'prod') {
-        const img = document.getElementById('prodImagePreview');
-        img.src = dataUrl;
-        img.style.display = 'block';
-        if (document.getElementById('prodPreviewLabel')) {
-          document.getElementById('prodPreviewLabel').innerText = '✅ 選択中のプレビュー';
-          document.getElementById('prodPreviewLabel').style.display = 'block';
-        }
-        prodImageBase64 = dataUrl.split(',')[1];
-        prodImageMime = 'image/jpeg';
-        prodImageName = 'cropped.jpg';
-      } else if (currentCropType === 'prodDesc') {
-        const img = document.getElementById('prodDescImagePreview');
-        img.src = dataUrl;
-        img.style.display = 'block';
-        if (document.getElementById('prodDescPreviewLabel')) {
-          document.getElementById('prodDescPreviewLabel').innerText = '✅ 選択中のプレビュー';
-          document.getElementById('prodDescPreviewLabel').style.display = 'block';
-        }
-        prodDescImageBase64 = dataUrl.split(',')[1];
-        prodDescImageMime = 'image/jpeg';
-        prodDescImageName = 'desc_cropped.jpg';
-      } else if (currentCropType === 'cal') {
-        const img = document.getElementById('calImagePreview');
-        img.src = dataUrl;
-        img.style.display = 'block';
-        if (document.getElementById('calPreviewLabel')) {
-          document.getElementById('calPreviewLabel').innerText = '✅ 選択中のプレビュー';
-          document.getElementById('calPreviewLabel').style.display = 'block';
-        }
-        calImageBase64 = dataUrl.split(',')[1];
-        calImageMime = 'image/jpeg';
-        calImageName = 'cropped.jpg';
-      } else if (currentCropType === 'menu') {
-        const img = document.getElementById('menuImagePreview');
-        img.src = dataUrl;
-        img.style.display = 'block';
-        document.getElementById('menuImagePreviewArea').style.display = 'block';
-        menuImageBase64 = dataUrl.split(',')[1];
-      }
       closeCropModal();
     }
 
