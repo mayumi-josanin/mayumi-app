@@ -2194,6 +2194,39 @@
     </div>
   </div>
 
+  <div id="userOrdersModal" class="modal">
+    <div class="modal-content" style="max-width:980px;">
+      <div class="flex space-between" style="align-items:flex-start; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+        <div>
+          <h3 style="margin-bottom:8px;">📦 会員の注文詳細</h3>
+          <div id="userOrdersMeta" style="font-size:13px; color:var(--text-mid);">読み込み中...</div>
+        </div>
+        <div class="flex" style="gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-outline" type="button" onclick="openOrdersPageFromUserOrders()">注文管理を開く</button>
+          <button class="btn btn-outline" type="button" onclick="closeUserOrdersModal()">閉じる</button>
+        </div>
+      </div>
+      <div class="summary-grid" id="userOrdersSummary" style="margin-bottom:16px;"></div>
+      <div class="card table-wrapper" style="margin:0;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:170px;">注文日時 / 注文ID</th>
+              <th>注文内容</th>
+              <th style="width:110px;">支払い</th>
+              <th style="width:110px;">合計</th>
+              <th style="width:150px;">受け取り状況</th>
+              <th style="width:160px;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="userOrdersList">
+            <tr><td colspan="6" style="text-align:center;">読み込み中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="rewardStatusModal" class="modal">
     <div class="modal-content" style="max-width:760px;">
       <h3 style="margin-bottom: 15px;">🎟️ スタンプ・特典状況の編集</h3>
@@ -3326,6 +3359,7 @@
 
       tbody.innerHTML = users.map(u => {
         const memberIdExpr = JSON.stringify(u.memberId || '');
+        const rowIdxExpr = Number(u.rowIdx || 0);
         const deleteName = JSON.stringify(u.name || '');
         return `
         <tr>
@@ -3342,6 +3376,7 @@
           <td>${escapeHtml(u.memo || '')}</td>
           <td>
             <div class="flex" style="gap:5px;">
+              <button type="button" class="btn btn-outline" title="注文詳細を確認" style="padding:4px 8px; font-size:11px;" onclick='openUserOrdersModal(${memberIdExpr}, ${rowIdxExpr})'>📦</button>
               <button type="button" class="btn" title="会員情報を編集" style="padding:4px 8px; font-size:11px;" onclick='editUser(${memberIdExpr}, ${u.rowIdx})'>📝</button>
               <button type="button" class="btn" title="会員を削除" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick='deleteUser(${memberIdExpr}, ${u.rowIdx}, ${deleteName})'>🗑</button>
             </div>
@@ -3390,6 +3425,192 @@
       if (document.getElementById('userSearchInput')) document.getElementById('userSearchInput').value = '';
       if (document.getElementById('userPushFilter')) document.getElementById('userPushFilter').value = 'all';
       applyUserFilters();
+    }
+
+    let activeUserOrdersMemberId = '';
+
+    function findAdminUser(memberId, rowIdx) {
+      const normalizedMemberId = String(memberId || '').trim();
+      const numericRowIdx = Number(rowIdx || 0);
+      return allUsers.find(user => {
+        if (normalizedMemberId && String(user.memberId || '').trim() === normalizedMemberId) return true;
+        return numericRowIdx && Number(user.rowIdx || 0) === numericRowIdx;
+      }) || null;
+    }
+
+    function formatAdminOrderDateTime(value) {
+      if (!value) return 'ー';
+      const raw = String(value).trim();
+      const date = value instanceof Date
+        ? value
+        : new Date(typeof value === 'number' ? value : raw.replace(' ', 'T'));
+      if (!Number.isNaN(date.getTime())) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hour = String(date.getHours()).padStart(2, '0');
+        const minute = String(date.getMinutes()).padStart(2, '0');
+        return `${year}/${month}/${day} ${hour}:${minute}`;
+      }
+      return escapeHtml(raw);
+    }
+
+    function getAdminOrderAmountValue(order) {
+      const raw = String(order && order.total != null ? order.total : '').replace(/[^\d.-]/g, '');
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function getAdminOrderStatusInfo(order) {
+      const normalizedStatus = normalizeAdminOrderStatus(order && order.status);
+      if (normalizedStatus === '受取済') {
+        return {
+          label: '受取済',
+          badgeStyle: 'background:#e8f6ef;color:#1e7b47;',
+          subLabel: order && order.checked ? '受取確認: 済' : '受取確認: 未'
+        };
+      }
+      if (normalizedStatus === 'キャンセル済') {
+        return {
+          label: 'キャンセル済',
+          badgeStyle: 'background:#fdecec;color:#b42318;',
+          subLabel: '受取確認: 対象外'
+        };
+      }
+      return {
+        label: '受付中',
+        badgeStyle: 'background:#fff4d6;color:#8a5b00;',
+        subLabel: order && order.checked ? '受取確認: 済' : '受取確認: 未'
+      };
+    }
+
+    function closeUserOrdersModal() {
+      activeUserOrdersMemberId = '';
+      const modal = document.getElementById('userOrdersModal');
+      if (modal) modal.classList.remove('active');
+    }
+
+    async function openOrdersPageFromUserOrders() {
+      closeUserOrdersModal();
+      const showAllInput = document.getElementById('showAllOrders');
+      if (showAllInput) showAllInput.checked = true;
+      await switchPage('orders');
+      await loadAdminOrders();
+    }
+
+    async function openUserOrderEditor(orderId, memberId = '') {
+      const targetOrderId = String(orderId || '').trim();
+      if (!targetOrderId) return;
+      closeUserOrdersModal();
+      const showAllInput = document.getElementById('showAllOrders');
+      if (showAllInput) showAllInput.checked = true;
+      await switchPage('orders');
+      await loadAdminOrders();
+      let targetOrder = allOrders.find(order => String(order.orderId || '') === targetOrderId);
+      if (!targetOrder && memberId) {
+        const res = await apiRequest('getAdminUserOrders', { memberId: String(memberId).trim() });
+        if (res && res.status === 'ok' && Array.isArray(res.orders)) {
+          targetOrder = res.orders.find(order => String(order.orderId || '') === targetOrderId) || null;
+          if (targetOrder) {
+            allOrders = [targetOrder].concat(allOrders.filter(order => String(order.orderId || '') !== targetOrderId));
+          }
+        }
+      }
+      if (!targetOrder) {
+        showToast('注文情報を開けませんでした');
+        return;
+      }
+      await openOrderModal(targetOrderId);
+    }
+
+    function renderUserOrdersDetail(user, orders) {
+      const summaryEl = document.getElementById('userOrdersSummary');
+      const listEl = document.getElementById('userOrdersList');
+      if (!summaryEl || !listEl) return;
+
+      const totalAmount = orders.reduce((sum, order) => sum + getAdminOrderAmountValue(order), 0);
+      renderSummaryCards('userOrdersSummary', [
+        { label: '注文件数', value: orders.length },
+        { label: '受付中', value: orders.filter(order => normalizeAdminOrderStatus(order.status) === '受付中').length },
+        { label: '受取済', value: orders.filter(order => normalizeAdminOrderStatus(order.status) === '受取済').length },
+        { label: 'キャンセル済', value: orders.filter(order => normalizeAdminOrderStatus(order.status) === 'キャンセル済').length },
+        { label: '合計金額', value: `¥${totalAmount.toLocaleString()}` }
+      ]);
+
+      if (!orders.length) {
+        listEl.innerHTML = '<tr><td colspan="6" style="text-align:center;">この会員の注文履歴はありません</td></tr>';
+        return;
+      }
+
+      listEl.innerHTML = orders.map(order => {
+        const statusInfo = getAdminOrderStatusInfo(order);
+        const itemsHtml = (Array.isArray(order.items) ? order.items : []).map(item => `
+          <div style="padding:6px 0; border-bottom:1px solid #f1ede8;">
+            <div style="font-weight:600; color:var(--text-main);">${escapeHtml(item.name || '')}</div>
+            <div style="font-size:11px; color:var(--text-mid);">${Number(item.qty || 0).toLocaleString()}個 / ¥${Number(item.price || 0).toLocaleString()}</div>
+          </div>
+        `).join('');
+        return `
+          <tr>
+            <td>
+              <div style="font-size:12px; font-weight:600;">${formatAdminOrderDateTime(order.date)}</div>
+              <div style="font-size:11px; color:var(--text-mid); margin-top:6px;">${escapeHtml(order.orderId || '')}</div>
+            </td>
+            <td>${itemsHtml || '<span style="color:var(--text-mid);">商品情報なし</span>'}</td>
+            <td>${escapeHtml(order.payment || 'ー')}</td>
+            <td>¥${getAdminOrderAmountValue(order).toLocaleString()}</td>
+            <td>
+              <span class="badge" style="${statusInfo.badgeStyle}">${statusInfo.label}</span>
+              <div style="font-size:11px; color:var(--text-mid); margin-top:6px;">${statusInfo.subLabel}</div>
+            </td>
+            <td>
+              <div class="flex" style="gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick='openUserOrderEditor(${JSON.stringify(order.orderId || '')}, ${JSON.stringify(order.memberId || (user && user.memberId) || '')})'>注文編集</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      const metaEl = document.getElementById('userOrdersMeta');
+      if (metaEl) {
+        metaEl.innerHTML = `
+          <strong>${escapeHtml(user && user.name || '名前未設定')}</strong>
+          <span style="margin-left:8px;">会員ID: ${escapeHtml(user && user.memberId || '未設定')}</span>
+          <span style="margin-left:8px;">電話番号: ${escapeHtml(user && user.phone || '未設定')}</span>
+        `;
+      }
+    }
+
+    async function openUserOrdersModal(memberId, rowIdx) {
+      const user = findAdminUser(memberId, rowIdx);
+      if (!user) {
+        showToast('会員情報が見つかりません');
+        return;
+      }
+      const normalizedMemberId = String(user.memberId || memberId || '').trim();
+      if (!normalizedMemberId) {
+        showToast('会員IDがないため注文履歴を取得できません');
+        return;
+      }
+      activeUserOrdersMemberId = normalizedMemberId;
+
+      const modal = document.getElementById('userOrdersModal');
+      const metaEl = document.getElementById('userOrdersMeta');
+      const listEl = document.getElementById('userOrdersList');
+      if (metaEl) metaEl.textContent = `${user.name || '会員'} の注文履歴を読み込み中...`;
+      if (listEl) listEl.innerHTML = '<tr><td colspan="6" style="text-align:center;">読み込み中...</td></tr>';
+      renderSummaryCards('userOrdersSummary', []);
+      if (modal) modal.classList.add('active');
+
+      const res = await apiRequest('getAdminUserOrders', { memberId: normalizedMemberId });
+      if (activeUserOrdersMemberId !== normalizedMemberId) return;
+      if (res && res.status === 'ok') {
+        renderUserOrdersDetail(user, Array.isArray(res.orders) ? res.orders : []);
+      } else {
+        if (metaEl) metaEl.textContent = `${user.name || '会員'} の注文履歴を取得できませんでした`;
+        if (listEl) listEl.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">注文履歴の取得に失敗しました</td></tr>';
+      }
     }
 
     function loadAdminRewardStatuses() {
@@ -6969,6 +7190,7 @@
       showToast(isEdit ? '注文を更新中...' : '注文を新規作成中...');
       const res = await apiRequest('', data, true);
       if (res && res.status === 'ok') {
+        invalidateAdminApiCache(['getAdminOrders', 'getAdminUserOrders']);
         const isDeleted = res.deleted || data.checked;
         showToast(isDeleted ? '受取確認済み — 一覧から削除しました' : (isEdit ? '注文情報を更新しました' : '新規注文を作成しました'));
         document.getElementById('orderEditModal').classList.remove('active');
@@ -6989,6 +7211,7 @@
       showToast('削除中...');
       const res = await apiRequest('', { type: 'deleteOrders', orderIds: [orderId] }, true);
       if (res && res.status === 'ok') {
+        invalidateAdminApiCache(['getAdminOrders', 'getAdminUserOrders']);
         showToast('注文履歴を削除しました');
         loadAdminOrders();
       } else {
@@ -7003,6 +7226,7 @@
       showToast('更新中...');
       const res = await apiRequest('', { type: 'updateOrder', orderId: orderId, status: status, checked: checked }, true);
       if (res && res.status === 'ok') {
+        invalidateAdminApiCache(['getAdminOrders', 'getAdminUserOrders']);
         if (checked || res.deleted) {
           showToast('受取確認済み — 一覧から削除しました');
           loadAdminOrders(); // 一覧を再読み込み
