@@ -4602,7 +4602,14 @@
     }
 
     function getLatestStampActivityTimestamp(user) {
+      const stampHistory = Array.isArray(user && user.stampHistory) ? user.stampHistory : [];
+      const latestStampHistoryAt = stampHistory.length ? stampHistory.reduce(function (latest, entry) {
+        const current = parseAdminNoticeTimestamp(entry && entry.acquiredDate);
+        return current > latest ? current : latest;
+      }, 0) : 0;
       const candidates = [
+        user && user.latestStampActivityAt,
+        latestStampHistoryAt,
         user && user.lastStampDate,
         user && user.stampAchievedDate,
         getLatestRewardDate(user),
