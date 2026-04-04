@@ -356,6 +356,37 @@
       line-height: 1.85;
     }
 
+    .guide-figure {
+      margin: 14px 0 18px;
+    }
+
+    .guide-figure img {
+      display: block;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 3mm 8mm rgba(62, 47, 37, 0.06);
+    }
+
+    .guide-figure figcaption {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 9.8pt;
+      line-height: 1.8;
+    }
+
+    .guide-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 14px 0 18px;
+    }
+
+    .guide-grid .guide-figure {
+      margin: 0;
+    }
+
     .warn-box {
       padding: 14px 16px;
       margin-top: 12px;
@@ -553,6 +584,11 @@
         </tr>
       </table>
 
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-overview.svg" alt="アプリ全体の見方の画面イメージ">
+        <figcaption>画面イメージです。赤枠の場所を押すと、お知らせ一覧・カート・マイページなど、よく使う画面へ進めます。</figcaption>
+      </figure>
+
       <div class="panel">
         <h3>まず覚えておくと安心なこと</h3>
         <ul class="plain-list">
@@ -587,6 +623,11 @@
         ホーム画面のアイコンから使いたい方は、<strong>先にホーム画面へ追加してから、そのアイコンから会員登録</strong>してください。<br>
         すでに会員登録済みの方は、新しい入口から開いたときに <strong>新規登録し直さず</strong>、「データの引き継ぎ・復元はこちら ↺」からお入りください。
       </div>
+
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-install.svg" alt="ホーム画面追加の画面イメージ">
+        <figcaption>画面イメージです。iPhone は Safari、Android は Chrome から追加します。赤枠の場所を押してホーム画面へ追加してください。</figcaption>
+      </figure>
 
       <div class="panel">
         <h3>iPhone の方</h3>
@@ -634,6 +675,11 @@
 
       <p class="soft-intro">はじめて使う方は、プロフィール登録とパスコード設定を行います。登録済みの方でも、パスコード未設定の場合は最初に設定画面が出ます。</p>
 
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-register-restore.svg" alt="新規登録と復元の画面イメージ">
+        <figcaption>画面イメージです。最初の画面で「以前登録した方」と「はじめて登録する方」が分かれます。赤枠のボタンからご自身に合う方へ進みます。</figcaption>
+      </figure>
+
       <h3>新しく登録する方</h3>
       <ol class="flow-list">
         <li>アプリを開き、「はじめる」を押します。</li>
@@ -679,6 +725,11 @@
       </div>
 
       <p class="soft-intro">パスコードは、アプリを安全に開くための数字です。いちど設定したあと、毎回入力するかどうかはお客様ご自身で選べます。</p>
+
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-passcode.svg" alt="パスコードログインと設定の画面イメージ">
+        <figcaption>画面イメージです。左はログイン画面、右はマイページです。赤枠のリンクやボタンから、復元・再設定・オンオフ切り替え・変更ができます。</figcaption>
+      </figure>
 
       <h3>アプリを開くとき</h3>
       <ol class="flow-list">
@@ -731,6 +782,11 @@
 
       <p class="soft-intro">機種変更や再インストールのときは、<strong>新規登録ではなく復元</strong> を使います。復元には「引き継ぎコードを使う方法」と「登録情報で復元する方法」があります。</p>
 
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-transfer.svg" alt="引き継ぎコードと復元の画面イメージ">
+        <figcaption>画面イメージです。旧端末では赤枠の「引き継ぎコードの発行」、新しい端末では赤枠の入力欄と「ログインして復元する ↺」を使います。</figcaption>
+      </figure>
+
       <h3>引き継ぎコードを発行する方法</h3>
       <ol class="flow-list">
         <li>旧端末でマイページを開きます。</li>
@@ -776,6 +832,11 @@
       </div>
 
       <p class="soft-intro">ホーム画面はアプリの入口です。スタンプ、最新情報、メニュー、外部リンクをひとまとめに確認できます。</p>
+
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-home-stamp.svg" alt="ホーム画面の画面イメージ">
+        <figcaption>画面イメージです。赤枠の場所から、スタンプ取得、メニュー一覧、NEWS へ進めます。</figcaption>
+      </figure>
 
       <table class="table">
         <tr>
@@ -827,6 +888,11 @@
 
       <p class="soft-intro">来院時はホーム画面からスタンプを取得します。読み取りにはカメラ許可が必要です。</p>
 
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-camera-permission.svg" alt="カメラ許可の流れの画面イメージ">
+        <figcaption>画面イメージです。スタンプ取得では、まずアプリ内の案内が出て、そのあとに iPhone / Android の確認画面が出ます。赤枠の「許可」を押します。</figcaption>
+      </figure>
+
       <h3>スタンプ取得の流れ</h3>
       <ol class="flow-list">
         <li>ホーム画面の「📷 カメラを起動して読み取る」を押します。</li>
@@ -864,6 +930,11 @@
       </div>
 
       <p class="soft-intro">セキュリティ設定により、カメラへのアクセスがブロックされていることがあります。お使いのスマートフォンに合わせて、以下の手順でカメラの「許可」をお願いいたします。</p>
+
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-camera-settings.svg" alt="カメラ設定場所の画面イメージ">
+        <figcaption>画面イメージです。iPhone は Safari 側、Android はアプリ権限や Chrome 側で設定します。赤枠の場所を順に押してください。</figcaption>
+      </figure>
 
       <div class="device-card">
         <h3>【iPhoneをご利用のお客様】</h3>
@@ -962,6 +1033,11 @@
 
       <p class="soft-intro">ショップでは商品説明を見て、カートに入れて注文できます。注文は院内受け取り・現金払いです。</p>
 
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-shop-order.svg" alt="ショップ注文の画面イメージ">
+        <figcaption>画面イメージです。商品詳細で赤枠の「カートに追加する」を押し、カート画面で赤枠の「ご注文を確定する」を押します。</figcaption>
+      </figure>
+
       <h3>商品を見る流れ</h3>
       <ol class="flow-list">
         <li>下部メニューの「ショップ」を開きます。</li>
@@ -1015,6 +1091,11 @@
       </div>
 
       <p class="soft-intro">注文後の確認は、マイページの「📋 ご注文履歴」で行います。</p>
+
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-mypage.svg" alt="マイページと注文履歴の画面イメージ">
+        <figcaption>画面イメージです。マイページの赤枠の「📋 ご注文履歴」から注文内容や受け取り状況を確認できます。</figcaption>
+      </figure>
 
       <ol class="flow-list">
         <li>マイページを開きます。</li>
@@ -1087,6 +1168,11 @@
 
       <p class="soft-intro">診療日やイベント予定を確認したいときは、カレンダーページを使います。</p>
 
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-calendar-news.svg" alt="カレンダーとイベント詳細の画面イメージ">
+        <figcaption>画面イメージです。イベント詳細では、赤枠のボタンから端末カレンダーまたは Google カレンダーへ予定を追加できます。</figcaption>
+      </figure>
+
       <ol class="flow-list">
         <li>下部メニューの「カレンダー」を開きます。</li>
         <li>画面上部の「◀」「▶」で月を切り替えます。</li>
@@ -1113,6 +1199,11 @@
       </div>
 
       <p class="soft-intro">NEWS は記事を読むページ、お知らせ一覧は更新情報をまとめて見るページです。似ていますが役割が違います。</p>
+
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-calendar-news.svg" alt="NEWSとお知らせ一覧の画面イメージ">
+        <figcaption>画面イメージです。下部メニューの「NEWS」で記事を確認し、上部の赤枠の「📢」からお知らせ一覧を開けます。</figcaption>
+      </figure>
 
       <h3>NEWS の見方</h3>
       <ol class="flow-list">
@@ -1151,6 +1242,11 @@
       </div>
 
       <p class="soft-intro">マイページでは、会員情報の確認・変更、パスコード設定、引き継ぎコード発行、特典、通知、注文履歴をまとめて確認できます。</p>
+
+      <figure class="guide-figure">
+        <img src="assets/manual-guides/guide-mypage.svg" alt="マイページの設定場所の画面イメージ">
+        <figcaption>画面イメージです。赤枠の場所から、プロフィール編集、ログイン時パスコード切り替え、注文履歴確認、引き継ぎコード発行ができます。</figcaption>
+      </figure>
 
       <table class="table">
         <tr>
