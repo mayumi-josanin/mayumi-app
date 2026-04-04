@@ -1785,13 +1785,23 @@
 
     .prod-img {
       width: 100%;
-      aspect-ratio: 2/1;
+      min-height: 240px;
       border-radius: 13px;
       margin-bottom: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 10px;
+      overflow: hidden;
       font-size: 54px;
+    }
+
+    .prod-img-media {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 10px;
     }
 
     .prod-name {

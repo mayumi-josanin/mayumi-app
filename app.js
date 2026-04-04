@@ -2294,9 +2294,9 @@ function openCalendarEventDetail(idx) {
   const safeDate = escapeHtml(formatCalendarDisplayDate(event.date || ''));
   const safeDesc = escapeHtml(event.desc || '').replace(/\n/g, '<br>') || '詳細はありません。';
   const safeColor = getCalendarSafeColor(event.color);
-  const safeImage = escapeHtml(event.image || '');
+  const safeImage = getContentDisplayImageUrl(event.image || '');
   detail.innerHTML = `
-    ${safeImage ? `<div style="margin-bottom:14px;border-radius:14px;overflow:hidden;background:#f7f1ee;"><img src="${safeImage}" alt="${safeTitle}" style="display:block;width:100%;max-height:220px;object-fit:cover;"></div>` : ''}
+    ${safeImage ? `<div class="blog-media-frame blog-media-frame--detail"><img src="${safeImage}" alt="${safeTitle}" class="blog-media-image blog-media-image--detail"></div>` : ''}
     <div class="blog-detail-title" style="margin-bottom:12px;">${safeTitle}</div>
     <div class="blog-detail-body" style="font-size:14px; line-height:1.8; color:var(--text-main);">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--text-light);">
@@ -3444,10 +3444,10 @@ function openProductModal(idx) {
   // 1. iconがURL(http/data)ならそれを最優先、次にimgKeyMap、最後に絵文字
   if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
     img.style.background = '#f8f5f0';
-    img.innerHTML = '<img src="' + p.icon + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
+    img.innerHTML = '<img src="' + getContentDisplayImageUrl(p.icon) + '" alt="" class="prod-img-media">';
   } else if (p.imgKey && PROD_IMAGES[p.imgKey]) {
     img.style.background = '#f8f5f0';
-    img.innerHTML = '<img src="' + PROD_IMAGES[p.imgKey] + '" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:10px;">';
+    img.innerHTML = '<img src="' + PROD_IMAGES[p.imgKey] + '" alt="" class="prod-img-media">';
   } else {
     img.style.background = '';
     img.textContent = p.icon || '🌿';
@@ -3457,7 +3457,7 @@ function openProductModal(idx) {
 
   let descHtml = (p.description || '').replace(/\n/g, '<br>');
   if (p.descriptionImage && p.descriptionImage.startsWith('http')) {
-    descHtml += `<div style="margin-top:12px; border-radius:8px; overflow:hidden;"><img src="${p.descriptionImage}" style="width:100%; height:auto; display:block;" alt="Description Image"></div>`;
+    descHtml += `<div class="blog-media-frame blog-media-frame--detail" style="margin-top:12px;"><img src="${getContentDisplayImageUrl(p.descriptionImage)}" class="blog-media-image blog-media-image--detail" alt="Description Image"></div>`;
   }
   document.getElementById('prodModalDesc').innerHTML = descHtml || '商品説明はありません';
   document.getElementById('prodModalDesc').style.display = 'none'; // 初期非表示
@@ -7930,7 +7930,7 @@ function openMenuDetail(idx) {
 
   let imageHtml = '';
   if (m.imageUrl) {
-    imageHtml = `<div style="margin-bottom:20px; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);"><img src="${m.imageUrl}" style="width:100%; height:auto; display:block;" alt="Menu Image"></div>`;
+    imageHtml = `<div class="blog-media-frame blog-media-frame--detail" style="margin-bottom:20px;"><img src="${getContentDisplayImageUrl(m.imageUrl)}" class="blog-media-image blog-media-image--detail" alt="Menu Image"></div>`;
   }
 
   const formattedDesc = (m.description || '').replace(/\n/g, '<br>');
