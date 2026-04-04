@@ -64,7 +64,11 @@ const USER_HEADERS = [
   '端末セッションJSON',
   '削除状態',
   '削除日時',
-  '統合先会員ID'
+  '統合先会員ID',
+  '登録経路',
+  '登録経路詳細',
+  '登録経路更新日時',
+  'スタンプ履歴JSON'
 ];
 
 const USER_COL = {
@@ -90,7 +94,11 @@ const USER_COL = {
   DEVICE_SESSIONS: 20,
   DELETE_STATUS: 21,
   DELETED_AT: 22,
-  MERGED_INTO: 23
+  MERGED_INTO: 23,
+  REGISTRATION_SOURCE: 24,
+  REGISTRATION_SOURCE_DETAIL: 25,
+  REGISTRATION_SOURCE_UPDATED_AT: 26,
+  STAMP_HISTORY_JSON: 27
 };
 const TRANSFER_CODE_LENGTH = 8;
 const TRANSFER_CODE_TTL_HOURS = 168; // 1週間 (24*7)
@@ -121,7 +129,7 @@ const PUSH_STATUS_SCHEDULED = '予約済み';
 const PUSH_STATUS_FAILED = '送信失敗';
 
 const MENU_REVENUE_TYPES = ['母乳外来', 'ビジリス', '教室', 'その他'];
-const MENU_REVENUE_HEADERS = ['記録日', 'メニュー種別', '件数', '単価', 'メモ'];
+const MENU_REVENUE_HEADERS = ['記録日', 'メニュー種別', '件数', '単価', '原価単価', 'メモ'];
 const PRODUCT_REVENUE_HEADERS = ['記録日', '商品名', '個数', '単価', '原価', 'メモ'];
 const DASHI_PRODUCT_NAMES = ['天然だし調味粉', '天然だし調理粉'];
 const NOTICE_VISIBILITY_HEADER = 'お知らせ一覧公開';
@@ -158,6 +166,9 @@ const DEFAULT_ADMIN_SECURITY_CONFIG = {
   actionPin: '',
   operatorName: '管理者'
 };
+const STALE_PENDING_ORDER_DAYS = 3;
+const STALE_UNUSED_REWARD_DAYS = 30;
+const STALE_UNPUBLISHED_SCHEDULE_HOURS = 24;
 
 const MUTATING_GET_ACTIONS = {
   order: true,
@@ -797,6 +808,75 @@ function getPublishSchedule() {
   }
 }
 
+function getStalePendingOrders_(days) {
+  const thresholdDays = Math.max(1, Number(days) || STALE_PENDING_ORDER_DAYS);
+  const cutoff = Date.now() - thresholdDays * 24 * 60 * 60 * 1000;
+  const orders = getAdminOrders({ showAll: true });
+  if (!orders || orders.status !== 'ok') return [];
+  return (orders.orders || []).filter(function (order) {
+    return normalizeOrderStatus_(order.status) === '受付中' && parseLooseDateToTimestamp_(order.date) > 0 && parseLooseDateToTimestamp_(order.date) <= cutoff;
+  }).sort(function (a, b) {
+    return parseLooseDateToTimestamp_(a.date) - parseLooseDateToTimestamp_(b.date);
+  });
+}
+
+function getStaleUnusedRewards_(days) {
+  const thresholdDays = Math.max(1, Number(days) || STALE_UNUSED_REWARD_DAYS);
+  const cutoff = Date.now() - thresholdDays * 24 * 60 * 60 * 1000;
+  const users = getAdminUsers();
+  if (!users || users.status !== 'ok') return [];
+  const items = [];
+  (users.users || []).forEach(function (user) {
+    (user.rewards || []).forEach(function (reward) {
+      if (reward && reward.used) return;
+      const earnedTs = parseLooseDateToTimestamp_(reward && reward.earnedDate);
+      if (!earnedTs || earnedTs > cutoff) return;
+      items.push({
+        memberId: user.memberId,
+        name: user.name,
+        rewardName: String(reward && reward.rewardName || '特典'),
+        earnedDate: formatMaybeDateTime_(reward && reward.earnedDate)
+      });
+    });
+  });
+  return items.sort(function (a, b) {
+    return parseLooseDateToTimestamp_(a.earnedDate) - parseLooseDateToTimestamp_(b.earnedDate);
+  });
+}
+
+function collectOverduePublishItemsFromSheet_(sheet, sourceLabel, titleCol, statusCol, overdueBeforeTs) {
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  const publishAtCol = ensurePublishAtColumn_(sheet);
+  const deleteCols = ensureSoftDeleteColumns_(sheet);
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+  return values.map(function (row, index) {
+    if (isSoftDeletedByColumns_(row, deleteCols.statusCol, deleteCols.deletedAtCol)) return null;
+    const publishAt = formatMaybeDateTime_(row[publishAtCol - 1]);
+    const publishAtTs = parseLooseDateToTimestamp_(publishAt);
+    if (!publishAtTs || publishAtTs > overdueBeforeTs) return null;
+    if (String(row[(statusCol || 0) - 1] || '').trim() === '公開') return null;
+    return {
+      source: sourceLabel,
+      title: String(row[(titleCol || 0) - 1] || '').trim() || sourceLabel,
+      publishAt: publishAt,
+      rowIdx: index + 2
+    };
+  }).filter(Boolean).sort(function (a, b) {
+    return parseLooseDateToTimestamp_(a.publishAt) - parseLooseDateToTimestamp_(b.publishAt);
+  });
+}
+
+function getOverdueScheduledPublishes_(hours) {
+  const thresholdHours = Math.max(1, Number(hours) || STALE_UNPUBLISHED_SCHEDULE_HOURS);
+  const overdueBeforeTs = Date.now() - thresholdHours * 60 * 60 * 1000;
+  const ss = getOrCreateSpreadsheet();
+  return []
+    .concat(collectOverduePublishItemsFromSheet_(ss.getSheetByName(SHEETS.BLOG), 'NEWS', 2, 6, overdueBeforeTs))
+    .concat(collectOverduePublishItemsFromSheet_(ss.getSheetByName(SHEETS.PRODUCTS), 'ショップ', 2, 6, overdueBeforeTs))
+    .concat(collectOverduePublishItemsFromSheet_(ss.getSheetByName(SHEETS.CALENDAR), 'カレンダー', 2, 5, overdueBeforeTs))
+    .concat(collectOverduePublishItemsFromSheet_(ensureMenusSheetStructure_(ss.getSheetByName(SHEETS.MENUS)), 'ホーム', 2, 6, overdueBeforeTs));
+}
+
 function getAdminDashboardData() {
   try {
     const orders = getPendingOrderSummary_();
@@ -806,6 +886,9 @@ function getAdminDashboardData() {
     const push = getPushNotices();
     const products = getAdminProducts();
     const users = getAdminUsers();
+    const stalePendingOrders = getStalePendingOrders_(STALE_PENDING_ORDER_DAYS);
+    const staleUnusedRewards = getStaleUnusedRewards_(STALE_UNUSED_REWARD_DAYS);
+    const overduePublishes = getOverdueScheduledPublishes_(STALE_UNPUBLISHED_SCHEDULE_HOURS);
     const alerts = [];
     if (backup && backup.status === 'ok' && backup.isBackupStale) {
       alerts.push({ level: 'warning', label: 'バックアップ未更新', detail: '36時間以上バックアップが更新されていません' });
@@ -830,6 +913,27 @@ function getAdminDashboardData() {
     if (duplicateCount > 0) {
       alerts.push({ level: 'warning', label: '重複会員候補', detail: duplicateCount + '組の重複候補があります' });
     }
+    if (stalePendingOrders.length > 0) {
+      alerts.push({
+        level: 'warning',
+        label: '長期間未対応注文',
+        detail: stalePendingOrders.length + '件の受付中注文が' + STALE_PENDING_ORDER_DAYS + '日以上経過しています'
+      });
+    }
+    if (staleUnusedRewards.length > 0) {
+      alerts.push({
+        level: 'warning',
+        label: '未受取特典',
+        detail: staleUnusedRewards.length + '件の特典が' + STALE_UNUSED_REWARD_DAYS + '日以上未受取です'
+      });
+    }
+    if (overduePublishes.length > 0) {
+      alerts.push({
+        level: 'warning',
+        label: '未公開予約',
+        detail: overduePublishes.length + '件の公開予約が予定時刻を過ぎても非公開のままです'
+      });
+    }
     return {
       status: 'ok',
       summary: {
@@ -842,6 +946,9 @@ function getAdminDashboardData() {
       },
       alerts: alerts,
       lowStockProducts: lowStockProducts,
+      stalePendingOrders: stalePendingOrders.slice(0, 10),
+      staleUnusedRewards: staleUnusedRewards.slice(0, 10),
+      overduePublishes: overduePublishes.slice(0, 10),
       recentBackups: backup && backup.status === 'ok' ? (backup.recentLogs || []) : [],
       upcomingPublishes: schedule && schedule.status === 'ok' ? (schedule.items || []).slice(0, 12) : []
     };
@@ -2386,6 +2493,7 @@ function configureUsersSheet_(sheet) {
   sheet.setColumnWidth(USER_COL.DELETE_STATUS, 110);
   sheet.setColumnWidth(USER_COL.DELETED_AT, 160);
   sheet.setColumnWidth(USER_COL.MERGED_INTO, 120);
+  sheet.setColumnWidth(USER_COL.STAMP_HISTORY_JSON, 260);
 }
 
 function ensureUsersSheetStructure_(sheet) {
@@ -2620,6 +2728,36 @@ function sanitizeRewardEntry_(entry, fallbackId) {
   };
 }
 
+function sanitizeStampHistoryEntry_(entry, fallbackId) {
+  const base = entry || {};
+  const acquiredDate = normalizeDateTimeValue_(base.acquiredDate || base.earnedDate || base.date) || formatDateTime_(new Date());
+  return {
+    id: String(base.id || fallbackId || new Date().getTime()),
+    cardNum: Math.max(1, Number(base.cardNum || 1) || 1),
+    stampNumber: Math.max(1, Math.min(10, Number(base.stampNumber !== undefined ? base.stampNumber : base.stampCount) || 1)),
+    acquiredDate: acquiredDate,
+    dateKey: normalizeDateOnlyValue_(base.dateKey || acquiredDate)
+  };
+}
+
+function sanitizeStampHistoryList_(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  const map = {};
+  list.forEach(function (entry, index) {
+    const normalized = sanitizeStampHistoryEntry_(entry, 'stamp-' + (index + 1) + '-' + new Date().getTime());
+    const key = [normalized.cardNum, normalized.stampNumber].join('|');
+    const current = map[key];
+    if (!current || parseLooseDateToTimestamp_(normalized.acquiredDate) >= parseLooseDateToTimestamp_(current.acquiredDate)) {
+      map[key] = normalized;
+    }
+  });
+  return Object.keys(map).map(function (key) {
+    return map[key];
+  }).sort(function (a, b) {
+    return parseLooseDateToTimestamp_(b.acquiredDate) - parseLooseDateToTimestamp_(a.acquiredDate);
+  });
+}
+
 function sanitizeRewardStatus_(data) {
   const rewardsInput = Array.isArray(data && data.rewards) ? data.rewards : [];
   const rewards = rewardsInput.map(function (reward, index) {
@@ -2629,6 +2767,7 @@ function sanitizeRewardStatus_(data) {
     stampCount: Math.max(0, Math.min(10, Number(data && data.stampCount) || 0)),
     stampCardNum: Math.max(1, Number(data && data.stampCardNum) || 1),
     rewards: rewards,
+    stampHistory: sanitizeStampHistoryList_(data && data.stampHistory),
     lastStampDate: normalizeDateOnlyValue_(data && data.lastStampDate),
     stampAchievedDate: normalizeDateTimeValue_(data && data.stampAchievedDate)
   };
@@ -2654,11 +2793,28 @@ function serializeRewardsJson_(rewards) {
   }));
 }
 
+function parseStampHistoryJson_(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    if (!Array.isArray(parsed)) return [];
+    return sanitizeStampHistoryList_(parsed);
+  } catch (err) {
+    Logger.log('parseStampHistoryJson_ error: ' + err.toString());
+    return [];
+  }
+}
+
+function serializeStampHistoryJson_(history) {
+  return JSON.stringify(sanitizeStampHistoryList_(history));
+}
+
 function getDefaultRewardStatus_() {
   return {
     stampCount: 0,
     stampCardNum: 1,
     rewards: [],
+    stampHistory: [],
     lastStampDate: '',
     stampAchievedDate: ''
   };
@@ -2670,6 +2826,7 @@ function getRewardStatusFromRow_(row) {
     stampCount: row[USER_COL.STAMP_COUNT - 1],
     stampCardNum: row[USER_COL.STAMP_CARD_NUM - 1],
     rewards: parseRewardsJson_(row[USER_COL.REWARDS - 1]),
+    stampHistory: parseStampHistoryJson_(row[USER_COL.STAMP_HISTORY_JSON - 1]),
     lastStampDate: row[USER_COL.LAST_STAMP_DATE - 1],
     stampAchievedDate: row[USER_COL.STAMP_ACHIEVED_AT - 1]
   });
@@ -2682,6 +2839,7 @@ function applyRewardStatusToRow_(row, rewardStatus) {
   next[USER_COL.REWARDS - 1] = serializeRewardsJson_(rewardStatus.rewards);
   next[USER_COL.LAST_STAMP_DATE - 1] = rewardStatus.lastStampDate || '';
   next[USER_COL.STAMP_ACHIEVED_AT - 1] = rewardStatus.stampAchievedDate || '';
+  next[USER_COL.STAMP_HISTORY_JSON - 1] = serializeStampHistoryJson_(rewardStatus.stampHistory);
   return next;
 }
 
@@ -3750,43 +3908,60 @@ function getOrCreateMenuRevenueSheet_(ss) {
   if (!sheet) {
     sheet = ss.insertSheet(SHEETS.MENU_REVENUE);
   }
-  const headerRange = sheet.getRange(1, 1, 1, MENU_REVENUE_HEADERS.length);
-  const currentHeaders = headerRange.getValues()[0];
+  const currentHeaderValues = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0];
+  const currentHeaders = currentHeaderValues.slice(0, MENU_REVENUE_HEADERS.length);
+  if (sheet.getMaxColumns() < MENU_REVENUE_HEADERS.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), MENU_REVENUE_HEADERS.length - sheet.getMaxColumns());
+  }
   if (String(currentHeaders[3] || '').trim() === '売上金額') {
     const lastRow = sheet.getLastRow();
     if (lastRow >= 2) {
-      const values = sheet.getRange(2, 1, lastRow - 1, MENU_REVENUE_HEADERS.length).getValues();
+      const values = sheet.getRange(2, 1, lastRow - 1, Math.max(sheet.getLastColumn(), 5)).getValues();
       const migrated = values.map(function (row) {
         const count = Math.max(1, Number(row[2]) || 1);
         const legacyTotal = Math.max(0, Number(row[3]) || 0);
         const unitPrice = count > 0 ? Math.round(legacyTotal / count) : legacyTotal;
-        return [row[0], row[1], count, unitPrice, row[4]];
+        return [row[0], row[1], count, unitPrice, 0, row[4]];
+      });
+      sheet.getRange(2, 1, migrated.length, MENU_REVENUE_HEADERS.length).setValues(migrated);
+    }
+  } else if (String(currentHeaders[4] || '').trim() === 'メモ' && String(currentHeaders[5] || '').trim() !== 'メモ') {
+    const lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      const values = sheet.getRange(2, 1, lastRow - 1, Math.max(sheet.getLastColumn(), 5)).getValues();
+      const migrated = values.map(function (row) {
+        return [row[0], row[1], row[2], row[3], 0, row[4]];
       });
       sheet.getRange(2, 1, migrated.length, MENU_REVENUE_HEADERS.length).setValues(migrated);
     }
   }
-  if (sheet.getMaxColumns() < MENU_REVENUE_HEADERS.length) {
-    sheet.insertColumnsAfter(sheet.getMaxColumns(), MENU_REVENUE_HEADERS.length - sheet.getMaxColumns());
-  }
+  const headerRange = sheet.getRange(1, 1, 1, MENU_REVENUE_HEADERS.length);
   headerRange.setValues([MENU_REVENUE_HEADERS]);
   styleHeader(sheet, MENU_REVENUE_HEADERS.length, '#8d6e63');
   sheet.setColumnWidth(1, 120);
   sheet.setColumnWidth(2, 140);
   sheet.setColumnWidth(3, 90);
   sheet.setColumnWidth(4, 120);
-  sheet.setColumnWidth(5, 260);
+  sheet.setColumnWidth(5, 120);
+  sheet.setColumnWidth(6, 260);
   return sheet;
 }
 
 function sanitizeMenuRevenueRecord_(data) {
   const count = Math.max(1, Number(data && data.count) || 1);
   const unitPrice = Math.max(0, Number(data && (data.unitPrice !== undefined ? data.unitPrice : data.amount)) || 0);
+  const unitCost = Math.max(0, Number(data && data.unitCost) || 0);
+  const totalAmount = count * unitPrice;
+  const totalCost = count * unitCost;
   return {
     date: normalizeDateOnlyValue_(data && data.date),
     menuType: normalizeMenuRevenueType_(data && data.menuType),
     count: count,
     unitPrice: unitPrice,
-    totalAmount: count * unitPrice,
+    unitCost: unitCost,
+    totalAmount: totalAmount,
+    totalCost: totalCost,
+    profit: totalAmount - totalCost,
     note: String((data && data.note) || '').trim()
   };
 }
@@ -3808,7 +3983,8 @@ function getMenuRevenueRecords() {
         menuType: row[1],
         count: row[2],
         unitPrice: row[3],
-        note: row[4]
+        unitCost: row[4],
+        note: row[5]
       });
       return {
         rowIdx: index + 2,
@@ -3816,7 +3992,10 @@ function getMenuRevenueRecords() {
         menuType: record.menuType,
         count: record.count,
         unitPrice: record.unitPrice,
+        unitCost: record.unitCost,
         totalAmount: record.totalAmount,
+        totalCost: record.totalCost,
+        profit: record.profit,
         note: record.note
       };
     }).filter(function (record) {
@@ -3846,6 +4025,7 @@ function handleSaveMenuRevenueRecord(data) {
           menuType: item && item.menuType,
           count: item && item.count,
           unitPrice: item && item.unitPrice,
+          unitCost: item && item.unitCost,
           amount: item && item.amount,
           note: item && item.note
         })
@@ -3872,7 +4052,7 @@ function handleSaveMenuRevenueRecord(data) {
 
     records.forEach(function (payload, index) {
       const record = payload.record;
-      const values = [[record.date, record.menuType, record.count, record.unitPrice, record.note]];
+      const values = [[record.date, record.menuType, record.count, record.unitPrice, record.unitCost, record.note]];
       if (payload.hasRowIdx) {
         if (payload.rowIdx > lastRow) {
           throw new Error((index + 1) + '件目の更新対象が見つかりません');
@@ -4130,13 +4310,151 @@ function handleDeleteProductRevenueRecord(data) {
   }
 }
 
+function rebuildCombinedAnalyticsTotals_(monthStats) {
+  if (!monthStats) return;
+  monthStats.combinedRevenue = Number(monthStats.sales || 0) + Number(monthStats.menuRevenueTotal || 0);
+  monthStats.combinedCost = Number(monthStats.cost || 0) + Number(monthStats.menuCostTotal || 0);
+  monthStats.combinedProfit = Number(monthStats.profit || 0) + Number(monthStats.menuProfitTotal || 0);
+  monthStats.combinedSales = monthStats.combinedRevenue;
+}
+
+function buildRegistrationRouteAnalytics_() {
+  const routeLabels = ['新規登録', '復元', '引き継ぎコード利用', '重複候補からの復旧', '自動復旧'];
+  const result = {
+    routeLabels: routeLabels,
+    months: [],
+    totals: {},
+    matrix: {}
+  };
+  routeLabels.forEach(function (label) {
+    result.totals[label] = 0;
+  });
+
+  const ss = getOrCreateSpreadsheet();
+  const sheet = getOrCreateUsersSheet_(ss);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return result;
+
+  const values = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
+  values.forEach(function (row) {
+    if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) return;
+    const routeInfo = buildUserRegistrationSourceFromRow_(row);
+    const source = routeLabels.indexOf(routeInfo.source) !== -1 ? routeInfo.source : '新規登録';
+    const occurredAt = routeInfo.source === '新規登録'
+      ? formatMaybeDateTime_(row[USER_COL.TIMESTAMP - 1])
+      : routeInfo.updatedAt;
+    const monthKey = String(occurredAt || '').slice(0, 7);
+    if (!monthKey) return;
+    if (!result.matrix[monthKey]) {
+      result.matrix[monthKey] = {};
+      routeLabels.forEach(function (label) {
+        result.matrix[monthKey][label] = 0;
+      });
+    }
+    result.matrix[monthKey][source] += 1;
+    result.totals[source] += 1;
+  });
+
+  result.months = Object.keys(result.matrix).sort().reverse();
+  return result;
+}
+
+function sortCategoryUsageEntries_(counts) {
+  return Object.keys(counts || {}).map(function (category) {
+    return {
+      category: category,
+      count: Number(counts[category] || 0)
+    };
+  }).sort(function (a, b) {
+    if (Number(b.count || 0) !== Number(a.count || 0)) {
+      return Number(b.count || 0) - Number(a.count || 0);
+    }
+    return String(a.category || '').localeCompare(String(b.category || ''), 'ja');
+  });
+}
+
+function buildCategoryUsageAnalytics_() {
+  const result = {
+    news: { label: 'NEWS', items: [], total: 0 },
+    products: { label: '商品', items: [], total: 0 },
+    menus: { label: 'メニュー', items: [], total: 0 },
+    calendar: { label: 'カレンダー', items: [], total: 0 }
+  };
+
+  const bump = function (bucket, category) {
+    const normalized = String(category || '').trim() || 'カテゴリ未設定';
+    if (!bucket[normalized]) bucket[normalized] = 0;
+    bucket[normalized] += 1;
+  };
+
+  const newsCounts = {};
+  const news = getAdminBlogs();
+  if (news && news.status === 'ok') {
+    (news.blogs || []).forEach(function (item) {
+      bump(newsCounts, item.category);
+    });
+  }
+
+  const productCounts = {};
+  const products = getAdminProducts();
+  if (products && products.status === 'ok') {
+    (products.products || []).forEach(function (item) {
+      bump(productCounts, item.category);
+    });
+  }
+
+  const menuCounts = {};
+  const menus = getAdminMenus();
+  if (menus && menus.status === 'ok') {
+    (menus.menus || []).forEach(function (item) {
+      bump(menuCounts, item.category);
+    });
+  }
+
+  const calendarCounts = {};
+  const ss = getOrCreateSpreadsheet();
+  const calendarSheet = ss.getSheetByName(SHEETS.CALENDAR);
+  if (calendarSheet && calendarSheet.getLastRow() >= 2) {
+    ensureUpdatedAtColumn_(calendarSheet, '更新日時');
+    ensureSortOrderColumn_(calendarSheet);
+    ensureNoticeVisibilityColumn_(calendarSheet, 5, '公開');
+    ensureSoftDeleteColumns_(calendarSheet);
+    const categoryCol = ensureNamedColumn_(calendarSheet, 'カテゴリ', 140);
+    const deleteCols = ensureSoftDeleteColumns_(calendarSheet);
+    const values = calendarSheet.getRange(2, 1, calendarSheet.getLastRow() - 1, calendarSheet.getLastColumn()).getValues();
+    values.forEach(function (row) {
+      if (isSoftDeletedByColumns_(row, deleteCols.statusCol, deleteCols.deletedAtCol)) return;
+      if (!String(row[1] || '').trim()) return;
+      bump(calendarCounts, row[categoryCol - 1]);
+    });
+  }
+
+  result.news.items = sortCategoryUsageEntries_(newsCounts);
+  result.products.items = sortCategoryUsageEntries_(productCounts);
+  result.menus.items = sortCategoryUsageEntries_(menuCounts);
+  result.calendar.items = sortCategoryUsageEntries_(calendarCounts);
+  result.news.total = result.news.items.reduce(function (sum, item) { return sum + Number(item.count || 0); }, 0);
+  result.products.total = result.products.items.reduce(function (sum, item) { return sum + Number(item.count || 0); }, 0);
+  result.menus.total = result.menus.items.reduce(function (sum, item) { return sum + Number(item.count || 0); }, 0);
+  result.calendar.total = result.calendar.items.reduce(function (sum, item) { return sum + Number(item.count || 0); }, 0);
+  return result;
+}
+
 function getAnalyticsData() {
   const ss = getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.ORDERS);
   const menuSheet = ss.getSheetByName(SHEETS.MENU_REVENUE);
   const productRevenueSheet = ss.getSheetByName(SHEETS.PRODUCT_REVENUE);
   if (!sheet && !menuSheet && !productRevenueSheet) {
-    return { status: 'ok', months: [], products: [], menuTypes: MENU_REVENUE_TYPES.slice(), matrix: {} };
+    return {
+      status: 'ok',
+      months: [],
+      products: [],
+      menuTypes: MENU_REVENUE_TYPES.slice(),
+      matrix: {},
+      registrationRoutes: buildRegistrationRouteAnalytics_(),
+      categoryUsage: buildCategoryUsageAnalytics_()
+    };
   }
 
   const summaryMenuTypes = ['母乳外来', 'ビジリス', '教室', 'その他'];
@@ -4154,6 +4472,14 @@ function getAnalyticsData() {
           acc[type] = 0;
           return acc;
         }, {}),
+        menuCost: summaryMenuTypes.reduce(function (acc, type) {
+          acc[type] = 0;
+          return acc;
+        }, {}),
+        menuProfit: summaryMenuTypes.reduce(function (acc, type) {
+          acc[type] = 0;
+          return acc;
+        }, {}),
         menuCount: summaryMenuTypes.reduce(function (acc, type) {
           acc[type] = 0;
           return acc;
@@ -4164,6 +4490,11 @@ function getAnalyticsData() {
         }, {}),
         menuDetails: {}, // 追加: 全てのメニュー種別ごとの詳細（内訳用）
         menuRevenueTotal: 0,
+        menuCostTotal: 0,
+        menuProfitTotal: 0,
+        combinedRevenue: 0,
+        combinedCost: 0,
+        combinedProfit: 0,
         combinedSales: 0,
         productDetails: {} // 追加: 売価別の内訳を保持
       };
@@ -4243,7 +4574,7 @@ function getAnalyticsData() {
         monthStats.sales += subtotal;
         monthStats.cost += (costPerItem * qty);
         monthStats.profit += netProfit;
-        monthStats.combinedSales = monthStats.profit + monthStats.menuRevenueTotal;
+        rebuildCombinedAnalyticsTotals_(monthStats);
 
         if (pName) productSet.add(pName);
       }
@@ -4260,7 +4591,8 @@ function getAnalyticsData() {
           menuType: menuData[i][1],
           count: menuData[i][2],
           unitPrice: menuData[i][3],
-          note: menuData[i][4]
+          unitCost: menuData[i][4],
+          note: menuData[i][5]
         });
         if (!record.date || !record.menuType || record.totalAmount <= 0) continue;
 
@@ -4277,28 +4609,38 @@ function getAnalyticsData() {
         }
 
         monthStats.menuRevenue[summaryType] += record.totalAmount;
+        monthStats.menuCost[summaryType] += record.totalCost;
+        monthStats.menuProfit[summaryType] += record.profit;
         monthStats.menuCount[summaryType] += record.count;
         const unitKey = String(record.unitPrice);
         if (!monthStats.menuBreakdown[summaryType][unitKey]) {
-          monthStats.menuBreakdown[summaryType][unitKey] = { count: 0, revenue: 0 };
+          monthStats.menuBreakdown[summaryType][unitKey] = { count: 0, revenue: 0, cost: 0, profit: 0 };
         }
         monthStats.menuBreakdown[summaryType][unitKey].count += record.count;
         monthStats.menuBreakdown[summaryType][unitKey].revenue += record.totalAmount;
+        monthStats.menuBreakdown[summaryType][unitKey].cost += record.totalCost;
+        monthStats.menuBreakdown[summaryType][unitKey].profit += record.profit;
 
         // --- 詳細データ（メニュー名別）の保持 ---
         if (!monthStats.menuDetails[record.menuType]) {
-          monthStats.menuDetails[record.menuType] = { name: record.menuType, count: 0, revenue: 0, breakdown: {} };
+          monthStats.menuDetails[record.menuType] = { name: record.menuType, count: 0, revenue: 0, cost: 0, profit: 0, breakdown: {} };
         }
         monthStats.menuDetails[record.menuType].count += record.count;
         monthStats.menuDetails[record.menuType].revenue += record.totalAmount;
+        monthStats.menuDetails[record.menuType].cost += record.totalCost;
+        monthStats.menuDetails[record.menuType].profit += record.profit;
         if (!monthStats.menuDetails[record.menuType].breakdown[unitKey]) {
-          monthStats.menuDetails[record.menuType].breakdown[unitKey] = { count: 0, revenue: 0 };
+          monthStats.menuDetails[record.menuType].breakdown[unitKey] = { count: 0, revenue: 0, cost: 0, profit: 0 };
         }
         monthStats.menuDetails[record.menuType].breakdown[unitKey].count += record.count;
         monthStats.menuDetails[record.menuType].breakdown[unitKey].revenue += record.totalAmount;
+        monthStats.menuDetails[record.menuType].breakdown[unitKey].cost += record.totalCost;
+        monthStats.menuDetails[record.menuType].breakdown[unitKey].profit += record.profit;
 
         monthStats.menuRevenueTotal += record.totalAmount;
-        monthStats.combinedSales = monthStats.profit + monthStats.menuRevenueTotal;
+        monthStats.menuCostTotal += record.totalCost;
+        monthStats.menuProfitTotal += record.profit;
+        rebuildCombinedAnalyticsTotals_(monthStats);
       }
     }
   }
@@ -4368,7 +4710,7 @@ function getAnalyticsData() {
         monthStats.sales += record.totalAmount;
         monthStats.cost += record.totalCost;
         monthStats.profit += record.profit;
-        monthStats.combinedSales = monthStats.profit + monthStats.menuRevenueTotal;
+        rebuildCombinedAnalyticsTotals_(monthStats);
 
         productSet.add(record.productName);
       }
@@ -4380,7 +4722,9 @@ function getAnalyticsData() {
     months: Object.keys(stats).sort().reverse(),
     products: Array.from(productSet).sort(),
     menuTypes: summaryMenuTypes,
-    matrix: stats
+    matrix: stats,
+    registrationRoutes: buildRegistrationRouteAnalytics_(),
+    categoryUsage: buildCategoryUsageAnalytics_()
   };
 }
 
@@ -4479,6 +4823,7 @@ function handleAddCalendar(data) {
     ensureUpdatedAtColumn_(sheet, '更新日時');
     const noticeCol = ensureNoticeVisibilityColumn_(sheet, 5, '公開');
     const publishAtCol = ensurePublishAtColumn_(sheet);
+    const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
 
     const rowsToAdd = [];
     const updatedAt = formatDateTime_(new Date());
@@ -4514,6 +4859,12 @@ function handleAddCalendar(data) {
         return [normalizePublishVisibilityStatus_(data.noticeStatus || data.status || '公開')];
       });
       sheet.getRange(startRow, noticeCol, noticeValues.length, 1).setValues(noticeValues);
+      if (categoryCol) {
+        const categoryValues = rowsToAdd.map(function () {
+          return [String(data.category || '').trim()];
+        });
+        sheet.getRange(startRow, categoryCol, categoryValues.length, 1).setValues(categoryValues);
+      }
       if (publishAtCol) {
         const publishValues = rowsToAdd.map(function () {
           return [normalizePublishAtValue_(data.publishAt)];
@@ -4546,6 +4897,7 @@ function handleUpdateCalendar(data) {
     ensureUpdatedAtColumn_(sheet, '更新日時');
     const noticeCol = ensureNoticeVisibilityColumn_(sheet, 5, '公開');
     const publishAtCol = ensurePublishAtColumn_(sheet);
+    const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
 
     const rowIdx = Number(data.rowIdx);
     if (rowIdx < 2) return { status: 'error', message: '更新対象が見つかりません' };
@@ -4561,6 +4913,9 @@ function handleUpdateCalendar(data) {
     ]]);
     if (data.noticeStatus) {
       sheet.getRange(rowIdx, noticeCol).setValue(normalizePublishVisibilityStatus_(data.noticeStatus));
+    }
+    if (categoryCol && data.category !== undefined) {
+      sheet.getRange(rowIdx, categoryCol).setValue(String(data.category || '').trim());
     }
     if (publishAtCol && data.publishAt !== undefined) {
       sheet.getRange(rowIdx, publishAtCol).setValue(normalizePublishAtValue_(data.publishAt));
@@ -4616,6 +4971,12 @@ function handleUpdateUser(data) {
       rowData[USER_COL.DELETED_AT - 1] = '';
       rowData[USER_COL.MERGED_INTO - 1] = '';
       clearTransferCodeFromRow_(rowData);
+      setUserRegistrationSource_(
+        rowData,
+        data.registrationSource || '新規登録',
+        data.registrationSourceDetail || '',
+        data.registrationSourceUpdatedAt || timestamp
+      );
       const nextRow = applyRewardStatusToRow_(rowData, rewardStatus);
       sheet.appendRow(nextRow);
     } else {
@@ -4626,6 +4987,7 @@ function handleUpdateUser(data) {
         stampCount: data.stampCount !== undefined ? data.stampCount : currentRewardStatus.stampCount,
         stampCardNum: data.stampCardNum !== undefined ? data.stampCardNum : currentRewardStatus.stampCardNum,
         rewards: data.rewards !== undefined ? data.rewards : currentRewardStatus.rewards,
+        stampHistory: data.stampHistory !== undefined ? data.stampHistory : currentRewardStatus.stampHistory,
         lastStampDate: data.lastStampDate !== undefined ? data.lastStampDate : currentRewardStatus.lastStampDate,
         stampAchievedDate: data.stampAchievedDate !== undefined ? data.stampAchievedDate : currentRewardStatus.stampAchievedDate
       });
@@ -4648,8 +5010,19 @@ function handleUpdateUser(data) {
       updatedRow[USER_COL.MERGED_INTO - 1] = currentValues[USER_COL.MERGED_INTO - 1];
       updatedRow[USER_COL.TRANSFER_CODE - 1] = currentValues[USER_COL.TRANSFER_CODE - 1];
       updatedRow[USER_COL.TRANSFER_CODE_ISSUED_AT - 1] = currentValues[USER_COL.TRANSFER_CODE_ISSUED_AT - 1];
+      updatedRow[USER_COL.REGISTRATION_SOURCE - 1] = currentValues[USER_COL.REGISTRATION_SOURCE - 1];
+      updatedRow[USER_COL.REGISTRATION_SOURCE_DETAIL - 1] = currentValues[USER_COL.REGISTRATION_SOURCE_DETAIL - 1];
+      updatedRow[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1] = currentValues[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1];
       if (data.passcode !== undefined) {
         clearTransferCodeFromRow_(updatedRow);
+      }
+      if (data.registrationSource !== undefined || data.registrationSourceDetail !== undefined || data.registrationSourceUpdatedAt !== undefined) {
+        setUserRegistrationSource_(
+          updatedRow,
+          data.registrationSource || currentValues[USER_COL.REGISTRATION_SOURCE - 1] || '新規登録',
+          data.registrationSourceDetail !== undefined ? data.registrationSourceDetail : currentValues[USER_COL.REGISTRATION_SOURCE_DETAIL - 1],
+          data.registrationSourceUpdatedAt || currentValues[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1] || timestamp
+        );
       }
       range.setValues([applyRewardStatusToRow_(updatedRow, nextRewardStatus)]);
     }
@@ -4686,6 +5059,37 @@ function clearTransferCodeFromRow_(rowData) {
   rowData[USER_COL.TRANSFER_CODE - 1] = '';
   rowData[USER_COL.TRANSFER_CODE_ISSUED_AT - 1] = '';
   return rowData;
+}
+
+function normalizeRegistrationSource_(value) {
+  const source = String(value || '').trim();
+  if (!source) return '新規登録';
+  const normalized = source.toLowerCase();
+  if (normalized === 'new' || normalized === 'newregistration' || normalized === 'register') return '新規登録';
+  if (normalized === 'recover' || normalized === 'identity') return '復元';
+  if (normalized === 'transfer' || normalized === 'transfercode') return '引き継ぎコード利用';
+  if (normalized === 'merge' || normalized === 'duplicate') return '重複候補からの復旧';
+  if (normalized === 'activity' || normalized === 'auto') return '自動復旧';
+  return source;
+}
+
+function setUserRegistrationSource_(rowData, source, detail, occurredAt) {
+  if (!rowData) return rowData;
+  rowData[USER_COL.REGISTRATION_SOURCE - 1] = normalizeRegistrationSource_(source);
+  rowData[USER_COL.REGISTRATION_SOURCE_DETAIL - 1] = String(detail || '').trim();
+  rowData[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1] = normalizeDateTimeValue_(occurredAt) || formatDateTime_(new Date());
+  return rowData;
+}
+
+function buildUserRegistrationSourceFromRow_(row) {
+  const source = normalizeRegistrationSource_(row[USER_COL.REGISTRATION_SOURCE - 1]);
+  const detail = String(row[USER_COL.REGISTRATION_SOURCE_DETAIL - 1] || '').trim();
+  const updatedAt = formatMaybeDateTime_(row[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1]) || formatMaybeDateTime_(row[USER_COL.TIMESTAMP - 1]);
+  return {
+    source: source,
+    detail: detail,
+    updatedAt: updatedAt
+  };
 }
 
 function fillUserFieldIfBlank_(rowData, columnIndex, value) {
@@ -4735,6 +5139,7 @@ function ensureUserRowFromActivity_(sheet, data) {
     rowData[USER_COL.DELETED_AT - 1] = '';
     rowData[USER_COL.MERGED_INTO - 1] = '';
     clearTransferCodeFromRow_(rowData);
+    setUserRegistrationSource_(rowData, '自動復旧', 'スタンプ・注文の活動から再作成', timestamp);
     sheet.appendRow(rowData);
     return { rowIndex: sheet.getLastRow(), rowData: rowData, created: true };
   }
@@ -4762,6 +5167,7 @@ function ensureUserRowFromActivity_(sheet, data) {
     nextRow[USER_COL.DELETE_STATUS - 1] = '';
     nextRow[USER_COL.DELETED_AT - 1] = '';
     nextRow[USER_COL.MERGED_INTO - 1] = '';
+    setUserRegistrationSource_(nextRow, '自動復旧', 'スタンプ・注文の活動から再表示', timestamp);
     changed = true;
   }
 
@@ -4819,6 +5225,7 @@ function buildRecoverAccountUserFromRow_(row) {
     stampCount: Number(row[USER_COL.STAMP_COUNT - 1]) || 0,
     stampCardNum: Number(row[USER_COL.STAMP_CARD_NUM - 1]) || 1,
     rewards: String(row[USER_COL.REWARDS - 1] || '[]'),
+    stampHistory: String(row[USER_COL.STAMP_HISTORY_JSON - 1] || '[]'),
     lastStampDate: String(row[USER_COL.LAST_STAMP_DATE - 1] || ''),
     stampAchievedAt: String(row[USER_COL.STAMP_ACHIEVED_AT - 1] || ''),
     regDate: formatDateOnly_(new Date(row[USER_COL.TIMESTAMP - 1]))
@@ -4967,6 +5374,12 @@ function handleRecoverAccount(data) {
     updatedRow[USER_COL.DELETED_AT - 1] = '';
     updatedRow[USER_COL.MERGED_INTO - 1] = '';
     clearTransferCodeFromRow_(updatedRow);
+    setUserRegistrationSource_(
+      updatedRow,
+      usedTransferCode ? '引き継ぎコード利用' : '復元',
+      usedTransferCode ? '引き継ぎコードで復元' : '本人情報で復元',
+      formatDateTime_(new Date())
+    );
     sheet.getRange(matchedRowIndex, 1, 1, USER_HEADERS.length).setValues([updatedRow]);
 
     const matchedUser = buildRecoverAccountUserFromRow_(updatedRow);
@@ -5114,7 +5527,6 @@ function handleSyncUserRewardStatus(data) {
     const memberId = String(data.memberId || '').trim();
     if (!memberId) return { status: 'error', message: '会員IDが指定されていません' };
 
-    const rewardStatus = sanitizeRewardStatus_(data);
     const ensuredUser = ensureUserRowFromActivity_(sheet, {
       memberId: memberId,
       name: data.name,
@@ -5129,6 +5541,15 @@ function handleSyncUserRewardStatus(data) {
     }
     const range = sheet.getRange(targetRow, 1, 1, USER_HEADERS.length);
     const currentRow = ensuredUser.rowData || range.getValues()[0];
+    const currentRewardStatus = getRewardStatusFromRow_(currentRow);
+    const rewardStatus = sanitizeRewardStatus_({
+      stampCount: data.stampCount !== undefined ? data.stampCount : currentRewardStatus.stampCount,
+      stampCardNum: data.stampCardNum !== undefined ? data.stampCardNum : currentRewardStatus.stampCardNum,
+      rewards: data.rewards !== undefined ? data.rewards : currentRewardStatus.rewards,
+      stampHistory: data.stampHistory !== undefined ? data.stampHistory : currentRewardStatus.stampHistory,
+      lastStampDate: data.lastStampDate !== undefined ? data.lastStampDate : currentRewardStatus.lastStampDate,
+      stampAchievedDate: data.stampAchievedDate !== undefined ? data.stampAchievedDate : currentRewardStatus.stampAchievedDate
+    });
     range.setValues([applyRewardStatusToRow_(currentRow, rewardStatus)]);
 
     return {
@@ -5185,6 +5606,7 @@ function handleDrawRewardGacha(data) {
       stampCount: rewardStatus.stampCount,
       stampCardNum: rewardStatus.stampCardNum,
       rewards: [rewardEntry].concat(rewardStatus.rewards || []),
+      stampHistory: rewardStatus.stampHistory,
       lastStampDate: rewardStatus.lastStampDate,
       stampAchievedDate: rewardStatus.stampAchievedDate || rewardEntry.earnedDate
     });
@@ -5396,9 +5818,15 @@ function handleUpdateAdminRewardStatus(data) {
 
     const range = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length);
     const currentRow = range.getValues()[0];
-    
-    // 基本は sanitze された data を使う
-    const nextStatus = sanitizeRewardStatus_(data);
+    const currentStatus = getRewardStatusFromRow_(currentRow);
+    const nextStatus = sanitizeRewardStatus_({
+      stampCount: data.stampCount !== undefined ? data.stampCount : currentStatus.stampCount,
+      stampCardNum: data.stampCardNum !== undefined ? data.stampCardNum : currentStatus.stampCardNum,
+      rewards: data.rewards !== undefined ? data.rewards : currentStatus.rewards,
+      stampHistory: data.stampHistory !== undefined ? data.stampHistory : currentStatus.stampHistory,
+      lastStampDate: data.lastStampDate !== undefined ? data.lastStampDate : currentStatus.lastStampDate,
+      stampAchievedDate: data.stampAchievedDate !== undefined ? data.stampAchievedDate : currentStatus.stampAchievedDate
+    });
     
     // デモ用：取得制限（日付）の強制クリア
     if (data.clearLastStampDate === true) {
@@ -5466,6 +5894,7 @@ function getAdminUsers() {
     const users = data.map((row, index) => {
       if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) return null;
       const rewardStatus = getRewardStatusFromRow_(row);
+      const registrationSource = buildUserRegistrationSourceFromRow_(row);
       const memberId = String(row[USER_COL.MEMBER_ID - 1] || '');
       const userOrderStats = orderStats[memberId] || { orderCount: 0, pendingOrderCount: 0, lastOrderAt: '', orderTotal: 0 };
       return {
@@ -5488,6 +5917,9 @@ function getAdminUsers() {
         rewards: rewardStatus.rewards,
         lastStampDate: rewardStatus.lastStampDate,
         stampAchievedDate: rewardStatus.stampAchievedDate,
+        registrationSource: registrationSource.source,
+        registrationSourceDetail: registrationSource.detail,
+        registrationSourceUpdatedAt: registrationSource.updatedAt,
         orderCount: userOrderStats.orderCount,
         pendingOrderCount: userOrderStats.pendingOrderCount,
         lastOrderAt: userOrderStats.lastOrderAt,
@@ -5517,6 +5949,10 @@ function mergeRewardEntries_(leftRewards, rightRewards) {
     }
   });
   return Object.keys(map).map(function (key) { return map[key]; });
+}
+
+function mergeStampHistoryEntries_(leftHistory, rightHistory) {
+  return sanitizeStampHistoryList_([].concat(leftHistory || [], rightHistory || []));
 }
 
 function buildDuplicateUsersFromRows_(rows) {
@@ -5661,6 +6097,7 @@ function handleMergeUsers(data) {
         stampCount: Math.max(Number(mergedRewards.stampCount || 0), Number(getRewardStatusFromRow_(row).stampCount || 0)),
         stampCardNum: Math.max(Number(mergedRewards.stampCardNum || 1), Number(getRewardStatusFromRow_(row).stampCardNum || 1)),
         rewards: mergeRewardEntries_(mergedRewards.rewards, getRewardStatusFromRow_(row).rewards),
+        stampHistory: mergeStampHistoryEntries_(mergedRewards.stampHistory, getRewardStatusFromRow_(row).stampHistory),
         lastStampDate: mergedRewards.lastStampDate || getRewardStatusFromRow_(row).lastStampDate,
         stampAchievedDate: mergedRewards.stampAchievedDate || getRewardStatusFromRow_(row).stampAchievedDate
       });
@@ -5678,6 +6115,7 @@ function handleMergeUsers(data) {
     mergedRow[USER_COL.DELETE_STATUS - 1] = '';
     mergedRow[USER_COL.DELETED_AT - 1] = '';
     mergedRow[USER_COL.MERGED_INTO - 1] = '';
+    setUserRegistrationSource_(mergedRow, '重複候補からの復旧', '会員統合で情報を集約', formatDateTime_(new Date()));
     targetRange.setValues([mergedRow]);
 
     const orderSheet = ss.getSheetByName(SHEETS.ORDERS);
@@ -5841,6 +6279,7 @@ function getCalendarEvents() {
     ensureUpdatedAtColumn_(sheet, '更新日時');
     ensureSortOrderColumn_(sheet);
     const noticeCol = ensureNoticeVisibilityColumn_(sheet, 5, '公開');
+    const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
     const deleteCols = ensureSoftDeleteColumns_(sheet);
     const publishAtCol = ensurePublishAtColumn_(sheet);
 
@@ -5863,6 +6302,7 @@ function getCalendarEvents() {
         title: row[1],
         desc: row[2],
         color: row[3],
+        category: String(row[categoryCol - 1] || ''),
         image: String(row[5] || ''),
         updatedAt: formatMaybeDateTime_(row[6]),
         publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
@@ -5885,6 +6325,7 @@ function getAdminCalendar() {
     ensureUpdatedAtColumn_(sheet, '更新日時');
     ensureSortOrderColumn_(sheet);
     const noticeCol = ensureNoticeVisibilityColumn_(sheet, 5, '公開');
+    const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
     const deleteCols = ensureSoftDeleteColumns_(sheet);
     const publishAtCol = ensurePublishAtColumn_(sheet);
 
@@ -5903,6 +6344,7 @@ function getAdminCalendar() {
         title: row[1],
         desc: row[2],
         color: row[3],
+        category: String(row[categoryCol - 1] || ''),
         publishStatus: row[4],
         image: String(row[5] || ''),
         updatedAt: formatMaybeDateTime_(row[6]),
@@ -6337,9 +6779,9 @@ function getDefaultSupportFaqRows_(updatedAt) {
     ['公開', 'スタンプ', 'スタンプの集め方を知りたい', 'スタンプ,QR,QRコード,来院,カメラ', 'ホーム画面の「📷 カメラを起動して読み取る」を押し、表示された案内でカメラを許可してから院内QRコードを読み取ってください。読み取りに成功するとスタンプが1つ追加されます。', 110, now],
     ['公開', 'スタンプ', 'スタンプは1日何回取得できますか？', 'スタンプ,1日,一日,何回,回数', '来院スタンプは1日1回までです。同じ日に再度読み取ると、すでに取得済みの案内が表示されます。', 108, now],
     ['公開', 'トラブル', 'カメラが起動しないときはどうすればいいですか？', 'カメラ,起動しない,許可,権限,QR,読めない', 'スタンプ取得時にカメラ許可の確認が出た場合は「許可」を選んでください。すでに拒否している場合は、表示される「設定を開く」から設定画面へ進み、iPhone や Android のカメラ許可をオンにしてから、もう一度「📷 カメラを起動して読み取る」を押してください。', 106, now],
-    ['公開', 'スタンプ特典', 'スタンプが10個たまったらどうなりますか？', 'スタンプ,10個,達成,ガチャ,特典', 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。結果はマイページの「🎁 特典取得状況」で確認できます。ガチャ後はホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。', 104, now],
-    ['公開', 'スタンプ特典', '特典はどこで確認できますか？', '特典,どこ,確認,プレゼント,ガチャ', '特典はマイページの「🎁 特典取得状況」で確認できます。未使用の特典、使用済みの特典、受取期限を確認できます。', 102, now],
-    ['公開', 'スタンプ特典', '特典の有効期限を知りたい', '特典,期限,有効期限,いつまで', '特典の受取期限は、スタンプ10個を達成した日から1か月です。期限はマイページの「🎁 特典取得状況」に表示されます。', 100, now],
+    ['公開', 'スタンプ特典', 'スタンプが10個たまったらどうなりますか？', 'スタンプ,10個,達成,ガチャ,特典', 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。ガチャ後はホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。', 104, now],
+    ['公開', 'スタンプ特典', '特典はどこで確認できますか？', '特典,どこ,確認,プレゼント,ガチャ', '特典はマイページの「🎁 スタンプ・特典履歴」で確認できます。未使用の特典、使用済みの特典、受取期限を確認できます。', 102, now],
+    ['公開', 'スタンプ特典', '特典の有効期限を知りたい', '特典,期限,有効期限,いつまで', '特典の受取期限は、スタンプ10個を達成した日から1か月です。期限はマイページの「🎁 スタンプ・特典履歴」に表示されます。', 100, now],
     ['公開', '通知', '通知をオン・オフにしたい', '通知,オン,オフ,push,プッシュ,許可', 'マイページの「🔔 通知設定」からオン・オフを切り替えられます。アプリ内でオンにしても届かない場合は、iPhone や Android 本体側の通知許可もご確認ください。', 98, now],
     ['公開', '通知', '通知が届かないときはどうすればいいですか？', '通知,届かない,push,プッシュ,こない', 'まずマイページの「🔔 通知設定」がオンか確認してください。そのうえで、iPhone や Android 本体側の通知許可、通信状態、アプリの最新化をご確認ください。必要に応じて画面上部の🔄で最新情報を再取得してください。', 96, now],
     ['公開', '更新', '最新情報への更新方法を知りたい', '更新,最新,再読み込み,リロード,refresh,最新情報', '画面上部の「🔄」ボタンを押すと、最新のNEWS、商品、カレンダー、メニュー、FAQ、注文履歴などを更新できます。通常の情報更新は再インストール不要です。', 94, now],

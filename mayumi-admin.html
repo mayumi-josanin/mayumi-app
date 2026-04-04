@@ -1309,6 +1309,10 @@
               </div>
             </div>
             <div class="form-group" style="margin-bottom: 20px;">
+              <label>カテゴリ</label>
+              <input type="text" id="calCategory" placeholder="例：教室 / 休診 / イベント">
+            </div>
+            <div class="form-group" style="margin-bottom: 20px;">
               <label>詳細</label>
               <textarea id="calDesc" rows="3" placeholder="10:00〜11:30 定員5名様など..."></textarea>
             </div>
@@ -1365,6 +1369,7 @@
                 <th>画像</th>
                 <th>日付</th>
                 <th>イベント名</th>
+                <th>カテゴリ</th>
                 <th>詳細</th>
                 <th>カラー</th>
                 <th>公開設定</th>
@@ -1373,7 +1378,7 @@
             </thead>
             <tbody id="calendarDraftsList">
               <tr>
-                <td colspan="7" style="text-align:center;">読み込み中...</td>
+                <td colspan="9" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -1419,6 +1424,7 @@
                 <th>画像</th>
                 <th>日付</th>
                 <th>イベント名</th>
+                <th>カテゴリ</th>
                 <th>詳細</th>
                 <th>カラー</th>
                 <th>公開設定</th>
@@ -1427,7 +1433,7 @@
             </thead>
             <tbody id="calendarList">
               <tr>
-                <td colspan="7" style="text-align:center;">読み込み中...</td>
+                <td colspan="9" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -1558,6 +1564,38 @@
         </div>
 
         <div class="card mb-2">
+          <div class="card-title">📈 月別比較</div>
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+            総売上と総粗利について、前月比と前年同月比を月ごとに確認できます。
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>月</th>
+                  <th style="text-align:center;">総売上</th>
+                  <th style="text-align:center;">前月比</th>
+                  <th style="text-align:center;">前年同月比</th>
+                  <th style="text-align:center;">総粗利</th>
+                  <th style="text-align:center;">前月比</th>
+                  <th style="text-align:center;">前年同月比</th>
+                </tr>
+              </thead>
+              <tbody id="monthComparisonBody">
+                <tr>
+                  <td colspan="7" style="text-align:center;">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card mb-2">
+          <div class="card-title">📊 粗利サマリー</div>
+          <div class="summary-grid" id="grossProfitSummaryCards"></div>
+        </div>
+
+        <div class="card mb-2">
           <div class="card-title">💰 収益サマリー (月別)</div>
           <div class="table-wrapper">
             <table>
@@ -1597,9 +1635,40 @@
         </div>
 
         <div class="card mb-2">
+          <div class="card-title">👥 会員登録経路分析</div>
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+            新規登録、復元、引き継ぎコード利用、重複候補からの復旧など、会員データがどの経路で作成・復元されたかを月別で確認できます。
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr id="registrationRouteHeader">
+                  <th>月 / 経路</th>
+                </tr>
+              </thead>
+              <tbody id="registrationRouteBody">
+                <tr>
+                  <td colspan="1" style="text-align:center;">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card mb-2">
+          <div class="card-title">🏷️ 人気カテゴリ分析</div>
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+            NEWS、商品、メニュー、カレンダーで使用されているカテゴリ件数を多い順で確認できます。
+          </div>
+          <div id="popularCategoryAnalysisBody" class="summary-grid">
+            <div style="font-size:12px; color:var(--text-mid);">読み込み中...</div>
+          </div>
+        </div>
+
+        <div class="card mb-2">
           <div class="card-title">📝 メニュー収益を記録</div>
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
-            営業日ごとに複数メニューをまとめて記録できます。売上合計は 件数 × 単価 で集計し、母乳外来は単価別の内訳も分析に表示します。
+            営業日ごとに複数メニューをまとめて記録できます。売上合計は 件数 × 単価、粗利は 売上合計 - (件数 × 原価単価) で集計し、分析に反映します。
           </div>
           <form id="menuRevenueForm" onsubmit="submitMenuRevenueRecord(event)">
             <div class="flex" style="gap:12px; flex-wrap:wrap; align-items:flex-end;">
@@ -1708,7 +1777,7 @@
         <div class="card" id="detailedMenuAnalyticsCard" style="display:none;">
           <div class="card-title">🍴 メニュー別収益詳細 (月別)</div>
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
-            選択した月のメニュー別の 件数 / 売上 / 単価別内訳 を確認できます。「その他」で入力した固有名称も個別に表示されます。
+            選択した月のメニュー別の 件数 / 売上 / 原価 / 粗利 / 単価別内訳 を確認できます。「その他」で入力した固有名称も個別に表示されます。
           </div>
           <div class="table-wrapper">
             <table id="detailedMenuAnalyticsTable">
@@ -1717,12 +1786,14 @@
                   <th>メニュー名</th>
                   <th style="text-align:center;">合計件数</th>
                   <th style="text-align:center;">合計売上</th>
+                  <th style="text-align:center;">合計原価</th>
+                  <th style="text-align:center;">合計粗利</th>
                   <th style="text-align:left;">単価別内訳</th>
                 </tr>
               </thead>
               <tbody id="detailedMenuAnalyticsBody">
                 <tr>
-                  <td colspan="4" style="text-align:center; color:var(--text-mid);">月を選択してください</td>
+                  <td colspan="6" style="text-align:center; color:var(--text-mid);">月を選択してください</td>
                 </tr>
               </tbody>
             </table>
@@ -4983,9 +5054,35 @@
       ]);
       const alerts = document.getElementById('adminAlertsList');
       if (alerts) {
-        alerts.innerHTML = (adminDashboardData.alerts || []).length
+        const alertCards = (adminDashboardData.alerts || []).length
           ? (adminDashboardData.alerts || []).map(alert => `<div style="padding:10px 12px; border-radius:10px; margin-bottom:8px; background:${alert.level === 'warning' ? '#fff3e0' : '#f4f7fb'}; color:var(--text-dark);"><strong>${escapeHtml(alert.label || '')}</strong><div style="font-size:12px; color:var(--text-mid); margin-top:4px;">${escapeHtml(alert.detail || '')}</div></div>`).join('')
           : '<div style="font-size:12px; color:var(--text-mid);">現在のアラートはありません。</div>';
+        const detailSections = [];
+        if ((adminDashboardData.stalePendingOrders || []).length) {
+          detailSections.push(`
+            <div style="margin-top:12px; padding:12px; border:1px solid var(--border); border-radius:10px; background:#fff;">
+              <div style="font-weight:700; margin-bottom:8px;">長期間未対応注文</div>
+              ${(adminDashboardData.stalePendingOrders || []).map(item => `<div style="font-size:12px; color:var(--text-mid); margin-bottom:4px;">${escapeHtml(formatDisplayDate(item.date || ''))} / ${escapeHtml(item.customerName || '')} / ${escapeHtml(item.orderId || '')}</div>`).join('')}
+            </div>
+          `);
+        }
+        if ((adminDashboardData.staleUnusedRewards || []).length) {
+          detailSections.push(`
+            <div style="margin-top:12px; padding:12px; border:1px solid var(--border); border-radius:10px; background:#fff;">
+              <div style="font-weight:700; margin-bottom:8px;">未受取特典</div>
+              ${(adminDashboardData.staleUnusedRewards || []).map(item => `<div style="font-size:12px; color:var(--text-mid); margin-bottom:4px;">${escapeHtml(formatDisplayDate(item.earnedDate || ''))} / ${escapeHtml(item.name || '')} (${escapeHtml(item.memberId || '')}) / ${escapeHtml(item.rewardName || '')}</div>`).join('')}
+            </div>
+          `);
+        }
+        if ((adminDashboardData.overduePublishes || []).length) {
+          detailSections.push(`
+            <div style="margin-top:12px; padding:12px; border:1px solid var(--border); border-radius:10px; background:#fff;">
+              <div style="font-weight:700; margin-bottom:8px;">未公開予約</div>
+              ${(adminDashboardData.overduePublishes || []).map(item => `<div style="font-size:12px; color:var(--text-mid); margin-bottom:4px;">${escapeHtml(formatDisplayDate(item.publishAt || ''))} / ${escapeHtml(item.source || '')} / ${escapeHtml(item.title || '')}</div>`).join('')}
+            </div>
+          `);
+        }
+        alerts.innerHTML = alertCards + detailSections.join('');
       }
       const schedule = document.getElementById('publishScheduleList');
       if (schedule) {
@@ -6211,11 +6308,15 @@
 
       // --- 収益サマリー ---
       const financialCols = [
-        { label: '物販純利益 (円)', key: 'profit' },
-        { label: 'メニュー売上 (円)', key: 'menuRevenueTotal' },
-        { label: '合計金額 (円)', key: 'combinedSales', style: 'color:var(--primary); font-weight:bold;' },
+        { label: '総売上 (円)', key: 'combinedRevenue', style: 'font-weight:bold;' },
+        { label: '総原価 (円)', key: 'combinedCost' },
+        { label: '総粗利 (円)', key: 'combinedProfit', style: 'color:var(--primary); font-weight:bold;' },
         { label: '物販売上 (円)', key: 'sales' },
-        { label: '物販原価 (円)', key: 'cost' }
+        { label: '物販原価 (円)', key: 'cost' },
+        { label: '物販粗利 (円)', key: 'profit' },
+        { label: 'メニュー売上 (円)', key: 'menuRevenueTotal' },
+        { label: 'メニュー原価 (円)', key: 'menuCostTotal' },
+        { label: 'メニュー粗利 (円)', key: 'menuProfitTotal' }
       ];
 
       // ヘッダーの生成
@@ -6258,30 +6359,36 @@
           let trHtml = `<td><b>${m}</b></td>`;
           menuTypes.forEach(type => {
             const amount = (res.matrix[m] && res.matrix[m].menuRevenue && res.matrix[m].menuRevenue[type]) || 0;
+            const cost = (res.matrix[m] && res.matrix[m].menuCost && res.matrix[m].menuCost[type]) || 0;
+            const profit = (res.matrix[m] && res.matrix[m].menuProfit && res.matrix[m].menuProfit[type]) || 0;
             const count = (res.matrix[m] && res.matrix[m].menuCount && res.matrix[m].menuCount[type]) || 0;
             const breakdown = (res.matrix[m] && res.matrix[m].menuBreakdown && res.matrix[m].menuBreakdown[type]) || {};
             const breakdownEntries = Object.keys(breakdown).sort(function (a, b) {
               return Number(a) - Number(b);
             }).map(function (unitPrice) {
               const item = breakdown[unitPrice] || {};
-              return `<div style="font-size:10px; color:var(--text-mid); line-height:1.5;">¥${Number(unitPrice).toLocaleString()}: ¥${Number(item.revenue || 0).toLocaleString()} (${Number(item.count || 0)}件)</div>`;
+              return `<div style="font-size:10px; color:var(--text-mid); line-height:1.5;">¥${Number(unitPrice).toLocaleString()}: 売上¥${Number(item.revenue || 0).toLocaleString()} / 粗利¥${Number(item.profit || 0).toLocaleString()} (${Number(item.count || 0)}件)</div>`;
             }).join('');
             trHtml += `
               <td style="text-align:center;">
                 <div>${amount > 0 ? '¥' + amount.toLocaleString() : '-'}</div>
-                <div style="font-size:11px; color:var(--text-mid);">${count > 0 ? count + '件' : '0件'}</div>
+                <div style="font-size:11px; color:var(--text-mid);">${count > 0 ? count + '件' : '0件'} / 原価¥${Number(cost || 0).toLocaleString()}</div>
+                <div style="font-size:11px; color:var(--primary); font-weight:bold;">粗利 ${profit > 0 ? '¥' + Number(profit).toLocaleString() : '¥0'}</div>
                 ${breakdownEntries}
               </td>
             `;
           });
           const totalAmount = (res.matrix[m] && res.matrix[m].menuRevenueTotal) || 0;
+          const totalCost = (res.matrix[m] && res.matrix[m].menuCostTotal) || 0;
+          const totalProfit = (res.matrix[m] && res.matrix[m].menuProfitTotal) || 0;
           const totalCount = menuTypes.reduce((sum, type) => {
             return sum + (((res.matrix[m] && res.matrix[m].menuCount && res.matrix[m].menuCount[type]) || 0));
           }, 0);
           trHtml += `
             <td style="text-align:center; font-weight:bold;">
               <div>${totalAmount > 0 ? '¥' + totalAmount.toLocaleString() : '-'}</div>
-              <div style="font-size:11px; color:var(--text-mid);">${totalCount}件</div>
+              <div style="font-size:11px; color:var(--text-mid);">${totalCount}件 / 原価¥${Number(totalCost || 0).toLocaleString()}</div>
+              <div style="font-size:11px; color:var(--primary);">粗利 ¥${Number(totalProfit || 0).toLocaleString()}</div>
             </td>
           `;
           tr.innerHTML = trHtml;
@@ -6330,8 +6437,151 @@
         }
       }
 
+      renderMonthComparisonTable(filteredMonths, res);
+      renderGrossProfitSummaryCards(filteredMonths, res);
+      renderRegistrationRouteAnalytics(res.registrationRoutes || null);
+      renderPopularCategoryAnalytics(res.categoryUsage || null);
+
       // グローバル保存 (詳細描画で使うため)
       window.lastAnalyticsResult = res;
+    }
+
+    function shiftMonthKey(monthKey, diffMonths) {
+      const match = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
+      if (!match) return '';
+      const date = new Date(Number(match[1]), Number(match[2]) - 1 + Number(diffMonths || 0), 1);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function formatComparisonRate(currentValue, baseValue) {
+      const current = Number(currentValue || 0);
+      const base = Number(baseValue || 0);
+      if (!Number.isFinite(base) || base === 0) {
+        return '<span style="color:var(--text-light);">-</span>';
+      }
+      const rate = ((current - base) / base) * 100;
+      const sign = rate > 0 ? '+' : '';
+      const color = rate > 0 ? '#2e7d32' : (rate < 0 ? 'var(--danger)' : 'var(--text-mid)');
+      const weight = rate === 0 ? 'normal' : 'bold';
+      return `<span style="color:${color}; font-weight:${weight};">${sign}${rate.toFixed(1)}%</span>`;
+    }
+
+    function formatRatioLabel(numerator, denominator) {
+      const base = Number(denominator || 0);
+      if (!Number.isFinite(base) || base <= 0) return '-';
+      return `${((Number(numerator || 0) / base) * 100).toFixed(1)}%`;
+    }
+
+    function renderMonthComparisonTable(months, res) {
+      const body = document.getElementById('monthComparisonBody');
+      if (!body) return;
+      if (!Array.isArray(months) || !months.length || !res || !res.matrix) {
+        body.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-mid);">比較できるデータがありません</td></tr>';
+        return;
+      }
+
+      body.innerHTML = months.map(function (monthKey) {
+        const current = res.matrix[monthKey] || {};
+        const prev = res.matrix[shiftMonthKey(monthKey, -1)] || null;
+        const lastYear = res.matrix[shiftMonthKey(monthKey, -12)] || null;
+        return `
+          <tr>
+            <td><b>${monthKey}</b></td>
+            <td style="text-align:center;">¥${Number(current.combinedRevenue || 0).toLocaleString()}</td>
+            <td style="text-align:center;">${formatComparisonRate(current.combinedRevenue, prev && prev.combinedRevenue)}</td>
+            <td style="text-align:center;">${formatComparisonRate(current.combinedRevenue, lastYear && lastYear.combinedRevenue)}</td>
+            <td style="text-align:center; color:var(--primary); font-weight:bold;">¥${Number(current.combinedProfit || 0).toLocaleString()}</td>
+            <td style="text-align:center;">${formatComparisonRate(current.combinedProfit, prev && prev.combinedProfit)}</td>
+            <td style="text-align:center;">${formatComparisonRate(current.combinedProfit, lastYear && lastYear.combinedProfit)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderGrossProfitSummaryCards(months, res) {
+      if (!Array.isArray(months) || !months.length || !res || !res.matrix) {
+        renderSummaryCards('grossProfitSummaryCards', []);
+        return;
+      }
+      const latestMonth = months[0];
+      const stats = res.matrix[latestMonth] || {};
+      renderSummaryCards('grossProfitSummaryCards', [
+        { label: `${latestMonth} 総売上`, value: `¥${Number(stats.combinedRevenue || 0).toLocaleString()}` },
+        { label: `${latestMonth} 総粗利`, value: `¥${Number(stats.combinedProfit || 0).toLocaleString()}` },
+        { label: '物販粗利率', value: formatRatioLabel(stats.profit, stats.sales) },
+        { label: 'メニュー粗利率', value: formatRatioLabel(stats.menuProfitTotal, stats.menuRevenueTotal) },
+        { label: '物販粗利', value: `¥${Number(stats.profit || 0).toLocaleString()}` },
+        { label: 'メニュー粗利', value: `¥${Number(stats.menuProfitTotal || 0).toLocaleString()}` }
+      ]);
+    }
+
+    function renderRegistrationRouteAnalytics(routeData) {
+      const header = document.getElementById('registrationRouteHeader');
+      const body = document.getElementById('registrationRouteBody');
+      if (!header || !body) return;
+      const routeLabels = routeData && Array.isArray(routeData.routeLabels) && routeData.routeLabels.length
+        ? routeData.routeLabels
+        : ['新規登録', '復元', '引き継ぎコード利用', '重複候補からの復旧', '自動復旧'];
+      header.innerHTML = '<th>月 / 経路</th>' + routeLabels.map(label => `<th style="text-align:center;">${escapeHtml(label)}</th>`).join('') + '<th style="text-align:center;">合計</th>';
+
+      const months = routeData && Array.isArray(routeData.months) ? routeData.months : [];
+      if (!months.length) {
+        body.innerHTML = `<tr><td colspan="${routeLabels.length + 2}" style="text-align:center; color:var(--text-mid);">登録経路データがありません</td></tr>`;
+        return;
+      }
+
+      const rows = months.map(function (monthKey) {
+        const matrix = routeData.matrix && routeData.matrix[monthKey] ? routeData.matrix[monthKey] : {};
+        const total = routeLabels.reduce(function (sum, label) {
+          return sum + Number(matrix[label] || 0);
+        }, 0);
+        return `
+          <tr>
+            <td><b>${monthKey}</b></td>
+            ${routeLabels.map(label => `<td style="text-align:center;">${Number(matrix[label] || 0).toLocaleString()}</td>`).join('')}
+            <td style="text-align:center; font-weight:bold;">${total.toLocaleString()}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const totalRow = `
+        <tr style="background:#faf6ef;">
+          <td><b>累計</b></td>
+          ${routeLabels.map(label => `<td style="text-align:center; font-weight:bold;">${Number(routeData.totals && routeData.totals[label] || 0).toLocaleString()}</td>`).join('')}
+          <td style="text-align:center; font-weight:bold;">${routeLabels.reduce((sum, label) => sum + Number(routeData.totals && routeData.totals[label] || 0), 0).toLocaleString()}</td>
+        </tr>
+      `;
+      body.innerHTML = rows + totalRow;
+    }
+
+    function renderPopularCategoryAnalytics(categoryUsage) {
+      const container = document.getElementById('popularCategoryAnalysisBody');
+      if (!container) return;
+      const sections = [
+        { key: 'news', title: 'NEWSカテゴリ' },
+        { key: 'products', title: '商品カテゴリ' },
+        { key: 'menus', title: 'メニューカテゴリ' },
+        { key: 'calendar', title: 'カレンダーカテゴリ' }
+      ];
+      container.innerHTML = sections.map(function (section) {
+        const bucket = categoryUsage && categoryUsage[section.key] ? categoryUsage[section.key] : { items: [], total: 0 };
+        const rows = (bucket.items || []).slice(0, 8).map(function (item, index) {
+          return `<tr><td>${index + 1}. ${escapeHtml(item.category || '')}</td><td style="text-align:right;">${Number(item.count || 0).toLocaleString()}件</td></tr>`;
+        }).join('');
+        return `
+          <div class="card compact-card" style="margin:0;">
+            <div class="card-title" style="font-size:14px;">${section.title}</div>
+            <div style="font-size:12px; color:var(--text-mid); margin-bottom:10px;">合計 ${Number(bucket.total || 0).toLocaleString()}件</div>
+            <div class="table-wrapper">
+              <table>
+                <tbody>
+                  ${rows || '<tr><td colspan="2" style="text-align:center; color:var(--text-mid);">データがありません</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     /**
@@ -6411,7 +6661,7 @@
 
       if (!monthKey || !res.matrix[monthKey]) {
         if (card) card.style.display = 'none';
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-mid);">月を選択してください</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-mid);">月を選択してください</td></tr>';
         return;
       }
 
@@ -6423,7 +6673,7 @@
       });
 
       if (menuRows.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-mid);">メニュー売上データがありません</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-mid);">メニュー売上データがありません</td></tr>';
         return;
       }
 
@@ -6431,7 +6681,7 @@
       menuRows.forEach(stats => {
         const breakdownHtml = Object.keys(stats.breakdown || {}).sort((a, b) => Number(a) - Number(b)).map(price => {
           const item = stats.breakdown[price];
-          return `<div style="font-size:11px; margin-bottom:2px;">¥${Number(price).toLocaleString()}: ${item.count}件 (¥${item.revenue.toLocaleString()})</div>`;
+          return `<div style="font-size:11px; margin-bottom:2px;">¥${Number(price).toLocaleString()}: ${item.count}件 / 売上¥${Number(item.revenue || 0).toLocaleString()} / 粗利¥${Number(item.profit || 0).toLocaleString()}</div>`;
         }).join('');
 
         const tr = document.createElement('tr');
@@ -6439,6 +6689,8 @@
           <td style="font-weight:bold;">${escapeHtml(stats.name)}</td>
           <td style="text-align:center;">${Number(stats.count || 0).toLocaleString()}件</td>
           <td style="text-align:center; font-weight:bold; color:var(--primary);">¥${Number(stats.revenue || 0).toLocaleString()}</td>
+          <td style="text-align:center;">¥${Number(stats.cost || 0).toLocaleString()}</td>
+          <td style="text-align:center; font-weight:bold; color:#2e7d32;">¥${Number(stats.profit || 0).toLocaleString()}</td>
           <td style="text-align:left; color:var(--text-mid);">${breakdownHtml || '-'}</td>
         `;
         tbody.appendChild(tr);
@@ -6451,7 +6703,24 @@
         otherMenuName: '',
         count: 1,
         unitPrice: '',
+        unitCost: '',
         note: ''
+      };
+    }
+
+    function getMenuRevenueDraftPricingStats(entry) {
+      const count = Math.max(1, Number(entry && entry.count) || 1);
+      const unitPrice = Math.max(0, Number(entry && entry.unitPrice) || 0);
+      const unitCost = Math.max(0, Number(entry && entry.unitCost) || 0);
+      const totalAmount = count * unitPrice;
+      const totalCost = count * unitCost;
+      return {
+        count: count,
+        unitPrice: unitPrice,
+        unitCost: unitCost,
+        totalAmount: totalAmount,
+        totalCost: totalCost,
+        totalProfit: totalAmount - totalCost
       };
     }
 
@@ -6514,9 +6783,13 @@
       }
 
       container.innerHTML = menuRevenueDraftEntries.map((entry, index) => {
-        const count = Math.max(1, Number(entry.count) || 1);
-        const unitPrice = Math.max(0, Number(entry.unitPrice) || 0);
-        const totalAmount = count * unitPrice;
+        const stats = getMenuRevenueDraftPricingStats(entry);
+        const count = stats.count;
+        const unitPrice = stats.unitPrice;
+        const unitCost = stats.unitCost;
+        const totalAmount = stats.totalAmount;
+        const totalCost = stats.totalCost;
+        const totalProfit = stats.totalProfit;
         return `
           <div class="menu-revenue-entry" style="border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px; background:#fafafa;">
             <div class="flex space-between" style="align-items:center; margin-bottom:10px;">
@@ -6541,10 +6814,28 @@
                 <label>単価 (円)</label>
                 <input type="number" min="1" placeholder="例：6000" value="${entry.unitPrice ? escapeHtml(String(entry.unitPrice)) : ''}" onchange="updateMenuRevenueDraftEntry(${index}, 'unitPrice', this.value)">
               </div>
+              <div class="form-group" style="flex:1; min-width:160px;">
+                <label>原価単価 (円)</label>
+                <input type="number" min="0" placeholder="例：2500" value="${entry.unitCost !== '' ? escapeHtml(String(entry.unitCost)) : ''}" onchange="updateMenuRevenueDraftEntry(${index}, 'unitCost', this.value)">
+              </div>
               <div class="form-group" style="flex:1; min-width:180px;">
                 <label>合計金額</label>
                 <div style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold;">
                   ${unitPrice > 0 ? '¥' + totalAmount.toLocaleString() : 'ー'}
+                </div>
+              </div>
+            </div>
+            <div class="flex" style="gap:12px; flex-wrap:wrap;">
+              <div class="form-group" style="flex:1; min-width:180px;">
+                <label>原価合計</label>
+                <div style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold;">
+                  ${unitPrice > 0 ? '¥' + totalCost.toLocaleString() : 'ー'}
+                </div>
+              </div>
+              <div class="form-group" style="flex:1; min-width:180px;">
+                <label>粗利合計</label>
+                <div style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold; color:var(--primary);">
+                  ${unitPrice > 0 ? '¥' + totalProfit.toLocaleString() : 'ー'}
                 </div>
               </div>
             </div>
@@ -6586,6 +6877,7 @@
         otherMenuName: MENU_REVENUE_TYPES.indexOf(record.menuType) !== -1 ? '' : String(record.menuType || ''),
         count: Math.max(1, Number(record.count) || 1),
         unitPrice: Math.max(0, Number(record.unitPrice) || 0),
+        unitCost: Math.max(0, Number(record.unitCost) || 0),
         note: String(record.note || '')
       }];
       renderMenuRevenueDraftEntries();
@@ -6617,7 +6909,10 @@
         const totalAmount = filteredRecords.reduce(function (sum, record) {
           return sum + Number(record.totalAmount || 0);
         }, 0);
-        meta.textContent = `${filteredRecords.length}件 / ¥${totalAmount.toLocaleString()}`;
+        const totalProfit = filteredRecords.reduce(function (sum, record) {
+          return sum + Number(record.profit || 0);
+        }, 0);
+        meta.textContent = `${filteredRecords.length}件 / 売上 ¥${totalAmount.toLocaleString()} / 粗利 ¥${totalProfit.toLocaleString()}`;
       }
 
       if (!filteredRecords.length) {
@@ -6640,6 +6935,9 @@
         const dayTotal = records.reduce(function (sum, record) {
           return sum + Number(record.totalAmount || 0);
         }, 0);
+        const dayProfit = records.reduce(function (sum, record) {
+          return sum + Number(record.profit || 0);
+        }, 0);
         const dayCount = records.reduce(function (sum, record) {
           return sum + Number(record.count || 0);
         }, 0);
@@ -6659,11 +6957,13 @@
 
         const rowsHtml = records.map(function (record) {
           return `
-            <div style="display:grid; grid-template-columns:minmax(90px, 120px) minmax(70px, 80px) minmax(90px, 110px) minmax(110px, 130px) 1fr auto; gap:10px; align-items:center; padding:10px 0; border-top:1px solid var(--border);">
+            <div style="display:grid; grid-template-columns:minmax(90px, 120px) minmax(70px, 80px) minmax(90px, 110px) minmax(90px, 110px) minmax(110px, 130px) minmax(110px, 130px) 1fr auto; gap:10px; align-items:center; padding:10px 0; border-top:1px solid var(--border);">
               <div style="font-weight:bold;">${escapeHtml(record.menuType || '')}</div>
               <div style="text-align:center;">${escapeHtml(String(Number(record.count) || 0))}件</div>
               <div style="text-align:right;">¥${Number(record.unitPrice || 0).toLocaleString()}</div>
+              <div style="text-align:right;">¥${Number(record.unitCost || 0).toLocaleString()}</div>
               <div style="text-align:right; font-weight:bold;">¥${Number(record.totalAmount || 0).toLocaleString()}</div>
+              <div style="text-align:right; font-weight:bold; color:var(--primary);">¥${Number(record.profit || 0).toLocaleString()}</div>
               <div style="font-size:12px; color:var(--text-mid);">${escapeHtml(record.note || 'メモなし')}</div>
               <div style="display:flex; justify-content:flex-end; gap:6px;">
                 <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="editMenuRevenueRecord(${record.rowIdx})">編集</button>
@@ -6679,17 +6979,19 @@
               <div class="flex space-between" style="align-items:center; gap:12px; flex-wrap:wrap;">
                 <div>
                   <div style="font-weight:bold; font-size:15px;">${formatDisplayDate(dateKey)}</div>
-                  <div style="font-size:12px; color:var(--text-mid); margin-top:4px;">${records.length}行 / 合計${dayCount}件 / ¥${dayTotal.toLocaleString()}</div>
+                  <div style="font-size:12px; color:var(--text-mid); margin-top:4px;">${records.length}行 / 合計${dayCount}件 / 売上 ¥${dayTotal.toLocaleString()} / 粗利 ¥${dayProfit.toLocaleString()}</div>
                 </div>
                 <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">${typeSummary}</div>
               </div>
             </summary>
             <div style="margin-top:12px;">
-              <div style="display:grid; grid-template-columns:minmax(90px, 120px) minmax(70px, 80px) minmax(90px, 110px) minmax(110px, 130px) 1fr auto; gap:10px; font-size:11px; color:var(--text-mid); padding-bottom:8px;">
+              <div style="display:grid; grid-template-columns:minmax(90px, 120px) minmax(70px, 80px) minmax(90px, 110px) minmax(90px, 110px) minmax(110px, 130px) minmax(110px, 130px) 1fr auto; gap:10px; font-size:11px; color:var(--text-mid); padding-bottom:8px;">
                 <div>メニュー</div>
                 <div style="text-align:center;">件数</div>
                 <div style="text-align:right;">単価</div>
+                <div style="text-align:right;">原価単価</div>
                 <div style="text-align:right;">合計</div>
+                <div style="text-align:right;">粗利</div>
                 <div>メモ</div>
                 <div></div>
               </div>
@@ -6747,6 +7049,7 @@
           menuType: finalType,
           count: Math.max(1, Number(entry.count) || 1),
           unitPrice: Math.max(0, Number(entry.unitPrice) || 0),
+          unitCost: Math.max(0, Number(entry.unitCost) || 0),
           note: (entry.note || '').trim()
         };
       });
@@ -6773,6 +7076,7 @@
             menuType: records[0].menuType,
             count: records[0].count,
             unitPrice: records[0].unitPrice,
+            unitCost: records[0].unitCost,
             note: records[0].note
           }
         : {
@@ -6784,6 +7088,7 @@
                 menuType: record.menuType,
                 count: record.count,
                 unitPrice: record.unitPrice,
+                unitCost: record.unitCost,
                 note: record.note
               };
             })
@@ -8957,6 +9262,7 @@
         date: document.getElementById('calDate').value,
         dates: rowIdx ? [] : selectedDates,
         title: document.getElementById('calTitle').value,
+        category: document.getElementById('calCategory').value,
         desc: document.getElementById('calDesc').value,
         color: document.getElementById('calColor').value,
         image: calImageUrl,
@@ -8997,8 +9303,8 @@
         allCalendarEvents = cachedRes.events || [];
         applyCalendarFilters();
       } else {
-        tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
-        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr>';
+        tbodyPub.innerHTML = '<tr><td colspan="9" style="text-align:center;">読み込み中...</td></tr>';
+        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="9" style="text-align:center;">読み込み中...</td></tr>';
       }
 
       const res = await apiRequest('getAdminCalendar');
@@ -9007,8 +9313,8 @@
         allCalendarEvents = (targetRes.events || []);
         applyCalendarFilters();
       } else {
-        tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">イベントデータの取得に失敗しました</td></tr>';
-        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">イベントデータの取得に失敗しました</td></tr>';
+        tbodyPub.innerHTML = '<tr><td colspan="9" style="text-align:center; color:red;">イベントデータの取得に失敗しました</td></tr>';
+        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="9" style="text-align:center; color:red;">イベントデータの取得に失敗しました</td></tr>';
       }
     }
 
@@ -9053,6 +9359,7 @@
       updateRecentColorsHistory();
 
       sortedEvents.forEach(c => {
+        const publishStatus = c.status || c.publishStatus || '公開';
         let imgHtml = '';
         if (c.image && (c.image.startsWith('http') || c.image.startsWith('data:'))) {
           imgHtml = `<img src="${c.image}" style="width:40px; height:40px; object-fit:cover; border-radius:4px; cursor:pointer;" onclick="window.open('${c.image}', '_blank')">`;
@@ -9066,14 +9373,15 @@
             <td style="text-align:center;">${imgHtml}</td>
             <td>${c.date}</td>
             <td style="font-weight:bold;">${c.title}</td>
+            <td>${escapeHtml(c.category || '未設定')}</td>
             <td style="font-size:11px;">${(c.desc || '').replace(/\\n/g, '<br>')}</td>
             <td>
               <div style="width:20px; height:20px; border-radius:10px; background-color:${c.color};" title="${c.color}"></div>
             </td>
             <td>
               <select id="c_status_${c.rowIdx}" onchange="updateCalendarStatus(${c.rowIdx}, this.value)">
-                <option value="公開" ${c.status === '公開' ? 'selected' : ''}>公開</option>
-                <option value="非公開" ${c.status === '非公開' ? 'selected' : ''}>非公開</option>
+                <option value="公開" ${publishStatus === '公開' ? 'selected' : ''}>公開</option>
+                <option value="非公開" ${publishStatus === '非公開' ? 'selected' : ''}>非公開</option>
               </select>
             </td>
             <td>
@@ -9085,7 +9393,7 @@
           </tr>
         `;
 
-        if (c.status === '非公開') {
+        if (publishStatus === '非公開') {
           tbodyDraft.innerHTML += rowHtml;
           hasDrafts = true;
         } else {
@@ -9094,8 +9402,8 @@
         }
       });
 
-      if (!hasDrafts) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">下書き保存はありません</td></tr>';
-      if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">投稿済みイベントはありません</td></tr>';
+      if (!hasDrafts) tbodyDraft.innerHTML = '<tr><td colspan="9" style="text-align:center;">下書き保存はありません</td></tr>';
+      if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="9" style="text-align:center;">投稿済みイベントはありません</td></tr>';
 
       updateFilterMeta('calFilterMeta', events.length, allCalendarEvents.length, '表示条件に一致するイベントはありません');
     }
@@ -9140,6 +9448,7 @@
       document.getElementById('calDate').value = formatDateForDateTimeLocal(c.date);
       document.getElementById('selectedDatesArea').style.display = 'none'; // 編集時はリスト非表示
       document.getElementById('calTitle').value = c.title;
+      document.getElementById('calCategory').value = c.category || '';
       document.getElementById('calDesc').value = c.desc;
       document.getElementById('calColor').value = c.color;
       document.getElementById('calPublishAt').value = formatDateForDateTimeLocal(c.publishAt || '');
@@ -9173,6 +9482,7 @@
       document.getElementById('calCancelEditBtn').style.display = 'none';
       document.getElementById('calDate').valueAsDate = new Date();
       document.getElementById('calColor').value = '#e57373';
+      document.getElementById('calCategory').value = '';
       document.getElementById('calPublishAt').value = '';
       document.getElementById('calImagePreview').style.display = 'none';
       if (document.getElementById('calPreviewLabel')) document.getElementById('calPreviewLabel').style.display = 'none';
