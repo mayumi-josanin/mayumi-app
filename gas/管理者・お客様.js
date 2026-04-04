@@ -879,15 +879,61 @@ function getOverdueScheduledPublishes_(hours) {
 
 function getAdminDashboardData() {
   try {
-    const orders = getPendingOrderSummary_();
-    const duplicates = getDuplicateUsers();
+    const ordersRes = getAdminOrders({ showAll: true });
+    const orderList = ordersRes && ordersRes.status === 'ok' ? (ordersRes.orders || []) : [];
+    const users = getAdminUsers();
+    const userList = users && users.status === 'ok' ? (users.users || []) : [];
+    const orders = {
+      total: orderList.length,
+      pending: orderList.filter(function (order) { return normalizeOrderStatus_(order.status) === '受付中'; }).length,
+      received: orderList.filter(function (order) { return normalizeOrderStatus_(order.status) === '受取済'; }).length
+    };
+    const stalePendingCutoff = Date.now() - STALE_PENDING_ORDER_DAYS * 24 * 60 * 60 * 1000;
+    const stalePendingOrders = orderList.filter(function (order) {
+      return normalizeOrderStatus_(order.status) === '受付中'
+        && parseLooseDateToTimestamp_(order.date) > 0
+        && parseLooseDateToTimestamp_(order.date) <= stalePendingCutoff;
+    }).sort(function (a, b) {
+      return parseLooseDateToTimestamp_(a.date) - parseLooseDateToTimestamp_(b.date);
+    });
+    const staleRewardCutoff = Date.now() - STALE_UNUSED_REWARD_DAYS * 24 * 60 * 60 * 1000;
+    const staleUnusedRewards = [];
+    userList.forEach(function (user) {
+      (user.rewards || []).forEach(function (reward) {
+        if (reward && reward.used) return;
+        const earnedTs = parseLooseDateToTimestamp_(reward && reward.earnedDate);
+        if (!earnedTs || earnedTs > staleRewardCutoff) return;
+        staleUnusedRewards.push({
+          memberId: user.memberId,
+          name: user.name,
+          rewardName: String(reward && reward.rewardName || '特典'),
+          earnedDate: formatMaybeDateTime_(reward && reward.earnedDate)
+        });
+      });
+    });
+    staleUnusedRewards.sort(function (a, b) {
+      return parseLooseDateToTimestamp_(a.earnedDate) - parseLooseDateToTimestamp_(b.earnedDate);
+    });
+    const duplicateGroups = buildDuplicateUsersFromRows_(userList.map(function (user) {
+      return {
+        rowIdx: user.rowIdx,
+        memberId: user.memberId,
+        name: user.name,
+        phone: user.phone,
+        birthday: user.birthday,
+        updatedAt: user.timestamp,
+        stampCount: user.stampCount,
+        orderCount: user.orderCount,
+        pendingOrderCount: user.pendingOrderCount,
+        lastOrderAt: user.lastOrderAt,
+        orderTotal: user.orderTotal,
+        deviceCount: user.deviceCount
+      };
+    }));
     const backup = getBackupStatus();
     const schedule = getPublishSchedule();
     const push = getPushNotices();
     const products = getAdminProducts();
-    const users = getAdminUsers();
-    const stalePendingOrders = getStalePendingOrders_(STALE_PENDING_ORDER_DAYS);
-    const staleUnusedRewards = getStaleUnusedRewards_(STALE_UNUSED_REWARD_DAYS);
     const overduePublishes = getOverdueScheduledPublishes_(STALE_UNPUBLISHED_SCHEDULE_HOURS);
     const alerts = [];
     if (backup && backup.status === 'ok' && backup.isBackupStale) {
@@ -909,7 +955,7 @@ function getAdminDashboardData() {
     if (lowStockProducts.length) {
       alerts.push({ level: 'warning', label: '在庫警告', detail: lowStockProducts.length + '件の商品で在庫警告があります' });
     }
-    const duplicateCount = duplicates && duplicates.status === 'ok' ? (duplicates.groups || []).length : 0;
+    const duplicateCount = duplicateGroups.length;
     if (duplicateCount > 0) {
       alerts.push({ level: 'warning', label: '重複会員候補', detail: duplicateCount + '組の重複候補があります' });
     }
@@ -937,7 +983,7 @@ function getAdminDashboardData() {
     return {
       status: 'ok',
       summary: {
-        users: users && users.status === 'ok' ? (users.users || []).length : 0,
+        users: userList.length,
         ordersPending: orders.pending,
         products: products && products.status === 'ok' ? (products.products || []).length : 0,
         scheduledPublishes: schedule && schedule.status === 'ok' ? (schedule.items || []).length : 0,
@@ -1983,11 +2029,22 @@ function handleUpdateOrder(data) {
 
 // ========== ブログ・お知らせの取得 ==========
 
+function getBlogImageUrlFromRow_(row, imageCol, body) {
+  const storedImageUrl = imageCol ? String(row[imageCol - 1] || '').trim() : '';
+  if (storedImageUrl) return storedImageUrl;
+  const embeddedImageMatch = String(body || '').match(/📷\s*(https?:\/\/\S+)/);
+  return embeddedImageMatch ? embeddedImageMatch[1] : '';
+}
+
 function getBlogNews() {
   const ss = getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.BLOG);
   if (!sheet) return { status: 'ok', news: [] };
   ensureUpdatedAtColumn_(sheet, '更新日時');
+  const noticeCol = ensureNoticeVisibilityColumn_(sheet, 6, '公開');
+  const deleteCols = ensureSoftDeleteColumns_(sheet);
+  const publishAtCol = ensurePublishAtColumn_(sheet);
+  const imageCol = ensureNamedColumn_(sheet, '画像URL', 220);
 
   const data = sheet.getDataRange().getValues();
   const news = [];
@@ -2001,7 +2058,10 @@ function getBlogNews() {
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (!row[1] || String(row[5]).trim() === '非公開') continue;
+    if (!row[1]) continue;
+    if (isSoftDeletedByColumns_(row, deleteCols.statusCol, deleteCols.deletedAtCol)) continue;
+    if (normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[5] || '公開') === '非公開') continue;
+    if (!isPublishAtAvailable_(row[publishAtCol - 1])) continue;
 
     const dateVal = row[0];
     let dateStr = '';
@@ -2013,7 +2073,7 @@ function getBlogNews() {
 
     const category = String(row[2] || 'お知らせ');
     const body = String(row[4] || '');
-    const embeddedImageMatch = body.match(/📷\s*(https?:\/\/\S+)/);
+    const imageUrl = getBlogImageUrlFromRow_(row, imageCol, body);
     news.push({
       date: dateStr,
       title: String(row[1]),
@@ -2021,7 +2081,8 @@ function getBlogNews() {
       type: categoryTypeMap[category] || (category === 'お知らせ' || category === '休診情報' ? 'お知らせ' : 'ブログ'),
       icon: String(row[3] || '📢'),
       body: body,
-      image: embeddedImageMatch ? embeddedImageMatch[1] : '',
+      image: imageUrl,
+      imageUrl: imageUrl,
       updatedAt: formatMaybeDateTime_(row[6]),
     });
   }
@@ -3264,6 +3325,10 @@ function getAdminBlogs() {
   const sheet = ss.getSheetByName(SHEETS.BLOG);
   if (!sheet) return { status: 'ok', blogs: [] };
   ensureUpdatedAtColumn_(sheet, '更新日時');
+  const noticeCol = ensureNoticeVisibilityColumn_(sheet, 6, '公開');
+  const deleteCols = ensureSoftDeleteColumns_(sheet);
+  const imageCol = ensureNamedColumn_(sheet, '画像URL', 220);
+  const publishAtCol = ensurePublishAtColumn_(sheet);
 
   const data = sheet.getDataRange().getValues();
   const blogs = [];
@@ -3271,6 +3336,7 @@ function getAdminBlogs() {
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (!row[1]) continue;
+    if (isSoftDeletedByColumns_(row, deleteCols.statusCol, deleteCols.deletedAtCol)) continue;
 
     const dateVal = row[0];
     let dateStr = '';
@@ -3280,15 +3346,20 @@ function getAdminBlogs() {
       dateStr = String(dateVal).trim();
     }
 
+    const body = String(row[4] || '');
+    const imageUrl = getBlogImageUrlFromRow_(row, imageCol, body);
     blogs.push({
       rowIdx: i + 1,
       date: dateStr,
       title: String(row[1]),
       category: String(row[2] || 'お知らせ'),
       icon: String(row[3] || '📢'),
-      body: String(row[4] || ''),
+      body: body,
       status: String(row[5] || '公開'),
-      updatedAt: formatMaybeDateTime_(row[6])
+      imageUrl: imageUrl,
+      publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
+      updatedAt: formatMaybeDateTime_(row[6]),
+      noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[5] || '公開')
     });
   }
 
