@@ -319,7 +319,8 @@
     #imagePreview,
     #prodImagePreview,
     #calImagePreview,
-    #menuImagePreview {
+    #menuImagePreview,
+    #prodDescImagePreview {
       max-width: 100%;
       max-height: 200px;
       display: none;
@@ -327,6 +328,55 @@
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       border: 2px solid #fff;
+    }
+
+    .multi-image-preview-list {
+      display: none;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .multi-image-preview-item {
+      width: 96px;
+      position: relative;
+    }
+
+    .multi-image-preview-thumb {
+      width: 96px;
+      height: 96px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #fff;
+      display: block;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .multi-image-preview-badge {
+      margin-top: 4px;
+      font-size: 10px;
+      color: var(--text-light);
+      text-align: center;
+    }
+
+    .multi-image-preview-remove {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: 999px;
+      background: rgba(58, 39, 36, 0.88);
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
     }
 
     /* スマホ用下部ナビ */
@@ -807,12 +857,13 @@
             <div class="form-group">
               <label>★画像をアップロード（スマホのライブラリから選択可能）</label>
               <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
-              <input type="file" id="blogImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
+              <input type="file" id="blogImageFile" accept="image/jpeg, image/png, image/gif, image/webp" multiple
                 onchange="openImageCropModal(event, 'blog')">
               <div id="blogPreviewLabel"
                 style="display:none; font-size:11px; color:var(--sage-dark); font-weight:bold; margin-top:10px;">✅
                 選択中のプレビュー</div>
               <img id="imagePreview" alt="プレビュー">
+              <div id="blogImagePreviewList" class="multi-image-preview-list"></div>
             </div>
 
             <div class="flex mb-2">
@@ -983,23 +1034,25 @@
             <div class="form-group">
               <label>★画像（アイコン）をアップロード（スマホのライブラリから選択可能）</label>
               <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
-              <input type="file" id="prodImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
+              <input type="file" id="prodImageFile" accept="image/jpeg, image/png, image/gif, image/webp" multiple
                 onchange="openImageCropModal(event, 'prod')">
               <div id="prodPreviewLabel"
                 style="display:none; font-size:11px; color:var(--sage-dark); font-weight:bold; margin-top:10px;">✅
                 選択中のプレビュー</div>
               <img id="prodImagePreview" alt="プレビュー">
+              <div id="prodImagePreviewList" class="multi-image-preview-list"></div>
             </div>
             <div class="form-group mb-2">
               <label>★商品説明に添付する画像（任意）</label>
               <div style="font-size:11px; color:#666; margin-bottom:5px;">※商品の詳細画面に表示されます</div>
-              <input type="file" id="prodDescImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
+              <input type="file" id="prodDescImageFile" accept="image/jpeg, image/png, image/gif, image/webp" multiple
                 onchange="openImageCropModal(event, 'prodDesc')">
               <div id="prodDescPreviewLabel"
                 style="display:none; font-size:11px; color:var(--sage-dark); font-weight:bold; margin-top:10px;">✅
                 選択中のプレビュー</div>
               <img id="prodDescImagePreview" alt="プレビュー"
                 style="max-width:100%; height:auto; display:none; margin-top:5px; border-radius:8px;">
+              <div id="prodDescImagePreviewList" class="multi-image-preview-list"></div>
             </div>
             <div class="form-group" style="margin-bottom: 20px;">
               <label>背景色 (カラーパッドから選択)</label>
@@ -1349,12 +1402,13 @@
             <div class="form-group">
               <label>★画像（フライヤー・写真など）をアップロード（スマホのライブラリから選択可能）</label>
               <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
-              <input type="file" id="calImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
+              <input type="file" id="calImageFile" accept="image/jpeg, image/png, image/gif, image/webp" multiple
                 onchange="openImageCropModal(event, 'cal')">
               <div id="calPreviewLabel"
                 style="display:none; font-size:11px; color:var(--sage-dark); font-weight:bold; margin-top:10px;">✅
                 選択中のプレビュー</div>
               <img id="calImagePreview" alt="プレビュー">
+              <div id="calImagePreviewList" class="multi-image-preview-list"></div>
             </div>
 
             <div class="form-group" style="margin-bottom: 20px;">
@@ -1513,12 +1567,13 @@
             <div class="form-group">
               <label>画像（フライヤー・写真など）をアップロード</label>
               <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
-              <input type="file" id="menuImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
+              <input type="file" id="menuImageFile" accept="image/jpeg, image/png, image/gif, image/webp" multiple
                 onchange="openImageCropModal(event, 'menu')">
               <div id="menuImagePreviewArea" style="margin-top:10px; display:none;">
                 <div style="font-size:11px; color:var(--sage-dark); font-weight:bold; margin-bottom:5px;">✅ 選択中のプレビュー
                 </div>
                 <img id="menuImagePreview" alt="プレビュー">
+                <div id="menuImagePreviewList" class="multi-image-preview-list"></div>
               </div>
             </div>
 
@@ -2668,7 +2723,7 @@
       iosStoreUrl: '',
       updateTitle: 'アップデートが必要です',
       updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
-      webBundleVersion: '2026.04.04.58'
+      webBundleVersion: '2026.04.04.59'
     };
     let allUsers = [];
     let allMenus = [];
@@ -3119,20 +3174,27 @@
       setTimeout(() => URL.revokeObjectURL(link.href), 0);
     }
 
-    function buildPreviewImageHtml(src, label) {
-      const imageSrc = String(src || '').trim();
-      if (!imageSrc) return '';
+    function buildPreviewImageHtml(srcOrUrls, label) {
+      const imageUrls = normalizeAdminImageUrls(srcOrUrls);
+      if (!imageUrls.length) return '';
       return `
         <div style="margin-top:14px;">
           <div style="font-size:12px; color:var(--text-light); margin-bottom:6px;">${escapeHtml(label || '画像')}</div>
-          <img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(label || 'preview')}" style="display:block; width:100%; max-height:260px; object-fit:cover; border-radius:14px; border:1px solid var(--border); background:#fff;">
+          <div style="display:grid; gap:12px;">
+            ${imageUrls.map(function (imageSrc, index) {
+              return `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml((label || 'preview') + ' ' + (index + 1))}" style="display:block; width:100%; max-height:420px; object-fit:contain; border-radius:14px; border:1px solid var(--border); background:#fff; padding:8px; box-sizing:border-box;">`;
+            }).join('')}
+          </div>
         </div>
       `;
     }
 
-    function getPreviewImageSrc(id) {
-      const el = document.getElementById(id);
-      return el && el.src ? String(el.src) : '';
+    function getPreviewImageSrc(idOrType) {
+      if (IMAGE_PREVIEW_CONFIG[idOrType]) {
+        return getCombinedImagePreviewUrls(idOrType);
+      }
+      const el = document.getElementById(idOrType);
+      return el && el.src ? [String(el.src)] : [];
     }
 
     function openContentPreview(title, html) {
@@ -3150,7 +3212,7 @@
       const icon = document.getElementById('blogIcon').value.trim();
       const date = document.getElementById('blogDate').value;
       const body = document.getElementById('blogBody').value.trim() || '本文はまだ入力されていません。';
-      const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('imagePreview'), '記事画像');
+      const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('blog'), '記事画像');
       openContentPreview('NEWSプレビュー', `
         <div style="padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff;">
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
@@ -3174,8 +3236,8 @@
       const lowStockThreshold = Number(document.getElementById('prodLowStockThreshold').value || 0);
       const bgColor = document.getElementById('prodBg').value || '#f5f3ee';
       const desc = document.getElementById('prodDesc').value.trim() || '説明はまだ入力されていません。';
-      const mainImageHtml = buildPreviewImageHtml(getPreviewImageSrc('prodImagePreview'), '商品画像');
-      const descImageHtml = buildPreviewImageHtml(getPreviewImageSrc('prodDescImagePreview'), '説明画像');
+      const mainImageHtml = buildPreviewImageHtml(getPreviewImageSrc('prod'), '商品画像');
+      const descImageHtml = buildPreviewImageHtml(getPreviewImageSrc('prodDesc'), '説明画像');
       const inventoryLabel = stockQty <= 0
         ? '売り切れ'
         : (lowStockThreshold > 0 && stockQty <= lowStockThreshold ? `残り少なめ（在庫 ${stockQty}）` : `在庫 ${stockQty}`);
@@ -3201,7 +3263,7 @@
       const color = document.getElementById('calColor').value || '#e57373';
       const currentDate = document.getElementById('calDate').value;
       const dateList = selectedDates.length ? selectedDates.slice() : (currentDate ? [currentDate] : []);
-      const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('calImagePreview'), 'イベント画像');
+      const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('cal'), 'イベント画像');
       openContentPreview('カレンダープレビュー', `
         <div style="padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
@@ -3221,7 +3283,7 @@
       const desc = document.getElementById('menuDescription').value.trim() || '概要説明はまだ入力されていません。';
       const reservationStatus = document.getElementById('menuReservationStatus').value || '未設定';
       const publishStatus = document.getElementById('menuPublishStatus').value || '未設定';
-      const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('menuImagePreview'), 'メニュー画像');
+      const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('menu'), 'メニュー画像');
       openContentPreview('メニュープレビュー', `
         <div style="padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff;">
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
@@ -8949,22 +9011,54 @@
       }
     }
 
-    let selectedImageBase64 = null;
-    let selectedImageMime = null;
-    let selectedImageName = null;
-    let currentBlogImageUrl = '';
+    const IMAGE_PREVIEW_CONFIG = {
+      blog: {
+        previewId: 'imagePreview',
+        previewLabelId: 'blogPreviewLabel',
+        previewListId: 'blogImagePreviewList',
+        fileInputId: 'blogImageFile'
+      },
+      prod: {
+        previewId: 'prodImagePreview',
+        previewLabelId: 'prodPreviewLabel',
+        previewListId: 'prodImagePreviewList',
+        fileInputId: 'prodImageFile'
+      },
+      prodDesc: {
+        previewId: 'prodDescImagePreview',
+        previewLabelId: 'prodDescPreviewLabel',
+        previewListId: 'prodDescImagePreviewList',
+        fileInputId: 'prodDescImageFile'
+      },
+      cal: {
+        previewId: 'calImagePreview',
+        previewLabelId: 'calPreviewLabel',
+        previewListId: 'calImagePreviewList',
+        fileInputId: 'calImageFile'
+      },
+      menu: {
+        previewId: 'menuImagePreview',
+        previewAreaId: 'menuImagePreviewArea',
+        previewListId: 'menuImagePreviewList',
+        fileInputId: 'menuImageFile'
+      }
+    };
 
-    let prodImageBase64 = null;
-    let prodImageMime = null;
-    let prodImageName = null;
+    const preparedImageStore = {
+      blog: [],
+      prod: [],
+      prodDesc: [],
+      cal: [],
+      menu: []
+    };
 
-    let calImageBase64 = null;
-    let calImageMime = null;
-    let calImageName = null;
-
-    let prodDescImageBase64 = null;
-    let prodDescImageMime = null;
-    let prodDescImageName = null;
+    const existingImageStore = {
+      blog: [],
+      prod: [],
+      prodDesc: [],
+      cal: [],
+      menu: []
+    };
 
     function shouldSendContentPush(checkboxId) {
       const checkbox = document.getElementById(checkboxId);
@@ -8989,37 +9083,17 @@
       showToast(isDraft ? '下書き保存中...' : 'アップロード・投稿処理中...');
 
       // 1. まず画像があればアップロードする
-      let imageUrl = '';
-      if (selectedImageBase64) {
-        btn.innerText = '画像をアップロード中...';
-        const imgRes = await apiRequest('', {
-          type: 'uploadImage',
-          filename: selectedImageName,
-          mimeType: selectedImageMime,
-          base64: selectedImageBase64
-        }, true);
-
-        if (imgRes && imgRes.status === 'ok') {
-          imageUrl = imgRes.url;
-        } else {
-          const errMsg = imgRes ? (imgRes.message || JSON.stringify(imgRes)) : '通信エラー';
-          alert('🚨 画像のアップロードに失敗しました。\n\n【原因】\n' + errMsg + '\n\n【よくある原因】\n・GASのURLが古い（⚙初期設定から最新のURLに入れ直してください）\n・通信環境が不安定\n\n今回は文章のみ投稿します。');
-          showToast('画像のアップロードに失敗しました。');
-        }
-      } else {
-        const fileInput = document.getElementById('blogImageFile');
-        if (fileInput.files.length > 0) {
-          alert('画像がまだ準備できていません（圧縮処理中か読み込みエラー）。\nもう一度画像を選択し直すか、数秒待ってからボタンを押してください。');
-          btn.disabled = false;
-          draftBtn.disabled = false;
-          btn.innerText = '🌟 公開して投稿する';
-          return;
-        }
+      let imageUrls = [];
+      try {
+        imageUrls = await uploadPreparedImages('blog', btn, '画像をアップロード中...');
+      } catch (error) {
+        alert('🚨 画像のアップロードに失敗しました。\n\n【原因】\n' + String(error && error.message || error || '通信エラー') + '\n\n【よくある原因】\n・GASのURLが古い（⚙初期設定から最新のURLに入れ直してください）\n・通信環境が不安定\n\n今回は文章のみ投稿します。');
+        showToast('画像のアップロードに失敗しました。');
       }
 
       // 2. ブログ情報を投稿する
       const rowIdx = document.getElementById('blogRowIdx').value;
-      const preservedImageUrl = String(currentBlogImageUrl || '').trim();
+      const finalImageUrls = getExistingImageUrls('blog').concat(imageUrls);
       btn.innerText = 'データを保存中...';
       const payload = {
         type: rowIdx ? 'updateBlog' : 'addBlog',
@@ -9028,7 +9102,8 @@
         title: document.getElementById('blogTitle').value,
         category: document.getElementById('blogCategory').value,
         icon: document.getElementById('blogIcon').value,
-        image: imageUrl || preservedImageUrl,
+        image: finalImageUrls[0] || '',
+        imageUrls: finalImageUrls,
         body: document.getElementById('blogBody').value,
         status: status,
         publishAt: document.getElementById('blogPublishAt').value || '',
@@ -9044,9 +9119,6 @@
       if (res && res.status === 'ok') {
         showToast(rowIdx ? 'ブログを更新しました！' : 'お知らせを投稿しました！ 🎉');
         cancelBlogEdit(); // フォームのリセットとモード戻し
-        selectedImageBase64 = null;
-        selectedImageMime = null;
-        selectedImageName = null;
         loadAdminBlogs();
       } else {
         showToast('投稿に失敗しました');
@@ -9132,12 +9204,8 @@
     function editBlog(rowIdx) {
       const b = allBlogs.find(item => item.rowIdx === rowIdx);
       if (!b) return;
-      currentBlogImageUrl = String(b.imageUrl || '').trim();
-      selectedImageBase64 = null;
-      selectedImageMime = null;
-      selectedImageName = null;
-      const fileInput = document.getElementById('blogImageFile');
-      if (fileInput) fileInput.value = '';
+      clearPreparedImages('blog');
+      setExistingImageUrls('blog', b.imageUrls || b.imageUrl || '');
 
       document.getElementById('blogRowIdx').value = b.rowIdx;
       document.getElementById('blogDate').value = formatDateForDateTimeLocal(b.updatedAt || b.date);
@@ -9147,22 +9215,6 @@
       document.getElementById('blogBody').value = b.body;
       document.getElementById('blogPublishAt').value = formatDateForDateTimeLocal(b.publishAt || '');
       resetContentPushToggle('blogSendPush');
-
-      const img = document.getElementById('imagePreview');
-      if (currentBlogImageUrl) {
-        img.src = b.imageUrl;
-        img.style.display = 'block';
-        if (document.getElementById('blogPreviewLabel')) {
-          document.getElementById('blogPreviewLabel').innerText = '✅ 登録済みの画像';
-          document.getElementById('blogPreviewLabel').style.display = 'block';
-        }
-      } else {
-        img.removeAttribute('src');
-        img.style.display = 'none';
-        if (document.getElementById('blogPreviewLabel')) {
-          document.getElementById('blogPreviewLabel').style.display = 'none';
-        }
-      }
 
       document.getElementById('blogSubmitBtn').innerText = '📝 修正して保存する';
       document.getElementById('blogCancelEditBtn').style.display = 'block';
@@ -9178,13 +9230,7 @@
       document.getElementById('blogPublishAt').value = '';
       document.getElementById('blogSubmitBtn').innerText = '🌟 この内容で投稿する';
       document.getElementById('blogCancelEditBtn').style.display = 'none';
-      document.getElementById('imagePreview').removeAttribute('src');
-      document.getElementById('imagePreview').style.display = 'none';
-      if (document.getElementById('blogPreviewLabel')) document.getElementById('blogPreviewLabel').style.display = 'none';
-      selectedImageBase64 = null;
-      selectedImageMime = null;
-      selectedImageName = null;
-      currentBlogImageUrl = '';
+      clearAllImageState('blog');
       resetContentPushToggle('blogSendPush');
     }
 
@@ -9202,47 +9248,29 @@
       showToast(isDraft ? '下書き保存中...' : 'アップロード・保存処理中...');
 
       // 1. 画像アップロード処理
-      let prodIconUrl = '';
-      if (prodImageBase64) {
-        btn.innerText = '画像をアップロード中...';
-        const imgRes = await apiRequest('', {
-          type: 'uploadImage',
-          filename: prodImageName,
-          mimeType: prodImageMime,
-          base64: prodImageBase64
-        }, true);
-
-        if (imgRes && imgRes.status === 'ok') {
-          prodIconUrl = imgRes.url;
-        } else {
-          const errMsg = imgRes ? (imgRes.message || JSON.stringify(imgRes)) : '通信エラー';
-          alert('🚨 アイコンのアップロードに失敗しました。\n\n【原因】\n' + errMsg + '\n\nアイコンなしで登録します。');
-          showToast('アイコンなしで登録します。');
-        }
+      let prodIconUrls = [];
+      try {
+        prodIconUrls = await uploadPreparedImages('prod', btn, '商品画像をアップロード中...');
+      } catch (error) {
+        alert('🚨 商品画像のアップロードに失敗しました。\n\n【原因】\n' + String(error && error.message || error || '通信エラー') + '\n\n画像なしで登録します。');
+        showToast('商品画像なしで登録します。');
       }
 
       // 1.5. 商品説明画像アップロード処理
-      let prodDescImageUrl = '';
-      if (prodDescImageBase64) {
-        btn.innerText = '商品説明画像をアップロード中...';
-        const imgRes = await apiRequest('', {
-          type: 'uploadImage',
-          filename: prodDescImageName,
-          mimeType: prodDescImageMime,
-          base64: prodDescImageBase64
-        }, true);
-
-        if (imgRes && imgRes.status === 'ok') {
-          prodDescImageUrl = imgRes.url;
-        } else {
-          const errMsg = imgRes ? (imgRes.message || JSON.stringify(imgRes)) : '通信エラー';
-          showToast('商品説明画像のアップロードに失敗しました。');
-        }
+      let prodDescImageUrls = [];
+      try {
+        prodDescImageUrls = await uploadPreparedImages('prodDesc', btn, '説明画像をアップロード中...');
+      } catch (error) {
+        showToast('商品説明画像のアップロードに失敗しました。');
       }
 
       btn.innerText = '商品データを保存中...';
       const rowIdx = document.getElementById('prodRowIdx').value;
       const currentProduct = rowIdx ? (allProducts.find(p => p.rowIdx == rowIdx) || {}) : {};
+      const finalProdIconUrls = getExistingImageUrls('prod').concat(prodIconUrls);
+      const finalProdDescImageUrls = getExistingImageUrls('prodDesc').concat(prodDescImageUrls);
+      const originalProdIconUrls = normalizeAdminImageUrls(currentProduct.imageUrls || currentProduct.icon || '');
+      const originalProdDescImageUrls = normalizeAdminImageUrls(currentProduct.descriptionImageUrls || currentProduct.descriptionImage || '');
 
       const payload = {
         type: rowIdx ? 'updateProduct' : 'addProduct',
@@ -9251,13 +9279,15 @@
         name: document.getElementById('prodName').value,
         price: Number(document.getElementById('prodPrice').value),
         costPrice: Number(document.getElementById('prodCost').value),
-        icon: prodIconUrl || currentProduct.icon || '',
+        icon: finalProdIconUrls[0] || (originalProdIconUrls.length ? '' : (currentProduct.icon || '')),
+        imageUrls: finalProdIconUrls,
         bg: document.getElementById('prodBg').value,
         status: status,
         stockQty: Number(document.getElementById('prodStockQty').value || 0),
         lowStockThreshold: Number(document.getElementById('prodLowStockThreshold').value || 0),
         description: document.getElementById('prodDesc').value,
-        descriptionImage: prodDescImageUrl || currentProduct.descriptionImage || '',
+        descriptionImage: finalProdDescImageUrls[0] || (originalProdDescImageUrls.length ? '' : (currentProduct.descriptionImage || '')),
+        descriptionImageUrls: finalProdDescImageUrls,
         publishAt: document.getElementById('prodPublishAt').value || '',
         sendPushNotification: shouldSendContentPush('prodSendPush')
       };
@@ -9272,7 +9302,6 @@
         showToast(rowIdx ? '商品情報を更新しました！' : '新しい商品を追加しました！ 🎉');
         cancelProdEdit();
         loadAdminProducts();
-        prodImageBase64 = null;
         // 背景色を初期カラーに戻す
         document.getElementById('prodBg').value = '#d4e8c8';
       } else {
@@ -9416,26 +9445,10 @@
       document.getElementById('prodDesc').value = p.description || '';
       document.getElementById('prodPublishAt').value = formatDateForDateTimeLocal(p.publishAt || '');
       resetContentPushToggle('prodSendPush');
-
-      if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
-        const img = document.getElementById('prodImagePreview');
-        img.src = p.icon;
-        img.style.display = 'block';
-        if (document.getElementById('prodPreviewLabel')) {
-          document.getElementById('prodPreviewLabel').innerText = '✅ 登録済みの画像';
-          document.getElementById('prodPreviewLabel').style.display = 'block';
-        }
-      }
-
-      if (p.descriptionImage && p.descriptionImage.startsWith('http')) {
-        const img = document.getElementById('prodDescImagePreview');
-        img.src = p.descriptionImage;
-        img.style.display = 'block';
-        if (document.getElementById('prodDescPreviewLabel')) {
-          document.getElementById('prodDescPreviewLabel').innerText = '✅ 登録済みの画像';
-          document.getElementById('prodDescPreviewLabel').style.display = 'block';
-        }
-      }
+      clearPreparedImages('prod');
+      clearPreparedImages('prodDesc');
+      setExistingImageUrls('prod', p.imageUrls || p.icon || '');
+      setExistingImageUrls('prodDesc', p.descriptionImageUrls || p.descriptionImage || '');
 
       document.getElementById('productFormTitle').innerText = '📝 商品を編集する';
       document.getElementById('prodSubmitBtn').innerText = '📝 修正を保存する';
@@ -9451,20 +9464,12 @@
       document.getElementById('productFormTitle').innerText = '✨ 新しい商品を追加する';
       document.getElementById('prodSubmitBtn').innerText = '商品を追加する';
       document.getElementById('prodCancelEditBtn').style.display = 'none';
-      document.getElementById('prodImagePreview').style.display = 'none';
-      if (document.getElementById('prodPreviewLabel')) document.getElementById('prodPreviewLabel').style.display = 'none';
-      document.getElementById('prodDescImagePreview').style.display = 'none';
-      if (document.getElementById('prodDescPreviewLabel')) document.getElementById('prodDescPreviewLabel').style.display = 'none';
       document.getElementById('prodBg').value = '#d4e8c8';
       document.getElementById('prodPublishAt').value = '';
       document.getElementById('prodStockQty').value = 0;
       document.getElementById('prodLowStockThreshold').value = 0;
-      prodImageBase64 = null;
-      prodImageMime = null;
-      prodImageName = null;
-      prodDescImageBase64 = null;
-      prodDescImageMime = null;
-      prodDescImageName = null;
+      clearAllImageState('prod');
+      clearAllImageState('prodDesc');
       resetContentPushToggle('prodSendPush');
     }
 
@@ -9591,35 +9596,17 @@
       showToast(isDraft ? '下書き保存中...' : 'イベント保存処理中...');
 
       // 画像アップロード処理
-      let calImageUrl = '';
-      if (calImageBase64) {
-        btn.innerText = '画像をアップロード中...';
-        const imgRes = await apiRequest('', {
-          type: 'uploadImage',
-          filename: calImageName,
-          mimeType: calImageMime,
-          base64: calImageBase64
-        }, true);
-
-        if (imgRes && imgRes.status === 'ok') {
-          calImageUrl = imgRes.url;
-        } else {
-          const errMsg = imgRes ? (imgRes.message || JSON.stringify(imgRes)) : '通信エラー';
-          alert('🚨 画像のアップロードに失敗しました。\n\n【原因】\n' + errMsg + '\n\n画像なしで登録します。');
-          showToast('画像なしで登録します。');
-        }
-      } else {
-        const fileInput = document.getElementById('calImageFile');
-        if (fileInput.files.length > 0) {
-          alert('画像がまだ準備できていません（圧縮処理中か読み込みエラー）。\nもう一度画像を選択し直すか、数秒待ってからボタンを押してください。');
-          btn.disabled = false;
-          btn.innerText = 'イベントを追加する';
-          return;
-        }
+      let calImageUrls = [];
+      try {
+        calImageUrls = await uploadPreparedImages('cal', btn, '画像をアップロード中...');
+      } catch (error) {
+        alert('🚨 画像のアップロードに失敗しました。\n\n【原因】\n' + String(error && error.message || error || '通信エラー') + '\n\n画像なしで登録します。');
+        showToast('画像なしで登録します。');
       }
 
       btn.innerText = 'データを保存中...';
       const rowIdx = document.getElementById('calRowIdx').value;
+      const finalCalendarImageUrls = getExistingImageUrls('cal').concat(calImageUrls);
 
       const payload = {
         type: rowIdx ? 'updateCalendar' : 'addCalendar',
@@ -9630,7 +9617,8 @@
         category: document.getElementById('calCategory').value,
         desc: document.getElementById('calDesc').value,
         color: document.getElementById('calColor').value,
-        image: calImageUrl,
+        image: finalCalendarImageUrls[0] || '',
+        imageUrls: finalCalendarImageUrls,
         status: status,
         publishAt: document.getElementById('calPublishAt').value || '',
         sendPushNotification: shouldSendContentPush('calSendPush')
@@ -9655,9 +9643,6 @@
         showToast(rowIdx ? 'イベント情報を更新しました！' : '新しいイベントを追加しました！ 🎉');
         cancelCalendarEdit();
         loadAdminCalendar();
-        calImageBase64 = null;
-        calImageMime = null;
-        calImageName = null;
       } else {
         showToast('追加に失敗しました。');
       }
@@ -9821,16 +9806,8 @@
       document.getElementById('calColor').value = c.color;
       document.getElementById('calPublishAt').value = formatDateForDateTimeLocal(c.publishAt || '');
       resetContentPushToggle('calSendPush');
-
-      if (c.image) {
-        const img = document.getElementById('calImagePreview');
-        img.src = c.image;
-        img.style.display = 'block';
-        if (document.getElementById('calPreviewLabel')) {
-          document.getElementById('calPreviewLabel').innerText = '✅ 登録済みの画像';
-          document.getElementById('calPreviewLabel').style.display = 'block';
-        }
-      }
+      clearPreparedImages('cal');
+      setExistingImageUrls('cal', c.imageUrls || c.image || '');
 
       document.getElementById('calendarFormTitle').innerText = '📝 イベントを編集する';
       document.getElementById('calSubmitBtn').innerText = '📝 修正を保存する';
@@ -9853,11 +9830,7 @@
       document.getElementById('calColor').value = '#e57373';
       document.getElementById('calCategory').value = '';
       document.getElementById('calPublishAt').value = '';
-      document.getElementById('calImagePreview').style.display = 'none';
-      if (document.getElementById('calPreviewLabel')) document.getElementById('calPreviewLabel').style.display = 'none';
-      calImageBase64 = null;
-      calImageMime = null;
-      calImageName = null;
+      clearAllImageState('cal');
       resetContentPushToggle('calSendPush');
     }
 
@@ -9886,9 +9859,6 @@
     }
 
     // ========== メニュー管理ロジック ==========
-    let menuImageBase64 = null;
-    let menuImageMime = null;
-    let menuImageName = null;
 
     async function loadAdminMenus() {
       const draftBody = document.getElementById('menusDraftsList');
@@ -9972,22 +9942,13 @@
 
       showToast('保存中...');
       // 既存の画像URLを取得しておく（もしあれば）
-      let imageUrl = document.getElementById('menuExistingImageUrl').value || '';
-
-      // 画像が新規選択されている場合はアップロード
-      if (menuImageBase64) {
-        try {
-          const res = await apiRequest('', {
-            type: 'uploadImage',
-            filename: menuImageName || `menu_${Date.now()}.jpg`,
-            mimeType: menuImageMime || 'image/jpeg',
-            base64: menuImageBase64
-          }, true);
-          if (res && res.url) imageUrl = res.url;
-        } catch (e) {
-          console.error('Image upload failed', e);
-        }
+      let uploadedImageUrls = [];
+      try {
+        uploadedImageUrls = await uploadPreparedImages('menu', null, '画像をアップロード中...');
+      } catch (e) {
+        console.error('Image upload failed', e);
       }
+      const finalMenuImageUrls = getExistingImageUrls('menu').concat(uploadedImageUrls);
 
       const type = rowIdx ? 'updateMenu' : 'addMenu';
       const payload = {
@@ -9998,7 +9959,8 @@
         description: description,
         reservationStatus: reservationStatus,
         publishStatus: publishStatus,
-        imageUrl: imageUrl, // 画像URLを含めて送信（新規・既存問わず）
+        imageUrl: finalMenuImageUrls[0] || '',
+        imageUrls: finalMenuImageUrls,
         publishAt: document.getElementById('menuPublishAt').value || '',
         sendPushNotification: shouldSendContentPush('menuSendPush')
       };
@@ -10016,9 +9978,7 @@
     function editMenu(rowIdx) {
       const m = allMenus.find(item => item.rowIdx === rowIdx);
       if (!m) return;
-      menuImageBase64 = null;
-      menuImageMime = null;
-      menuImageName = null;
+      clearPreparedImages('menu');
 
       document.getElementById('menuRowIdx').value = m.rowIdx;
       document.getElementById('menuCategory').value = m.category || '';
@@ -10026,15 +9986,8 @@
       document.getElementById('menuDescription').value = m.description || '';
       document.getElementById('menuReservationStatus').value = m.reservationStatus;
       document.getElementById('menuPublishAt').value = formatDateForDateTimeLocal(m.publishAt || '');
-      document.getElementById('menuExistingImageUrl').value = m.imageUrl || ''; // 既存の画像URLを保持
+      setExistingImageUrls('menu', m.imageUrls || m.imageUrl || '');
       resetContentPushToggle('menuSendPush');
-
-      if (m.imageUrl) {
-        document.getElementById('menuImagePreview').src = m.imageUrl;
-        document.getElementById('menuImagePreviewArea').style.display = 'block';
-      } else {
-        document.getElementById('menuImagePreviewArea').style.display = 'none';
-      }
 
       document.getElementById('menuFormTitle').textContent = '📝 メニューを編集する';
       document.getElementById('menuSubmitBtn').textContent = '🍴 変更を保存する';
@@ -10047,11 +10000,7 @@
       document.getElementById('menuRowIdx').value = '';
       document.getElementById('menuCategory').value = '';
       document.getElementById('menuPublishAt').value = '';
-      document.getElementById('menuExistingImageUrl').value = ''; // リセット時にクリア
-      document.getElementById('menuImagePreviewArea').style.display = 'none';
-      menuImageBase64 = null;
-      menuImageMime = null;
-      menuImageName = null;
+      clearAllImageState('menu');
       resetContentPushToggle('menuSendPush');
       document.getElementById('menuFormTitle').textContent = '✨ 新しいメニューを追加する';
       document.getElementById('menuSubmitBtn').textContent = '🍴 公開して保存する';
@@ -10143,74 +10092,203 @@
       return `${baseName}.${extension}`;
     }
 
-    function updatePreparedImagePreview(type, dataUrl) {
-      let previewId = '';
-      let labelId = '';
-      let previewAreaId = '';
-
-      if (type === 'blog') {
-        previewId = 'imagePreview';
-        labelId = 'blogPreviewLabel';
-      } else if (type === 'prod') {
-        previewId = 'prodImagePreview';
-        labelId = 'prodPreviewLabel';
-      } else if (type === 'prodDesc') {
-        previewId = 'prodDescImagePreview';
-        labelId = 'prodDescPreviewLabel';
-      } else if (type === 'cal') {
-        previewId = 'calImagePreview';
-        labelId = 'calPreviewLabel';
-      } else if (type === 'menu') {
-        previewId = 'menuImagePreview';
-        previewAreaId = 'menuImagePreviewArea';
+    function normalizeAdminImageUrls(rawValue) {
+      if (Array.isArray(rawValue)) {
+        return rawValue.reduce(function (acc, item) {
+          return acc.concat(normalizeAdminImageUrls(item));
+        }, []);
       }
-
-      const preview = previewId ? document.getElementById(previewId) : null;
-      if (preview) {
-        preview.src = dataUrl;
-        preview.style.display = 'block';
-      }
-
-      if (previewAreaId) {
-        const area = document.getElementById(previewAreaId);
-        if (area) area.style.display = 'block';
-      }
-
-      if (labelId) {
-        const label = document.getElementById(labelId);
-        if (label) {
-          label.innerText = '✅ 選択中のプレビュー（全体表示）';
-          label.style.display = 'block';
+      const raw = String(rawValue || '').trim();
+      if (!raw) return [];
+      if (raw.charAt(0) === '[') {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return normalizeAdminImageUrls(parsed);
+        } catch (error) {
+          console.warn('画像URL配列の解析に失敗しました', error);
         }
+      }
+      const parts = raw.split(/\r?\n+/).map(function (item) { return item.trim(); }).filter(Boolean);
+      const candidates = parts.length > 1 ? parts : [raw];
+      return candidates.filter(function (item, index) {
+        return /^(https?:\/\/|data:image\/)/i.test(item) && candidates.indexOf(item) === index;
+      });
+    }
+
+    function serializeAdminImageUrls(urls) {
+      const normalized = normalizeAdminImageUrls(urls);
+      if (!normalized.length) return '';
+      return JSON.stringify(normalized);
+    }
+
+    function getPreparedImages(type) {
+      return Array.isArray(preparedImageStore[type]) ? preparedImageStore[type] : [];
+    }
+
+    function getExistingImageUrls(type) {
+      return Array.isArray(existingImageStore[type]) ? existingImageStore[type] : [];
+    }
+
+    function getCombinedImagePreviewUrls(type) {
+      return getExistingImageUrls(type).concat(getPreparedImages(type).map(function (item) {
+        return String(item && item.dataUrl || '').trim();
+      }).filter(Boolean));
+    }
+
+    function syncImageHiddenFields(type) {
+      if (type === 'menu') {
+        const hidden = document.getElementById('menuExistingImageUrl');
+        if (hidden) hidden.value = serializeAdminImageUrls(getExistingImageUrls('menu'));
       }
     }
 
-    function storePreparedImage(type, dataUrl, mimeType, fileName) {
-      const base64 = String(dataUrl || '').split(',')[1] || '';
+    function renderPreparedImagePreview(type) {
+      const config = IMAGE_PREVIEW_CONFIG[type];
+      if (!config) return;
 
-      if (type === 'blog') {
-        selectedImageBase64 = base64;
-        selectedImageMime = mimeType;
-        selectedImageName = fileName;
-      } else if (type === 'prod') {
-        prodImageBase64 = base64;
-        prodImageMime = mimeType;
-        prodImageName = fileName;
-      } else if (type === 'prodDesc') {
-        prodDescImageBase64 = base64;
-        prodDescImageMime = mimeType;
-        prodDescImageName = fileName;
-      } else if (type === 'cal') {
-        calImageBase64 = base64;
-        calImageMime = mimeType;
-        calImageName = fileName;
-      } else if (type === 'menu') {
-        menuImageBase64 = base64;
-        menuImageMime = mimeType;
-        menuImageName = fileName;
+      const combinedUrls = getCombinedImagePreviewUrls(type);
+      const preparedCount = getPreparedImages(type).length;
+      const existingCount = getExistingImageUrls(type).length;
+      const preview = config.previewId ? document.getElementById(config.previewId) : null;
+      const label = config.previewLabelId ? document.getElementById(config.previewLabelId) : null;
+      const previewArea = config.previewAreaId ? document.getElementById(config.previewAreaId) : null;
+      const list = config.previewListId ? document.getElementById(config.previewListId) : null;
+
+      if (preview) {
+        if (combinedUrls.length) {
+          preview.src = combinedUrls[0];
+        } else {
+          preview.removeAttribute('src');
+        }
+        preview.style.display = 'none';
       }
 
-      updatePreparedImagePreview(type, dataUrl);
+      if (label) {
+        if (combinedUrls.length) {
+          const scopeLabel = preparedCount > 0 && existingCount > 0
+            ? '登録済み・追加予定の画像'
+            : (preparedCount > 0 ? '追加予定の画像' : '登録済みの画像');
+          label.innerText = `✅ ${scopeLabel}（${combinedUrls.length}枚）`;
+          label.style.display = 'block';
+        } else {
+          label.style.display = 'none';
+        }
+      }
+
+      if (previewArea) {
+        previewArea.style.display = combinedUrls.length ? 'block' : 'none';
+      }
+
+      if (list) {
+        if (!combinedUrls.length) {
+          list.innerHTML = '';
+          list.style.display = 'none';
+        } else {
+          const existingUrls = getExistingImageUrls(type);
+          const preparedItems = getPreparedImages(type);
+          const items = existingUrls.map(function (url, index) {
+            return {
+              url: url,
+              source: 'existing',
+              index: index,
+              label: '登録済み'
+            };
+          }).concat(preparedItems.map(function (item, index) {
+            return {
+              url: String(item && item.dataUrl || '').trim(),
+              source: 'prepared',
+              index: index,
+              label: '新規'
+            };
+          }));
+          list.innerHTML = items.map(function (item, index) {
+            return `
+              <div class="multi-image-preview-item">
+                <button type="button" class="multi-image-preview-remove" onclick="removePreparedImage('${type}', '${item.source}', ${item.index})" aria-label="画像を削除">×</button>
+                <img src="${escapeHtml(item.url)}" class="multi-image-preview-thumb" alt="${escapeHtml(type + ' image ' + (index + 1))}">
+                <div class="multi-image-preview-badge">${escapeHtml(item.label)}</div>
+              </div>
+            `;
+          }).join('');
+          list.style.display = 'flex';
+        }
+      }
+
+      syncImageHiddenFields(type);
+    }
+
+    function setExistingImageUrls(type, urls) {
+      existingImageStore[type] = normalizeAdminImageUrls(urls);
+      renderPreparedImagePreview(type);
+    }
+
+    function clearPreparedImages(type) {
+      preparedImageStore[type] = [];
+      renderPreparedImagePreview(type);
+    }
+
+    function clearAllImageState(type) {
+      preparedImageStore[type] = [];
+      existingImageStore[type] = [];
+      const config = IMAGE_PREVIEW_CONFIG[type];
+      if (config && config.fileInputId) {
+        const input = document.getElementById(config.fileInputId);
+        if (input) input.value = '';
+      }
+      renderPreparedImagePreview(type);
+    }
+
+    function removePreparedImage(type, source, index) {
+      if (!IMAGE_PREVIEW_CONFIG[type]) return;
+      if (source === 'existing') {
+        existingImageStore[type] = getExistingImageUrls(type).filter(function (_, itemIndex) {
+          return itemIndex !== Number(index);
+        });
+      } else {
+        preparedImageStore[type] = getPreparedImages(type).filter(function (_, itemIndex) {
+          return itemIndex !== Number(index);
+        });
+      }
+      renderPreparedImagePreview(type);
+    }
+
+    function storePreparedImage(type, dataUrl, mimeType, fileName) {
+      if (!IMAGE_PREVIEW_CONFIG[type]) return;
+      preparedImageStore[type] = getPreparedImages(type).concat([{
+        dataUrl: dataUrl,
+        mimeType: mimeType,
+        fileName: fileName,
+        base64: String(dataUrl || '').split(',')[1] || ''
+      }]);
+      renderPreparedImagePreview(type);
+    }
+
+    async function uploadPreparedImages(type, btn, progressLabel) {
+      const items = getPreparedImages(type);
+      if (!items.length) return [];
+
+      const uploadedUrls = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (btn) {
+          btn.innerText = `${progressLabel || '画像をアップロード中...'} (${i + 1}/${items.length})`;
+        }
+        const imgRes = await apiRequest('', {
+          type: 'uploadImage',
+          filename: item.fileName,
+          mimeType: item.mimeType,
+          base64: item.base64
+        }, true);
+
+        if (imgRes && imgRes.status === 'ok' && imgRes.url) {
+          uploadedUrls.push(imgRes.url);
+        } else {
+          const errMsg = imgRes ? (imgRes.message || JSON.stringify(imgRes)) : '通信エラー';
+          throw new Error(errMsg);
+        }
+      }
+
+      return uploadedUrls;
     }
 
     function optimizeImageForUpload(file) {
@@ -10260,16 +10338,30 @@
     }
 
     async function openImageCropModal(event, type) {
-      const file = event.target.files[0];
-      if (!file) return;
+      const files = Array.from(event.target.files || []);
+      if (!files.length) return;
+
+      let successCount = 0;
+      let failedCount = 0;
 
       try {
-        const optimized = await optimizeImageForUpload(file);
-        storePreparedImage(type, optimized.dataUrl, optimized.mimeType, optimized.fileName);
-        showToast('画像全体を保ったまま取り込みました');
-      } catch (error) {
-        console.error('Image prepare failed', error);
-        alert('画像の準備に失敗しました。別の画像で再度お試しください。');
+        for (const file of files) {
+          try {
+            const optimized = await optimizeImageForUpload(file);
+            storePreparedImage(type, optimized.dataUrl, optimized.mimeType, optimized.fileName);
+            successCount += 1;
+          } catch (error) {
+            console.error('Image prepare failed', error);
+            failedCount += 1;
+          }
+        }
+
+        if (successCount > 0) {
+          showToast(successCount === 1 ? '画像を取り込みました' : `${successCount}枚の画像を取り込みました`);
+        }
+        if (failedCount > 0) {
+          alert(`${failedCount}枚の画像の準備に失敗しました。別の画像で再度お試しください。`);
+        }
       } finally {
         event.target.value = '';
       }

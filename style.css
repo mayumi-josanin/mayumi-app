@@ -987,6 +987,11 @@
       max-height: none;
     }
 
+    .detail-image-gallery {
+      display: grid;
+      gap: 12px;
+    }
+
     .blog-inline-image {
       display: block;
       width: 100%;
@@ -1826,6 +1831,10 @@
       height: auto;
       object-fit: contain;
       border-radius: 10px;
+    }
+
+    .prod-img .detail-image-gallery {
+      width: 100%;
     }
 
     .menu-list-thumb {
