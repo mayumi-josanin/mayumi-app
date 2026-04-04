@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.55';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.04.56';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.0',
@@ -2204,15 +2204,12 @@ function buildProductPriceMarkup(product, quantity, options) {
   const regularAmount = mode === 'total' ? pricing.originalTotal : pricing.regularUnitPrice;
   const effectiveAmount = mode === 'total' ? pricing.total : pricing.unitPrice;
   const taxLabel = includeTax ? '<small>（税込）</small>' : '';
+  const hasSpecialPricing = effectiveAmount < regularAmount && (pricing.isSpecialPrice || pricing.highlightLabel);
 
-  if (effectiveAmount < regularAmount && (pricing.isSpecialPrice || pricing.highlightLabel)) {
+  if (showPeriod && hasSpecialPricing && pricing.periodLabel) {
     return `
-      <span class="price-compare">
-        <span class="price-original">¥${regularAmount.toLocaleString()}</span>
-        <span class="price-arrow">→</span>
-        <span class="price-special">¥${effectiveAmount.toLocaleString()}${taxLabel}</span>
-      </span>
-      ${showPeriod && pricing.periodLabel ? `<span class="price-period-note">${escapeHtml(pricing.periodLabel)}</span>` : ''}
+      ¥${effectiveAmount.toLocaleString()}${taxLabel}
+      <span class="price-period-note">${escapeHtml(pricing.periodLabel)}</span>
     `;
   }
 
