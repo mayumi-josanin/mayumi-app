@@ -5968,6 +5968,10 @@ function getAdminUsers() {
       const registrationSource = buildUserRegistrationSourceFromRow_(row);
       const memberId = String(row[USER_COL.MEMBER_ID - 1] || '');
       const userOrderStats = orderStats[memberId] || { orderCount: 0, pendingOrderCount: 0, lastOrderAt: '', orderTotal: 0 };
+      const latestStampActivityAt = (rewardStatus.stampHistory && rewardStatus.stampHistory[0] && rewardStatus.stampHistory[0].acquiredDate)
+        || rewardStatus.lastStampDate
+        || rewardStatus.stampAchievedDate
+        || '';
       return {
         rowIdx: index + 2,
         memberId: memberId,
@@ -5986,8 +5990,10 @@ function getAdminUsers() {
         stampCount: rewardStatus.stampCount,
         stampCardNum: rewardStatus.stampCardNum,
         rewards: rewardStatus.rewards,
+        stampHistory: rewardStatus.stampHistory,
         lastStampDate: rewardStatus.lastStampDate,
         stampAchievedDate: rewardStatus.stampAchievedDate,
+        latestStampActivityAt: latestStampActivityAt,
         registrationSource: registrationSource.source,
         registrationSourceDetail: registrationSource.detail,
         registrationSourceUpdatedAt: registrationSource.updatedAt,
