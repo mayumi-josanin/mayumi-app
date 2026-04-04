@@ -2160,15 +2160,19 @@ function normalizeProductCategory(category) {
 
 function normalizeProductEntry(product, index) {
   const item = product && typeof product === 'object' ? product : {};
+  const iconImages = normalizeManagedImageList(item.imageUrls || item.iconImages || item.icon);
+  const descriptionImageUrls = normalizeManagedImageList(item.descriptionImageUrls || item.descriptionImage);
   return {
     category: String(item.category || ''),
     name: String(item.name || ''),
     price: Number(item.price || 0),
-    icon: String(item.icon || ''),
+    icon: iconImages[0] || String(item.icon || ''),
+    imageUrls: iconImages,
     bg: String(item.bg || ['c1', 'c2', 'c3', 'c4'][index % 4] || 'c1'),
     imgKey: String(item.imgKey || ''),
     description: String(item.description || ''),
-    descriptionImage: String(item.descriptionImage || ''),
+    descriptionImage: descriptionImageUrls[0] || String(item.descriptionImage || ''),
+    descriptionImageUrls: descriptionImageUrls,
     updatedAt: String(item.updatedAt || ''),
     noticeStatus: normalizeNoticeVisibilityStatus(item.noticeStatus)
   };
@@ -2511,9 +2515,9 @@ function openCalendarEventDetail(idx) {
   const safeDate = escapeHtml(formatCalendarDisplayDate(event.date || ''));
   const safeDesc = escapeHtml(event.desc || '').replace(/\n/g, '<br>') || '詳細はありません。';
   const safeColor = getCalendarSafeColor(event.color);
-  const safeImage = getContentDisplayImageUrl(event.image || '');
+  const detailImageHtml = buildDetailImageGalleryHtml(event.imageUrls || event.image, event.title || 'Calendar Image');
   detail.innerHTML = `
-    ${safeImage ? `<div class="blog-media-frame blog-media-frame--detail"><img src="${safeImage}" alt="${safeTitle}" class="blog-media-image blog-media-image--detail"></div>` : ''}
+    ${detailImageHtml}
     <div class="blog-detail-title" style="margin-bottom:12px;">${safeTitle}</div>
     <div class="blog-detail-body" style="font-size:14px; line-height:1.8; color:var(--text-main);">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--text-light);">
@@ -2640,7 +2644,7 @@ function downloadCalendarEventIcs(idx) {
 async function loadCalendar() {
   const data = await getFromGAS('getCalendar');
   if (data && data.status === 'ok' && Array.isArray(data.events)) {
-    calendarData = data.events;
+    calendarData = data.events.map(normalizeCalendarEventEntry);
   } else {
     calendarData = [];
   }
@@ -3149,6 +3153,7 @@ function openNoticeFeedItem(item) {
     date: item.dateLabel,
     body: item.body,
     image: item.image || '',
+    imageUrls: item.imageUrls || [],
     hasEmbeddedImage: item.hasEmbeddedImage === true
   });
 }
@@ -3204,6 +3209,7 @@ function buildNoticeFeedItems() {
       title: item.title || '',
       body: item.body || '',
       image: getDisplayImageUrl(item.image || item.imageUrl || ''),
+      imageUrls: normalizeManagedImageList(item.imageUrls || item.image || item.imageUrl),
       icon: item.icon || '📢',
       hasEmbeddedImage: item.hasEmbeddedImage === true
     };
@@ -3230,6 +3236,7 @@ function buildNoticeFeedItems() {
       title: event.title || '',
       body: event.desc || '',
       image: getDisplayImageUrl(event.image || ''),
+      imageUrls: normalizeManagedImageList(event.imageUrls || event.image),
       icon: '📅'
     };
   }).filter(isNoticeFeedEntryVisible);
@@ -3250,6 +3257,7 @@ function buildNoticeFeedItems() {
       title: product.name || '',
       body: product.description || '',
       image: getDisplayImageUrl(product.icon || ''),
+      imageUrls: normalizeManagedImageList(product.imageUrls || product.icon),
       icon: '🛍️'
     };
   }).filter(isNoticeFeedEntryVisible);
@@ -3275,6 +3283,7 @@ function buildNoticeFeedItems() {
       title: menu.name || '',
       body: menu.description || (menu.reservationStatus ? '予約状況: ' + menu.reservationStatus : ''),
       image: getDisplayImageUrl(menu.imageUrl || ''),
+      imageUrls: normalizeManagedImageList(menu.imageUrls || menu.imageUrl),
       icon: '🍴'
     };
   }).filter(isNoticeFeedEntryVisible);
@@ -3347,6 +3356,8 @@ function normalizeBlogItems(items, categories) {
     const body = String(item && item.body || '');
     const embeddedImage = extractEmbeddedImageUrl(body);
     const inferredType = getInferredBlogType(category, categoryTypeMap[category], item && item.type);
+    const imageUrls = normalizeManagedImageList(item && (item.imageUrls || item.images || [item.image, item.imageUrl]));
+    const effectiveImageUrls = imageUrls.length ? imageUrls : (embeddedImage ? [embeddedImage] : []);
     return {
       date: normalizeBlogDate(item && item.date),
       updatedAt: String(item && item.updatedAt || item && item.date || ''),
@@ -3356,7 +3367,8 @@ function normalizeBlogItems(items, categories) {
       sortOrder: Number(item && item.sortOrder || 0),
       icon: String(item && item.icon || (inferredType === 'お知らせ' ? '📢' : '📝')),
       body: body,
-      image: getDisplayImageUrl((item && (item.image || item.imageUrl)) || '') || embeddedImage,
+      image: effectiveImageUrls[0] || '',
+      imageUrls: effectiveImageUrls,
       hasEmbeddedImage: !!embeddedImage,
       noticeStatus: normalizeNoticeVisibilityStatus(item && item.noticeStatus)
     };
@@ -3367,6 +3379,25 @@ function normalizeBlogItems(items, categories) {
     const timeB = parseLooseDateToTimestamp(b.updatedAt || b.date);
     return timeB - timeA;
   });
+}
+
+function normalizeCalendarEventEntry(item) {
+  const event = item && typeof item === 'object' ? item : {};
+  const imageUrls = normalizeManagedImageList(event.imageUrls || event.images || event.image);
+  return {
+    rowIdx: event.rowIdx,
+    date: String(event.date || ''),
+    title: String(event.title || ''),
+    desc: String(event.desc || ''),
+    color: String(event.color || '#e57373'),
+    category: String(event.category || ''),
+    image: imageUrls[0] || getDisplayImageUrl(event.image) || '',
+    imageUrls: imageUrls,
+    updatedAt: String(event.updatedAt || ''),
+    publishAt: String(event.publishAt || ''),
+    noticeStatus: normalizeNoticeVisibilityStatus(event.noticeStatus),
+    sortOrder: Number(event.sortOrder || 0)
+  };
 }
 
 function normalizeBlogDate(rawValue) {
@@ -3397,6 +3428,31 @@ function getDisplayImageUrl(rawValue) {
   return '';
 }
 
+function normalizeManagedImageList(rawValue) {
+  if (Array.isArray(rawValue)) {
+    return rawValue.reduce(function (acc, item) {
+      return acc.concat(normalizeManagedImageList(item));
+    }, []);
+  }
+  const raw = String(rawValue || '').trim();
+  if (!raw) return [];
+  if (raw.charAt(0) === '[') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return normalizeManagedImageList(parsed);
+    } catch (error) {
+      console.warn('[images] failed to parse image list', error);
+    }
+  }
+  const parts = raw.split(/\r?\n+/).map(function (item) {
+    return String(item || '').trim();
+  }).filter(Boolean);
+  const candidates = parts.length > 1 ? parts : [raw];
+  return candidates.map(getDisplayImageUrl).filter(Boolean).filter(function (url, index, array) {
+    return array.indexOf(url) === index;
+  });
+}
+
 function extractDriveFileId(rawValue) {
   const value = String(rawValue || '').trim();
   if (!value) return '';
@@ -3419,6 +3475,17 @@ function getContentDisplayImageUrl(rawValue) {
   const driveFileId = extractDriveFileId(value);
   if (!driveFileId) return value;
   return 'https://lh3.googleusercontent.com/d/' + driveFileId + '=w1600';
+}
+
+function buildDetailImageGalleryHtml(images, altBase, extraStyle) {
+  const imageUrls = normalizeManagedImageList(images).map(function (url) {
+    return getContentDisplayImageUrl(url);
+  }).filter(Boolean);
+  if (!imageUrls.length) return '';
+  const style = extraStyle ? ` style="${extraStyle}"` : '';
+  return `<div class="detail-image-gallery"${style}>${imageUrls.map(function (url, index) {
+    return `<div class="blog-media-frame blog-media-frame--detail"><img src="${url}" class="blog-media-image blog-media-image--detail" alt="${escapeHtml((altBase || 'image') + ' ' + (index + 1))}"></div>`;
+  }).join('')}</div>`;
 }
 
 function parseLooseDateToTimestamp(rawValue) {
@@ -3636,10 +3703,9 @@ function refreshActiveDetailViews() {
 }
 function openBlogDetail(item) {
   markContentItemSeen(item && item.kind ? item.kind : 'blog', item);
-  let detailImageHtml = '';
-  if (item.image && !item.hasEmbeddedImage) {
-    detailImageHtml = `<div class="blog-media-frame blog-media-frame--detail"><img src="${getContentDisplayImageUrl(item.image)}" class="blog-media-image blog-media-image--detail" alt="Blog Image"></div>`;
-  }
+  const detailImageHtml = !item.hasEmbeddedImage
+    ? buildDetailImageGalleryHtml(item.imageUrls || item.image, item.title || 'Blog Image')
+    : '';
 
   let formattedBody = (item.body || '')
     .replace(/📷 (https?:\/\/[^\s]+)/g, function (match, url) {
@@ -3673,9 +3739,13 @@ function openProductModal(idx) {
   markContentItemSeen('product', p);
   const img = document.getElementById('prodModalImg');
   img.className = 'prod-img';
+  const productGalleryHtml = buildDetailImageGalleryHtml(p.imageUrls || p.icon, p.name || 'Product Image');
 
   // 1. iconがURL(http/data)ならそれを最優先、次にimgKeyMap、最後に絵文字
-  if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
+  if (productGalleryHtml) {
+    img.style.background = '#f8f5f0';
+    img.innerHTML = productGalleryHtml;
+  } else if (p.icon && (p.icon.startsWith('http') || p.icon.startsWith('data:'))) {
     img.style.background = '#f8f5f0';
     img.innerHTML = '<img src="' + getContentDisplayImageUrl(p.icon) + '" alt="" class="prod-img-media">';
   } else if (p.imgKey && PROD_IMAGES[p.imgKey]) {
@@ -3689,8 +3759,9 @@ function openProductModal(idx) {
   document.getElementById('prodModalPrice').innerHTML = buildProductPriceMarkup(p, 1, { mode: 'unit', includeTax: true, showPeriod: true });
 
   let descHtml = (p.description || '').replace(/\n/g, '<br>');
-  if (p.descriptionImage && p.descriptionImage.startsWith('http')) {
-    descHtml += `<div class="blog-media-frame blog-media-frame--detail" style="margin-top:12px;"><img src="${getContentDisplayImageUrl(p.descriptionImage)}" class="blog-media-image blog-media-image--detail" alt="Description Image"></div>`;
+  const descriptionGalleryHtml = buildDetailImageGalleryHtml(p.descriptionImageUrls || p.descriptionImage, (p.name || 'Product') + ' Description Image', 'margin-top:12px;');
+  if (descriptionGalleryHtml) {
+    descHtml += descriptionGalleryHtml;
   }
   document.getElementById('prodModalDesc').innerHTML = descHtml || '商品説明はありません';
   document.getElementById('prodModalDesc').style.display = 'none'; // 初期非表示
@@ -8107,13 +8178,15 @@ async function loadMenus(options) {
 
 function normalizeUserMenus(items) {
   return (items || []).map(function (item) {
+    const imageUrls = normalizeManagedImageList(item && (item.imageUrls || item.imageUrl));
     return {
       rowIdx: item && item.rowIdx,
       date: String(item && item.date || ''),
       updatedAt: String(item && item.updatedAt || item && item.date || ''),
       name: String(item && item.name || ''),
       category: String(item && item.category || ''),
-      imageUrl: String(item && item.imageUrl || ''),
+      imageUrl: imageUrls[0] || String(item && item.imageUrl || ''),
+      imageUrls: imageUrls,
       description: String(item && item.description || ''),
       reservationStatus: String(item && item.reservationStatus || ''),
       noticeStatus: normalizeNoticeVisibilityStatus(item && item.noticeStatus),
@@ -8175,10 +8248,7 @@ function openMenuDetail(idx) {
   if (!m) return;
   markContentItemSeen('menu', m);
 
-  let imageHtml = '';
-  if (m.imageUrl) {
-    imageHtml = `<div class="blog-media-frame blog-media-frame--detail" style="margin-bottom:20px;"><img src="${getContentDisplayImageUrl(m.imageUrl)}" class="blog-media-image blog-media-image--detail" alt="Menu Image"></div>`;
-  }
+  const imageHtml = buildDetailImageGalleryHtml(m.imageUrls || m.imageUrl, m.name || 'Menu Image', 'margin-bottom:20px;');
 
   const formattedDesc = (m.description || '').replace(/\n/g, '<br>');
 
