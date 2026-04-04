@@ -1141,15 +1141,6 @@
       color: var(--brown);
     }
 
-    .price-period-note {
-      display: block;
-      font-size: 10px;
-      font-weight: 500;
-      color: #9a5e50;
-      line-height: 1.4;
-      margin-top: 2px;
-    }
-
     .cart-qty-row {
       display: flex;
       align-items: center;
