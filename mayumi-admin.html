@@ -644,7 +644,7 @@
 
             <div class="form-group">
               <label>★画像をアップロード（スマホのライブラリから選択可能）</label>
-              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き画面が開きます</div>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
               <input type="file" id="blogImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'blog')">
               <div id="blogPreviewLabel"
@@ -798,7 +798,7 @@
             </div>
             <div class="form-group">
               <label>★画像（アイコン）をアップロード（スマホのライブラリから選択可能）</label>
-              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き（正方形）画面が開きます</div>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
               <input type="file" id="prodImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'prod')">
               <div id="prodPreviewLabel"
@@ -1044,7 +1044,7 @@
 
             <div class="form-group">
               <label>★画像（フライヤー・写真など）をアップロード（スマホのライブラリから選択可能）</label>
-              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き画面が開きます</div>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
               <input type="file" id="calImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'cal')">
               <div id="calPreviewLabel"
@@ -1188,7 +1188,7 @@
 
             <div class="form-group">
               <label>画像（フライヤー・写真など）をアップロード</label>
-              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像を選択すると切り抜き画面が開きます</div>
+              <div style="font-size:11px; color:#666; margin-bottom:5px;">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
               <input type="file" id="menuImageFile" accept="image/jpeg, image/png, image/gif, image/webp"
                 onchange="openImageCropModal(event, 'menu')">
               <div id="menuImagePreviewArea" style="margin-top:10px; display:none;">
@@ -5122,6 +5122,8 @@
         showToast(rowIdx ? 'ブログを更新しました！' : 'お知らせを投稿しました！ 🎉');
         cancelBlogEdit(); // フォームのリセットとモード戻し
         selectedImageBase64 = null;
+        selectedImageMime = null;
+        selectedImageName = null;
         loadAdminBlogs();
       } else {
         showToast('投稿に失敗しました');
@@ -5325,6 +5327,8 @@
         cancelProdEdit();
         loadAdminProducts();
         prodImageBase64 = null;
+        prodImageMime = null;
+        prodImageName = null;
         // 背景色を初期カラーに戻す
         document.getElementById('prodBg').value = '#d4e8c8';
       } else {
@@ -5500,7 +5504,11 @@
       if (document.getElementById('prodDescPreviewLabel')) document.getElementById('prodDescPreviewLabel').style.display = 'none';
       document.getElementById('prodBg').value = '#d4e8c8';
       prodImageBase64 = null;
+      prodImageMime = null;
+      prodImageName = null;
       prodDescImageBase64 = null;
+      prodDescImageMime = null;
+      prodDescImageName = null;
     }
 
     async function saveProduct(rowIdx) {
@@ -5654,6 +5662,8 @@
         cancelCalendarEdit();
         loadAdminCalendar();
         calImageBase64 = null;
+        calImageMime = null;
+        calImageName = null;
       } else {
         showToast('追加に失敗しました。');
       }
@@ -5845,6 +5855,8 @@
       document.getElementById('calImagePreview').style.display = 'none';
       if (document.getElementById('calPreviewLabel')) document.getElementById('calPreviewLabel').style.display = 'none';
       calImageBase64 = null;
+      calImageMime = null;
+      calImageName = null;
     }
 
     async function updateCalendarStatus(rowIdx, status) {
@@ -5888,6 +5900,8 @@
 
     // ========== メニュー管理ロジック ==========
     let menuImageBase64 = null;
+    let menuImageMime = null;
+    let menuImageName = null;
 
     async function loadAdminMenus() {
       const draftBody = document.getElementById('menusDraftsList');
@@ -5973,8 +5987,8 @@
         try {
           const res = await apiRequest('', {
             type: 'uploadImage',
-            filename: `menu_${Date.now()}.jpg`,
-            mimeType: 'image/jpeg',
+            filename: menuImageName || `menu_${Date.now()}.jpg`,
+            mimeType: menuImageMime || 'image/jpeg',
             base64: menuImageBase64
           }, true);
           if (res && res.url) imageUrl = res.url;
@@ -6007,6 +6021,9 @@
     function editMenu(rowIdx) {
       const m = allMenus.find(item => item.rowIdx === rowIdx);
       if (!m) return;
+      menuImageBase64 = null;
+      menuImageMime = null;
+      menuImageName = null;
 
       document.getElementById('menuRowIdx').value = m.rowIdx;
       document.getElementById('menuName').value = m.name;
@@ -6033,6 +6050,8 @@
       document.getElementById('menuExistingImageUrl').value = ''; // リセット時にクリア
       document.getElementById('menuImagePreviewArea').style.display = 'none';
       menuImageBase64 = null;
+      menuImageMime = null;
+      menuImageName = null;
       document.getElementById('menuFormTitle').textContent = '✨ 新しいメニューを追加する';
       document.getElementById('menuSubmitBtn').textContent = '🍴 公開して保存する';
       document.getElementById('menuCancelEditBtn').style.display = 'none';
@@ -6076,106 +6095,164 @@
         loadAdminMenus();
       }
     }
-    // ===== 画像クロップ機能 =====
-    let cropper = null;
-    let currentCropType = null;
+    // ===== 画像取り込み機能 =====
+    const IMAGE_UPLOAD_MAX_EDGE = 1600;
 
-    function openImageCropModal(event, type) {
+    function getOptimizedImageMime(file) {
+      const mimeType = String(file && file.type ? file.type : '').toLowerCase();
+      if (mimeType === 'image/png' || mimeType === 'image/webp') return mimeType;
+      return 'image/jpeg';
+    }
+
+    function buildOptimizedImageName(originalName, mimeType) {
+      const baseName = String(originalName || 'upload')
+        .replace(/\.[^.]+$/, '')
+        .replace(/[^a-zA-Z0-9._-]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'upload';
+      let extension = 'jpg';
+      if (mimeType === 'image/png') extension = 'png';
+      if (mimeType === 'image/webp') extension = 'webp';
+      return `${baseName}.${extension}`;
+    }
+
+    function updatePreparedImagePreview(type, dataUrl) {
+      let previewId = '';
+      let labelId = '';
+      let previewAreaId = '';
+
+      if (type === 'blog') {
+        previewId = 'imagePreview';
+        labelId = 'blogPreviewLabel';
+      } else if (type === 'prod') {
+        previewId = 'prodImagePreview';
+        labelId = 'prodPreviewLabel';
+      } else if (type === 'prodDesc') {
+        previewId = 'prodDescImagePreview';
+        labelId = 'prodDescPreviewLabel';
+      } else if (type === 'cal') {
+        previewId = 'calImagePreview';
+        labelId = 'calPreviewLabel';
+      } else if (type === 'menu') {
+        previewId = 'menuImagePreview';
+        previewAreaId = 'menuImagePreviewArea';
+      }
+
+      const preview = previewId ? document.getElementById(previewId) : null;
+      if (preview) {
+        preview.src = dataUrl;
+        preview.style.display = 'block';
+      }
+
+      if (previewAreaId) {
+        const area = document.getElementById(previewAreaId);
+        if (area) area.style.display = 'block';
+      }
+
+      if (labelId) {
+        const label = document.getElementById(labelId);
+        if (label) {
+          label.innerText = '✅ 選択中のプレビュー（全体表示）';
+          label.style.display = 'block';
+        }
+      }
+    }
+
+    function storePreparedImage(type, dataUrl, mimeType, fileName) {
+      const base64 = String(dataUrl || '').split(',')[1] || '';
+
+      if (type === 'blog') {
+        selectedImageBase64 = base64;
+        selectedImageMime = mimeType;
+        selectedImageName = fileName;
+      } else if (type === 'prod') {
+        prodImageBase64 = base64;
+        prodImageMime = mimeType;
+        prodImageName = fileName;
+      } else if (type === 'prodDesc') {
+        prodDescImageBase64 = base64;
+        prodDescImageMime = mimeType;
+        prodDescImageName = fileName;
+      } else if (type === 'cal') {
+        calImageBase64 = base64;
+        calImageMime = mimeType;
+        calImageName = fileName;
+      } else if (type === 'menu') {
+        menuImageBase64 = base64;
+        menuImageMime = mimeType;
+        menuImageName = fileName;
+      }
+
+      updatePreparedImagePreview(type, dataUrl);
+    }
+
+    function optimizeImageForUpload(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const image = new Image();
+          image.onload = () => {
+            const sourceWidth = image.naturalWidth || image.width || 1;
+            const sourceHeight = image.naturalHeight || image.height || 1;
+            const maxEdge = Math.max(sourceWidth, sourceHeight);
+            const scale = maxEdge > IMAGE_UPLOAD_MAX_EDGE ? (IMAGE_UPLOAD_MAX_EDGE / maxEdge) : 1;
+            const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+            const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+            const mimeType = getOptimizedImageMime(file);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            if (!ctx) {
+              reject(new Error('画像処理に必要な描画コンテキストを取得できませんでした。'));
+              return;
+            }
+
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            if (mimeType === 'image/jpeg') {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, targetWidth, targetHeight);
+            }
+
+            ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+            const quality = mimeType === 'image/png' ? undefined : 0.9;
+            resolve({
+              dataUrl: canvas.toDataURL(mimeType, quality),
+              mimeType: mimeType,
+              fileName: buildOptimizedImageName(file.name, mimeType)
+            });
+          };
+          image.onerror = () => reject(new Error('画像の読み込みに失敗しました。'));
+          image.src = event.target.result;
+        };
+        reader.onerror = () => reject(new Error('画像ファイルの読み込みに失敗しました。'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function openImageCropModal(event, type) {
       const file = event.target.files[0];
       if (!file) return;
 
-      currentCropType = type;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const cropImage = document.getElementById('cropImage');
-        cropImage.src = e.target.result;
-        document.getElementById('imageCropModal').style.display = 'flex';
-
-        if (cropper) cropper.destroy();
-
-        let aspectRatio = NaN; // Free crop by default
-        if (type === 'blog') aspectRatio = NaN;
-        if (type === 'prod') aspectRatio = 1; // Square for products
-        if (type === 'prodDesc') aspectRatio = NaN;
-        if (type === 'cal') aspectRatio = NaN;
-        if (type === 'menu') aspectRatio = NaN;
-
-        cropper = new Cropper(cropImage, {
-          viewMode: 1,
-          aspectRatio: aspectRatio,
-          autoCropArea: 0.8,
-          background: false
-        });
-      };
-      reader.readAsDataURL(file);
-      event.target.value = ''; // Reset input so same file can be selected again
+      try {
+        const optimized = await optimizeImageForUpload(file);
+        storePreparedImage(type, optimized.dataUrl, optimized.mimeType, optimized.fileName);
+        showToast('画像全体を保ったまま取り込みました');
+      } catch (error) {
+        console.error('Image prepare failed', error);
+        alert('画像の準備に失敗しました。別の画像で再度お試しください。');
+      } finally {
+        event.target.value = '';
+      }
     }
 
     function closeCropModal() {
-      document.getElementById('imageCropModal').style.display = 'none';
-      if (cropper) cropper.destroy();
-      cropper = null;
+      const modal = document.getElementById('imageCropModal');
+      if (modal) modal.style.display = 'none';
     }
 
     function applyCrop() {
-      if (!cropper) return;
-      const canvas = cropper.getCroppedCanvas({
-        maxWidth: 1200,
-        maxHeight: 1200
-      });
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-
-      if (currentCropType === 'blog') {
-        const img = document.getElementById('imagePreview');
-        img.src = dataUrl;
-        img.style.display = 'block';
-        if (document.getElementById('blogPreviewLabel')) {
-          document.getElementById('blogPreviewLabel').innerText = '✅ 選択中のプレビュー';
-          document.getElementById('blogPreviewLabel').style.display = 'block';
-        }
-        selectedImageBase64 = dataUrl.split(',')[1];
-        selectedImageMime = 'image/jpeg';
-        selectedImageName = 'cropped.jpg';
-      } else if (currentCropType === 'prod') {
-        const img = document.getElementById('prodImagePreview');
-        img.src = dataUrl;
-        img.style.display = 'block';
-        if (document.getElementById('prodPreviewLabel')) {
-          document.getElementById('prodPreviewLabel').innerText = '✅ 選択中のプレビュー';
-          document.getElementById('prodPreviewLabel').style.display = 'block';
-        }
-        prodImageBase64 = dataUrl.split(',')[1];
-        prodImageMime = 'image/jpeg';
-        prodImageName = 'cropped.jpg';
-      } else if (currentCropType === 'prodDesc') {
-        const img = document.getElementById('prodDescImagePreview');
-        img.src = dataUrl;
-        img.style.display = 'block';
-        if (document.getElementById('prodDescPreviewLabel')) {
-          document.getElementById('prodDescPreviewLabel').innerText = '✅ 選択中のプレビュー';
-          document.getElementById('prodDescPreviewLabel').style.display = 'block';
-        }
-        prodDescImageBase64 = dataUrl.split(',')[1];
-        prodDescImageMime = 'image/jpeg';
-        prodDescImageName = 'desc_cropped.jpg';
-      } else if (currentCropType === 'cal') {
-        const img = document.getElementById('calImagePreview');
-        img.src = dataUrl;
-        img.style.display = 'block';
-        if (document.getElementById('calPreviewLabel')) {
-          document.getElementById('calPreviewLabel').innerText = '✅ 選択中のプレビュー';
-          document.getElementById('calPreviewLabel').style.display = 'block';
-        }
-        calImageBase64 = dataUrl.split(',')[1];
-        calImageMime = 'image/jpeg';
-        calImageName = 'cropped.jpg';
-      } else if (currentCropType === 'menu') {
-        const img = document.getElementById('menuImagePreview');
-        img.src = dataUrl;
-        img.style.display = 'block';
-        document.getElementById('menuImagePreviewArea').style.display = 'block';
-        menuImageBase64 = dataUrl.split(',')[1];
-      }
       closeCropModal();
     }
 
