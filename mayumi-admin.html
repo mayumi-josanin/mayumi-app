@@ -6567,6 +6567,9 @@
           allProducts = Array.isArray(cachedRes.products) ? cachedRes.products : [];
           updateProductCategoryOptions();
           renderProductRevenueDraftEntries();
+          if (window.lastAnalyticsResult) {
+            renderAnalytics(window.lastAnalyticsResult);
+          }
         }
       }
       const res = await apiRequest('getAdminProducts');
@@ -6574,11 +6577,39 @@
         allProducts = Array.isArray(res.products) ? res.products : [];
         updateProductCategoryOptions();
         renderProductRevenueDraftEntries();
+        if (window.lastAnalyticsResult) {
+          renderAnalytics(window.lastAnalyticsResult);
+        }
         return true;
       }
       allProducts = [];
       renderProductRevenueDraftEntries();
       return false;
+    }
+
+    function getAnalyticsDisplayProductNames(res, monthKeys) {
+      const names = [];
+      if (Array.isArray(allProducts) && allProducts.length > 0) {
+        names.push.apply(names, allProducts.map(function (product) {
+          return String(product && product.name || '').trim();
+        }));
+      }
+      if (res && Array.isArray(res.products) && res.products.length > 0) {
+        names.push.apply(names, res.products.map(function (name) {
+          return String(name || '').trim();
+        }));
+      }
+      if (res && res.matrix) {
+        const targetMonths = Array.isArray(monthKeys) && monthKeys.length ? monthKeys : Object.keys(res.matrix);
+        targetMonths.forEach(function (monthKey) {
+          names.push.apply(names, Object.keys((res.matrix[monthKey] && res.matrix[monthKey].products) || {}));
+        });
+      }
+      return Array.from(new Set(names.map(function (name) {
+        return String(name || '').trim();
+      }).filter(Boolean))).sort(function (a, b) {
+        return String(a).localeCompare(String(b), 'ja');
+      });
     }
 
     function renderAnalytics(res) {
@@ -6603,17 +6634,8 @@
         return true;
       });
 
-      // --- 商品リストの同期 (商品管理のデータを基準にする) ---
-      let displayProducts = [];
-      if (allProducts && allProducts.length > 0) {
-        // 商品管理画面に登録されている全ての商品名を取得（追加・削除に自動追従）
-        displayProducts = Array.from(new Set(allProducts.map(function (product) {
-          return String(product && product.name || '').trim();
-        }).filter(Boolean)));
-      } else {
-        // 万が一取得できなかった場合のフォールバック
-        displayProducts = res.products || [];
-      }
+      // --- 商品リストの同期 (商品管理の全商品 + 売上実績の双方を反映) ---
+      const displayProducts = getAnalyticsDisplayProductNames(res, filteredMonths);
 
       // --- 収益サマリー ---
       const financialCols = [
@@ -6932,11 +6954,7 @@
       }, []).filter(Boolean))).sort(function (a, b) {
         return String(a).localeCompare(String(b), 'ja');
       });
-      const productNames = Array.from(new Set(((res.products || []).concat(orderedMonths.reduce(function (names, monthKey) {
-        return names.concat(Object.keys((res.matrix[monthKey] && res.matrix[monthKey].products) || {}));
-      }, []))).filter(Boolean))).sort(function (a, b) {
-        return String(a).localeCompare(String(b), 'ja');
-      });
+      const productNames = getAnalyticsDisplayProductNames(res, orderedMonths);
 
       const selectedMenuTarget = menuNames.indexOf(currentMenuTarget) !== -1 ? currentMenuTarget : '__all__';
       const selectedProductTarget = productNames.indexOf(currentProductTarget) !== -1 ? currentProductTarget : '__all__';
