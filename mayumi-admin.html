@@ -315,6 +315,91 @@
       font-weight: bold;
     }
 
+    .push-send-card {
+      margin-top: 12px;
+      padding: 14px 16px;
+      border: 1px solid rgba(90, 122, 78, 0.18);
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f7fbf4 0%, #fffdf9 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .push-send-card__top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    label.push-send-card__title {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 0;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .push-send-card__icon {
+      flex: 0 0 auto;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(90, 122, 78, 0.12);
+      color: var(--sage-dark);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+    }
+
+    .push-send-card__heading {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--sage-dark);
+      font-weight: 700;
+    }
+
+    .push-send-card__sub {
+      margin-top: 2px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-mid);
+    }
+
+    .push-send-card__check {
+      flex: 0 0 auto;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid rgba(90, 122, 78, 0.2);
+      background: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(90, 122, 78, 0.08);
+    }
+
+    .push-send-card__check input {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--sage-dark);
+    }
+
+    .push-send-card__note {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(90, 122, 78, 0.18);
+      font-size: 11px;
+      line-height: 1.7;
+      color: var(--text-mid);
+    }
+
+    .push-send-card__note strong {
+      color: var(--danger);
+    }
+
     /* 画像プレビュー */
     #imagePreview,
     #prodImagePreview,
@@ -890,12 +975,22 @@
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="blogPublishAt">
             </div>
-            <div class="form-group" style="margin-top:12px;">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" id="blogSendPush">
-                <span>この保存でPush通知を送信する</span>
-              </label>
-              <div style="font-size:11px; color:#666; margin-top:5px;">※公開中として保存される場合のみ送信されます。初期値はオフです。</div>
+            <div class="form-group">
+              <div class="push-send-card">
+                <div class="push-send-card__top">
+                  <label class="push-send-card__title" for="blogSendPush">
+                    <span class="push-send-card__icon">🔔</span>
+                    <span>
+                      <span class="push-send-card__heading">この保存でPush通知を送信する</span>
+                      <span class="push-send-card__sub">送信したいときだけ、右側のチェックを入れて保存してください。</span>
+                    </span>
+                  </label>
+                  <span class="push-send-card__check">
+                    <input type="checkbox" id="blogSendPush" aria-label="NEWS保存時にPush通知を送信">
+                  </span>
+                </div>
+                <div class="push-send-card__note"><strong>未チェックでは通知されません。</strong> 公開保存のときだけ送信対象になります。</div>
+              </div>
             </div>
             <div class="flex" style="gap:10px;">
               <button type="button" class="btn btn-outline" style="flex:1; font-size:15px; padding:12px;" onclick="previewBlogDraft()">👁 プレビュー</button>
@@ -1066,12 +1161,22 @@
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="prodPublishAt">
             </div>
-            <div class="form-group" style="margin-top:12px;">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" id="prodSendPush">
-                <span>この保存でPush通知を送信する</span>
-              </label>
-              <div style="font-size:11px; color:#666; margin-top:5px;">※公開中として保存される場合のみ送信されます。初期値はオフです。</div>
+            <div class="form-group">
+              <div class="push-send-card">
+                <div class="push-send-card__top">
+                  <label class="push-send-card__title" for="prodSendPush">
+                    <span class="push-send-card__icon">🔔</span>
+                    <span>
+                      <span class="push-send-card__heading">この保存でPush通知を送信する</span>
+                      <span class="push-send-card__sub">送信したいときだけ、右側のチェックを入れて保存してください。</span>
+                    </span>
+                  </label>
+                  <span class="push-send-card__check">
+                    <input type="checkbox" id="prodSendPush" aria-label="商品保存時にPush通知を送信">
+                  </span>
+                </div>
+                <div class="push-send-card__note"><strong>未チェックでは通知されません。</strong> 公開保存のときだけ送信対象になります。</div>
+              </div>
             </div>
             <div class="flex" style="gap:10px;">
               <button type="button" class="btn btn-outline" style="flex:1;" onclick="previewProductDraft()">👁 プレビュー</button>
@@ -1429,12 +1534,22 @@
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="calPublishAt">
             </div>
-            <div class="form-group" style="margin-top:12px;">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" id="calSendPush">
-                <span>この保存でPush通知を送信する</span>
-              </label>
-              <div style="font-size:11px; color:#666; margin-top:5px;">※公開中として保存される場合のみ送信されます。初期値はオフです。</div>
+            <div class="form-group">
+              <div class="push-send-card">
+                <div class="push-send-card__top">
+                  <label class="push-send-card__title" for="calSendPush">
+                    <span class="push-send-card__icon">🔔</span>
+                    <span>
+                      <span class="push-send-card__heading">この保存でPush通知を送信する</span>
+                      <span class="push-send-card__sub">送信したいときだけ、右側のチェックを入れて保存してください。</span>
+                    </span>
+                  </label>
+                  <span class="push-send-card__check">
+                    <input type="checkbox" id="calSendPush" aria-label="カレンダー保存時にPush通知を送信">
+                  </span>
+                </div>
+                <div class="push-send-card__note"><strong>未チェックでは通知されません。</strong> 公開保存のときだけ送信対象になります。</div>
+              </div>
             </div>
             <div class="flex" style="gap:10px;">
               <button type="button" class="btn btn-outline" style="flex:1;" onclick="previewCalendarDraft()">👁 プレビュー</button>
@@ -1588,12 +1703,22 @@
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="menuPublishAt">
             </div>
-            <div class="form-group" style="margin-top:12px;">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" id="menuSendPush">
-                <span>この保存でPush通知を送信する</span>
-              </label>
-              <div style="font-size:11px; color:#666; margin-top:5px;">※公開中として保存される場合のみ送信されます。初期値はオフです。</div>
+            <div class="form-group">
+              <div class="push-send-card">
+                <div class="push-send-card__top">
+                  <label class="push-send-card__title" for="menuSendPush">
+                    <span class="push-send-card__icon">🔔</span>
+                    <span>
+                      <span class="push-send-card__heading">この保存でPush通知を送信する</span>
+                      <span class="push-send-card__sub">送信したいときだけ、右側のチェックを入れて保存してください。</span>
+                    </span>
+                  </label>
+                  <span class="push-send-card__check">
+                    <input type="checkbox" id="menuSendPush" aria-label="メニュー保存時にPush通知を送信">
+                  </span>
+                </div>
+                <div class="push-send-card__note"><strong>未チェックでは通知されません。</strong> 公開保存のときだけ送信対象になります。</div>
+              </div>
             </div>
 
             <div class="flex" style="gap:10px; margin-top:20px;">
@@ -9066,9 +9191,11 @@
       menu: []
     };
 
-    function shouldSendContentPush(checkboxId) {
+    function shouldSendContentPush(checkboxId, publishStatus) {
       const checkbox = document.getElementById(checkboxId);
-      return !!(checkbox && checkbox.checked);
+      if (!(checkbox instanceof HTMLInputElement) || checkbox.checked !== true) return false;
+      if (publishStatus === undefined) return true;
+      return String(publishStatus || '').trim() === '公開';
     }
 
     function resetContentPushToggle(checkboxId) {
@@ -9113,7 +9240,7 @@
         body: document.getElementById('blogBody').value,
         status: status,
         publishAt: document.getElementById('blogPublishAt').value || '',
-        sendPushNotification: shouldSendContentPush('blogSendPush')
+        sendPushNotification: shouldSendContentPush('blogSendPush', status)
       };
 
       const res = await apiRequest('', payload, true);
@@ -9295,7 +9422,7 @@
         descriptionImage: finalProdDescImageUrls[0] || (originalProdDescImageUrls.length ? '' : (currentProduct.descriptionImage || '')),
         descriptionImageUrls: finalProdDescImageUrls,
         publishAt: document.getElementById('prodPublishAt').value || '',
-        sendPushNotification: shouldSendContentPush('prodSendPush')
+        sendPushNotification: shouldSendContentPush('prodSendPush', status)
       };
 
       const res = await apiRequest('', payload, true);
@@ -9627,7 +9754,7 @@
         imageUrls: finalCalendarImageUrls,
         status: status,
         publishAt: document.getElementById('calPublishAt').value || '',
-        sendPushNotification: shouldSendContentPush('calSendPush')
+        sendPushNotification: shouldSendContentPush('calSendPush', status)
       };
 
       // 追加モードで日付が1つも選択されていない場合
@@ -9968,7 +10095,7 @@
         imageUrl: finalMenuImageUrls[0] || '',
         imageUrls: finalMenuImageUrls,
         publishAt: document.getElementById('menuPublishAt').value || '',
-        sendPushNotification: shouldSendContentPush('menuSendPush')
+        sendPushNotification: shouldSendContentPush('menuSendPush', publishStatus)
       };
 
       const res = await apiRequest('', payload, true);
