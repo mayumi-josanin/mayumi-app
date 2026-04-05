@@ -982,6 +982,23 @@
             <div class="form-group">
               <div class="push-send-card">
                 <div class="push-send-card__top">
+                  <label class="push-send-card__title" for="blogNoticeRefresh">
+                    <span class="push-send-card__icon">📢</span>
+                    <span>
+                      <span class="push-send-card__heading">この保存をお知らせ一覧に反映する</span>
+                      <span class="push-send-card__sub">初投稿はオンのまま、編集時は必要なときだけチェックしてください。</span>
+                    </span>
+                  </label>
+                  <span class="push-send-card__check">
+                    <input type="checkbox" id="blogNoticeRefresh" aria-label="NEWS保存時にお知らせ一覧へ反映" checked>
+                  </span>
+                </div>
+                <div class="push-send-card__note"><strong>新規投稿は既定でオンです。</strong> 編集時に未チェックなら通常保存のみで、お知らせ一覧の掲載順は更新しません。</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="push-send-card">
+                <div class="push-send-card__top">
                   <label class="push-send-card__title" for="blogSendPush">
                     <span class="push-send-card__icon">🔔</span>
                     <span>
@@ -1164,6 +1181,23 @@
             <div class="form-group">
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="prodPublishAt">
+            </div>
+            <div class="form-group">
+              <div class="push-send-card">
+                <div class="push-send-card__top">
+                  <label class="push-send-card__title" for="prodNoticeRefresh">
+                    <span class="push-send-card__icon">📢</span>
+                    <span>
+                      <span class="push-send-card__heading">この保存をお知らせ一覧に反映する</span>
+                      <span class="push-send-card__sub">初回公開はオンのまま、価格や説明の修正時は必要なときだけチェックしてください。</span>
+                    </span>
+                  </label>
+                  <span class="push-send-card__check">
+                    <input type="checkbox" id="prodNoticeRefresh" aria-label="商品保存時にお知らせ一覧へ反映" checked>
+                  </span>
+                </div>
+                <div class="push-send-card__note"><strong>新規追加は既定でオンです。</strong> 編集時に未チェックなら商品情報だけ更新し、お知らせ一覧の掲載順は変わりません。</div>
+              </div>
             </div>
             <div class="form-group">
               <div class="push-send-card">
@@ -1541,6 +1575,23 @@
             <div class="form-group">
               <div class="push-send-card">
                 <div class="push-send-card__top">
+                  <label class="push-send-card__title" for="calNoticeRefresh">
+                    <span class="push-send-card__icon">📢</span>
+                    <span>
+                      <span class="push-send-card__heading">この保存をお知らせ一覧に反映する</span>
+                      <span class="push-send-card__sub">新規イベントはオンのまま、軽微な修正時は必要なときだけチェックしてください。</span>
+                    </span>
+                  </label>
+                  <span class="push-send-card__check">
+                    <input type="checkbox" id="calNoticeRefresh" aria-label="カレンダー保存時にお知らせ一覧へ反映" checked>
+                  </span>
+                </div>
+                <div class="push-send-card__note"><strong>新規追加は既定でオンです。</strong> 編集時に未チェックならイベント情報だけ更新し、お知らせ一覧の掲載順は更新しません。</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="push-send-card">
+                <div class="push-send-card__top">
                   <label class="push-send-card__title" for="calSendPush">
                     <span class="push-send-card__icon">🔔</span>
                     <span>
@@ -1706,6 +1757,23 @@
             <div class="form-group">
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="menuPublishAt">
+            </div>
+            <div class="form-group">
+              <div class="push-send-card">
+                <div class="push-send-card__top">
+                  <label class="push-send-card__title" for="menuNoticeRefresh">
+                    <span class="push-send-card__icon">📢</span>
+                    <span>
+                      <span class="push-send-card__heading">この保存をお知らせ一覧に反映する</span>
+                      <span class="push-send-card__sub">初回掲載はオンのまま、通常の説明修正時は必要なときだけチェックしてください。</span>
+                    </span>
+                  </label>
+                  <span class="push-send-card__check">
+                    <input type="checkbox" id="menuNoticeRefresh" aria-label="メニュー保存時にお知らせ一覧へ反映" checked>
+                  </span>
+                </div>
+                <div class="push-send-card__note"><strong>新規追加は既定でオンです。</strong> 編集時に未チェックならメニュー情報だけ更新し、お知らせ一覧の掲載順は変わりません。</div>
+              </div>
             </div>
             <div class="form-group">
               <div class="push-send-card">
@@ -2852,7 +2920,7 @@
       iosStoreUrl: '',
       updateTitle: 'アップデートが必要です',
       updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
-      webBundleVersion: '2026.04.05.61'
+      webBundleVersion: '2026.04.05.62'
     };
     let allUsers = [];
     let allMenus = [];
@@ -5766,11 +5834,12 @@
     }
 
     function buildAdminNoticePublishMeta(options) {
+      const noticeListedAt = String(options && options.noticeListedAt || '').trim();
       const updatedAt = String(options && options.updatedAt || '').trim();
       const fallbackDate = String(options && options.fallbackDate || '').trim();
-      const sortRaw = updatedAt || (options && options.useFallbackDateForSort ? fallbackDate : '');
-      const labelRaw = updatedAt || (options && options.useFallbackDateForLabel ? fallbackDate : '');
-      const visibilityRaw = updatedAt || (options && options.useFallbackDateForVisibility ? fallbackDate : '');
+      const sortRaw = noticeListedAt || updatedAt || (options && options.useFallbackDateForSort ? fallbackDate : '');
+      const labelRaw = noticeListedAt || updatedAt || (options && options.useFallbackDateForLabel ? fallbackDate : '');
+      const visibilityRaw = noticeListedAt || updatedAt || (options && options.useFallbackDateForVisibility ? fallbackDate : '');
       return {
         timestamp: parseAdminNoticeTimestamp(sortRaw),
         visibilityTimestamp: parseAdminNoticeTimestamp(visibilityRaw),
@@ -5821,6 +5890,7 @@
           && !String(item.noticeDeletedAt || '').trim();
       }).map(function (item, index) {
         const publishMeta = buildAdminNoticePublishMeta({
+          noticeListedAt: item.noticeListedAt,
           updatedAt: item.updatedAt,
           fallbackDate: item.date,
           useFallbackDateForSort: true,
@@ -5850,6 +5920,7 @@
           && !isAdminNoticeCalendarVisitEvent(event);
       }).map(function (event, index) {
         const publishMeta = buildAdminNoticePublishMeta({
+          noticeListedAt: event.noticeListedAt,
           updatedAt: event.updatedAt,
           fallbackDate: event.date,
           useFallbackDateForVisibility: true
@@ -5875,6 +5946,7 @@
           && !String(product.noticeDeletedAt || '').trim();
       }).map(function (product, index) {
         const publishMeta = buildAdminNoticePublishMeta({
+          noticeListedAt: product.noticeListedAt,
           updatedAt: product.updatedAt
         });
         return {
@@ -5898,6 +5970,7 @@
           && !String(menu.noticeDeletedAt || '').trim();
       }).map(function (menu, index) {
         const publishMeta = buildAdminNoticePublishMeta({
+          noticeListedAt: menu.noticeListedAt,
           updatedAt: menu.updatedAt,
           fallbackDate: menu.date,
           useFallbackDateForSort: true,
@@ -9156,6 +9229,18 @@
       if (checkbox) checkbox.checked = false;
     }
 
+    function shouldRefreshNoticeListingOnSave(checkboxId) {
+      const checkbox = document.getElementById(checkboxId);
+      return checkbox instanceof HTMLInputElement && checkbox.checked === true;
+    }
+
+    function setContentNoticeToggle(checkboxId, checked) {
+      const checkbox = document.getElementById(checkboxId);
+      if (checkbox instanceof HTMLInputElement) {
+        checkbox.checked = checked === true;
+      }
+    }
+
     async function submitBlog(e) {
       e.preventDefault();
       const status = document.getElementById('blogStatus').value;
@@ -9193,6 +9278,7 @@
         body: document.getElementById('blogBody').value,
         status: status,
         publishAt: document.getElementById('blogPublishAt').value || '',
+        noticeRefreshOnSave: shouldRefreshNoticeListingOnSave('blogNoticeRefresh'),
         sendPushNotification: shouldSendContentPush('blogSendPush', status)
       };
 
@@ -9300,6 +9386,7 @@
       document.getElementById('blogIcon').value = b.icon;
       document.getElementById('blogBody').value = b.body;
       document.getElementById('blogPublishAt').value = formatDateForDateTimeLocal(b.publishAt || '');
+      setContentNoticeToggle('blogNoticeRefresh', false);
       resetContentPushToggle('blogSendPush');
 
       document.getElementById('blogSubmitBtn').innerText = '📝 修正して保存する';
@@ -9317,6 +9404,7 @@
       document.getElementById('blogSubmitBtn').innerText = '🌟 この内容で投稿する';
       document.getElementById('blogCancelEditBtn').style.display = 'none';
       clearAllImageState('blog');
+      setContentNoticeToggle('blogNoticeRefresh', true);
       resetContentPushToggle('blogSendPush');
     }
 
@@ -9375,6 +9463,7 @@
         descriptionImage: finalProdDescImageUrls[0] || (originalProdDescImageUrls.length ? '' : (currentProduct.descriptionImage || '')),
         descriptionImageUrls: finalProdDescImageUrls,
         publishAt: document.getElementById('prodPublishAt').value || '',
+        noticeRefreshOnSave: shouldRefreshNoticeListingOnSave('prodNoticeRefresh'),
         sendPushNotification: shouldSendContentPush('prodSendPush', status)
       };
 
@@ -9530,6 +9619,7 @@
       document.getElementById('prodBg').value = p.bg;
       document.getElementById('prodDesc').value = p.description || '';
       document.getElementById('prodPublishAt').value = formatDateForDateTimeLocal(p.publishAt || '');
+      setContentNoticeToggle('prodNoticeRefresh', false);
       resetContentPushToggle('prodSendPush');
       clearPreparedImages('prod');
       clearPreparedImages('prodDesc');
@@ -9556,6 +9646,7 @@
       document.getElementById('prodLowStockThreshold').value = 0;
       clearAllImageState('prod');
       clearAllImageState('prodDesc');
+      setContentNoticeToggle('prodNoticeRefresh', true);
       resetContentPushToggle('prodSendPush');
     }
 
@@ -9707,6 +9798,7 @@
         imageUrls: finalCalendarImageUrls,
         status: status,
         publishAt: document.getElementById('calPublishAt').value || '',
+        noticeRefreshOnSave: shouldRefreshNoticeListingOnSave('calNoticeRefresh'),
         sendPushNotification: shouldSendContentPush('calSendPush', status)
       };
 
@@ -9891,6 +9983,7 @@
       document.getElementById('calDesc').value = c.desc;
       document.getElementById('calColor').value = c.color;
       document.getElementById('calPublishAt').value = formatDateForDateTimeLocal(c.publishAt || '');
+      setContentNoticeToggle('calNoticeRefresh', false);
       resetContentPushToggle('calSendPush');
       clearPreparedImages('cal');
       setExistingImageUrls('cal', c.imageUrls || c.image || '');
@@ -9917,6 +10010,7 @@
       document.getElementById('calCategory').value = '';
       document.getElementById('calPublishAt').value = '';
       clearAllImageState('cal');
+      setContentNoticeToggle('calNoticeRefresh', true);
       resetContentPushToggle('calSendPush');
     }
 
@@ -10048,6 +10142,7 @@
         imageUrl: finalMenuImageUrls[0] || '',
         imageUrls: finalMenuImageUrls,
         publishAt: document.getElementById('menuPublishAt').value || '',
+        noticeRefreshOnSave: shouldRefreshNoticeListingOnSave('menuNoticeRefresh'),
         sendPushNotification: shouldSendContentPush('menuSendPush', publishStatus)
       };
 
@@ -10073,6 +10168,7 @@
       document.getElementById('menuReservationStatus').value = m.reservationStatus;
       document.getElementById('menuPublishAt').value = formatDateForDateTimeLocal(m.publishAt || '');
       setExistingImageUrls('menu', m.imageUrls || m.imageUrl || '');
+      setContentNoticeToggle('menuNoticeRefresh', false);
       resetContentPushToggle('menuSendPush');
 
       document.getElementById('menuFormTitle').textContent = '📝 メニューを編集する';
@@ -10087,6 +10183,7 @@
       document.getElementById('menuCategory').value = '';
       document.getElementById('menuPublishAt').value = '';
       clearAllImageState('menu');
+      setContentNoticeToggle('menuNoticeRefresh', true);
       resetContentPushToggle('menuSendPush');
       document.getElementById('menuFormTitle').textContent = '✨ 新しいメニューを追加する';
       document.getElementById('menuSubmitBtn').textContent = '🍴 公開して保存する';
