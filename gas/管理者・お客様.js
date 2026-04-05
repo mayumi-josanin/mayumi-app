@@ -162,7 +162,7 @@ const DEFAULT_APP_RUNTIME_CONFIG = {
   iosStoreUrl: '',
   updateTitle: 'アップデートが必要です',
   updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
-  webBundleVersion: '2026.04.05.60'
+  webBundleVersion: '2026.04.05.61'
 };
 const DEFAULT_ADMIN_SECURITY_CONFIG = {
   roleMode: 'owner',

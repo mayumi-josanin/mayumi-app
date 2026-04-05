@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.05.60';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.05.61';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -62,6 +62,8 @@ const PASSCODE_SET_STORAGE_KEY = 'mayumi_passcode_set';
 const LOCAL_PASSCODE_HASH_STORAGE_KEY = 'mayumi_local_passcode_hash';
 const PASSCODE_LOGIN_ENABLED_STORAGE_KEY = 'mayumi_passcode_login_enabled';
 const PASSCODE_SKIP_ONCE_SESSION_KEY = 'mayumi_passcode_skip_once';
+const UPDATE_RESTORE_PAGE_SESSION_KEY = 'mayumi_update_restore_page';
+const UPDATE_RELOAD_TARGET_SESSION_KEY = 'mayumi_update_reload_target';
 const PASSCODE_RESUME_LOCK_DELAY_MS = 1500;
 const SECURE_STORE_DB_NAME = 'mayumi_secure_store';
 const SECURE_STORE_NAME = 'kv';
@@ -98,7 +100,8 @@ let appUpdateContext = {
   waitingServiceWorker: false,
   message: '',
   webBundleVersion: '',
-  reloadStarted: false
+  reloadStarted: false,
+  reloadTimerId: 0
 };
 let itemSeenState = readJsonStorage(ITEM_SEEN_STORAGE_KEY, {});
 let favoriteEntries = readJsonStorage(FAVORITES_STORAGE_KEY, []);
@@ -133,6 +136,26 @@ function writeJsonStorage(key, value) {
 function removeStoredValue(key) {
   try {
     localStorage.removeItem(key);
+  } catch (e) { }
+}
+
+function readSessionValue(key) {
+  try {
+    return sessionStorage.getItem(key) || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function writeSessionValue(key, value) {
+  try {
+    sessionStorage.setItem(key, String(value || ''));
+  } catch (e) { }
+}
+
+function removeSessionValue(key) {
+  try {
+    sessionStorage.removeItem(key);
   } catch (e) { }
 }
 
@@ -805,10 +828,103 @@ function hideAppUpdateBanner(persistDismiss) {
   }
 }
 
+function normalizeAppPageName(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  const allowed = {
+    home: 'home',
+    'menu-list': 'menu-list',
+    menu: 'menu-list',
+    shop: 'shop',
+    blog: 'blog',
+    news: 'blog',
+    cart: 'cart',
+    calendar: 'calendar',
+    mypage: 'mypage',
+    profile: 'mypage',
+    notices: 'notices',
+    notice: 'notices'
+  };
+  return allowed[raw] || '';
+}
+
+function getActivePageName() {
+  const activePage = document.querySelector('.page.active');
+  if (!activePage || !activePage.id) return 'home';
+  return normalizeAppPageName(activePage.id.replace('page-', '')) || 'home';
+}
+
+function activatePageSilently(name) {
+  const pageName = normalizeAppPageName(name) || 'home';
+  document.querySelectorAll('.page').forEach(function (page) {
+    page.classList.remove('active');
+  });
+  document.querySelectorAll('.nav-btn').forEach(function (button) {
+    button.classList.remove('active');
+  });
+  const targetPage = document.getElementById('page-' + pageName);
+  if (targetPage) targetPage.classList.add('active');
+  const targetNav = document.getElementById('nav-' + pageName);
+  if (targetNav) targetNav.classList.add('active');
+}
+
+function getPendingUpdateRestorePage() {
+  return normalizeAppPageName(readSessionValue(UPDATE_RESTORE_PAGE_SESSION_KEY));
+}
+
+function setPendingUpdateRestorePage(pageName) {
+  const normalized = normalizeAppPageName(pageName);
+  if (!normalized) return '';
+  writeSessionValue(UPDATE_RESTORE_PAGE_SESSION_KEY, normalized);
+  return normalized;
+}
+
+function clearPendingUpdateRestorePage() {
+  removeSessionValue(UPDATE_RESTORE_PAGE_SESSION_KEY);
+}
+
+function buildAppUpdateReloadUrl(targetPage) {
+  const url = new URL(window.location.href);
+  const normalizedPage = normalizeAppPageName(targetPage);
+  url.searchParams.set('upd', Date.now());
+  if (normalizedPage) {
+    url.searchParams.set('restorePage', normalizedPage);
+  } else {
+    url.searchParams.delete('restorePage');
+  }
+  return url.toString();
+}
+
+function setPendingAppReloadTarget(url, pageName) {
+  if (url) writeSessionValue(UPDATE_RELOAD_TARGET_SESSION_KEY, url);
+  setPendingUpdateRestorePage(pageName);
+}
+
+function getPendingAppReloadTarget() {
+  return readSessionValue(UPDATE_RELOAD_TARGET_SESSION_KEY);
+}
+
+function clearPendingAppReloadTarget() {
+  removeSessionValue(UPDATE_RELOAD_TARGET_SESSION_KEY);
+}
+
+function getPreferredStartupPage() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const openPage = normalizeOpenPageTarget(params.get('open'));
+    if (openPage) return openPage;
+    const restorePage = normalizeAppPageName(params.get('restorePage'));
+    if (restorePage) return restorePage;
+  } catch (e) { }
+  return getPendingUpdateRestorePage() || 'home';
+}
+
 async function applyPendingAppUpdate() {
   if (appUpdateContext.reloadStarted) return;
   appUpdateContext.reloadStarted = true;
   appUpdateContext.needsReload = true;
+  const restorePage = setPendingUpdateRestorePage(getActivePageName()) || 'home';
+  const targetUrl = buildAppUpdateReloadUrl(restorePage);
+  setPendingAppReloadTarget(targetUrl, restorePage);
   if ('serviceWorker' in navigator) {
     try {
       const registrations = await navigator.serviceWorker.getRegistrations();
@@ -817,15 +933,21 @@ async function applyPendingAppUpdate() {
         if (registration.waiting) waiting = registration.waiting;
       });
       if (waiting) {
+        appUpdateContext.waitingServiceWorker = true;
         waiting.postMessage({ type: 'SKIP_WAITING' });
+        if (appUpdateContext.reloadTimerId) {
+          clearTimeout(appUpdateContext.reloadTimerId);
+        }
+        appUpdateContext.reloadTimerId = setTimeout(function () {
+          window.location.href = targetUrl;
+        }, 1200);
+        return;
       }
     } catch (e) {
       console.error('applyPendingAppUpdate waiting worker error:', e);
     }
   }
-  const url = new URL(window.location.href);
-  url.searchParams.set('upd', Date.now());
-  window.location.href = url.toString();
+  window.location.href = targetUrl;
 }
 
 function renderRetryQueueStatus() {
@@ -7284,15 +7406,12 @@ function checkFirstLaunch() {
   } else {
     CUSTOMER_NAME = _profile.name;
     updateProfileUI();
+    activatePageSilently(getPreferredStartupPage());
 
     if (needsRequiredPasscodeSetup()) {
       openMigrationModal();
       return;
     }
-
-    // 既存ユーザー：ホーム画面をアクティブにする
-    const homePage = document.getElementById('page-home');
-    if (homePage) homePage.classList.add('active');
 
     if (consumePasscodeUnlockSkippedOnce()) {
       isPasscodeAuthenticated = true;
@@ -7350,6 +7469,18 @@ function openPageFromNotificationTarget(target) {
 // ===== URLパラメータからのスタンプ付与処理 =====
 function checkUrlParams() {
   const params = new URLSearchParams(window.location.search);
+  const restorePage = normalizeAppPageName(params.get('restorePage'));
+  if (restorePage) {
+    clearPendingAppReloadTarget();
+    clearPendingUpdateRestorePage();
+    if (getActivePageName() !== restorePage && _profile) {
+      switchPage(restorePage);
+    }
+    params.delete('restorePage');
+    const nextUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+    window.history.replaceState({}, document.title, nextUrl);
+    return;
+  }
   const openTarget = params.get('open');
   if (openTarget) {
     setTimeout(function () {
@@ -7889,6 +8020,16 @@ window.addEventListener('online', function () {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', function () {
     if (!appUpdateContext.needsReload) return;
+    if (appUpdateContext.reloadTimerId) {
+      clearTimeout(appUpdateContext.reloadTimerId);
+      appUpdateContext.reloadTimerId = 0;
+    }
+    const pendingTarget = getPendingAppReloadTarget();
+    clearPendingAppReloadTarget();
+    if (pendingTarget) {
+      window.location.href = pendingTarget;
+      return;
+    }
     const url = new URL(window.location.href);
     if (!url.searchParams.get('upd')) {
       url.searchParams.set('upd', Date.now());
