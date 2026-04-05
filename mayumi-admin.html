@@ -6934,7 +6934,7 @@
       });
       const productNames = Array.from(new Set(((res.products || []).concat(orderedMonths.reduce(function (names, monthKey) {
         return names.concat(Object.keys((res.matrix[monthKey] && res.matrix[monthKey].products) || {}));
-      }, [])))).filter(Boolean)).sort(function (a, b) {
+      }, []))).filter(Boolean))).sort(function (a, b) {
         return String(a).localeCompare(String(b), 'ja');
       });
 
@@ -7026,75 +7026,6 @@
               ${chart.controlHtml || ''}
             </div>
             ${buildMonthlyAxisChartSvg(chart.points, chart.color)}
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderRegistrationRouteAnalytics(routeData) {
-      const header = document.getElementById('registrationRouteHeader');
-      const body = document.getElementById('registrationRouteBody');
-      if (!header || !body) return;
-      const routeLabels = routeData && Array.isArray(routeData.routeLabels) && routeData.routeLabels.length
-        ? routeData.routeLabels
-        : ['新規登録', '復元', '引き継ぎコード利用', '重複候補からの復旧', '自動復旧'];
-      header.innerHTML = '<th>月 / 経路</th>' + routeLabels.map(label => `<th style="text-align:center;">${escapeHtml(label)}</th>`).join('') + '<th style="text-align:center;">合計</th>';
-
-      const months = routeData && Array.isArray(routeData.months) ? routeData.months : [];
-      if (!months.length) {
-        body.innerHTML = `<tr><td colspan="${routeLabels.length + 2}" style="text-align:center; color:var(--text-mid);">登録経路データがありません</td></tr>`;
-        return;
-      }
-
-      const rows = months.map(function (monthKey) {
-        const matrix = routeData.matrix && routeData.matrix[monthKey] ? routeData.matrix[monthKey] : {};
-        const total = routeLabels.reduce(function (sum, label) {
-          return sum + Number(matrix[label] || 0);
-        }, 0);
-        return `
-          <tr>
-            <td><b>${monthKey}</b></td>
-            ${routeLabels.map(label => `<td style="text-align:center;">${Number(matrix[label] || 0).toLocaleString()}</td>`).join('')}
-            <td style="text-align:center; font-weight:bold;">${total.toLocaleString()}</td>
-          </tr>
-        `;
-      }).join('');
-
-      const totalRow = `
-        <tr style="background:#faf6ef;">
-          <td><b>累計</b></td>
-          ${routeLabels.map(label => `<td style="text-align:center; font-weight:bold;">${Number(routeData.totals && routeData.totals[label] || 0).toLocaleString()}</td>`).join('')}
-          <td style="text-align:center; font-weight:bold;">${routeLabels.reduce((sum, label) => sum + Number(routeData.totals && routeData.totals[label] || 0), 0).toLocaleString()}</td>
-        </tr>
-      `;
-      body.innerHTML = rows + totalRow;
-    }
-
-    function renderPopularCategoryAnalytics(categoryUsage) {
-      const container = document.getElementById('popularCategoryAnalysisBody');
-      if (!container) return;
-      const sections = [
-        { key: 'news', title: 'NEWSカテゴリ' },
-        { key: 'products', title: '商品カテゴリ' },
-        { key: 'menus', title: 'メニューカテゴリ' },
-        { key: 'calendar', title: 'カレンダーカテゴリ' }
-      ];
-      container.innerHTML = sections.map(function (section) {
-        const bucket = categoryUsage && categoryUsage[section.key] ? categoryUsage[section.key] : { items: [], total: 0 };
-        const rows = (bucket.items || []).slice(0, 8).map(function (item, index) {
-          return `<tr><td>${index + 1}. ${escapeHtml(item.category || '')}</td><td style="text-align:right;">${Number(item.count || 0).toLocaleString()}件</td></tr>`;
-        }).join('');
-        return `
-          <div class="card compact-card" style="margin:0;">
-            <div class="card-title" style="font-size:14px;">${section.title}</div>
-            <div style="font-size:12px; color:var(--text-mid); margin-bottom:10px;">合計 ${Number(bucket.total || 0).toLocaleString()}件</div>
-            <div class="table-wrapper">
-              <table>
-                <tbody>
-                  ${rows || '<tr><td colspan="2" style="text-align:center; color:var(--text-mid);">データがありません</td></tr>'}
-                </tbody>
-              </table>
-            </div>
           </div>
         `;
       }).join('');
