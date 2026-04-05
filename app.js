@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.05.61';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.05.62';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -2296,6 +2296,7 @@ function normalizeProductEntry(product, index) {
     descriptionImage: descriptionImageUrls[0] || String(item.descriptionImage || ''),
     descriptionImageUrls: descriptionImageUrls,
     updatedAt: String(item.updatedAt || ''),
+    noticeListedAt: String(item.noticeListedAt || ''),
     noticeStatus: normalizeNoticeVisibilityStatus(item.noticeStatus)
   };
 }
@@ -3313,6 +3314,7 @@ function buildNoticeFeedItems() {
   // Blog: GAS側で新しい順にソート済みなので、indexが小さいほど新しい
   const blogFeed = (blogItems || []).map(function (item, index) {
     const publishMeta = buildNoticePublishMeta({
+      noticeListedAt: item.noticeListedAt,
       updatedAt: item.updatedAt,
       fallbackDate: item.date,
       useFallbackDateForSort: true,
@@ -3342,6 +3344,7 @@ function buildNoticeFeedItems() {
     return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event);
   }).map(function (event, index) {
     const publishMeta = buildNoticePublishMeta({
+      noticeListedAt: event.noticeListedAt,
       updatedAt: event.updatedAt,
       fallbackDate: event.date,
       useFallbackDateForVisibility: true
@@ -3365,6 +3368,7 @@ function buildNoticeFeedItems() {
 
   const productFeed = (PRODUCTS || []).map(function (product, index) {
     const publishMeta = buildNoticePublishMeta({
+      noticeListedAt: product.noticeListedAt,
       updatedAt: product.updatedAt
     });
     return {
@@ -3387,6 +3391,7 @@ function buildNoticeFeedItems() {
   // Home: メニュー一覧はホームから閲覧する導線のため、カテゴリは「ホーム」でまとめる
   const menuFeed = (USER_MENUS || []).map(function (menu, index) {
     const publishMeta = buildNoticePublishMeta({
+      noticeListedAt: menu.noticeListedAt,
       updatedAt: menu.updatedAt,
       fallbackDate: menu.date,
       useFallbackDateForSort: true,
@@ -3483,6 +3488,7 @@ function normalizeBlogItems(items, categories) {
     return {
       date: normalizeBlogDate(item && item.date),
       updatedAt: String(item && item.updatedAt || item && item.date || ''),
+      noticeListedAt: String(item && item.noticeListedAt || ''),
       title: String(item && item.title || ''),
       category: category,
       type: inferredType,
@@ -3516,6 +3522,7 @@ function normalizeCalendarEventEntry(item) {
     image: imageUrls[0] || getDisplayImageUrl(event.image) || '',
     imageUrls: imageUrls,
     updatedAt: String(event.updatedAt || ''),
+    noticeListedAt: String(event.noticeListedAt || ''),
     publishAt: String(event.publishAt || ''),
     noticeStatus: normalizeNoticeVisibilityStatus(event.noticeStatus),
     sortOrder: Number(event.sortOrder || 0)
@@ -3673,11 +3680,12 @@ function getNoticeItemTimestamp(rawValue) {
 }
 
 function buildNoticePublishMeta(options) {
+  const noticeListedAt = String(options && options.noticeListedAt || '').trim();
   const updatedAt = String(options && options.updatedAt || '').trim();
   const fallbackDate = String(options && options.fallbackDate || '').trim();
-  const sortRaw = updatedAt || (options && options.useFallbackDateForSort ? fallbackDate : '');
-  const labelRaw = updatedAt || (options && options.useFallbackDateForLabel ? fallbackDate : '');
-  const visibilityRaw = updatedAt || (options && options.useFallbackDateForVisibility ? fallbackDate : '');
+  const sortRaw = noticeListedAt || updatedAt || (options && options.useFallbackDateForSort ? fallbackDate : '');
+  const labelRaw = noticeListedAt || updatedAt || (options && options.useFallbackDateForLabel ? fallbackDate : '');
+  const visibilityRaw = noticeListedAt || updatedAt || (options && options.useFallbackDateForVisibility ? fallbackDate : '');
   return {
     timestamp: getNoticeItemTimestamp(sortRaw),
     visibilityTimestamp: getNoticeItemTimestamp(visibilityRaw),
@@ -8324,6 +8332,7 @@ function normalizeUserMenus(items) {
       rowIdx: item && item.rowIdx,
       date: String(item && item.date || ''),
       updatedAt: String(item && item.updatedAt || item && item.date || ''),
+      noticeListedAt: String(item && item.noticeListedAt || ''),
       name: String(item && item.name || ''),
       category: String(item && item.category || ''),
       imageUrl: imageUrls[0] || String(item && item.imageUrl || ''),
