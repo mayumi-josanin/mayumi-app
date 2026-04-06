@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.05.62';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.06.63';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -2636,13 +2636,16 @@ function openCalendarEventDetail(idx) {
   if (!detail) return;
   const safeTitle = escapeHtml(event.title || '');
   const safeDate = escapeHtml(formatCalendarDisplayDate(event.date || ''));
-  const safeDesc = escapeHtml(event.desc || '').replace(/\n/g, '<br>') || '詳細はありません。';
+  const safeDesc = renderManagedTextHtml(event.desc || '', {
+    inlineImageClass: 'blog-inline-image blog-inline-image--detail',
+    inlineImageAlt: (event.title || 'イベント画像')
+  }) || '詳細はありません。';
   const safeColor = getCalendarSafeColor(event.color);
   const detailImageHtml = buildDetailImageGalleryHtml(event.imageUrls || event.image, event.title || 'Calendar Image');
   detail.innerHTML = `
     ${detailImageHtml}
     <div class="blog-detail-title" style="margin-bottom:12px;">${safeTitle}</div>
-    <div class="blog-detail-body" style="font-size:14px; line-height:1.8; color:var(--text-main);">
+    <div class="blog-detail-body managed-rich-text" style="font-size:14px; line-height:1.8; color:var(--text-main);">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--text-light);">
         <span style="display:inline-block;width:10px;height:10px;border-radius:999px;background:${safeColor};flex-shrink:0;"></span>
         <span>${safeDate}</span>
@@ -2868,7 +2871,10 @@ function buildCalendarDayMarkers(dayEvents) {
 function buildCalendarEventListItem(event, showDate) {
   const eventIndex = calendarData.indexOf(event);
   const safeTitle = escapeHtml(event.title || '');
-  const safeDesc = escapeHtml(event.desc || '') || '詳細はありません。';
+  const safeDesc = renderManagedTextHtml(event.desc || '', {
+    stripInlineImages: true,
+    preserveLineBreaks: false
+  }) || '詳細はありません。';
   const safeDate = escapeHtml(formatCalendarCompactDate(event.date || ''));
   const safeImage = getContentDisplayImageUrl(event.image || '');
   const safeColor = getCalendarSafeColor(event.color);
@@ -3053,11 +3059,11 @@ function renderBlogList(containerId, limit, filterType = null, filterCategory = 
         .replace(/\n{3,}/g, '\n\n')
         .trim();
       if (previewText) {
-        bodyHtml = `<div class="blog-body-preview">${escapeHtml(previewText).replace(/\n/g, '<br>')}</div>`;
+        bodyHtml = `<div class="blog-body-preview managed-rich-text">${renderManagedTextHtml(previewText, { stripInlineImages: true })}</div>`;
       }
     }
 
-    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${item.icon || '📢'}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${displayDate}</span><span class="blog-cat">${item.category}</span>${buildUnreadBadgeHtml('blog', item)}</div><div class="blog-title">${item.title}</div>${bodyHtml}</div></div>`;
+    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${escapeHtml(item.icon || '📢')}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${escapeHtml(displayDate)}</span><span class="blog-cat">${escapeHtml(item.category || '')}</span>${buildUnreadBadgeHtml('blog', item)}</div><div class="blog-title">${escapeHtml(item.title || '')}</div>${bodyHtml}</div></div>`;
     div.onclick = () => openBlogDetail(item);
     el.appendChild(div);
   });
@@ -3212,7 +3218,7 @@ function renderPushNotices() {
     card.className = 'blog-card';
     card.innerHTML = `
       <div class="blog-inner">
-        <div class="blog-icon">${item.icon}</div>
+        <div class="blog-icon">${escapeHtml(item.icon || '📢')}</div>
         <div style="flex:1">
           <div class="blog-meta">
             <span class="blog-cat">${escapeHtml(item.category)}</span>
@@ -3220,7 +3226,7 @@ function renderPushNotices() {
             ${buildUnreadBadgeHtml(item.kind, item)}
           </div>
           <div class="blog-title">${escapeHtml(item.title)}</div>
-          <div class="blog-body-preview">${escapeHtml(item.body || '').replace(/\n/g, '<br>')}</div>
+          <div class="blog-body-preview managed-rich-text">${renderManagedTextHtml(item.body || '', { stripInlineImages: true })}</div>
         </div>
       </div>
     `;
@@ -3837,18 +3843,18 @@ function openBlogDetail(item) {
     ? buildDetailImageGalleryHtml(item.imageUrls || item.image, item.title || 'Blog Image')
     : '';
 
-  let formattedBody = (item.body || '')
-    .replace(/📷 (https?:\/\/[^\s]+)/g, function (match, url) {
-      return `<img src="${getContentDisplayImageUrl(url)}" class="blog-inline-image blog-inline-image--detail">`;
-    }).replace(/\n/g, '<br>');
+  const formattedBody = renderManagedTextHtml(item.body || '', {
+    inlineImageClass: 'blog-inline-image blog-inline-image--detail',
+    inlineImageAlt: (item.title || '記事画像')
+  }) || '本文はありません。';
   const displayDate = formatCustomerDateYmd(item.date);
 
   document.getElementById('blogDetailContent').innerHTML = `
-    <span class="blog-detail-cat">${item.category}</span>
-    <div class="blog-detail-title">${item.title}</div>
-    <div class="blog-detail-date">${displayDate}</div>
+    <span class="blog-detail-cat">${escapeHtml(item.category || '')}</span>
+    <div class="blog-detail-title">${escapeHtml(item.title || '')}</div>
+    <div class="blog-detail-date">${escapeHtml(displayDate)}</div>
     ${detailImageHtml}
-    <div class="blog-detail-body">${formattedBody}</div>
+    <div class="blog-detail-body managed-rich-text">${formattedBody}</div>
     <div style="margin-top:14px;">${buildFavoriteActionMarkup('blog', item)}</div>`;
   if (document.getElementById('page-blog').classList.contains('active')) {
     renderDividedBlogList();
@@ -3888,13 +3894,18 @@ function openProductModal(idx) {
   document.getElementById('prodModalName').textContent = p.name;
   document.getElementById('prodModalPrice').innerHTML = buildProductPriceMarkup(p, 1, { mode: 'unit', includeTax: true, showPeriod: true });
 
-  let descHtml = (p.description || '').replace(/\n/g, '<br>');
+  let descHtml = renderManagedTextHtml(p.description || '', {
+    inlineImageClass: 'blog-inline-image blog-inline-image--detail',
+    inlineImageAlt: (p.name || '商品画像')
+  });
   const descriptionGalleryHtml = buildDetailImageGalleryHtml(p.descriptionImageUrls || p.descriptionImage, (p.name || 'Product') + ' Description Image', 'margin-top:12px;');
   if (descriptionGalleryHtml) {
     descHtml += descriptionGalleryHtml;
   }
-  document.getElementById('prodModalDesc').innerHTML = descHtml || '商品説明はありません';
-  document.getElementById('prodModalDesc').style.display = 'none'; // 初期非表示
+  const prodModalDesc = document.getElementById('prodModalDesc');
+  prodModalDesc.classList.add('managed-rich-text');
+  prodModalDesc.innerHTML = descHtml || '商品説明はありません';
+  prodModalDesc.style.display = 'none'; // 初期非表示
   const favoriteWrap = document.getElementById('prodModalFavoriteWrap');
   if (favoriteWrap) favoriteWrap.innerHTML = buildFavoriteActionMarkup('product', p);
   document.getElementById('modalQtyDisp').textContent = 1;
@@ -4707,6 +4718,61 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function escapeRegExp(text) {
+  return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function markManagedTextFormatTokens(text) {
+  return String(text || '')
+    .replace(/<\s*(strong|b)\s*>/gi, '[[FMT_B_OPEN]]')
+    .replace(/<\s*\/\s*(strong|b)\s*>/gi, '[[FMT_B_CLOSE]]')
+    .replace(/<\s*u\s*>/gi, '[[FMT_U_OPEN]]')
+    .replace(/<\s*\/\s*u\s*>/gi, '[[FMT_U_CLOSE]]');
+}
+
+function restoreManagedTextFormatTokens(text) {
+  return String(text || '')
+    .replace(/\[\[FMT_B_OPEN\]\]/g, '<strong>')
+    .replace(/\[\[FMT_B_CLOSE\]\]/g, '</strong>')
+    .replace(/\[\[FMT_U_OPEN\]\]/g, '<u>')
+    .replace(/\[\[FMT_U_CLOSE\]\]/g, '</u>');
+}
+
+function renderManagedTextHtml(text, options) {
+  const opts = options || {};
+  let normalized = String(text || '').replace(/\r\n?/g, '\n');
+  const inlineImages = [];
+
+  if (opts.stripInlineImages) {
+    normalized = normalized.replace(/(^|\n)\s*📷\s*https?:\/\/\S+/g, '$1');
+  } else {
+    normalized = normalized.replace(/(^|\n)\s*📷\s*(https?:\/\/\S+)/g, function (match, prefix, url) {
+      const imageUrl = getContentDisplayImageUrl(url);
+      if (!imageUrl) return prefix || '';
+      const token = `[[FMT_IMG_${inlineImages.length}]]`;
+      inlineImages.push({ token: token, url: imageUrl });
+      return (prefix || '') + token;
+    });
+  }
+
+  normalized = markManagedTextFormatTokens(normalized);
+  let safe = restoreManagedTextFormatTokens(escapeHtml(normalized));
+  if (opts.preserveLineBreaks !== false) {
+    safe = safe.replace(/\n/g, '<br>');
+  }
+
+  const inlineImageClass = escapeHtml(String(opts.inlineImageClass || 'blog-inline-image'));
+  const inlineImageAlt = String(opts.inlineImageAlt || '画像');
+  inlineImages.forEach(function (item, index) {
+    safe = safe.replace(
+      new RegExp(escapeRegExp(item.token), 'g'),
+      `<img src="${escapeHtml(item.url)}" class="${inlineImageClass}" alt="${escapeHtml(inlineImageAlt + ' ' + (index + 1))}">`
+    );
+  });
+
+  return safe;
 }
 
 function normalizeSupportText(text) {
@@ -8383,7 +8449,7 @@ function renderMenus() {
             <div style="flex:1; display:flex; align-items:center; min-width:0;">
               <div style="flex:1; min-width:0;">
                 ${m.category ? `<div style="font-size:11px; color:var(--sage-dark); font-weight:700; margin-bottom:6px;">${escapeHtml(m.category)}</div>` : ''}
-                <h3 style="margin:0; font-size:1.2rem; color:var(--text-main); font-weight:700; line-height:1.4; flex:1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${m.name} ${buildUnreadBadgeHtml('menu', m)} ${isFavoriteKey(buildContentItemKey('menu', m)) ? '<span class="item-favorite-badge inline">★</span>' : ''}</h3>
+                <h3 style="margin:0; font-size:1.2rem; color:var(--text-main); font-weight:700; line-height:1.4; flex:1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${escapeHtml(m.name || '')} ${buildUnreadBadgeHtml('menu', m)} ${isFavoriteKey(buildContentItemKey('menu', m)) ? '<span class="item-favorite-badge inline">★</span>' : ''}</h3>
               </div>
             </div>
             <div style="color:var(--text-light); font-size:18px; margin-left:5px; flex-shrink:0;">›</div>
@@ -8400,15 +8466,18 @@ function openMenuDetail(idx) {
 
   const imageHtml = buildDetailImageGalleryHtml(m.imageUrls || m.imageUrl, m.name || 'Menu Image', 'margin-bottom:20px;');
 
-  const formattedDesc = (m.description || '').replace(/\n/g, '<br>');
+  const formattedDesc = renderManagedTextHtml(m.description || '', {
+    inlineImageClass: 'blog-inline-image blog-inline-image--detail',
+    inlineImageAlt: (m.name || 'メニュー画像')
+  }) || '概要説明はありません。';
 
   document.getElementById('menuDetailContent').innerHTML = `
         <div style="margin-bottom:12px;">
           <span class="blog-detail-cat">${escapeHtml(m.category || 'メニュー')}</span>
         </div>
-        <div class="blog-detail-title" style="margin-bottom:16px;">${m.name}</div>
+        <div class="blog-detail-title" style="margin-bottom:16px;">${escapeHtml(m.name || '')}</div>
         ${imageHtml}
-        <div class="blog-detail-body" style="font-size:15px; line-height:1.8; color:var(--text-main);">${formattedDesc}</div>
+        <div class="blog-detail-body managed-rich-text" style="font-size:15px; line-height:1.8; color:var(--text-main);">${formattedDesc}</div>
         <div style="margin-top:14px;">${buildFavoriteActionMarkup('menu', m)}</div>
       `;
   renderMenus();
