@@ -400,6 +400,62 @@
       color: var(--danger);
     }
 
+    .text-style-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 6px 0 8px;
+    }
+
+    .text-style-toolbar--compact {
+      margin: 0 0 6px;
+      gap: 6px;
+    }
+
+    .text-style-btn {
+      border: 1px solid rgba(90, 122, 78, 0.22);
+      background: #fff;
+      color: var(--sage-dark);
+      min-width: 34px;
+      height: 32px;
+      border-radius: 8px;
+      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+      box-shadow: 0 1px 3px rgba(90, 122, 78, 0.08);
+      font-size: 13px;
+    }
+
+    .text-style-btn:hover {
+      background: #f4f9f1;
+      border-color: rgba(90, 122, 78, 0.34);
+      transform: translateY(-1px);
+    }
+
+    .managed-rich-text strong {
+      font-weight: 700;
+    }
+
+    .managed-rich-text u {
+      text-underline-offset: 0.14em;
+      text-decoration-thickness: 0.08em;
+    }
+
+    .text-style-btn strong,
+    .text-style-btn span {
+      pointer-events: none;
+    }
+
+    .text-style-note {
+      font-size: 11px;
+      color: var(--text-light);
+      line-height: 1.6;
+    }
+
     /* 画像プレビュー */
     #imagePreview,
     #prodImagePreview,
@@ -973,6 +1029,11 @@
             </div>
             <div class="form-group">
               <label>本文</label>
+              <div class="text-style-toolbar">
+                <button type="button" class="text-style-btn" onclick="applyTextStyle('blogBody', 'bold')" aria-label="本文を太字にする"><strong>B</strong></button>
+                <button type="button" class="text-style-btn" onclick="applyTextStyle('blogBody', 'underline')" aria-label="本文に下線を引く"><span style="text-decoration:underline;">U</span></button>
+                <span class="text-style-note">選択した文字に太字・下線を設定できます</span>
+              </div>
               <textarea id="blogBody" rows="5" placeholder="お知らせの内容を入力..."></textarea>
             </div>
             <div class="form-group">
@@ -1145,6 +1206,11 @@
             </div>
             <div class="form-group mb-2">
               <label>商品説明</label>
+              <div class="text-style-toolbar">
+                <button type="button" class="text-style-btn" onclick="applyTextStyle('prodDesc', 'bold')" aria-label="商品説明を太字にする"><strong>B</strong></button>
+                <button type="button" class="text-style-btn" onclick="applyTextStyle('prodDesc', 'underline')" aria-label="商品説明に下線を引く"><span style="text-decoration:underline;">U</span></button>
+                <span class="text-style-note">選択した文字に太字・下線を設定できます</span>
+              </div>
               <textarea id="prodDesc" rows="3" placeholder="商品の特徴や詳細を入力してください..."></textarea>
             </div>
             <div class="form-group">
@@ -1539,6 +1605,11 @@
             </div>
             <div class="form-group" style="margin-bottom: 20px;">
               <label>詳細</label>
+              <div class="text-style-toolbar">
+                <button type="button" class="text-style-btn" onclick="applyTextStyle('calDesc', 'bold')" aria-label="イベント詳細を太字にする"><strong>B</strong></button>
+                <button type="button" class="text-style-btn" onclick="applyTextStyle('calDesc', 'underline')" aria-label="イベント詳細に下線を引く"><span style="text-decoration:underline;">U</span></button>
+                <span class="text-style-note">選択した文字に太字・下線を設定できます</span>
+              </div>
               <textarea id="calDesc" rows="3" placeholder="10:00〜11:30 定員5名様など..."></textarea>
             </div>
 
@@ -1731,6 +1802,11 @@
 
             <div class="form-group">
               <label>概要説明</label>
+              <div class="text-style-toolbar">
+                <button type="button" class="text-style-btn" onclick="applyTextStyle('menuDescription', 'bold')" aria-label="概要説明を太字にする"><strong>B</strong></button>
+                <button type="button" class="text-style-btn" onclick="applyTextStyle('menuDescription', 'underline')" aria-label="概要説明に下線を引く"><span style="text-decoration:underline;">U</span></button>
+                <span class="text-style-note">選択した文字に太字・下線を設定できます</span>
+              </div>
               <textarea id="menuDescription" rows="3" placeholder="メニューの詳細説明を入力してください..."></textarea>
             </div>
 
@@ -2920,7 +2996,7 @@
       iosStoreUrl: '',
       updateTitle: 'アップデートが必要です',
       updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
-      webBundleVersion: '2026.04.05.62'
+      webBundleVersion: '2026.04.06.63'
     };
     let allUsers = [];
     let allMenus = [];
@@ -3418,7 +3494,7 @@
             <span style="font-size:12px; color:var(--text-light);">${escapeHtml(formatDisplayDate(date || ''))}</span>
           </div>
           <div style="font-size:20px; font-weight:700; margin-bottom:12px; line-height:1.6;">${escapeHtml(title)}</div>
-          <div style="white-space:pre-wrap; color:var(--text-main); line-height:1.9;">${escapeHtml(body)}</div>
+          <div class="managed-rich-text" style="color:var(--text-main); line-height:1.9;">${renderAdminFormattedTextHtml(body, { stripInlineImages: true })}</div>
           ${imageHtml}
         </div>
       `);
@@ -3447,7 +3523,7 @@
             <span class="badge ${stockQty <= 0 ? 'badge-danger' : ''}">${escapeHtml(inventoryLabel)}</span>
           </div>
           <div style="font-size:22px; font-weight:700; margin-bottom:12px; line-height:1.5;">${escapeHtml(name)}</div>
-          <div style="white-space:pre-wrap; line-height:1.9; color:#534a41;">${escapeHtml(desc)}</div>
+          <div class="managed-rich-text" style="line-height:1.9; color:#534a41;">${renderAdminFormattedTextHtml(desc, { stripInlineImages: true })}</div>
           ${mainImageHtml}
           ${descImageHtml}
         </div>
@@ -3468,7 +3544,7 @@
             <div style="font-size:19px; font-weight:700;">${escapeHtml(title)}</div>
           </div>
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">対象日: ${escapeHtml(dateList.length ? dateList.map(item => formatDisplayDate(item)).join(' / ') : '未選択')}</div>
-          <div style="white-space:pre-wrap; line-height:1.9; color:var(--text-main);">${escapeHtml(desc)}</div>
+          <div class="managed-rich-text" style="line-height:1.9; color:var(--text-main);">${renderAdminFormattedTextHtml(desc, { stripInlineImages: true })}</div>
           ${imageHtml}
         </div>
       `);
@@ -3489,7 +3565,7 @@
             <span class="badge ${publishStatus === '公開' ? 'badge-green' : ''}">${escapeHtml(publishStatus)}</span>
           </div>
           <div style="font-size:22px; font-weight:700; line-height:1.5; margin-bottom:12px;">${escapeHtml(name)}</div>
-          <div style="white-space:pre-wrap; line-height:1.9; color:var(--text-main);">${escapeHtml(desc)}</div>
+          <div class="managed-rich-text" style="line-height:1.9; color:var(--text-main);">${renderAdminFormattedTextHtml(desc, { stripInlineImages: true })}</div>
           ${imageHtml}
         </div>
       `);
@@ -3652,6 +3728,83 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    function markManagedTextFormatTokens(text) {
+      return String(text || '')
+        .replace(/<\s*(strong|b)\s*>/gi, '[[FMT_B_OPEN]]')
+        .replace(/<\s*\/\s*(strong|b)\s*>/gi, '[[FMT_B_CLOSE]]')
+        .replace(/<\s*u\s*>/gi, '[[FMT_U_OPEN]]')
+        .replace(/<\s*\/\s*u\s*>/gi, '[[FMT_U_CLOSE]]');
+    }
+
+    function restoreManagedTextFormatTokens(text) {
+      return String(text || '')
+        .replace(/\[\[FMT_B_OPEN\]\]/g, '<strong>')
+        .replace(/\[\[FMT_B_CLOSE\]\]/g, '</strong>')
+        .replace(/\[\[FMT_U_OPEN\]\]/g, '<u>')
+        .replace(/\[\[FMT_U_CLOSE\]\]/g, '</u>');
+    }
+
+    function stripManagedTextFormatting(text) {
+      return String(text || '')
+        .replace(/<\s*\/?\s*(strong|b|u)\s*>/gi, '')
+        .replace(/(^|\n)\s*📷\s*https?:\/\/\S+/g, '$1')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+
+    function renderAdminFormattedTextHtml(text, options) {
+      const opts = options || {};
+      let normalized = String(text || '').replace(/\r\n?/g, '\n');
+      if (opts.stripInlineImages !== false) {
+        normalized = normalized.replace(/(^|\n)\s*📷\s*https?:\/\/\S+/g, '$1');
+      }
+      normalized = markManagedTextFormatTokens(normalized);
+      let safe = restoreManagedTextFormatTokens(escapeHtml(normalized));
+      if (opts.preserveLineBreaks !== false) {
+        safe = safe.replace(/\n/g, '<br>');
+      }
+      return safe;
+    }
+
+    function wrapTextInputSelection(input, openTag, closeTag) {
+      if (!input) return;
+      const field = input;
+      const value = String(field.value || '');
+      const start = typeof field.selectionStart === 'number' ? field.selectionStart : value.length;
+      const end = typeof field.selectionEnd === 'number' ? field.selectionEnd : start;
+      const before = value.slice(0, start);
+      const selected = value.slice(start, end);
+      const after = value.slice(end);
+      field.value = before + openTag + selected + closeTag + after;
+      field.focus();
+      const cursorStart = start + openTag.length;
+      const cursorEnd = cursorStart + selected.length;
+      if (typeof field.setSelectionRange === 'function') {
+        field.setSelectionRange(cursorStart, cursorEnd || cursorStart);
+      }
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function applyTextStyle(targetId, styleType) {
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      const tags = styleType === 'underline'
+        ? { open: '<u>', close: '</u>' }
+        : { open: '<strong>', close: '</strong>' };
+      wrapTextInputSelection(input, tags.open, tags.close);
+    }
+
+    function buildTextStyleToolbarHtml(targetId, compact) {
+      const className = compact ? 'text-style-toolbar text-style-toolbar--compact' : 'text-style-toolbar';
+      return `
+        <div class="${className}">
+          <button type="button" class="text-style-btn" onclick="applyTextStyle('${targetId}', 'bold')" aria-label="太字にする"><strong>B</strong></button>
+          <button type="button" class="text-style-btn" onclick="applyTextStyle('${targetId}', 'underline')" aria-label="下線を引く"><span style="text-decoration:underline;">U</span></button>
+          ${compact ? '' : '<span class="text-style-note">選択した文字に太字・下線を設定できます</span>'}
+        </div>
+      `;
     }
 
     function invalidateAdminApiCache(actions) {
@@ -5873,8 +6026,7 @@
     }
 
     function summarizeAdminNoticeText(text, maxLength) {
-      const normalized = String(text || '')
-        .replace(/📷\s*https?:\/\/\S+/g, '')
+      const normalized = stripManagedTextFormatting(text)
         .replace(/\s+/g, ' ')
         .trim();
       const limit = Number(maxLength || 120);
@@ -9540,6 +9692,7 @@
             <div style="color:${Number(product.stockQty || 0) <= 0 ? 'var(--danger)' : 'var(--text-light)'};">警告 ${Number(product.lowStockThreshold || 0)}</div>
           </td>
           <td>
+            ${buildTextStyleToolbarHtml(`p_desc_${product.rowIdx}`, true)}
             <textarea id="p_desc_${product.rowIdx}" style="width:100%; min-height:60px; font-size:11px;">${escapeHtml(product.description || '')}</textarea>
           </td>
           <td>
@@ -9905,7 +10058,7 @@
             <td>${c.date}</td>
             <td style="font-weight:bold;">${c.title}</td>
             <td>${escapeHtml(c.category || '未設定')}</td>
-            <td style="font-size:11px;">${(c.desc || '').replace(/\\n/g, '<br>')}</td>
+            <td class="managed-rich-text" style="font-size:11px;">${renderAdminFormattedTextHtml(c.desc || '', { stripInlineImages: true })}</td>
             <td>
               <div style="width:20px; height:20px; border-radius:10px; background-color:${c.color};" title="${c.color}"></div>
             </td>
@@ -10064,7 +10217,7 @@
           const deleteName = JSON.stringify(String(m.name || '')).replace(/"/g, '&quot;');
           const menuSummary = `
             <div style="font-weight:bold; margin-bottom:4px; word-break:break-word;">${escapeHtml(m.name || '')}</div>
-            <div style="font-size:12px; color:var(--text-mid); white-space:pre-wrap; word-break:break-word;">${escapeHtml(m.description || '概要説明は未入力です')}</div>
+            <div class="managed-rich-text" style="font-size:12px; color:var(--text-mid); word-break:break-word;">${renderAdminFormattedTextHtml(m.description || '概要説明は未入力です', { stripInlineImages: true })}</div>
           `;
           const rowHtml = `
             <tr class="sortable-item" draggable="true" data-sheet="${SHEETS.MENUS}" data-row-idx="${m.rowIdx}">

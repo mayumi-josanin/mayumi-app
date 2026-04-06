@@ -946,6 +946,15 @@
       overflow: hidden;
     }
 
+    .managed-rich-text strong {
+      font-weight: 700;
+    }
+
+    .managed-rich-text u {
+      text-underline-offset: 0.14em;
+      text-decoration-thickness: 0.08em;
+    }
+
     .blog-body-preview--media {
       display: block;
       -webkit-line-clamp: unset;
