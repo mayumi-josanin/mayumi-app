@@ -2,7 +2,7 @@
   "name": "まゆみ助産院 管理画面",
   "short_name": "まゆみ管理",
   "description": "まゆみ助産院の管理ダッシュボード",
-  "start_url": "./mayumi-admin.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f5f5f5",
