@@ -1,6 +1,6 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
 const CURRENT_WEB_BUNDLE_VERSION = '2026.04.06.63';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
@@ -2048,8 +2048,8 @@ function renderEarnedRewards() {
           <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:8px;">${stampEntry.cardNum}枚目カードの${stampEntry.stampNumber}個目のスタンプを取得しました</div>
           <div style="font-size:13px; color:var(--sage-dark); font-weight:500; line-height:1.5; margin-bottom:12px; padding:10px; background:#fff; border-radius:8px;">
             ${isMilestone
-              ? 'スタンプが10個たまりました。ホームから特典ガチャを回し、マイページの履歴で結果を確認できます。'
-              : '来院スタンプを取得しました。スタンプが10個たまると特典ガチャに進めます。'}
+          ? 'スタンプが10個たまりました。ホームから特典ガチャを回し、マイページの履歴で結果を確認できます。'
+          : '来院スタンプを取得しました。スタンプが10個たまると特典ガチャに進めます。'}
           </div>
           <div style="font-size:12px; color:var(--text-light); line-height:1.5;">取得日時: ${acquiredStr}</div>
         </div>
@@ -2201,53 +2201,53 @@ const FALLBACK_BLOG = [
 
 /* SUPPORT_FAQ_FALLBACK_START */
 const SUPPORT_FAQ_FALLBACK = [
-      { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,全体', answer: 'このアプリでは、ホーム、ショップ、カレンダー、NEWS、マイページ、お知らせ一覧、スタンプQR読み取り、商品注文、注文履歴確認、特典確認、通知設定、起動時パスコード、データ引き継ぎ・復元、引き継ぎコード発行、使い方サポートが利用できます。予約確定や個別相談は公式LINEをご利用ください。', priority: 160 },
-      { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,下部,上部', answer: '画面下部にはホーム、ショップ、カレンダー、NEWS、マイページがあります。画面上部からは、最新情報の更新、お知らせ一覧、カート、マイページショートカットを利用できます。', priority: 158 },
-      { category: '会員登録', question: '初回起動時はどちらを選べばいいですか？', keywords: '初回,最初,はじめて,以前登録した方,はじめて登録する方,どちら', answer: 'アプリを開いた最初の選択画面で、以前に登録したことがある方は「以前登録した方はこちら ↺」、今回が初めての方は「はじめて登録する方はこちら」を選んでください。再インストール後、機種変更後、ブラウザ版からホーム画面追加した後も、以前登録したことがある方は復元側から進んでください。', priority: 156 },
-      { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回登録', answer: '初回起動時は、まず「以前登録した方」と「はじめて登録する方」の選択画面が出ます。はじめて登録する方は、そのままプロフィール登録へ進み、お名前・電話番号・生年月日・住所を入力してください。保存すると会員IDが発行され、アプリを使い始められます。', priority: 154 },
-      { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,名前,電話,住所,生年月日', answer: 'マイページを開き、「✏️ プロフィールを編集」を押してください。お名前、電話番号、生年月日、住所、アイコン画像、バナー画像を変更して保存できます。', priority: 152 },
-      { category: 'プロフィール', question: '会員IDはどこで確認できますか？', keywords: '会員ID,会員番号,memberid,どこ,確認', answer: '会員IDはマイページ上部に表示されます。プロフィール登録または復元が完了すると発行されます。', priority: 150 },
-      { category: 'ログイン', question: '起動時のパスコード設定について知りたい', keywords: 'パスコード,ログイン,起動時,4桁,6桁,設定', answer: '新しく登録する方も、すでに登録済みの方も、まずは4桁または6桁のパスコードを設定して使います。既存会員の方はアプリ起動時に設定画面が表示されます。', priority: 148 },
-      { category: 'ログイン', question: 'ログイン時のパスコードを毎回入力したくないです', keywords: 'ログイン時のパスコード,毎回,入力したくない,オフ,省略', answer: 'パスコードを一度設定したあと、マイページの「ログイン時のパスコード」からオン・オフを切り替えられます。オフにすると、次回からアプリ起動時のパスコード入力を省略できます。', priority: 146 },
-      { category: 'ログイン', question: 'パスコードの変更方法を知りたい', keywords: 'パスコード,変更,変える,ログイン,再設定', answer: 'マイページを開き、「🔐 パスコードを変更」を押してください。現在のパスコードを確認したあと、新しい4桁または6桁のパスコードへ変更できます。', priority: 144 },
-      { category: 'ログイン', question: 'パスコードを忘れたときの再設定方法を知りたい', keywords: 'パスコード,忘れた,再設定,ログインできない', answer: 'ログイン画面、または「ログイン・引き継ぎ」画面にある「パスコードを忘れた場合の再設定はこちら」から再設定できます。登録したお名前・電話番号・生年月日を入力し、新しい4桁または6桁のパスコードを設定してください。', priority: 142 },
-      { category: '引き継ぎ', question: 'データの引き継ぎ・復元方法を知りたい', keywords: '引き継ぎ,復元,機種変更,データ移行,ログイン,再インストール', answer: 'ログイン画面、または初回画面で「以前登録した方はこちら ↺」を選ぶと復元画面へ進めます。引き継ぎコードがある場合は、引き継ぎコードと新しいパスコードを入力してください。引き継ぎコードがない場合は、お名前に加えて電話番号・生年月日・現在のパスコードのうち1つ以上を入力すると復元できます。', priority: 140 },
-      { category: '引き継ぎ', question: '引き継ぎコードの発行方法を知りたい', keywords: '引き継ぎコード,発行,機種変更,再インストール,コード', answer: 'マイページの「↺ 引き継ぎコードの発行」から発行できます。機種変更や再インストールの前に発行しておくと、新しい端末の「データの引き継ぎ・復元」で使えます。', priority: 138 },
-      { category: '引き継ぎ', question: '引き継ぎコードの有効期限を知りたい', keywords: '引き継ぎコード,有効期限,いつまで,何日,使えない', answer: '引き継ぎコードは1回限りで、発行から1週間有効です。期限切れ、または一度使用したコードは使えません。必要な場合はマイページから新しいコードを発行してください。', priority: 136 },
-      { category: '会員登録', question: '会員登録が重複しないようにする方法を知りたい', keywords: '重複,二重,会員登録,同じ名前,会員ID,ブラウザ,ホーム画面', answer: '以前登録したことがある方は、新規登録へ進まず、必ず「以前登録した方はこちら ↺」から復元してください。ブラウザで先に登録したあとホーム画面に追加した方、再インストールした方、機種変更した方も同じです。新規登録をすると、同じお名前でも別の会員IDが作られることがあります。', priority: 134 },
-      { category: 'ホーム画面', question: 'ホーム画面への追加方法を知りたい', keywords: 'ホーム画面,追加,インストール,iphone,android,safari,chrome', answer: 'iPhone は Safari でサイトを開き、共有ボタンから「ホーム画面に追加」を選びます。Android は Chrome のメニューから「ホーム画面に追加」または「アプリをインストール」を選びます。すでに登録済みの方は、追加後に新規登録せず「以前登録した方はこちら ↺」から入ってください。', priority: 132 },
-      { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,home,見方', answer: 'ホーム画面では、スタンプQRの読み取り、現在のスタンプカード確認、おすすめ商品、最新のNEWS、メニュー一覧への移動、公式サイト・SNSへのリンクを確認できます。', priority: 130 },
-      { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで詳細を確認し、「カートに追加する」を押してください。画面上部の🛒からカートを開き、内容を確認して「ご注文を確定する」で注文できます。', priority: 128 },
-      { category: '注文', question: 'カートの使い方を知りたい', keywords: 'カート,買い物かご,個数,削除,変更', answer: '商品を「カートに追加する」で入れたあと、画面上部の🛒を押すとカートを開けます。カートでは個数変更や削除ができます。商品が入っていない場合は空の画面が表示されます。', priority: 126 },
-      { category: '注文', question: '支払い方法を知りたい', keywords: '支払い,決済,現金,支払方法', answer: '商品注文のお支払い方法は現在「現金払い」です。ご来院時に受付でお支払いください。', priority: 124 },
-      { category: '注文', question: '商品の受け取り方法を知りたい', keywords: '受取,受け取り,配送,宅配,受領', answer: '商品は院内受け取りです。注文後、ご来院時にスタッフへお声がけください。配送には対応していません。', priority: 122 },
-      { category: '注文', question: '注文履歴の見方を知りたい', keywords: '注文履歴,履歴,受取,受付中,キャンセル', answer: 'マイページの「📋 ご注文履歴」から確認できます。受付中の注文や受け取り前の注文が表示され、状況を確認できます。', priority: 120 },
-      { category: '注文', question: '注文をキャンセルしたいです', keywords: '注文,キャンセル,取り消し,受付中', answer: 'マイページの「📋 ご注文履歴」を開き、受付中の注文に表示される「キャンセルする」を押してください。キャンセル済みの注文は履歴から表示されなくなります。', priority: 118 },
-      { category: '注文', question: '受け取りましたボタンの使い方を知りたい', keywords: '受け取りました,受取完了,受取報告,注文履歴', answer: 'マイページの「📋 ご注文履歴」を開き、受け取り済みにしたい注文の「受け取りました」を押してください。更新後、その注文は履歴に残らなくなります。', priority: 116 },
-      { category: 'メニュー', question: 'メニュー一覧の見方を知りたい', keywords: 'メニュー,施術,一覧,カテゴリ,見方', answer: 'ホーム画面の「メニュー一覧を見る🍴」を押すと一覧が開きます。必要に応じてカテゴリで絞り込みでき、各メニューをタップすると詳細や画像を確認できます。', priority: 114 },
-      { category: '予約', question: '予約はアプリからできますか？', keywords: '予約,よやく,line,予約方法,相談', answer: '現在、アプリから予約確定はできません。予約や個別相談は公式LINEをご利用ください。ホーム画面またはマイページの「🔗 公式サイト・SNS」から公式LINEを開けます。', priority: 112 },
-      { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院,カメラ', answer: 'ホーム画面の「📷 カメラを起動して読み取る」を押し、表示された案内でカメラを許可してから院内QRコードを読み取ってください。読み取りに成功するとスタンプが1つ追加されます。', priority: 110 },
-      { category: 'スタンプ', question: 'スタンプは1日何回取得できますか？', keywords: 'スタンプ,1日,一日,何回,回数', answer: '来院スタンプは1日1回までです。同じ日に再度読み取ると、すでに取得済みの案内が表示されます。', priority: 108 },
-      { category: 'トラブル', question: 'カメラが起動しないときはどうすればいいですか？', keywords: 'カメラ,起動しない,許可,権限,QR,読めない', answer: 'スタンプ取得時にカメラ許可の確認が出た場合は「許可」を選んでください。すでに拒否している場合は、表示される「設定を開く」から設定画面へ進み、iPhone や Android のカメラ許可をオンにしてから、もう一度「📷 カメラを起動して読み取る」を押してください。', priority: 106 },
-      { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。ガチャ後はホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。', priority: 104 },
-      { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,どこ,確認,プレゼント,ガチャ', answer: '特典はマイページの「🎁 スタンプ・特典履歴」で確認できます。未使用の特典、使用済みの特典、受取期限を確認できます。', priority: 102 },
-      { category: 'スタンプ特典', question: '特典の有効期限を知りたい', keywords: '特典,期限,有効期限,いつまで', answer: '特典の受取期限は、スタンプ10個を達成した日から1か月です。期限はマイページの「🎁 スタンプ・特典履歴」に表示されます。', priority: 100 },
-      { category: '通知', question: '通知をオン・オフにしたい', keywords: '通知,オン,オフ,push,プッシュ,許可', answer: 'マイページの「🔔 通知設定」からオン・オフを切り替えられます。アプリ内でオンにしても届かない場合は、iPhone や Android 本体側の通知許可もご確認ください。', priority: 98 },
-      { category: '通知', question: '通知が届かないときはどうすればいいですか？', keywords: '通知,届かない,push,プッシュ,こない', answer: 'まずマイページの「🔔 通知設定」がオンか確認してください。そのうえで、iPhone や Android 本体側の通知許可、通信状態、アプリの最新化をご確認ください。必要に応じて画面上部の🔄で最新情報を再取得してください。', priority: 96 },
-      { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,最新,再読み込み,リロード,refresh,最新情報', answer: '画面上部の「🔄」ボタンを押すと、最新のNEWS、商品、カレンダー、メニュー、FAQ、注文履歴などを更新できます。通常の情報更新は再インストール不要です。', priority: 94 },
-      { category: '更新', question: 'アップデートが必要と表示されたらどうすればいいですか？', keywords: 'アップデート,更新が必要,app store,最新版,バージョン', answer: '「アップデートが必要です」と表示された場合は、案内の「アップデートする」から最新版へ更新してください。画面上部の🔄は情報更新用で、必須アップデートの代わりにはなりません。', priority: 92 },
-      { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で予定を確認できます。左右の矢印で別の月に切り替えられ、日付を押すと詳細を確認できます。下部には今月のイベント一覧も表示されます。', priority: 90 },
-      { category: 'カレンダー', question: 'カレンダーの記号の意味を知りたい', keywords: 'カレンダー,記号,意味,休,往,イ', answer: 'カレンダーでは、休＝休診日、往＝往診日、イ＝イベントを表しています。日付を押すと、その日の詳しい内容を確認できます。', priority: 88 },
-      { category: 'NEWS', question: 'NEWSページの使い方を知りたい', keywords: 'NEWS,ニュース,お知らせ,記事,カテゴリ', answer: '下部メニューの「NEWS」を開くと記事一覧を確認できます。記事をタップすると詳細が開き、右上のカテゴリ選択で絞り込みもできます。', priority: 86 },
-      { category: 'NEWS', question: 'お知らせ一覧の見方を知りたい', keywords: 'お知らせ一覧,通知一覧,拡声器,📢', answer: '画面上部の📢ボタンを押すと「お知らせ一覧」を開けます。ここでは NEWS、カレンダー、ショップ、ホームの更新情報を新しい順で確認できます。カテゴリの絞り込みもできます。', priority: 84 },
-      { category: 'NEWS', question: 'NEWSのカテゴリ切り替え方法を知りたい', keywords: 'NEWS,カテゴリ,切り替え,絞り込み,全て', answer: 'NEWSページ右上のカテゴリ選択を押すと、カテゴリごとに絞り込みできます。「全て」を選ぶとすべての記事が表示されます。', priority: 82 },
-      { category: 'NEWS', question: 'まゆみのつぶやきはどこで見られますか？', keywords: 'つぶやき,NEWS,カテゴリ,まゆみのつぶやき', answer: '「まゆみのつぶやき」は NEWS ページ右上のカテゴリ選択から「まゆみのつぶやき」を選ぶと表示されます。院長からの短いメッセージや大切なお知らせを確認できます。', priority: 80 },
-      { category: 'NEWS', question: 'まゆみのブログとは何ですか？', keywords: 'まゆみのブログ,ブログ,外部ブログ', answer: '「まゆみのブログ」はマイページやホームの「🔗 公式サイト・SNS」から開ける外部ブログです。NEWS内の「まゆみのつぶやき」とは別の場所です。', priority: 78 },
-      { category: 'リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'LINE,ライン,instagram,facebook,ホームページ,公式サイト,SNS,問い合わせ', answer: 'ホーム画面またはマイページの「🔗 公式サイト・SNS」を開くと、公式ホームページ、Instagram、Facebook、公式LINE、まゆみのブログを選んで開けます。', priority: 76 },
-      { category: '使い方サポート', question: '使い方チャットでは何を質問できますか？', keywords: 'チャット,サポート,ボット,相談,何が聞ける', answer: '使い方チャットでは、登録、復元、パスコード、注文、注文履歴、スタンプ、特典、通知、NEWS、お知らせ一覧、カレンダー、メニュー一覧、更新方法など、アプリの使い方について質問できます。診療相談や個別予約は公式LINEをご利用ください。', priority: 74 },
-      { category: '引き継ぎ', question: '再インストールしたあとの入り方を知りたい', keywords: '再インストール,削除,アンインストール,復元,入り方', answer: 'アプリを入れ直したあとは、新規登録ではなく、初回画面またはログイン画面の「以前登録した方はこちら ↺」から復元してください。引き継ぎコードがある場合はコードで、ない場合はお名前と電話番号・生年月日・現在のパスコードのうち1つ以上で復元できます。', priority: 72 },
-      { category: 'トラブル', question: '画面表示がおかしい・アプリが重いときはどうすればいいですか？', keywords: '表示されない,おかしい,崩れ,不具合,バグ,重い,遅い,フリーズ', answer: 'まず画面上部の🔄ボタンで最新情報を再取得してください。それでも改善しない場合は、アプリを一度閉じて再起動し、通信状態もご確認ください。再インストールが必要な場合は、先に引き継ぎコードを発行するか、復元方法を確認してから行ってください。', priority: 70 },
-    ];
+  { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,全体', answer: 'このアプリでは、ホーム、ショップ、カレンダー、NEWS、マイページ、お知らせ一覧、スタンプQR読み取り、商品注文、注文履歴確認、特典確認、通知設定、起動時パスコード、データ引き継ぎ・復元、引き継ぎコード発行、使い方サポートが利用できます。予約確定や個別相談は公式LINEをご利用ください。', priority: 160 },
+  { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,下部,上部', answer: '画面下部にはホーム、ショップ、カレンダー、NEWS、マイページがあります。画面上部からは、最新情報の更新、お知らせ一覧、カート、マイページショートカットを利用できます。', priority: 158 },
+  { category: '会員登録', question: '初回起動時はどちらを選べばいいですか？', keywords: '初回,最初,はじめて,以前登録した方,はじめて登録する方,どちら', answer: 'アプリを開いた最初の選択画面で、以前に登録したことがある方は「以前登録した方はこちら ↺」、今回が初めての方は「はじめて登録する方はこちら」を選んでください。再インストール後、機種変更後、ブラウザ版からホーム画面追加した後も、以前登録したことがある方は復元側から進んでください。', priority: 156 },
+  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回登録', answer: '初回起動時は、まず「以前登録した方」と「はじめて登録する方」の選択画面が出ます。はじめて登録する方は、そのままプロフィール登録へ進み、お名前・電話番号・生年月日・住所を入力してください。保存すると会員IDが発行され、アプリを使い始められます。', priority: 154 },
+  { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,名前,電話,住所,生年月日', answer: 'マイページを開き、「✏️ プロフィールを編集」を押してください。お名前、電話番号、生年月日、住所、アイコン画像、バナー画像を変更して保存できます。', priority: 152 },
+  { category: 'プロフィール', question: '会員IDはどこで確認できますか？', keywords: '会員ID,会員番号,memberid,どこ,確認', answer: '会員IDはマイページ上部に表示されます。プロフィール登録または復元が完了すると発行されます。', priority: 150 },
+  { category: 'ログイン', question: '起動時のパスコード設定について知りたい', keywords: 'パスコード,ログイン,起動時,4桁,6桁,設定', answer: '新しく登録する方も、すでに登録済みの方も、まずは4桁または6桁のパスコードを設定して使います。既存会員の方はアプリ起動時に設定画面が表示されます。', priority: 148 },
+  { category: 'ログイン', question: 'ログイン時のパスコードを毎回入力したくないです', keywords: 'ログイン時のパスコード,毎回,入力したくない,オフ,省略', answer: 'パスコードを一度設定したあと、マイページの「ログイン時のパスコード」からオン・オフを切り替えられます。オフにすると、次回からアプリ起動時のパスコード入力を省略できます。', priority: 146 },
+  { category: 'ログイン', question: 'パスコードの変更方法を知りたい', keywords: 'パスコード,変更,変える,ログイン,再設定', answer: 'マイページを開き、「🔐 パスコードを変更」を押してください。現在のパスコードを確認したあと、新しい4桁または6桁のパスコードへ変更できます。', priority: 144 },
+  { category: 'ログイン', question: 'パスコードを忘れたときの再設定方法を知りたい', keywords: 'パスコード,忘れた,再設定,ログインできない', answer: 'ログイン画面、または「ログイン・引き継ぎ」画面にある「パスコードを忘れた場合の再設定はこちら」から再設定できます。登録したお名前・電話番号・生年月日を入力し、新しい4桁または6桁のパスコードを設定してください。', priority: 142 },
+  { category: '引き継ぎ', question: 'データの引き継ぎ・復元方法を知りたい', keywords: '引き継ぎ,復元,機種変更,データ移行,ログイン,再インストール', answer: 'ログイン画面、または初回画面で「以前登録した方はこちら ↺」を選ぶと復元画面へ進めます。引き継ぎコードがある場合は、引き継ぎコードと新しいパスコードを入力してください。引き継ぎコードがない場合は、お名前に加えて電話番号・生年月日・現在のパスコードのうち1つ以上を入力すると復元できます。', priority: 140 },
+  { category: '引き継ぎ', question: '引き継ぎコードの発行方法を知りたい', keywords: '引き継ぎコード,発行,機種変更,再インストール,コード', answer: 'マイページの「↺ 引き継ぎコードの発行」から発行できます。機種変更や再インストールの前に発行しておくと、新しい端末の「データの引き継ぎ・復元」で使えます。', priority: 138 },
+  { category: '引き継ぎ', question: '引き継ぎコードの有効期限を知りたい', keywords: '引き継ぎコード,有効期限,いつまで,何日,使えない', answer: '引き継ぎコードは1回限りで、発行から1週間有効です。期限切れ、または一度使用したコードは使えません。必要な場合はマイページから新しいコードを発行してください。', priority: 136 },
+  { category: '会員登録', question: '会員登録が重複しないようにする方法を知りたい', keywords: '重複,二重,会員登録,同じ名前,会員ID,ブラウザ,ホーム画面', answer: '以前登録したことがある方は、新規登録へ進まず、必ず「以前登録した方はこちら ↺」から復元してください。ブラウザで先に登録したあとホーム画面に追加した方、再インストールした方、機種変更した方も同じです。新規登録をすると、同じお名前でも別の会員IDが作られることがあります。', priority: 134 },
+  { category: 'ホーム画面', question: 'ホーム画面への追加方法を知りたい', keywords: 'ホーム画面,追加,インストール,iphone,android,safari,chrome', answer: 'iPhone は Safari でサイトを開き、共有ボタンから「ホーム画面に追加」を選びます。Android は Chrome のメニューから「ホーム画面に追加」または「アプリをインストール」を選びます。すでに登録済みの方は、追加後に新規登録せず「以前登録した方はこちら ↺」から入ってください。', priority: 132 },
+  { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,home,見方', answer: 'ホーム画面では、スタンプQRの読み取り、現在のスタンプカード確認、おすすめ商品、最新のNEWS、メニュー一覧への移動、公式サイト・SNSへのリンクを確認できます。', priority: 130 },
+  { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで詳細を確認し、「カートに追加する」を押してください。画面上部の🛒からカートを開き、内容を確認して「ご注文を確定する」で注文できます。', priority: 128 },
+  { category: '注文', question: 'カートの使い方を知りたい', keywords: 'カート,買い物かご,個数,削除,変更', answer: '商品を「カートに追加する」で入れたあと、画面上部の🛒を押すとカートを開けます。カートでは個数変更や削除ができます。商品が入っていない場合は空の画面が表示されます。', priority: 126 },
+  { category: '注文', question: '支払い方法を知りたい', keywords: '支払い,決済,現金,支払方法', answer: '商品注文のお支払い方法は現在「現金払い」です。ご来院時に受付でお支払いください。', priority: 124 },
+  { category: '注文', question: '商品の受け取り方法を知りたい', keywords: '受取,受け取り,配送,宅配,受領', answer: '商品は院内受け取りです。注文後、ご来院時にスタッフへお声がけください。配送には対応していません。', priority: 122 },
+  { category: '注文', question: '注文履歴の見方を知りたい', keywords: '注文履歴,履歴,受取,受付中,キャンセル', answer: 'マイページの「📋 ご注文履歴」から確認できます。受付中の注文や受け取り前の注文が表示され、状況を確認できます。', priority: 120 },
+  { category: '注文', question: '注文をキャンセルしたいです', keywords: '注文,キャンセル,取り消し,受付中', answer: 'マイページの「📋 ご注文履歴」を開き、受付中の注文に表示される「キャンセルする」を押してください。キャンセル済みの注文は履歴から表示されなくなります。', priority: 118 },
+  { category: '注文', question: '受け取りましたボタンの使い方を知りたい', keywords: '受け取りました,受取完了,受取報告,注文履歴', answer: 'マイページの「📋 ご注文履歴」を開き、受け取り済みにしたい注文の「受け取りました」を押してください。更新後、その注文は履歴に残らなくなります。', priority: 116 },
+  { category: 'メニュー', question: 'メニュー一覧の見方を知りたい', keywords: 'メニュー,施術,一覧,カテゴリ,見方', answer: 'ホーム画面の「メニュー一覧を見る🍴」を押すと一覧が開きます。必要に応じてカテゴリで絞り込みでき、各メニューをタップすると詳細や画像を確認できます。', priority: 114 },
+  { category: '予約', question: '予約はアプリからできますか？', keywords: '予約,よやく,line,予約方法,相談', answer: '現在、アプリから予約確定はできません。予約や個別相談は公式LINEをご利用ください。ホーム画面またはマイページの「🔗 公式サイト・SNS」から公式LINEを開けます。', priority: 112 },
+  { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院,カメラ', answer: 'ホーム画面の「📷 カメラを起動して読み取る」を押し、表示された案内でカメラを許可してから院内QRコードを読み取ってください。読み取りに成功するとスタンプが1つ追加されます。', priority: 110 },
+  { category: 'スタンプ', question: 'スタンプは1日何回取得できますか？', keywords: 'スタンプ,1日,一日,何回,回数', answer: '来院スタンプは1日1回までです。同じ日に再度読み取ると、すでに取得済みの案内が表示されます。', priority: 108 },
+  { category: 'トラブル', question: 'カメラが起動しないときはどうすればいいですか？', keywords: 'カメラ,起動しない,許可,権限,QR,読めない', answer: 'スタンプ取得時にカメラ許可の確認が出た場合は「許可」を選んでください。すでに拒否している場合は、表示される「設定を開く」から設定画面へ進み、iPhone や Android のカメラ許可をオンにしてから、もう一度「📷 カメラを起動して読み取る」を押してください。', priority: 106 },
+  { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。ガチャ後はホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。', priority: 104 },
+  { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,どこ,確認,プレゼント,ガチャ', answer: '特典はマイページの「🎁 スタンプ・特典履歴」で確認できます。未使用の特典、使用済みの特典、受取期限を確認できます。', priority: 102 },
+  { category: 'スタンプ特典', question: '特典の有効期限を知りたい', keywords: '特典,期限,有効期限,いつまで', answer: '特典の受取期限は、スタンプ10個を達成した日から1か月です。期限はマイページの「🎁 スタンプ・特典履歴」に表示されます。', priority: 100 },
+  { category: '通知', question: '通知をオン・オフにしたい', keywords: '通知,オン,オフ,push,プッシュ,許可', answer: 'マイページの「🔔 通知設定」からオン・オフを切り替えられます。アプリ内でオンにしても届かない場合は、iPhone や Android 本体側の通知許可もご確認ください。', priority: 98 },
+  { category: '通知', question: '通知が届かないときはどうすればいいですか？', keywords: '通知,届かない,push,プッシュ,こない', answer: 'まずマイページの「🔔 通知設定」がオンか確認してください。そのうえで、iPhone や Android 本体側の通知許可、通信状態、アプリの最新化をご確認ください。必要に応じて画面上部の🔄で最新情報を再取得してください。', priority: 96 },
+  { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,最新,再読み込み,リロード,refresh,最新情報', answer: '画面上部の「🔄」ボタンを押すと、最新のNEWS、商品、カレンダー、メニュー、FAQ、注文履歴などを更新できます。通常の情報更新は再インストール不要です。', priority: 94 },
+  { category: '更新', question: 'アップデートが必要と表示されたらどうすればいいですか？', keywords: 'アップデート,更新が必要,app store,最新版,バージョン', answer: '「アップデートが必要です」と表示された場合は、案内の「アップデートする」から最新版へ更新してください。画面上部の🔄は情報更新用で、必須アップデートの代わりにはなりません。', priority: 92 },
+  { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で予定を確認できます。左右の矢印で別の月に切り替えられ、日付を押すと詳細を確認できます。下部には今月のイベント一覧も表示されます。', priority: 90 },
+  { category: 'カレンダー', question: 'カレンダーの記号の意味を知りたい', keywords: 'カレンダー,記号,意味,休,往,イ', answer: 'カレンダーでは、休＝休診日、往＝往診日、イ＝イベントを表しています。日付を押すと、その日の詳しい内容を確認できます。', priority: 88 },
+  { category: 'NEWS', question: 'NEWSページの使い方を知りたい', keywords: 'NEWS,ニュース,お知らせ,記事,カテゴリ', answer: '下部メニューの「NEWS」を開くと記事一覧を確認できます。記事をタップすると詳細が開き、右上のカテゴリ選択で絞り込みもできます。', priority: 86 },
+  { category: 'NEWS', question: 'お知らせ一覧の見方を知りたい', keywords: 'お知らせ一覧,通知一覧,拡声器,📢', answer: '画面上部の📢ボタンを押すと「お知らせ一覧」を開けます。ここでは NEWS、カレンダー、ショップ、ホームの更新情報を新しい順で確認できます。カテゴリの絞り込みもできます。', priority: 84 },
+  { category: 'NEWS', question: 'NEWSのカテゴリ切り替え方法を知りたい', keywords: 'NEWS,カテゴリ,切り替え,絞り込み,全て', answer: 'NEWSページ右上のカテゴリ選択を押すと、カテゴリごとに絞り込みできます。「全て」を選ぶとすべての記事が表示されます。', priority: 82 },
+  { category: 'NEWS', question: 'まゆみのつぶやきはどこで見られますか？', keywords: 'つぶやき,NEWS,カテゴリ,まゆみのつぶやき', answer: '「まゆみのつぶやき」は NEWS ページ右上のカテゴリ選択から「まゆみのつぶやき」を選ぶと表示されます。院長からの短いメッセージや大切なお知らせを確認できます。', priority: 80 },
+  { category: 'NEWS', question: 'まゆみのブログとは何ですか？', keywords: 'まゆみのブログ,ブログ,外部ブログ', answer: '「まゆみのブログ」はマイページやホームの「🔗 公式サイト・SNS」から開ける外部ブログです。NEWS内の「まゆみのつぶやき」とは別の場所です。', priority: 78 },
+  { category: 'リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'LINE,ライン,instagram,facebook,ホームページ,公式サイト,SNS,問い合わせ', answer: 'ホーム画面またはマイページの「🔗 公式サイト・SNS」を開くと、公式ホームページ、Instagram、Facebook、公式LINE、まゆみのブログを選んで開けます。', priority: 76 },
+  { category: '使い方サポート', question: '使い方チャットでは何を質問できますか？', keywords: 'チャット,サポート,ボット,相談,何が聞ける', answer: '使い方チャットでは、登録、復元、パスコード、注文、注文履歴、スタンプ、特典、通知、NEWS、お知らせ一覧、カレンダー、メニュー一覧、更新方法など、アプリの使い方について質問できます。診療相談や個別予約は公式LINEをご利用ください。', priority: 74 },
+  { category: '引き継ぎ', question: '再インストールしたあとの入り方を知りたい', keywords: '再インストール,削除,アンインストール,復元,入り方', answer: 'アプリを入れ直したあとは、新規登録ではなく、初回画面またはログイン画面の「以前登録した方はこちら ↺」から復元してください。引き継ぎコードがある場合はコードで、ない場合はお名前と電話番号・生年月日・現在のパスコードのうち1つ以上で復元できます。', priority: 72 },
+  { category: 'トラブル', question: '画面表示がおかしい・アプリが重いときはどうすればいいですか？', keywords: '表示されない,おかしい,崩れ,不具合,バグ,重い,遅い,フリーズ', answer: 'まず画面上部の🔄ボタンで最新情報を再取得してください。それでも改善しない場合は、アプリを一度閉じて再起動し、通信状態もご確認ください。再インストールが必要な場合は、先に引き継ぎコードを発行するか、復元方法を確認してから行ってください。', priority: 70 },
+];
 /* SUPPORT_FAQ_FALLBACK_END */
 
 const SUPPORT_APP_GUIDE = [
@@ -3283,6 +3283,8 @@ function openNoticeFeedItem(item) {
     body: item.body,
     image: item.image || '',
     imageUrls: item.imageUrls || [],
+    linkUrl: item.linkUrl || '',
+    linkButtonText: item.linkButtonText || '',
     hasEmbeddedImage: item.hasEmbeddedImage === true
   });
 }
@@ -3341,6 +3343,8 @@ function buildNoticeFeedItems() {
       image: getDisplayImageUrl(item.image || item.imageUrl || ''),
       imageUrls: normalizeManagedImageList(item.imageUrls || item.image || item.imageUrl),
       icon: item.icon || '📢',
+      linkUrl: item.linkUrl || '',
+      linkButtonText: item.linkButtonText || '',
       hasEmbeddedImage: item.hasEmbeddedImage === true
     };
   }).filter(isNoticeFeedEntryVisible);
@@ -3503,6 +3507,8 @@ function normalizeBlogItems(items, categories) {
       body: body,
       image: effectiveImageUrls[0] || '',
       imageUrls: effectiveImageUrls,
+      linkUrl: String(item && (item.linkUrl || item.link_url) || '').trim(),
+      linkButtonText: String(item && (item.linkButtonText || item.link_button_text) || '').trim(),
       hasEmbeddedImage: !!embeddedImage,
       noticeStatus: normalizeNoticeVisibilityStatus(item && item.noticeStatus)
     };
@@ -3848,6 +3854,29 @@ function openBlogDetail(item) {
     inlineImageAlt: (item.title || '記事画像')
   }) || '本文はありません。';
   const displayDate = formatCustomerDateYmd(item.date);
+  
+  // URLの正規化（http/httpsがなければ補完）
+  const ensureAbsoluteUrl = (url) => {
+    if (!url) return '';
+    const trimmed = String(url).trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    // もし google.com のような形式なら https:// を付与
+    return 'https://' + trimmed;
+  };
+  const absoluteUrl = ensureAbsoluteUrl(item.linkUrl);
+
+  const linkText = item.linkButtonText || '詳しく見る';
+  const linkButtonHtml = absoluteUrl ? `
+    <div style="margin-top:28px; text-align:center;">
+      <button class="btn" style="width:100%; max-width:320px; padding:16px; background:var(--primary); color:white; border:none; border-radius:14px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow:0 6px 16px rgba(0,0,0,0.12);" onclick="window.open('${absoluteUrl}', '_blank', 'noopener')">
+        ${escapeHtml(linkText)} 🔗
+      </button>
+      <div style="margin-top:10px; font-size:11px; color:var(--text-light); word-break:break-all; line-height:1.4;">
+        リンク先: ${escapeHtml(absoluteUrl)}<br>
+        <span style="font-size:9px;">※タップすると外部ブラウザで開きます</span>
+      </div>
+    </div>` : '';
 
   document.getElementById('blogDetailContent').innerHTML = `
     <span class="blog-detail-cat">${escapeHtml(item.category || '')}</span>
@@ -3855,7 +3884,9 @@ function openBlogDetail(item) {
     <div class="blog-detail-date">${escapeHtml(displayDate)}</div>
     ${detailImageHtml}
     <div class="blog-detail-body managed-rich-text">${formattedBody}</div>
-    <div style="margin-top:14px;">${buildFavoriteActionMarkup('blog', item)}</div>`;
+    ${linkButtonHtml}
+    <div style="margin-top:20px;">${buildFavoriteActionMarkup('blog', item)}</div>
+    <div style="height:80px;"></div>`;
   if (document.getElementById('page-blog').classList.contains('active')) {
     renderDividedBlogList();
   } else {
