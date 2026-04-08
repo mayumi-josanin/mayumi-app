@@ -3869,7 +3869,7 @@ function openBlogDetail(item) {
   const linkText = item.linkButtonText || '詳しく見る';
   const linkButtonHtml = absoluteUrl ? `
     <div style="margin-top:28px; text-align:center;">
-      <button class="btn" style="width:100%; max-width:320px; padding:16px; background:var(--primary); color:white; border:none; border-radius:14px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow:0 6px 16px rgba(0,0,0,0.12);" onclick="window.open('${absoluteUrl}', '_blank', 'noopener')">
+      <button class="btn primary" style="max-width:320px; font-weight:bold; font-size:16px;" onclick="window.open('${absoluteUrl}', '_blank', 'noopener')">
         ${escapeHtml(linkText)} 🔗
       </button>
       <div style="margin-top:10px; font-size:11px; color:var(--text-light); word-break:break-all; line-height:1.4;">
