@@ -847,6 +847,20 @@
 </head>
 
 <body>
+  <div id="admin-login-overlay"
+    style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.98); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);">
+    <div
+      style="width:90%; max-width:380px; padding:40px 30px; background:#fff; border-radius:24px; box-shadow:0 20px 60px rgba(0,0,0,0.1); text-align:center;">
+      <div style="font-size:48px; margin-bottom:20px;">🔒</div>
+      <h2 style="margin-bottom:10px; font-family:'Zen Old Mincho', serif; border-bottom:none;">管理者認証</h2>
+      <p style="font-size:13px; color:#666; margin-bottom:25px;">パスワードを入力してください</p>
+      <input type="password" id="admin-password-input" placeholder="パスワード"
+        style="width:100%; padding:14px; border:1px solid #ddd; border-radius:12px; margin-bottom:15px; font-size:16px; text-align:center;">
+      <button id="admin-login-btn" class="btn"
+        style="width:100%; padding:14px; font-size:15px; font-weight:700; border-radius:12px; background:#5a7a4e; color:white; border:none; cursor:pointer;">ログイン</button>
+      <p id="admin-login-error" style="color:#d32f2f; font-size:12px; margin-top:15px; display:none;">パスワードが正しくありません</p>
+    </div>
+  </div>
 
   <header>
     <h1>まゆみ助産院 管理画面</h1>
@@ -1039,6 +1053,16 @@
             <div class="form-group">
               <label>公開開始日時（空欄ならすぐ公開）</label>
               <input type="datetime-local" id="blogPublishAt">
+            </div>
+            <div class="form-group">
+              <label>リンクURL（任意：詳しく見るボタンの遷移先）</label>
+              <input type="url" id="blogLinkUrl" placeholder="https://example.com">
+              <p style="font-size:11px; color:var(--text-mid); margin-top:4px;">※入力すると、アプリ側でボタンが表示されます。</p>
+            </div>
+            <div class="form-group">
+              <label>ボタンのテキスト（任意）</label>
+              <input type="text" id="blogLinkText" placeholder="詳しく見る （未入力ならこれになります）">
+              <p style="font-size:11px; color:var(--text-mid); margin-top:4px;">※「予約はこちら」「インスタを見る」など自由に入力できます。</p>
             </div>
             <div class="form-group">
               <div class="push-send-card">
@@ -2650,9 +2674,14 @@
         <label>操作記録の表示名</label>
         <input type="text" id="adminOperatorNameInput" placeholder="例：院長 / スタッフ">
       </div>
-      <div class="form-group" style="margin-bottom:15px;">
+      <div class="form-group">
         <label>危険操作用PIN（4〜8桁、空欄なら未設定）</label>
         <input type="password" id="adminActionPinInput" inputmode="numeric" placeholder="例：1234">
+      </div>
+      <div class="form-group" style="margin-bottom:15px;">
+        <label>管理画面ログインパスワード（変更する場合のみ入力）</label>
+        <input type="password" id="adminLoginPasswordInput" placeholder="新しいパスワードを入力">
+        <p style="font-size:10px; color:var(--text-mid); margin-top:4px;">※変更して保存すると、次回ログイン時から新しいパスワードが必要になります。</p>
       </div>
       <div class="flex" style="gap: 10px;">
         <button class="btn" onclick="saveSettings()" style="flex:1;">保存</button>
@@ -2976,7 +3005,7 @@
   </div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyLCgSn45Wy-aTZXa-1LNj55TUoqKLi3gq-LBImy_wjHgE7_2llp89cpF1NmuxrejKTqQ/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxjaZUpoenBPzbYit9vpgsXvC5Oo74PCie4yCH2CMeQ5gJ27Be6hlkh95J6UfhLnt1jKQ/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -3486,6 +3515,16 @@
       const date = document.getElementById('blogDate').value;
       const body = document.getElementById('blogBody').value.trim() || '本文はまだ入力されていません。';
       const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('blog'), '記事画像');
+      const linkUrl = document.getElementById('blogLinkUrl').value.trim();
+      const linkText = document.getElementById('blogLinkText').value.trim() || '詳しく見る';
+      const linkButtonHtml = linkUrl ? `
+        <div style="margin-top:20px; text-align:center;">
+          <div style="width:100%; max-width:320px; padding:14px; background:var(--primary); color:white; border:none; border-radius:12px; font-weight:bold; font-size:15px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin:0 auto;">
+            ${escapeHtml(linkText)} 🔗
+          </div>
+          <p style="font-size:10px; color:var(--text-mid); margin-top:10px;">※プレビューではクリックできません</p>
+        </div>` : '';
+
       openContentPreview('NEWSプレビュー', `
         <div style="padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff;">
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
@@ -3496,6 +3535,7 @@
           <div style="font-size:20px; font-weight:700; margin-bottom:12px; line-height:1.6;">${escapeHtml(title)}</div>
           <div class="managed-rich-text" style="color:var(--text-main); line-height:1.9;">${renderAdminFormattedTextHtml(body, { stripInlineImages: true })}</div>
           ${imageHtml}
+          ${linkButtonHtml}
         </div>
       `);
     }
@@ -4017,6 +4057,7 @@
       document.getElementById('adminRoleModeInput').value = (adminSecurityConfig && adminSecurityConfig.roleMode) || 'owner';
       document.getElementById('adminOperatorNameInput').value = (adminSecurityConfig && adminSecurityConfig.operatorName) || '管理者';
       document.getElementById('adminActionPinInput').value = (adminSecurityConfig && adminSecurityConfig.actionPin) || '';
+      document.getElementById('adminLoginPasswordInput').value = ''; // 常に空で開く
       document.getElementById('settingsModal').classList.add('active');
     }
 
@@ -4030,6 +4071,18 @@
         operatorName: document.getElementById('adminOperatorNameInput').value,
         actionPin: document.getElementById('adminActionPinInput').value
       };
+
+      const newPass = document.getElementById('adminLoginPasswordInput').value.trim();
+      if (newPass) {
+        // パスワードをハッシュ化して設定に追加
+        async function sha256(str) {
+          const msgBuffer = new TextEncoder().encode(str);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        securityConfig.loginHash = await sha256(newPass);
+      }
 
       if (compareAdminVersions(runtimeConfig.minimumSupportedVersion, '0.0.0') > 0 && !runtimeConfig.iosStoreUrl) {
         showToast('最低対応バージョンを設定する場合は App Store URL も入力してください');
@@ -9430,6 +9483,8 @@
         body: document.getElementById('blogBody').value,
         status: status,
         publishAt: document.getElementById('blogPublishAt').value || '',
+        linkUrl: document.getElementById('blogLinkUrl').value.trim(),
+        linkButtonText: document.getElementById('blogLinkText').value.trim(),
         noticeRefreshOnSave: shouldRefreshNoticeListingOnSave('blogNoticeRefresh'),
         sendPushNotification: shouldSendContentPush('blogSendPush', status)
       };
@@ -9538,6 +9593,8 @@
       document.getElementById('blogIcon').value = b.icon;
       document.getElementById('blogBody').value = b.body;
       document.getElementById('blogPublishAt').value = formatDateForDateTimeLocal(b.publishAt || '');
+      document.getElementById('blogLinkUrl').value = b.linkUrl || '';
+      document.getElementById('blogLinkText').value = b.linkButtonText || '';
       setContentNoticeToggle('blogNoticeRefresh', false);
       resetContentPushToggle('blogSendPush');
 
@@ -9553,6 +9610,8 @@
       document.getElementById('blogForm').reset();
       document.getElementById('blogDate').value = formatNowForDateTimeLocal();
       document.getElementById('blogPublishAt').value = '';
+      document.getElementById('blogLinkUrl').value = '';
+      document.getElementById('blogLinkText').value = '';
       document.getElementById('blogSubmitBtn').innerText = '🌟 この内容で投稿する';
       document.getElementById('blogCancelEditBtn').style.display = 'none';
       clearAllImageState('blog');
@@ -10851,6 +10910,82 @@
     }
 
     installAdminActionSafetyGuards();
+
+    // 認証機能の初期化
+    (function () {
+      const DEFAULT_HASH = '4545deaf3f0f78082fc8f0fad55fc167c2903ab0f5009019c7271c9662ce0fba'; // "mayumi2026"
+      const LS_KEY = 'admin_auth_authenticated';
+      const HASH_KEY = 'admin_auth_current_hash';
+      const overlay = document.getElementById('admin-login-overlay');
+      const input = document.getElementById('admin-password-input');
+      const btn = document.getElementById('admin-login-btn');
+      const err = document.getElementById('admin-login-error');
+
+      let currentExpectedHash = localStorage.getItem(HASH_KEY) || DEFAULT_HASH;
+
+      async function sha256(str) {
+        const msgBuffer = new TextEncoder().encode(str);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      // GASサーバーから最新のハッシュを取得して同期する
+      async function syncHashWithServer() {
+        const gasUrl = localStorage.getItem('MAYUMI_GAS_URL');
+        if (!gasUrl) return;
+
+        try {
+          const response = await fetch(gasUrl + '?action=getAdminSecurityConfig');
+          const res = await response.json();
+          if (res && res.status === 'ok' && res.config && res.config.loginHash) {
+            currentExpectedHash = res.config.loginHash;
+            localStorage.setItem(HASH_KEY, currentExpectedHash);
+          }
+        } catch (e) {
+          console.warn('Failed to sync login hash with server:', e);
+        }
+      }
+
+      function checkAuth() {
+        if (localStorage.getItem(LS_KEY) === 'true') {
+          overlay.style.display = 'none';
+        }
+      }
+
+      async function performLogin() {
+        const pwd = input.value;
+        const hashed = await sha256(pwd);
+        
+        // ログイン試行前に同期を待つ、または同期失敗時は現在のハッシュで検証
+        if (hashed === currentExpectedHash) {
+          localStorage.setItem(LS_KEY, 'true');
+          overlay.style.transition = 'opacity 0.4s ease';
+          overlay.style.opacity = '0';
+          setTimeout(() => {
+            overlay.style.display = 'none';
+          }, 400);
+        } else {
+          err.style.display = 'block';
+          input.style.borderColor = '#d00';
+          input.value = '';
+          input.focus();
+        }
+      }
+
+      btn.addEventListener('click', performLogin);
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performLogin();
+      });
+
+      // 初期化
+      checkAuth();
+      if (overlay.style.display !== 'none') {
+        input.focus();
+        // ログイン画面が表示されている間にサーバーとハッシュを同期する
+        syncHashWithServer();
+      }
+    })();
 
   </script>
 
