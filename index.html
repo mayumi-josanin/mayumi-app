@@ -1057,7 +1057,12 @@
             <div class="form-group">
               <label>リンクURL（任意：詳しく見るボタンの遷移先）</label>
               <input type="url" id="blogLinkUrl" placeholder="https://example.com">
-              <p style="font-size:11px; color:var(--text-mid); margin-top:4px;">※入力すると、アプリ側で「詳しく見る」などのボタンが表示されます。</p>
+              <p style="font-size:11px; color:var(--text-mid); margin-top:4px;">※入力すると、アプリ側でボタンが表示されます。</p>
+            </div>
+            <div class="form-group">
+              <label>ボタンのテキスト（任意）</label>
+              <input type="text" id="blogLinkText" placeholder="詳しく見る （未入力ならこれになります）">
+              <p style="font-size:11px; color:var(--text-mid); margin-top:4px;">※「予約はこちら」「インスタを見る」など自由に入力できます。</p>
             </div>
             <div class="form-group">
               <div class="push-send-card">
@@ -3511,13 +3516,13 @@
       const body = document.getElementById('blogBody').value.trim() || '本文はまだ入力されていません。';
       const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('blog'), '記事画像');
       const linkUrl = document.getElementById('blogLinkUrl').value.trim();
+      const linkText = document.getElementById('blogLinkText').value.trim() || '詳しく見る';
       const linkButtonHtml = linkUrl ? `
-        <div style="margin-top:20px; padding:12px; background:#f8f9fa; border-radius:10px; border:1px solid #eee;">
-          <div style="font-size:12px; color:#888; margin-bottom:4px;">🔗 リンク先：</div>
-          <a href="${linkUrl}" target="_blank" rel="noopener" style="color:var(--primary); word-break:break-all; text-decoration:underline; font-size:14px; font-weight:500; display:block; line-height:1.4;">
-            ${linkUrl}
-          </a>
-          <p style="font-size:10px; color:var(--text-mid); margin-top:6px;">※プレビューでもクリックして確認できます</p>
+        <div style="margin-top:20px; text-align:center;">
+          <div style="width:100%; max-width:320px; padding:14px; background:var(--primary); color:white; border:none; border-radius:12px; font-weight:bold; font-size:15px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin:0 auto;">
+            ${escapeHtml(linkText)} 🔗
+          </div>
+          <p style="font-size:10px; color:var(--text-mid); margin-top:10px;">※プレビューではクリックできません</p>
         </div>` : '';
 
       openContentPreview('NEWSプレビュー', `
@@ -9479,6 +9484,7 @@
         status: status,
         publishAt: document.getElementById('blogPublishAt').value || '',
         linkUrl: document.getElementById('blogLinkUrl').value.trim(),
+        linkButtonText: document.getElementById('blogLinkText').value.trim(),
         noticeRefreshOnSave: shouldRefreshNoticeListingOnSave('blogNoticeRefresh'),
         sendPushNotification: shouldSendContentPush('blogSendPush', status)
       };
@@ -9588,6 +9594,7 @@
       document.getElementById('blogBody').value = b.body;
       document.getElementById('blogPublishAt').value = formatDateForDateTimeLocal(b.publishAt || '');
       document.getElementById('blogLinkUrl').value = b.linkUrl || '';
+      document.getElementById('blogLinkText').value = b.linkButtonText || '';
       setContentNoticeToggle('blogNoticeRefresh', false);
       resetContentPushToggle('blogSendPush');
 
@@ -9604,6 +9611,7 @@
       document.getElementById('blogDate').value = formatNowForDateTimeLocal();
       document.getElementById('blogPublishAt').value = '';
       document.getElementById('blogLinkUrl').value = '';
+      document.getElementById('blogLinkText').value = '';
       document.getElementById('blogSubmitBtn').innerText = '🌟 この内容で投稿する';
       document.getElementById('blogCancelEditBtn').style.display = 'none';
       clearAllImageState('blog');
