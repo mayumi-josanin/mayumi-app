@@ -3509,7 +3509,15 @@
       const icon = document.getElementById('blogIcon').value.trim();
       const date = document.getElementById('blogDate').value;
       const body = document.getElementById('blogBody').value.trim() || '本文はまだ入力されていません。';
-      const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('blog'), '記事画像');
+      const linkUrl = document.getElementById('blogLinkUrl').value.trim();
+      const linkButtonHtml = linkUrl ? `
+        <div style="margin-top:20px; text-align:center;">
+          <div style="width:100%; max-width:320px; padding:12px; background:var(--primary); color:white; border-radius:12px; font-weight:bold; font-size:14px; margin:0 auto; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+            詳しく見る 🔗
+          </div>
+          <p style="font-size:10px; color:var(--text-mid); margin-top:6px;">※プレビューではリンクはクリックできません</p>
+        </div>` : '';
+
       openContentPreview('NEWSプレビュー', `
         <div style="padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff;">
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
@@ -3520,6 +3528,7 @@
           <div style="font-size:20px; font-weight:700; margin-bottom:12px; line-height:1.6;">${escapeHtml(title)}</div>
           <div class="managed-rich-text" style="color:var(--text-main); line-height:1.9;">${renderAdminFormattedTextHtml(body, { stripInlineImages: true })}</div>
           ${imageHtml}
+          ${linkButtonHtml}
         </div>
       `);
     }
