@@ -2664,9 +2664,14 @@
         <label>操作記録の表示名</label>
         <input type="text" id="adminOperatorNameInput" placeholder="例：院長 / スタッフ">
       </div>
-      <div class="form-group" style="margin-bottom:15px;">
+      <div class="form-group">
         <label>危険操作用PIN（4〜8桁、空欄なら未設定）</label>
         <input type="password" id="adminActionPinInput" inputmode="numeric" placeholder="例：1234">
+      </div>
+      <div class="form-group" style="margin-bottom:15px;">
+        <label>管理画面ログインパスワード（変更する場合のみ入力）</label>
+        <input type="password" id="adminLoginPasswordInput" placeholder="新しいパスワードを入力">
+        <p style="font-size:10px; color:var(--text-mid); margin-top:4px;">※変更して保存すると、次回ログイン時から新しいパスワードが必要になります。</p>
       </div>
       <div class="flex" style="gap: 10px;">
         <button class="btn" onclick="saveSettings()" style="flex:1;">保存</button>
@@ -2990,7 +2995,7 @@
   </div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyLCgSn45Wy-aTZXa-1LNj55TUoqKLi3gq-LBImy_wjHgE7_2llp89cpF1NmuxrejKTqQ/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxjaZUpoenBPzbYit9vpgsXvC5Oo74PCie4yCH2CMeQ5gJ27Be6hlkh95J6UfhLnt1jKQ/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -4031,6 +4036,7 @@
       document.getElementById('adminRoleModeInput').value = (adminSecurityConfig && adminSecurityConfig.roleMode) || 'owner';
       document.getElementById('adminOperatorNameInput').value = (adminSecurityConfig && adminSecurityConfig.operatorName) || '管理者';
       document.getElementById('adminActionPinInput').value = (adminSecurityConfig && adminSecurityConfig.actionPin) || '';
+      document.getElementById('adminLoginPasswordInput').value = ''; // 常に空で開く
       document.getElementById('settingsModal').classList.add('active');
     }
 
@@ -4044,6 +4050,18 @@
         operatorName: document.getElementById('adminOperatorNameInput').value,
         actionPin: document.getElementById('adminActionPinInput').value
       };
+
+      const newPass = document.getElementById('adminLoginPasswordInput').value.trim();
+      if (newPass) {
+        // パスワードをハッシュ化して設定に追加
+        async function sha256(str) {
+          const msgBuffer = new TextEncoder().encode(str);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        securityConfig.loginHash = await sha256(newPass);
+      }
 
       if (compareAdminVersions(runtimeConfig.minimumSupportedVersion, '0.0.0') > 0 && !runtimeConfig.iosStoreUrl) {
         showToast('最低対応バージョンを設定する場合は App Store URL も入力してください');
@@ -10868,18 +10886,38 @@
 
     // 認証機能の初期化
     (function () {
-      const EXPECTED_HASH = '4545deaf3f0f78082fc8f0fad55fc167c2903ab0f5009019c7271c9662ce0fba'; // "mayumi2026"
+      const DEFAULT_HASH = '4545deaf3f0f78082fc8f0fad55fc167c2903ab0f5009019c7271c9662ce0fba'; // "mayumi2026"
       const LS_KEY = 'admin_auth_authenticated';
+      const HASH_KEY = 'admin_auth_current_hash';
       const overlay = document.getElementById('admin-login-overlay');
       const input = document.getElementById('admin-password-input');
       const btn = document.getElementById('admin-login-btn');
       const err = document.getElementById('admin-login-error');
+
+      let currentExpectedHash = localStorage.getItem(HASH_KEY) || DEFAULT_HASH;
 
       async function sha256(str) {
         const msgBuffer = new TextEncoder().encode(str);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      // GASサーバーから最新のハッシュを取得して同期する
+      async function syncHashWithServer() {
+        const gasUrl = localStorage.getItem('MAYUMI_GAS_URL');
+        if (!gasUrl) return;
+
+        try {
+          const response = await fetch(gasUrl + '?action=getAdminSecurityConfig');
+          const res = await response.json();
+          if (res && res.status === 'ok' && res.config && res.config.loginHash) {
+            currentExpectedHash = res.config.loginHash;
+            localStorage.setItem(HASH_KEY, currentExpectedHash);
+          }
+        } catch (e) {
+          console.warn('Failed to sync login hash with server:', e);
+        }
       }
 
       function checkAuth() {
@@ -10891,7 +10929,9 @@
       async function performLogin() {
         const pwd = input.value;
         const hashed = await sha256(pwd);
-        if (hashed === EXPECTED_HASH) {
+        
+        // ログイン試行前に同期を待つ、または同期失敗時は現在のハッシュで検証
+        if (hashed === currentExpectedHash) {
           localStorage.setItem(LS_KEY, 'true');
           overlay.style.transition = 'opacity 0.4s ease';
           overlay.style.opacity = '0';
@@ -10911,10 +10951,12 @@
         if (e.key === 'Enter') performLogin();
       });
 
-      // 初期チェック
+      // 初期化
       checkAuth();
       if (overlay.style.display !== 'none') {
         input.focus();
+        // ログイン画面が表示されている間にサーバーとハッシュを同期する
+        syncHashWithServer();
       }
     })();
 
