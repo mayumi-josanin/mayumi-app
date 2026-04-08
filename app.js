@@ -3872,10 +3872,6 @@ function openBlogDetail(item) {
       <button class="btn primary" style="max-width:320px; font-weight:bold; font-size:16px;" onclick="window.open('${absoluteUrl}', '_blank', 'noopener')">
         ${escapeHtml(linkText)} 🔗
       </button>
-      <div style="margin-top:10px; font-size:11px; color:var(--text-light); word-break:break-all; line-height:1.4;">
-        リンク先: ${escapeHtml(absoluteUrl)}<br>
-        <span style="font-size:9px;">※タップすると外部ブラウザで開きます</span>
-      </div>
     </div>` : '';
 
   document.getElementById('blogDetailContent').innerHTML = `
