@@ -1,4 +1,4 @@
-const CACHE_NAME = "mayumi-customer-survey-v3";
+const CACHE_NAME = "mayumi-customer-survey-v4";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -30,7 +30,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.pathname.includes("/api/")) return;
-  if (url.pathname.endsWith("/shared/firebase-config.js")) return;
+  if (url.pathname.endsWith("/shared/gas-config.js")) return;
 
   if (event.request.mode === "navigate") {
     event.respondWith(fetch(event.request).catch(() => caches.match("./index.html")));

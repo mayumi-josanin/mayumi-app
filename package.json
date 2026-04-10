@@ -2,11 +2,11 @@
   "name": "mayumi-bijiris",
   "version": "1.0.0",
   "private": true,
-  "description": "Survey response and admin app with a custom Node.js API.",
+  "description": "Survey response and admin app with Google Sheets and Apps Script storage.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check default-surveys.js && node --check customer-app/app.js && node --check admin-app/app.js && node --check shared/api.js && node --check scripts/reset-surveys.js",
+    "check": "node --check server.js && node --check default-surveys.js && node --check customer-app/app.js && node --check admin-app/app.js && node --check shared/api.js && node --check scripts/reset-surveys.js && node --check scripts/check-gas-syntax.js && node scripts/check-gas-syntax.js",
     "reset-surveys": "node scripts/reset-surveys.js"
   },
   "engines": {

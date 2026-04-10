@@ -353,14 +353,16 @@ function renderAnswerValue(answer) {
     return `
       <div class="photo-list">
         ${answer.files
-          .map(
-            (file) => `
-              <a class="photo-thumb" href="${escapeHtml(file.dataUrl)}" download="${escapeHtml(file.name)}">
-                <img src="${escapeHtml(file.dataUrl)}" alt="${escapeHtml(file.name)}" />
+          .map((file) => {
+            const href = file.url || file.dataUrl || "#";
+            const preview = file.thumbnailUrl || file.dataUrl || file.url || "";
+            return `
+              <a class="photo-thumb" href="${escapeHtml(href)}" target="_blank" rel="noopener">
+                ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name)}" />` : ""}
                 <span>${escapeHtml(file.name)}</span>
               </a>
-            `,
-          )
+            `;
+          })
           .join("")}
       </div>
     `;
