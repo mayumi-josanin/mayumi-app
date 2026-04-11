@@ -446,6 +446,28 @@ textarea {
   color: var(--text-light);
 }
 
+.survey-history-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.survey-history-row {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-dark);
+  text-align: left;
+}
+
+.survey-history-row .ticket-stamp-list {
+  margin-top: 0;
+}
+
 .checkbox-row {
   display: grid;
   gap: 8px;
