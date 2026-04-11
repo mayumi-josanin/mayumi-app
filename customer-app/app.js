@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260411-14";
+const APP_VERSION = "20260411-15";
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
 const TICKET_END_COUNT_QUESTION_ID = "q_ticket_end_ticket_size";
 const TICKET_END_SHEET_QUESTION_ID = "q_ticket_end_ticket_sheet";
@@ -309,6 +309,26 @@ function getTicketRoundOptions(ticketCount) {
   return Array.from({ length: max }, (_, index) => `${index + 1}回目`);
 }
 
+function isTicketEndLastPhotoQuestion(question) {
+  return question?.id === "q_ticket_end_photo_last";
+}
+
+function isTicketEndLastPhotoRequired(surveyId) {
+  const ticketCount = getTicketEndCountSelection(surveyId);
+  const ticketRound = getTicketEndRoundSelection(surveyId);
+  return (
+    (ticketCount === "6回券" && ticketRound === "6回目") ||
+    (ticketCount === "10回券" && ticketRound === "10回目")
+  );
+}
+
+function isQuestionRequired(question, surveyId) {
+  if (isTicketEndLastPhotoQuestion(question)) {
+    return isTicketEndLastPhotoRequired(surveyId);
+  }
+  return question.required !== false;
+}
+
 function getQuestionLabel(question, surveyId = appState.selectedSurveyId) {
   if (question.id === "q_ticket_end_photo_last") {
     const ticketRound = getTicketEndRoundSelection(surveyId);
@@ -371,7 +391,10 @@ function buildDraftAnswerMap(survey, draft) {
   return map;
 }
 
-function isQuestionVisible(question, answerMap) {
+function isQuestionVisible(question, answerMap, surveyId = appState.selectedSurveyId) {
+  if (isTicketEndLastPhotoQuestion(question)) {
+    return isTicketEndLastPhotoRequired(surveyId);
+  }
   if (!question?.visibleWhen) return true;
   const values = Array.isArray(answerMap[question.visibleWhen.questionId])
     ? answerMap[question.visibleWhen.questionId]
@@ -389,7 +412,7 @@ function getVisibleQuestions(survey, draft) {
     ) {
       return false;
     }
-    return isQuestionVisible(question, answerMap);
+    return isQuestionVisible(question, answerMap, survey.id);
   });
 }
 
@@ -404,7 +427,7 @@ function isQuestionAnswered(question, surveyId, draft) {
 
 function getProgress(survey, draft) {
   const visibleQuestions = getVisibleQuestions(survey, draft);
-  const requiredQuestions = visibleQuestions.filter((question) => question.required !== false);
+  const requiredQuestions = visibleQuestions.filter((question) => isQuestionRequired(question, survey.id));
   const answeredRequired = requiredQuestions.filter((question) =>
     isQuestionAnswered(question, survey.id, draft),
   ).length;
@@ -751,7 +774,7 @@ function renderTicketStepRound(survey, surveyId) {
 function renderQuestion(question, index, surveyId) {
   const draft = getSurveyDraft(surveyId);
   const name = `question-${question.id}`;
-  const required = question.required !== false;
+  const required = isQuestionRequired(question, surveyId);
   const label = `
     <span>${index + 1}. ${escapeHtml(getQuestionLabel(question, surveyId))}</span>
     ${required ? "" : `<span class="meta">任意</span>`}
@@ -1234,11 +1257,12 @@ function prepareSubmissionFromDraft(survey, draft) {
       question.id === TICKET_END_SHEET_QUESTION_ID ||
       question.id === TICKET_END_ROUND_QUESTION_ID
         ? true
-        : isQuestionVisible(question, answerMap);
+        : isQuestionVisible(question, answerMap, survey.id);
+    const required = isQuestionRequired(question, survey.id);
 
     if (question.type === "photo") {
       const files = visible ? getDraftPhotos(survey.id, question.id) : [];
-      if (visible && question.required !== false && !files.length) {
+      if (visible && required && !files.length) {
         throw makeValidationError(question.id, "未回答の質問があります。");
       }
       answers.push({ questionId: question.id, files: cloneData(files) });
@@ -1255,7 +1279,7 @@ function prepareSubmissionFromDraft(survey, draft) {
     let value = draft.values[question.id];
     if (question.type === "checkbox") {
       value = Array.isArray(value) ? value.map(normalizeText).filter(Boolean) : [];
-      if (visible && question.required !== false && !value.length) {
+      if (visible && required && !value.length) {
         throw makeValidationError(question.id, "未回答の質問があります。");
       }
       if (visible && value.some((item) => !question.options.includes(item))) {
@@ -1273,7 +1297,7 @@ function prepareSubmissionFromDraft(survey, draft) {
     }
 
     value = normalizeText(value);
-    if (visible && question.required !== false && !value) {
+    if (visible && required && !value) {
       throw makeValidationError(question.id, "未回答の質問があります。");
     }
     if (visible && question.type === "rating" && value && !["1", "2", "3", "4", "5"].includes(value)) {
@@ -1791,7 +1815,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-14", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-15", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
