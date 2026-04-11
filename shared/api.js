@@ -136,6 +136,24 @@ window.MayumiSurveyApi = (() => {
     );
   }
 
+  function normalizeVisibilityCondition(condition) {
+    const questionId = normalizeText(condition?.questionId);
+    const value = normalizeText(condition?.value);
+    if (!questionId || !value) return null;
+    return { questionId, value };
+  }
+
+  function normalizeVisibilityConditions(question) {
+    const conditions = Array.isArray(question?.visibilityConditions)
+      ? question.visibilityConditions
+          .map(normalizeVisibilityCondition)
+          .filter(Boolean)
+      : [];
+    if (conditions.length) return conditions;
+    const fallback = normalizeVisibilityCondition(question?.visibleWhen);
+    return fallback ? [fallback] : [];
+  }
+
   function makeSurveySignature(survey) {
     return JSON.stringify({
       id: normalizeText(survey?.id),
@@ -156,12 +174,7 @@ window.MayumiSurveyApi = (() => {
         options: Array.isArray(question?.options)
           ? question.options.map(normalizeText).filter(Boolean)
           : [],
-        visibleWhen: question?.visibleWhen
-          ? {
-              questionId: normalizeText(question.visibleWhen.questionId),
-              value: normalizeText(question.visibleWhen.value),
-            }
-          : null,
+        visibilityConditions: normalizeVisibilityConditions(question),
       })),
     });
   }

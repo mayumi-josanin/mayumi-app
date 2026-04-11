@@ -1621,14 +1621,45 @@ function questionSupportsOptions(type) {
   return type === "choice" || type === "checkbox";
 }
 
+function makeEditorQuestionId() {
+  return `question_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeVisibilityCondition(condition) {
+  const questionId = String(condition?.questionId || "").trim();
+  const value = String(condition?.value || "").trim();
+  if (!questionId || !value) return null;
+  return { questionId, value };
+}
+
+function getQuestionVisibilityConditions(question) {
+  const conditions = Array.isArray(question?.visibilityConditions)
+    ? question.visibilityConditions.map(normalizeVisibilityCondition).filter(Boolean)
+    : [];
+  if (conditions.length) return conditions;
+  const fallback = normalizeVisibilityCondition(question?.visibleWhen);
+  return fallback ? [fallback] : [];
+}
+
+function normalizeQuestionForEditor(question) {
+  return {
+    id: question?.id || makeEditorQuestionId(),
+    label: question?.label || "",
+    type: question?.type || "text",
+    required: question?.required === false ? false : true,
+    options: Array.isArray(question?.options) ? question.options : [],
+    visibilityConditions: getQuestionVisibilityConditions(question),
+  };
+}
+
 function makeBlankQuestion() {
   return {
-    id: "",
+    id: makeEditorQuestionId(),
     label: "",
     type: "text",
     required: true,
     options: [],
-    visibleWhen: null,
+    visibilityConditions: [],
   };
 }
 
@@ -1656,7 +1687,7 @@ function getSurveyEditorDraft() {
   return {
     ...selected,
     questions: Array.isArray(selected.questions) && selected.questions.length
-      ? selected.questions
+      ? selected.questions.map(normalizeQuestionForEditor)
       : [makeBlankQuestion()],
   };
 }
@@ -1670,20 +1701,43 @@ function toDateTimeLocalValue(value) {
   return local.toISOString().slice(0, 16);
 }
 
+function renderVisibilityConditionEditor(condition, previousQuestions) {
+  return `
+    <div class="condition-row" data-visibility-condition-row>
+      <select data-condition-question-id>
+        <option value="">質問を選択</option>
+        ${previousQuestions
+          .map(
+            (item) => `
+              <option value="${escapeHtml(item.id || "")}" ${condition?.questionId === item.id ? "selected" : ""}>
+                ${escapeHtml(item.label || item.id || "質問")}
+              </option>
+            `,
+          )
+          .join("")}
+      </select>
+      <input type="text" data-condition-value value="${escapeHtml(condition?.value || "")}" placeholder="一致する値" />
+      <button class="secondary-button" type="button" data-remove-visibility-condition>削除</button>
+    </div>
+  `;
+}
+
 function renderSurveyQuestionEditor(question, index, allQuestions) {
-  const type = question?.type || "text";
+  const normalizedQuestion = normalizeQuestionForEditor(question);
+  const type = normalizedQuestion.type;
   const supportsOptions = questionSupportsOptions(type);
   const options = supportsOptions
-    ? Array.isArray(question?.options) && question.options.length
-      ? question.options
+    ? Array.isArray(normalizedQuestion.options) && normalizedQuestion.options.length
+      ? normalizedQuestion.options
       : ["", ""]
     : [];
   const previousQuestions = Array.isArray(allQuestions)
-    ? allQuestions.slice(0, index).filter((item) => item?.id || item?.label)
+    ? allQuestions.slice(0, index).map(normalizeQuestionForEditor).filter((item) => item?.id || item?.label)
     : [];
+  const visibilityConditions = getQuestionVisibilityConditions(normalizedQuestion);
 
   return `
-    <article class="survey-question-card" data-question-block data-question-id="${escapeHtml(question?.id || "")}">
+    <article class="survey-question-card" data-question-block data-question-id="${escapeHtml(normalizedQuestion.id || "")}">
       <div class="survey-question-head">
         <strong data-question-number>質問 ${index + 1}</strong>
         <button class="secondary-button" type="button" data-remove-question>削除</button>
@@ -1691,7 +1745,7 @@ function renderSurveyQuestionEditor(question, index, allQuestions) {
       <div class="survey-question-grid">
         <label>
           質問文
-          <input type="text" data-question-label value="${escapeHtml(question?.label || "")}" required />
+          <input type="text" data-question-label value="${escapeHtml(normalizedQuestion.label || "")}" required />
         </label>
         <label>
           質問形式
@@ -1706,29 +1760,17 @@ function renderSurveyQuestionEditor(question, index, allQuestions) {
         </label>
       </div>
       <label class="inline-toggle">
-        <input type="checkbox" data-question-required ${question?.required === false ? "" : "checked"} />
-        必須回答
+        <input type="checkbox" data-question-required ${normalizedQuestion.required === false ? "" : "checked"} />
+        表示されたときに必須回答
       </label>
-      <div class="survey-question-grid">
-        <label>
-          表示条件の質問
-          <select data-visible-question-id>
-            <option value="">常に表示</option>
-            ${previousQuestions
-              .map(
-                (item) => `
-                  <option value="${escapeHtml(item.id || "")}" ${question?.visibleWhen?.questionId === item.id ? "selected" : ""}>
-                    ${escapeHtml(item.label || item.id || "質問")}
-                  </option>
-                `,
-              )
-              .join("")}
-          </select>
-        </label>
-        <label>
-          表示条件の値
-          <input type="text" data-visible-value value="${escapeHtml(question?.visibleWhen?.value || "")}" placeholder="一致する値" />
-        </label>
+      <div class="question-conditions">
+        <div class="meta">表示条件を追加すると、すべて一致したときだけこの質問を表示します。</div>
+        <div class="condition-list" data-visibility-condition-list>
+          ${visibilityConditions
+            .map((condition) => renderVisibilityConditionEditor(condition, previousQuestions))
+            .join("")}
+        </div>
+        <button class="secondary-button" type="button" data-add-visibility-condition>表示条件を追加</button>
       </div>
       <div data-options-wrapper ${supportsOptions ? "" : "hidden"}>
         <div class="option-list" data-option-list>
@@ -1761,15 +1803,37 @@ function addSurveyQuestionEditor(container, question) {
     id: block.dataset.questionId || "",
     label: block.querySelector("[data-question-label]")?.value || "",
   }));
+  const nextQuestion = normalizeQuestionForEditor(question || makeBlankQuestion());
   container.insertAdjacentHTML(
     "beforeend",
     renderSurveyQuestionEditor(
-      question || makeBlankQuestion(),
+      nextQuestion,
       container.children.length,
-      questions.concat(question || makeBlankQuestion()),
+      questions.concat(nextQuestion),
     ),
   );
   syncSurveyQuestionNumbers(container);
+}
+
+function getPreviousQuestionReferences(block) {
+  const container = block?.parentElement;
+  if (!container) return [];
+  const blocks = Array.from(container.querySelectorAll("[data-question-block]"));
+  const index = blocks.indexOf(block);
+  if (index <= 0) return [];
+  return blocks.slice(0, index).map((item) => ({
+    id: item.dataset.questionId || "",
+    label: item.querySelector("[data-question-label]")?.value || "",
+  }));
+}
+
+function addVisibilityConditionEditor(block, condition = { questionId: "", value: "" }) {
+  const list = block?.querySelector("[data-visibility-condition-list]");
+  if (!list) return;
+  list.insertAdjacentHTML(
+    "beforeend",
+    renderVisibilityConditionEditor(condition, getPreviousQuestionReferences(block)),
+  );
 }
 
 function ensureQuestionOptions(block) {
@@ -1803,8 +1867,16 @@ function buildSurveyPayload(form) {
 
   const questions = questionBlocks.map((block) => {
     const type = String(block.querySelector("[data-question-type]")?.value || "text");
-    const visibleQuestionId = String(block.querySelector("[data-visible-question-id]")?.value || "").trim();
-    const visibleValue = String(block.querySelector("[data-visible-value]")?.value || "").trim();
+    const visibilityConditions = Array.from(
+      block.querySelectorAll("[data-visibility-condition-row]"),
+    )
+      .map((row) =>
+        normalizeVisibilityCondition({
+          questionId: row.querySelector("[data-condition-question-id]")?.value,
+          value: row.querySelector("[data-condition-value]")?.value,
+        }),
+      )
+      .filter(Boolean);
     return {
       id: block.dataset.questionId || "",
       label: String(block.querySelector("[data-question-label]")?.value || "").trim(),
@@ -1815,13 +1887,8 @@ function buildSurveyPayload(form) {
             .map((input) => String(input.value || "").trim())
             .filter(Boolean)
         : [],
-      visibleWhen:
-        visibleQuestionId && visibleValue
-          ? {
-              questionId: visibleQuestionId,
-              value: visibleValue,
-            }
-          : null,
+      visibilityConditions,
+      visibleWhen: visibilityConditions[0] || null,
     };
   });
 
@@ -2084,6 +2151,18 @@ function renderSurveyManager() {
       }
       removeQuestionButton.closest("[data-question-block]")?.remove();
       syncSurveyQuestionNumbers(questionsContainer);
+      return;
+    }
+
+    const addVisibilityConditionButton = event.target.closest("[data-add-visibility-condition]");
+    if (addVisibilityConditionButton) {
+      addVisibilityConditionEditor(addVisibilityConditionButton.closest("[data-question-block]"));
+      return;
+    }
+
+    const removeVisibilityConditionButton = event.target.closest("[data-remove-visibility-condition]");
+    if (removeVisibilityConditionButton) {
+      removeVisibilityConditionButton.closest("[data-visibility-condition-row]")?.remove();
       return;
     }
 
@@ -2413,7 +2492,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-11", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-16", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

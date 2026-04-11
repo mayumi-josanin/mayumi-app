@@ -234,6 +234,78 @@ function isChoiceType(type) {
   return type === "choice" || type === "checkbox";
 }
 
+function normalizeVisibilityCondition(condition) {
+  const questionId = normalizeText(condition?.questionId);
+  const value = normalizeText(condition?.value);
+  if (!questionId || !value) return null;
+  return { questionId, value };
+}
+
+function getQuestionVisibilityConditions(question) {
+  const conditions = Array.isArray(question?.visibilityConditions)
+    ? question.visibilityConditions.map(normalizeVisibilityCondition).filter(Boolean)
+    : [];
+  if (conditions.length) return conditions;
+  const fallback = normalizeVisibilityCondition(question?.visibleWhen);
+  return fallback ? [fallback] : [];
+}
+
+function buildRawAnswerMap(answers) {
+  const map = {};
+  (Array.isArray(answers) ? answers : []).forEach((answer) => {
+    const questionId = normalizeText(answer?.questionId);
+    if (!questionId) return;
+    if (Array.isArray(answer?.files)) {
+      map[questionId] = answer.files
+        .map((file) => normalizeText(file?.name || file?.url || file?.dataUrl))
+        .filter(Boolean);
+      return;
+    }
+    if (Array.isArray(answer?.value)) {
+      map[questionId] = answer.value.map(normalizeText).filter(Boolean);
+      return;
+    }
+    const value = normalizeText(answer?.value);
+    map[questionId] = value ? [value] : [];
+  });
+  return map;
+}
+
+function isLegacyTicketEndLastPhotoQuestion(question, survey) {
+  return survey?.id === "survey_bijiris_ticket_end" && question?.id === "q_ticket_end_photo_last";
+}
+
+function isLegacyTicketEndLastPhotoVisible(answerMap) {
+  const ticketSize = normalizeText(answerMap?.q_ticket_end_ticket_size?.[0]);
+  const ticketRound = normalizeText(answerMap?.q_ticket_end_ticket_round?.[0]);
+  return (
+    (ticketSize === "6回券" && ticketRound === "6回目") ||
+    (ticketSize === "10回券" && ticketRound === "10回目")
+  );
+}
+
+function isQuestionVisible(question, answerMap, survey) {
+  const conditions = getQuestionVisibilityConditions(question);
+  if (conditions.length) {
+    return conditions.every((condition) => {
+      const values = Array.isArray(answerMap?.[condition.questionId]) ? answerMap[condition.questionId] : [];
+      return values.some((value) => normalizeText(value) === condition.value);
+    });
+  }
+  if (isLegacyTicketEndLastPhotoQuestion(question, survey)) {
+    return isLegacyTicketEndLastPhotoVisible(answerMap);
+  }
+  return true;
+}
+
+function isQuestionRequired(question, visible, survey) {
+  if (!visible) return false;
+  if (isLegacyTicketEndLastPhotoQuestion(question, survey) && !getQuestionVisibilityConditions(question).length) {
+    return true;
+  }
+  return question?.required === false ? false : true;
+}
+
 function validateSurveyPayload(payload, existing) {
   const title = normalizeText(payload.title);
   const description = normalizeText(payload.description);
@@ -252,6 +324,7 @@ function validateSurveyPayload(payload, existing) {
     const options = Array.isArray(question.options)
       ? question.options.map(normalizeText).filter(Boolean)
       : [];
+    const visibilityConditions = getQuestionVisibilityConditions(question);
 
     if (!label) throw new Error("質問文を入力してください。");
     if (isChoiceType(type) && options.length < 2) {
@@ -264,6 +337,8 @@ function validateSurveyPayload(payload, existing) {
       type,
       required: question.required === false ? false : true,
       options: isChoiceType(type) ? options : [],
+      visibilityConditions,
+      visibleWhen: visibilityConditions[0] || null,
     };
   });
 
@@ -311,12 +386,14 @@ function validateResponsePayload(db, payload) {
       answer,
     ]),
   );
+  const rawAnswerMap = buildRawAnswerMap(payload.answers);
 
   const answers = survey.questions.map((question) => {
     const answer = answerMap.get(question.id) || {};
-    const required = question.required !== false;
+    const visible = isQuestionVisible(question, rawAnswerMap, survey);
+    const required = isQuestionRequired(question, visible, survey);
     if (question.type === "photo") {
-      const files = normalizePhotoFiles(answer.files);
+      const files = visible ? normalizePhotoFiles(answer.files) : [];
       if (required && !files.length) throw new Error("未回答の質問があります。");
       return {
         questionId: question.id,
@@ -331,7 +408,7 @@ function validateResponsePayload(db, payload) {
     const values = Array.isArray(rawValue)
       ? rawValue.map(normalizeText).filter(Boolean)
       : [normalizeText(rawValue)].filter(Boolean);
-    const value = values.join(", ");
+    const value = visible ? values.join(", ") : "";
 
     if (required && !value) throw new Error("未回答の質問があります。");
     if (!value) {
@@ -389,6 +466,7 @@ function normalizeAdminEditedAnswers(survey, existingAnswers, payloadAnswers) {
       answer,
     ]),
   );
+  const rawAnswerMap = buildRawAnswerMap(payloadAnswers);
 
   return survey.questions.map((question) => {
     const existingAnswer = existingMap.get(question.id) || {
@@ -397,9 +475,11 @@ function normalizeAdminEditedAnswers(survey, existingAnswers, payloadAnswers) {
       type: question.type,
       value: "",
     };
+    const visible = isQuestionVisible(question, rawAnswerMap, survey);
+    const required = isQuestionRequired(question, visible, survey);
 
     if (question.type === "photo") {
-      return existingAnswer;
+      return visible ? existingAnswer : { ...existingAnswer, value: "", files: [] };
     }
 
     const rawAnswer = answerMap.get(question.id) || {};
@@ -407,9 +487,9 @@ function normalizeAdminEditedAnswers(survey, existingAnswers, payloadAnswers) {
     const values = Array.isArray(rawValue)
       ? rawValue.map(normalizeText).filter(Boolean)
       : [normalizeText(rawValue)].filter(Boolean);
-    const value = values.join(", ");
+    const value = visible ? values.join(", ") : "";
 
-    if (question.required !== false && !value) {
+    if (required && !value) {
       throw new Error("未回答の質問があります。");
     }
     if (question.type === "rating" && value && !["1", "2", "3", "4", "5"].includes(value)) {

@@ -597,6 +597,12 @@ textarea {
   gap: 12px;
 }
 
+.question-conditions,
+.condition-list {
+  display: grid;
+  gap: 8px;
+}
+
 .inline-toggle {
   display: flex;
   align-items: center;
@@ -614,6 +620,13 @@ textarea {
 .option-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.condition-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
 }
@@ -791,6 +804,7 @@ textarea {
   .filter-grid,
   .management-grid,
   .survey-question-grid,
+  .condition-row,
   .monthly-bar-row {
     grid-template-columns: 1fr;
   }

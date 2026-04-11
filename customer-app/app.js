@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260411-15";
+const APP_VERSION = "20260411-16";
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
 const TICKET_END_COUNT_QUESTION_ID = "q_ticket_end_ticket_size";
 const TICKET_END_SHEET_QUESTION_ID = "q_ticket_end_ticket_sheet";
@@ -322,8 +322,25 @@ function isTicketEndLastPhotoRequired(surveyId) {
   );
 }
 
+function getQuestionVisibilityConditions(question) {
+  const conditions = Array.isArray(question?.visibilityConditions)
+    ? question.visibilityConditions
+        .map((condition) => ({
+          questionId: normalizeText(condition?.questionId),
+          value: normalizeText(condition?.value),
+        }))
+        .filter((condition) => condition.questionId && condition.value)
+    : [];
+  if (conditions.length) return conditions;
+  const fallbackQuestionId = normalizeText(question?.visibleWhen?.questionId);
+  const fallbackValue = normalizeText(question?.visibleWhen?.value);
+  return fallbackQuestionId && fallbackValue
+    ? [{ questionId: fallbackQuestionId, value: fallbackValue }]
+    : [];
+}
+
 function isQuestionRequired(question, surveyId) {
-  if (isTicketEndLastPhotoQuestion(question)) {
+  if (isTicketEndLastPhotoQuestion(question) && !getQuestionVisibilityConditions(question).length) {
     return isTicketEndLastPhotoRequired(surveyId);
   }
   return question.required !== false;
@@ -392,14 +409,17 @@ function buildDraftAnswerMap(survey, draft) {
 }
 
 function isQuestionVisible(question, answerMap, surveyId = appState.selectedSurveyId) {
+  const conditions = getQuestionVisibilityConditions(question);
+  if (conditions.length) {
+    return conditions.every((condition) => {
+      const values = Array.isArray(answerMap[condition.questionId]) ? answerMap[condition.questionId] : [];
+      return values.includes(condition.value);
+    });
+  }
   if (isTicketEndLastPhotoQuestion(question)) {
     return isTicketEndLastPhotoRequired(surveyId);
   }
-  if (!question?.visibleWhen) return true;
-  const values = Array.isArray(answerMap[question.visibleWhen.questionId])
-    ? answerMap[question.visibleWhen.questionId]
-    : [];
-  return values.includes(normalizeText(question.visibleWhen.value));
+  return true;
 }
 
 function getVisibleQuestions(survey, draft) {
@@ -1815,7 +1835,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-15", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-16", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
