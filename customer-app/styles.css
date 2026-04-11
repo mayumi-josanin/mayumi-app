@@ -339,6 +339,16 @@ textarea {
   line-height: 1.8;
 }
 
+.history-group-list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-nav-card {
+  text-align: left;
+  cursor: pointer;
+}
+
 .ticket-info-card {
   display: grid;
   gap: 8px;

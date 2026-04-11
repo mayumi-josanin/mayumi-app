@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260411-11";
+const APP_VERSION = "20260411-12";
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
 const TICKET_END_COUNT_QUESTION_ID = "q_ticket_end_ticket_size";
 const TICKET_END_SHEET_QUESTION_ID = "q_ticket_end_ticket_sheet";
@@ -30,6 +30,8 @@ const appState = {
   editingResponseId: "",
   lastSubmittedResponse: null,
   lastSubmissionWasEdit: false,
+  historySurveyId: "",
+  historyResponseId: "",
 };
 
 const api = window.MayumiSurveyApi;
@@ -1452,52 +1454,201 @@ function renderResponseTicketInfo(response) {
   `;
 }
 
+function groupHistoryBySurvey() {
+  const groups = new Map();
+  appState.history
+    .slice()
+    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+    .forEach((response) => {
+      const key = normalizeText(response.surveyId || response.surveyTitle || response.id);
+      const current = groups.get(key) || {
+        surveyId: response.surveyId || key,
+        surveyTitle: response.surveyTitle || "アンケート",
+        latestAt: response.submittedAt,
+        responses: [],
+      };
+      current.responses.push(response);
+      if (new Date(response.submittedAt) > new Date(current.latestAt)) {
+        current.latestAt = response.submittedAt;
+      }
+      groups.set(key, current);
+    });
+  return Array.from(groups.values()).sort((a, b) => new Date(b.latestAt) - new Date(a.latestAt));
+}
+
+function renderHistorySurveyGroups(groups) {
+  historyList.innerHTML = `
+    ${renderPendingNotice()}
+    <div class="history-group-list">
+      ${groups
+        .map(
+          (group) => `
+            <button class="history-card history-nav-card" type="button" data-history-survey="${escapeHtml(group.surveyId)}">
+              <strong>${escapeHtml(group.surveyTitle)}</strong>
+              <div class="meta">回答数: ${group.responses.length}件</div>
+              <div class="meta">最新回答: ${formatDate(group.latestAt)}</div>
+            </button>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+
+  historyList.querySelectorAll("[data-history-survey]").forEach((button) => {
+    button.addEventListener("click", () => {
+      appState.historySurveyId = button.dataset.historySurvey || "";
+      appState.historyResponseId = "";
+      renderHistory();
+    });
+  });
+}
+
+function renderHistoryResponseList(group) {
+  historyList.innerHTML = `
+    ${renderPendingNotice()}
+    <div class="section-head">
+      <div>
+        <strong>${escapeHtml(group.surveyTitle)}</strong>
+        <div class="meta">最新順で表示しています。</div>
+      </div>
+      <button class="ghost-button" type="button" data-history-back="groups">戻る</button>
+    </div>
+    <div class="history-group-list">
+      ${group.responses
+        .slice()
+        .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+        .map((response) => {
+          const ticketInfo = getResponseTicketInfo(response);
+          return `
+            <button class="history-card history-nav-card" type="button" data-history-response="${escapeHtml(response.id)}">
+              <div class="meta">${formatDate(response.submittedAt)}</div>
+              ${
+                ticketInfo.length
+                  ? `
+                    <div class="ticket-stamp-list">
+                      ${ticketInfo
+                        .map(
+                          (item) => `
+                            <span class="ticket-stamp">
+                              <span class="ticket-stamp-label">${escapeHtml(item.label)}</span>
+                              <span>${escapeHtml(item.value)}</span>
+                            </span>
+                          `,
+                        )
+                        .join("")}
+                    </div>
+                  `
+                  : `<div class="meta">この回答に回数券情報はありません。</div>`
+              }
+            </button>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+
+  historyList.querySelector('[data-history-back="groups"]')?.addEventListener("click", () => {
+    appState.historySurveyId = "";
+    appState.historyResponseId = "";
+    renderHistory();
+  });
+  historyList.querySelectorAll("[data-history-response]").forEach((button) => {
+    button.addEventListener("click", () => {
+      appState.historyResponseId = button.dataset.historyResponse || "";
+      renderHistory();
+    });
+  });
+}
+
+function renderHistoryDetail(group, response) {
+  historyList.innerHTML = `
+    ${renderPendingNotice()}
+    <div class="section-head">
+      <div>
+        <strong>${escapeHtml(group.surveyTitle)}</strong>
+        <div class="meta">${formatDate(response.submittedAt)}</div>
+      </div>
+      <button class="ghost-button" type="button" data-history-back="responses">戻る</button>
+    </div>
+    <article class="history-card">
+      ${renderResponseTicketInfo(response)}
+      ${response.answers
+        .map(
+          (answer) => `
+            <div class="history-answer">
+              <strong>${escapeHtml(answer.label)}</strong><br />
+              ${renderAnswerValue(answer)}
+            </div>
+          `,
+        )
+        .join("")}
+      ${
+        canEditResponse(response)
+          ? `
+            <div class="action-row">
+              <div class="meta">回答後24時間以内は修正できます。</div>
+              <button class="secondary-button" type="button" data-edit-response="${escapeHtml(response.id)}">修正する</button>
+            </div>
+          `
+          : `<div class="meta">修正可能期間を過ぎています。</div>`
+      }
+    </article>
+  `;
+
+  historyList.querySelector('[data-history-back="responses"]')?.addEventListener("click", () => {
+    appState.historyResponseId = "";
+    renderHistory();
+  });
+  historyList.querySelectorAll("[data-edit-response]").forEach((button) => {
+    button.addEventListener("click", () => startResponseEdit(button.dataset.editResponse));
+  });
+}
+
 function renderHistory() {
   if (!appState.history.length) {
     historyList.innerHTML = `<div class="empty">まだ回答履歴はありません。</div>`;
     return;
   }
+  const groups = groupHistoryBySurvey();
+  if (!groups.some((group) => group.surveyId === appState.historySurveyId)) {
+    appState.historySurveyId = "";
+    appState.historyResponseId = "";
+  }
 
-  historyList.innerHTML = `
-    ${renderPendingNotice()}
-    ${appState.history
-      .slice()
-      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
-      .map(
-        (response) => `
-          <article class="history-card">
-            <div class="section-head">
-              <div>
-                <strong>${escapeHtml(response.surveyTitle)}</strong>
-                <div class="meta">${formatDate(response.submittedAt)}</div>
-              </div>
-              ${canEditResponse(response) ? `<button class="secondary-button" type="button" data-edit-response="${response.id}">修正する</button>` : ""}
-            </div>
-            ${renderResponseTicketInfo(response)}
-            ${response.answers
-              .map(
-                (answer) => `
-                  <div class="history-answer">
-                    <strong>${escapeHtml(answer.label)}</strong><br />
-                    ${renderAnswerValue(answer)}
-                  </div>
-                `,
-              )
-              .join("")}
-            ${
-              canEditResponse(response)
-                ? `<div class="meta">回答後24時間以内は修正できます。</div>`
-                : `<div class="meta">修正可能期間を過ぎています。</div>`
-            }
-          </article>
-        `,
-      )
-      .join("")}
-  `;
+  if (!appState.historySurveyId) {
+    renderHistorySurveyGroups(groups);
+    attachCommonButtons();
+    return;
+  }
 
-  historyList.querySelectorAll("[data-edit-response]").forEach((button) => {
-    button.addEventListener("click", () => startResponseEdit(button.dataset.editResponse));
-  });
+  const group = groups.find((item) => item.surveyId === appState.historySurveyId);
+  if (!group) {
+    appState.historySurveyId = "";
+    appState.historyResponseId = "";
+    renderHistorySurveyGroups(groups);
+    attachCommonButtons();
+    return;
+  }
+
+  if (!group.responses.some((response) => response.id === appState.historyResponseId)) {
+    appState.historyResponseId = "";
+  }
+
+  if (!appState.historyResponseId) {
+    renderHistoryResponseList(group);
+    attachCommonButtons();
+    return;
+  }
+
+  const response = group.responses.find((item) => item.id === appState.historyResponseId);
+  if (!response) {
+    appState.historyResponseId = "";
+    renderHistoryResponseList(group);
+    attachCommonButtons();
+    return;
+  }
+
+  renderHistoryDetail(group, response);
   attachCommonButtons();
 }
 
@@ -1540,7 +1691,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-11", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-12", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
