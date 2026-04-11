@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260411-4" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260411-8" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <link rel="icon" href="./icons/icon-192.png" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260411-4" />
+    <link rel="stylesheet" href="./styles.css?v=20260411-8" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -21,15 +21,27 @@
         <img src="./icons/icon-192.png" alt="まゆみ助産院" />
         <h1>管理者認証</h1>
         <p>アンケート回答を確認・管理します。</p>
-        <label>
-          ログインID
-          <input name="loginId" type="text" autocomplete="username" required />
-        </label>
-        <label>
-          パスワード
-          <input name="password" type="password" autocomplete="current-password" required />
-        </label>
-        <button class="primary-button" type="submit">ログイン</button>
+        <div id="loginPrimaryFields" class="stack">
+          <label>
+            ログインID
+            <input name="loginId" type="text" autocomplete="username" required />
+          </label>
+          <label>
+            パスワード
+            <input name="password" type="password" autocomplete="current-password" required />
+          </label>
+        </div>
+        <div id="loginOtpFields" class="stack" hidden>
+          <div class="otp-note">
+            確認コードを登録メールへ送信しました。6桁コードを入力してください。
+          </div>
+          <label>
+            確認コード
+            <input name="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+          </label>
+          <button id="backToLoginButton" class="secondary-button" type="button">戻る</button>
+        </div>
+        <button id="loginSubmitButton" class="primary-button" type="submit">ログイン</button>
       </form>
     </section>
 
@@ -79,6 +91,15 @@
               </div>
               <div id="surveyAnalytics" class="stack"></div>
             </section>
+            <section class="card">
+              <div class="stage-head">
+                <div>
+                  <div class="card-title">月別回答件数</div>
+                  <div class="meta">アンケートごとの月別件数です。</div>
+                </div>
+              </div>
+              <div id="monthlySurveyChart" class="stack"></div>
+            </section>
           </section>
 
           <section id="page-surveys" class="page">
@@ -116,6 +137,7 @@
                     <option value="new">未対応</option>
                     <option value="checked">確認済み</option>
                     <option value="done">対応済み</option>
+                    <option value="trash">ゴミ箱</option>
                   </select>
                 </label>
                 <label>
@@ -130,6 +152,7 @@
                   終了日
                   <input id="dateToFilter" type="date" />
                 </label>
+                <button id="onlyUnreadButton" class="secondary-button" type="button">未対応のみ</button>
                 <button id="exportCsvButton" class="secondary-button" type="button">CSV出力</button>
                 <button id="exportExcelButton" class="secondary-button" type="button">Excel出力</button>
               </div>
@@ -170,6 +193,10 @@
             </div>
             <div class="grid-two settings-grid">
               <section class="card">
+                <div class="card-title">管理者アカウント一覧</div>
+                <div id="adminUsersCard"></div>
+              </section>
+              <section class="card">
                 <div class="card-title">通知・データ方針</div>
                 <div id="preferencesCard"></div>
               </section>
@@ -177,6 +204,7 @@
                 <div class="card-title">バックアップ / 復元</div>
                 <div class="stack">
                   <button id="backupExportButton" class="secondary-button" type="button">バックアップを保存</button>
+                  <button id="runMaintenanceButton" class="secondary-button" type="button">定期メンテナンスを実行</button>
                   <label>
                     復元ファイル
                     <input id="backupImportInput" type="file" accept="application/json" />
@@ -187,10 +215,18 @@
             <div class="grid-two settings-grid">
               <section class="card">
                 <div class="card-title">監査ログ</div>
+                <label>
+                  絞り込み
+                  <input id="auditLogFilter" type="search" placeholder="種別・内容を検索" />
+                </label>
                 <div id="auditLogList" class="stack"></div>
               </section>
               <section class="card">
                 <div class="card-title">エラーログ</div>
+                <label>
+                  絞り込み
+                  <input id="errorLogFilter" type="search" placeholder="発生元・内容を検索" />
+                </label>
                 <div id="errorLogList" class="stack"></div>
               </section>
             </div>
@@ -228,9 +264,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260411-6"></script>
-    <script src="../shared/gas-config.js?v=20260411-6"></script>
-    <script src="../shared/api.js?v=20260411-6"></script>
-    <script src="./app.js?v=20260411-6"></script>
+    <script src="../default-surveys.js?v=20260411-8"></script>
+    <script src="../shared/gas-config.js?v=20260411-8"></script>
+    <script src="../shared/api.js?v=20260411-8"></script>
+    <script src="./app.js?v=20260411-8"></script>
   </body>
 </html>

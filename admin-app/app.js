@@ -3,6 +3,7 @@ const STATUS_LABELS = {
   new: "未対応",
   checked: "確認済み",
   done: "対応済み",
+  trash: "ゴミ箱",
 };
 
 const api = window.MayumiSurveyApi;
@@ -14,11 +15,13 @@ const state = {
   preferences: null,
   logs: { auditLogs: [], errorLogs: [] },
   customerMemos: {},
+  adminUsers: [],
   selectedSurveyEditorId: "",
   selectedAnalyticsSurveyId: "",
   selectedCustomerName: "",
   selectedResponseId: "",
   selectedResponseIds: [],
+  pendingOtpSessionId: "",
   installPrompt: null,
 };
 
@@ -28,6 +31,9 @@ const toast = document.querySelector("#toast");
 const loginForm = document.querySelector("#loginForm");
 const credentialForm = document.querySelector("#credentialForm");
 const installButton = document.querySelector("#installButton");
+const loginPrimaryFields = document.querySelector("#loginPrimaryFields");
+const loginOtpFields = document.querySelector("#loginOtpFields");
+const loginSubmitButton = document.querySelector("#loginSubmitButton");
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -84,6 +90,35 @@ function setLoggedIn(loggedIn) {
     setPage("dashboard");
     loginForm.reset();
   }
+  state.pendingOtpSessionId = "";
+  setLoginOtpMode(false);
+}
+
+function setLoginOtpMode(enabled) {
+  loginPrimaryFields.hidden = enabled;
+  loginOtpFields.hidden = !enabled;
+  if (!enabled) {
+    loginForm.elements.otpCode.value = "";
+  }
+  loginSubmitButton.textContent = enabled ? "確認してログイン" : "ログイン";
+}
+
+function normalizeMemoRecord(record) {
+  if (!record) return { latestMemo: "", entries: [] };
+  if (typeof record === "string") {
+    return {
+      latestMemo: record,
+      entries: record ? [{ at: "", memo: record }] : [],
+    };
+  }
+  return {
+    latestMemo: String(record.latestMemo || record.memo || "").trim(),
+    entries: Array.isArray(record.entries) ? record.entries : [],
+  };
+}
+
+function getCustomerMemoRecord(customerName) {
+  return normalizeMemoRecord(state.customerMemos?.[customerName]);
 }
 
 function getFallbackSurveys() {
@@ -119,6 +154,7 @@ async function loadAdminData() {
   state.preferences = preferencesResult?.preferences || null;
   state.logs = logsResult || { auditLogs: [], errorLogs: [] };
   state.customerMemos = customerMemosResult?.memos || {};
+  state.adminUsers = Array.isArray(state.adminInfo?.adminUsers) ? state.adminInfo.adminUsers : [];
   if (!state.selectedAnalyticsSurveyId && state.surveys[0]) {
     state.selectedAnalyticsSurveyId = state.surveys[0].id;
   }
@@ -150,16 +186,17 @@ function renderNavigation() {
 }
 
 function renderDashboard() {
-  const customers = groupByCustomer();
-  const unread = state.responses.filter((response) => normalizeStatus(response.status) === "new").length;
+  const activeResponses = state.responses.filter((response) => normalizeStatus(response.status) !== "trash");
+  const customers = groupByCustomerFrom(activeResponses);
+  const unread = activeResponses.filter((response) => normalizeStatus(response.status) === "new").length;
   document.querySelector("#statsGrid").innerHTML = `
-    <div class="stat-card"><span>回答数</span><strong>${state.responses.length}</strong></div>
+    <div class="stat-card"><span>回答数</span><strong>${activeResponses.length}</strong></div>
     <div class="stat-card"><span>未対応</span><strong>${unread}</strong></div>
     <div class="stat-card"><span>回答者数</span><strong>${customers.length}</strong></div>
     <div class="stat-card"><span>アンケート数</span><strong>${state.surveys.length}</strong></div>
   `;
 
-  const latest = state.responses
+  const latest = activeResponses
     .slice()
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
     .slice(0, 5);
@@ -169,7 +206,7 @@ function renderDashboard() {
 
   const summary = state.surveys.map((survey) => ({
     title: survey.title,
-    count: state.responses.filter((response) => response.surveyId === survey.id).length,
+    count: activeResponses.filter((response) => response.surveyId === survey.id).length,
   }));
   document.querySelector("#surveySummary").innerHTML = summary.length
     ? summary
@@ -182,9 +219,62 @@ function renderDashboard() {
           `,
         )
         .join("")
-    : `<div class="empty">アンケートはありません。</div>`;
+      : `<div class="empty">アンケートはありません。</div>`;
 
   renderSurveyAnalytics();
+  renderMonthlySurveyChart();
+}
+
+function getMonthlySurveyCounts() {
+  const map = new Map();
+  state.responses.forEach((response) => {
+    if (normalizeStatus(response.status) === "trash") return;
+    const month = new Date(response.submittedAt).toISOString().slice(0, 7);
+    const current = map.get(month) || {};
+    current[response.surveyTitle] = (current[response.surveyTitle] || 0) + 1;
+    map.set(month, current);
+  });
+  return Array.from(map.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(-6);
+}
+
+function renderMonthlySurveyChart() {
+  const container = document.querySelector("#monthlySurveyChart");
+  if (!container) return;
+  const months = getMonthlySurveyCounts();
+  const surveys = state.surveys.map((survey) => survey.title);
+  if (!months.length) {
+    container.innerHTML = `<div class="empty">まだ集計できる回答がありません。</div>`;
+    return;
+  }
+  const max = Math.max(
+    1,
+    ...months.flatMap(([, counts]) => surveys.map((title) => Number(counts[title] || 0))),
+  );
+  container.innerHTML = months
+    .map(
+      ([month, counts]) => `
+        <article class="answer-item">
+          <strong>${escapeHtml(month)}</strong>
+          <div class="monthly-bar-list">
+            ${surveys
+              .map((title) => {
+                const count = Number(counts[title] || 0);
+                return `
+                  <div class="monthly-bar-row">
+                    <span>${escapeHtml(title)}</span>
+                    <div class="monthly-bar-track"><div class="monthly-bar-fill" style="width:${Math.round((count / max) * 100)}%"></div></div>
+                    <strong>${count}</strong>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+        </article>
+      `,
+    )
+    .join("");
 }
 
 function renderCompactResponse(response) {
@@ -201,7 +291,9 @@ function renderCompactResponse(response) {
 function getSurveyAnalyticsSummary(surveyId) {
   const survey = findSurveyById(surveyId);
   if (!survey) return [];
-  const responses = state.responses.filter((response) => response.surveyId === surveyId);
+  const responses = state.responses.filter(
+    (response) => response.surveyId === surveyId && normalizeStatus(response.status) !== "trash",
+  );
   const answerMapList = responses.map((response) => {
     const map = new Map();
     (response.answers || []).forEach((answer) => map.set(answer.questionId, answer));
@@ -321,6 +413,7 @@ function renderAnswerValue(answer) {
               >
                 ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name)}" />` : ""}
                 <span>${escapeHtml(file.name || "写真")}</span>
+                ${file.capturedAt ? `<span class="meta">撮影日: ${escapeHtml(formatDate(file.capturedAt))}</span>` : ""}
               </button>
             `;
           })
@@ -460,11 +553,11 @@ function renderFilters() {
     <option value="">すべて</option>
     ${state.surveys.map((survey) => `<option value="${survey.id}">${escapeHtml(survey.title)}</option>`).join("")}
   `;
-  surveyFilter.value = current;
+  surveyFilter.value = Array.from(surveyFilter.options).some((option) => option.value === current) ? current : "";
 }
 
 function getCustomerMemo(customerName) {
-  return String(state.customerMemos?.[customerName] || "");
+  return getCustomerMemoRecord(customerName).latestMemo;
 }
 
 async function saveCustomerMemo(customerName) {
@@ -527,7 +620,11 @@ function getFilteredResponses() {
 
   return state.responses
     .filter((response) => !surveyId || response.surveyId === surveyId)
-    .filter((response) => !status || normalizeStatus(response.status) === status)
+    .filter((response) =>
+      status
+        ? normalizeStatus(response.status) === status
+        : normalizeStatus(response.status) !== "trash",
+    )
     .filter((response) => {
       const submittedAt = new Date(response.submittedAt);
       if (dateFrom && submittedAt < new Date(`${dateFrom}T00:00:00`)) return false;
@@ -542,6 +639,150 @@ function getFilteredResponses() {
       );
     })
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+}
+
+function getCustomerResponses(customerName) {
+  return getFilteredResponses().filter((response) => response.customerName === customerName);
+}
+
+function getPreviousResponse(response) {
+  return state.responses
+    .filter(
+      (item) =>
+        item.customerName === response.customerName &&
+        item.surveyId === response.surveyId &&
+        item.id !== response.id &&
+        normalizeStatus(item.status) !== "trash" &&
+        new Date(item.submittedAt) < new Date(response.submittedAt),
+    )
+    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null;
+}
+
+function renderComparisonSection(response) {
+  const survey = findSurveyById(response.surveyId);
+  const previous = getPreviousResponse(response);
+  if (!survey || !previous) {
+    return `<article class="answer-item"><strong>前回比較</strong><div class="meta">比較できる前回回答はありません。</div></article>`;
+  }
+  const currentMap = new Map(getDisplayAnswers(response, survey).map((answer) => [answer.questionId, answer]));
+  const previousMap = new Map(getDisplayAnswers(previous, survey).map((answer) => [answer.questionId, answer]));
+  const rows = survey.questions
+    .map((question) => {
+      const current = currentMap.get(question.id) || { value: "", files: [] };
+      const last = previousMap.get(question.id) || { value: "", files: [] };
+      const currentValue = Array.isArray(current.files) && current.files.length
+        ? `${current.files.length}枚`
+        : String(current.value || "未回答");
+      const lastValue = Array.isArray(last.files) && last.files.length
+        ? `${last.files.length}枚`
+        : String(last.value || "未回答");
+      if (currentValue === lastValue) return "";
+      return `
+        <div class="comparison-row">
+          <strong>${escapeHtml(question.label)}</strong>
+          <div class="meta">前回: ${escapeHtml(lastValue)}</div>
+          <div>今回: ${escapeHtml(currentValue)}</div>
+        </div>
+      `;
+    })
+    .filter(Boolean);
+  return `
+    <article class="answer-item">
+      <strong>前回比較</strong>
+      <div class="meta">前回回答: ${escapeHtml(formatDate(previous.submittedAt))}</div>
+      ${rows.length ? rows.join("") : `<div class="meta">前回と差分はありません。</div>`}
+    </article>
+  `;
+}
+
+function renderMemoTimeline(customerName) {
+  const record = getCustomerMemoRecord(customerName);
+  if (!record.entries.length) {
+    return `<div class="empty">メモ履歴はまだありません。</div>`;
+  }
+  return `
+    <div class="memo-timeline">
+      ${record.entries
+        .map(
+          (entry) => `
+            <article class="timeline-item">
+              <div class="meta">${escapeHtml(entry.at ? formatDate(entry.at) : "-")}</div>
+              <div>${escapeHtml(entry.memo || "")}</div>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function collectPhotosFromResponses(responses) {
+  return responses.flatMap((response) =>
+    (response.answers || []).flatMap((answer) => (Array.isArray(answer.files) ? answer.files : [])),
+  );
+}
+
+function downloadFiles(files, prefix) {
+  if (!files.length) {
+    showToast("ダウンロードできる写真がありません。");
+    return;
+  }
+  files.forEach((file, index) => {
+    const href = file.downloadUrl || file.previewUrl || file.url;
+    if (!href) return;
+    const link = document.createElement("a");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.download = `${prefix || "photo"}-${index + 1}-${file.name || "image.jpg"}`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+  });
+  showToast(`${files.length}件の写真ダウンロードを開始しました。`);
+}
+
+function printResponse(response) {
+  const survey = findSurveyById(response.surveyId);
+  const answers = getDisplayAnswers(response, survey);
+  const printWindow = window.open("", "_blank", "noopener,noreferrer");
+  if (!printWindow) {
+    showToast("印刷画面を開けませんでした。");
+    return;
+  }
+  printWindow.document.write(`
+    <!doctype html>
+    <html lang="ja">
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(response.customerName)}_${escapeHtml(response.surveyTitle)}</title>
+        <style>
+          body { font-family: sans-serif; padding: 24px; color: #222; }
+          h1 { font-size: 20px; margin-bottom: 8px; }
+          .meta { color: #666; margin-bottom: 16px; }
+          .item { border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; }
+          .item strong { display:block; margin-bottom:6px; }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(response.surveyTitle)}</h1>
+        <div class="meta">${escapeHtml(response.customerName)} / ${escapeHtml(formatDate(response.submittedAt))}</div>
+        ${answers
+          .map(
+            (answer) => `
+              <div class="item">
+                <strong>${escapeHtml(answer.label)}</strong>
+                <div>${Array.isArray(answer.files) && answer.files.length ? escapeHtml(answer.files.map((file) => file.name || "写真").join(", ")) : escapeHtml(answer.value || "未回答")}</div>
+              </div>
+            `,
+          )
+          .join("")}
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
 }
 
 function renderResponses() {
@@ -605,6 +846,7 @@ function renderResponses() {
       </div>
     `;
   } else if (!selectedResponse) {
+    const customerMemoRecord = getCustomerMemoRecord(state.selectedCustomerName);
     stage.innerHTML = `
       <div class="stage-head">
         <div>
@@ -615,10 +857,15 @@ function renderResponses() {
       </div>
       <article class="answer-item">
         <strong>お客様メモ</strong>
-        <textarea id="customerMemoInput" placeholder="自由にメモを残せます。">${escapeHtml(getCustomerMemo(state.selectedCustomerName))}</textarea>
+        <textarea id="customerMemoInput" placeholder="自由にメモを残せます。">${escapeHtml(customerMemoRecord.latestMemo)}</textarea>
         <div class="action-row">
           <button class="secondary-button" type="button" id="saveCustomerMemoButton">メモ保存</button>
+          <button class="secondary-button" type="button" id="downloadCustomerPhotosButton">写真一括ダウンロード</button>
         </div>
+      </article>
+      <article class="answer-item">
+        <strong>メモ履歴</strong>
+        ${renderMemoTimeline(state.selectedCustomerName)}
       </article>
       <div class="bulk-toolbar">
         <label>
@@ -628,6 +875,7 @@ function renderResponses() {
             <option value="new">未対応</option>
             <option value="checked">確認済み</option>
             <option value="done">対応済み</option>
+            <option value="trash">ゴミ箱</option>
           </select>
         </label>
         <button class="secondary-button" type="button" id="bulkStatusApplyButton">選択した回答に適用</button>
@@ -669,8 +917,13 @@ function renderResponses() {
           <div class="card-title">${escapeHtml(selectedResponse.surveyTitle)}</div>
           <div class="meta">${escapeHtml(selectedResponse.customerName)} / ${formatDate(selectedResponse.submittedAt)}</div>
         </div>
-        <button class="secondary-button" type="button" data-back-stage="history">戻る</button>
+        <div class="action-row">
+          <button class="secondary-button" type="button" data-print-response="${selectedResponse.id}">印刷</button>
+          <button class="secondary-button" type="button" data-download-response-photos="${selectedResponse.id}">写真DL</button>
+          <button class="secondary-button" type="button" data-back-stage="history">戻る</button>
+        </div>
       </div>
+      ${renderComparisonSection(selectedResponse)}
       ${renderResponseCard(selectedResponse)}
     `;
   }
@@ -727,8 +980,26 @@ function renderResponses() {
   stage.querySelector("#saveCustomerMemoButton")?.addEventListener("click", () => {
     void saveCustomerMemo(state.selectedCustomerName);
   });
+  stage.querySelector("#downloadCustomerPhotosButton")?.addEventListener("click", () => {
+    downloadFiles(
+      collectPhotosFromResponses(customerResponses),
+      state.selectedCustomerName || "customer",
+    );
+  });
   stage.querySelector("#bulkStatusApplyButton")?.addEventListener("click", () => {
     void applyBulkStatus();
+  });
+  stage.querySelectorAll("[data-print-response]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const response = state.responses.find((item) => item.id === button.dataset.printResponse);
+      if (response) printResponse(response);
+    });
+  });
+  stage.querySelectorAll("[data-download-response-photos]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const response = state.responses.find((item) => item.id === button.dataset.downloadResponsePhotos);
+      if (response) downloadFiles(collectPhotosFromResponses([response]), response.customerName || "response");
+    });
   });
 
   attachLightboxHandlers(stage);
@@ -773,6 +1044,7 @@ function renderResponseCard(response) {
             <option value="new" ${status === "new" ? "selected" : ""}>未対応</option>
             <option value="checked" ${status === "checked" ? "selected" : ""}>確認済み</option>
             <option value="done" ${status === "done" ? "selected" : ""}>対応済み</option>
+            <option value="trash" ${status === "trash" ? "selected" : ""}>ゴミ箱</option>
           </select>
         </label>
         <label>
@@ -780,7 +1052,7 @@ function renderResponseCard(response) {
           <textarea data-response-memo>${escapeHtml(response.adminMemo || "")}</textarea>
         </label>
         <button class="secondary-button" type="button" data-save-response="${response.id}">保存</button>
-        <button class="secondary-button danger-button" type="button" data-delete-response="${response.id}">削除</button>
+        <button class="secondary-button danger-button" type="button" data-delete-response="${response.id}">${status === "trash" ? "完全削除" : "ゴミ箱へ移動"}</button>
       </div>
     </article>
   `;
@@ -844,14 +1116,32 @@ async function saveResponseManagement(responseId) {
 }
 
 async function deleteResponse(responseId) {
-  if (!confirm("この回答を削除しますか？")) return;
+  const target = state.responses.find((response) => response.id === responseId);
+  if (!target) return;
+  if (!confirm(normalizeStatus(target.status) === "trash" ? "この回答を完全削除しますか？" : "この回答をゴミ箱へ移動しますか？")) return;
   try {
-    await api.request(`/api/admin/responses/${encodeURIComponent(responseId)}`, {
-      method: "DELETE",
-      token: state.token,
-    });
-    state.responses = state.responses.filter((response) => response.id !== responseId);
-    showToast("回答を削除しました。");
+    if (normalizeStatus(target.status) === "trash") {
+      await api.request(`/api/admin/responses/${encodeURIComponent(responseId)}`, {
+        method: "DELETE",
+        token: state.token,
+      });
+      state.responses = state.responses.filter((response) => response.id !== responseId);
+      showToast("回答を完全削除しました。");
+    } else {
+      const result = await api.request(`/api/admin/responses/${encodeURIComponent(responseId)}`, {
+        method: "PUT",
+        token: state.token,
+        body: {
+          status: "trash",
+          adminMemo: target.adminMemo || "",
+          answers: target.answers || [],
+        },
+      });
+      state.responses = state.responses.map((response) =>
+        response.id === responseId ? result.response : response,
+      );
+      showToast("回答をゴミ箱へ移動しました。");
+    }
     renderAll();
   } catch (error) {
     showToast(error.message || "削除できませんでした。");
@@ -859,7 +1149,9 @@ async function deleteResponse(responseId) {
 }
 
 function groupByCustomer() {
-  return groupByCustomerFrom(state.responses);
+  return groupByCustomerFrom(
+    state.responses.filter((response) => normalizeStatus(response.status) !== "trash"),
+  );
 }
 
 function groupByCustomerFrom(responses) {
@@ -883,10 +1175,19 @@ function groupByCustomerFrom(responses) {
   return Array.from(map.values()).sort((a, b) => new Date(b.latestAt) - new Date(a.latestAt));
 }
 
+function filterLogs(entries, keyword) {
+  const q = String(keyword || "").trim().toLowerCase();
+  if (!q) return entries;
+  return entries.filter((entry) =>
+    JSON.stringify(entry || {}).toLowerCase().includes(q),
+  );
+}
+
 function renderSettings() {
   const credentialInfo = document.querySelector("#credentialInfo");
   const storageInfo = document.querySelector("#storageInfo");
   const preferencesCard = document.querySelector("#preferencesCard");
+  const adminUsersCard = document.querySelector("#adminUsersCard");
   const auditLogList = document.querySelector("#auditLogList");
   const errorLogList = document.querySelector("#errorLogList");
   const versionInfo = document.querySelector("#versionInfo");
@@ -935,7 +1236,16 @@ function renderSettings() {
     const preferences = state.preferences || {
       notificationEnabled: true,
       notificationEmail: state.adminInfo.ownerEmail || "",
+      notificationSubject: "",
+      notificationBody: "",
       dataPolicyText: "",
+      requireConsent: true,
+      consentText: "",
+      autoBackupEnabled: true,
+      backupHour: 3,
+      retentionDays: 365,
+      recoveryMemo: "",
+      twoFactorEnabled: true,
     };
     preferencesCard.innerHTML = `
       <form id="preferencesForm" class="stack">
@@ -948,8 +1258,46 @@ function renderSettings() {
           <input name="notificationEmail" type="email" value="${escapeHtml(preferences.notificationEmail || "")}" />
         </label>
         <label>
+          通知件名
+          <input name="notificationSubject" type="text" value="${escapeHtml(preferences.notificationSubject || "")}" />
+        </label>
+        <label>
+          通知本文
+          <textarea name="notificationBody">${escapeHtml(preferences.notificationBody || "")}</textarea>
+        </label>
+        <label>
           お客様向けデータ方針
           <textarea name="dataPolicyText">${escapeHtml(preferences.dataPolicyText || "")}</textarea>
+        </label>
+        <label class="inline-toggle">
+          <input name="requireConsent" type="checkbox" ${preferences.requireConsent === false ? "" : "checked"} />
+          お客様アプリで同意チェックを必須にする
+        </label>
+        <label>
+          同意文言
+          <textarea name="consentText">${escapeHtml(preferences.consentText || "")}</textarea>
+        </label>
+        <label class="inline-toggle">
+          <input name="twoFactorEnabled" type="checkbox" ${preferences.twoFactorEnabled === false ? "" : "checked"} />
+          管理画面ログインで2段階認証を使う
+        </label>
+        <label class="inline-toggle">
+          <input name="autoBackupEnabled" type="checkbox" ${preferences.autoBackupEnabled === false ? "" : "checked"} />
+          毎日自動バックアップを実行する
+        </label>
+        <div class="survey-question-grid">
+          <label>
+            バックアップ実行時刻
+            <input name="backupHour" type="number" min="0" max="23" value="${escapeHtml(preferences.backupHour || 3)}" />
+          </label>
+          <label>
+            ごみ箱保管日数
+            <input name="retentionDays" type="number" min="0" value="${escapeHtml(preferences.retentionDays || 365)}" />
+          </label>
+        </div>
+        <label>
+          復旧手順メモ
+          <textarea name="recoveryMemo">${escapeHtml(preferences.recoveryMemo || "")}</textarea>
         </label>
         <button class="primary-button" type="submit">設定を保存</button>
       </form>
@@ -960,8 +1308,104 @@ function renderSettings() {
     });
   }
 
+  if (adminUsersCard) {
+    const users = Array.isArray(state.adminUsers) && state.adminUsers.length
+      ? state.adminUsers
+      : [{ id: "", username: "", email: "", active: true }];
+    adminUsersCard.innerHTML = `
+      <form id="adminUsersForm" class="stack">
+        <div id="adminUsersList" class="stack">
+          ${users
+            .map(
+              (user, index) => `
+                <article class="answer-item admin-user-item" data-admin-user-id="${escapeHtml(user.id || "")}">
+                  <strong>管理者 ${index + 1}</strong>
+                  <div class="survey-question-grid">
+                    <label>
+                      ログインID
+                      <input name="username" type="text" value="${escapeHtml(user.username || "")}" required />
+                    </label>
+                    <label>
+                      通知メール
+                      <input name="email" type="email" value="${escapeHtml(user.email || "")}" />
+                    </label>
+                  </div>
+                  <div class="survey-question-grid">
+                    <label>
+                      パスワード
+                      <input name="password" type="password" placeholder="${user.id ? "変更時のみ入力" : "4文字以上"}" />
+                    </label>
+                    <label class="inline-toggle">
+                      <input name="active" type="checkbox" ${user.active === false ? "" : "checked"} />
+                      有効
+                    </label>
+                  </div>
+                  <button class="secondary-button" type="button" data-remove-admin-user>削除</button>
+                </article>
+              `,
+            )
+            .join("")}
+        </div>
+        <div class="action-row">
+          <button id="addAdminUserButton" class="secondary-button" type="button">管理者を追加</button>
+          <button class="primary-button" type="submit">管理者を保存</button>
+        </div>
+      </form>
+    `;
+    adminUsersCard.onclick = (event) => {
+      const addButton = event.target.closest("#addAdminUserButton");
+      if (addButton) {
+        document.querySelector("#adminUsersList")?.insertAdjacentHTML(
+          "beforeend",
+          `
+            <article class="answer-item admin-user-item" data-admin-user-id="">
+              <strong>管理者 追加</strong>
+              <div class="survey-question-grid">
+                <label>
+                  ログインID
+                  <input name="username" type="text" value="" required />
+                </label>
+                <label>
+                  通知メール
+                  <input name="email" type="email" value="" />
+                </label>
+              </div>
+              <div class="survey-question-grid">
+                <label>
+                  パスワード
+                  <input name="password" type="password" placeholder="4文字以上" />
+                </label>
+                <label class="inline-toggle">
+                  <input name="active" type="checkbox" checked />
+                  有効
+                </label>
+              </div>
+              <button class="secondary-button" type="button" data-remove-admin-user>削除</button>
+            </article>
+          `,
+        );
+        return;
+      }
+      const removeButton = event.target.closest("[data-remove-admin-user]");
+      if (!removeButton) return;
+      const items = adminUsersCard.querySelectorAll(".admin-user-item");
+      if (items.length <= 1) {
+        showToast("管理者アカウントは1件以上必要です。");
+        return;
+      }
+      removeButton.closest(".admin-user-item")?.remove();
+    };
+    adminUsersCard.querySelector("#adminUsersForm")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void saveAdminUsers(event.currentTarget);
+    });
+  }
+
   if (auditLogList) {
-    const auditLogs = Array.isArray(state.logs?.auditLogs) ? state.logs.auditLogs : [];
+    const auditLogs = filterLogs(
+      Array.isArray(state.logs?.auditLogs) ? state.logs.auditLogs : [],
+      document.querySelector("#auditLogFilter")?.value,
+    );
     auditLogList.innerHTML = auditLogs.length
       ? auditLogs
           .map(
@@ -978,7 +1422,10 @@ function renderSettings() {
   }
 
   if (errorLogList) {
-    const errorLogs = Array.isArray(state.logs?.errorLogs) ? state.logs.errorLogs : [];
+    const errorLogs = filterLogs(
+      Array.isArray(state.logs?.errorLogs) ? state.logs.errorLogs : [],
+      document.querySelector("#errorLogFilter")?.value,
+    );
     errorLogList.innerHTML = errorLogs.length
       ? errorLogs
           .map(
@@ -998,6 +1445,7 @@ function renderSettings() {
     versionInfo.innerHTML = `
       <div class="meta">管理アプリ Version: ${escapeHtml(state.adminInfo.version || "-")}</div>
       <div class="meta">API モード: ${escapeHtml(api.mode || "-")}</div>
+      <div class="meta">バックアップ保存先: ${state.adminInfo.backupFolderUrl ? `<a href="${escapeHtml(state.adminInfo.backupFolderUrl)}" target="_blank" rel="noopener">Google Drive</a>` : "-"}</div>
     `;
   }
 }
@@ -1028,6 +1476,8 @@ function makeBlankSurveyDraft() {
     id: "",
     title: "",
     description: "",
+    introMessage: "",
+    completionMessage: "",
     status: "published",
     sortOrder: 0,
     acceptingResponses: true,
@@ -1182,6 +1632,8 @@ function ensureQuestionOptions(block) {
 function buildSurveyPayload(form) {
   const title = String(form.elements.title.value || "").trim();
   const description = String(form.elements.description.value || "").trim();
+  const introMessage = String(form.elements.introMessage?.value || "").trim();
+  const completionMessage = String(form.elements.completionMessage?.value || "").trim();
   const status = normalizeSurveyStatus(form.elements.status.value);
   const acceptingResponses = Boolean(form.elements.acceptingResponses?.checked);
   const startAt = String(form.elements.startAt?.value || "").trim();
@@ -1212,7 +1664,17 @@ function buildSurveyPayload(form) {
     };
   });
 
-  return { title, description, status, acceptingResponses, startAt, endAt, questions };
+  return {
+    title,
+    description,
+    introMessage,
+    completionMessage,
+    status,
+    acceptingResponses,
+    startAt,
+    endAt,
+    questions,
+  };
 }
 
 async function persistSurveyOrder(nextSurveys) {
@@ -1366,6 +1828,14 @@ function renderSurveyManager() {
       <label>
         説明
         <textarea name="description" required>${escapeHtml(draft.description || "")}</textarea>
+      </label>
+      <label>
+        回答前メッセージ
+        <textarea name="introMessage">${escapeHtml(draft.introMessage || "")}</textarea>
+      </label>
+      <label>
+        回答完了メッセージ
+        <textarea name="completionMessage">${escapeHtml(draft.completionMessage || "")}</textarea>
       </label>
       <label>
         公開状態
@@ -1554,9 +2024,14 @@ function renderSurveyManager() {
 }
 
 function exportCsv() {
+  const filteredResponses = getFilteredResponses();
+  if (!filteredResponses.length) {
+    showToast("出力対象の回答がありません。");
+    return;
+  }
   const rows = [
     ["日時", "お客様", "アンケート", "対応状況", "管理メモ", "回答"],
-    ...state.responses.map((response) => [
+    ...filteredResponses.map((response) => [
       formatDate(response.submittedAt),
       response.customerName,
       response.surveyTitle,
@@ -1578,7 +2053,12 @@ function exportCsv() {
 }
 
 function exportExcel() {
-  const rows = state.responses
+  const filteredResponses = getFilteredResponses();
+  if (!filteredResponses.length) {
+    showToast("出力対象の回答がありません。");
+    return;
+  }
+  const rows = filteredResponses
     .map(
       (response) => `
         <tr>
@@ -1617,6 +2097,8 @@ function exportBackup() {
     exportedAt: new Date().toISOString(),
     surveys: state.surveys,
     preferences: state.preferences,
+    adminUsers: state.adminUsers,
+    customerMemos: state.customerMemos,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: "application/json;charset=utf-8",
@@ -1650,6 +2132,26 @@ async function restoreBackup(file) {
     });
     state.preferences = preferencesResult.preferences || state.preferences;
   }
+  if (payload.customerMemos && typeof payload.customerMemos === "object") {
+    const entries = Object.entries(payload.customerMemos);
+    for (const [customerName, record] of entries) {
+      const latestMemo = normalizeMemoRecord(record).latestMemo;
+      await api.request(`/api/admin/customer-memos/${encodeURIComponent(customerName)}`, {
+        method: "PUT",
+        token: state.token,
+        body: { memo: latestMemo },
+      });
+    }
+    state.customerMemos = payload.customerMemos;
+  }
+  if (Array.isArray(payload.adminUsers) && payload.adminUsers.length) {
+    await api.request("/api/admin/users", {
+      method: "PUT",
+      token: state.token,
+      body: { adminUsers: payload.adminUsers },
+    });
+    state.adminUsers = payload.adminUsers;
+  }
   showToast("バックアップを復元しました。");
   renderAll();
 }
@@ -1661,7 +2163,16 @@ async function savePreferences() {
   const payload = {
     notificationEnabled: formData.get("notificationEnabled") === "on",
     notificationEmail: String(formData.get("notificationEmail") || "").trim(),
+    notificationSubject: String(formData.get("notificationSubject") || "").trim(),
+    notificationBody: String(formData.get("notificationBody") || "").trim(),
     dataPolicyText: String(formData.get("dataPolicyText") || "").trim(),
+    requireConsent: formData.get("requireConsent") === "on",
+    consentText: String(formData.get("consentText") || "").trim(),
+    autoBackupEnabled: formData.get("autoBackupEnabled") === "on",
+    backupHour: Number(formData.get("backupHour") || 0),
+    retentionDays: Number(formData.get("retentionDays") || 0),
+    recoveryMemo: String(formData.get("recoveryMemo") || "").trim(),
+    twoFactorEnabled: formData.get("twoFactorEnabled") === "on",
   };
   try {
     const result = await api.request("/api/admin/preferences", {
@@ -1670,10 +2181,46 @@ async function savePreferences() {
       body: payload,
     });
     state.preferences = result.preferences || payload;
-    showToast("通知設定とデータ方針を保存しました。");
+    showToast("設定を保存しました。");
     renderSettings();
   } catch (error) {
     showToast(error.message || "設定を保存できませんでした。");
+  }
+}
+
+async function saveAdminUsers(form) {
+  const items = Array.from(form.querySelectorAll(".admin-user-item")).map((item) => ({
+    id: item.dataset.adminUserId || "",
+    username: String(item.querySelector('[name="username"]')?.value || "").trim(),
+    password: String(item.querySelector('[name="password"]')?.value || "").trim(),
+    email: String(item.querySelector('[name="email"]')?.value || "").trim(),
+    active: Boolean(item.querySelector('[name="active"]')?.checked),
+  }));
+  try {
+    const result = await api.request("/api/admin/users", {
+      method: "PUT",
+      token: state.token,
+      body: { adminUsers: items },
+    });
+    state.adminUsers = result.adminUsers || state.adminUsers;
+    state.adminInfo = state.adminInfo ? { ...state.adminInfo, adminUsers: state.adminUsers } : state.adminInfo;
+    showToast("管理者アカウントを保存しました。");
+    renderSettings();
+  } catch (error) {
+    showToast(error.message || "管理者アカウントを保存できませんでした。");
+  }
+}
+
+async function runMaintenanceNow() {
+  try {
+    await api.request("/api/admin/maintenance/run", {
+      method: "POST",
+      token: state.token,
+    });
+    await loadAdminData();
+    showToast("メンテナンスを実行しました。");
+  } catch (error) {
+    showToast(error.message || "メンテナンスを実行できませんでした。");
   }
 }
 
@@ -1705,7 +2252,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-6", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-8", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -1733,13 +2280,27 @@ loginForm.addEventListener("submit", async (event) => {
   button.disabled = true;
   button.textContent = "確認中";
   try {
-    const result = await api.request("/api/admin/login", {
-      method: "POST",
-      body: {
-        loginId: String(formData.get("loginId") || ""),
-        password: String(formData.get("password") || ""),
-      },
-    });
+    const result = state.pendingOtpSessionId
+      ? await api.request("/api/admin/login/verify", {
+          method: "POST",
+          body: {
+            sessionId: state.pendingOtpSessionId,
+            code: String(formData.get("otpCode") || ""),
+          },
+        })
+      : await api.request("/api/admin/login", {
+          method: "POST",
+          body: {
+            loginId: String(formData.get("loginId") || ""),
+            password: String(formData.get("password") || ""),
+          },
+        });
+    if (result.requiresOtp) {
+      state.pendingOtpSessionId = result.sessionId || "";
+      setLoginOtpMode(true);
+      showToast("確認コードを送信しました。");
+      return;
+    }
     state.token = result.token;
     localStorage.setItem(TOKEN_KEY, state.token);
     setLoggedIn(true);
@@ -1749,8 +2310,13 @@ loginForm.addEventListener("submit", async (event) => {
     showToast(error.message || "ログインできませんでした。");
   } finally {
     button.disabled = false;
-    button.textContent = "ログイン";
+    button.textContent = state.pendingOtpSessionId ? "確認してログイン" : "ログイン";
   }
+});
+
+document.querySelector("#backToLoginButton")?.addEventListener("click", () => {
+  state.pendingOtpSessionId = "";
+  setLoginOtpMode(false);
 });
 
 credentialForm.addEventListener("input", () => {
@@ -1773,6 +2339,7 @@ credentialForm.addEventListener("submit", async (event) => {
       },
     });
     state.adminInfo = result.adminInfo || state.adminInfo;
+    state.adminUsers = Array.isArray(state.adminInfo?.adminUsers) ? state.adminInfo.adminUsers : state.adminUsers;
     credentialForm.dataset.dirty = "";
     credentialForm.reset();
     renderSettings();
@@ -1800,6 +2367,9 @@ document.querySelector("#refreshButton").addEventListener("click", () => {
 document.querySelector("#exportCsvButton").addEventListener("click", exportCsv);
 document.querySelector("#exportExcelButton")?.addEventListener("click", exportExcel);
 document.querySelector("#backupExportButton")?.addEventListener("click", exportBackup);
+document.querySelector("#runMaintenanceButton")?.addEventListener("click", () => {
+  void runMaintenanceNow();
+});
 document.querySelector("#backupImportInput")?.addEventListener("change", (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -1813,12 +2383,21 @@ document.querySelector("#backupImportInput")?.addEventListener("change", (event)
   document.querySelector(`#${id}`).addEventListener("input", renderResponses);
   document.querySelector(`#${id}`).addEventListener("change", renderResponses);
 });
+document.querySelector("#onlyUnreadButton")?.addEventListener("click", () => {
+  document.querySelector("#statusFilter").value = "new";
+  setPage("responses");
+  renderResponses();
+});
+["auditLogFilter", "errorLogFilter"].forEach((id) => {
+  document.querySelector(`#${id}`)?.addEventListener("input", renderSettings);
+});
 
 document.querySelectorAll("[data-page]").forEach((button) => {
   button.addEventListener("click", () => setPage(button.dataset.page));
 });
 
 setupInstall();
+setLoginOtpMode(false);
 window.addEventListener("error", (event) => {
   reportClientError("admin.window", event.error || event.message || "window error");
 });

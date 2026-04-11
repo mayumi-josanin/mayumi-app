@@ -37,7 +37,7 @@ window.MayumiSurveyApi = (() => {
   }
 
   function normalizeStatus(status) {
-    return ["new", "checked", "done"].includes(status) ? status : "new";
+    return ["new", "checked", "done", "trash"].includes(status) ? status : "new";
   }
 
   function normalizeSurveyStatus(status) {
@@ -141,6 +141,8 @@ window.MayumiSurveyApi = (() => {
       id: normalizeText(survey?.id),
       title: normalizeText(survey?.title),
       description: normalizeText(survey?.description),
+      introMessage: normalizeText(survey?.introMessage),
+      completionMessage: normalizeText(survey?.completionMessage),
       status: normalizeSurveyStatus(survey?.status),
       sortOrder: Number.isFinite(Number(survey?.sortOrder)) ? Number(survey.sortOrder) : 0,
       acceptingResponses: survey?.acceptingResponses === false ? false : true,
@@ -168,7 +170,16 @@ window.MayumiSurveyApi = (() => {
     return JSON.stringify({
       notificationEnabled: preferences?.notificationEnabled === false ? false : true,
       notificationEmail: normalizeEmail(preferences?.notificationEmail),
+      notificationSubject: normalizeText(preferences?.notificationSubject),
+      notificationBody: normalizeText(preferences?.notificationBody),
       dataPolicyText: normalizeText(preferences?.dataPolicyText),
+      requireConsent: preferences?.requireConsent === false ? false : true,
+      consentText: normalizeText(preferences?.consentText),
+      autoBackupEnabled: preferences?.autoBackupEnabled === false ? false : true,
+      backupHour: Number(preferences?.backupHour || 0),
+      retentionDays: Number(preferences?.retentionDays || 0),
+      recoveryMemo: normalizeText(preferences?.recoveryMemo),
+      twoFactorEnabled: preferences?.twoFactorEnabled === false ? false : true,
     });
   }
 
@@ -374,6 +385,8 @@ window.MayumiSurveyApi = (() => {
             return {
               surveys: remoteSurveys.filter((survey) => survey.status === "published"),
               dataPolicyText: remoteData.dataPolicyText || "",
+              requireConsent: remoteData.requireConsent === false ? false : true,
+              consentText: remoteData.consentText || "",
               version: remoteData.version || "",
             };
           }
@@ -383,6 +396,8 @@ window.MayumiSurveyApi = (() => {
         return {
           surveys: getDefaultSurveys().filter((survey) => survey.status === "published"),
           dataPolicyText: "",
+          requireConsent: true,
+          consentText: "",
           version: "",
         };
       }
@@ -449,8 +464,19 @@ window.MayumiSurveyApi = (() => {
         });
       }
 
+      if (path === "/api/admin/login/verify" && method === "POST") {
+        return jsonp(gasUrl, "adminVerifyOtp", {
+          sessionId: options.body?.sessionId,
+          code: options.body?.code,
+        });
+      }
+
       if (path === "/api/admin/info" && method === "GET") {
         return jsonp(gasUrl, "adminInfo", { token: options.token });
+      }
+
+      if (path === "/api/admin/users" && method === "GET") {
+        return jsonp(gasUrl, "adminUsers", { token: options.token });
       }
 
       if (path === "/api/admin/surveys" && method === "GET") {
@@ -533,6 +559,23 @@ window.MayumiSurveyApi = (() => {
         const preferences = await waitForAdminPreferences(gasUrl, options.token, expectedSignature);
         if (!preferences) throw new Error("設定更新を確認できませんでした。");
         return { preferences };
+      }
+
+      if (path === "/api/admin/users" && method === "PUT") {
+        const users = Array.isArray(options.body?.adminUsers) ? options.body.adminUsers : [];
+        await postToGas(gasUrl, "adminUpdateUsers", {
+          token: options.token,
+          payload: { adminUsers: users },
+        });
+        const info = await jsonp(gasUrl, "adminInfo", { token: options.token });
+        return { adminUsers: info.adminUsers || [] };
+      }
+
+      if (path === "/api/admin/maintenance/run" && method === "POST") {
+        await postToGas(gasUrl, "adminRunMaintenance", {
+          token: options.token,
+        });
+        return { ok: true };
       }
 
       if (path === "/api/admin/logs" && method === "GET") {

@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260411-6";
+const APP_VERSION = "20260411-8";
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
 const TICKET_END_COUNT_QUESTION_ID = "q_ticket_end_ticket_size";
 const TICKET_END_SHEET_QUESTION_ID = "q_ticket_end_ticket_sheet";
@@ -19,6 +19,8 @@ const appState = {
   history: [],
   publicInfo: {
     dataPolicyText: "",
+    requireConsent: true,
+    consentText: "",
     version: "",
   },
   selectedSurveyId: "",
@@ -98,6 +100,13 @@ function formatDateOnly(value) {
   }).format(new Date(value));
 }
 
+function formatPhotoCapturedAt(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return formatDateOnly(date.toISOString());
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -137,6 +146,9 @@ async function preparePhotoFile(file) {
   return {
     name: file.name || "photo.jpg",
     type: "image/jpeg",
+    capturedAt: Number.isFinite(file.lastModified) && file.lastModified > 0
+      ? new Date(file.lastModified).toISOString()
+      : new Date().toISOString(),
     dataUrl: canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY),
   };
 }
@@ -215,6 +227,42 @@ function storePendingSubmission(payload) {
   saveLocal(PENDING_KEY, payload);
 }
 
+function getAgreementDraftKey(surveyId) {
+  return `__agreement_${surveyId}`;
+}
+
+function isAgreementAccepted(surveyId) {
+  return Boolean(getDraftValue(surveyId, getAgreementDraftKey(surveyId)));
+}
+
+function setAgreementAccepted(surveyId, accepted) {
+  updateDraftValue(surveyId, getAgreementDraftKey(surveyId), Boolean(accepted));
+}
+
+function makeValidationError(questionId, message) {
+  const error = new Error(message);
+  error.questionId = questionId;
+  return error;
+}
+
+function scrollToQuestion(questionId) {
+  if (!questionId) return;
+  requestAnimationFrame(() => {
+    const node = document.querySelector(`[data-question-wrap="${questionId}"]`);
+    if (node) node.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
+
+function hasDraftContent(draft) {
+  const values = Object.values(draft?.values || {}).some((value) => {
+    if (Array.isArray(value)) return value.some((item) => normalizeText(item));
+    if (typeof value === "boolean") return value;
+    return Boolean(normalizeText(value));
+  });
+  const photos = Object.values(draft?.photos || {}).some((files) => Array.isArray(files) && files.length);
+  return values || photos;
+}
+
 function getSelectedSurvey() {
   return appState.surveys.find((survey) => survey.id === appState.selectedSurveyId) || null;
 }
@@ -269,14 +317,16 @@ function getQuestionLabel(question, surveyId = appState.selectedSurveyId) {
 
 function getSurveyAvailability(survey) {
   const nowTime = Date.now();
+  const nearDeadlineMs = 3 * 24 * 60 * 60 * 1000;
   if (survey?.acceptingResponses === false) {
-    return { open: false, label: "受付停止中", detail: "現在このアンケートは停止しています。" };
+    return { open: false, label: "受付停止中", detail: "現在このアンケートは停止しています。", nearDeadline: false };
   }
   if (survey?.startAt && new Date(survey.startAt).getTime() > nowTime) {
     return {
       open: false,
       label: "受付開始前",
       detail: `開始予定: ${formatDate(survey.startAt)}`,
+      nearDeadline: false,
     };
   }
   if (survey?.endAt && new Date(survey.endAt).getTime() < nowTime) {
@@ -284,12 +334,17 @@ function getSurveyAvailability(survey) {
       open: false,
       label: "受付終了",
       detail: `終了日時: ${formatDate(survey.endAt)}`,
+      nearDeadline: false,
     };
   }
+  const nearDeadline = survey?.endAt
+    ? new Date(survey.endAt).getTime() - nowTime <= nearDeadlineMs
+    : false;
   return {
     open: true,
-    label: "受付中",
+    label: nearDeadline ? "まもなく終了" : "受付中",
     detail: survey?.endAt ? `受付終了: ${formatDate(survey.endAt)}` : "期限指定なし",
+    nearDeadline,
   };
 }
 
@@ -391,6 +446,8 @@ async function loadSurveys() {
     appState.surveys = surveys.length ? surveys : getFallbackSurveys();
     appState.publicInfo = {
       dataPolicyText: result.dataPolicyText || "",
+      requireConsent: result.requireConsent === false ? false : true,
+      consentText: result.consentText || "",
       version: result.version || APP_VERSION,
     };
     renderSurveys();
@@ -458,7 +515,7 @@ function renderSurveys() {
         const availability = getSurveyAvailability(survey);
         return `
           <button
-            class="survey-card ${survey.id === appState.selectedSurveyId ? "active" : ""} ${availability.open ? "" : "disabled"}"
+            class="survey-card ${survey.id === appState.selectedSurveyId ? "active" : ""} ${availability.open ? "" : "disabled"} ${availability.nearDeadline ? "deadline-soon" : ""}"
             type="button"
             data-survey-id="${survey.id}"
           >
@@ -495,6 +552,15 @@ function renderProgressBar(progress) {
       </div>
     </div>
   `;
+}
+
+function refreshProgressDisplay(survey) {
+  const progress = getProgress(survey, getSurveyDraft(survey.id));
+  document.querySelector(".progress-fill")?.setAttribute("style", `width: ${progress.percent}%`);
+  const progressHead = document.querySelector(".progress-head span");
+  if (progressHead) {
+    progressHead.textContent = `${progress.answeredRequired}/${progress.requiredTotal} 必須回答`;
+  }
 }
 
 function renderTicketStepCount(survey, surveyId) {
@@ -674,7 +740,7 @@ function renderQuestion(question, index, surveyId) {
 
   if (question.type === "textarea") {
     return `
-      <label class="question-block">
+      <label class="question-block" data-question-wrap="${question.id}">
         ${label}
         <textarea name="${name}" data-question-id="${question.id}">${escapeHtml(draft.values[question.id] || "")}</textarea>
       </label>
@@ -683,7 +749,7 @@ function renderQuestion(question, index, surveyId) {
 
   if (question.type === "rating") {
     return `
-      <fieldset class="question-block">
+      <fieldset class="question-block" data-question-wrap="${question.id}">
         <legend>${label}</legend>
         <div class="rating-row">
           ${[1, 2, 3, 4, 5]
@@ -703,7 +769,7 @@ function renderQuestion(question, index, surveyId) {
 
   if (question.type === "choice") {
     return `
-      <fieldset class="question-block">
+      <fieldset class="question-block" data-question-wrap="${question.id}">
         <legend>${label}</legend>
         <div class="choice-row">
           ${question.options
@@ -724,7 +790,7 @@ function renderQuestion(question, index, surveyId) {
   if (question.type === "checkbox") {
     const selected = new Set(Array.isArray(draft.values[question.id]) ? draft.values[question.id] : []);
     return `
-      <fieldset class="question-block">
+      <fieldset class="question-block" data-question-wrap="${question.id}">
         <legend>${label}</legend>
         <div class="checkbox-row">
           ${question.options
@@ -745,7 +811,7 @@ function renderQuestion(question, index, surveyId) {
   if (question.type === "photo") {
     const files = getDraftPhotos(surveyId, question.id);
     return `
-      <div class="question-block">
+      <div class="question-block" data-question-wrap="${question.id}">
         <div class="question-label">${label}</div>
         <input type="file" name="${name}" accept="image/*" multiple hidden data-photo-input="${question.id}" />
         <div class="photo-actions">
@@ -767,6 +833,7 @@ function renderQuestion(question, index, surveyId) {
                       <div class="photo-thumb editable-thumb">
                         ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || "photo")}" />` : ""}
                         <span>${escapeHtml(file.name || `写真${fileIndex + 1}`)}</span>
+                        ${formatPhotoCapturedAt(file.capturedAt) ? `<span class="meta">撮影日: ${escapeHtml(formatPhotoCapturedAt(file.capturedAt))}</span>` : ""}
                         <button class="ghost-button small-button" type="button" data-photo-remove="${question.id}" data-photo-index="${fileIndex}">
                           削除
                         </button>
@@ -783,7 +850,7 @@ function renderQuestion(question, index, surveyId) {
   }
 
   return `
-    <label class="question-block">
+    <label class="question-block" data-question-wrap="${question.id}">
       ${label}
       <input type="text" name="${name}" data-question-id="${question.id}" value="${escapeHtml(draft.values[question.id] || "")}" />
     </label>
@@ -801,6 +868,7 @@ function renderSummaryValue(answer) {
               <div class="photo-thumb">
                 ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || "photo")}" />` : ""}
                 <span>${escapeHtml(file.name || "写真")}</span>
+                ${formatPhotoCapturedAt(file.capturedAt) ? `<span class="meta">撮影日: ${escapeHtml(formatPhotoCapturedAt(file.capturedAt))}</span>` : ""}
               </div>
             `;
           })
@@ -863,7 +931,16 @@ function renderCompletionPanel(survey) {
     <section class="completion-card">
       <div class="eyebrow">${appState.lastSubmissionWasEdit ? "Updated" : "Completed"}</div>
       <h2>${escapeHtml(survey.title)}</h2>
-      <p>${appState.lastSubmissionWasEdit ? "回答を更新しました。" : "回答を送信しました。"} 履歴からいつでも確認できます。</p>
+      <p>${escapeHtml(
+        appState.lastSubmissionWasEdit
+          ? "回答を更新しました。"
+          : survey.completionMessage || "ご回答ありがとうございました。"
+      )}</p>
+      ${
+        response?.id
+          ? `<div class="receipt-box"><strong>受付番号</strong><span>${escapeHtml(response.id)}</span></div>`
+          : ""
+      }
       ${
         response?.submittedAt
           ? `<div class="meta">送信日時: ${formatDate(response.submittedAt)}</div>`
@@ -908,9 +985,29 @@ function renderFormPanel(survey) {
       <button id="backToHomeButton" class="ghost-button" type="button">一覧へ戻る</button>
     </div>
     <div class="notice-row">
-      <span class="badge ${availability.open ? "open" : "closed"}">${escapeHtml(availability.label)}</span>
+      <span class="badge ${availability.open ? "open" : "closed"} ${availability.nearDeadline ? "warn" : ""}">${escapeHtml(availability.label)}</span>
       <span class="meta">${escapeHtml(availability.detail)}</span>
     </div>
+    ${
+      survey.introMessage
+        ? `
+          <article class="policy-card intro-card">
+            <strong>ご案内</strong>
+            <p>${escapeHtml(survey.introMessage)}</p>
+          </article>
+        `
+        : ""
+    }
+    ${
+      availability.nearDeadline
+        ? `
+          <article class="policy-card deadline-card">
+            <strong>回答期限が近づいています</strong>
+            <p>${escapeHtml(availability.detail)}</p>
+          </article>
+        `
+        : ""
+    }
     ${renderProgressBar(progress)}
     ${
       isTicketEndSurvey(survey)
@@ -934,6 +1031,24 @@ function renderFormPanel(survey) {
     }
     <form id="answerForm" class="question-list">
       ${visibleQuestions.map((question, index) => renderQuestion(question, index, surveyId)).join("")}
+      ${
+        appState.publicInfo.requireConsent
+          ? `
+            <div class="question-block consent-block" data-question-wrap="${getAgreementDraftKey(surveyId)}">
+              <span>同意確認</span>
+              <label class="inline-check">
+                <input
+                  type="checkbox"
+                  name="agreement"
+                  data-agreement-input="true"
+                  ${isAgreementAccepted(surveyId) ? "checked" : ""}
+                />
+                <span>${escapeHtml(appState.publicInfo.consentText || "回答内容と添付写真の利用に同意します。")}</span>
+              </label>
+            </div>
+          `
+          : ""
+      }
       ${
         visibleQuestions.length
           ? `<button class="primary-button" type="submit">${appState.editingResponseId ? "確認へ進む" : "内容を確認する"}</button>`
@@ -1003,6 +1118,10 @@ function attachAnswerFormHandlers(form, survey) {
 
   form.addEventListener("input", (event) => {
     const input = event.target;
+    if (input.dataset.agreementInput) {
+      setAgreementAccepted(survey.id, input.checked);
+      return;
+    }
     const questionId = input.dataset.questionId;
     if (!questionId) return;
 
@@ -1011,6 +1130,7 @@ function attachAnswerFormHandlers(form, survey) {
         (node) => node.value,
       );
       updateDraftValue(survey.id, questionId, values);
+      refreshProgressDisplay(survey);
       return;
     }
 
@@ -1021,12 +1141,7 @@ function attachAnswerFormHandlers(form, survey) {
     }
 
     updateDraftValue(survey.id, questionId, input.value);
-    const progress = getProgress(survey, getSurveyDraft(survey.id));
-    document.querySelector(".progress-fill")?.setAttribute("style", `width: ${progress.percent}%`);
-    const progressHead = document.querySelector(".progress-head span");
-    if (progressHead) {
-      progressHead.textContent = `${progress.answeredRequired}/${progress.requiredTotal} 必須回答`;
-    }
+    refreshProgressDisplay(survey);
   });
 
   form.querySelectorAll("[data-photo-pick]").forEach((button) => {
@@ -1083,6 +1198,7 @@ function attachAnswerFormHandlers(form, survey) {
       renderAnswerPanel();
     } catch (error) {
       reportClientError("customer.prepareSubmission", error, { surveyId: survey.id });
+      scrollToQuestion(error.questionId);
       showToast(error.message || "回答内容を確認できませんでした。");
     }
   });
@@ -1104,7 +1220,7 @@ function prepareSubmissionFromDraft(survey, draft) {
     if (question.type === "photo") {
       const files = visible ? getDraftPhotos(survey.id, question.id) : [];
       if (visible && question.required !== false && !files.length) {
-        throw new Error("未回答の質問があります。");
+        throw makeValidationError(question.id, "未回答の質問があります。");
       }
       answers.push({ questionId: question.id, files: cloneData(files) });
       if (visible) {
@@ -1121,10 +1237,10 @@ function prepareSubmissionFromDraft(survey, draft) {
     if (question.type === "checkbox") {
       value = Array.isArray(value) ? value.map(normalizeText).filter(Boolean) : [];
       if (visible && question.required !== false && !value.length) {
-        throw new Error("未回答の質問があります。");
+        throw makeValidationError(question.id, "未回答の質問があります。");
       }
       if (visible && value.some((item) => !question.options.includes(item))) {
-        throw new Error("選択肢から回答してください。");
+        throw makeValidationError(question.id, "選択肢から回答してください。");
       }
       answers.push({ questionId: question.id, value: visible ? value : [] });
       if (visible) {
@@ -1139,13 +1255,13 @@ function prepareSubmissionFromDraft(survey, draft) {
 
     value = normalizeText(value);
     if (visible && question.required !== false && !value) {
-      throw new Error("未回答の質問があります。");
+      throw makeValidationError(question.id, "未回答の質問があります。");
     }
     if (visible && question.type === "rating" && value && !["1", "2", "3", "4", "5"].includes(value)) {
-      throw new Error("5段階評価の選択が正しくありません。");
+      throw makeValidationError(question.id, "5段階評価の選択が正しくありません。");
     }
     if (visible && question.type === "choice" && value && !question.options.includes(value)) {
-      throw new Error("選択肢から回答してください。");
+      throw makeValidationError(question.id, "選択肢から回答してください。");
     }
     answers.push({ questionId: question.id, value: visible ? value : "" });
     if (visible) {
@@ -1155,6 +1271,13 @@ function prepareSubmissionFromDraft(survey, draft) {
         value,
       });
     }
+  }
+
+  if (appState.publicInfo.requireConsent && !isAgreementAccepted(survey.id)) {
+    throw makeValidationError(
+      getAgreementDraftKey(survey.id),
+      "同意確認にチェックを入れてください。",
+    );
   }
 
   return { answers, summary };
@@ -1278,6 +1401,7 @@ function renderAnswerValue(answer) {
               <a class="photo-thumb" href="${escapeHtml(href)}" target="_blank" rel="noopener">
                 ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || "photo")}" />` : ""}
                 <span>${escapeHtml(file.name || "写真")}</span>
+                ${formatPhotoCapturedAt(file.capturedAt) ? `<span class="meta">撮影日: ${escapeHtml(formatPhotoCapturedAt(file.capturedAt))}</span>` : ""}
               </a>
             `;
           })
@@ -1375,7 +1499,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-6", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-8", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -1420,6 +1544,14 @@ document.querySelector("#historyRefreshButton").addEventListener("click", () => 
 });
 
 setupInstall();
+window.addEventListener("beforeunload", (event) => {
+  const hasAnyDraft = Object.keys(appState.drafts || {}).some((surveyId) =>
+    hasDraftContent(getSurveyDraft(surveyId)),
+  );
+  if (!appState.pendingSubmission && !hasAnyDraft) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 window.addEventListener("error", (event) => {
   reportClientError("customer.window", event.error || event.message || "window error");
 });
