@@ -11,6 +11,8 @@ const state = {
   surveys: [],
   responses: [],
   adminInfo: null,
+  selectedCustomerName: "",
+  selectedResponseId: "",
   installPrompt: null,
 };
 
@@ -97,7 +99,6 @@ function renderAll() {
   renderDashboard();
   renderFilters();
   renderResponses();
-  renderCustomers();
   renderSettings();
   document.querySelector("#adminUrlBox").textContent = window.location.href;
 }
@@ -190,13 +191,12 @@ function renderFilters() {
   surveyFilter.value = current;
 }
 
-function renderResponses() {
-  const list = document.querySelector("#responseList");
+function getFilteredResponses() {
   const surveyId = document.querySelector("#surveyFilter").value;
   const status = document.querySelector("#statusFilter").value;
   const keyword = document.querySelector("#keywordFilter").value.trim().toLowerCase();
 
-  const responses = state.responses
+  return state.responses
     .filter((response) => !surveyId || response.surveyId === surveyId)
     .filter((response) => !status || normalizeStatus(response.status) === status)
     .filter((response) => {
@@ -207,18 +207,100 @@ function renderResponses() {
       );
     })
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+}
 
-  list.innerHTML = responses.length
-    ? responses.map(renderResponseCard).join("")
-    : `<div class="empty">条件に一致する回答はありません。</div>`;
+function renderResponses() {
+  const responses = getFilteredResponses();
+  const customerList = document.querySelector("#responseCustomerList");
+  const historyList = document.querySelector("#responseHistoryList");
+  const detail = document.querySelector("#responseDetail");
+  const customers = groupByCustomer(responses);
 
-  list.querySelectorAll("[data-save-response]").forEach((button) => {
+  if (state.selectedCustomerName && !customers.some((customer) => customer.name === state.selectedCustomerName)) {
+    state.selectedCustomerName = "";
+    state.selectedResponseId = "";
+  }
+
+  const customerResponses = state.selectedCustomerName
+    ? responses.filter((response) => response.customerName === state.selectedCustomerName)
+    : [];
+
+  if (
+    state.selectedResponseId &&
+    !customerResponses.some((response) => response.id === state.selectedResponseId)
+  ) {
+    state.selectedResponseId = "";
+  }
+
+  customerList.innerHTML = customers.length
+    ? customers
+        .map(
+          (customer) => `
+            <button
+              class="customer-card selectable-card ${customer.name === state.selectedCustomerName ? "active" : ""}"
+              type="button"
+              data-customer-name="${escapeHtml(customer.name)}"
+            >
+              <strong>${escapeHtml(customer.name)}</strong>
+              <div>回答数: ${customer.count}件</div>
+              <div class="meta">最終回答: ${formatDate(customer.latestAt)}</div>
+            </button>
+          `,
+        )
+        .join("")
+    : `<div class="empty">条件に一致するお客様はいません。</div>`;
+
+  historyList.innerHTML = state.selectedCustomerName
+    ? customerResponses.length
+      ? customerResponses
+          .map(
+            (response) => `
+              <button
+                class="response-history-card selectable-card ${response.id === state.selectedResponseId ? "active" : ""}"
+                type="button"
+                data-history-response-id="${response.id}"
+              >
+                <strong>${escapeHtml(response.surveyTitle)}</strong>
+                <div class="meta">${formatDate(response.submittedAt)}</div>
+                <span class="badge ${normalizeStatus(response.status)}">
+                  ${STATUS_LABELS[normalizeStatus(response.status)]}
+                </span>
+              </button>
+            `,
+          )
+          .join("")
+      : `<div class="empty">このお客様の回答履歴はありません。</div>`
+    : `<div class="empty">お客様名を押すと回答履歴を表示します。</div>`;
+
+  const selectedResponse = customerResponses.find(
+    (response) => response.id === state.selectedResponseId,
+  );
+  detail.innerHTML = selectedResponse
+    ? renderResponseCard(selectedResponse)
+    : `<div class="empty">回答履歴のアンケートタイトルを押すと詳細を表示します。</div>`;
+
+  customerList.querySelectorAll("[data-customer-name]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedCustomerName = button.dataset.customerName;
+      state.selectedResponseId = "";
+      renderResponses();
+    });
+  });
+
+  historyList.querySelectorAll("[data-history-response-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedResponseId = button.dataset.historyResponseId;
+      renderResponses();
+    });
+  });
+
+  detail.querySelectorAll("[data-save-response]").forEach((button) => {
     button.addEventListener("click", () => {
       void saveResponseManagement(button.dataset.saveResponse);
     });
   });
 
-  list.querySelectorAll("[data-delete-response]").forEach((button) => {
+  detail.querySelectorAll("[data-delete-response]").forEach((button) => {
     button.addEventListener("click", () => {
       void deleteResponse(button.dataset.deleteResponse);
     });
@@ -307,8 +389,12 @@ async function deleteResponse(responseId) {
 }
 
 function groupByCustomer() {
+  return groupByCustomerFrom(state.responses);
+}
+
+function groupByCustomerFrom(responses) {
   const map = new Map();
-  state.responses.forEach((response) => {
+  responses.forEach((response) => {
     const key = response.customerName;
     const current = map.get(key) || {
       name: response.customerName,
@@ -325,28 +411,6 @@ function groupByCustomer() {
     map.set(key, current);
   });
   return Array.from(map.values()).sort((a, b) => new Date(b.latestAt) - new Date(a.latestAt));
-}
-
-function renderCustomers() {
-  const customers = groupByCustomer();
-  document.querySelector("#customerList").innerHTML = customers.length
-    ? customers
-        .map(
-          (customer) => `
-            <article class="customer-card">
-              <strong>${escapeHtml(customer.name)}</strong>
-              <div>回答数: ${customer.count}件</div>
-              <div class="meta">最終回答: ${formatDate(customer.latestAt)}</div>
-              <div class="answer-list">
-                ${Array.from(customer.surveys.entries())
-                  .map(([title, count]) => `<div class="answer-item">${escapeHtml(title)}: ${count}件</div>`)
-                  .join("")}
-              </div>
-            </article>
-          `,
-        )
-        .join("")
-    : `<div class="empty">まだ回答者はいません。</div>`;
 }
 
 function renderSettings() {
