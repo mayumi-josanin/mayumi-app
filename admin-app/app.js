@@ -211,9 +211,7 @@ function getFilteredResponses() {
 
 function renderResponses() {
   const responses = getFilteredResponses();
-  const customerList = document.querySelector("#responseCustomerList");
-  const historyList = document.querySelector("#responseHistoryList");
-  const detail = document.querySelector("#responseDetail");
+  const stage = document.querySelector("#responseStage");
   const customers = groupByCustomer(responses);
 
   if (state.selectedCustomerName && !customers.some((customer) => customer.name === state.selectedCustomerName)) {
@@ -232,54 +230,87 @@ function renderResponses() {
     state.selectedResponseId = "";
   }
 
-  customerList.innerHTML = customers.length
-    ? customers
-        .map(
-          (customer) => `
-            <button
-              class="customer-card selectable-card ${customer.name === state.selectedCustomerName ? "active" : ""}"
-              type="button"
-              data-customer-name="${escapeHtml(customer.name)}"
-            >
-              <strong>${escapeHtml(customer.name)}</strong>
-              <div>回答数: ${customer.count}件</div>
-              <div class="meta">最終回答: ${formatDate(customer.latestAt)}</div>
-            </button>
-          `,
-        )
-        .join("")
-    : `<div class="empty">条件に一致するお客様はいません。</div>`;
-
-  historyList.innerHTML = state.selectedCustomerName
-    ? customerResponses.length
-      ? customerResponses
-          .map(
-            (response) => `
-              <button
-                class="response-history-card selectable-card ${response.id === state.selectedResponseId ? "active" : ""}"
-                type="button"
-                data-history-response-id="${response.id}"
-              >
-                <strong>${escapeHtml(response.surveyTitle)}</strong>
-                <div class="meta">${formatDate(response.submittedAt)}</div>
-                <span class="badge ${normalizeStatus(response.status)}">
-                  ${STATUS_LABELS[normalizeStatus(response.status)]}
-                </span>
-              </button>
-            `,
-          )
-          .join("")
-      : `<div class="empty">このお客様の回答履歴はありません。</div>`
-    : `<div class="empty">お客様名を押すと回答履歴を表示します。</div>`;
-
   const selectedResponse = customerResponses.find(
     (response) => response.id === state.selectedResponseId,
   );
-  detail.innerHTML = selectedResponse
-    ? renderResponseCard(selectedResponse)
-    : `<div class="empty">回答履歴のアンケートタイトルを押すと詳細を表示します。</div>`;
 
-  customerList.querySelectorAll("[data-customer-name]").forEach((button) => {
+  if (!state.selectedCustomerName) {
+    stage.innerHTML = `
+      <div class="stage-head">
+        <div>
+          <div class="card-title">お客様一覧</div>
+          <div class="meta">最新の回答順で表示しています。</div>
+        </div>
+      </div>
+      <div class="customer-list">
+        ${
+          customers.length
+            ? customers
+                .map(
+                  (customer) => `
+                    <button
+                      class="customer-card selectable-card"
+                      type="button"
+                      data-customer-name="${escapeHtml(customer.name)}"
+                    >
+                      <strong>${escapeHtml(customer.name)}</strong>
+                      <div>回答数: ${customer.count}件</div>
+                      <div class="meta">最終回答: ${formatDate(customer.latestAt)}</div>
+                    </button>
+                  `,
+                )
+                .join("")
+            : `<div class="empty">条件に一致するお客様はいません。</div>`
+        }
+      </div>
+    `;
+  } else if (!selectedResponse) {
+    stage.innerHTML = `
+      <div class="stage-head">
+        <div>
+          <div class="card-title">${escapeHtml(state.selectedCustomerName)} さんの回答履歴</div>
+          <div class="meta">アンケートタイトルを押すと詳細を表示します。</div>
+        </div>
+        <button class="secondary-button" type="button" data-back-stage="customers">戻る</button>
+      </div>
+      <div class="response-list">
+        ${
+          customerResponses.length
+            ? customerResponses
+                .map(
+                  (response) => `
+                    <button
+                      class="response-history-card selectable-card"
+                      type="button"
+                      data-history-response-id="${response.id}"
+                    >
+                      <strong>${escapeHtml(response.surveyTitle)}</strong>
+                      <div class="meta">${formatDate(response.submittedAt)}</div>
+                      <span class="badge ${normalizeStatus(response.status)}">
+                        ${STATUS_LABELS[normalizeStatus(response.status)]}
+                      </span>
+                    </button>
+                  `,
+                )
+                .join("")
+            : `<div class="empty">このお客様の回答履歴はありません。</div>`
+        }
+      </div>
+    `;
+  } else {
+    stage.innerHTML = `
+      <div class="stage-head">
+        <div>
+          <div class="card-title">${escapeHtml(selectedResponse.surveyTitle)}</div>
+          <div class="meta">${escapeHtml(selectedResponse.customerName)} / ${formatDate(selectedResponse.submittedAt)}</div>
+        </div>
+        <button class="secondary-button" type="button" data-back-stage="history">戻る</button>
+      </div>
+      ${renderResponseCard(selectedResponse)}
+    `;
+  }
+
+  stage.querySelectorAll("[data-customer-name]").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedCustomerName = button.dataset.customerName;
       state.selectedResponseId = "";
@@ -287,20 +318,32 @@ function renderResponses() {
     });
   });
 
-  historyList.querySelectorAll("[data-history-response-id]").forEach((button) => {
+  stage.querySelectorAll("[data-history-response-id]").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedResponseId = button.dataset.historyResponseId;
       renderResponses();
     });
   });
 
-  detail.querySelectorAll("[data-save-response]").forEach((button) => {
+  stage.querySelectorAll("[data-back-stage]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.backStage === "customers") {
+        state.selectedCustomerName = "";
+        state.selectedResponseId = "";
+      } else {
+        state.selectedResponseId = "";
+      }
+      renderResponses();
+    });
+  });
+
+  stage.querySelectorAll("[data-save-response]").forEach((button) => {
     button.addEventListener("click", () => {
       void saveResponseManagement(button.dataset.saveResponse);
     });
   });
 
-  detail.querySelectorAll("[data-delete-response]").forEach((button) => {
+  stage.querySelectorAll("[data-delete-response]").forEach((button) => {
     button.addEventListener("click", () => {
       void deleteResponse(button.dataset.deleteResponse);
     });
