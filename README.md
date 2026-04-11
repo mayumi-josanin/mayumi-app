@@ -17,7 +17,7 @@
 
 - お客様アプリ: `https://mayumi-josanin.github.io/mayumi_bijiris/customer-app/`
 - 管理アプリ: `https://mayumi-josanin.github.io/mayumi_bijiris/admin-app/`
-- 回答保存スプレッドシート: `https://docs.google.com/spreadsheets/d/1AP_ZMDtQHHIQgjE_Jq3m5RWAKmCU0fR2klKbL59MDc4/edit`
+- 回答保存スプレッドシート: `https://docs.google.com/spreadsheets/d/1oDNTqlvKv1rGOGXIpnzPlegpFDeQ0WHGRLuY3ZAnZYc/edit`
 - Apps Script プロジェクト: `https://script.google.com/d/13qSqUDPU9WSHMX_LrmU1zFP3f64VdQaXVqUKgRu4uFb8bqnSkieqIMEa/edit`
 
 ## Google Sheets + Apps Script 運用
@@ -28,7 +28,7 @@ Apps Script WebアプリURLは `shared/gas-config.js` に設定します。
 
 ```js
 window.MAYUMI_GAS_WEB_APP_URL =
-  "https://script.google.com/macros/s/AKfycbx7jqifX5DME4oJ-bK6M7Os3HwB4KUjOgVDhQiBlVJI1YoEYGbihB4FUs9sGKmDUNGE/exec";
+  "https://script.google.com/macros/s/AKfycbyZfGreoBxYYaB5i0NX1Hw_9eAMD5Q1YTfzKORYyLc2-TQt6R6xblkUNyW8SlEih4QW/exec";
 ```
 
 Apps Script 側では次を行います。
@@ -40,9 +40,11 @@ Apps Script 側では次を行います。
 5. 実行するユーザーは「自分」、アクセスできるユーザーは「全員」にします。
 6. Web アプリURLが変わった場合は `shared/gas-config.js` を更新し、`./deploy.sh "Update Apps Script URL"` で GitHub Pages へ反映します。
 
+固定の `SPREADSHEET_ID` にアクセスできない場合は、Apps Script 実行アカウント側の Drive に新しい保存用スプレッドシートを自動作成して継続します。
+
 推奨するスクリプト プロパティ:
 
-- `SPREADSHEET_ID`: `1AP_ZMDtQHHIQgjE_Jq3m5RWAKmCU0fR2klKbL59MDc4`
+- `SPREADSHEET_ID`: `1oDNTqlvKv1rGOGXIpnzPlegpFDeQ0WHGRLuY3ZAnZYc`
 - `ADMIN_USERNAME`: 管理アプリのログインID
 - `ADMIN_PASSWORD`: 管理アプリのパスワード
 - `TOKEN_SECRET`: 管理ログイン用の長いランダム文字列
