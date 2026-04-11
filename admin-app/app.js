@@ -21,7 +21,6 @@ const state = {
   selectedCustomerName: "",
   selectedResponseId: "",
   selectedResponseIds: [],
-  pendingOtpSessionId: "",
   installPrompt: null,
 };
 
@@ -31,8 +30,6 @@ const toast = document.querySelector("#toast");
 const loginForm = document.querySelector("#loginForm");
 const credentialForm = document.querySelector("#credentialForm");
 const installButton = document.querySelector("#installButton");
-const loginPrimaryFields = document.querySelector("#loginPrimaryFields");
-const loginOtpFields = document.querySelector("#loginOtpFields");
 const loginSubmitButton = document.querySelector("#loginSubmitButton");
 
 function escapeHtml(value) {
@@ -90,17 +87,7 @@ function setLoggedIn(loggedIn) {
     setPage("dashboard");
     loginForm.reset();
   }
-  state.pendingOtpSessionId = "";
-  setLoginOtpMode(false);
-}
-
-function setLoginOtpMode(enabled) {
-  loginPrimaryFields.hidden = enabled;
-  loginOtpFields.hidden = !enabled;
-  if (!enabled) {
-    loginForm.elements.otpCode.value = "";
-  }
-  loginSubmitButton.textContent = enabled ? "確認してログイン" : "ログイン";
+  loginSubmitButton.textContent = "ログイン";
 }
 
 function normalizeMemoRecord(record) {
@@ -1245,7 +1232,6 @@ function renderSettings() {
       backupHour: 3,
       retentionDays: 365,
       recoveryMemo: "",
-      twoFactorEnabled: true,
     };
     preferencesCard.innerHTML = `
       <form id="preferencesForm" class="stack">
@@ -1276,10 +1262,6 @@ function renderSettings() {
         <label>
           同意文言
           <textarea name="consentText">${escapeHtml(preferences.consentText || "")}</textarea>
-        </label>
-        <label class="inline-toggle">
-          <input name="twoFactorEnabled" type="checkbox" ${preferences.twoFactorEnabled === false ? "" : "checked"} />
-          管理画面ログインで2段階認証を使う
         </label>
         <label class="inline-toggle">
           <input name="autoBackupEnabled" type="checkbox" ${preferences.autoBackupEnabled === false ? "" : "checked"} />
@@ -2172,7 +2154,7 @@ async function savePreferences() {
     backupHour: Number(formData.get("backupHour") || 0),
     retentionDays: Number(formData.get("retentionDays") || 0),
     recoveryMemo: String(formData.get("recoveryMemo") || "").trim(),
-    twoFactorEnabled: formData.get("twoFactorEnabled") === "on",
+    twoFactorEnabled: false,
   };
   try {
     const result = await api.request("/api/admin/preferences", {
@@ -2252,7 +2234,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-8", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-9", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -2280,27 +2262,13 @@ loginForm.addEventListener("submit", async (event) => {
   button.disabled = true;
   button.textContent = "確認中";
   try {
-    const result = state.pendingOtpSessionId
-      ? await api.request("/api/admin/login/verify", {
-          method: "POST",
-          body: {
-            sessionId: state.pendingOtpSessionId,
-            code: String(formData.get("otpCode") || ""),
-          },
-        })
-      : await api.request("/api/admin/login", {
-          method: "POST",
-          body: {
-            loginId: String(formData.get("loginId") || ""),
-            password: String(formData.get("password") || ""),
-          },
-        });
-    if (result.requiresOtp) {
-      state.pendingOtpSessionId = result.sessionId || "";
-      setLoginOtpMode(true);
-      showToast("確認コードを送信しました。");
-      return;
-    }
+    const result = await api.request("/api/admin/login", {
+      method: "POST",
+      body: {
+        loginId: String(formData.get("loginId") || ""),
+        password: String(formData.get("password") || ""),
+      },
+    });
     state.token = result.token;
     localStorage.setItem(TOKEN_KEY, state.token);
     setLoggedIn(true);
@@ -2310,13 +2278,8 @@ loginForm.addEventListener("submit", async (event) => {
     showToast(error.message || "ログインできませんでした。");
   } finally {
     button.disabled = false;
-    button.textContent = state.pendingOtpSessionId ? "確認してログイン" : "ログイン";
+    button.textContent = "ログイン";
   }
-});
-
-document.querySelector("#backToLoginButton")?.addEventListener("click", () => {
-  state.pendingOtpSessionId = "";
-  setLoginOtpMode(false);
 });
 
 credentialForm.addEventListener("input", () => {
@@ -2397,7 +2360,6 @@ document.querySelectorAll("[data-page]").forEach((button) => {
 });
 
 setupInstall();
-setLoginOtpMode(false);
 window.addEventListener("error", (event) => {
   reportClientError("admin.window", event.error || event.message || "window error");
 });

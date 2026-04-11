@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260411-8" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260411-9" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <link rel="icon" href="./icons/icon-192.png" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260411-8" />
+    <link rel="stylesheet" href="./styles.css?v=20260411-9" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -21,26 +21,14 @@
         <img src="./icons/icon-192.png" alt="まゆみ助産院" />
         <h1>管理者認証</h1>
         <p>アンケート回答を確認・管理します。</p>
-        <div id="loginPrimaryFields" class="stack">
-          <label>
-            ログインID
-            <input name="loginId" type="text" autocomplete="username" required />
-          </label>
-          <label>
-            パスワード
-            <input name="password" type="password" autocomplete="current-password" required />
-          </label>
-        </div>
-        <div id="loginOtpFields" class="stack" hidden>
-          <div class="otp-note">
-            確認コードを登録メールへ送信しました。6桁コードを入力してください。
-          </div>
-          <label>
-            確認コード
-            <input name="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
-          </label>
-          <button id="backToLoginButton" class="secondary-button" type="button">戻る</button>
-        </div>
+        <label>
+          ログインID
+          <input name="loginId" type="text" autocomplete="username" required />
+        </label>
+        <label>
+          パスワード
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
         <button id="loginSubmitButton" class="primary-button" type="submit">ログイン</button>
       </form>
     </section>
@@ -60,7 +48,7 @@
           <button class="nav-item active" type="button" data-page="dashboard">📊 集計</button>
           <button class="nav-item" type="button" data-page="surveys">📝 アンケート管理</button>
           <button class="nav-item" type="button" data-page="responses">👥 回答管理</button>
-          <button class="nav-item" type="button" data-page="settings">🔐 認証設定</button>
+          <button class="nav-item" type="button" data-page="settings">🔐 設定</button>
           <button class="nav-item" type="button" data-page="install">📲 追加案内</button>
         </aside>
 
@@ -251,7 +239,7 @@
         <button class="bottom-nav-item active" type="button" data-page="dashboard">📊<span>集計</span></button>
         <button class="bottom-nav-item" type="button" data-page="surveys">📝<span>アンケート</span></button>
         <button class="bottom-nav-item" type="button" data-page="responses">👥<span>回答</span></button>
-        <button class="bottom-nav-item" type="button" data-page="settings">🔐<span>認証</span></button>
+        <button class="bottom-nav-item" type="button" data-page="settings">🔐<span>設定</span></button>
         <button class="bottom-nav-item" type="button" data-page="install">📲<span>追加</span></button>
       </nav>
     </section>
@@ -264,9 +252,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260411-8"></script>
-    <script src="../shared/gas-config.js?v=20260411-8"></script>
-    <script src="../shared/api.js?v=20260411-8"></script>
-    <script src="./app.js?v=20260411-8"></script>
+    <script src="../default-surveys.js?v=20260411-9"></script>
+    <script src="../shared/gas-config.js?v=20260411-9"></script>
+    <script src="../shared/api.js?v=20260411-9"></script>
+    <script src="./app.js?v=20260411-9"></script>
   </body>
 </html>
