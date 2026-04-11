@@ -272,12 +272,19 @@ window.MayumiSurveyApi = (() => {
       }
 
       if (path === "/api/public/surveys") {
-        const localSurveys = getDefaultSurveys().filter((survey) => survey.status === "published");
-        if (localSurveys.length) {
-          return { surveys: localSurveys };
+        try {
+          const remoteSurveys = (await jsonp(gasUrl, "surveys")).surveys || [];
+          if (remoteSurveys.length) {
+            return {
+              surveys: remoteSurveys.filter((survey) => survey.status === "published"),
+            };
+          }
+        } catch {
+          // Fall back to bundled survey definitions when GAS is temporarily unavailable.
         }
+
         return {
-          surveys: (await jsonp(gasUrl, "surveys")).surveys || [],
+          surveys: getDefaultSurveys().filter((survey) => survey.status === "published"),
         };
       }
 
@@ -314,6 +321,15 @@ window.MayumiSurveyApi = (() => {
       }
 
       if (path === "/api/admin/surveys" && method === "GET") {
+        try {
+          const remoteSurveys = (await jsonp(gasUrl, "surveys")).surveys || [];
+          if (remoteSurveys.length) {
+            return { surveys: remoteSurveys };
+          }
+        } catch {
+          // Fall back to bundled survey definitions when GAS is temporarily unavailable.
+        }
+
         return { surveys: getDefaultSurveys() };
       }
 

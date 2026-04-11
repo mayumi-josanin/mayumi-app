@@ -176,6 +176,36 @@ function findSurveyById(surveyId) {
   return state.surveys.find((survey) => survey.id === surveyId);
 }
 
+function getDisplayAnswers(response, survey) {
+  const answers = Array.isArray(response?.answers) ? response.answers : [];
+  if (!survey) return answers;
+
+  const answerMap = new Map(answers.map((answer) => [answer.questionId, answer]));
+  const orderedAnswers = survey.questions.map((question) => {
+    const existing = answerMap.get(question.id);
+    if (existing) {
+      return {
+        ...existing,
+        label: existing.label || question.label,
+        type: existing.type || question.type,
+      };
+    }
+    return {
+      questionId: question.id,
+      label: question.label,
+      type: question.type,
+      value: "",
+      files: [],
+    };
+  });
+
+  const extraAnswers = answers.filter(
+    (answer) => !survey.questions.some((question) => question.id === answer.questionId),
+  );
+
+  return orderedAnswers.concat(extraAnswers);
+}
+
 function getAnswerValues(answer) {
   return String(answer?.value || "")
     .split(",")
@@ -436,6 +466,7 @@ function renderResponses() {
 function renderResponseCard(response) {
   const status = normalizeStatus(response.status);
   const survey = findSurveyById(response.surveyId);
+  const displayAnswers = getDisplayAnswers(response, survey);
   return `
     <article class="response-card" data-response-card="${response.id}">
       <div class="response-head">
@@ -447,7 +478,7 @@ function renderResponseCard(response) {
         <span class="badge ${status}">${STATUS_LABELS[status]}</span>
       </div>
       <div class="answer-list">
-        ${response.answers
+        ${displayAnswers
           .map((answer) => {
             const question = survey?.questions.find((item) => item.id === answer.questionId) || {
               id: answer.questionId,
@@ -654,7 +685,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-2", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-3", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
