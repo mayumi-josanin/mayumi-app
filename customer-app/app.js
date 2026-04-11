@@ -256,17 +256,13 @@ function renderAnswerPanel() {
     return;
   }
 
-  if (isTicketEndSurvey(survey) && (!getTicketEndCountSelection() || !getTicketEndRoundSelection())) {
+  if (isTicketEndSurvey(survey) && !getTicketEndCountSelection()) {
     const ticketQuestion = getTicketEndCountQuestion(survey);
-    const ticketRoundQuestion = getTicketEndRoundQuestion(survey);
-    const selectedTicketCount = getTicketEndCountSelection();
-    const selectedTicketRound = getTicketEndRoundSelection();
-    const roundOptions = getTicketRoundOptions(selectedTicketCount);
     answerPanel.innerHTML = `
       <div class="section-head survey-toolbar">
         <div>
           <h2>${escapeHtml(survey.title)}</h2>
-          <p>最初に回数券の種類と回数を選択してください。</p>
+          <p>最初に回数券の種類を選択してください。</p>
         </div>
         <button id="backToHomeButton" class="ghost-button" type="button">一覧へ戻る</button>
       </div>
@@ -280,7 +276,7 @@ function renderAnswerPanel() {
               .map(
                 (option) => `
                   <label>
-                    <input type="radio" name="ticketCount" value="${escapeHtml(option)}" ${option === selectedTicketCount ? "checked" : ""} />
+                    <input type="radio" name="ticketCount" value="${escapeHtml(option)}" />
                     ${escapeHtml(option)}
                   </label>
                 `,
@@ -288,49 +284,79 @@ function renderAnswerPanel() {
               .join("")}
           </div>
         </fieldset>
-        <label class="question-block">
-          <span>${escapeHtml(ticketRoundQuestion.label)}</span>
-          <select id="ticketRoundSelect" name="ticketRound" ${selectedTicketCount ? "" : "disabled"}>
-            <option value="">選択してください</option>
-            ${roundOptions
-              .map(
-                (option) => `
-                  <option value="${escapeHtml(option)}" ${option === selectedTicketRound ? "selected" : ""}>
-                    ${escapeHtml(option)}
-                  </option>
-                `,
-              )
-              .join("")}
-          </select>
-        </label>
-        <button class="primary-button" type="submit">質問へ進む</button>
+        <button class="primary-button" type="submit">次へ</button>
       </form>
     `;
 
     document.querySelector("#backToHomeButton").addEventListener("click", () => {
       setPage("home");
     });
-    document.querySelectorAll('input[name="ticketCount"]').forEach((input) => {
-      input.addEventListener("change", () => {
-        appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID] = input.value;
-        delete appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID];
-        renderAnswerPanel();
-      });
-    });
     document.querySelector("#ticketCountForm").addEventListener("submit", (event) => {
       event.preventDefault();
       const formData = new FormData(event.currentTarget);
-      const ticketCount = String(formData.get("ticketCount") || getTicketEndCountSelection() || "");
-      const ticketRound = String(formData.get("ticketRound") || "");
+      const ticketCount = String(formData.get("ticketCount") || "");
       if (!ticketCount) {
         showToast("回数券の種類を選択してください。");
         return;
       }
+      appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID] = ticketCount;
+      delete appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID];
+      renderAnswerPanel();
+    });
+    return;
+  }
+
+  if (isTicketEndSurvey(survey) && !getTicketEndRoundSelection()) {
+    const ticketRoundQuestion = getTicketEndRoundQuestion(survey);
+    const selectedTicketCount = getTicketEndCountSelection();
+    const roundOptions = getTicketRoundOptions(selectedTicketCount);
+    answerPanel.innerHTML = `
+      <div class="section-head survey-toolbar">
+        <div>
+          <h2>${escapeHtml(survey.title)}</h2>
+          <p>${escapeHtml(selectedTicketCount)} の何回目かを選択してください。</p>
+        </div>
+        <button id="backToTicketCountButton" class="ghost-button" type="button">戻る</button>
+      </div>
+      <form id="ticketRoundForm" class="question-list">
+        <div class="question-block prefilled-answer">
+          <strong>回数券の種類</strong>
+          <div>${escapeHtml(selectedTicketCount)}</div>
+        </div>
+        <fieldset class="question-block">
+          <legend>
+            <span>${escapeHtml(ticketRoundQuestion.label)}</span>
+          </legend>
+          <div class="choice-row">
+            ${roundOptions
+              .map(
+                (option) => `
+                  <label>
+                    <input type="radio" name="ticketRound" value="${escapeHtml(option)}" />
+                    ${escapeHtml(option)}
+                  </label>
+                `,
+              )
+              .join("")}
+          </div>
+        </fieldset>
+        <button class="primary-button" type="submit">質問へ進む</button>
+      </form>
+    `;
+
+    document.querySelector("#backToTicketCountButton").addEventListener("click", () => {
+      delete appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID];
+      delete appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID];
+      renderAnswerPanel();
+    });
+    document.querySelector("#ticketRoundForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      const ticketRound = String(formData.get("ticketRound") || "");
       if (!ticketRound) {
         showToast("回数券の回数を選択してください。");
         return;
       }
-      appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID] = ticketCount;
       appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID] = ticketRound;
       renderAnswerPanel();
     });
