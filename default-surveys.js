@@ -146,6 +146,13 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           required: false,
           options: [],
         },
+        {
+          id: "q_ticket_end_ticket_size",
+          label: "回数券の枚数",
+          type: "choice",
+          required: true,
+          options: ["6回券", "10回券"],
+        },
       ],
     },
     {

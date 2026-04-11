@@ -274,6 +274,10 @@ textarea {
   background: #fff;
 }
 
+.prefilled-answer strong {
+  color: var(--text-dark);
+}
+
 fieldset {
   margin: 0;
   border: none;
