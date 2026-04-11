@@ -1,14 +1,15 @@
-const CACHE_NAME = "mayumi-customer-survey-v9";
+const CACHE_NAME = "mayumi-customer-survey-v10";
+const ASSET_VERSION = "20260411-2";
 const APP_ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
-  "./manifest.webmanifest",
+  `./styles.css?v=${ASSET_VERSION}`,
+  `./app.js?v=${ASSET_VERSION}`,
+  `./manifest.webmanifest?v=${ASSET_VERSION}`,
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  "../default-surveys.js",
-  "../shared/api.js",
+  `../default-surveys.js?v=${ASSET_VERSION}`,
+  `../shared/api.js?v=${ASSET_VERSION}`,
 ];
 
 self.addEventListener("install", (event) => {

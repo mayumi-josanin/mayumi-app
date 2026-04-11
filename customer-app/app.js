@@ -718,7 +718,10 @@ function renderHistory() {
 function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
+      navigator.serviceWorker
+        .register("./sw.js?v=20260411-2", { updateViaCache: "none" })
+        .then((registration) => registration.update().catch(() => {}))
+        .catch(() => {});
     });
   }
 
