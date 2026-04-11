@@ -35,6 +35,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           type: "choice",
           required: false,
           options: ["1回目", "2回目", "3回目", "4回目", "5回目", "6回目"],
+          visibleWhen: { questionId: "q_bijiris_session_type", value: "モニター" },
         },
         {
           id: "q_bijiris_session_ticket_count",
@@ -53,6 +54,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
             "9回目",
             "10回目",
           ],
+          visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" },
         },
         {
           id: "q_bijiris_session_unlimited",
@@ -60,6 +62,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           type: "text",
           required: false,
           options: [],
+          visibleWhen: { questionId: "q_bijiris_session_type", value: "乗り放題キャンペーン" },
         },
         {
           id: "q_bijiris_session_single",
@@ -67,6 +70,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           type: "text",
           required: false,
           options: [],
+          visibleWhen: { questionId: "q_bijiris_session_type", value: "単発" },
         },
         {
           id: "q_bijiris_session_trial",
@@ -74,6 +78,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           type: "text",
           required: false,
           options: [],
+          visibleWhen: { questionId: "q_bijiris_session_type", value: "トライアル" },
         },
       ],
     },
@@ -295,6 +300,10 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
             "モニター様優待コース（10%OFF）",
             "その他",
           ],
+          visibleWhen: {
+            questionId: "q_monitor_end_next",
+            value: "6回の効果を無駄にしないために継続していきたい",
+          },
         },
         {
           id: "q_monitor_end_consultation",

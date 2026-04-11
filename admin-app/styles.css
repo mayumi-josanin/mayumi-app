@@ -170,6 +170,20 @@ header h1 {
   border-left: 4px solid var(--sage-dark);
 }
 
+.inline-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  margin-left: 8px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: #fff3d5;
+  color: #8a6200;
+  font-size: 12px;
+}
+
 .main-content {
   flex: 1;
   min-width: 0;
@@ -381,6 +395,11 @@ textarea {
   color: var(--text-mid);
 }
 
+.badge.archived {
+  background: #ececec;
+  color: #666;
+}
+
 .answer-list {
   display: grid;
   gap: 8px;
@@ -425,10 +444,14 @@ textarea {
 .photo-thumb {
   display: grid;
   gap: 5px;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--sage-dark);
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
+  text-align: left;
 }
 
 .photo-thumb img {
@@ -450,6 +473,39 @@ textarea {
 .survey-manager-card {
   display: grid;
   gap: 6px;
+}
+
+.survey-manager-card-head,
+.survey-card-actions,
+.action-row,
+.bulk-toolbar,
+.analytics-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.survey-manager-card-head,
+.analytics-row {
+  justify-content: space-between;
+}
+
+.survey-card-actions,
+.action-row,
+.bulk-toolbar {
+  flex-wrap: wrap;
+}
+
+.survey-open-button,
+.history-open-button {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
 }
 
 .survey-editor-form {
@@ -512,6 +568,16 @@ textarea {
   gap: 8px;
 }
 
+.history-check {
+  padding-top: 0;
+}
+
+.analytics-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .url-box {
   margin: 12px 0;
   padding: 12px;
@@ -549,6 +615,42 @@ textarea {
 .toast.show {
   opacity: 1;
   transform: translateY(0);
+}
+
+.lightbox-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.lightbox-dialog {
+  display: grid;
+  gap: 12px;
+  width: min(820px, 100%);
+  padding: 16px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.lightbox-dialog img {
+  width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f7f7f7;
+}
+
+.lightbox-close {
+  justify-self: end;
+}
+
+.lightbox-caption {
+  color: var(--text-mid);
+  font-size: 13px;
 }
 
 .bottom-nav {

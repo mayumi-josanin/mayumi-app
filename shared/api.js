@@ -16,7 +16,7 @@ window.MayumiSurveyApi = (() => {
     try {
       localStorage.setItem(key, value);
     } catch {
-      // Ignore storage errors in private browsing modes.
+      // Ignore storage errors.
     }
   }
 
@@ -38,6 +38,10 @@ window.MayumiSurveyApi = (() => {
 
   function normalizeStatus(status) {
     return ["new", "checked", "done"].includes(status) ? status : "new";
+  }
+
+  function normalizeSurveyStatus(status) {
+    return ["published", "draft", "archived"].includes(status) ? status : "published";
   }
 
   function sleep(ms) {
@@ -111,21 +115,73 @@ window.MayumiSurveyApi = (() => {
     return decodeURIComponent(path.slice(prefix.length));
   }
 
+  function toAnswerSignatureValue(answer) {
+    if (Array.isArray(answer?.files)) {
+      return answer.files
+        .map((file) => normalizeText(file?.fileId || file?.name || file?.url || file?.dataUrl))
+        .join("|");
+    }
+    if (Array.isArray(answer?.value)) {
+      return answer.value.map(normalizeText).filter(Boolean).join(", ");
+    }
+    return normalizeText(answer?.value);
+  }
+
+  function makeAnswerSignature(answers) {
+    return JSON.stringify(
+      (Array.isArray(answers) ? answers : []).map((answer) => ({
+        questionId: normalizeText(answer?.questionId),
+        value: toAnswerSignatureValue(answer),
+      })),
+    );
+  }
+
+  function makeSurveySignature(survey) {
+    return JSON.stringify({
+      id: normalizeText(survey?.id),
+      title: normalizeText(survey?.title),
+      description: normalizeText(survey?.description),
+      status: normalizeSurveyStatus(survey?.status),
+      sortOrder: Number.isFinite(Number(survey?.sortOrder)) ? Number(survey.sortOrder) : 0,
+      acceptingResponses: survey?.acceptingResponses === false ? false : true,
+      startAt: normalizeText(survey?.startAt),
+      endAt: normalizeText(survey?.endAt),
+      questions: (Array.isArray(survey?.questions) ? survey.questions : []).map((question) => ({
+        id: normalizeText(question?.id),
+        label: normalizeText(question?.label),
+        type: normalizeText(question?.type) || "text",
+        required: question?.required === false ? false : true,
+        options: Array.isArray(question?.options)
+          ? question.options.map(normalizeText).filter(Boolean)
+          : [],
+        visibleWhen: question?.visibleWhen
+          ? {
+              questionId: normalizeText(question.visibleWhen.questionId),
+              value: normalizeText(question.visibleWhen.value),
+            }
+          : null,
+      })),
+    });
+  }
+
+  function makePreferencesSignature(preferences) {
+    return JSON.stringify({
+      notificationEnabled: preferences?.notificationEnabled === false ? false : true,
+      notificationEmail: normalizeEmail(preferences?.notificationEmail),
+      dataPolicyText: normalizeText(preferences?.dataPolicyText),
+    });
+  }
+
   function buildLocalResponse(payload, responseId) {
     const surveys = getDefaultSurveys();
-    const survey = surveys.find(
-      (item) => item.id === payload.surveyId && item.status === "published",
-    );
+    const survey = surveys.find((item) => item.id === payload.surveyId && item.status === "published");
     if (!survey) throw new Error("回答できるアンケートが見つかりません。");
 
     const customerName = normalizeText(payload.customer?.name);
     if (!customerName) throw new Error("お名前を入力してください。");
 
     const answerMap = new Map(
-      (Array.isArray(payload.answers) ? payload.answers : []).map((answer) => [
-        answer.questionId,
-        answer,
-      ]),
+      (Array.isArray(payload.answers) ? payload.answers : []).map((answer) => [answer.questionId, answer]),
     );
 
     const answers = survey.questions.map((question) => {
@@ -170,9 +226,7 @@ window.MayumiSurveyApi = (() => {
 
   function jsonp(gasUrl, action, params = {}) {
     return new Promise((resolve, reject) => {
-      const callbackName = `mayumiGasCallback_${Date.now()}_${Math.random()
-        .toString(36)
-        .slice(2)}`;
+      const callbackName = `mayumiGasCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       const timeout = setTimeout(() => {
         cleanup();
         reject(new Error("Google Apps Script から応答がありません。"));
@@ -224,41 +278,31 @@ window.MayumiSurveyApi = (() => {
     });
   }
 
-  async function waitForSavedResponse(gasUrl, responseId) {
+  async function waitForSavedResponse(gasUrl, responseId, customerName = "") {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
-      const data = await jsonp(gasUrl, "history", { clientId: getClientId() });
+      const data = await jsonp(gasUrl, "history", {
+        clientId: getClientId(),
+        name: customerName || undefined,
+      });
       const saved = (data.responses || []).find((response) => response.id === responseId);
       if (saved) return saved;
     }
     return null;
   }
 
-  function makeAnswerSignature(answers) {
-    return JSON.stringify(
-      (Array.isArray(answers) ? answers : []).map((answer) => ({
-        questionId: answer.questionId,
-        value: Array.isArray(answer.value)
-          ? answer.value.map(normalizeText).join(", ")
-          : normalizeText(answer.value),
-      })),
-    );
-  }
-
-  function makeSurveySignature(survey) {
-    return JSON.stringify({
-      title: normalizeText(survey?.title),
-      description: normalizeText(survey?.description),
-      status: survey?.status === "draft" ? "draft" : "published",
-      questions: (Array.isArray(survey?.questions) ? survey.questions : []).map((question) => ({
-        label: normalizeText(question?.label),
-        type: normalizeText(question?.type) || "text",
-        required: question?.required === false ? false : true,
-        options: Array.isArray(question?.options)
-          ? question.options.map(normalizeText).filter(Boolean)
-          : [],
-      })),
-    });
+  async function waitForPublicResponse(gasUrl, customerName, matcher) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "history", {
+        clientId: getClientId(),
+        name: normalizeText(customerName),
+      });
+      const responses = Array.isArray(data.responses) ? data.responses : [];
+      const matched = matcher(responses);
+      if (matched !== undefined) return matched;
+    }
+    return null;
   }
 
   async function waitForAdminUpdatedResponse(gasUrl, token, responseId, expected) {
@@ -290,6 +334,30 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
+  async function waitForAdminPreferences(gasUrl, token, expectedSignature) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "adminPreferences", { token });
+      const preferences = data.preferences || {};
+      if (makePreferencesSignature(preferences) === expectedSignature) {
+        return preferences;
+      }
+    }
+    return null;
+  }
+
+  async function waitForAdminMemos(gasUrl, token, customerName, expectedMemo) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "adminCustomerMemos", { token });
+      const memos = data.memos || {};
+      if (normalizeText(memos[customerName]) === normalizeText(expectedMemo)) {
+        return memos;
+      }
+    }
+    return null;
+  }
+
   function initGasApi(gasUrl) {
     async function request(path, options = {}) {
       const method = options.method || "GET";
@@ -300,18 +368,22 @@ window.MayumiSurveyApi = (() => {
 
       if (path === "/api/public/surveys") {
         try {
-          const remoteSurveys = (await jsonp(gasUrl, "surveys")).surveys || [];
+          const remoteData = await jsonp(gasUrl, "surveys");
+          const remoteSurveys = remoteData.surveys || [];
           if (remoteSurveys.length) {
             return {
               surveys: remoteSurveys.filter((survey) => survey.status === "published"),
+              dataPolicyText: remoteData.dataPolicyText || "",
+              version: remoteData.version || "",
             };
           }
         } catch {
           // Fall back to bundled survey definitions when GAS is temporarily unavailable.
         }
-
         return {
           surveys: getDefaultSurveys().filter((survey) => survey.status === "published"),
+          dataPolicyText: "",
+          version: "",
         };
       }
 
@@ -331,13 +403,43 @@ window.MayumiSurveyApi = (() => {
           clientId: getClientId(),
           payload: options.body || {},
         });
-        const savedResponse = await waitForSavedResponse(gasUrl, responseId);
+        const savedResponse = await waitForSavedResponse(
+          gasUrl,
+          responseId,
+          normalizeText(options.body?.customer?.name),
+        );
         if (!savedResponse) {
           throw new Error(
-            "回答保存を確認できませんでした。通信状態を確認して、回答履歴に表示されない場合はもう一度送信してください。",
+            "回答保存を確認できませんでした。通信状態を確認して、履歴に表示されない場合は再送信してください。",
           );
         }
         return { response: savedResponse || response };
+      }
+
+      if (path.startsWith("/api/public/responses/") && method === "PUT") {
+        const responseId = getRouteId(path, "/api/public/responses/");
+        const payload = options.body || {};
+        await postToGas(gasUrl, "updatePublicResponse", {
+          responseId,
+          clientId: getClientId(),
+          payload,
+        });
+        const updated = await waitForPublicResponse(
+          gasUrl,
+          payload.customer?.name,
+          (responses) => responses.find((response) => response.id === responseId),
+        );
+        if (!updated) {
+          throw new Error("回答更新を確認できませんでした。通信状態を確認して、もう一度お試しください。");
+        }
+        return { response: updated };
+      }
+
+      if (path === "/api/public/errors" && method === "POST") {
+        await postToGas(gasUrl, "logClientError", {
+          payload: options.body || {},
+        });
+        return { ok: true };
       }
 
       if (path === "/api/admin/login" && method === "POST") {
@@ -347,17 +449,12 @@ window.MayumiSurveyApi = (() => {
         });
       }
 
-      if (path === "/api/admin/surveys" && method === "GET") {
-        try {
-          const remoteSurveys = (await jsonp(gasUrl, "surveys")).surveys || [];
-          if (remoteSurveys.length) {
-            return { surveys: remoteSurveys };
-          }
-        } catch {
-          // Fall back to bundled survey definitions when GAS is temporarily unavailable.
-        }
+      if (path === "/api/admin/info" && method === "GET") {
+        return jsonp(gasUrl, "adminInfo", { token: options.token });
+      }
 
-        return { surveys: getDefaultSurveys() };
+      if (path === "/api/admin/surveys" && method === "GET") {
+        return jsonp(gasUrl, "adminSurveys", { token: options.token });
       }
 
       if (path === "/api/admin/surveys" && method === "POST") {
@@ -370,10 +467,25 @@ window.MayumiSurveyApi = (() => {
         const survey = await waitForAdminSurvey(gasUrl, options.token, (surveys) =>
           surveys.find((item) => makeSurveySignature(item) === expectedSignature),
         );
-        if (!survey) {
-          throw new Error("アンケートの作成を確認できませんでした。");
-        }
+        if (!survey) throw new Error("アンケートの作成を確認できませんでした。");
         return { survey };
+      }
+
+      if (path === "/api/admin/surveys/replace" && method === "POST") {
+        const surveys = Array.isArray(options.body?.surveys) ? options.body.surveys : [];
+        const expectedSignature = JSON.stringify(surveys.map(makeSurveySignature));
+        await postToGas(gasUrl, "adminReplaceSurveys", {
+          token: options.token,
+          payload: { surveys },
+        });
+        const restored = await waitForAdminSurvey(gasUrl, options.token, (items) => {
+          if (JSON.stringify(items.map(makeSurveySignature)) === expectedSignature) {
+            return items;
+          }
+          return undefined;
+        });
+        if (!restored) throw new Error("アンケート復元を確認できませんでした。");
+        return { surveys: restored };
       }
 
       if (path.startsWith("/api/admin/surveys/") && method === "PUT") {
@@ -390,9 +502,7 @@ window.MayumiSurveyApi = (() => {
           if (!updated) return undefined;
           return makeSurveySignature(updated) === expectedSignature ? updated : undefined;
         });
-        if (!survey) {
-          throw new Error("アンケートの更新を確認できませんでした。");
-        }
+        if (!survey) throw new Error("アンケートの更新を確認できませんでした。");
         return { survey };
       }
 
@@ -405,14 +515,45 @@ window.MayumiSurveyApi = (() => {
         const deleted = await waitForAdminSurvey(gasUrl, options.token, (surveys) =>
           surveys.some((item) => item.id === surveyId) ? undefined : true,
         );
-        if (!deleted) {
-          throw new Error("アンケートの削除を確認できませんでした。");
-        }
+        if (!deleted) throw new Error("アンケートの削除を確認できませんでした。");
         return { ok: true };
       }
 
-      if (path === "/api/admin/info" && method === "GET") {
-        return jsonp(gasUrl, "adminInfo", { token: options.token });
+      if (path === "/api/admin/preferences" && method === "GET") {
+        return jsonp(gasUrl, "adminPreferences", { token: options.token });
+      }
+
+      if (path === "/api/admin/preferences" && method === "PUT") {
+        const payload = options.body || {};
+        const expectedSignature = makePreferencesSignature(payload);
+        await postToGas(gasUrl, "adminUpdatePreferences", {
+          token: options.token,
+          payload,
+        });
+        const preferences = await waitForAdminPreferences(gasUrl, options.token, expectedSignature);
+        if (!preferences) throw new Error("設定更新を確認できませんでした。");
+        return { preferences };
+      }
+
+      if (path === "/api/admin/logs" && method === "GET") {
+        return jsonp(gasUrl, "adminLogs", { token: options.token });
+      }
+
+      if (path === "/api/admin/customer-memos" && method === "GET") {
+        return jsonp(gasUrl, "adminCustomerMemos", { token: options.token });
+      }
+
+      if (path.startsWith("/api/admin/customer-memos/") && method === "PUT") {
+        const customerName = getRouteId(path, "/api/admin/customer-memos/");
+        const memo = normalizeText(options.body?.memo);
+        await postToGas(gasUrl, "adminUpdateCustomerMemo", {
+          token: options.token,
+          customerName,
+          memo,
+        });
+        const memos = await waitForAdminMemos(gasUrl, options.token, customerName, memo);
+        if (!memos) throw new Error("お客様メモの更新を確認できませんでした。");
+        return { memos };
       }
 
       if (path === "/api/admin/responses" && method === "GET") {
@@ -436,9 +577,7 @@ window.MayumiSurveyApi = (() => {
           adminMemo: payload.adminMemo,
           answerSignature: payload.answers.length ? makeAnswerSignature(payload.answers) : "",
         });
-        if (!updated) {
-          throw new Error("回答内容の更新を確認できませんでした。");
-        }
+        if (!updated) throw new Error("回答内容の更新を確認できませんでした。");
         return { response: updated };
       }
 
@@ -473,8 +612,7 @@ window.MayumiSurveyApi = (() => {
   const gasApi = gasUrl ? initGasApi(gasUrl) : null;
   const usesSameOriginRest = isSameOriginApiHost();
   const isUnconfiguredStatic = !gasApi && !explicitApiBase && !usesSameOriginRest;
-  const restApiBase =
-    explicitApiBase || (usesSameOriginRest || gasApi ? "" : DEFAULT_PUBLIC_API_BASE);
+  const restApiBase = explicitApiBase || (usesSameOriginRest || gasApi ? "" : DEFAULT_PUBLIC_API_BASE);
 
   async function request(path, options = {}) {
     if (gasApi) {
@@ -525,9 +663,27 @@ window.MayumiSurveyApi = (() => {
     return Promise.resolve();
   }
 
+  async function logError(source, error, detail = {}) {
+    const message = typeof error === "string" ? error : error?.message || "不明なエラー";
+    try {
+      await request("/api/public/errors", {
+        method: "POST",
+        body: {
+          source,
+          message,
+          detail,
+        },
+      });
+    } catch {
+      // Ignore logging failures on the client.
+    }
+  }
+
   return {
     request,
     logout,
+    logError,
     mode: gasApi ? "gas" : "rest",
+    getClientId,
   };
 })();

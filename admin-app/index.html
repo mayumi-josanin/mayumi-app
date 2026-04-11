@@ -66,6 +66,19 @@
                 <div id="surveySummary" class="stack"></div>
               </section>
             </div>
+            <section class="card">
+              <div class="stage-head">
+                <div>
+                  <div class="card-title">質問別分析</div>
+                  <div class="meta">アンケートごとに回答傾向を確認できます。</div>
+                </div>
+                <label>
+                  アンケート
+                  <select id="analyticsSurveyFilter"></select>
+                </label>
+              </div>
+              <div id="surveyAnalytics" class="stack"></div>
+            </section>
           </section>
 
           <section id="page-surveys" class="page">
@@ -109,14 +122,23 @@
                   お客様名
                   <input id="keywordFilter" type="search" placeholder="検索" />
                 </label>
+                <label>
+                  開始日
+                  <input id="dateFromFilter" type="date" />
+                </label>
+                <label>
+                  終了日
+                  <input id="dateToFilter" type="date" />
+                </label>
                 <button id="exportCsvButton" class="secondary-button" type="button">CSV出力</button>
+                <button id="exportExcelButton" class="secondary-button" type="button">Excel出力</button>
               </div>
             </div>
             <section id="responseStage" class="card response-stage"></section>
           </section>
 
           <section id="page-settings" class="page">
-            <h2>認証設定</h2>
+            <h2>設定</h2>
             <div class="grid-two settings-grid">
               <section class="card">
                 <div class="card-title">管理者ログイン</div>
@@ -143,6 +165,33 @@
               <section class="card">
                 <div class="card-title">保存先情報</div>
                 <div id="storageInfo" class="stack"></div>
+                <div id="versionInfo" class="stack"></div>
+              </section>
+            </div>
+            <div class="grid-two settings-grid">
+              <section class="card">
+                <div class="card-title">通知・データ方針</div>
+                <div id="preferencesCard"></div>
+              </section>
+              <section class="card">
+                <div class="card-title">バックアップ / 復元</div>
+                <div class="stack">
+                  <button id="backupExportButton" class="secondary-button" type="button">バックアップを保存</button>
+                  <label>
+                    復元ファイル
+                    <input id="backupImportInput" type="file" accept="application/json" />
+                  </label>
+                </div>
+              </section>
+            </div>
+            <div class="grid-two settings-grid">
+              <section class="card">
+                <div class="card-title">監査ログ</div>
+                <div id="auditLogList" class="stack"></div>
+              </section>
+              <section class="card">
+                <div class="card-title">エラーログ</div>
+                <div id="errorLogList" class="stack"></div>
               </section>
             </div>
           </section>
@@ -171,9 +220,17 @@
       </nav>
     </section>
 
-    <script src="../default-surveys.js?v=20260411-4"></script>
-    <script src="../shared/gas-config.js?v=20260411-4"></script>
-    <script src="../shared/api.js?v=20260411-4"></script>
-    <script src="./app.js?v=20260411-4"></script>
+    <div id="lightboxModal" class="lightbox-modal" hidden>
+      <div class="lightbox-dialog">
+        <button class="ghost-button lightbox-close" type="button" data-close-lightbox>閉じる</button>
+        <img src="" alt="拡大画像" />
+        <div class="lightbox-caption"></div>
+      </div>
+    </div>
+
+    <script src="../default-surveys.js?v=20260411-6"></script>
+    <script src="../shared/gas-config.js?v=20260411-6"></script>
+    <script src="../shared/api.js?v=20260411-6"></script>
+    <script src="./app.js?v=20260411-6"></script>
   </body>
 </html>
