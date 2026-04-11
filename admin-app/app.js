@@ -11,6 +11,7 @@ const state = {
   surveys: [],
   responses: [],
   adminInfo: null,
+  selectedSurveyEditorId: "",
   selectedCustomerName: "",
   selectedResponseId: "",
   installPrompt: null,
@@ -46,6 +47,10 @@ function normalizeStatus(status) {
   return STATUS_LABELS[status] ? status : "new";
 }
 
+function normalizeSurveyStatus(status) {
+  return status === "draft" ? "draft" : "published";
+}
+
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add("show");
@@ -72,9 +77,7 @@ function setLoggedIn(loggedIn) {
 
 function getFallbackSurveys() {
   const makeSurveys = window.MayumiDefaultSurveys;
-  return typeof makeSurveys === "function"
-    ? makeSurveys(new Date().toISOString()).filter((survey) => survey.status === "published")
-    : [];
+  return typeof makeSurveys === "function" ? makeSurveys(new Date().toISOString()) : [];
 }
 
 async function loadAdminData() {
@@ -97,6 +100,7 @@ async function loadAdminData() {
 
 function renderAll() {
   renderDashboard();
+  renderSurveyManager();
   renderFilters();
   renderResponses();
   renderSettings();
@@ -657,6 +661,366 @@ function renderSettings() {
   `;
 }
 
+function formatSurveyStatusLabel(status) {
+  return normalizeSurveyStatus(status) === "draft" ? "下書き" : "公開中";
+}
+
+function questionSupportsOptions(type) {
+  return type === "choice" || type === "checkbox";
+}
+
+function makeBlankQuestion() {
+  return {
+    id: "",
+    label: "",
+    type: "text",
+    required: true,
+    options: [],
+  };
+}
+
+function makeBlankSurveyDraft() {
+  return {
+    id: "",
+    title: "",
+    description: "",
+    status: "published",
+    questions: [makeBlankQuestion()],
+    createdAt: "",
+    updatedAt: "",
+  };
+}
+
+function getSurveyEditorDraft() {
+  const selected = findSurveyById(state.selectedSurveyEditorId);
+  if (!selected) return makeBlankSurveyDraft();
+  return {
+    ...selected,
+    questions: Array.isArray(selected.questions) && selected.questions.length
+      ? selected.questions
+      : [makeBlankQuestion()],
+  };
+}
+
+function renderSurveyQuestionEditor(question, index) {
+  const type = question?.type || "text";
+  const supportsOptions = questionSupportsOptions(type);
+  const options = supportsOptions
+    ? Array.isArray(question?.options) && question.options.length
+      ? question.options
+      : ["", ""]
+    : [];
+
+  return `
+    <article class="survey-question-card" data-question-block data-question-id="${escapeHtml(question?.id || "")}">
+      <div class="survey-question-head">
+        <strong data-question-number>質問 ${index + 1}</strong>
+        <button class="secondary-button" type="button" data-remove-question>削除</button>
+      </div>
+      <div class="survey-question-grid">
+        <label>
+          質問文
+          <input type="text" data-question-label value="${escapeHtml(question?.label || "")}" required />
+        </label>
+        <label>
+          質問形式
+          <select data-question-type>
+            <option value="text" ${type === "text" ? "selected" : ""}>テキスト</option>
+            <option value="textarea" ${type === "textarea" ? "selected" : ""}>長文</option>
+            <option value="choice" ${type === "choice" ? "selected" : ""}>単一選択</option>
+            <option value="checkbox" ${type === "checkbox" ? "selected" : ""}>複数選択</option>
+            <option value="rating" ${type === "rating" ? "selected" : ""}>5段階評価</option>
+            <option value="photo" ${type === "photo" ? "selected" : ""}>写真</option>
+          </select>
+        </label>
+      </div>
+      <label class="inline-toggle">
+        <input type="checkbox" data-question-required ${question?.required === false ? "" : "checked"} />
+        必須回答
+      </label>
+      <div data-options-wrapper ${supportsOptions ? "" : "hidden"}>
+        <div class="option-list" data-option-list>
+          ${options
+            .map(
+              (option) => `
+                <div class="option-row">
+                  <input type="text" data-option-input value="${escapeHtml(option)}" placeholder="選択肢" />
+                  <button class="secondary-button" type="button" data-remove-option>削除</button>
+                </div>
+              `,
+            )
+            .join("")}
+        </div>
+        <button class="secondary-button" type="button" data-add-option>選択肢を追加</button>
+      </div>
+    </article>
+  `;
+}
+
+function syncSurveyQuestionNumbers(container) {
+  container.querySelectorAll("[data-question-block]").forEach((block, index) => {
+    const label = block.querySelector("[data-question-number]");
+    if (label) label.textContent = `質問 ${index + 1}`;
+  });
+}
+
+function addSurveyQuestionEditor(container, question) {
+  container.insertAdjacentHTML(
+    "beforeend",
+    renderSurveyQuestionEditor(question || makeBlankQuestion(), container.children.length),
+  );
+  syncSurveyQuestionNumbers(container);
+}
+
+function ensureQuestionOptions(block) {
+  const list = block.querySelector("[data-option-list]");
+  if (!list || list.children.length) return;
+  list.insertAdjacentHTML(
+    "beforeend",
+    `
+      <div class="option-row">
+        <input type="text" data-option-input value="" placeholder="選択肢" />
+        <button class="secondary-button" type="button" data-remove-option>削除</button>
+      </div>
+      <div class="option-row">
+        <input type="text" data-option-input value="" placeholder="選択肢" />
+        <button class="secondary-button" type="button" data-remove-option>削除</button>
+      </div>
+    `,
+  );
+}
+
+function buildSurveyPayload(form) {
+  const title = String(form.elements.title.value || "").trim();
+  const description = String(form.elements.description.value || "").trim();
+  const status = normalizeSurveyStatus(form.elements.status.value);
+  const questionBlocks = Array.from(form.querySelectorAll("[data-question-block]"));
+
+  const questions = questionBlocks.map((block) => {
+    const type = String(block.querySelector("[data-question-type]")?.value || "text");
+    return {
+      id: block.dataset.questionId || "",
+      label: String(block.querySelector("[data-question-label]")?.value || "").trim(),
+      type,
+      required: Boolean(block.querySelector("[data-question-required]")?.checked),
+      options: questionSupportsOptions(type)
+        ? Array.from(block.querySelectorAll("[data-option-input]"))
+            .map((input) => String(input.value || "").trim())
+            .filter(Boolean)
+        : [],
+    };
+  });
+
+  return { title, description, status, questions };
+}
+
+function renderSurveyManager() {
+  const surveyList = document.querySelector("#surveyManagerList");
+  const surveyEditorCard = document.querySelector("#surveyEditorCard");
+  const createButton = document.querySelector("#createSurveyButton");
+  if (!surveyList || !surveyEditorCard || !createButton) return;
+
+  if (state.selectedSurveyEditorId && !state.surveys.some((survey) => survey.id === state.selectedSurveyEditorId)) {
+    state.selectedSurveyEditorId = "";
+  }
+
+  const selectedSurvey = findSurveyById(state.selectedSurveyEditorId);
+  const draft = getSurveyEditorDraft();
+
+  surveyList.innerHTML = state.surveys.length
+    ? state.surveys
+        .map(
+          (survey) => `
+            <button
+              class="survey-manager-card selectable-card ${survey.id === state.selectedSurveyEditorId ? "active" : ""}"
+              type="button"
+              data-edit-survey-id="${escapeHtml(survey.id)}"
+            >
+              <strong>${escapeHtml(survey.title)}</strong>
+              <span class="badge ${normalizeSurveyStatus(survey.status)}">${formatSurveyStatusLabel(survey.status)}</span>
+              <div>${survey.questions.length}問</div>
+              <div class="meta">更新: ${survey.updatedAt ? formatDate(survey.updatedAt) : "-"}</div>
+            </button>
+          `,
+        )
+        .join("")
+    : `<div class="empty">アンケートはまだありません。</div>`;
+
+  surveyEditorCard.innerHTML = `
+    <div class="survey-editor-head">
+      <div>
+        <div class="card-title">${selectedSurvey ? "アンケート編集" : "アンケート新規作成"}</div>
+        <div class="meta">
+          ${selectedSurvey
+            ? `作成: ${draft.createdAt ? formatDate(draft.createdAt) : "-"} / 更新: ${draft.updatedAt ? formatDate(draft.updatedAt) : "-"}`
+            : "タイトル、説明、質問項目を入力してください。"}
+        </div>
+      </div>
+      ${
+        selectedSurvey
+          ? `<button class="secondary-button danger-button" type="button" data-delete-survey="${escapeHtml(selectedSurvey.id)}">削除</button>`
+          : ""
+      }
+    </div>
+    <form id="surveyEditorForm" class="survey-editor-form" data-survey-id="${escapeHtml(selectedSurvey?.id || "")}">
+      <label>
+        タイトル
+        <input name="title" type="text" value="${escapeHtml(draft.title || "")}" required />
+      </label>
+      <label>
+        説明
+        <textarea name="description" required>${escapeHtml(draft.description || "")}</textarea>
+      </label>
+      <label>
+        公開状態
+        <select name="status">
+          <option value="published" ${normalizeSurveyStatus(draft.status) === "published" ? "selected" : ""}>公開</option>
+          <option value="draft" ${normalizeSurveyStatus(draft.status) === "draft" ? "selected" : ""}>下書き</option>
+        </select>
+      </label>
+      <div class="survey-editor-head">
+        <div class="card-title">質問項目</div>
+        <button class="secondary-button" id="addSurveyQuestionButton" type="button">質問を追加</button>
+      </div>
+      <div id="surveyQuestions" class="survey-question-list">
+        ${draft.questions.map((question, index) => renderSurveyQuestionEditor(question, index)).join("")}
+      </div>
+      <div class="survey-editor-actions">
+        <button class="primary-button" type="submit">${selectedSurvey ? "保存" : "作成"}</button>
+      </div>
+    </form>
+  `;
+
+  createButton.onclick = () => {
+    state.selectedSurveyEditorId = "";
+    renderSurveyManager();
+    setPage("surveys");
+  };
+
+  surveyList.querySelectorAll("[data-edit-survey-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedSurveyEditorId = button.dataset.editSurveyId;
+      renderSurveyManager();
+      setPage("surveys");
+    });
+  });
+
+  const form = surveyEditorCard.querySelector("#surveyEditorForm");
+  const questionsContainer = surveyEditorCard.querySelector("#surveyQuestions");
+  surveyEditorCard.querySelector("#addSurveyQuestionButton")?.addEventListener("click", () => {
+    addSurveyQuestionEditor(questionsContainer, makeBlankQuestion());
+  });
+
+  questionsContainer?.addEventListener("click", (event) => {
+    const removeQuestionButton = event.target.closest("[data-remove-question]");
+    if (removeQuestionButton) {
+      const blocks = questionsContainer.querySelectorAll("[data-question-block]");
+      if (blocks.length <= 1) {
+        showToast("質問は1つ以上必要です。");
+        return;
+      }
+      removeQuestionButton.closest("[data-question-block]")?.remove();
+      syncSurveyQuestionNumbers(questionsContainer);
+      return;
+    }
+
+    const addOptionButton = event.target.closest("[data-add-option]");
+    if (addOptionButton) {
+      const list = addOptionButton
+        .closest("[data-options-wrapper]")
+        ?.querySelector("[data-option-list]");
+      list?.insertAdjacentHTML(
+        "beforeend",
+        `
+          <div class="option-row">
+            <input type="text" data-option-input value="" placeholder="選択肢" />
+            <button class="secondary-button" type="button" data-remove-option>削除</button>
+          </div>
+        `,
+      );
+      return;
+    }
+
+    const removeOptionButton = event.target.closest("[data-remove-option]");
+    if (removeOptionButton) {
+      const list = removeOptionButton.closest("[data-option-list]");
+      if (list && list.querySelectorAll(".option-row").length <= 2) {
+        showToast("選択肢は2つ以上必要です。");
+        return;
+      }
+      removeOptionButton.closest(".option-row")?.remove();
+    }
+  });
+
+  questionsContainer?.addEventListener("change", (event) => {
+    const typeSelect = event.target.closest("[data-question-type]");
+    if (!typeSelect) return;
+    const block = typeSelect.closest("[data-question-block]");
+    const wrapper = block?.querySelector("[data-options-wrapper]");
+    if (!block || !wrapper) return;
+    if (questionSupportsOptions(typeSelect.value)) {
+      wrapper.hidden = false;
+      ensureQuestionOptions(block);
+      return;
+    }
+    wrapper.hidden = true;
+  });
+
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitButton = form.querySelector('button[type="submit"]');
+    const surveyId = form.dataset.surveyId || "";
+    submitButton.disabled = true;
+    submitButton.textContent = surveyId ? "保存中" : "作成中";
+
+    try {
+      const payload = buildSurveyPayload(form);
+      const result = surveyId
+        ? await api.request(`/api/admin/surveys/${encodeURIComponent(surveyId)}`, {
+            method: "PUT",
+            token: state.token,
+            body: payload,
+          })
+        : await api.request("/api/admin/surveys", {
+            method: "POST",
+            token: state.token,
+            body: payload,
+          });
+      const survey = result.survey;
+      state.surveys = surveyId
+        ? state.surveys.map((item) => (item.id === survey.id ? survey : item))
+        : [survey, ...state.surveys];
+      state.selectedSurveyEditorId = survey.id;
+      renderAll();
+      setPage("surveys");
+      showToast(surveyId ? "アンケートを保存しました。" : "アンケートを作成しました。");
+    } catch (error) {
+      showToast(error.message || "アンケートを保存できませんでした。");
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = surveyId ? "保存" : "作成";
+    }
+  });
+
+  surveyEditorCard.querySelector("[data-delete-survey]")?.addEventListener("click", async () => {
+    if (!selectedSurvey) return;
+    if (!confirm(`「${selectedSurvey.title}」を削除しますか？`)) return;
+    try {
+      await api.request(`/api/admin/surveys/${encodeURIComponent(selectedSurvey.id)}`, {
+        method: "DELETE",
+        token: state.token,
+      });
+      state.surveys = state.surveys.filter((survey) => survey.id !== selectedSurvey.id);
+      state.selectedSurveyEditorId = "";
+      renderAll();
+      setPage("surveys");
+      showToast("アンケートを削除しました。");
+    } catch (error) {
+      showToast(error.message || "アンケートを削除できませんでした。");
+    }
+  });
+}
+
 function exportCsv() {
   const rows = [
     ["日時", "お客様", "アンケート", "対応状況", "管理メモ", "回答"],
@@ -685,7 +1049,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-3", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-4", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

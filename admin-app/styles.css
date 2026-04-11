@@ -264,10 +264,20 @@ button.response-history-card {
   gap: 14px;
 }
 
+.survey-manager-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
 .stack,
 .response-list,
 .customer-list,
-.response-detail {
+.response-detail,
+.survey-manager-list,
+.survey-question-list,
+.option-list {
   display: grid;
   gap: 12px;
 }
@@ -361,6 +371,16 @@ textarea {
   color: #24528f;
 }
 
+.badge.published {
+  background: #eef5e8;
+  color: var(--sage-dark);
+}
+
+.badge.draft {
+  background: #f3efe9;
+  color: var(--text-mid);
+}
+
 .answer-list {
   display: grid;
   gap: 8px;
@@ -427,6 +447,71 @@ textarea {
   align-items: end;
 }
 
+.survey-manager-card {
+  display: grid;
+  gap: 6px;
+}
+
+.survey-editor-form {
+  display: grid;
+  gap: 14px;
+}
+
+.survey-editor-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.survey-question-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--cream);
+}
+
+.survey-question-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.survey-question-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: 12px;
+}
+
+.inline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding-top: 24px;
+  color: var(--text-dark);
+}
+
+.inline-toggle input {
+  width: auto;
+  min-height: auto;
+}
+
+.option-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.survey-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .url-box {
   margin: 12px 0;
   padding: 12px;
@@ -490,6 +575,7 @@ textarea {
 
   .stats-grid,
   .grid-two,
+  .survey-manager-grid,
   .filter-grid,
   .management-grid {
     grid-template-columns: 1fr;
@@ -506,7 +592,7 @@ textarea {
     bottom: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 4px;
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
     background: var(--warm-white);

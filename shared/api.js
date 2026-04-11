@@ -245,6 +245,22 @@ window.MayumiSurveyApi = (() => {
     );
   }
 
+  function makeSurveySignature(survey) {
+    return JSON.stringify({
+      title: normalizeText(survey?.title),
+      description: normalizeText(survey?.description),
+      status: survey?.status === "draft" ? "draft" : "published",
+      questions: (Array.isArray(survey?.questions) ? survey.questions : []).map((question) => ({
+        label: normalizeText(question?.label),
+        type: normalizeText(question?.type) || "text",
+        required: question?.required === false ? false : true,
+        options: Array.isArray(question?.options)
+          ? question.options.map(normalizeText).filter(Boolean)
+          : [],
+      })),
+    });
+  }
+
   async function waitForAdminUpdatedResponse(gasUrl, token, responseId, expected) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
@@ -259,6 +275,17 @@ window.MayumiSurveyApi = (() => {
       ) {
         return saved;
       }
+    }
+    return null;
+  }
+
+  async function waitForAdminSurvey(gasUrl, token, matcher) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "adminSurveys", { token });
+      const surveys = Array.isArray(data.surveys) ? data.surveys : [];
+      const matched = matcher(surveys);
+      if (matched !== undefined) return matched;
     }
     return null;
   }
@@ -331,6 +358,57 @@ window.MayumiSurveyApi = (() => {
         }
 
         return { surveys: getDefaultSurveys() };
+      }
+
+      if (path === "/api/admin/surveys" && method === "POST") {
+        const payload = options.body || {};
+        const expectedSignature = makeSurveySignature(payload);
+        await postToGas(gasUrl, "adminCreateSurvey", {
+          token: options.token,
+          payload,
+        });
+        const survey = await waitForAdminSurvey(gasUrl, options.token, (surveys) =>
+          surveys.find((item) => makeSurveySignature(item) === expectedSignature),
+        );
+        if (!survey) {
+          throw new Error("アンケートの作成を確認できませんでした。");
+        }
+        return { survey };
+      }
+
+      if (path.startsWith("/api/admin/surveys/") && method === "PUT") {
+        const surveyId = getRouteId(path, "/api/admin/surveys/");
+        const payload = options.body || {};
+        const expectedSignature = makeSurveySignature(payload);
+        await postToGas(gasUrl, "adminUpdateSurvey", {
+          token: options.token,
+          surveyId,
+          payload,
+        });
+        const survey = await waitForAdminSurvey(gasUrl, options.token, (surveys) => {
+          const updated = surveys.find((item) => item.id === surveyId);
+          if (!updated) return undefined;
+          return makeSurveySignature(updated) === expectedSignature ? updated : undefined;
+        });
+        if (!survey) {
+          throw new Error("アンケートの更新を確認できませんでした。");
+        }
+        return { survey };
+      }
+
+      if (path.startsWith("/api/admin/surveys/") && method === "DELETE") {
+        const surveyId = getRouteId(path, "/api/admin/surveys/");
+        await postToGas(gasUrl, "adminDeleteSurvey", {
+          token: options.token,
+          surveyId,
+        });
+        const deleted = await waitForAdminSurvey(gasUrl, options.token, (surveys) =>
+          surveys.some((item) => item.id === surveyId) ? undefined : true,
+        );
+        if (!deleted) {
+          throw new Error("アンケートの削除を確認できませんでした。");
+        }
+        return { ok: true };
       }
 
       if (path === "/api/admin/info" && method === "GET") {
