@@ -234,6 +234,35 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
+  function makeAnswerSignature(answers) {
+    return JSON.stringify(
+      (Array.isArray(answers) ? answers : []).map((answer) => ({
+        questionId: answer.questionId,
+        value: Array.isArray(answer.value)
+          ? answer.value.map(normalizeText).join(", ")
+          : normalizeText(answer.value),
+      })),
+    );
+  }
+
+  async function waitForAdminUpdatedResponse(gasUrl, token, responseId, expected) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "adminResponses", { token });
+      const saved = (data.responses || []).find((response) => response.id === responseId);
+      if (!saved) continue;
+      if (
+        saved.status === expected.status &&
+        normalizeText(saved.adminMemo) === normalizeText(expected.adminMemo) &&
+        (!expected.answerSignature ||
+          makeAnswerSignature(saved.answers) === expected.answerSignature)
+      ) {
+        return saved;
+      }
+    }
+    return null;
+  }
+
   function initGasApi(gasUrl) {
     async function request(path, options = {}) {
       const method = options.method || "GET";
@@ -298,12 +327,25 @@ window.MayumiSurveyApi = (() => {
 
       if (path.startsWith("/api/admin/responses/") && method === "PUT") {
         const responseId = getRouteId(path, "/api/admin/responses/");
-        return jsonp(gasUrl, "adminUpdate", {
-          token: options.token,
-          responseId,
+        const payload = {
           status: normalizeStatus(options.body?.status),
           adminMemo: normalizeText(options.body?.adminMemo),
+          answers: Array.isArray(options.body?.answers) ? options.body.answers : [],
+        };
+        await postToGas(gasUrl, "adminUpdateResponse", {
+          token: options.token,
+          responseId,
+          payload,
         });
+        const updated = await waitForAdminUpdatedResponse(gasUrl, options.token, responseId, {
+          status: payload.status,
+          adminMemo: payload.adminMemo,
+          answerSignature: payload.answers.length ? makeAnswerSignature(payload.answers) : "",
+        });
+        if (!updated) {
+          throw new Error("回答内容の更新を確認できませんでした。");
+        }
+        return { response: updated };
       }
 
       if (path.startsWith("/api/admin/responses/") && method === "DELETE") {

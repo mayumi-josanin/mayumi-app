@@ -4,6 +4,7 @@ const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
 const TICKET_END_COUNT_QUESTION_ID = "q_ticket_end_ticket_size";
+const TICKET_END_ROUND_QUESTION_ID = "q_ticket_end_ticket_round";
 
 const appState = {
   customer: loadLocal(CUSTOMER_KEY, { name: "" }),
@@ -118,12 +119,26 @@ function getTicketEndCountSelection() {
   return appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID] || "";
 }
 
+function getTicketEndRoundSelection() {
+  return appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID] || "";
+}
+
 function clearTicketEndCountSelection() {
   delete appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID];
+  delete appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID];
 }
 
 function getTicketEndCountQuestion(survey) {
   return survey.questions.find((question) => question.id === TICKET_END_COUNT_QUESTION_ID);
+}
+
+function getTicketEndRoundQuestion(survey) {
+  return survey.questions.find((question) => question.id === TICKET_END_ROUND_QUESTION_ID);
+}
+
+function getTicketRoundOptions(ticketCount) {
+  const max = ticketCount === "10回券" ? 10 : ticketCount === "6回券" ? 6 : 0;
+  return Array.from({ length: max }, (_, index) => `${index + 1}回目`);
 }
 
 function getQuestionLabel(question) {
@@ -241,13 +256,17 @@ function renderAnswerPanel() {
     return;
   }
 
-  if (isTicketEndSurvey(survey) && !getTicketEndCountSelection()) {
+  if (isTicketEndSurvey(survey) && (!getTicketEndCountSelection() || !getTicketEndRoundSelection())) {
     const ticketQuestion = getTicketEndCountQuestion(survey);
+    const ticketRoundQuestion = getTicketEndRoundQuestion(survey);
+    const selectedTicketCount = getTicketEndCountSelection();
+    const selectedTicketRound = getTicketEndRoundSelection();
+    const roundOptions = getTicketRoundOptions(selectedTicketCount);
     answerPanel.innerHTML = `
       <div class="section-head survey-toolbar">
         <div>
           <h2>${escapeHtml(survey.title)}</h2>
-          <p>最初に回数券の枚数を選択してください。</p>
+          <p>最初に回数券の種類と回数を選択してください。</p>
         </div>
         <button id="backToHomeButton" class="ghost-button" type="button">一覧へ戻る</button>
       </div>
@@ -261,7 +280,7 @@ function renderAnswerPanel() {
               .map(
                 (option) => `
                   <label>
-                    <input type="radio" name="ticketCount" value="${escapeHtml(option)}" />
+                    <input type="radio" name="ticketCount" value="${escapeHtml(option)}" ${option === selectedTicketCount ? "checked" : ""} />
                     ${escapeHtml(option)}
                   </label>
                 `,
@@ -269,6 +288,21 @@ function renderAnswerPanel() {
               .join("")}
           </div>
         </fieldset>
+        <label class="question-block">
+          <span>${escapeHtml(ticketRoundQuestion.label)}</span>
+          <select id="ticketRoundSelect" name="ticketRound" ${selectedTicketCount ? "" : "disabled"}>
+            <option value="">選択してください</option>
+            ${roundOptions
+              .map(
+                (option) => `
+                  <option value="${escapeHtml(option)}" ${option === selectedTicketRound ? "selected" : ""}>
+                    ${escapeHtml(option)}
+                  </option>
+                `,
+              )
+              .join("")}
+          </select>
+        </label>
         <button class="primary-button" type="submit">質問へ進む</button>
       </form>
     `;
@@ -276,22 +310,37 @@ function renderAnswerPanel() {
     document.querySelector("#backToHomeButton").addEventListener("click", () => {
       setPage("home");
     });
+    document.querySelectorAll('input[name="ticketCount"]').forEach((input) => {
+      input.addEventListener("change", () => {
+        appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID] = input.value;
+        delete appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID];
+        renderAnswerPanel();
+      });
+    });
     document.querySelector("#ticketCountForm").addEventListener("submit", (event) => {
       event.preventDefault();
       const formData = new FormData(event.currentTarget);
-      const ticketCount = String(formData.get("ticketCount") || "");
+      const ticketCount = String(formData.get("ticketCount") || getTicketEndCountSelection() || "");
+      const ticketRound = String(formData.get("ticketRound") || "");
       if (!ticketCount) {
-        showToast("回数券の枚数を選択してください。");
+        showToast("回数券の種類を選択してください。");
+        return;
+      }
+      if (!ticketRound) {
+        showToast("回数券の回数を選択してください。");
         return;
       }
       appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID] = ticketCount;
+      appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID] = ticketRound;
       renderAnswerPanel();
     });
     return;
   }
 
   const visibleQuestions = survey.questions.filter(
-    (question) => question.id !== TICKET_END_COUNT_QUESTION_ID,
+    (question) =>
+      question.id !== TICKET_END_COUNT_QUESTION_ID &&
+      question.id !== TICKET_END_ROUND_QUESTION_ID,
   );
 
   answerPanel.innerHTML = `
@@ -306,8 +355,10 @@ function renderAnswerPanel() {
       isTicketEndSurvey(survey)
         ? `
           <div class="question-block prefilled-answer">
-            <strong>回数券の枚数</strong>
+            <strong>回数券の種類</strong>
             <div>${escapeHtml(getTicketEndCountSelection())}</div>
+            <strong>回数券の回数</strong>
+            <div>${escapeHtml(getTicketEndRoundSelection())}</div>
             <button id="changeTicketCountButton" class="ghost-button" type="button">変更する</button>
           </div>
         `
@@ -417,6 +468,18 @@ async function collectAnswers(form, survey) {
       answers.push({
         questionId: question.id,
         value: ticketCount,
+      });
+      continue;
+    }
+
+    if (question.id === TICKET_END_ROUND_QUESTION_ID) {
+      const ticketRound = getTicketEndRoundSelection();
+      if (question.required !== false && !ticketRound) {
+        throw new Error("回数券の回数を選択してください。");
+      }
+      answers.push({
+        questionId: question.id,
+        value: ticketRound,
       });
       continue;
     }

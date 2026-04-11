@@ -376,6 +376,64 @@ function validateResponsePayload(db, payload) {
   };
 }
 
+function normalizeAdminEditedAnswers(survey, existingAnswers, payloadAnswers) {
+  const existingMap = new Map(
+    (Array.isArray(existingAnswers) ? existingAnswers : []).map((answer) => [
+      answer.questionId,
+      answer,
+    ]),
+  );
+  const answerMap = new Map(
+    (Array.isArray(payloadAnswers) ? payloadAnswers : []).map((answer) => [
+      answer.questionId,
+      answer,
+    ]),
+  );
+
+  return survey.questions.map((question) => {
+    const existingAnswer = existingMap.get(question.id) || {
+      questionId: question.id,
+      label: question.label,
+      type: question.type,
+      value: "",
+    };
+
+    if (question.type === "photo") {
+      return existingAnswer;
+    }
+
+    const rawAnswer = answerMap.get(question.id) || {};
+    const rawValue = rawAnswer.value;
+    const values = Array.isArray(rawValue)
+      ? rawValue.map(normalizeText).filter(Boolean)
+      : [normalizeText(rawValue)].filter(Boolean);
+    const value = values.join(", ");
+
+    if (question.required !== false && !value) {
+      throw new Error("未回答の質問があります。");
+    }
+    if (question.type === "rating" && value && !["1", "2", "3", "4", "5"].includes(value)) {
+      throw new Error("評価は1から5で回答してください。");
+    }
+    if (question.type === "choice" && value && !question.options.includes(value)) {
+      throw new Error("選択肢から回答してください。");
+    }
+    if (
+      question.type === "checkbox" &&
+      values.some((item) => !question.options.includes(item))
+    ) {
+      throw new Error("選択肢から回答してください。");
+    }
+
+    return {
+      questionId: question.id,
+      label: question.label,
+      type: question.type,
+      value,
+    };
+  });
+}
+
 function getRouteId(pathname, prefix) {
   if (!pathname.startsWith(prefix)) return "";
   return decodeURIComponent(pathname.slice(prefix.length));
@@ -512,10 +570,13 @@ async function handleApi(req, res, pathname, searchParams) {
       const result = await updateDb((db) => {
         const existing = db.responses.find((response) => response.id === responseId);
         if (!existing) throw new Error("回答が見つかりません。");
+        const survey = db.surveys.find((item) => item.id === existing.surveyId);
+        if (!survey) throw new Error("アンケートが見つかりません。");
         const updated = {
           ...existing,
           status: normalizeResponseStatus(payload.status),
           adminMemo: normalizeText(payload.adminMemo),
+          answers: normalizeAdminEditedAnswers(survey, existing.answers, payload.answers),
           managedAt: now(),
         };
         db.responses = db.responses.map((response) =>

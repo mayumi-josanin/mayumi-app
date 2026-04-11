@@ -172,6 +172,89 @@ function renderAnswerValue(answer) {
   return escapeHtml(answer.value || "未回答");
 }
 
+function findSurveyById(surveyId) {
+  return state.surveys.find((survey) => survey.id === surveyId);
+}
+
+function getAnswerValues(answer) {
+  return String(answer?.value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function renderEditableAnswerField(question, answer) {
+  if (question.type === "photo") {
+    return `
+      ${renderAnswerValue(answer)}
+      <div class="meta">写真は管理アプリでは表示のみです。</div>
+    `;
+  }
+
+  if (question.type === "textarea") {
+    return `<textarea data-answer-input="${question.id}">${escapeHtml(answer.value || "")}</textarea>`;
+  }
+
+  if (question.type === "rating") {
+    return `
+      <select data-answer-input="${question.id}">
+        <option value="">選択してください</option>
+        ${["1", "2", "3", "4", "5"]
+          .map(
+            (value) => `
+              <option value="${value}" ${String(answer.value || "") === value ? "selected" : ""}>
+                ${value}
+              </option>
+            `,
+          )
+          .join("")}
+      </select>
+    `;
+  }
+
+  if (question.type === "choice") {
+    return `
+      <select data-answer-input="${question.id}">
+        <option value="">選択してください</option>
+        ${question.options
+          .map(
+            (option) => `
+              <option value="${escapeHtml(option)}" ${String(answer.value || "") === option ? "selected" : ""}>
+                ${escapeHtml(option)}
+              </option>
+            `,
+          )
+          .join("")}
+      </select>
+    `;
+  }
+
+  if (question.type === "checkbox") {
+    const selected = new Set(getAnswerValues(answer));
+    return `
+      <div class="checkbox-row">
+        ${question.options
+          .map(
+            (option) => `
+              <label>
+                <input
+                  type="checkbox"
+                  data-answer-checkbox="${question.id}"
+                  value="${escapeHtml(option)}"
+                  ${selected.has(option) ? "checked" : ""}
+                />
+                ${escapeHtml(option)}
+              </label>
+            `,
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  return `<input type="text" data-answer-input="${question.id}" value="${escapeHtml(answer.value || "")}" />`;
+}
+
 function formatAnswerForCsv(answer) {
   if (Array.isArray(answer.files) && answer.files.length) {
     return `${answer.label}: ${answer.files
@@ -352,6 +435,7 @@ function renderResponses() {
 
 function renderResponseCard(response) {
   const status = normalizeStatus(response.status);
+  const survey = findSurveyById(response.surveyId);
   return `
     <article class="response-card" data-response-card="${response.id}">
       <div class="response-head">
@@ -364,14 +448,20 @@ function renderResponseCard(response) {
       </div>
       <div class="answer-list">
         ${response.answers
-          .map(
-            (answer) => `
+          .map((answer) => {
+            const question = survey?.questions.find((item) => item.id === answer.questionId) || {
+              id: answer.questionId,
+              label: answer.label,
+              type: answer.type,
+              options: [],
+            };
+            return `
               <div class="answer-item">
                 <strong>${escapeHtml(answer.label)}</strong><br />
-                ${renderAnswerValue(answer)}
+                ${renderEditableAnswerField(question, answer)}
               </div>
-            `,
-          )
+            `;
+          })
           .join("")}
       </div>
       <div class="management-grid">
@@ -397,14 +487,49 @@ function renderResponseCard(response) {
 async function saveResponseManagement(responseId) {
   const card = document.querySelector(`[data-response-card="${responseId}"]`);
   if (!card) return;
+  const response = state.responses.find((item) => item.id === responseId);
+  const survey = findSurveyById(response?.surveyId);
   const status = card.querySelector("[data-response-status]").value;
   const adminMemo = card.querySelector("[data-response-memo]").value;
+  const answers = survey
+    ? survey.questions.map((question) => {
+        const existingAnswer = response.answers.find((answer) => answer.questionId === question.id) || {
+          questionId: question.id,
+          label: question.label,
+          type: question.type,
+          value: "",
+        };
+
+        if (question.type === "photo") {
+          return {
+            questionId: question.id,
+            value: existingAnswer.value || "",
+          };
+        }
+
+        if (question.type === "checkbox") {
+          return {
+            questionId: question.id,
+            value: Array.from(
+              card.querySelectorAll(`[data-answer-checkbox="${question.id}"]:checked`),
+            ).map((input) => input.value),
+          };
+        }
+
+        return {
+          questionId: question.id,
+          value: String(
+            card.querySelector(`[data-answer-input="${question.id}"]`)?.value || "",
+          ).trim(),
+        };
+      })
+    : [];
 
   try {
     const result = await api.request(`/api/admin/responses/${encodeURIComponent(responseId)}`, {
       method: "PUT",
       token: state.token,
-      body: { status, adminMemo },
+      body: { status, adminMemo, answers },
     });
     state.responses = state.responses.map((response) =>
       response.id === responseId ? result.response : response,
