@@ -417,6 +417,35 @@ textarea {
   background: var(--cream);
 }
 
+.ticket-info-panel {
+  gap: 10px;
+}
+
+.ticket-stamp-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ticket-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--text-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ticket-stamp-label {
+  color: var(--text-light);
+}
+
 .checkbox-row {
   display: grid;
   gap: 8px;

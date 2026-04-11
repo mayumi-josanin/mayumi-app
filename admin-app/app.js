@@ -5,6 +5,11 @@ const STATUS_LABELS = {
   done: "対応済み",
   trash: "ゴミ箱",
 };
+const TICKET_INFO_QUESTION_IDS = {
+  size: "q_ticket_end_ticket_size",
+  sheet: "q_ticket_end_ticket_sheet",
+  round: "q_ticket_end_ticket_round",
+};
 
 const api = window.MayumiSurveyApi;
 const state = {
@@ -409,6 +414,46 @@ function renderAnswerValue(answer) {
     `;
   }
   return escapeHtml(answer.value || "未回答");
+}
+
+function getResponseTicketInfo(response) {
+  const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
+  return [
+    {
+      label: "回数券",
+      value: String(answerMap.get(TICKET_INFO_QUESTION_IDS.size)?.value || "").trim(),
+    },
+    {
+      label: "何枚目",
+      value: String(answerMap.get(TICKET_INFO_QUESTION_IDS.sheet)?.value || "").trim(),
+    },
+    {
+      label: "何回目",
+      value: String(answerMap.get(TICKET_INFO_QUESTION_IDS.round)?.value || "").trim(),
+    },
+  ].filter((item) => item.value);
+}
+
+function renderResponseTicketInfo(response) {
+  const ticketInfo = getResponseTicketInfo(response);
+  if (!ticketInfo.length) return "";
+  return `
+    <div class="answer-item ticket-info-panel">
+      <strong>回答者情報</strong>
+      <div class="ticket-stamp-list">
+        ${ticketInfo
+          .map(
+            (item) => `
+              <span class="ticket-stamp">
+                <span class="ticket-stamp-label">${escapeHtml(item.label)}</span>
+                <span>${escapeHtml(item.value)}</span>
+              </span>
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
 }
 
 function findSurveyById(surveyId) {
@@ -885,6 +930,7 @@ function renderResponses() {
                       >
                         <strong>${escapeHtml(response.surveyTitle)}</strong>
                         <div class="meta">${formatDate(response.submittedAt)}</div>
+                        ${renderResponseTicketInfo(response)}
                         <span class="badge ${normalizeStatus(response.status)}">
                           ${STATUS_LABELS[normalizeStatus(response.status)]}
                         </span>
@@ -910,6 +956,7 @@ function renderResponses() {
           <button class="secondary-button" type="button" data-back-stage="history">戻る</button>
         </div>
       </div>
+      ${renderResponseTicketInfo(selectedResponse)}
       ${renderComparisonSection(selectedResponse)}
       ${renderResponseCard(selectedResponse)}
     `;
@@ -2234,7 +2281,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-9", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-10", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

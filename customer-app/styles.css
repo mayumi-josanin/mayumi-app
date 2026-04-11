@@ -339,6 +339,39 @@ textarea {
   line-height: 1.8;
 }
 
+.ticket-info-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #faf7f2;
+}
+
+.ticket-stamp-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ticket-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--text-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ticket-stamp-label {
+  color: var(--text-light);
+}
+
 .history-answer strong {
   color: var(--text-dark);
 }

@@ -1412,6 +1412,46 @@ function renderAnswerValue(answer) {
   return escapeHtml(answer.value || "未回答");
 }
 
+function getResponseTicketInfo(response) {
+  const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
+  return [
+    {
+      label: "回数券",
+      value: normalizeText(answerMap.get(TICKET_END_COUNT_QUESTION_ID)?.value),
+    },
+    {
+      label: "何枚目",
+      value: normalizeText(answerMap.get(TICKET_END_SHEET_QUESTION_ID)?.value),
+    },
+    {
+      label: "何回目",
+      value: normalizeText(answerMap.get(TICKET_END_ROUND_QUESTION_ID)?.value),
+    },
+  ].filter((item) => item.value);
+}
+
+function renderResponseTicketInfo(response) {
+  const ticketInfo = getResponseTicketInfo(response);
+  if (!ticketInfo.length) return "";
+  return `
+    <article class="ticket-info-card">
+      <strong>回答者情報</strong>
+      <div class="ticket-stamp-list">
+        ${ticketInfo
+          .map(
+            (item) => `
+              <span class="ticket-stamp">
+                <span class="ticket-stamp-label">${escapeHtml(item.label)}</span>
+                <span>${escapeHtml(item.value)}</span>
+              </span>
+            `,
+          )
+          .join("")}
+      </div>
+    </article>
+  `;
+}
+
 function renderHistory() {
   if (!appState.history.length) {
     historyList.innerHTML = `<div class="empty">まだ回答履歴はありません。</div>`;
@@ -1433,6 +1473,7 @@ function renderHistory() {
               </div>
               ${canEditResponse(response) ? `<button class="secondary-button" type="button" data-edit-response="${response.id}">修正する</button>` : ""}
             </div>
+            ${renderResponseTicketInfo(response)}
             ${response.answers
               .map(
                 (answer) => `
@@ -1499,7 +1540,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-8", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-10", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
