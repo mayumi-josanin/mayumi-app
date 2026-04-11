@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260411-8";
+const APP_VERSION = "20260411-11";
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
 const TICKET_END_COUNT_QUESTION_ID = "q_ticket_end_ticket_size";
 const TICKET_END_SHEET_QUESTION_ID = "q_ticket_end_ticket_sheet";
@@ -1540,7 +1540,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-10", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-11", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
