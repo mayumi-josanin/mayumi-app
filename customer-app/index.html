@@ -28,23 +28,19 @@
     </header>
 
     <main>
-      <section id="page-answer" class="page active">
+      <section id="page-home" class="page active">
         <section class="welcome-card">
           <p class="eyebrow">Survey</p>
-          <h1>ご意見をお聞かせください</h1>
-          <p>回答はまゆみ助産院の管理アプリへ送信されます。</p>
+          <h1>アンケートを選択してください</h1>
+          <p>お客様のお名前を保存後、回答したいアンケートを押してください。</p>
         </section>
 
         <section class="section-card">
           <h2>お客様情報</h2>
           <form id="customerForm" class="form-grid">
             <label>
-              お名前
+              お名前(フルネーム)
               <input name="name" type="text" autocomplete="name" required />
-            </label>
-            <label>
-              メールアドレス
-              <input name="email" type="email" autocomplete="email" required />
             </label>
             <button class="primary-button" type="submit">保存する</button>
           </form>
@@ -61,6 +57,9 @@
           <div id="surveyList" class="survey-list"></div>
         </section>
 
+      </section>
+
+      <section id="page-survey" class="page">
         <section id="answerPanel" class="section-card"></section>
       </section>
 
@@ -96,9 +95,9 @@
     </main>
 
     <nav class="bottom-nav" aria-label="お客様アプリメニュー">
-      <button class="nav-button active" type="button" data-page="answer">
-        <span>✍</span>
-        回答
+      <button class="nav-button active" type="button" data-page="home">
+        <span>🏠</span>
+        ホーム
       </button>
       <button class="nav-button" type="button" data-page="history">
         <span>🕒</span>

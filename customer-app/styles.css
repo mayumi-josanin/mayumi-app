@@ -17,6 +17,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -160,6 +164,10 @@ p {
   align-items: start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.survey-toolbar h2 {
+  margin-bottom: 8px;
 }
 
 .form-grid,

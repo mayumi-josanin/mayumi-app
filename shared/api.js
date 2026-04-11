@@ -119,11 +119,7 @@ window.MayumiSurveyApi = (() => {
     if (!survey) throw new Error("回答できるアンケートが見つかりません。");
 
     const customerName = normalizeText(payload.customer?.name);
-    const customerEmail = normalizeEmail(payload.customer?.email);
     if (!customerName) throw new Error("お名前を入力してください。");
-    if (!customerEmail || !customerEmail.includes("@")) {
-      throw new Error("メールアドレスを入力してください。");
-    }
 
     const answerMap = new Map(
       (Array.isArray(payload.answers) ? payload.answers : []).map((answer) => [
@@ -164,7 +160,7 @@ window.MayumiSurveyApi = (() => {
       surveyTitle: survey.title,
       customerClientId: getClientId(),
       customerName,
-      customerEmail,
+      customerEmail: "",
       answers,
       status: "new",
       adminMemo: "",
@@ -257,7 +253,11 @@ window.MayumiSurveyApi = (() => {
       }
 
       if (path.startsWith("/api/public/responses") && method === "GET") {
-        return jsonp(gasUrl, "history", { clientId: getClientId() });
+        const url = new URL(path, window.location.origin);
+        return jsonp(gasUrl, "history", {
+          clientId: getClientId(),
+          name: normalizeText(url.searchParams.get("name")),
+        });
       }
 
       if (path === "/api/public/responses" && method === "POST") {
@@ -288,6 +288,10 @@ window.MayumiSurveyApi = (() => {
         return { surveys: getDefaultSurveys() };
       }
 
+      if (path === "/api/admin/info" && method === "GET") {
+        return jsonp(gasUrl, "adminInfo", { token: options.token });
+      }
+
       if (path === "/api/admin/responses" && method === "GET") {
         return jsonp(gasUrl, "adminResponses", { token: options.token });
       }
@@ -312,6 +316,14 @@ window.MayumiSurveyApi = (() => {
 
       if (path === "/api/admin/export" && method === "GET") {
         return jsonp(gasUrl, "adminExport", { token: options.token });
+      }
+
+      if (path === "/api/admin/credentials" && method === "PUT") {
+        return jsonp(gasUrl, "adminUpdateCredentials", {
+          token: options.token,
+          loginId: normalizeText(options.body?.loginId),
+          password: normalizeText(options.body?.password),
+        });
       }
 
       throw new Error("API が見つかりません。");

@@ -15,8 +15,8 @@ const DATA_DIR = process.env.DATA_DIR || path.join(ROOT_DIR, "data");
 const DB_FILE = process.env.DB_FILE || path.join(DATA_DIR, "db.json");
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "mayumi2026";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "3939";
 const SESSION_SECRET =
   process.env.SESSION_SECRET || "change-this-secret-before-production";
 const TOKEN_TTL_SECONDS = 60 * 60 * 8;
@@ -109,6 +109,42 @@ function seedDb() {
   return {
     surveys: makeDefaultSurveys(now()),
     responses: [],
+    settings: {
+      adminUsername: ADMIN_USERNAME,
+      adminPassword: ADMIN_PASSWORD,
+    },
+  };
+}
+
+function getAdminSettings(db) {
+  if (!db.settings || typeof db.settings !== "object") {
+    db.settings = {};
+  }
+
+  const storedUsername = normalizeText(db.settings.adminUsername);
+  const storedPassword = String(db.settings.adminPassword || "");
+  db.settings.adminUsername =
+    !storedUsername || storedUsername === "admin" ? ADMIN_USERNAME : storedUsername;
+  db.settings.adminPassword =
+    !storedPassword || storedPassword === "admin123" ? ADMIN_PASSWORD : storedPassword;
+
+  return {
+    adminUsername: db.settings.adminUsername,
+    adminPassword: db.settings.adminPassword,
+  };
+}
+
+function buildAdminInfo(db) {
+  const settings = getAdminSettings(db);
+  return {
+    backend: "rest",
+    adminUsername: settings.adminUsername,
+    ownerEmail: "",
+    spreadsheetId: "",
+    spreadsheetUrl: "",
+    masterSheetName: "data/db.json",
+    photoRootFolderName: "ローカル確認",
+    photoRootFolderUrl: "",
   };
 }
 
@@ -267,11 +303,7 @@ function validateResponsePayload(db, payload) {
   if (!survey) throw new Error("回答できるアンケートが見つかりません。");
 
   const customerName = normalizeText(payload.customer?.name);
-  const customerEmail = normalizeEmail(payload.customer?.email);
   if (!customerName) throw new Error("お名前を入力してください。");
-  if (!customerEmail || !customerEmail.includes("@")) {
-    throw new Error("メールアドレスを入力してください。");
-  }
 
   const answerMap = new Map(
     (Array.isArray(payload.answers) ? payload.answers : []).map((answer) => [
@@ -336,7 +368,7 @@ function validateResponsePayload(db, payload) {
     surveyId: survey.id,
     surveyTitle: survey.title,
     customerName,
-    customerEmail,
+    customerEmail: "",
     answers,
     status: "new",
     adminMemo: "",
@@ -370,11 +402,11 @@ async function handleApi(req, res, pathname, searchParams) {
     }
 
     if (req.method === "GET" && pathname === "/api/public/responses") {
-      const email = normalizeEmail(searchParams.get("email"));
+      const name = normalizeText(searchParams.get("name"));
       const db = await readDb();
       sendJson(res, 200, {
-        responses: email
-          ? db.responses.filter((response) => response.customerEmail === email)
+        responses: name
+          ? db.responses.filter((response) => response.customerName === name)
           : [],
       });
       return;
@@ -393,9 +425,11 @@ async function handleApi(req, res, pathname, searchParams) {
 
     if (req.method === "POST" && pathname === "/api/admin/login") {
       const payload = await readBody(req);
+      const db = await readDb();
+      const settings = getAdminSettings(db);
       if (
-        normalizeText(payload.loginId) !== ADMIN_USERNAME ||
-        String(payload.password ?? "") !== ADMIN_PASSWORD
+        normalizeText(payload.loginId) !== settings.adminUsername ||
+        String(payload.password ?? "") !== settings.adminPassword
       ) {
         sendError(res, 401, "ログインIDまたはパスワードが違います。");
         return;
@@ -408,6 +442,12 @@ async function handleApi(req, res, pathname, searchParams) {
     }
 
     if (pathname.startsWith("/api/admin/") && !requireAdmin(req, res)) {
+      return;
+    }
+
+    if (req.method === "GET" && pathname === "/api/admin/info") {
+      const db = await readDb();
+      sendJson(res, 200, buildAdminInfo(db));
       return;
     }
 
@@ -502,6 +542,28 @@ async function handleApi(req, res, pathname, searchParams) {
     if (req.method === "GET" && pathname === "/api/admin/export") {
       const db = await readDb();
       sendJson(res, 200, { ...db, exportedAt: now() });
+      return;
+    }
+
+    if (req.method === "PUT" && pathname === "/api/admin/credentials") {
+      const payload = await readBody(req);
+      const result = await updateDb((db) => {
+        const settings = getAdminSettings(db);
+        const loginId = normalizeText(payload.loginId);
+        const password = String(payload.password || "");
+
+        if (!loginId) throw new Error("ログインIDを入力してください。");
+        settings.adminUsername = loginId;
+        settings.adminPassword = password || settings.adminPassword;
+
+        if (String(settings.adminPassword).length < 4) {
+          throw new Error("パスワードは4文字以上で入力してください。");
+        }
+
+        db.settings = settings;
+        return { ok: true, adminInfo: buildAdminInfo(db) };
+      });
+      sendJson(res, 200, result);
       return;
     }
 

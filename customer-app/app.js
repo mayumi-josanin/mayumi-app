@@ -4,7 +4,7 @@ const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 
 const appState = {
-  customer: loadLocal(CUSTOMER_KEY, { name: "", email: "" }),
+  customer: loadLocal(CUSTOMER_KEY, { name: "" }),
   surveys: [],
   history: [],
   selectedSurveyId: "",
@@ -108,11 +108,12 @@ function getFallbackSurveys() {
 }
 
 function setPage(page) {
+  const navPage = page === "survey" ? "home" : page;
   document.querySelectorAll(".page").forEach((node) => {
     node.classList.toggle("active", node.id === `page-${page}`);
   });
   document.querySelectorAll(".nav-button").forEach((button) => {
-    button.classList.toggle("active", button.dataset.page === page);
+    button.classList.toggle("active", button.dataset.page === navPage);
   });
   if (page === "history") {
     void loadHistory();
@@ -129,7 +130,7 @@ async function loadSurveys() {
       !appState.selectedSurveyId ||
       !appState.surveys.some((survey) => survey.id === appState.selectedSurveyId)
     ) {
-      appState.selectedSurveyId = appState.surveys[0]?.id || "";
+      appState.selectedSurveyId = "";
     }
     renderSurveys();
     renderAnswerPanel();
@@ -137,7 +138,7 @@ async function loadSurveys() {
     const fallbackSurveys = getFallbackSurveys();
     if (fallbackSurveys.length) {
       appState.surveys = fallbackSurveys;
-      appState.selectedSurveyId = fallbackSurveys[0]?.id || "";
+      appState.selectedSurveyId = "";
       renderSurveys();
       renderAnswerPanel();
       showToast("アンケート取得に失敗したため、保存済みの一覧を表示しています。");
@@ -148,7 +149,7 @@ async function loadSurveys() {
 }
 
 async function loadHistory() {
-  if (!appState.customer.email) {
+  if (!appState.customer.name) {
     historyList.innerHTML = `<div class="empty">先にお客様情報を保存してください。</div>`;
     return;
   }
@@ -156,7 +157,7 @@ async function loadHistory() {
   historyList.innerHTML = `<div class="empty">読み込み中です。</div>`;
   try {
     const result = await api.request(
-      `/api/public/responses?email=${encodeURIComponent(appState.customer.email)}`,
+      `/api/public/responses?name=${encodeURIComponent(appState.customer.name)}`,
     );
     appState.history = result.responses || [];
     renderHistory();
@@ -167,7 +168,6 @@ async function loadHistory() {
 
 function renderCustomerForm() {
   customerForm.elements.name.value = appState.customer.name || "";
-  customerForm.elements.email.value = appState.customer.email || "";
 }
 
 function renderSurveys() {
@@ -193,6 +193,7 @@ function renderSurveys() {
       appState.selectedSurveyId = button.dataset.surveyId;
       renderSurveys();
       renderAnswerPanel();
+      setPage("survey");
     });
   });
 }
@@ -200,19 +201,31 @@ function renderSurveys() {
 function renderAnswerPanel() {
   const survey = appState.surveys.find((item) => item.id === appState.selectedSurveyId);
   if (!survey) {
-    answerPanel.innerHTML = `<div class="empty">アンケートを選択してください。</div>`;
+    answerPanel.innerHTML = `
+      <div class="empty">
+        ホームに戻って、回答したいアンケートを選択してください。
+      </div>
+    `;
     return;
   }
 
   answerPanel.innerHTML = `
-    <h2>${escapeHtml(survey.title)}</h2>
-    <p>${escapeHtml(survey.description)}</p>
+    <div class="section-head survey-toolbar">
+      <div>
+        <h2>${escapeHtml(survey.title)}</h2>
+        <p>${escapeHtml(survey.description)}</p>
+      </div>
+      <button id="backToHomeButton" class="ghost-button" type="button">一覧へ戻る</button>
+    </div>
     <form id="answerForm" class="question-list">
       ${survey.questions.map((question, index) => renderQuestion(question, index)).join("")}
       <button class="primary-button" type="submit">回答を送信する</button>
     </form>
   `;
 
+  document.querySelector("#backToHomeButton").addEventListener("click", () => {
+    setPage("home");
+  });
   document.querySelector("#answerForm").addEventListener("submit", submitAnswer);
 }
 
@@ -331,7 +344,7 @@ async function collectAnswers(form, survey) {
 
 async function submitAnswer(event) {
   event.preventDefault();
-  if (!appState.customer.name || !appState.customer.email) {
+  if (!appState.customer.name) {
     showToast("先にお客様情報を保存してください。");
     return;
   }
@@ -437,7 +450,6 @@ customerForm.addEventListener("submit", (event) => {
   const formData = new FormData(event.currentTarget);
   appState.customer = {
     name: String(formData.get("name") || "").trim(),
-    email: String(formData.get("email") || "").trim().toLowerCase(),
   };
   saveLocal(CUSTOMER_KEY, appState.customer);
   showToast("お客様情報を保存しました。");

@@ -48,6 +48,7 @@
           <button class="nav-item active" type="button" data-page="dashboard">📊 集計</button>
           <button class="nav-item" type="button" data-page="responses">📝 回答管理</button>
           <button class="nav-item" type="button" data-page="customers">👥 お客様別</button>
+          <button class="nav-item" type="button" data-page="settings">🔐 認証設定</button>
           <button class="nav-item" type="button" data-page="install">📲 追加案内</button>
         </aside>
 
@@ -85,7 +86,7 @@
                   </select>
                 </label>
                 <label>
-                  お客様名・メール
+                  お客様名
                   <input id="keywordFilter" type="search" placeholder="検索" />
                 </label>
                 <button id="exportCsvButton" class="secondary-button" type="button">CSV出力</button>
@@ -97,6 +98,38 @@
           <section id="page-customers" class="page">
             <h2>お客様別</h2>
             <div id="customerList" class="customer-list"></div>
+          </section>
+
+          <section id="page-settings" class="page">
+            <h2>認証設定</h2>
+            <div class="grid-two settings-grid">
+              <section class="card">
+                <div class="card-title">管理者ログイン</div>
+                <p>ログインIDは現在値を読み込みます。パスワードは入力した場合のみ更新します。</p>
+                <form id="credentialForm" class="stack">
+                  <label>
+                    ログインID
+                    <input name="loginId" type="text" autocomplete="username" required />
+                  </label>
+                  <label>
+                    新しいパスワード
+                    <input
+                      name="password"
+                      type="password"
+                      autocomplete="new-password"
+                      placeholder="変更時のみ入力"
+                    />
+                  </label>
+                  <button class="primary-button" type="submit">保存</button>
+                </form>
+                <div id="credentialInfo" class="url-box"></div>
+              </section>
+
+              <section class="card">
+                <div class="card-title">保存先情報</div>
+                <div id="storageInfo" class="stack"></div>
+              </section>
+            </div>
           </section>
 
           <section id="page-install" class="page">
@@ -118,6 +151,7 @@
         <button class="bottom-nav-item active" type="button" data-page="dashboard">📊<span>集計</span></button>
         <button class="bottom-nav-item" type="button" data-page="responses">📝<span>回答</span></button>
         <button class="bottom-nav-item" type="button" data-page="customers">👥<span>お客様</span></button>
+        <button class="bottom-nav-item" type="button" data-page="settings">🔐<span>認証</span></button>
         <button class="bottom-nav-item" type="button" data-page="install">📲<span>追加</span></button>
       </nav>
     </section>

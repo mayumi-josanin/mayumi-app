@@ -10,6 +10,7 @@ const state = {
   token: localStorage.getItem(TOKEN_KEY) || "",
   surveys: [],
   responses: [],
+  adminInfo: null,
   installPrompt: null,
 };
 
@@ -17,6 +18,7 @@ const loginView = document.querySelector("#loginView");
 const adminView = document.querySelector("#adminView");
 const toast = document.querySelector("#toast");
 const loginForm = document.querySelector("#loginForm");
+const credentialForm = document.querySelector("#credentialForm");
 const installButton = document.querySelector("#installButton");
 
 function escapeHtml(value) {
@@ -60,6 +62,10 @@ function setPage(page) {
 function setLoggedIn(loggedIn) {
   loginView.hidden = loggedIn;
   adminView.hidden = !loggedIn;
+  if (loggedIn) {
+    setPage("dashboard");
+    loginForm.reset();
+  }
 }
 
 function getFallbackSurveys() {
@@ -70,10 +76,12 @@ function getFallbackSurveys() {
 }
 
 async function loadAdminData() {
-  const [surveysResult, responsesResult] = await Promise.all([
+  const [adminInfoResult, surveysResult, responsesResult] = await Promise.all([
+    api.request("/api/admin/info", { token: state.token }),
     api.request("/api/admin/surveys", { token: state.token }),
     api.request("/api/admin/responses", { token: state.token }),
   ]);
+  state.adminInfo = adminInfoResult || null;
   state.surveys = (surveysResult.surveys || []).length
     ? surveysResult.surveys || []
     : getFallbackSurveys();
@@ -90,6 +98,7 @@ function renderAll() {
   renderFilters();
   renderResponses();
   renderCustomers();
+  renderSettings();
   document.querySelector("#adminUrlBox").textContent = window.location.href;
 }
 
@@ -193,9 +202,8 @@ function renderResponses() {
     .filter((response) => {
       if (!keyword) return true;
       return (
-        response.customerName.toLowerCase().includes(keyword) ||
-        response.customerEmail.toLowerCase().includes(keyword) ||
-        response.surveyTitle.toLowerCase().includes(keyword)
+        String(response.customerName || "").toLowerCase().includes(keyword) ||
+        String(response.surveyTitle || "").toLowerCase().includes(keyword)
       );
     })
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
@@ -224,7 +232,7 @@ function renderResponseCard(response) {
       <div class="response-head">
         <div>
           <strong>${escapeHtml(response.customerName)}</strong>
-          <div class="meta">${escapeHtml(response.customerEmail)} / ${formatDate(response.submittedAt)}</div>
+          <div class="meta">${formatDate(response.submittedAt)}</div>
           <div class="meta">${escapeHtml(response.surveyTitle)}</div>
         </div>
         <span class="badge ${status}">${STATUS_LABELS[status]}</span>
@@ -301,10 +309,9 @@ async function deleteResponse(responseId) {
 function groupByCustomer() {
   const map = new Map();
   state.responses.forEach((response) => {
-    const key = response.customerEmail || response.customerName;
+    const key = response.customerName;
     const current = map.get(key) || {
       name: response.customerName,
-      email: response.customerEmail,
       count: 0,
       latestAt: response.submittedAt,
       surveys: new Map(),
@@ -328,7 +335,6 @@ function renderCustomers() {
           (customer) => `
             <article class="customer-card">
               <strong>${escapeHtml(customer.name)}</strong>
-              <div class="meta">${escapeHtml(customer.email)}</div>
               <div>回答数: ${customer.count}件</div>
               <div class="meta">最終回答: ${formatDate(customer.latestAt)}</div>
               <div class="answer-list">
@@ -343,13 +349,57 @@ function renderCustomers() {
     : `<div class="empty">まだ回答者はいません。</div>`;
 }
 
+function renderSettings() {
+  const credentialInfo = document.querySelector("#credentialInfo");
+  const storageInfo = document.querySelector("#storageInfo");
+  if (!state.adminInfo) {
+    credentialInfo.textContent = "認証情報を読み込み中です。";
+    storageInfo.innerHTML = `<div class="empty">保存先情報を読み込み中です。</div>`;
+    return;
+  }
+
+  if (!credentialForm.dataset.dirty) {
+    credentialForm.elements.loginId.value = state.adminInfo.adminUsername || "";
+  }
+
+  credentialInfo.innerHTML = `
+    現在のログインID: ${escapeHtml(state.adminInfo.adminUsername || "")}<br />
+    パスワードは入力した場合のみ変更します。
+  `;
+
+  const spreadsheetLink = state.adminInfo.spreadsheetUrl
+    ? `<a href="${escapeHtml(state.adminInfo.spreadsheetUrl)}" target="_blank" rel="noopener">
+        ${escapeHtml(state.adminInfo.spreadsheetUrl)}
+      </a>`
+    : escapeHtml(state.adminInfo.masterSheetName || "未設定");
+  const photoFolderLink = state.adminInfo.photoRootFolderUrl
+    ? `<a href="${escapeHtml(state.adminInfo.photoRootFolderUrl)}" target="_blank" rel="noopener">
+        ${escapeHtml(state.adminInfo.photoRootFolderName || "未設定")}
+      </a>`
+    : escapeHtml(state.adminInfo.photoRootFolderName || "未設定");
+
+  storageInfo.innerHTML = `
+    <article class="answer-item">
+      <strong>回答保存スプレッドシート</strong><br />
+      ${spreadsheetLink}
+    </article>
+    <article class="answer-item">
+      <strong>画像保存フォルダ</strong><br />
+      ${photoFolderLink}
+    </article>
+    <article class="answer-item">
+      <strong>実行アカウント</strong><br />
+      ${escapeHtml(state.adminInfo.ownerEmail || "未取得")}
+    </article>
+  `;
+}
+
 function exportCsv() {
   const rows = [
-    ["日時", "お客様", "メール", "アンケート", "対応状況", "管理メモ", "回答"],
+    ["日時", "お客様", "アンケート", "対応状況", "管理メモ", "回答"],
     ...state.responses.map((response) => [
       formatDate(response.submittedAt),
       response.customerName,
-      response.customerEmail,
       response.surveyTitle,
       STATUS_LABELS[normalizeStatus(response.status)],
       response.adminMemo || "",
@@ -408,6 +458,7 @@ loginForm.addEventListener("submit", async (event) => {
     localStorage.setItem(TOKEN_KEY, state.token);
     setLoggedIn(true);
     await loadAdminData();
+    showToast("ログインしました。");
   } catch (error) {
     showToast(error.message || "ログインできませんでした。");
   } finally {
@@ -416,8 +467,41 @@ loginForm.addEventListener("submit", async (event) => {
   }
 });
 
+credentialForm.addEventListener("input", () => {
+  credentialForm.dataset.dirty = "true";
+});
+
+credentialForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true;
+  button.textContent = "保存中";
+  try {
+    const result = await api.request("/api/admin/credentials", {
+      method: "PUT",
+      token: state.token,
+      body: {
+        loginId: String(formData.get("loginId") || ""),
+        password: String(formData.get("password") || ""),
+      },
+    });
+    state.adminInfo = result.adminInfo || state.adminInfo;
+    credentialForm.dataset.dirty = "";
+    credentialForm.reset();
+    renderSettings();
+    showToast("管理者認証を更新しました。");
+  } catch (error) {
+    showToast(error.message || "認証情報を更新できませんでした。");
+  } finally {
+    button.disabled = false;
+    button.textContent = "保存";
+  }
+});
+
 document.querySelector("#logoutButton").addEventListener("click", () => {
   state.token = "";
+  state.adminInfo = null;
   localStorage.removeItem(TOKEN_KEY);
   void api.logout?.();
   setLoggedIn(false);
