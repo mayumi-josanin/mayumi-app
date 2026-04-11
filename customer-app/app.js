@@ -100,6 +100,13 @@ function showToast(message) {
   setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
+function getFallbackSurveys() {
+  const makeSurveys = window.MayumiDefaultSurveys;
+  return typeof makeSurveys === "function"
+    ? makeSurveys(new Date().toISOString()).filter((survey) => survey.status === "published")
+    : [];
+}
+
 function setPage(page) {
   document.querySelectorAll(".page").forEach((node) => {
     node.classList.toggle("active", node.id === `page-${page}`);
@@ -116,7 +123,8 @@ async function loadSurveys() {
   surveyList.innerHTML = `<div class="empty">読み込み中です。</div>`;
   try {
     const result = await api.request("/api/public/surveys");
-    appState.surveys = result.surveys || [];
+    const surveys = Array.isArray(result.surveys) ? result.surveys : [];
+    appState.surveys = surveys.length ? surveys : getFallbackSurveys();
     if (
       !appState.selectedSurveyId ||
       !appState.surveys.some((survey) => survey.id === appState.selectedSurveyId)
@@ -126,6 +134,15 @@ async function loadSurveys() {
     renderSurveys();
     renderAnswerPanel();
   } catch (error) {
+    const fallbackSurveys = getFallbackSurveys();
+    if (fallbackSurveys.length) {
+      appState.surveys = fallbackSurveys;
+      appState.selectedSurveyId = fallbackSurveys[0]?.id || "";
+      renderSurveys();
+      renderAnswerPanel();
+      showToast("アンケート取得に失敗したため、保存済みの一覧を表示しています。");
+      return;
+    }
     surveyList.innerHTML = `<div class="empty">${escapeHtml(error.message || "アンケートを読み込めませんでした。")}</div>`;
   }
 }
@@ -354,8 +371,8 @@ function renderAnswerValue(answer) {
       <div class="photo-list">
         ${answer.files
           .map((file) => {
-            const href = file.url || file.dataUrl || "#";
-            const preview = file.thumbnailUrl || file.dataUrl || file.url || "";
+            const href = file.previewUrl || file.url || file.dataUrl || "#";
+            const preview = file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
             return `
               <a class="photo-thumb" href="${escapeHtml(href)}" target="_blank" rel="noopener">
                 ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name)}" />` : ""}

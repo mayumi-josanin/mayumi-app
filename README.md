@@ -51,8 +51,8 @@ Apps Script 側では次を行います。
 
 未設定の場合の初期管理者ログイン:
 
-- ID: `admin`
-- PASS: `admin123`
+- ID: `mayumi2026`
+- PASS: `3939`
 
 公開運用では `ADMIN_USERNAME` と `ADMIN_PASSWORD` を必ず変更してください。
 
@@ -65,7 +65,7 @@ Apps Script 側では次を行います。
 - `ビジリス回数券終了アンケート`: 回数券終了アンケート別の回答
 - `モニター終了アンケート`: モニター終了アンケート別の回答
 
-写真質問はスマホから画像を選択できます。送信時に Apps Script が Google Drive に写真ファイルを保存し、回答には Drive のURLを記録します。
+写真質問はスマホから画像を選択できます。送信時に Apps Script が Google Drive に写真ファイルを保存し、回答には Drive のURLを記録します。保存先は Google Drive の `bijiris` フォルダ配下で、お客様ごとの名前フォルダに分けます。
 
 ## アンケート
 

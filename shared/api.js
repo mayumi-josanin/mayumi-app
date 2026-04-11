@@ -247,8 +247,12 @@ window.MayumiSurveyApi = (() => {
       }
 
       if (path === "/api/public/surveys") {
+        const localSurveys = getDefaultSurveys().filter((survey) => survey.status === "published");
+        if (localSurveys.length) {
+          return { surveys: localSurveys };
+        }
         return {
-          surveys: getDefaultSurveys().filter((survey) => survey.status === "published"),
+          surveys: (await jsonp(gasUrl, "surveys")).surveys || [],
         };
       }
 

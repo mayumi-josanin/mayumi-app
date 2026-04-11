@@ -62,12 +62,21 @@ function setLoggedIn(loggedIn) {
   adminView.hidden = !loggedIn;
 }
 
+function getFallbackSurveys() {
+  const makeSurveys = window.MayumiDefaultSurveys;
+  return typeof makeSurveys === "function"
+    ? makeSurveys(new Date().toISOString()).filter((survey) => survey.status === "published")
+    : [];
+}
+
 async function loadAdminData() {
   const [surveysResult, responsesResult] = await Promise.all([
     api.request("/api/admin/surveys", { token: state.token }),
     api.request("/api/admin/responses", { token: state.token }),
   ]);
-  state.surveys = surveysResult.surveys || [];
+  state.surveys = (surveysResult.surveys || []).length
+    ? surveysResult.surveys || []
+    : getFallbackSurveys();
   state.responses = (responsesResult.responses || []).map((response) => ({
     status: "new",
     adminMemo: "",
@@ -137,8 +146,8 @@ function renderAnswerValue(answer) {
       <div class="photo-list">
         ${answer.files
           .map((file) => {
-            const href = file.url || file.dataUrl || "#";
-            const preview = file.thumbnailUrl || file.dataUrl || file.url || "";
+            const href = file.previewUrl || file.url || file.dataUrl || "#";
+            const preview = file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
             return `
               <a class="photo-thumb" href="${escapeHtml(href)}" target="_blank" rel="noopener">
                 ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name)}" />` : ""}
@@ -156,7 +165,7 @@ function renderAnswerValue(answer) {
 function formatAnswerForCsv(answer) {
   if (Array.isArray(answer.files) && answer.files.length) {
     return `${answer.label}: ${answer.files
-      .map((file) => file.url || file.name)
+      .map((file) => file.url || file.previewUrl || file.name)
       .join(", ")}`;
   }
   return `${answer.label}: ${answer.value || ""}`;
