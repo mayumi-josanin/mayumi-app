@@ -4,6 +4,7 @@ const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
 const TICKET_END_COUNT_QUESTION_ID = "q_ticket_end_ticket_size";
+const TICKET_END_SHEET_QUESTION_ID = "q_ticket_end_ticket_sheet";
 const TICKET_END_ROUND_QUESTION_ID = "q_ticket_end_ticket_round";
 
 const appState = {
@@ -119,17 +120,26 @@ function getTicketEndCountSelection() {
   return appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID] || "";
 }
 
+function getTicketEndSheetSelection() {
+  return appState.prefilledAnswers[TICKET_END_SHEET_QUESTION_ID] || "";
+}
+
 function getTicketEndRoundSelection() {
   return appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID] || "";
 }
 
-function clearTicketEndCountSelection() {
+function clearTicketEndSelections() {
   delete appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID];
+  delete appState.prefilledAnswers[TICKET_END_SHEET_QUESTION_ID];
   delete appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID];
 }
 
 function getTicketEndCountQuestion(survey) {
   return survey.questions.find((question) => question.id === TICKET_END_COUNT_QUESTION_ID);
+}
+
+function getTicketEndSheetQuestion(survey) {
+  return survey.questions.find((question) => question.id === TICKET_END_SHEET_QUESTION_ID);
 }
 
 function getTicketEndRoundQuestion(survey) {
@@ -143,6 +153,8 @@ function getTicketRoundOptions(ticketCount) {
 
 function getQuestionLabel(question) {
   if (question.id === "q_ticket_end_photo_last") {
+    const ticketRound = getTicketEndRoundSelection();
+    if (ticketRound) return `計測写真(${ticketRound})`;
     const ticketCount = getTicketEndCountSelection();
     if (ticketCount === "6回券") return "計測写真(6回目)";
     if (ticketCount === "10回券") return "計測写真(10回目)";
@@ -236,7 +248,7 @@ function renderSurveys() {
       const survey = appState.surveys.find((item) => item.id === button.dataset.surveyId);
       appState.selectedSurveyId = button.dataset.surveyId;
       if (isTicketEndSurvey(survey)) {
-        clearTicketEndCountSelection();
+        clearTicketEndSelections();
       }
       renderSurveys();
       renderAnswerPanel();
@@ -269,7 +281,7 @@ function renderAnswerPanel() {
       <form id="ticketCountForm" class="question-list">
         <fieldset class="question-block">
           <legend>
-            <span>回数券の枚数</span>
+            <span>${escapeHtml(ticketQuestion.label)}</span>
           </legend>
           <div class="choice-row">
             ${ticketQuestion.options
@@ -300,6 +312,63 @@ function renderAnswerPanel() {
         return;
       }
       appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID] = ticketCount;
+      delete appState.prefilledAnswers[TICKET_END_SHEET_QUESTION_ID];
+      delete appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID];
+      renderAnswerPanel();
+    });
+    return;
+  }
+
+  if (isTicketEndSurvey(survey) && !getTicketEndSheetSelection()) {
+    const ticketSheetQuestion = getTicketEndSheetQuestion(survey);
+    const selectedTicketCount = getTicketEndCountSelection();
+    answerPanel.innerHTML = `
+      <div class="section-head survey-toolbar">
+        <div>
+          <h2>${escapeHtml(survey.title)}</h2>
+          <p>${escapeHtml(selectedTicketCount)} の何枚目かを選択してください。</p>
+        </div>
+        <button id="backToTicketCountButton" class="ghost-button" type="button">戻る</button>
+      </div>
+      <form id="ticketSheetForm" class="question-list">
+        <div class="question-block prefilled-answer">
+          <strong>回数券の種類</strong>
+          <div>${escapeHtml(selectedTicketCount)}</div>
+        </div>
+        <fieldset class="question-block">
+          <legend>
+            <span>${escapeHtml(ticketSheetQuestion.label)}</span>
+          </legend>
+          <div class="choice-row">
+            ${ticketSheetQuestion.options
+              .map(
+                (option) => `
+                  <label>
+                    <input type="radio" name="ticketSheet" value="${escapeHtml(option)}" />
+                    ${escapeHtml(option)}
+                  </label>
+                `,
+              )
+              .join("")}
+          </div>
+        </fieldset>
+        <button class="primary-button" type="submit">次へ</button>
+      </form>
+    `;
+
+    document.querySelector("#backToTicketCountButton").addEventListener("click", () => {
+      clearTicketEndSelections();
+      renderAnswerPanel();
+    });
+    document.querySelector("#ticketSheetForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      const ticketSheet = String(formData.get("ticketSheet") || "");
+      if (!ticketSheet) {
+        showToast("回数券の何枚目かを選択してください。");
+        return;
+      }
+      appState.prefilledAnswers[TICKET_END_SHEET_QUESTION_ID] = ticketSheet;
       delete appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID];
       renderAnswerPanel();
     });
@@ -309,19 +378,22 @@ function renderAnswerPanel() {
   if (isTicketEndSurvey(survey) && !getTicketEndRoundSelection()) {
     const ticketRoundQuestion = getTicketEndRoundQuestion(survey);
     const selectedTicketCount = getTicketEndCountSelection();
+    const selectedTicketSheet = getTicketEndSheetSelection();
     const roundOptions = getTicketRoundOptions(selectedTicketCount);
     answerPanel.innerHTML = `
       <div class="section-head survey-toolbar">
         <div>
           <h2>${escapeHtml(survey.title)}</h2>
-          <p>${escapeHtml(selectedTicketCount)} の何回目かを選択してください。</p>
+          <p>${escapeHtml(selectedTicketCount)} の ${escapeHtml(selectedTicketSheet)} の何回目かを選択してください。</p>
         </div>
-        <button id="backToTicketCountButton" class="ghost-button" type="button">戻る</button>
+        <button id="backToTicketSheetButton" class="ghost-button" type="button">戻る</button>
       </div>
       <form id="ticketRoundForm" class="question-list">
         <div class="question-block prefilled-answer">
           <strong>回数券の種類</strong>
           <div>${escapeHtml(selectedTicketCount)}</div>
+          <strong>回数券の何枚目</strong>
+          <div>${escapeHtml(selectedTicketSheet)}</div>
         </div>
         <fieldset class="question-block">
           <legend>
@@ -344,8 +416,8 @@ function renderAnswerPanel() {
       </form>
     `;
 
-    document.querySelector("#backToTicketCountButton").addEventListener("click", () => {
-      delete appState.prefilledAnswers[TICKET_END_COUNT_QUESTION_ID];
+    document.querySelector("#backToTicketSheetButton").addEventListener("click", () => {
+      delete appState.prefilledAnswers[TICKET_END_SHEET_QUESTION_ID];
       delete appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID];
       renderAnswerPanel();
     });
@@ -354,7 +426,7 @@ function renderAnswerPanel() {
       const formData = new FormData(event.currentTarget);
       const ticketRound = String(formData.get("ticketRound") || "");
       if (!ticketRound) {
-        showToast("回数券の回数を選択してください。");
+        showToast("回数券の何回目かを選択してください。");
         return;
       }
       appState.prefilledAnswers[TICKET_END_ROUND_QUESTION_ID] = ticketRound;
@@ -366,6 +438,7 @@ function renderAnswerPanel() {
   const visibleQuestions = survey.questions.filter(
     (question) =>
       question.id !== TICKET_END_COUNT_QUESTION_ID &&
+      question.id !== TICKET_END_SHEET_QUESTION_ID &&
       question.id !== TICKET_END_ROUND_QUESTION_ID,
   );
 
@@ -383,7 +456,9 @@ function renderAnswerPanel() {
           <div class="question-block prefilled-answer">
             <strong>回数券の種類</strong>
             <div>${escapeHtml(getTicketEndCountSelection())}</div>
-            <strong>回数券の回数</strong>
+            <strong>回数券の何枚目</strong>
+            <div>${escapeHtml(getTicketEndSheetSelection())}</div>
+            <strong>回数券の何回目</strong>
             <div>${escapeHtml(getTicketEndRoundSelection())}</div>
             <button id="changeTicketCountButton" class="ghost-button" type="button">変更する</button>
           </div>
@@ -400,7 +475,7 @@ function renderAnswerPanel() {
     setPage("home");
   });
   document.querySelector("#changeTicketCountButton")?.addEventListener("click", () => {
-    clearTicketEndCountSelection();
+    clearTicketEndSelections();
     renderAnswerPanel();
   });
   document.querySelector("#answerForm").addEventListener("submit", submitAnswer);
@@ -489,7 +564,7 @@ async function collectAnswers(form, survey) {
     if (question.id === TICKET_END_COUNT_QUESTION_ID) {
       const ticketCount = getTicketEndCountSelection();
       if (question.required !== false && !ticketCount) {
-        throw new Error("回数券の枚数を選択してください。");
+        throw new Error("回数券の種類を選択してください。");
       }
       answers.push({
         questionId: question.id,
@@ -498,10 +573,22 @@ async function collectAnswers(form, survey) {
       continue;
     }
 
+    if (question.id === TICKET_END_SHEET_QUESTION_ID) {
+      const ticketSheet = getTicketEndSheetSelection();
+      if (question.required !== false && !ticketSheet) {
+        throw new Error("回数券の何枚目かを選択してください。");
+      }
+      answers.push({
+        questionId: question.id,
+        value: ticketSheet,
+      });
+      continue;
+    }
+
     if (question.id === TICKET_END_ROUND_QUESTION_ID) {
       const ticketRound = getTicketEndRoundSelection();
       if (question.required !== false && !ticketRound) {
-        throw new Error("回数券の回数を選択してください。");
+        throw new Error("回数券の何回目かを選択してください。");
       }
       answers.push({
         questionId: question.id,
@@ -570,7 +657,7 @@ async function submitAnswer(event) {
     });
     event.currentTarget.reset();
     if (isTicketEndSurvey(survey)) {
-      clearTicketEndCountSelection();
+      clearTicketEndSelections();
       renderAnswerPanel();
     }
     showToast("回答を送信しました。");

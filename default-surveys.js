@@ -134,7 +134,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
         },
         {
           id: "q_ticket_end_photo_last",
-          label: "計測写真(6回目or10回目)",
+          label: "計測写真(今回)",
           type: "photo",
           required: false,
           options: [],
@@ -148,10 +148,28 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
         },
         {
           id: "q_ticket_end_ticket_size",
-          label: "回数券の枚数",
+          label: "回数券の種類",
           type: "choice",
           required: true,
           options: ["6回券", "10回券"],
+        },
+        {
+          id: "q_ticket_end_ticket_sheet",
+          label: "回数券の何枚目ですか？",
+          type: "choice",
+          required: true,
+          options: [
+            "1枚目",
+            "2枚目",
+            "3枚目",
+            "4枚目",
+            "5枚目",
+            "6枚目",
+            "7枚目",
+            "8枚目",
+            "9枚目",
+            "10枚目",
+          ],
         },
         {
           id: "q_ticket_end_ticket_round",
