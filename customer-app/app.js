@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260411-12";
+const APP_VERSION = "20260411-14";
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
 const TICKET_END_COUNT_QUESTION_ID = "q_ticket_end_ticket_size";
 const TICKET_END_SHEET_QUESTION_ID = "q_ticket_end_ticket_sheet";
@@ -32,6 +32,8 @@ const appState = {
   lastSubmissionWasEdit: false,
   historySurveyId: "",
   historyResponseId: "",
+  historyLoading: false,
+  historyLoadError: "",
 };
 
 const api = window.MayumiSurveyApi;
@@ -39,6 +41,7 @@ const toast = document.querySelector("#toast");
 const surveyList = document.querySelector("#surveyList");
 const answerPanel = document.querySelector("#answerPanel");
 const historyList = document.querySelector("#historyList");
+const homeTicketStatus = document.querySelector("#homeTicketStatus");
 const customerForm = document.querySelector("#customerForm");
 const installButton = document.querySelector("#installButton");
 
@@ -435,7 +438,7 @@ function setPage(page) {
   document.querySelectorAll(".nav-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.page === navPage);
   });
-  if (page === "history") {
+  if ((page === "history" || page === "home") && appState.customer.name) {
     void loadHistory();
   }
 }
@@ -470,18 +473,32 @@ async function loadSurveys() {
 
 async function loadHistory() {
   if (!appState.customer.name) {
+    appState.history = [];
+    appState.historyLoading = false;
+    appState.historyLoadError = "";
+    renderHomeTicketStatus();
     historyList.innerHTML = `<div class="empty">先にお客様情報を保存してください。</div>`;
     return;
   }
 
+  appState.historyLoading = true;
+  appState.historyLoadError = "";
+  renderHomeTicketStatus();
   historyList.innerHTML = `<div class="empty">読み込み中です。</div>`;
   try {
     const result = await api.request(
       `/api/public/responses?name=${encodeURIComponent(appState.customer.name)}`,
     );
     appState.history = Array.isArray(result.responses) ? result.responses : [];
+    appState.historyLoading = false;
+    appState.historyLoadError = "";
+    renderHomeTicketStatus();
     renderHistory();
   } catch (error) {
+    appState.history = [];
+    appState.historyLoading = false;
+    appState.historyLoadError = error.message || "履歴を読み込めませんでした。";
+    renderHomeTicketStatus();
     reportClientError("customer.loadHistory", error, { name: appState.customer.name });
     historyList.innerHTML = `<div class="empty">${escapeHtml(error.message || "履歴を読み込めませんでした。")}</div>`;
   }
@@ -1414,6 +1431,24 @@ function renderAnswerValue(answer) {
   return escapeHtml(answer.value || "未回答");
 }
 
+function renderTicketStampList(ticketInfo) {
+  if (!ticketInfo.length) return "";
+  return `
+    <div class="ticket-stamp-list">
+      ${ticketInfo
+        .map(
+          (item) => `
+            <span class="ticket-stamp">
+              <span class="ticket-stamp-label">${escapeHtml(item.label)}</span>
+              <span>${escapeHtml(item.value)}</span>
+            </span>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
 function getResponseTicketInfo(response) {
   const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
   return [
@@ -1432,24 +1467,100 @@ function getResponseTicketInfo(response) {
   ].filter((item) => item.value);
 }
 
+function parseTicketCount(ticketValue) {
+  if (ticketValue.includes("10")) return 10;
+  if (ticketValue.includes("6")) return 6;
+  const matched = ticketValue.match(/\d+/);
+  return matched ? Number(matched[0]) : 0;
+}
+
+function parseTicketStep(stepValue) {
+  const matched = normalizeText(stepValue).match(/\d+/);
+  return matched ? Number(matched[0]) : 0;
+}
+
+function getLatestTicketResponse() {
+  return appState.history
+    .filter((response) => getResponseTicketInfo(response).length)
+    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null;
+}
+
+function renderTicketStampProgress(ticketCount, currentRound) {
+  if (!ticketCount || !currentRound) return "";
+  return `
+    <div class="ticket-progress">
+      ${Array.from({ length: ticketCount }, (_, index) => {
+        const step = index + 1;
+        return `
+          <span class="stamp-dot ${step <= currentRound ? "active" : ""}" aria-label="${step}回目">
+            ${step}
+          </span>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderHomeTicketStatus() {
+  if (!homeTicketStatus) return;
+  if (!appState.customer.name) {
+    homeTicketStatus.innerHTML = `<div class="empty">お名前を保存すると回数券スタンプを表示します。</div>`;
+    return;
+  }
+  if (appState.historyLoading) {
+    homeTicketStatus.innerHTML = `<div class="empty">回数券スタンプを読み込み中です。</div>`;
+    return;
+  }
+  if (appState.historyLoadError) {
+    homeTicketStatus.innerHTML = `<div class="empty">${escapeHtml(appState.historyLoadError)}</div>`;
+    return;
+  }
+
+  const response = getLatestTicketResponse();
+  if (!response) {
+    homeTicketStatus.innerHTML = `<div class="empty">回数券情報のある回答がまだありません。</div>`;
+    return;
+  }
+
+  const ticketInfo = getResponseTicketInfo(response);
+  const ticketMap = new Map(ticketInfo.map((item) => [item.label, item.value]));
+  const ticketCount = parseTicketCount(ticketMap.get("回数券") || "");
+  const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
+
+  homeTicketStatus.innerHTML = `
+    <article class="ticket-home-card">
+      <div class="ticket-home-head">
+        <div>
+          <strong>${escapeHtml(appState.customer.name)}</strong>
+          <div class="meta">最新更新: ${formatDate(response.submittedAt)}</div>
+        </div>
+        <span class="badge open">${escapeHtml(ticketMap.get("何回目") || "-")}</span>
+      </div>
+      ${renderTicketStampList(ticketInfo)}
+      ${
+        ticketCount
+          ? `
+            <div class="ticket-progress-card">
+              <div class="ticket-progress-head">
+                <strong>${escapeHtml(ticketMap.get("何枚目") || "-")}</strong>
+                <span>${currentRound} / ${ticketCount}</span>
+              </div>
+              ${renderTicketStampProgress(ticketCount, currentRound)}
+            </div>
+          `
+          : ""
+      }
+    </article>
+  `;
+}
+
 function renderResponseTicketInfo(response) {
   const ticketInfo = getResponseTicketInfo(response);
   if (!ticketInfo.length) return "";
   return `
     <article class="ticket-info-card">
       <strong>回答者情報</strong>
-      <div class="ticket-stamp-list">
-        ${ticketInfo
-          .map(
-            (item) => `
-              <span class="ticket-stamp">
-                <span class="ticket-stamp-label">${escapeHtml(item.label)}</span>
-                <span>${escapeHtml(item.value)}</span>
-              </span>
-            `,
-          )
-          .join("")}
-      </div>
+      ${renderTicketStampList(ticketInfo)}
     </article>
   `;
 }
@@ -1525,18 +1636,7 @@ function renderHistoryResponseList(group) {
               ${
                 ticketInfo.length
                   ? `
-                    <div class="ticket-stamp-list">
-                      ${ticketInfo
-                        .map(
-                          (item) => `
-                            <span class="ticket-stamp">
-                              <span class="ticket-stamp-label">${escapeHtml(item.label)}</span>
-                              <span>${escapeHtml(item.value)}</span>
-                            </span>
-                          `,
-                        )
-                        .join("")}
-                    </div>
+                    ${renderTicketStampList(ticketInfo)}
                   `
                   : `<div class="meta">この回答に回数券情報はありません。</div>`
               }
@@ -1691,7 +1791,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-12", { updateViaCache: "none" })
+        .register("./sw.js?v=20260411-14", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -1729,6 +1829,7 @@ document.querySelectorAll("[data-page]").forEach((button) => {
 
 document.querySelector("#refreshButton").addEventListener("click", () => {
   void loadSurveys();
+  if (appState.customer.name) void loadHistory();
 });
 
 document.querySelector("#historyRefreshButton").addEventListener("click", () => {
@@ -1751,6 +1852,7 @@ window.addEventListener("unhandledrejection", (event) => {
   reportClientError("customer.promise", event.reason || "unhandled rejection");
 });
 renderCustomerForm();
+renderHomeTicketStatus();
 renderSurveys();
 renderAnswerPanel();
 void loadSurveys();
