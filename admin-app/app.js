@@ -1632,6 +1632,13 @@ function normalizeVisibilityCondition(condition) {
   return { questionId, value };
 }
 
+function readVisibilityConditionDraft(row) {
+  return {
+    questionId: String(row?.querySelector("[data-condition-question-id]")?.value || "").trim(),
+    value: String(row?.querySelector("[data-condition-value]")?.value || "").trim(),
+  };
+}
+
 function getQuestionVisibilityConditions(question) {
   const conditions = Array.isArray(question?.visibilityConditions)
     ? question.visibilityConditions.map(normalizeVisibilityCondition).filter(Boolean)
@@ -1650,6 +1657,15 @@ function normalizeQuestionForEditor(question) {
     options: Array.isArray(question?.options) ? question.options : [],
     visibilityConditions: getQuestionVisibilityConditions(question),
   };
+}
+
+function getQuestionConditionOptions(question) {
+  const type = question?.type || "text";
+  if (type === "rating") return ["1", "2", "3", "4", "5"];
+  if (!questionSupportsOptions(type)) return [];
+  return Array.isArray(question?.options)
+    ? question.options.map((option) => String(option || "").trim()).filter(Boolean)
+    : [];
 }
 
 function makeBlankQuestion() {
@@ -1702,6 +1718,12 @@ function toDateTimeLocalValue(value) {
 }
 
 function renderVisibilityConditionEditor(condition, previousQuestions) {
+  const selectedQuestionId = String(condition?.questionId || "").trim();
+  const selectedQuestion =
+    previousQuestions.find((item) => String(item.id || "").trim() === selectedQuestionId) || null;
+  const valueOptions = getQuestionConditionOptions(selectedQuestion);
+  const currentValue = String(condition?.value || "").trim();
+  const hasCustomValue = currentValue && valueOptions.length && !valueOptions.includes(currentValue);
   return `
     <div class="condition-row" data-visibility-condition-row>
       <select data-condition-question-id>
@@ -1716,7 +1738,29 @@ function renderVisibilityConditionEditor(condition, previousQuestions) {
           )
           .join("")}
       </select>
-      <input type="text" data-condition-value value="${escapeHtml(condition?.value || "")}" placeholder="一致する値" />
+      ${
+        valueOptions.length
+          ? `
+              <select data-condition-value>
+                <option value="">値を選択</option>
+                ${valueOptions
+                  .map(
+                    (option) => `
+                      <option value="${escapeHtml(option)}" ${currentValue === option ? "selected" : ""}>
+                        ${escapeHtml(option)}
+                      </option>
+                    `,
+                  )
+                  .join("")}
+                ${
+                  hasCustomValue
+                    ? `<option value="${escapeHtml(currentValue)}" selected>${escapeHtml(currentValue)}</option>`
+                    : ""
+                }
+              </select>
+            `
+          : `<input type="text" data-condition-value value="${escapeHtml(currentValue)}" placeholder="一致する値" />`
+      }
       <button class="secondary-button" type="button" data-remove-visibility-condition>削除</button>
     </div>
   `;
@@ -1742,28 +1786,8 @@ function renderSurveyQuestionEditor(question, index, allQuestions) {
         <strong data-question-number>質問 ${index + 1}</strong>
         <button class="secondary-button" type="button" data-remove-question>削除</button>
       </div>
-      <div class="survey-question-grid">
-        <label>
-          質問文
-          <input type="text" data-question-label value="${escapeHtml(normalizedQuestion.label || "")}" required />
-        </label>
-        <label>
-          質問形式
-          <select data-question-type>
-            <option value="text" ${type === "text" ? "selected" : ""}>テキスト</option>
-            <option value="textarea" ${type === "textarea" ? "selected" : ""}>長文</option>
-            <option value="choice" ${type === "choice" ? "selected" : ""}>単一選択</option>
-            <option value="checkbox" ${type === "checkbox" ? "selected" : ""}>複数選択</option>
-            <option value="rating" ${type === "rating" ? "selected" : ""}>5段階評価</option>
-            <option value="photo" ${type === "photo" ? "selected" : ""}>写真</option>
-          </select>
-        </label>
-      </div>
-      <label class="inline-toggle">
-        <input type="checkbox" data-question-required ${normalizedQuestion.required === false ? "" : "checked"} />
-        表示されたときに必須回答
-      </label>
       <div class="question-conditions">
+        <strong class="question-section-title">表示条件</strong>
         <div class="meta">表示条件を追加すると、すべて一致したときだけこの質問を表示します。</div>
         <div class="condition-list" data-visibility-condition-list>
           ${visibilityConditions
@@ -1771,6 +1795,30 @@ function renderSurveyQuestionEditor(question, index, allQuestions) {
             .join("")}
         </div>
         <button class="secondary-button" type="button" data-add-visibility-condition>表示条件を追加</button>
+      </div>
+      <div class="question-conditions">
+        <strong class="question-section-title">質問内容</strong>
+        <div class="survey-question-grid">
+          <label>
+            質問文
+            <input type="text" data-question-label value="${escapeHtml(normalizedQuestion.label || "")}" required />
+          </label>
+          <label>
+            質問形式
+            <select data-question-type>
+              <option value="text" ${type === "text" ? "selected" : ""}>テキスト</option>
+              <option value="textarea" ${type === "textarea" ? "selected" : ""}>長文</option>
+              <option value="choice" ${type === "choice" ? "selected" : ""}>単一選択</option>
+              <option value="checkbox" ${type === "checkbox" ? "selected" : ""}>複数選択</option>
+              <option value="rating" ${type === "rating" ? "selected" : ""}>5段階評価</option>
+              <option value="photo" ${type === "photo" ? "selected" : ""}>写真</option>
+            </select>
+          </label>
+        </div>
+        <label class="inline-toggle">
+          <input type="checkbox" data-question-required ${normalizedQuestion.required === false ? "" : "checked"} />
+          表示されたときに必須回答
+        </label>
       </div>
       <div data-options-wrapper ${supportsOptions ? "" : "hidden"}>
         <div class="option-list" data-option-list>
@@ -1815,16 +1863,29 @@ function addSurveyQuestionEditor(container, question) {
   syncSurveyQuestionNumbers(container);
 }
 
+function getEditorQuestionReferences(container) {
+  return Array.from(container?.querySelectorAll("[data-question-block]") || []).map((block) => {
+    const type = String(block.querySelector("[data-question-type]")?.value || "text");
+    return {
+      id: block.dataset.questionId || "",
+      label: String(block.querySelector("[data-question-label]")?.value || "").trim(),
+      type,
+      options: questionSupportsOptions(type)
+        ? Array.from(block.querySelectorAll("[data-option-input]"))
+            .map((input) => String(input.value || "").trim())
+            .filter(Boolean)
+        : [],
+    };
+  });
+}
+
 function getPreviousQuestionReferences(block) {
   const container = block?.parentElement;
   if (!container) return [];
-  const blocks = Array.from(container.querySelectorAll("[data-question-block]"));
-  const index = blocks.indexOf(block);
+  const questions = getEditorQuestionReferences(container);
+  const index = Array.from(container.querySelectorAll("[data-question-block]")).indexOf(block);
   if (index <= 0) return [];
-  return blocks.slice(0, index).map((item) => ({
-    id: item.dataset.questionId || "",
-    label: item.querySelector("[data-question-label]")?.value || "",
-  }));
+  return questions.slice(0, index);
 }
 
 function addVisibilityConditionEditor(block, condition = { questionId: "", value: "" }) {
@@ -1834,6 +1895,20 @@ function addVisibilityConditionEditor(block, condition = { questionId: "", value
     "beforeend",
     renderVisibilityConditionEditor(condition, getPreviousQuestionReferences(block)),
   );
+}
+
+function refreshVisibilityConditionEditors(container) {
+  Array.from(container?.querySelectorAll("[data-question-block]") || []).forEach((block) => {
+    const list = block.querySelector("[data-visibility-condition-list]");
+    if (!list) return;
+    const drafts = Array.from(list.querySelectorAll("[data-visibility-condition-row]")).map(
+      readVisibilityConditionDraft,
+    );
+    const previousQuestions = getPreviousQuestionReferences(block);
+    list.innerHTML = drafts
+      .map((condition) => renderVisibilityConditionEditor(condition, previousQuestions))
+      .join("");
+  });
 }
 
 function ensureQuestionOptions(block) {
@@ -2151,6 +2226,7 @@ function renderSurveyManager() {
       }
       removeQuestionButton.closest("[data-question-block]")?.remove();
       syncSurveyQuestionNumbers(questionsContainer);
+      refreshVisibilityConditionEditors(questionsContainer);
       return;
     }
 
@@ -2191,21 +2267,43 @@ function renderSurveyManager() {
         return;
       }
       removeOptionButton.closest(".option-row")?.remove();
+      refreshVisibilityConditionEditors(questionsContainer);
     }
   });
 
   questionsContainer?.addEventListener("change", (event) => {
     const typeSelect = event.target.closest("[data-question-type]");
-    if (!typeSelect) return;
-    const block = typeSelect.closest("[data-question-block]");
-    const wrapper = block?.querySelector("[data-options-wrapper]");
-    if (!block || !wrapper) return;
-    if (questionSupportsOptions(typeSelect.value)) {
-      wrapper.hidden = false;
-      ensureQuestionOptions(block);
+    if (typeSelect) {
+      const block = typeSelect.closest("[data-question-block]");
+      const wrapper = block?.querySelector("[data-options-wrapper]");
+      if (block && wrapper) {
+        if (questionSupportsOptions(typeSelect.value)) {
+          wrapper.hidden = false;
+          ensureQuestionOptions(block);
+        } else {
+          wrapper.hidden = true;
+        }
+      }
+      refreshVisibilityConditionEditors(questionsContainer);
       return;
     }
-    wrapper.hidden = true;
+
+    if (
+      event.target.closest("[data-condition-question-id]") ||
+      event.target.closest("[data-option-input]") ||
+      event.target.closest("[data-question-label]")
+    ) {
+      refreshVisibilityConditionEditors(questionsContainer);
+    }
+  });
+
+  questionsContainer?.addEventListener("input", (event) => {
+    if (
+      event.target.closest("[data-option-input]") ||
+      event.target.closest("[data-question-label]")
+    ) {
+      refreshVisibilityConditionEditors(questionsContainer);
+    }
   });
 
   form?.addEventListener("submit", async (event) => {
@@ -2492,7 +2590,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-16", { updateViaCache: "none" })
+        .register("./sw.js?v=20260412-01", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

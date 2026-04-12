@@ -603,6 +603,10 @@ textarea {
   gap: 8px;
 }
 
+.question-section-title {
+  color: var(--sage-dark);
+}
+
 .inline-toggle {
   display: flex;
   align-items: center;
