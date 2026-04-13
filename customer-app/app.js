@@ -6,7 +6,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-22";
+const APP_VERSION = "20260413-23";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -705,6 +705,53 @@ function ensureSessionTicketSheetSelection(surveyId) {
   const resolvedSheet = resolveCurrentSessionTicketSheetLabel(ticketPlan) || "1枚目";
   updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, resolvedSheet);
   return resolvedSheet;
+}
+
+function getTicketResponsesByPlanAndSheet(ticketPlan, ticketSheetLabel, options = {}) {
+  const normalizedPlan = normalizeText(ticketPlan);
+  const normalizedSheet = normalizeText(ticketSheetLabel);
+  const excludeResponseId = normalizeText(options.excludeResponseId);
+  if (!normalizedPlan || !normalizedSheet) return [];
+  return getVisibleHistoryResponses()
+    .filter((response) => {
+      if (excludeResponseId && response.id === excludeResponseId) return false;
+      const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
+      return (
+        normalizeText(ticketMap.get("回数券") || "") === normalizedPlan &&
+        normalizeText(ticketMap.get("何枚目") || "") === normalizedSheet
+      );
+    })
+    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+}
+
+function getExpectedSessionTicketRoundLabel(ticketPlan, ticketSheetLabel, options = {}) {
+  const normalizedPlan = normalizeText(ticketPlan);
+  const normalizedSheet = normalizeText(ticketSheetLabel);
+  const ticketCount = parseTicketCount(normalizedPlan);
+  if (!normalizedPlan || !normalizedSheet || !ticketCount) return "";
+
+  const latestSameSheetResponse = getTicketResponsesByPlanAndSheet(normalizedPlan, normalizedSheet, options)[0] || null;
+  if (latestSameSheetResponse) {
+    const ticketMap = new Map(getResponseTicketInfo(latestSameSheetResponse).map((item) => [item.label, item.value]));
+    const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
+    const expectedRound = Math.min(ticketCount, Math.max(1, currentRound + 1));
+    return `${expectedRound}回目`;
+  }
+
+  const activeOverride = getActiveTicketCardOverride();
+  if (activeOverride?.plan === normalizedPlan && `${activeOverride.sheetNumber}枚目` === normalizedSheet) {
+    return "1回目";
+  }
+
+  return "1回目";
+}
+
+function getSessionTicketRoundMismatchMessage(ticketPlan, ticketSheetLabel, ticketRoundLabel, options = {}) {
+  const selectedRound = normalizeText(ticketRoundLabel);
+  if (!selectedRound) return "";
+  const expectedRoundLabel = getExpectedSessionTicketRoundLabel(ticketPlan, ticketSheetLabel, options);
+  if (!expectedRoundLabel || expectedRoundLabel === selectedRound) return "";
+  return `スタンプカード情報と違います。正しくは ${expectedRoundLabel} だと思います。`;
 }
 
 function clearSessionSelections(surveyId) {
@@ -1451,6 +1498,9 @@ function renderSessionTicketRoundStep(survey, surveyId) {
   const selectedSheet = getSessionTicketSheetSelection(surveyId);
   const selectedValue = getSessionTicketRoundSelection(surveyId);
   const roundOptions = getTicketRoundOptions(selectedPlan);
+  const expectedRoundLabel = getExpectedSessionTicketRoundLabel(selectedPlan, selectedSheet, {
+    excludeResponseId: appState.editingResponseId,
+  });
 
   answerPanel.innerHTML = `
     ${renderPendingNotice()}
@@ -1469,6 +1519,14 @@ function renderSessionTicketRoundStep(survey, surveyId) {
         <div>${escapeHtml(selectedPlan)}</div>
         <strong>ホーム画面の枚数記録</strong>
         <div>${escapeHtml(selectedSheet)}</div>
+        ${
+          expectedRoundLabel
+            ? `
+              <strong>スタンプカード上の想定回数</strong>
+              <div>${escapeHtml(expectedRoundLabel)}</div>
+            `
+            : ""
+        }
       </div>
       <fieldset class="question-block">
         <legend><span>${escapeHtml(ticketRoundQuestion.label)}</span></legend>
@@ -1495,12 +1553,32 @@ function renderSessionTicketRoundStep(survey, surveyId) {
     updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, "");
     renderAnswerPanel();
   });
+  document.querySelectorAll('input[name="sessionTicketRound"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      const message = getSessionTicketRoundMismatchMessage(
+        selectedPlan,
+        selectedSheet,
+        normalizeText(input.value),
+        { excludeResponseId: appState.editingResponseId },
+      );
+      if (message) {
+        showToast(message);
+      }
+    });
+  });
   document.querySelector("#sessionTicketRoundForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const ticketRound = normalizeText(formData.get("sessionTicketRound"));
     if (!ticketRound) {
       showToast("回数券の何回目ですか？を選択してください。");
+      return;
+    }
+    const mismatchMessage = getSessionTicketRoundMismatchMessage(selectedPlan, selectedSheet, ticketRound, {
+      excludeResponseId: appState.editingResponseId,
+    });
+    if (mismatchMessage) {
+      showToast(mismatchMessage);
       return;
     }
     updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, ticketRound);
@@ -2255,6 +2333,18 @@ function prepareSubmissionFromDraft(survey, draft) {
   const answerMap = buildDraftAnswerMap(survey, draft);
   const answers = [];
   const summary = [];
+
+  if (isSessionSurvey(survey) && getSessionTypeSelection(survey.id) === "回数券") {
+    const mismatchMessage = getSessionTicketRoundMismatchMessage(
+      getSessionTicketPlanSelection(survey.id),
+      getSessionTicketSheetSelection(survey.id),
+      getSessionTicketRoundSelection(survey.id),
+      { excludeResponseId: appState.editingResponseId },
+    );
+    if (mismatchMessage) {
+      throw makeValidationError(SESSION_TICKET_ROUND_QUESTION_ID, mismatchMessage);
+    }
+  }
 
   for (const question of survey.questions) {
     const visible = getSubmissionQuestionVisibility(question, answerMap, survey.id);
@@ -3011,7 +3101,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-22", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-23", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
