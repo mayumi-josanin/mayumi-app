@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-06";
+const APP_VERSION = "20260413-07";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -365,6 +365,50 @@ function getSessionTicketSheetSelection(surveyId) {
 
 function getSessionTicketRoundSelection(surveyId) {
   return normalizeText(getDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID));
+}
+
+function getLatestTicketResponseByPlan(ticketPlan) {
+  const normalizedPlan = normalizeText(ticketPlan);
+  if (!normalizedPlan) return null;
+  return (
+    getVisibleHistoryResponses()
+      .filter((response) => {
+        const ticketInfo = getResponseTicketInfo(response);
+        return ticketInfo.some((item) => item.label === "回数券" && item.value === normalizedPlan);
+      })
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null
+  );
+}
+
+function resolveCurrentSessionTicketSheetLabel(ticketPlan) {
+  const normalizedPlan = normalizeText(ticketPlan);
+  if (!normalizedPlan) return "";
+  const latestResponse = getLatestTicketResponseByPlan(normalizedPlan);
+  if (!latestResponse) return "1枚目";
+
+  const ticketMap = new Map(getResponseTicketInfo(latestResponse).map((item) => [item.label, item.value]));
+  const currentSheet = normalizeText(ticketMap.get("何枚目") || "");
+  const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
+  const ticketCount = parseTicketCount(normalizedPlan);
+
+  if (!currentSheet) return "1枚目";
+  if (ticketCount && currentRound >= ticketCount) {
+    return getNextTicketSheetLabel(currentSheet) || currentSheet;
+  }
+  return currentSheet;
+}
+
+function ensureSessionTicketSheetSelection(surveyId) {
+  const currentSheet = getSessionTicketSheetSelection(surveyId);
+  if (currentSheet) return currentSheet;
+
+  const ticketPlan = getSessionTicketPlanSelection(surveyId);
+  if (!ticketPlan) return "";
+  if (appState.customer.name && appState.historyLoading) return "";
+
+  const resolvedSheet = resolveCurrentSessionTicketSheetLabel(ticketPlan) || "1枚目";
+  updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, resolvedSheet);
+  return resolvedSheet;
 }
 
 function clearSessionSelections(surveyId) {
@@ -738,6 +782,14 @@ async function loadHistory() {
     appState.historyLoadError = "";
     renderHomeTicketStatus();
     renderHistory();
+    if (
+      appState.selectedSurveyId === SESSION_SURVEY_ID &&
+      getSessionTypeSelection(SESSION_SURVEY_ID) === "回数券" &&
+      getSessionTicketPlanSelection(SESSION_SURVEY_ID) &&
+      !getSessionTicketRoundSelection(SESSION_SURVEY_ID)
+    ) {
+      renderAnswerPanel();
+    }
   } catch (error) {
     appState.history = [];
     appState.historyLoading = false;
@@ -745,6 +797,14 @@ async function loadHistory() {
     renderHomeTicketStatus();
     reportClientError("customer.loadHistory", error, { name: appState.customer.name });
     historyList.innerHTML = `<div class="empty">${escapeHtml(error.message || "履歴を読み込めませんでした。")}</div>`;
+    if (
+      appState.selectedSurveyId === SESSION_SURVEY_ID &&
+      getSessionTypeSelection(SESSION_SURVEY_ID) === "回数券" &&
+      getSessionTicketPlanSelection(SESSION_SURVEY_ID) &&
+      !getSessionTicketRoundSelection(SESSION_SURVEY_ID)
+    ) {
+      renderAnswerPanel();
+    }
   }
 }
 
@@ -1002,9 +1062,9 @@ function renderSessionTicketRoundStep(survey, surveyId) {
     <div class="section-head survey-toolbar">
       <div>
         <h2>${escapeHtml(survey.title)}</h2>
-        <p>${escapeHtml(selectedPlan)} の ${escapeHtml(selectedSheet)} の何回目かを選択してください。</p>
+        <p>${escapeHtml(selectedPlan)} の何回目かを選択してください。</p>
       </div>
-      <button id="backToSessionSheetButton" class="ghost-button" type="button">戻る</button>
+      <button id="backToSessionPlanButton" class="ghost-button" type="button">戻る</button>
     </div>
     <form id="sessionTicketRoundForm" class="question-list">
       <div class="question-block prefilled-answer">
@@ -1012,7 +1072,7 @@ function renderSessionTicketRoundStep(survey, surveyId) {
         <div>${escapeHtml(getSessionTypeSelection(surveyId))}</div>
         <strong>回数券の種類</strong>
         <div>${escapeHtml(selectedPlan)}</div>
-        <strong>回数券の何枚目</strong>
+        <strong>ホーム画面の枚数記録</strong>
         <div>${escapeHtml(selectedSheet)}</div>
       </div>
       <fieldset class="question-block">
@@ -1034,7 +1094,8 @@ function renderSessionTicketRoundStep(survey, surveyId) {
     </form>
   `;
 
-  document.querySelector("#backToSessionSheetButton").addEventListener("click", () => {
+  document.querySelector("#backToSessionPlanButton").addEventListener("click", () => {
+    updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, "");
     updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, "");
     updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, "");
     renderAnswerPanel();
@@ -1558,7 +1619,7 @@ function renderFormPanel(survey) {
                 ? `
                   <strong>回数券の種類</strong>
                   <div>${escapeHtml(getSessionTicketPlanSelection(surveyId))}</div>
-                  <strong>回数券の何枚目</strong>
+                  <strong>ホーム画面の枚数記録</strong>
                   <div>${escapeHtml(getSessionTicketSheetSelection(surveyId))}</div>
                   <strong>回数券の何回目</strong>
                   <div>${escapeHtml(getSessionTicketRoundSelection(surveyId))}</div>
@@ -1658,16 +1719,30 @@ function renderAnswerPanel() {
   if (
     isSessionSurvey(survey) &&
     getSessionTypeSelection(surveyId) === "回数券" &&
-    !getSessionTicketSheetSelection(surveyId)
-  ) {
-    renderSessionTicketSheetStep(survey, surveyId);
-    return;
-  }
-  if (
-    isSessionSurvey(survey) &&
-    getSessionTypeSelection(surveyId) === "回数券" &&
     !getSessionTicketRoundSelection(surveyId)
   ) {
+    const selectedSheet = ensureSessionTicketSheetSelection(surveyId);
+    if (!selectedSheet && appState.customer.name && appState.historyLoading) {
+      answerPanel.innerHTML = `
+        ${renderPendingNotice()}
+        <div class="section-head survey-toolbar">
+          <div>
+            <h2>${escapeHtml(survey.title)}</h2>
+            <p>ホーム画面の枚数記録を確認しています。</p>
+          </div>
+          <button id="backToSessionPlanLoadingButton" class="ghost-button" type="button">戻る</button>
+        </div>
+        <div class="empty">回数券の現在の枚数を読み込み中です。</div>
+      `;
+      document.querySelector("#backToSessionPlanLoadingButton").addEventListener("click", () => {
+        updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, "");
+        updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, "");
+        updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, "");
+        renderAnswerPanel();
+      });
+      attachCommonButtons();
+      return;
+    }
     renderSessionTicketRoundStep(survey, surveyId);
     return;
   }
@@ -2418,7 +2493,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-06", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-07", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
