@@ -336,6 +336,22 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
+  async function waitForCustomerProfile(gasUrl, customer, matcher) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "history", {
+        clientId: getClientId(),
+        name: normalizeText(customer?.name),
+        nameKana: normalizeText(customer?.nameKana),
+        recoverByName: customer?.historyMatchMode === "name" ? "1" : "",
+      });
+      if (!matcher || matcher(data.customerProfile || null, data.responses || [], data)) {
+        return data;
+      }
+    }
+    return null;
+  }
+
   async function waitForAdminUpdatedResponse(gasUrl, token, responseId, expected) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
@@ -477,6 +493,31 @@ window.MayumiSurveyApi = (() => {
           );
         }
         return { response: savedResponse || response };
+      }
+
+      if (path === "/api/public/customer-profile/ticket-card" && method === "POST") {
+        const customer = options.body?.customer || {};
+        const ticketCard = options.body?.ticketCard || {};
+        const expectedPlan = normalizeText(ticketCard.plan);
+        const expectedSheetNumber = Math.floor(Number(ticketCard.sheetNumber) || 0);
+        const expectedRound = Math.max(0, Math.floor(Number(ticketCard.round) || 0));
+        await postToGas(gasUrl, "updatePublicTicketCard", {
+          clientId: getClientId(),
+          customer,
+          ticketCard,
+        });
+        const updated = await waitForCustomerProfile(gasUrl, customer, (profile) => {
+          const activeTicketCard = profile?.activeTicketCard || {};
+          return (
+            normalizeText(activeTicketCard.plan) === expectedPlan &&
+            Math.floor(Number(activeTicketCard.sheetNumber) || 0) === expectedSheetNumber &&
+            Math.max(0, Math.floor(Number(activeTicketCard.round) || 0)) === expectedRound
+          );
+        });
+        if (!updated) {
+          throw new Error("スタンプカード情報の保存を確認できませんでした。");
+        }
+        return { customerProfile: updated.customerProfile || null };
       }
 
       if (path.startsWith("/api/public/responses/") && method === "PUT") {

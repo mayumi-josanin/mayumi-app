@@ -135,6 +135,7 @@ const state = {
   surveys: [],
   responses: [],
   adminInfo: null,
+  customerProfiles: {},
   preferences: null,
   logs: { auditLogs: [], errorLogs: [] },
   customerMemos: {},
@@ -185,6 +186,56 @@ function formatDate(value) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function parseTicketLabelNumber(value) {
+  const matched = String(value || "").match(/\d+/);
+  return matched ? Number(matched[0]) : 0;
+}
+
+function normalizeActiveTicketCard(value) {
+  if (!value || typeof value !== "object") return null;
+  const plan = String(value.plan || "").trim();
+  const sheetNumber = Math.floor(Number(value.sheetNumber) || parseTicketLabelNumber(value.sheetLabel));
+  const round = Math.max(0, Math.floor(Number(value.round) || parseTicketLabelNumber(value.roundLabel)));
+  if (!plan || sheetNumber <= 0) return null;
+  return {
+    plan,
+    sheetNumber,
+    round,
+  };
+}
+
+function normalizeCustomerProfile(value) {
+  return {
+    name: String(value?.name || "").trim(),
+    nameKana: String(value?.nameKana || "").trim(),
+    activeTicketCard: normalizeActiveTicketCard(value?.activeTicketCard),
+  };
+}
+
+function indexCustomerProfiles(list) {
+  const indexed = {};
+  (Array.isArray(list) ? list : []).forEach((item) => {
+    const profile = normalizeCustomerProfile(item);
+    if (!profile.name) return;
+    indexed[profile.name] = profile;
+  });
+  return indexed;
+}
+
+function getCustomerProfileByName(customerName) {
+  return state.customerProfiles[String(customerName || "").trim()] || null;
+}
+
+function buildTicketInfoFromActiveTicketCard(ticketCard) {
+  const normalized = normalizeActiveTicketCard(ticketCard);
+  if (!normalized) return [];
+  return [
+    { label: "回数券", value: normalized.plan },
+    { label: "何枚目", value: `${normalized.sheetNumber}枚目` },
+    { label: "何回目", value: `${normalized.round}回目` },
+  ];
 }
 
 function normalizeStatus(status) {
@@ -266,6 +317,7 @@ async function loadAdminData() {
     api.request("/api/admin/customer-memos", { token: state.token }),
   ]);
   state.adminInfo = adminInfoResult || null;
+  state.customerProfiles = indexCustomerProfiles(state.adminInfo?.customerProfiles);
   state.surveys = (surveysResult.surveys || []).length
     ? surveysResult.surveys || []
     : getFallbackSurveys();
@@ -761,13 +813,14 @@ function getTicketProgressInfo(ticketInfo) {
 }
 
 function renderTicketStampProgress(ticketCount, currentRound) {
-  if (!ticketCount || !currentRound) return "";
+  if (!ticketCount) return "";
+  const normalizedRound = Math.max(0, Number(currentRound) || 0);
   return `
     <div class="ticket-progress">
       ${Array.from({ length: ticketCount }, (_, index) => {
         const step = index + 1;
         return `
-          <span class="stamp-dot ${step <= currentRound ? "active" : ""}" aria-label="${step}回目">
+          <span class="stamp-dot ${step <= normalizedRound ? "active" : ""}" aria-label="${step}回目">
             ${step}
           </span>
         `;
@@ -834,6 +887,12 @@ function groupResponsesBySurvey(responses) {
 }
 
 function getCurrentTicketInfoForCustomer(customerName) {
+  const profileTicketInfo = buildTicketInfoFromActiveTicketCard(
+    getCustomerProfileByName(customerName)?.activeTicketCard,
+  );
+  if (profileTicketInfo.length) {
+    return profileTicketInfo;
+  }
   const latestTicketResponse = state.responses
     .filter(
       (response) =>
@@ -3686,7 +3745,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-20", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-21", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -3754,6 +3813,7 @@ credentialForm.addEventListener("submit", async (event) => {
       },
     });
     state.adminInfo = result.adminInfo || state.adminInfo;
+    state.customerProfiles = indexCustomerProfiles(state.adminInfo?.customerProfiles);
     state.adminUsers = Array.isArray(state.adminInfo?.adminUsers) ? state.adminInfo.adminUsers : state.adminUsers;
     credentialForm.dataset.dirty = "";
     credentialForm.reset();
@@ -3770,6 +3830,7 @@ credentialForm.addEventListener("submit", async (event) => {
 document.querySelector("#logoutButton").addEventListener("click", () => {
   state.token = "";
   state.adminInfo = null;
+  state.customerProfiles = {};
   localStorage.removeItem(TOKEN_KEY);
   void api.logout?.();
   setLoggedIn(false);

@@ -6,7 +6,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-21";
+const APP_VERSION = "20260413-22";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -302,10 +302,24 @@ function syncActiveTicketCardOverrideWithHistory() {
   clearActiveTicketCardOverride();
 }
 
+function normalizeServerActiveTicketCard(value) {
+  if (!value || typeof value !== "object") return null;
+  const plan = normalizeText(value.plan);
+  const sheetNumber = Math.floor(Number(value.sheetNumber) || parseTicketSheet(value.sheetLabel || ""));
+  const round = Math.max(0, Math.floor(Number(value.round) || parseTicketStep(value.roundLabel || "")));
+  if (!plan || sheetNumber <= 0) return null;
+  return {
+    plan,
+    sheetNumber,
+    round,
+  };
+}
+
 function normalizeServerCustomerProfile(value) {
   return {
     name: normalizeText(value?.name),
     nameKana: normalizeKana(value?.nameKana),
+    activeTicketCard: normalizeServerActiveTicketCard(value?.activeTicketCard),
   };
 }
 
@@ -333,6 +347,31 @@ function syncCustomerProfileFromServer(serverProfile) {
   saveLocal(CUSTOMER_KEY, appState.customer);
   syncCustomerForms();
   return true;
+}
+
+function syncActiveTicketCardOverrideFromServer(serverProfile) {
+  const server = normalizeServerCustomerProfile(serverProfile);
+  const activeTicketCard = server.activeTicketCard;
+  if (!activeTicketCard) return false;
+
+  const currentOverride = getActiveTicketCardOverride();
+  if (activeTicketCard.round <= 0) {
+    if (!currentOverride) {
+      setActiveTicketCardOverride(activeTicketCard.plan, activeTicketCard.sheetNumber);
+      return true;
+    }
+    return false;
+  }
+
+  if (
+    currentOverride &&
+    currentOverride.plan === activeTicketCard.plan &&
+    currentOverride.sheetNumber <= activeTicketCard.sheetNumber
+  ) {
+    clearActiveTicketCardOverride();
+    return true;
+  }
+  return false;
 }
 
 function buildHistorySearchParams(profile, options = {}) {
@@ -1067,6 +1106,7 @@ async function loadHistory() {
     );
     appState.history = Array.isArray(result.responses) ? result.responses : [];
     syncCustomerProfileFromServer(result.customerProfile);
+    syncActiveTicketCardOverrideFromServer(result.customerProfile);
     syncActiveTicketCardOverrideWithHistory();
     appState.historyLoading = false;
     appState.historyLoadError = "";
@@ -2516,7 +2556,7 @@ function getNextTicketSheetLabel(sheetValue) {
   return currentSheet ? `${currentSheet + 1}枚目` : "";
 }
 
-function acquireNextTicketSheet(ticketPlan) {
+async function acquireNextTicketSheet(ticketPlan) {
   const nextSheetLabel = getNextTicketSheetLabelForPlan(ticketPlan);
   const nextSheetNumber = parseTicketSheet(nextSheetLabel);
   if (!normalizeText(ticketPlan) || !nextSheetNumber) {
@@ -2525,7 +2565,28 @@ function acquireNextTicketSheet(ticketPlan) {
   }
   setActiveTicketCardOverride(ticketPlan, nextSheetNumber);
   renderHomeTicketStatus();
-  showToast(`${ticketPlan} ${nextSheetLabel} を取得しました。`);
+  try {
+    const result = await api.request("/api/public/customer-profile/ticket-card", {
+      method: "POST",
+      body: {
+        customer: appState.customer,
+        ticketCard: {
+          plan: ticketPlan,
+          sheetNumber: nextSheetNumber,
+          round: 0,
+        },
+      },
+    });
+    syncCustomerProfileFromServer(result.customerProfile);
+    syncActiveTicketCardOverrideFromServer(result.customerProfile);
+    showToast(`${ticketPlan} ${nextSheetLabel} を取得しました。`);
+  } catch (error) {
+    reportClientError("customer.acquireTicketSheet", error, {
+      ticketPlan,
+      sheetNumber: nextSheetNumber,
+    });
+    showToast(`${ticketPlan} ${nextSheetLabel} を端末に保存しました。通信後に更新してください。`);
+  }
 }
 
 function getLatestTicketResponse() {
@@ -2674,7 +2735,7 @@ function renderHomeTicketStatus() {
 
   homeTicketStatus.querySelectorAll("[data-acquire-ticket-plan]").forEach((button) => {
     button.addEventListener("click", () => {
-      acquireNextTicketSheet(button.dataset.acquireTicketPlan || "");
+      void acquireNextTicketSheet(button.dataset.acquireTicketPlan || "");
     });
   });
 }
@@ -2950,7 +3011,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-21", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-22", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
