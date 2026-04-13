@@ -239,6 +239,27 @@ textarea {
   gap: 10px;
 }
 
+.concern-category-list {
+  display: grid;
+  gap: 10px;
+}
+
+.concern-category-card {
+  display: grid;
+  gap: 10px;
+}
+
+.concern-category-card.active {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fdfaf6;
+}
+
+.concern-option-list {
+  margin-top: 2px;
+}
+
 .selection-button {
   width: 100%;
   min-height: 48px;

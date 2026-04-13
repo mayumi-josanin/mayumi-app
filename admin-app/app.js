@@ -340,6 +340,40 @@ function renderCompactResponse(response) {
   `;
 }
 
+function getCheckboxAnswerValues(answer) {
+  return String(answer?.value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function getConcernAnalyticsRows(answerMapList) {
+  const selectedOptionsByResponse = answerMapList.map((answerMap) => {
+    const answer = answerMap.get(SESSION_CONCERN_QUESTION_ID);
+    return new Set(getCheckboxAnswerValues(answer));
+  });
+
+  return SESSION_CONCERN_CATEGORIES.map((category) => {
+    const optionRows = category.options.map((option) => {
+      const count = selectedOptionsByResponse.reduce(
+        (total, selectedOptions) => total + (selectedOptions.has(option) ? 1 : 0),
+        0,
+      );
+      return { label: option, count };
+    });
+
+    return {
+      label: category.label,
+      count: selectedOptionsByResponse.reduce(
+        (total, selectedOptions) =>
+          total + (category.options.some((option) => selectedOptions.has(option)) ? 1 : 0),
+        0,
+      ),
+      rows: optionRows,
+    };
+  });
+}
+
 function getSurveyAnalyticsSummary(surveyId) {
   const survey = findSurveyById(surveyId);
   if (!survey) return [];
@@ -365,15 +399,19 @@ function getSurveyAnalyticsSummary(surveyId) {
     }
 
     if (question.type === "checkbox" || question.type === "choice" || question.type === "rating") {
+      if (question.id === SESSION_CONCERN_QUESTION_ID) {
+        return {
+          question,
+          groups: getConcernAnalyticsRows(answerMapList),
+        };
+      }
+
       const counter = new Map();
       answerMapList.forEach((answerMap) => {
         const answer = answerMap.get(question.id);
         const values =
           question.type === "checkbox"
-            ? String(answer?.value || "")
-                .split(",")
-                .map((item) => item.trim())
-                .filter(Boolean)
+            ? getCheckboxAnswerValues(answer)
             : [String(answer?.value || "").trim()].filter(Boolean);
         values.forEach((value) => {
           counter.set(value, (counter.get(value) || 0) + 1);
@@ -426,18 +464,51 @@ function renderSurveyAnalytics() {
       (item) => `
         <article class="answer-item">
           <strong>${escapeHtml(item.question.label)}</strong>
-          <div class="analytics-list">
-            ${item.rows
-              .map(
-                (row) => `
-                  <div class="analytics-row">
-                    <span>${escapeHtml(row.label)}</span>
-                    <strong>${row.count}件</strong>
-                  </div>
-                `,
-              )
-              .join("")}
-          </div>
+          ${
+            Array.isArray(item.groups)
+              ? `
+                <div class="analytics-group-list">
+                  ${item.groups
+                    .map(
+                      (group) => `
+                        <section class="analytics-group-card">
+                          <div class="analytics-group-head">
+                            <strong>${escapeHtml(group.label)}</strong>
+                            <span>${group.count}件</span>
+                          </div>
+                          <div class="analytics-list">
+                            ${group.rows
+                              .map(
+                                (row) => `
+                                  <div class="analytics-row">
+                                    <span>${escapeHtml(row.label)}</span>
+                                    <strong>${row.count}件</strong>
+                                  </div>
+                                `,
+                              )
+                              .join("")}
+                          </div>
+                        </section>
+                      `,
+                    )
+                    .join("")}
+                </div>
+              `
+              : `
+                <div class="analytics-list">
+                  ${item.rows
+                    .map(
+                      (row) => `
+                        <div class="analytics-row">
+                          <span>${escapeHtml(row.label)}</span>
+                          <strong>${row.count}件</strong>
+                        </div>
+                      `,
+                    )
+                    .join("")}
+                </div>
+              `
+          }
         </article>
       `,
     )
@@ -2728,7 +2799,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-04", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-05", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
