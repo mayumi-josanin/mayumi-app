@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-13";
+const APP_VERSION = "20260413-14";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -186,7 +186,6 @@ const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
 const installButton = document.querySelector("#installButton");
 const registrationLead = document.querySelector("#registrationLead");
-const registrationGuide = document.querySelector("#registrationGuide");
 const customerRegisterButton = document.querySelector("#customerRegisterButton");
 const recoverAccountButton = document.querySelector("#recoverAccountButton");
 const bottomNav = document.querySelector("#bottomNav");
@@ -267,19 +266,6 @@ function renderRegistrationGuide() {
     registrationLead.textContent = canRegister
       ? "このアプリから会員登録してください。登録後は回答履歴もそのまま確認できます。"
       : "ブラウザでは初回会員登録を行わず、ホーム画面に追加したアプリから会員登録してください。";
-  }
-  if (registrationGuide) {
-    registrationGuide.innerHTML = canRegister
-      ? `
-          <strong>初回の流れ</strong><br />
-          1. お名前とフリガナを入力して会員登録します。<br />
-          2. 登録後はこのアプリから回答と履歴確認を行ってください。
-        `
-      : `
-          <strong>重複登録を防ぐ方法</strong><br />
-          初回会員登録はホーム画面に追加したアプリからだけ行ってください。<br />
-          ブラウザで開いた場合は、下の「登録済みの方 / 名前一致で復旧」を使ってください。
-        `;
   }
   if (customerRegisterButton) {
     customerRegisterButton.disabled = !canRegister;
@@ -2741,7 +2727,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-13", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-14", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
