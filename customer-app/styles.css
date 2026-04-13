@@ -234,6 +234,29 @@ textarea {
   text-align: left;
 }
 
+.selection-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.selection-button {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-dark);
+  text-align: left;
+  font-weight: 700;
+}
+
+.selection-button.active {
+  border-color: var(--sage);
+  background: #f5f8f1;
+  color: var(--sage-dark);
+}
+
 .survey-card.active {
   border-color: var(--sage);
   background: #f5f8f1;
@@ -522,6 +545,13 @@ legend {
   font-size: 12px;
   font-weight: 400;
   line-height: 1.6;
+}
+
+.question-caption {
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.7;
 }
 
 .question-label {

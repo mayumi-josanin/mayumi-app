@@ -275,6 +275,10 @@ function isLegacyTicketEndLastPhotoQuestion(question, survey) {
   return survey?.id === "survey_bijiris_ticket_end" && question?.id === "q_ticket_end_photo_last";
 }
 
+function isBijirisSessionTicketPhotoQuestion(question, survey) {
+  return survey?.id === "survey_bijiris_session" && question?.id === "q_bijiris_session_ticket_photos";
+}
+
 function isLegacyTicketEndLastPhotoVisible(answerMap) {
   const ticketSize = normalizeText(answerMap?.q_ticket_end_ticket_size?.[0]);
   const ticketRound = normalizeText(answerMap?.q_ticket_end_ticket_round?.[0]);
@@ -282,6 +286,20 @@ function isLegacyTicketEndLastPhotoVisible(answerMap) {
     (ticketSize === "6回券" && ticketRound === "6回目") ||
     (ticketSize === "10回券" && ticketRound === "10回目")
   );
+}
+
+function getPhotoQuestionMaxFiles(question, survey) {
+  if (isBijirisSessionTicketPhotoQuestion(question, survey)) return 4;
+  return PHOTO_FILE_LIMIT;
+}
+
+function getPhotoQuestionRequiredCount(question, visible, survey) {
+  if (!visible) return 0;
+  if (isBijirisSessionTicketPhotoQuestion(question, survey)) return 4;
+  if (isLegacyTicketEndLastPhotoQuestion(question, survey) && !getQuestionVisibilityConditions(question).length) {
+    return 1;
+  }
+  return question?.required === false ? 0 : 1;
 }
 
 function isQuestionVisible(question, answerMap, survey) {
@@ -299,10 +317,10 @@ function isQuestionVisible(question, answerMap, survey) {
 }
 
 function isQuestionRequired(question, visible, survey) {
-  if (!visible) return false;
-  if (isLegacyTicketEndLastPhotoQuestion(question, survey) && !getQuestionVisibilityConditions(question).length) {
-    return true;
+  if (question?.type === "photo") {
+    return getPhotoQuestionRequiredCount(question, visible, survey) > 0;
   }
+  if (!visible) return false;
   return question?.required === false ? false : true;
 }
 
@@ -353,10 +371,14 @@ function validateSurveyPayload(payload, existing) {
   };
 }
 
-function normalizePhotoFiles(files) {
+function normalizePhotoFiles(files, question, survey) {
+  const maxFiles = getPhotoQuestionMaxFiles(question, survey);
   if (!Array.isArray(files)) return [];
+  if (files.length > maxFiles) {
+    throw new Error(`写真は${maxFiles}枚まで添付できます。`);
+  }
   return files
-    .slice(0, PHOTO_FILE_LIMIT)
+    .slice(0, maxFiles)
     .map((file) => {
       const name = normalizeText(file?.name).slice(0, 140) || "photo.jpg";
       const type = normalizeText(file?.type) || "image/jpeg";
@@ -393,8 +415,11 @@ function validateResponsePayload(db, payload) {
     const visible = isQuestionVisible(question, rawAnswerMap, survey);
     const required = isQuestionRequired(question, visible, survey);
     if (question.type === "photo") {
-      const files = visible ? normalizePhotoFiles(answer.files) : [];
-      if (required && !files.length) throw new Error("未回答の質問があります。");
+      const requiredPhotoCount = getPhotoQuestionRequiredCount(question, visible, survey);
+      const files = visible ? normalizePhotoFiles(answer.files, question, survey) : [];
+      if (required && files.length < requiredPhotoCount) {
+        throw new Error(requiredPhotoCount === 1 ? "未回答の質問があります。" : `写真を${requiredPhotoCount}枚添付してください。`);
+      }
       return {
         questionId: question.id,
         label: question.label,

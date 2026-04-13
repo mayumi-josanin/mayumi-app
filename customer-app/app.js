@@ -5,11 +5,61 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260411-16";
+const APP_VERSION = "20260413-01";
+const SESSION_SURVEY_ID = "survey_bijiris_session";
+const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
+const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
+const SESSION_TICKET_PHOTO_QUESTION_ID = "q_bijiris_session_ticket_photos";
+const SESSION_CONCERN_QUESTION_ID = "q_bijiris_session_concern";
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
 const TICKET_END_COUNT_QUESTION_ID = "q_ticket_end_ticket_size";
 const TICKET_END_SHEET_QUESTION_ID = "q_ticket_end_ticket_sheet";
 const TICKET_END_ROUND_QUESTION_ID = "q_ticket_end_ticket_round";
+const SESSION_CONCERN_CATEGORIES = [
+  {
+    id: "toilet",
+    label: "【トイレ・デリケートゾーンのお悩み】",
+    options: [
+      "咳、くしゃみ、大笑いした時に尿もれすることがある",
+      "ジャンプや運動、重いものを持った時に尿もれすることがある",
+      "急にトイレに行きたくなる、我慢できず間に合わないことがある",
+      "トイレが近い・夜中に何度もトイレで起きる",
+      "デリケートゾーンの違和感や乾燥が気になる",
+      "便秘しやすい・お腹が張りやすい",
+    ],
+  },
+  {
+    id: "posture",
+    label: "【姿勢・体型のお悩み】",
+    options: [
+      "姿勢が崩れやすい・猫背や反り腰が気になる",
+      "下腹ぽっこりが気になる",
+      "ヒップラインや骨盤まわりのゆるみが気になる",
+      "産後の体型変化が気になる",
+    ],
+  },
+  {
+    id: "pain",
+    label: "【痛み・めぐりのお悩み】",
+    options: [
+      "腰痛がある",
+      "股関節や骨盤まわりに痛み・違和感がある",
+      "冷えやむくみが気になる",
+      "疲れやすい・眠りが浅い",
+    ],
+  },
+  {
+    id: "care",
+    label: "【ビジリス（骨盤底筋ケア）について知りたいこと】",
+    options: [
+      "骨盤底筋ケアでどんな変化が期待できるか知りたい",
+      "自宅でできる骨盤底筋ケアを知りたい",
+      "妊活や産後ケアにどう役立つか知りたい",
+      "自分に合う通い方や頻度を知りたい",
+      "その他",
+    ],
+  },
+];
 
 const appState = {
   customer: loadLocal(CUSTOMER_KEY, { name: "" }),
@@ -34,6 +84,7 @@ const appState = {
   historyResponseId: "",
   historyLoading: false,
   historyLoadError: "",
+  concernCategoryByQuestion: {},
 };
 
 const api = window.MayumiSurveyApi;
@@ -272,6 +323,33 @@ function getSelectedSurvey() {
   return appState.surveys.find((survey) => survey.id === appState.selectedSurveyId) || null;
 }
 
+function isSessionSurvey(survey) {
+  return survey?.id === SESSION_SURVEY_ID;
+}
+
+function getSessionTypeSelection(surveyId) {
+  return normalizeText(getDraftValue(surveyId, SESSION_TYPE_QUESTION_ID));
+}
+
+function getSessionTicketPlanSelection(surveyId) {
+  return normalizeText(getDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID));
+}
+
+function clearSessionSelections(surveyId) {
+  const draft = getSurveyDraft(surveyId);
+  delete draft.values[SESSION_TYPE_QUESTION_ID];
+  delete draft.values[SESSION_TICKET_PLAN_QUESTION_ID];
+  setSurveyDraft(surveyId, draft);
+}
+
+function getSessionTypeQuestion(survey) {
+  return survey.questions.find((question) => question.id === SESSION_TYPE_QUESTION_ID);
+}
+
+function getSessionTicketPlanQuestion(survey) {
+  return survey.questions.find((question) => question.id === SESSION_TICKET_PLAN_QUESTION_ID);
+}
+
 function getTicketEndCountSelection(surveyId) {
   return normalizeText(getDraftValue(surveyId, TICKET_END_COUNT_QUESTION_ID));
 }
@@ -309,8 +387,25 @@ function getTicketRoundOptions(ticketCount) {
   return Array.from({ length: max }, (_, index) => `${index + 1}回目`);
 }
 
+function isSessionTicketPhotoQuestion(question) {
+  return question?.id === SESSION_TICKET_PHOTO_QUESTION_ID;
+}
+
 function isTicketEndLastPhotoQuestion(question) {
   return question?.id === "q_ticket_end_photo_last";
+}
+
+function getPhotoQuestionFileLimit(question) {
+  if (isSessionTicketPhotoQuestion(question)) return 4;
+  return PHOTO_FILE_LIMIT;
+}
+
+function getPhotoQuestionRequiredCount(question, surveyId = appState.selectedSurveyId) {
+  if (isSessionTicketPhotoQuestion(question)) return 4;
+  if (isTicketEndLastPhotoQuestion(question) && !getQuestionVisibilityConditions(question).length) {
+    return isTicketEndLastPhotoRequired(surveyId) ? 1 : 0;
+  }
+  return question.required === false ? 0 : 1;
 }
 
 function isTicketEndLastPhotoRequired(surveyId) {
@@ -340,8 +435,8 @@ function getQuestionVisibilityConditions(question) {
 }
 
 function isQuestionRequired(question, surveyId) {
-  if (isTicketEndLastPhotoQuestion(question) && !getQuestionVisibilityConditions(question).length) {
-    return isTicketEndLastPhotoRequired(surveyId);
+  if (question?.type === "photo") {
+    return getPhotoQuestionRequiredCount(question, surveyId) > 0;
   }
   return question.required !== false;
 }
@@ -355,6 +450,40 @@ function getQuestionLabel(question, surveyId = appState.selectedSurveyId) {
     if (ticketCount === "10回券") return "計測写真(10回目)";
   }
   return question.label;
+}
+
+function getSubmissionQuestionVisibility(question, answerMap, surveyId = appState.selectedSurveyId) {
+  if (question.id === SESSION_TYPE_QUESTION_ID) return true;
+  if (question.id === SESSION_TICKET_PLAN_QUESTION_ID) {
+    return getSessionTypeSelection(surveyId) === "回数券";
+  }
+  if (question.id === TICKET_END_COUNT_QUESTION_ID) return true;
+  if (question.id === TICKET_END_SHEET_QUESTION_ID) return Boolean(getTicketEndCountSelection(surveyId));
+  if (question.id === TICKET_END_ROUND_QUESTION_ID) {
+    return Boolean(getTicketEndCountSelection(surveyId) && getTicketEndSheetSelection(surveyId));
+  }
+  return isQuestionVisible(question, answerMap, surveyId);
+}
+
+function getConcernCategoryStateKey(surveyId, questionId) {
+  return `${surveyId}:${questionId}`;
+}
+
+function getConcernActiveCategory(surveyId, questionId, selectedOptions = []) {
+  const key = getConcernCategoryStateKey(surveyId, questionId);
+  const current = appState.concernCategoryByQuestion[key];
+  if (SESSION_CONCERN_CATEGORIES.some((category) => category.id === current)) {
+    return current;
+  }
+  const matched = SESSION_CONCERN_CATEGORIES.find((category) =>
+    category.options.some((option) => selectedOptions.includes(option)),
+  );
+  return matched?.id || SESSION_CONCERN_CATEGORIES[0]?.id || "";
+}
+
+function setConcernActiveCategory(surveyId, questionId, categoryId) {
+  const key = getConcernCategoryStateKey(surveyId, questionId);
+  appState.concernCategoryByQuestion[key] = categoryId;
 }
 
 function getSurveyAvailability(survey) {
@@ -425,6 +554,9 @@ function isQuestionVisible(question, answerMap, surveyId = appState.selectedSurv
 function getVisibleQuestions(survey, draft) {
   const answerMap = buildDraftAnswerMap(survey, draft);
   return survey.questions.filter((question) => {
+    if (question.id === SESSION_TYPE_QUESTION_ID || question.id === SESSION_TICKET_PLAN_QUESTION_ID) {
+      return false;
+    }
     if (
       question.id === TICKET_END_COUNT_QUESTION_ID ||
       question.id === TICKET_END_SHEET_QUESTION_ID ||
@@ -625,6 +757,109 @@ function refreshProgressDisplay(survey) {
   }
 }
 
+function renderSessionTypeStep(survey, surveyId) {
+  const sessionTypeQuestion = getSessionTypeQuestion(survey);
+  const selectedType = getSessionTypeSelection(surveyId);
+  answerPanel.innerHTML = `
+    ${renderPendingNotice()}
+    <div class="section-head survey-toolbar">
+      <div>
+        <h2>${escapeHtml(survey.title)}</h2>
+        <p>施術内容を選択してください。</p>
+      </div>
+      <button id="backToHomeButton" class="ghost-button" type="button">一覧へ戻る</button>
+    </div>
+    <div class="question-list">
+      <div class="question-block">
+        <strong>${escapeHtml(sessionTypeQuestion.label)}</strong>
+        <div class="selection-grid">
+          ${sessionTypeQuestion.options
+            .map(
+              (option) => `
+                <button
+                  class="selection-button ${selectedType === option ? "active" : ""}"
+                  type="button"
+                  data-session-type-option="${escapeHtml(option)}"
+                >
+                  ${escapeHtml(option)}
+                </button>
+              `,
+            )
+            .join("")}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.querySelector("#backToHomeButton").addEventListener("click", () => setPage("home"));
+  document.querySelectorAll("[data-session-type-option]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextType = normalizeText(button.dataset.sessionTypeOption);
+      if (!nextType) return;
+      updateDraftValue(surveyId, SESSION_TYPE_QUESTION_ID, nextType);
+      if (nextType !== "回数券") {
+        updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, "");
+      }
+      renderAnswerPanel();
+    });
+  });
+  attachCommonButtons();
+}
+
+function renderSessionTicketPlanStep(survey, surveyId) {
+  const ticketPlanQuestion = getSessionTicketPlanQuestion(survey);
+  const selectedPlan = getSessionTicketPlanSelection(surveyId);
+  answerPanel.innerHTML = `
+    ${renderPendingNotice()}
+    <div class="section-head survey-toolbar">
+      <div>
+        <h2>${escapeHtml(survey.title)}</h2>
+        <p>回数券の種類を選択してください。</p>
+      </div>
+      <button id="backToSessionTypeButton" class="ghost-button" type="button">戻る</button>
+    </div>
+    <div class="question-list">
+      <div class="question-block prefilled-answer">
+        <strong>施術内容</strong>
+        <div>${escapeHtml(getSessionTypeSelection(surveyId))}</div>
+      </div>
+      <div class="question-block">
+        <strong>${escapeHtml(ticketPlanQuestion.label)}</strong>
+        <div class="selection-grid">
+          ${ticketPlanQuestion.options
+            .map(
+              (option) => `
+                <button
+                  class="selection-button ${selectedPlan === option ? "active" : ""}"
+                  type="button"
+                  data-session-ticket-plan-option="${escapeHtml(option)}"
+                >
+                  ${escapeHtml(option)}
+                </button>
+              `,
+            )
+            .join("")}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.querySelector("#backToSessionTypeButton").addEventListener("click", () => {
+    updateDraftValue(surveyId, SESSION_TYPE_QUESTION_ID, "");
+    updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, "");
+    renderAnswerPanel();
+  });
+  document.querySelectorAll("[data-session-ticket-plan-option]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextPlan = normalizeText(button.dataset.sessionTicketPlanOption);
+      if (!nextPlan) return;
+      updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, nextPlan);
+      renderAnswerPanel();
+    });
+  });
+  attachCommonButtons();
+}
+
 function renderTicketStepCount(survey, surveyId) {
   const ticketQuestion = getTicketEndCountQuestion(survey);
   const selectedValue = getTicketEndCountSelection(surveyId);
@@ -795,6 +1030,7 @@ function renderQuestion(question, index, surveyId) {
   const draft = getSurveyDraft(surveyId);
   const name = `question-${question.id}`;
   const required = isQuestionRequired(question, surveyId);
+  const selectedCheckboxValues = Array.isArray(draft.values[question.id]) ? draft.values[question.id] : [];
   const label = `
     <span>${index + 1}. ${escapeHtml(getQuestionLabel(question, surveyId))}</span>
     ${required ? "" : `<span class="meta">任意</span>`}
@@ -850,7 +1086,45 @@ function renderQuestion(question, index, surveyId) {
   }
 
   if (question.type === "checkbox") {
-    const selected = new Set(Array.isArray(draft.values[question.id]) ? draft.values[question.id] : []);
+    const selected = new Set(selectedCheckboxValues);
+    if (question.id === SESSION_CONCERN_QUESTION_ID) {
+      const activeCategoryId = getConcernActiveCategory(surveyId, question.id, selectedCheckboxValues);
+      const activeCategory =
+        SESSION_CONCERN_CATEGORIES.find((category) => category.id === activeCategoryId) ||
+        SESSION_CONCERN_CATEGORIES[0];
+      return `
+        <fieldset class="question-block" data-question-wrap="${question.id}">
+          <legend>${label}</legend>
+          <div class="question-caption">気になるカテゴリを選んでから、該当する詳細項目にチェックしてください。</div>
+          <div class="selection-grid">
+            ${SESSION_CONCERN_CATEGORIES.map(
+              (category) => `
+                <button
+                  class="selection-button ${category.id === activeCategory.id ? "active" : ""}"
+                  type="button"
+                  data-concern-category="${escapeHtml(category.id)}"
+                  data-question-id="${question.id}"
+                >
+                  ${escapeHtml(category.label)}
+                </button>
+              `,
+            ).join("")}
+          </div>
+          <div class="checkbox-row">
+            ${activeCategory.options
+              .map(
+                (option) => `
+                  <label>
+                    <input type="checkbox" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${selected.has(option) ? "checked" : ""} />
+                    ${escapeHtml(option)}
+                  </label>
+                `,
+              )
+              .join("")}
+          </div>
+        </fieldset>
+      `;
+    }
     return `
       <fieldset class="question-block" data-question-wrap="${question.id}">
         <legend>${label}</legend>
@@ -872,6 +1146,8 @@ function renderQuestion(question, index, surveyId) {
 
   if (question.type === "photo") {
     const files = getDraftPhotos(surveyId, question.id);
+    const maxFiles = getPhotoQuestionFileLimit(question);
+    const requiredPhotoCount = getPhotoQuestionRequiredCount(question, surveyId);
     return `
       <div class="question-block" data-question-wrap="${question.id}">
         <div class="question-label">${label}</div>
@@ -882,7 +1158,7 @@ function renderQuestion(question, index, surveyId) {
           </button>
           ${files.length ? `<button class="ghost-button" type="button" data-photo-pick="${question.id}" data-photo-mode="replace">撮り直す</button>` : ""}
         </div>
-        <span class="field-help">スマホ内の写真を選択してください。最大 ${PHOTO_FILE_LIMIT} 枚まで添付できます。</span>
+        <span class="field-help">スマホ内の写真を選択してください。${requiredPhotoCount > 1 ? `${requiredPhotoCount}枚必須、` : ""}最大 ${maxFiles} 枚まで添付できます。</span>
         ${
           files.length
             ? `
@@ -1072,6 +1348,25 @@ function renderFormPanel(survey) {
     }
     ${renderProgressBar(progress)}
     ${
+      isSessionSurvey(survey)
+        ? `
+          <div class="question-block prefilled-answer">
+            <strong>施術内容</strong>
+            <div>${escapeHtml(getSessionTypeSelection(surveyId))}</div>
+            ${
+              getSessionTypeSelection(surveyId) === "回数券"
+                ? `
+                  <strong>回数券の種類</strong>
+                  <div>${escapeHtml(getSessionTicketPlanSelection(surveyId))}</div>
+                `
+                : ""
+            }
+            <button id="changeSessionTypeButton" class="ghost-button" type="button">変更する</button>
+          </div>
+        `
+        : ""
+    }
+    ${
       isTicketEndSurvey(survey)
         ? `
           <div class="question-block prefilled-answer">
@@ -1125,6 +1420,10 @@ function renderFormPanel(survey) {
   `;
 
   document.querySelector("#backToHomeButton").addEventListener("click", () => setPage("home"));
+  document.querySelector("#changeSessionTypeButton")?.addEventListener("click", () => {
+    clearSessionSelections(surveyId);
+    renderAnswerPanel();
+  });
   document.querySelector("#changeTicketCountButton")?.addEventListener("click", () => {
     clearTicketEndSelections(surveyId);
     renderAnswerPanel();
@@ -1159,6 +1458,18 @@ function renderAnswerPanel() {
     return;
   }
 
+  if (isSessionSurvey(survey) && !getSessionTypeSelection(surveyId)) {
+    renderSessionTypeStep(survey, surveyId);
+    return;
+  }
+  if (
+    isSessionSurvey(survey) &&
+    getSessionTypeSelection(surveyId) === "回数券" &&
+    !getSessionTicketPlanSelection(surveyId)
+  ) {
+    renderSessionTicketPlanStep(survey, surveyId);
+    return;
+  }
   if (isTicketEndSurvey(survey) && !getTicketEndCountSelection(surveyId)) {
     renderTicketStepCount(survey, surveyId);
     return;
@@ -1216,20 +1527,32 @@ function attachAnswerFormHandlers(form, survey) {
     });
   });
 
+  form.querySelectorAll("[data-concern-category]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const questionId = button.dataset.questionId;
+      const categoryId = button.dataset.concernCategory;
+      if (!questionId || !categoryId) return;
+      setConcernActiveCategory(survey.id, questionId, categoryId);
+      renderAnswerPanel();
+    });
+  });
+
   form.querySelectorAll("[data-photo-input]").forEach((input) => {
     input.addEventListener("change", async () => {
       const questionId = input.dataset.photoInput;
       const files = Array.from(input.files || []);
       if (!files.length) return;
 
+      const question = survey.questions.find((item) => item.id === questionId);
+      const maxFiles = getPhotoQuestionFileLimit(question);
       const existing = getDraftPhotos(survey.id, questionId);
       const nextFiles = input.dataset.photoMode === "replace" ? [] : existing.slice();
 
       try {
-        for (const file of files.slice(0, PHOTO_FILE_LIMIT)) {
+        for (const file of files.slice(0, maxFiles)) {
           nextFiles.push(await preparePhotoFile(file));
         }
-        updateDraftPhotos(survey.id, questionId, nextFiles.slice(0, PHOTO_FILE_LIMIT));
+        updateDraftPhotos(survey.id, questionId, nextFiles.slice(0, maxFiles));
         renderAnswerPanel();
       } catch (error) {
         reportClientError("customer.photo.prepare", error, { questionId });
@@ -1272,18 +1595,21 @@ function prepareSubmissionFromDraft(survey, draft) {
   const summary = [];
 
   for (const question of survey.questions) {
-    const visible =
-      question.id === TICKET_END_COUNT_QUESTION_ID ||
-      question.id === TICKET_END_SHEET_QUESTION_ID ||
-      question.id === TICKET_END_ROUND_QUESTION_ID
-        ? true
-        : isQuestionVisible(question, answerMap, survey.id);
+    const visible = getSubmissionQuestionVisibility(question, answerMap, survey.id);
     const required = isQuestionRequired(question, survey.id);
 
     if (question.type === "photo") {
       const files = visible ? getDraftPhotos(survey.id, question.id) : [];
-      if (visible && required && !files.length) {
-        throw makeValidationError(question.id, "未回答の質問があります。");
+      const requiredPhotoCount = getPhotoQuestionRequiredCount(question, survey.id);
+      const maxFiles = getPhotoQuestionFileLimit(question);
+      if (visible && files.length > maxFiles) {
+        throw makeValidationError(question.id, `写真は${maxFiles}枚まで添付できます。`);
+      }
+      if (visible && required && files.length < requiredPhotoCount) {
+        throw makeValidationError(
+          question.id,
+          requiredPhotoCount === 1 ? "未回答の質問があります。" : `写真を${requiredPhotoCount}枚添付してください。`,
+        );
       }
       answers.push({ questionId: question.id, files: cloneData(files) });
       if (visible) {
@@ -1835,7 +2161,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260411-16", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-01", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
