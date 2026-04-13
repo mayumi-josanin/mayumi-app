@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-03";
+const APP_VERSION = "20260413-04";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -321,6 +321,20 @@ function hasDraftContent(draft) {
 
 function getSelectedSurvey() {
   return appState.surveys.find((survey) => survey.id === appState.selectedSurveyId) || null;
+}
+
+function getVisibleSurveyIdSet() {
+  return new Set(
+    appState.surveys
+      .map((survey) => normalizeText(survey?.id))
+      .filter(Boolean),
+  );
+}
+
+function getVisibleHistoryResponses() {
+  const visibleSurveyIds = getVisibleSurveyIdSet();
+  if (!visibleSurveyIds.size) return appState.history.slice();
+  return appState.history.filter((response) => visibleSurveyIds.has(normalizeText(response?.surveyId)));
 }
 
 function isSessionSurvey(survey) {
@@ -1857,7 +1871,7 @@ function parseTicketStep(stepValue) {
 }
 
 function getLatestTicketResponse() {
-  return appState.history
+  return getVisibleHistoryResponses()
     .filter((response) => getResponseTicketInfo(response).length)
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null;
 }
@@ -1944,7 +1958,7 @@ function renderResponseTicketInfo(response) {
 
 function groupHistoryBySurvey() {
   const groups = new Map();
-  appState.history
+  getVisibleHistoryResponses()
     .slice()
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
     .forEach((response) => {
@@ -2168,7 +2182,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-03", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-04", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

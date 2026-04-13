@@ -84,6 +84,14 @@ const credentialForm = document.querySelector("#credentialForm");
 const installButton = document.querySelector("#installButton");
 const loginSubmitButton = document.querySelector("#loginSubmitButton");
 
+function getVisibleSurveyIdSet() {
+  return new Set(
+    state.surveys
+      .map((survey) => String(survey?.id || "").trim())
+      .filter(Boolean),
+  );
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -185,11 +193,16 @@ async function loadAdminData() {
   state.surveys = (surveysResult.surveys || []).length
     ? surveysResult.surveys || []
     : getFallbackSurveys();
-  state.responses = (responsesResult.responses || []).map((response) => ({
-    status: "new",
-    adminMemo: "",
-    ...response,
-  }));
+  const visibleSurveyIds = getVisibleSurveyIdSet();
+  state.responses = (responsesResult.responses || [])
+    .map((response) => ({
+      status: "new",
+      adminMemo: "",
+      ...response,
+    }))
+    .filter((response) =>
+      !visibleSurveyIds.size || visibleSurveyIds.has(String(response?.surveyId || "").trim()),
+    );
   state.preferences = preferencesResult?.preferences || null;
   state.logs = logsResult || { auditLogs: [], errorLogs: [] };
   state.customerMemos = customerMemosResult?.memos || {};
@@ -2715,7 +2728,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-03", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-04", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
