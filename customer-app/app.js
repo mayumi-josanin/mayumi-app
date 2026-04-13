@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-07";
+const APP_VERSION = "20260413-08";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -494,6 +494,21 @@ function getSessionPhotoQuestionConfig(question) {
   return null;
 }
 
+function isBijirisSessionPhotoQuestion(question) {
+  return Boolean(getSessionPhotoQuestionConfig(question));
+}
+
+function isBijirisSessionFinalPhotoVisible(answerMap = {}) {
+  const sessionType = normalizeText(answerMap[SESSION_TYPE_QUESTION_ID]?.[0]);
+  const ticketPlan = normalizeText(answerMap[SESSION_TICKET_PLAN_QUESTION_ID]?.[0]);
+  const ticketRound = normalizeText(answerMap[SESSION_TICKET_ROUND_QUESTION_ID]?.[0]);
+  return (
+    sessionType === "回数券" &&
+    ((ticketPlan === "6回券" && ticketRound === "6回目") ||
+      (ticketPlan === "10回券" && ticketRound === "10回目"))
+  );
+}
+
 function isTicketEndLastPhotoQuestion(question) {
   return question?.id === "q_ticket_end_photo_last";
 }
@@ -653,6 +668,9 @@ function buildDraftAnswerMap(survey, draft) {
 }
 
 function isQuestionVisible(question, answerMap, surveyId = appState.selectedSurveyId) {
+  if (surveyId === SESSION_SURVEY_ID && isBijirisSessionPhotoQuestion(question)) {
+    return isBijirisSessionFinalPhotoVisible(answerMap);
+  }
   const conditions = getQuestionVisibilityConditions(question);
   if (conditions.length) {
     return conditions.every((condition) => {
@@ -2493,7 +2511,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-07", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-08", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

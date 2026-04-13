@@ -289,6 +289,21 @@ function getBijirisSessionPhotoConfig(question, survey) {
   return null;
 }
 
+function isBijirisSessionPhotoQuestion(question, survey) {
+  return Boolean(getBijirisSessionPhotoConfig(question, survey));
+}
+
+function isBijirisSessionFinalPhotoVisible(answerMap = {}) {
+  const sessionType = normalizeText(answerMap?.q_bijiris_session_type?.[0]);
+  const ticketPlan = normalizeText(answerMap?.q_bijiris_session_ticket_plan?.[0]);
+  const ticketRound = normalizeText(answerMap?.q_bijiris_session_ticket_round?.[0]);
+  return (
+    sessionType === "回数券" &&
+    ((ticketPlan === "6回券" && ticketRound === "6回目") ||
+      (ticketPlan === "10回券" && ticketRound === "10回目"))
+  );
+}
+
 function isLegacyTicketEndLastPhotoVisible(answerMap) {
   const ticketSize = normalizeText(answerMap?.q_ticket_end_ticket_size?.[0]);
   const ticketRound = normalizeText(answerMap?.q_ticket_end_ticket_round?.[0]);
@@ -315,6 +330,9 @@ function getPhotoQuestionRequiredCount(question, visible, survey) {
 }
 
 function isQuestionVisible(question, answerMap, survey) {
+  if (isBijirisSessionPhotoQuestion(question, survey)) {
+    return isBijirisSessionFinalPhotoVisible(answerMap);
+  }
   const conditions = getQuestionVisibilityConditions(question);
   if (conditions.length) {
     return conditions.every((condition) => {
