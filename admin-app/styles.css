@@ -429,6 +429,56 @@ textarea {
   margin-top: 8px;
 }
 
+.ticket-stamp-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.ticket-progress-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ticket-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ticket-progress {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stamp-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #f5f1ea;
+  color: var(--text-light);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stamp-dot.active {
+  background: var(--sage);
+  border-color: var(--sage);
+  color: #fff;
+}
+
 .ticket-stamp {
   display: inline-flex;
   align-items: center;

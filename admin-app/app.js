@@ -725,13 +725,76 @@ function renderTicketStampList(ticketInfo) {
   `;
 }
 
+function parseTicketCount(ticketValue) {
+  const normalized = String(ticketValue || "");
+  if (normalized.includes("10")) return 10;
+  if (normalized.includes("6")) return 6;
+  const matched = normalized.match(/\d+/);
+  return matched ? Number(matched[0]) : 0;
+}
+
+function parseTicketStep(stepValue) {
+  const matched = String(stepValue || "").match(/\d+/);
+  return matched ? Number(matched[0]) : 0;
+}
+
+function getTicketProgressInfo(ticketInfo) {
+  const ticketMap = new Map((ticketInfo || []).map((item) => [item.label, item.value]));
+  const ticketCount = parseTicketCount(ticketMap.get("回数券") || "");
+  const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
+  return {
+    sheetLabel: ticketMap.get("何枚目") || "",
+    ticketCount,
+    currentRound,
+  };
+}
+
+function renderTicketStampProgress(ticketCount, currentRound) {
+  if (!ticketCount || !currentRound) return "";
+  return `
+    <div class="ticket-progress">
+      ${Array.from({ length: ticketCount }, (_, index) => {
+        const step = index + 1;
+        return `
+          <span class="stamp-dot ${step <= currentRound ? "active" : ""}" aria-label="${step}回目">
+            ${step}
+          </span>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderTicketStampPanel(ticketInfo) {
+  if (!ticketInfo.length) return "";
+  const { sheetLabel, ticketCount, currentRound } = getTicketProgressInfo(ticketInfo);
+  return `
+    <div class="ticket-stamp-panel">
+      ${renderTicketStampList(ticketInfo)}
+      ${
+        ticketCount
+          ? `
+            <div class="ticket-progress-card">
+              <div class="ticket-progress-head">
+                <strong>${escapeHtml(sheetLabel || "-")}</strong>
+                <span>${currentRound || 0} / ${ticketCount}</span>
+              </div>
+              ${renderTicketStampProgress(ticketCount, currentRound)}
+            </div>
+          `
+          : ""
+      }
+    </div>
+  `;
+}
+
 function renderResponseTicketInfo(response) {
   const ticketInfo = getResponseTicketInfo(response);
   if (!ticketInfo.length) return "";
   return `
     <div class="answer-item ticket-info-panel">
       <strong>回答者情報</strong>
-      ${renderTicketStampList(ticketInfo)}
+      ${renderTicketStampPanel(ticketInfo)}
     </div>
   `;
 }
@@ -802,7 +865,7 @@ function renderCustomerSummaryCard(customerName, responses) {
       <div class="meta">最新回答: ${latestResponse ? `${escapeHtml(latestResponse.surveyTitle)} / ${formatDate(latestResponse.submittedAt)}` : "-"}</div>
       ${
         ticketInfo.length
-          ? renderTicketStampList(ticketInfo)
+          ? renderTicketStampPanel(ticketInfo)
           : `<div class="meta">現在の回数券スタンプ情報はありません。</div>`
       }
     </article>
@@ -1026,7 +1089,7 @@ function renderCustomerManagement() {
       <div class="stack">
         ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
         ${renderComparisonSection(selectedResponse)}
-        ${renderReadOnlyResponseCard(selectedResponse)}
+        ${renderResponseCard(selectedResponse)}
       </div>
     `;
   }
@@ -1086,6 +1149,21 @@ function renderCustomerManagement() {
     });
   });
 
+  stage.querySelectorAll("[data-save-response]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void saveResponseManagement(
+        button.dataset.saveResponse,
+        button.closest("[data-response-card]"),
+      );
+    });
+  });
+
+  stage.querySelectorAll("[data-delete-response]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void deleteResponse(button.dataset.deleteResponse);
+    });
+  });
+
   attachLightboxHandlers(stage);
 }
 
@@ -1110,7 +1188,7 @@ function renderCurrentCustomerInfo() {
       ${
         ticketInfo.length
           ? `
-            ${renderTicketStampList(ticketInfo)}
+            ${renderTicketStampPanel(ticketInfo)}
           `
           : `<div class="meta">現在の回数券情報はありません。</div>`
       }
@@ -1859,7 +1937,10 @@ function renderResponses() {
 
   stage.querySelectorAll("[data-save-response]").forEach((button) => {
     button.addEventListener("click", () => {
-      void saveResponseManagement(button.dataset.saveResponse);
+      void saveResponseManagement(
+        button.dataset.saveResponse,
+        button.closest("[data-response-card]"),
+      );
     });
   });
 
@@ -1904,6 +1985,7 @@ function renderResponseCard(response) {
         </div>
         <span class="badge ${status}">${STATUS_LABELS[status]}</span>
       </div>
+      ${renderResponseTicketInfo(response)}
       ${renderResponsePhotoGallery(response, survey)}
       <div class="answer-list">
         ${displayAnswers
@@ -1950,8 +2032,8 @@ function renderResponseCard(response) {
   `;
 }
 
-async function saveResponseManagement(responseId) {
-  const card = document.querySelector(`[data-response-card="${responseId}"]`);
+async function saveResponseManagement(responseId, sourceCard = null) {
+  const card = sourceCard || document.querySelector(`[data-response-card="${responseId}"]`);
   if (!card) return;
   const response = state.responses.find((item) => item.id === responseId);
   const survey = findSurveyById(response?.surveyId);
@@ -3429,7 +3511,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-16", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-17", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
