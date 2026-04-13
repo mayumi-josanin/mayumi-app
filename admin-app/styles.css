@@ -320,6 +320,13 @@ button.response-history-card {
   align-items: end;
 }
 
+.customer-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -961,6 +968,7 @@ textarea {
   .grid-two,
   .survey-manager-grid,
   .filter-grid,
+  .customer-editor-grid,
   .management-grid,
   .survey-question-grid,
   .condition-row,

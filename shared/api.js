@@ -389,6 +389,32 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
+  async function waitForAdminCustomerUpdate(gasUrl, token, currentName, nextName) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "adminResponses", { token });
+      const responses = Array.isArray(data.responses) ? data.responses : [];
+      const matched = responses.filter(
+        (response) => normalizeText(response.customerName) === normalizeText(nextName || currentName),
+      );
+      if (matched.length) return matched;
+    }
+    return null;
+  }
+
+  async function waitForAdminCustomerDeletion(gasUrl, token, customerName) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "adminResponses", { token });
+      const responses = Array.isArray(data.responses) ? data.responses : [];
+      const remains = responses.some(
+        (response) => normalizeText(response.customerName) === normalizeText(customerName),
+      );
+      if (!remains) return true;
+    }
+    return false;
+  }
+
   function initGasApi(gasUrl) {
     async function request(path, options = {}) {
       const method = options.method || "GET";
@@ -619,6 +645,36 @@ window.MayumiSurveyApi = (() => {
 
       if (path === "/api/admin/customer-memos" && method === "GET") {
         return jsonp(gasUrl, "adminCustomerMemos", { token: options.token });
+      }
+
+      if (path.startsWith("/api/admin/customers/") && method === "PUT") {
+        const currentName = getRouteId(path, "/api/admin/customers/");
+        const payload = {
+          name: normalizeText(options.body?.name),
+          ticketPlan: normalizeText(options.body?.ticketPlan),
+          ticketSheet: normalizeText(options.body?.ticketSheet),
+          ticketRound: normalizeText(options.body?.ticketRound),
+        };
+        await postToGas(gasUrl, "adminUpdateCustomer", {
+          token: options.token,
+          customerName: currentName,
+          payload,
+        });
+        const updatedName = payload.name || currentName;
+        const updated = await waitForAdminCustomerUpdate(gasUrl, options.token, currentName, updatedName);
+        if (!updated) throw new Error("顧客情報の更新を確認できませんでした。");
+        return { customerName: updatedName };
+      }
+
+      if (path.startsWith("/api/admin/customers/") && method === "DELETE") {
+        const customerName = getRouteId(path, "/api/admin/customers/");
+        await postToGas(gasUrl, "adminDeleteCustomer", {
+          token: options.token,
+          customerName,
+        });
+        const deleted = await waitForAdminCustomerDeletion(gasUrl, options.token, customerName);
+        if (!deleted) throw new Error("顧客削除を確認できませんでした。");
+        return { ok: true };
       }
 
       if (path.startsWith("/api/admin/customer-memos/") && method === "PUT") {

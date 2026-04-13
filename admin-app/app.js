@@ -125,6 +125,9 @@ const SESSION_CONCERN_CATEGORIES = [
     ],
   },
 ];
+const CUSTOMER_TICKET_PLAN_OPTIONS = ["", "6回券", "10回券"];
+const CUSTOMER_TICKET_SHEET_OPTIONS = Array.from({ length: 20 }, (_, index) => `${index + 1}枚目`);
+const CUSTOMER_TICKET_ROUND_OPTIONS = Array.from({ length: 10 }, (_, index) => `${index + 1}回目`);
 
 const api = window.MayumiSurveyApi;
 const state = {
@@ -872,6 +875,145 @@ function renderCustomerSummaryCard(customerName, responses) {
   `;
 }
 
+function getCurrentTicketDraft(customerName) {
+  const ticketMap = new Map(getCurrentTicketInfoForCustomer(customerName).map((item) => [item.label, item.value]));
+  return {
+    ticketPlan: ticketMap.get("回数券") || "",
+    ticketSheet: ticketMap.get("何枚目") || "",
+    ticketRound: ticketMap.get("何回目") || "",
+  };
+}
+
+function renderCustomerEditorCard(customerName) {
+  const draft = getCurrentTicketDraft(customerName);
+  return `
+    <article class="answer-item">
+      <strong>顧客情報を編集</strong>
+      <form id="customerProfileForm" class="stack" data-customer-name="${escapeHtml(customerName)}">
+        <div class="customer-editor-grid">
+          <label>
+            お名前
+            <input name="customerName" type="text" value="${escapeHtml(customerName)}" required />
+          </label>
+          <label>
+            回数券の種類
+            <select name="ticketPlan">
+              ${CUSTOMER_TICKET_PLAN_OPTIONS
+                .map(
+                  (option) => `
+                    <option value="${escapeHtml(option)}" ${draft.ticketPlan === option ? "selected" : ""}>
+                      ${escapeHtml(option || "未設定")}
+                    </option>
+                  `,
+                )
+                .join("")}
+            </select>
+          </label>
+          <label>
+            回数券の何枚目
+            <select name="ticketSheet">
+              <option value="">未設定</option>
+              ${CUSTOMER_TICKET_SHEET_OPTIONS
+                .map(
+                  (option) => `
+                    <option value="${escapeHtml(option)}" ${draft.ticketSheet === option ? "selected" : ""}>
+                      ${escapeHtml(option)}
+                    </option>
+                  `,
+                )
+                .join("")}
+            </select>
+          </label>
+          <label>
+            回数券の何回目
+            <select name="ticketRound">
+              <option value="">未設定</option>
+              ${CUSTOMER_TICKET_ROUND_OPTIONS
+                .map(
+                  (option) => `
+                    <option value="${escapeHtml(option)}" ${draft.ticketRound === option ? "selected" : ""}>
+                      ${escapeHtml(option)}
+                    </option>
+                  `,
+                )
+                .join("")}
+            </select>
+          </label>
+        </div>
+        <div class="action-row">
+          <button class="secondary-button" type="submit">顧客情報を保存</button>
+          <button class="secondary-button danger-button" type="button" id="deleteCustomerButton">顧客を削除</button>
+        </div>
+      </form>
+    </article>
+  `;
+}
+
+async function saveCustomerProfile(form) {
+  const currentName = String(form.dataset.customerName || "").trim();
+  const formData = new FormData(form);
+  const name = String(formData.get("customerName") || "").trim();
+  const ticketPlan = String(formData.get("ticketPlan") || "").trim();
+  const ticketSheet = String(formData.get("ticketSheet") || "").trim();
+  const ticketRound = String(formData.get("ticketRound") || "").trim();
+  if (!name) {
+    showToast("お名前を入力してください。");
+    return;
+  }
+  const hasAnyTicketValue = Boolean(ticketPlan || ticketSheet || ticketRound);
+  if (hasAnyTicketValue && !(ticketPlan && ticketSheet && ticketRound)) {
+    showToast("回数券情報は種類・何枚目・何回目をすべて選択してください。");
+    return;
+  }
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "保存中";
+  }
+  try {
+    const result = await api.request(`/api/admin/customers/${encodeURIComponent(currentName)}`, {
+      method: "PUT",
+      token: state.token,
+      body: {
+        name,
+        ticketPlan,
+        ticketSheet,
+        ticketRound,
+      },
+    });
+    state.selectedCustomerViewName = result.customerName || name;
+    await loadAdminData();
+    setPage("customers");
+    showToast("顧客情報を保存しました。");
+  } catch (error) {
+    showToast(error.message || "顧客情報を保存できませんでした。");
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = "顧客情報を保存";
+    }
+  }
+}
+
+async function deleteCustomerProfile(customerName) {
+  if (!customerName) return;
+  if (!confirm("この顧客情報と関連する回答履歴をすべて削除しますか？")) return;
+  try {
+    await api.request(`/api/admin/customers/${encodeURIComponent(customerName)}`, {
+      method: "DELETE",
+      token: state.token,
+    });
+    state.selectedCustomerViewName = "";
+    state.selectedCustomerViewSurveyId = "";
+    state.selectedCustomerViewResponseId = "";
+    await loadAdminData();
+    setPage("customers");
+    showToast("顧客情報を削除しました。");
+  } catch (error) {
+    showToast(error.message || "顧客情報を削除できませんでした。");
+  }
+}
+
 function renderReadOnlyResponseCard(response) {
   const status = normalizeStatus(response.status);
   const survey = findSurveyById(response.surveyId);
@@ -1010,6 +1152,7 @@ function renderCustomerManagement() {
       </div>
       <div class="stack">
         ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
+        ${renderCustomerEditorCard(selectedCustomer.name)}
         <article class="answer-item">
           <strong>アンケート回答履歴</strong>
           <div class="survey-history-list">
@@ -1084,6 +1227,7 @@ function renderCustomerManagement() {
           <button class="secondary-button" type="button" data-print-customer-response="${selectedResponse.id}">印刷</button>
           <button class="secondary-button" type="button" data-download-customer-photos="${selectedResponse.id}">写真DL</button>
           <button class="secondary-button" type="button" data-back-customer-stage="responses">戻る</button>
+          <button class="secondary-button" type="button" data-close-customer-detail>閉じる</button>
         </div>
       </div>
       <div class="stack">
@@ -1147,6 +1291,21 @@ function renderCustomerManagement() {
       const response = state.responses.find((item) => item.id === button.dataset.downloadCustomerPhotos);
       if (response) downloadFiles(collectPhotosFromResponses([response]), response.customerName || "response");
     });
+  });
+
+  stage.querySelector("[data-close-customer-detail]")?.addEventListener("click", () => {
+    state.selectedCustomerViewSurveyId = "";
+    state.selectedCustomerViewResponseId = "";
+    renderCustomerManagement();
+  });
+
+  stage.querySelector("#customerProfileForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void saveCustomerProfile(event.currentTarget);
+  });
+
+  stage.querySelector("#deleteCustomerButton")?.addEventListener("click", () => {
+    void deleteCustomerProfile(selectedCustomer?.name || "");
   });
 
   stage.querySelectorAll("[data-save-response]").forEach((button) => {
@@ -1889,6 +2048,7 @@ function renderResponses() {
           <button class="secondary-button" type="button" data-print-response="${selectedResponse.id}">印刷</button>
           <button class="secondary-button" type="button" data-download-response-photos="${selectedResponse.id}">写真DL</button>
           <button class="secondary-button" type="button" data-back-stage="survey-history">戻る</button>
+          <button class="secondary-button" type="button" data-close-response-detail>閉じる</button>
         </div>
       </div>
       ${renderComparisonSection(selectedResponse)}
@@ -1933,6 +2093,13 @@ function renderResponses() {
       }
       renderResponses();
     });
+  });
+
+  stage.querySelector("[data-close-response-detail]")?.addEventListener("click", () => {
+    state.selectedResponseSurveyId = "";
+    state.selectedResponseId = "";
+    state.selectedResponseIds = [];
+    renderResponses();
   });
 
   stage.querySelectorAll("[data-save-response]").forEach((button) => {
@@ -3511,7 +3678,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-17", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-18", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
