@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-11";
+const APP_VERSION = "20260413-12";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -151,7 +151,7 @@ const SESSION_CONCERN_CATEGORIES = [
 ];
 
 const appState = {
-  customer: loadLocal(CUSTOMER_KEY, { name: "" }),
+  customer: normalizeCustomerProfile(loadLocal(CUSTOMER_KEY, { name: "", nameKana: "", historyMatchMode: "device" })),
   drafts: loadLocal(DRAFTS_KEY, {}),
   pendingSubmission: loadLocal(PENDING_KEY, null),
   surveys: [],
@@ -182,8 +182,11 @@ const surveyList = document.querySelector("#surveyList");
 const answerPanel = document.querySelector("#answerPanel");
 const historyList = document.querySelector("#historyList");
 const homeTicketStatus = document.querySelector("#homeTicketStatus");
+const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
 const installButton = document.querySelector("#installButton");
+const recoverAccountButton = document.querySelector("#recoverAccountButton");
+const bottomNav = document.querySelector("#bottomNav");
 
 function loadLocal(key, fallback) {
   try {
@@ -216,6 +219,31 @@ function cloneData(value) {
 
 function normalizeText(value) {
   return String(value ?? "").trim();
+}
+
+function normalizeKana(value) {
+  return String(value ?? "").replace(/\s+/g, "").trim();
+}
+
+function normalizeCustomerProfile(value) {
+  return {
+    name: normalizeText(value?.name),
+    nameKana: normalizeKana(value?.nameKana),
+    historyMatchMode: value?.historyMatchMode === "name" ? "name" : "device",
+  };
+}
+
+function isKatakanaName(value) {
+  return /^[ァ-ヶー・ヴ　]+$/.test(String(value || ""));
+}
+
+function hasCustomerSession() {
+  return Boolean(appState.customer.name && appState.customer.nameKana);
+}
+
+function getCustomerDisplayName() {
+  if (!hasCustomerSession()) return "";
+  return `${appState.customer.name}（${appState.customer.nameKana}）`;
 }
 
 function escapeHtml(value) {
@@ -483,7 +511,7 @@ function ensureSessionTicketSheetSelection(surveyId) {
 
   const ticketPlan = getSessionTicketPlanSelection(surveyId);
   if (!ticketPlan) return "";
-  if (appState.customer.name && appState.historyLoading) return "";
+  if (hasCustomerSession() && appState.historyLoading) return "";
 
   const resolvedSheet = resolveCurrentSessionTicketSheetLabel(ticketPlan) || "1枚目";
   updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, resolvedSheet);
@@ -822,6 +850,9 @@ function renderPendingNotice() {
 }
 
 function setPage(page) {
+  if (page !== "login" && !hasCustomerSession()) {
+    page = "login";
+  }
   const navPage = page === "survey" ? "home" : page;
   document.querySelectorAll(".page").forEach((node) => {
     node.classList.toggle("active", node.id === `page-${page}`);
@@ -829,7 +860,10 @@ function setPage(page) {
   document.querySelectorAll(".nav-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.page === navPage);
   });
-  if ((page === "history" || page === "home") && appState.customer.name) {
+  if (bottomNav) {
+    bottomNav.hidden = !hasCustomerSession();
+  }
+  if ((page === "history" || page === "home") && hasCustomerSession()) {
     void loadHistory();
   }
 }
@@ -863,12 +897,12 @@ async function loadSurveys() {
 }
 
 async function loadHistory() {
-  if (!appState.customer.name) {
+  if (!hasCustomerSession()) {
     appState.history = [];
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
-    historyList.innerHTML = `<div class="empty">先にお客様情報を保存してください。</div>`;
+    historyList.innerHTML = `<div class="empty">先にログインしてください。</div>`;
     return;
   }
 
@@ -877,8 +911,13 @@ async function loadHistory() {
   renderHomeTicketStatus();
   historyList.innerHTML = `<div class="empty">読み込み中です。</div>`;
   try {
+    const params = new URLSearchParams();
+    params.set("name", appState.customer.name);
+    if (appState.customer.historyMatchMode === "name") {
+      params.set("recoverByName", "1");
+    }
     const result = await api.request(
-      `/api/public/responses?name=${encodeURIComponent(appState.customer.name)}`,
+      `/api/public/responses?${params.toString()}`,
     );
     appState.history = Array.isArray(result.responses) ? result.responses : [];
     appState.historyLoading = false;
@@ -911,11 +950,75 @@ async function loadHistory() {
   }
 }
 
-function renderCustomerForm() {
-  customerForm.elements.name.value = appState.customer.name || "";
+function syncCustomerForms() {
+  if (customerLoginForm) {
+    customerLoginForm.elements.name.value = appState.customer.name || "";
+    customerLoginForm.elements.nameKana.value = appState.customer.nameKana || "";
+  }
+  if (customerForm) {
+    customerForm.elements.name.value = appState.customer.name || "";
+    customerForm.elements.nameKana.value = appState.customer.nameKana || "";
+  }
+}
+
+function readCustomerProfileFromForm(form) {
+  const formData = new FormData(form);
+  return normalizeCustomerProfile({
+    name: formData.get("name"),
+    nameKana: formData.get("nameKana"),
+    historyMatchMode: appState.customer.historyMatchMode,
+  });
+}
+
+function validateCustomerProfile(profile) {
+  if (!profile.name) {
+    throw new Error("お名前を入力してください。");
+  }
+  if (!profile.nameKana) {
+    throw new Error("フリガナを入力してください。");
+  }
+  if (!isKatakanaName(profile.nameKana)) {
+    throw new Error("フリガナはカタカナで入力してください。");
+  }
+}
+
+async function applyCustomerSession(profile, options = {}) {
+  const { recovery = false } = options;
+  validateCustomerProfile(profile);
+  const nextCustomer = {
+    ...profile,
+    historyMatchMode: recovery ? "name" : "device",
+  };
+
+  if (recovery) {
+    const result = await api.request(
+      `/api/public/responses?name=${encodeURIComponent(nextCustomer.name)}&recoverByName=1`,
+    );
+    const responses = Array.isArray(result.responses) ? result.responses : [];
+    if (!responses.length) {
+      throw new Error("一致する回答履歴が見つかりませんでした。");
+    }
+    appState.history = responses;
+    appState.historyLoading = false;
+    appState.historyLoadError = "";
+  }
+
+  appState.customer = nextCustomer;
+  saveLocal(CUSTOMER_KEY, appState.customer);
+  syncCustomerForms();
+  await loadHistory();
+  setPage("home");
+  renderHomeTicketStatus();
+  renderHistory();
+  showToast(recovery ? "名前一致でアカウントを復旧しました。" : "ログインしました。");
 }
 
 function selectSurvey(surveyId) {
+  if (!hasCustomerSession()) {
+    setPage("login");
+    showToast("先にログインしてください。");
+    return;
+  }
   appState.selectedSurveyId = surveyId;
   appState.panelMode = "form";
   appState.confirmPayload = null;
@@ -1825,7 +1928,7 @@ function renderAnswerPanel() {
     !getSessionTicketRoundSelection(surveyId)
   ) {
     const selectedSheet = ensureSessionTicketSheetSelection(surveyId);
-    if (!selectedSheet && appState.customer.name && appState.historyLoading) {
+    if (!selectedSheet && hasCustomerSession() && appState.historyLoading) {
       answerPanel.innerHTML = `
         ${renderPendingNotice()}
         <div class="section-head survey-toolbar">
@@ -2046,8 +2149,9 @@ function prepareSubmissionFromDraft(survey, draft) {
 async function submitPreparedAnswer() {
   const survey = getSelectedSurvey();
   if (!survey || !appState.confirmPayload) return;
-  if (!appState.customer.name) {
-    showToast("先にお客様情報を保存してください。");
+  if (!hasCustomerSession()) {
+    showToast("先にログインしてください。");
+    setPage("login");
     return;
   }
 
@@ -2286,8 +2390,8 @@ function renderTicketStampProgress(ticketCount, currentRound) {
 
 function renderHomeTicketStatus() {
   if (!homeTicketStatus) return;
-  if (!appState.customer.name) {
-    homeTicketStatus.innerHTML = `<div class="empty">お名前を保存すると回数券スタンプを表示します。</div>`;
+  if (!hasCustomerSession()) {
+    homeTicketStatus.innerHTML = `<div class="empty">ログインすると回数券スタンプを表示します。</div>`;
     return;
   }
   if (appState.historyLoading) {
@@ -2321,7 +2425,7 @@ function renderHomeTicketStatus() {
     <article class="ticket-home-card">
       <div class="ticket-home-head">
         <div>
-          <strong>${escapeHtml(appState.customer.name)}</strong>
+          <strong>${escapeHtml(getCustomerDisplayName())}</strong>
           <div class="meta">最新更新: ${formatDate(response.submittedAt)}</div>
         </div>
         <span class="badge open">${escapeHtml(ticketMap.get("何回目") || "-")}</span>
@@ -2596,7 +2700,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-11", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-12", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -2617,24 +2721,64 @@ function setupInstall() {
   });
 }
 
-customerForm.addEventListener("submit", (event) => {
+customerLoginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const formData = new FormData(event.currentTarget);
-  appState.customer = {
-    name: normalizeText(formData.get("name")),
-  };
-  saveLocal(CUSTOMER_KEY, appState.customer);
-  showToast("お客様情報を保存しました。");
-  void loadHistory();
+  try {
+    await applyCustomerSession(readCustomerProfileFromForm(event.currentTarget));
+  } catch (error) {
+    reportClientError("customer.login", error);
+    showToast(error.message || "ログインできませんでした。");
+  }
+});
+
+recoverAccountButton?.addEventListener("click", async () => {
+  try {
+    await applyCustomerSession(readCustomerProfileFromForm(customerLoginForm), {
+      recovery: true,
+    });
+  } catch (error) {
+    reportClientError("customer.recover", error);
+    showToast(error.message || "アカウントを復旧できませんでした。");
+  }
+});
+
+customerForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const profile = readCustomerProfileFromForm(event.currentTarget);
+    const previousName = appState.customer.name;
+    appState.customer = {
+      ...profile,
+      historyMatchMode: appState.customer.historyMatchMode,
+    };
+    saveLocal(CUSTOMER_KEY, appState.customer);
+    syncCustomerForms();
+    showToast("お客様情報を保存しました。");
+    if (previousName !== appState.customer.name) {
+      appState.historySurveyId = "";
+      appState.historyResponseId = "";
+    }
+    await loadHistory();
+    renderHistory();
+  } catch (error) {
+    reportClientError("customer.profile.update", error);
+    showToast(error.message || "お客様情報を保存できませんでした。");
+  }
 });
 
 document.querySelectorAll("[data-page]").forEach((button) => {
-  button.addEventListener("click", () => setPage(button.dataset.page));
+  button.addEventListener("click", () => {
+    if (!hasCustomerSession()) {
+      setPage("login");
+      return;
+    }
+    setPage(button.dataset.page);
+  });
 });
 
 document.querySelector("#refreshButton").addEventListener("click", () => {
   void loadSurveys();
-  if (appState.customer.name) void loadHistory();
+  if (hasCustomerSession()) void loadHistory();
 });
 
 document.querySelector("#historyRefreshButton").addEventListener("click", () => {
@@ -2656,11 +2800,9 @@ window.addEventListener("error", (event) => {
 window.addEventListener("unhandledrejection", (event) => {
   reportClientError("customer.promise", event.reason || "unhandled rejection");
 });
-renderCustomerForm();
+syncCustomerForms();
 renderHomeTicketStatus();
 renderSurveys();
 renderAnswerPanel();
 void loadSurveys();
-if (appState.customer.name) {
-  void loadHistory();
-}
+setPage(hasCustomerSession() ? "home" : "login");

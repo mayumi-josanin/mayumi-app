@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみアンケート" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260413-11" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260413-12" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <link rel="icon" href="./icons/icon-192.png" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260413-11" />
+    <link rel="stylesheet" href="./styles.css?v=20260413-12" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -28,19 +28,47 @@
     </header>
 
     <main>
-      <section id="page-home" class="page active">
+      <section id="page-login" class="page active">
+        <section class="welcome-card">
+          <p class="eyebrow">Login</p>
+          <h1>ログインしてください</h1>
+          <p>お名前を入力するとアンケート回答と履歴確認ができます。</p>
+        </section>
+
+        <section class="section-card">
+          <h2>ログイン</h2>
+          <form id="customerLoginForm" class="form-grid">
+            <label>
+              お名前(漢字・フルネーム)
+              <input name="name" type="text" autocomplete="name" required />
+            </label>
+            <label>
+              フリガナ(カタカナ)
+              <input name="nameKana" type="text" autocapitalize="characters" required />
+            </label>
+            <button class="primary-button" type="submit">ログインする</button>
+            <button class="secondary-button" type="button" id="recoverAccountButton">名前一致で復旧する</button>
+          </form>
+        </section>
+      </section>
+
+      <section id="page-home" class="page">
         <section class="welcome-card">
           <p class="eyebrow">Survey</p>
           <h1>アンケートを選択してください</h1>
-          <p>お客様のお名前を保存後、回答したいアンケートを押してください。</p>
+          <p>ログイン後、回答したいアンケートを押してください。</p>
         </section>
 
         <section class="section-card">
           <h2>お客様情報</h2>
           <form id="customerForm" class="form-grid">
             <label>
-              お名前(フルネーム)
+              お名前(漢字・フルネーム)
               <input name="name" type="text" autocomplete="name" required />
+            </label>
+            <label>
+              フリガナ(カタカナ)
+              <input name="nameKana" type="text" autocapitalize="characters" required />
             </label>
             <button class="primary-button" type="submit">保存する</button>
           </form>
@@ -86,25 +114,9 @@
         </section>
       </section>
 
-      <section id="page-guide" class="page">
-        <section class="section-card">
-          <h1>ホーム画面に追加</h1>
-          <p>この画面を追加すると、次回からアプリのように開けます。</p>
-          <div class="guide-list">
-            <article>
-              <strong>iPhone</strong>
-              <span>Safari の共有ボタンから「ホーム画面に追加」を選んでください。</span>
-            </article>
-            <article>
-              <strong>Android</strong>
-              <span>Chrome のメニュー、または表示される案内から「アプリをインストール」を選んでください。</span>
-            </article>
-          </div>
-        </section>
-      </section>
     </main>
 
-    <nav class="bottom-nav" aria-label="お客様アプリメニュー">
+    <nav id="bottomNav" class="bottom-nav" aria-label="お客様アプリメニュー" hidden>
       <button class="nav-button active" type="button" data-page="home">
         <span>🏠</span>
         ホーム
@@ -113,15 +125,11 @@
         <span>🕒</span>
         履歴
       </button>
-      <button class="nav-button" type="button" data-page="guide">
-        <span>📲</span>
-        追加
-      </button>
     </nav>
 
-    <script src="../default-surveys.js?v=20260413-11"></script>
-    <script src="../shared/gas-config.js?v=20260413-11"></script>
-    <script src="../shared/api.js?v=20260413-11"></script>
-    <script src="./app.js?v=20260413-11"></script>
+    <script src="../default-surveys.js?v=20260413-12"></script>
+    <script src="../shared/gas-config.js?v=20260413-12"></script>
+    <script src="../shared/api.js?v=20260413-12"></script>
+    <script src="./app.js?v=20260413-12"></script>
   </body>
 </html>

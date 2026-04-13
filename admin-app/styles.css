@@ -517,6 +517,42 @@ textarea {
   margin-top: 10px;
 }
 
+.history-photo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.history-photo-thumb,
+.history-photo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.history-photo-thumb {
+  overflow: hidden;
+}
+
+.history-photo-thumb img {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+}
+
+.history-photo-badge {
+  padding: 0 8px;
+  color: var(--text-mid);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .photo-thumb {
   display: grid;
   gap: 5px;

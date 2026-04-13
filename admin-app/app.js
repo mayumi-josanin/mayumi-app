@@ -590,10 +590,11 @@ function renderSurveyAnalytics() {
 }
 
 function renderAnswerValue(answer) {
-  if (Array.isArray(answer.files) && answer.files.length) {
+  const photoFiles = getPhotoFilesFromAnswer(answer);
+  if (photoFiles.length) {
     return `
       <div class="photo-list">
-        ${answer.files
+        ${photoFiles
           .map((file) => {
             const preview = file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
             return `
@@ -614,6 +615,65 @@ function renderAnswerValue(answer) {
     `;
   }
   return escapeHtml(answer.value || "未回答");
+}
+
+function extractDriveFileId(url) {
+  const value = String(url || "");
+  const match = value.match(/\/d\/([^/]+)/) || value.match(/[?&]id=([^&]+)/);
+  return match ? match[1] : "";
+}
+
+function derivePhotoFileFromUrl(url, index = 0) {
+  const normalizedUrl = String(url || "").trim();
+  if (!normalizedUrl) return null;
+  const driveFileId = extractDriveFileId(normalizedUrl);
+  return {
+    name: `写真${index + 1}`,
+    fileId: driveFileId || "",
+    url: normalizedUrl,
+    previewUrl: driveFileId ? `https://drive.google.com/uc?export=view&id=${driveFileId}` : normalizedUrl,
+    thumbnailUrl: driveFileId ? `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w1200` : normalizedUrl,
+  };
+}
+
+function getPhotoFilesFromAnswer(answer) {
+  if (Array.isArray(answer?.files) && answer.files.length) {
+    return answer.files;
+  }
+  const value = String(answer?.value || "").trim();
+  if (!value || !value.includes("http")) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => /^https?:\/\//.test(item))
+    .map((url, index) => derivePhotoFileFromUrl(url, index))
+    .filter(Boolean);
+}
+
+function renderResponsePhotoPreview(response, limit = 3) {
+  const photos = collectPhotosFromResponse(response).slice(0, limit);
+  if (!photos.length) return "";
+  return `
+    <div class="history-photo-strip">
+      ${photos
+        .map((file, index) => {
+          const preview = file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
+          const title = file.name || `写真${index + 1}`;
+          if (!preview) {
+            return `<span class="history-photo-badge">${escapeHtml(title)}</span>`;
+          }
+          return `
+            <span class="history-photo-thumb" title="${escapeHtml(title)}">
+              <img src="${escapeHtml(preview)}" alt="${escapeHtml(title)}" />
+            </span>
+          `;
+        })
+        .join("")}
+      <span class="history-photo-badge">${collectPhotosFromResponse(response).length}枚</span>
+    </div>
+  `;
 }
 
 function getAnswerValueFromQuestionIds(answerMap, questionIds) {
@@ -787,6 +847,7 @@ function renderAllResponsesBySurveySection() {
                     <strong>${escapeHtml(response.customerName)}</strong>
                     <div class="meta">${formatDate(response.submittedAt)}</div>
                     ${renderTicketStampList(getResponseTicketInfo(response))}
+                    ${renderResponsePhotoPreview(response, 2)}
                   </button>
                 `,
               )
@@ -900,10 +961,15 @@ function renderConcernAnswerEditor(answer, questionId) {
 }
 
 function collectPhotosFromResponse(response) {
-  const answerFiles = (response?.answers || []).flatMap((answer) =>
-    Array.isArray(answer.files) ? answer.files : [],
-  );
-  const responseFiles = Array.isArray(response?.files) ? response.files : [];
+  const answerFiles = (response?.answers || []).flatMap((answer) => getPhotoFilesFromAnswer(answer));
+  const responseFiles = (Array.isArray(response?.files) ? response.files : [])
+    .map((file, index) => {
+      if (file?.previewUrl || file?.thumbnailUrl || file?.dataUrl || file?.url) {
+        return file;
+      }
+      return derivePhotoFileFromUrl(file?.url || file?.value || "", index);
+    })
+    .filter(Boolean);
   const files = answerFiles.concat(responseFiles);
   const seen = new Set();
   return files.filter((file) => {
@@ -1039,8 +1105,9 @@ function renderEditableAnswerField(question, answer) {
 }
 
 function formatAnswerForCsv(answer) {
-  if (Array.isArray(answer.files) && answer.files.length) {
-    return `${answer.label}: ${answer.files
+  const photoFiles = getPhotoFilesFromAnswer(answer);
+  if (photoFiles.length) {
+    return `${answer.label}: ${photoFiles
       .map((file) => file.url || file.previewUrl || file.name)
       .join(", ")}`;
   }
@@ -1397,6 +1464,7 @@ function renderResponses() {
                         <strong>${escapeHtml(response.customerName)}</strong>
                         <div class="meta">${formatDate(response.submittedAt)}</div>
                         ${renderTicketStampList(getResponseTicketInfo(response))}
+                        ${renderResponsePhotoPreview(response, 3)}
                         <span class="badge ${normalizeStatus(response.status)}">
                           ${STATUS_LABELS[normalizeStatus(response.status)]}
                         </span>
@@ -3004,7 +3072,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-11", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-12", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
