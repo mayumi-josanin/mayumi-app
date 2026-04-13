@@ -604,12 +604,12 @@ function renderAnswerValue(answer) {
       <div class="photo-list">
         ${photoFiles
           .map((file) => {
-            const preview = file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
+            const preview = getPhotoPreviewSrc(file);
             return `
               <button
                 class="photo-thumb lightbox-trigger"
                 type="button"
-                data-lightbox-src="${escapeHtml(file.previewUrl || file.url || file.dataUrl || "")}"
+                data-lightbox-src="${escapeHtml(getPhotoLightboxSrc(file))}"
                 data-lightbox-title="${escapeHtml(file.name || "写真")}"
               >
                 ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name)}" />` : ""}
@@ -644,6 +644,14 @@ function derivePhotoFileFromUrl(url, index = 0) {
   };
 }
 
+function getPhotoPreviewSrc(file) {
+  return String(file?.thumbnailUrl || file?.previewUrl || file?.dataUrl || file?.url || "").trim();
+}
+
+function getPhotoLightboxSrc(file) {
+  return String(file?.previewUrl || file?.thumbnailUrl || file?.dataUrl || file?.url || "").trim();
+}
+
 function getPhotoFilesFromAnswer(answer) {
   if (Array.isArray(answer?.files) && answer.files.length) {
     return answer.files;
@@ -667,7 +675,7 @@ function renderResponsePhotoPreview(response, limit = 3) {
     <div class="history-photo-strip">
       ${photos
         .map((file, index) => {
-          const preview = file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
+          const preview = getPhotoPreviewSrc(file);
           const title = file.name || `写真${index + 1}`;
           if (!preview) {
             return `<span class="history-photo-badge">${escapeHtml(title)}</span>`;
@@ -1567,8 +1575,8 @@ function renderResponsePhotoGallery(response, survey) {
               <div class="photo-list">
                 ${photos
                   .map((file) => {
-                    const preview = file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
-                    const href = file.previewUrl || file.url || file.dataUrl || "#";
+                    const preview = getPhotoPreviewSrc(file);
+                    const href = getPhotoLightboxSrc(file) || "#";
                     return `
                       <button
                         class="photo-thumb lightbox-trigger"
@@ -3678,7 +3686,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-19", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-20", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

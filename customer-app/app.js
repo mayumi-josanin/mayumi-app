@@ -6,7 +6,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-20";
+const APP_VERSION = "20260413-21";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -155,7 +155,7 @@ const appState = {
   customer: normalizeCustomerProfile(loadLocal(CUSTOMER_KEY, { name: "", nameKana: "", historyMatchMode: "device" })),
   drafts: loadLocal(DRAFTS_KEY, {}),
   pendingSubmission: loadLocal(PENDING_KEY, null),
-  ticketCardOverrides: normalizeTicketCardOverrides(loadLocal(TICKET_CARD_OVERRIDE_KEY, {})),
+  ticketCardOverride: normalizeActiveTicketCardOverride(loadLocal(TICKET_CARD_OVERRIDE_KEY, null)),
   surveys: [],
   history: [],
   publicInfo: {
@@ -238,70 +238,68 @@ function normalizeCustomerProfile(value) {
   };
 }
 
-function normalizeTicketCardOverrides(value) {
-  const source = value && typeof value === "object" ? value : {};
-  const normalized = {};
-  Object.entries(source).forEach(([plan, override]) => {
+function normalizeActiveTicketCardOverride(value) {
+  if (!value || typeof value !== "object") return null;
+  const directPlan = normalizeText(value.plan);
+  const directSheetNumber = Math.floor(Number(value.sheetNumber) || 0);
+  if (directPlan && directSheetNumber > 0) {
+    return { plan: directPlan, sheetNumber: directSheetNumber };
+  }
+
+  const legacyEntry = Object.entries(value).find(([plan, override]) => {
     const normalizedPlan = normalizeText(plan);
     const sheetNumber = Math.floor(
-      Number(
-        typeof override === "object" && override
-          ? override.sheetNumber
-          : override,
-      ) || 0,
+      Number(typeof override === "object" && override ? override.sheetNumber : override) || 0,
     );
-    if (!normalizedPlan || sheetNumber <= 0) return;
-    normalized[normalizedPlan] = { sheetNumber };
+    return normalizedPlan && sheetNumber > 0;
   });
-  return normalized;
+  if (!legacyEntry) return null;
+  return {
+    plan: normalizeText(legacyEntry[0]),
+    sheetNumber: Math.floor(
+      Number(
+        typeof legacyEntry[1] === "object" && legacyEntry[1]
+          ? legacyEntry[1].sheetNumber
+          : legacyEntry[1],
+      ) || 0,
+    ),
+  };
 }
 
-function saveTicketCardOverrides() {
-  saveLocal(TICKET_CARD_OVERRIDE_KEY, appState.ticketCardOverrides);
+function saveActiveTicketCardOverride() {
+  saveLocal(TICKET_CARD_OVERRIDE_KEY, appState.ticketCardOverride);
 }
 
-function getTicketCardOverride(plan) {
-  const normalizedPlan = normalizeText(plan);
-  if (!normalizedPlan) return 0;
-  return Number(appState.ticketCardOverrides?.[normalizedPlan]?.sheetNumber || 0);
+function getActiveTicketCardOverride() {
+  return normalizeActiveTicketCardOverride(appState.ticketCardOverride);
 }
 
-function setTicketCardOverride(plan, sheetNumber) {
+function setActiveTicketCardOverride(plan, sheetNumber) {
   const normalizedPlan = normalizeText(plan);
   const normalizedSheetNumber = Math.floor(Number(sheetNumber) || 0);
   if (!normalizedPlan || normalizedSheetNumber <= 0) return;
-  appState.ticketCardOverrides = normalizeTicketCardOverrides({
-    ...appState.ticketCardOverrides,
-    [normalizedPlan]: { sheetNumber: normalizedSheetNumber },
-  });
-  saveTicketCardOverrides();
+  appState.ticketCardOverride = {
+    plan: normalizedPlan,
+    sheetNumber: normalizedSheetNumber,
+  };
+  saveActiveTicketCardOverride();
 }
 
-function clearTicketCardOverride(plan) {
-  const normalizedPlan = normalizeText(plan);
-  if (!normalizedPlan || !appState.ticketCardOverrides?.[normalizedPlan]) return;
-  const nextOverrides = { ...appState.ticketCardOverrides };
-  delete nextOverrides[normalizedPlan];
-  appState.ticketCardOverrides = normalizeTicketCardOverrides(nextOverrides);
-  saveTicketCardOverrides();
+function clearActiveTicketCardOverride() {
+  if (!appState.ticketCardOverride) return;
+  appState.ticketCardOverride = null;
+  saveActiveTicketCardOverride();
 }
 
-function syncTicketCardOverridesWithHistory() {
-  const nextOverrides = normalizeTicketCardOverrides(appState.ticketCardOverrides);
-  let changed = false;
-  Object.keys(nextOverrides).forEach((plan) => {
-    const latestResponse = getLatestTicketResponseByPlan(plan);
-    if (!latestResponse) return;
-    const ticketMap = new Map(getResponseTicketInfo(latestResponse).map((item) => [item.label, item.value]));
-    const latestSheetNumber = parseTicketSheet(ticketMap.get("何枚目") || "");
-    if (nextOverrides[plan].sheetNumber <= latestSheetNumber) {
-      delete nextOverrides[plan];
-      changed = true;
-    }
-  });
-  if (!changed) return;
-  appState.ticketCardOverrides = nextOverrides;
-  saveTicketCardOverrides();
+function syncActiveTicketCardOverrideWithHistory() {
+  const activeOverride = getActiveTicketCardOverride();
+  if (!activeOverride) return;
+  const latestResponse = getLatestTicketResponseByPlan(activeOverride.plan);
+  if (!latestResponse) return;
+  const ticketMap = new Map(getResponseTicketInfo(latestResponse).map((item) => [item.label, item.value]));
+  const latestSheetNumber = parseTicketSheet(ticketMap.get("何枚目") || "");
+  if (latestSheetNumber < activeOverride.sheetNumber) return;
+  clearActiveTicketCardOverride();
 }
 
 function normalizeServerCustomerProfile(value) {
@@ -629,30 +627,32 @@ function getLatestTicketResponseByPlan(ticketPlan) {
   );
 }
 
-function resolveCurrentSessionTicketSheetLabel(ticketPlan) {
+function getNextTicketSheetLabelForPlan(ticketPlan) {
   const normalizedPlan = normalizeText(ticketPlan);
   if (!normalizedPlan) return "";
-  const overrideSheetNumber = getTicketCardOverride(normalizedPlan);
   const latestResponse = getLatestTicketResponseByPlan(normalizedPlan);
-  if (!latestResponse) {
-    return overrideSheetNumber ? `${overrideSheetNumber}枚目` : "1枚目";
-  }
+  if (!latestResponse) return "1枚目";
 
   const ticketMap = new Map(getResponseTicketInfo(latestResponse).map((item) => [item.label, item.value]));
   const currentSheet = normalizeText(ticketMap.get("何枚目") || "");
   const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
   const ticketCount = parseTicketCount(normalizedPlan);
-  const currentSheetNumber = parseTicketSheet(currentSheet);
-
-  if (overrideSheetNumber > currentSheetNumber) {
-    return `${overrideSheetNumber}枚目`;
-  }
 
   if (!currentSheet) return "1枚目";
   if (ticketCount && currentRound >= ticketCount) {
     return getNextTicketSheetLabel(currentSheet) || currentSheet;
   }
   return currentSheet;
+}
+
+function resolveCurrentSessionTicketSheetLabel(ticketPlan) {
+  const normalizedPlan = normalizeText(ticketPlan);
+  if (!normalizedPlan) return "";
+  const activeOverride = getActiveTicketCardOverride();
+  if (activeOverride?.plan === normalizedPlan && activeOverride.sheetNumber > 0) {
+    return `${activeOverride.sheetNumber}枚目`;
+  }
+  return getNextTicketSheetLabelForPlan(normalizedPlan);
 }
 
 function ensureSessionTicketSheetSelection(surveyId) {
@@ -1067,7 +1067,7 @@ async function loadHistory() {
     );
     appState.history = Array.isArray(result.responses) ? result.responses : [];
     syncCustomerProfileFromServer(result.customerProfile);
-    syncTicketCardOverridesWithHistory();
+    syncActiveTicketCardOverrideWithHistory();
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
@@ -1781,8 +1781,7 @@ function renderQuestion(question, index, surveyId) {
               <div class="photo-list editable">
                 ${files
                   .map((file, fileIndex) => {
-                    const preview =
-                      file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
+                    const preview = getPhotoPreviewSrc(file);
                     return `
                       <div class="photo-thumb editable-thumb">
                         ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || "photo")}" />` : ""}
@@ -1817,7 +1816,7 @@ function renderSummaryValue(answer) {
       <div class="photo-list">
         ${answer.files
           .map((file) => {
-            const preview = file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
+            const preview = getPhotoPreviewSrc(file);
             return `
               <div class="photo-thumb">
                 ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || "photo")}" />` : ""}
@@ -2408,8 +2407,8 @@ function renderAnswerValue(answer) {
       <div class="photo-list">
         ${answer.files
           .map((file) => {
-            const href = file.previewUrl || file.url || file.dataUrl || "#";
-            const preview = file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
+            const href = getPhotoOpenHref(file);
+            const preview = getPhotoPreviewSrc(file);
             return `
               <a class="photo-thumb" href="${escapeHtml(href)}" target="_blank" rel="noopener">
                 ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || "photo")}" />` : ""}
@@ -2517,15 +2516,16 @@ function getNextTicketSheetLabel(sheetValue) {
   return currentSheet ? `${currentSheet + 1}枚目` : "";
 }
 
-function acquireNextTicketSheet(ticketPlan, nextSheetLabel) {
+function acquireNextTicketSheet(ticketPlan) {
+  const nextSheetLabel = getNextTicketSheetLabelForPlan(ticketPlan);
   const nextSheetNumber = parseTicketSheet(nextSheetLabel);
   if (!normalizeText(ticketPlan) || !nextSheetNumber) {
     showToast("新しいスタンプカードを取得できませんでした。");
     return;
   }
-  setTicketCardOverride(ticketPlan, nextSheetNumber);
+  setActiveTicketCardOverride(ticketPlan, nextSheetNumber);
   renderHomeTicketStatus();
-  showToast(`${nextSheetLabel} を取得しました。`);
+  showToast(`${ticketPlan} ${nextSheetLabel} を取得しました。`);
 }
 
 function getLatestTicketResponse() {
@@ -2543,28 +2543,25 @@ function getActiveTicketCardState() {
   const currentSheetLabel = normalizeText(ticketMap.get("何枚目") || "");
   const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
   const ticketCount = parseTicketCount(ticketPlan);
-  const currentSheetNumber = parseTicketSheet(currentSheetLabel);
-  const overrideSheetNumber = getTicketCardOverride(ticketPlan);
+  const activeOverride = getActiveTicketCardOverride();
+  const isCurrentCardComplete = Boolean(ticketPlan && ticketCount && currentRound >= ticketCount);
 
   if (
-    ticketPlan &&
-    ticketCount &&
-    currentSheetNumber &&
-    overrideSheetNumber > currentSheetNumber &&
-    currentRound >= ticketCount
+    activeOverride &&
+    isCurrentCardComplete
   ) {
     return {
       response,
-      ticketPlan,
-      ticketSheetLabel: `${overrideSheetNumber}枚目`,
+      ticketPlan: activeOverride.plan,
+      ticketSheetLabel: `${activeOverride.sheetNumber}枚目`,
       currentRound: 0,
-      ticketCount,
-      ticketInfo: buildTicketInfoFromValues(ticketPlan, `${overrideSheetNumber}枚目`, "0回目"),
-      showNextSheetButton: false,
+      ticketCount: parseTicketCount(activeOverride.plan),
+      ticketInfo: buildTicketInfoFromValues(activeOverride.plan, `${activeOverride.sheetNumber}枚目`, "0回目"),
+      showAcquireButtons: false,
+      acquirePlans: [],
     };
   }
 
-  const nextSheetLabel = getNextTicketSheetLabel(currentSheetLabel);
   return {
     response,
     ticketPlan,
@@ -2572,14 +2569,19 @@ function getActiveTicketCardState() {
     currentRound,
     ticketCount,
     ticketInfo: buildTicketInfoFromValues(ticketPlan, currentSheetLabel, ticketMap.get("何回目") || ""),
-    showNextSheetButton: Boolean(
-      ticketPlan &&
-      ticketCount &&
-      currentRound >= ticketCount &&
-      nextSheetLabel,
-    ),
-    nextSheetLabel,
+    showAcquireButtons: isCurrentCardComplete,
+    acquirePlans: isCurrentCardComplete ? ["6回券", "10回券"] : [],
   };
+}
+
+function getPhotoPreviewSrc(file) {
+  return normalizeText(file?.thumbnailUrl || file?.previewUrl || file?.dataUrl || file?.url || "");
+}
+
+function getPhotoOpenHref(file) {
+  return normalizeText(
+    file?.downloadUrl || file?.previewUrl || file?.thumbnailUrl || file?.dataUrl || file?.url || "#",
+  );
 }
 
 function renderTicketStampProgress(ticketCount, currentRound) {
@@ -2640,12 +2642,25 @@ function renderHomeTicketStatus() {
               </div>
               ${renderTicketStampProgress(activeTicketCard.ticketCount, activeTicketCard.currentRound)}
               ${
-                activeTicketCard.showNextSheetButton
+                activeTicketCard.showAcquireButtons
                   ? `
                     <div class="ticket-next-sheet-action">
-                      <button class="secondary-button" type="button" data-next-ticket-sheet="${escapeHtml(activeTicketCard.nextSheetLabel)}">
-                        ${escapeHtml(activeTicketCard.nextSheetLabel)}取得
-                      </button>
+                      <div class="meta">新しいスタンプカードを取得</div>
+                      <div class="action-row">
+                        ${activeTicketCard.acquirePlans
+                          .map(
+                            (plan) => `
+                              <button
+                                class="secondary-button"
+                                type="button"
+                                data-acquire-ticket-plan="${escapeHtml(plan)}"
+                              >
+                                ${escapeHtml(plan)}を取得
+                              </button>
+                            `,
+                          )
+                          .join("")}
+                      </div>
                     </div>
                   `
                   : ""
@@ -2657,8 +2672,10 @@ function renderHomeTicketStatus() {
     </article>
   `;
 
-  homeTicketStatus.querySelector("[data-next-ticket-sheet]")?.addEventListener("click", () => {
-    acquireNextTicketSheet(activeTicketCard.ticketPlan, activeTicketCard.nextSheetLabel);
+  homeTicketStatus.querySelectorAll("[data-acquire-ticket-plan]").forEach((button) => {
+    button.addEventListener("click", () => {
+      acquireNextTicketSheet(button.dataset.acquireTicketPlan || "");
+    });
   });
 }
 
@@ -2933,7 +2950,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-20", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-21", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
