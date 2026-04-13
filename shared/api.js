@@ -453,6 +453,7 @@ window.MayumiSurveyApi = (() => {
         return jsonp(gasUrl, "history", {
           clientId: getClientId(),
           name: normalizeText(url.searchParams.get("name")),
+          nameKana: normalizeText(url.searchParams.get("nameKana")),
           recoverByName: url.searchParams.get("recoverByName") === "1" ? "1" : "",
         });
       }

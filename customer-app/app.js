@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-16";
+const APP_VERSION = "20260413-19";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -234,6 +234,52 @@ function normalizeCustomerProfile(value) {
     nameKana: normalizeKana(value?.nameKana),
     historyMatchMode: value?.historyMatchMode === "name" ? "name" : "device",
   };
+}
+
+function normalizeServerCustomerProfile(value) {
+  return {
+    name: normalizeText(value?.name),
+    nameKana: normalizeKana(value?.nameKana),
+  };
+}
+
+function mergeCustomerProfile(baseProfile, serverProfile) {
+  const base = normalizeCustomerProfile(baseProfile);
+  const server = normalizeServerCustomerProfile(serverProfile);
+  if (!server.name && !server.nameKana) return base;
+  return normalizeCustomerProfile({
+    name: server.name || base.name,
+    nameKana: server.nameKana || base.nameKana,
+    historyMatchMode: base.historyMatchMode,
+  });
+}
+
+function syncCustomerProfileFromServer(serverProfile) {
+  const merged = mergeCustomerProfile(appState.customer, serverProfile);
+  if (
+    merged.name === appState.customer.name &&
+    merged.nameKana === appState.customer.nameKana &&
+    merged.historyMatchMode === appState.customer.historyMatchMode
+  ) {
+    return false;
+  }
+  appState.customer = merged;
+  saveLocal(CUSTOMER_KEY, appState.customer);
+  syncCustomerForms();
+  return true;
+}
+
+function buildHistorySearchParams(profile, options = {}) {
+  const params = new URLSearchParams();
+  params.set("name", normalizeText(profile?.name));
+  const nameKana = normalizeKana(profile?.nameKana);
+  if (nameKana) {
+    params.set("nameKana", nameKana);
+  }
+  if (options.recovery || profile?.historyMatchMode === "name") {
+    params.set("recoverByName", "1");
+  }
+  return params;
 }
 
 function isKatakanaName(value) {
@@ -939,15 +985,12 @@ async function loadHistory() {
   renderHomeTicketStatus();
   historyList.innerHTML = `<div class="empty">読み込み中です。</div>`;
   try {
-    const params = new URLSearchParams();
-    params.set("name", appState.customer.name);
-    if (appState.customer.historyMatchMode === "name") {
-      params.set("recoverByName", "1");
-    }
+    const params = buildHistorySearchParams(appState.customer);
     const result = await api.request(
       `/api/public/responses?${params.toString()}`,
     );
     appState.history = Array.isArray(result.responses) ? result.responses : [];
+    syncCustomerProfileFromServer(result.customerProfile);
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
@@ -1019,13 +1062,14 @@ async function applyCustomerSession(profile, options = {}) {
   };
 
   if (recovery) {
-    const result = await api.request(
-      `/api/public/responses?name=${encodeURIComponent(nextCustomer.name)}&recoverByName=1`,
-    );
+    const result = await api.request(`/api/public/responses?${buildHistorySearchParams(nextCustomer, {
+      recovery: true,
+    }).toString()}`);
     const responses = Array.isArray(result.responses) ? result.responses : [];
     if (!responses.length) {
       throw new Error("一致する回答履歴が見つかりませんでした。");
     }
+    Object.assign(nextCustomer, mergeCustomerProfile(nextCustomer, result.customerProfile));
     appState.history = responses;
     appState.historyLoading = false;
     appState.historyLoadError = "";
@@ -2762,7 +2806,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-16", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-19", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
