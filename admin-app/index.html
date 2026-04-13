@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260413-15" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260413-16" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <link rel="icon" href="./icons/icon-192.png" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260413-15" />
+    <link rel="stylesheet" href="./styles.css?v=20260413-16" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -48,6 +48,7 @@
         <aside class="sidebar">
           <button class="nav-item active" type="button" data-page="dashboard">📊 集計</button>
           <button class="nav-item" type="button" data-page="surveys">📝 アンケート管理</button>
+          <button class="nav-item" type="button" data-page="customers">🧾 顧客管理</button>
           <button class="nav-item" type="button" data-page="responses">👥 回答管理</button>
           <button class="nav-item" type="button" data-page="settings">🔐 設定</button>
           <button class="nav-item" type="button" data-page="install">📲 追加案内</button>
@@ -157,6 +158,11 @@
             </section>
           </section>
 
+          <section id="page-customers" class="page">
+            <h2>顧客管理</h2>
+            <section id="customerManagementStage" class="card response-stage"></section>
+          </section>
+
           <section id="page-settings" class="page">
             <h2>設定</h2>
             <div class="grid-two settings-grid">
@@ -247,6 +253,7 @@
       <nav class="bottom-nav" aria-label="管理アプリメニュー">
         <button class="bottom-nav-item active" type="button" data-page="dashboard">📊<span>集計</span></button>
         <button class="bottom-nav-item" type="button" data-page="surveys">📝<span>アンケート</span></button>
+        <button class="bottom-nav-item" type="button" data-page="customers">🧾<span>顧客</span></button>
         <button class="bottom-nav-item" type="button" data-page="responses">👥<span>回答</span></button>
         <button class="bottom-nav-item" type="button" data-page="settings">🔐<span>設定</span></button>
         <button class="bottom-nav-item" type="button" data-page="install">📲<span>追加</span></button>
@@ -261,9 +268,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260413-15"></script>
-    <script src="../shared/gas-config.js?v=20260413-15"></script>
-    <script src="../shared/api.js?v=20260413-15"></script>
-    <script src="./app.js?v=20260413-15"></script>
+    <script src="../default-surveys.js?v=20260413-16"></script>
+    <script src="../shared/gas-config.js?v=20260413-16"></script>
+    <script src="../shared/api.js?v=20260413-16"></script>
+    <script src="./app.js?v=20260413-16"></script>
   </body>
 </html>

@@ -567,6 +567,17 @@ textarea {
   text-align: left;
 }
 
+.response-card-readonly .answer-item label {
+  display: block;
+  min-height: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dark);
+  font-size: 14px;
+  font-weight: 400;
+}
+
 .photo-thumb img {
   width: 100%;
   aspect-ratio: 1;
@@ -918,7 +929,7 @@ textarea {
     bottom: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 4px;
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
     background: var(--warm-white);

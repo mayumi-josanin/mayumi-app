@@ -142,6 +142,9 @@ const state = {
   selectedCustomerName: "",
   selectedResponseId: "",
   selectedResponseIds: [],
+  selectedCustomerViewName: "",
+  selectedCustomerViewSurveyId: "",
+  selectedCustomerViewResponseId: "",
   installPrompt: null,
 };
 
@@ -288,6 +291,7 @@ function renderAll() {
   renderDashboard();
   renderSurveyManager();
   renderFilters();
+  renderCustomerManagement();
   renderResponses();
   renderSettings();
   document.querySelector("#adminUrlBox").textContent = window.location.href;
@@ -765,6 +769,324 @@ function getCurrentTicketInfoForCustomer(customerName) {
     )
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
   return latestTicketResponse ? getResponseTicketInfo(latestTicketResponse) : [];
+}
+
+function getActiveResponses() {
+  return state.responses.filter((response) => normalizeStatus(response.status) !== "trash");
+}
+
+function getActiveCustomerResponses(customerName) {
+  return getActiveResponses()
+    .filter((response) => response.customerName === customerName)
+    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+}
+
+function formatResponseEntryTitle(response) {
+  const ticketInfo = getResponseTicketInfo(response);
+  if (ticketInfo.length) {
+    return ticketInfo
+      .map((item, index) => (index === 0 ? `${item.label} ${item.value}` : item.value))
+      .join(" / ");
+  }
+  return response.surveyTitle || "回答詳細";
+}
+
+function renderCustomerSummaryCard(customerName, responses) {
+  const latestResponse = responses[0] || null;
+  const ticketInfo = getCurrentTicketInfoForCustomer(customerName);
+  const surveyCount = new Set(responses.map((response) => response.surveyId || response.surveyTitle || response.id)).size;
+  return `
+    <article class="answer-item">
+      <strong>${escapeHtml(customerName)}</strong>
+      <div class="meta">回答数: ${responses.length}件 / アンケート種類: ${surveyCount}件</div>
+      <div class="meta">最新回答: ${latestResponse ? `${escapeHtml(latestResponse.surveyTitle)} / ${formatDate(latestResponse.submittedAt)}` : "-"}</div>
+      ${
+        ticketInfo.length
+          ? renderTicketStampList(ticketInfo)
+          : `<div class="meta">現在の回数券スタンプ情報はありません。</div>`
+      }
+    </article>
+  `;
+}
+
+function renderReadOnlyResponseCard(response) {
+  const status = normalizeStatus(response.status);
+  const survey = findSurveyById(response.surveyId);
+  const displayAnswers = getDisplayAnswers(response, survey);
+  return `
+    <article class="response-card response-card-readonly">
+      <div class="response-head">
+        <div>
+          <strong>${escapeHtml(response.customerName)}</strong>
+          <div class="meta">${formatDate(response.submittedAt)}</div>
+          <div class="meta">${escapeHtml(response.surveyTitle)}</div>
+        </div>
+        <span class="badge ${status}">${STATUS_LABELS[status]}</span>
+      </div>
+      ${renderResponsePhotoGallery(response, survey)}
+      <div class="answer-list">
+        ${displayAnswers
+          .filter((answer) => {
+            const question = survey?.questions.find((item) => item.id === answer.questionId) || {
+              type: answer.type,
+            };
+            return question.type !== "photo";
+          })
+          .map(
+            (answer) => `
+              <div class="answer-item">
+                <strong>${escapeHtml(answer.label)}</strong><br />
+                ${answer.questionId === SESSION_CONCERN_QUESTION_ID
+                  ? `
+                    <div class="concern-answer-groups">
+                      ${getConcernAnswerGroups(answer)
+                        .map(
+                          (group) => `
+                            <section class="concern-answer-group">
+                              <strong>${escapeHtml(group.label)}</strong>
+                              <div class="checkbox-row">
+                                ${group.options
+                                  .map((option) => `<label>${escapeHtml(option)}</label>`)
+                                  .join("")}
+                              </div>
+                            </section>
+                          `,
+                        )
+                        .join("")}
+                    </div>
+                  `
+                  : renderAnswerValue(answer)}
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderCustomerManagement() {
+  const stage = document.querySelector("#customerManagementStage");
+  if (!stage) return;
+
+  const customers = groupByCustomerFrom(getActiveResponses());
+  if (state.selectedCustomerViewName && !customers.some((customer) => customer.name === state.selectedCustomerViewName)) {
+    state.selectedCustomerViewName = "";
+    state.selectedCustomerViewSurveyId = "";
+    state.selectedCustomerViewResponseId = "";
+  }
+
+  const selectedCustomer =
+    customers.find((customer) => customer.name === state.selectedCustomerViewName) || null;
+  const customerResponses = selectedCustomer ? getActiveCustomerResponses(selectedCustomer.name) : [];
+  const surveyGroups = selectedCustomer ? groupResponsesBySurvey(customerResponses) : [];
+
+  if (
+    state.selectedCustomerViewSurveyId &&
+    !surveyGroups.some((group) => String(group.surveyId) === state.selectedCustomerViewSurveyId)
+  ) {
+    state.selectedCustomerViewSurveyId = "";
+    state.selectedCustomerViewResponseId = "";
+  }
+
+  const selectedSurveyGroup =
+    surveyGroups.find((group) => String(group.surveyId) === state.selectedCustomerViewSurveyId) || null;
+  const surveyResponses = selectedSurveyGroup
+    ? selectedSurveyGroup.responses.slice().sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+    : [];
+
+  if (
+    state.selectedCustomerViewResponseId &&
+    !surveyResponses.some((response) => response.id === state.selectedCustomerViewResponseId)
+  ) {
+    state.selectedCustomerViewResponseId = "";
+  }
+
+  const selectedResponse =
+    surveyResponses.find((response) => response.id === state.selectedCustomerViewResponseId) || null;
+
+  if (!selectedCustomer) {
+    stage.innerHTML = `
+      <div class="stage-head">
+        <div>
+          <div class="card-title">顧客一覧</div>
+          <div class="meta">顧客を選ぶと、顧客情報とアンケート回答履歴を表示します。</div>
+        </div>
+      </div>
+      <div class="customer-list">
+        ${
+          customers.length
+            ? customers
+                .map(
+                  (customer) => `
+                    <button
+                      class="customer-card selectable-card"
+                      type="button"
+                      data-open-customer="${escapeHtml(customer.name)}"
+                    >
+                      <strong>${escapeHtml(customer.name)}</strong>
+                      <div>回答数: ${customer.count}件</div>
+                      <div class="meta">最新回答: ${formatDate(customer.latestAt)}</div>
+                      ${renderTicketStampList(getCurrentTicketInfoForCustomer(customer.name))}
+                    </button>
+                  `,
+                )
+                .join("")
+            : `<div class="empty">まだ顧客データはありません。</div>`
+        }
+      </div>
+    `;
+  } else if (!selectedSurveyGroup) {
+    stage.innerHTML = `
+      <div class="stage-head">
+        <div>
+          <div class="card-title">顧客情報</div>
+          <div class="meta">名前・回数券スタンプ情報と、アンケート回答履歴を表示しています。</div>
+        </div>
+        <button class="secondary-button" type="button" data-back-customer-stage="customers">戻る</button>
+      </div>
+      <div class="stack">
+        ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
+        <article class="answer-item">
+          <strong>アンケート回答履歴</strong>
+          <div class="survey-history-list">
+            ${
+              surveyGroups.length
+                ? surveyGroups
+                    .map(
+                      (group) => `
+                        <button
+                          class="survey-history-row"
+                          type="button"
+                          data-open-customer-survey="${escapeHtml(group.surveyId)}"
+                        >
+                          <strong>${escapeHtml(group.surveyTitle)}</strong>
+                          <div class="meta">回答数: ${group.count}件 / 最新: ${formatDate(group.latestAt)}</div>
+                        </button>
+                      `,
+                    )
+                    .join("")
+                : `<div class="empty">回答履歴はありません。</div>`
+            }
+          </div>
+        </article>
+      </div>
+    `;
+  } else if (!selectedResponse) {
+    stage.innerHTML = `
+      <div class="stage-head">
+        <div>
+          <div class="card-title">アンケート回答履歴</div>
+          <div class="meta">${escapeHtml(selectedCustomer.name)} / ${escapeHtml(selectedSurveyGroup.surveyTitle)}</div>
+        </div>
+        <button class="secondary-button" type="button" data-back-customer-stage="surveys">戻る</button>
+      </div>
+      <div class="stack">
+        ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
+        <div class="response-list">
+          ${
+            surveyResponses.length
+              ? surveyResponses
+                  .map(
+                    (response) => `
+                      <button
+                        class="response-history-card selectable-card"
+                        type="button"
+                        data-open-customer-response="${escapeHtml(response.id)}"
+                      >
+                        <strong>${escapeHtml(formatResponseEntryTitle(response))}</strong>
+                        <div class="meta">${formatDate(response.submittedAt)}</div>
+                        ${renderTicketStampList(getResponseTicketInfo(response))}
+                        ${renderResponsePhotoPreview(response, 3)}
+                        <span class="badge ${normalizeStatus(response.status)}">
+                          ${STATUS_LABELS[normalizeStatus(response.status)]}
+                        </span>
+                      </button>
+                    `,
+                  )
+                  .join("")
+              : `<div class="empty">このアンケートの回答履歴はありません。</div>`
+          }
+        </div>
+      </div>
+    `;
+  } else {
+    stage.innerHTML = `
+      <div class="stage-head">
+        <div>
+          <div class="card-title">アンケート回答詳細</div>
+          <div class="meta">${escapeHtml(selectedCustomer.name)} / ${escapeHtml(selectedSurveyGroup.surveyTitle)} / ${formatDate(selectedResponse.submittedAt)}</div>
+        </div>
+        <div class="action-row">
+          <button class="secondary-button" type="button" data-print-customer-response="${selectedResponse.id}">印刷</button>
+          <button class="secondary-button" type="button" data-download-customer-photos="${selectedResponse.id}">写真DL</button>
+          <button class="secondary-button" type="button" data-back-customer-stage="responses">戻る</button>
+        </div>
+      </div>
+      <div class="stack">
+        ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
+        ${renderComparisonSection(selectedResponse)}
+        ${renderReadOnlyResponseCard(selectedResponse)}
+      </div>
+    `;
+  }
+
+  stage.querySelectorAll("[data-open-customer]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedCustomerViewName = button.dataset.openCustomer || "";
+      state.selectedCustomerViewSurveyId = "";
+      state.selectedCustomerViewResponseId = "";
+      renderCustomerManagement();
+    });
+  });
+
+  stage.querySelectorAll("[data-open-customer-survey]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedCustomerViewSurveyId = button.dataset.openCustomerSurvey || "";
+      state.selectedCustomerViewResponseId = "";
+      renderCustomerManagement();
+    });
+  });
+
+  stage.querySelectorAll("[data-open-customer-response]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedCustomerViewResponseId = button.dataset.openCustomerResponse || "";
+      renderCustomerManagement();
+    });
+  });
+
+  stage.querySelectorAll("[data-back-customer-stage]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const step = button.dataset.backCustomerStage;
+      if (step === "customers") {
+        state.selectedCustomerViewName = "";
+        state.selectedCustomerViewSurveyId = "";
+        state.selectedCustomerViewResponseId = "";
+      } else if (step === "surveys") {
+        state.selectedCustomerViewSurveyId = "";
+        state.selectedCustomerViewResponseId = "";
+      } else {
+        state.selectedCustomerViewResponseId = "";
+      }
+      renderCustomerManagement();
+    });
+  });
+
+  stage.querySelectorAll("[data-print-customer-response]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const response = state.responses.find((item) => item.id === button.dataset.printCustomerResponse);
+      if (response) printResponse(response);
+    });
+  });
+
+  stage.querySelectorAll("[data-download-customer-photos]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const response = state.responses.find((item) => item.id === button.dataset.downloadCustomerPhotos);
+      if (response) downloadFiles(collectPhotosFromResponses([response]), response.customerName || "response");
+    });
+  });
+
+  attachLightboxHandlers(stage);
 }
 
 function renderCurrentCustomerInfo() {
@@ -3107,7 +3429,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-15", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-16", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
