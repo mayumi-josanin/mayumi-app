@@ -281,16 +281,26 @@ function getBijirisSessionPhotoConfig(question, survey) {
     return { maxFiles: 4, requiredCount: 4 };
   }
   if (
-    question.id === "q_bijiris_session_monitor_photos" ||
-    question.id === "q_bijiris_session_ticket_end_photos"
+    [
+      "q_bijiris_session_monitor_photos_6",
+      "q_bijiris_session_monitor_photos_10",
+      "q_bijiris_session_ticket_end_photos_6",
+      "q_bijiris_session_ticket_end_photos_10",
+      "q_bijiris_session_monitor_photos",
+      "q_bijiris_session_ticket_end_photos",
+    ].includes(question.id)
   ) {
     return { maxFiles: 2, requiredCount: 2 };
   }
   return null;
 }
 
-function isBijirisSessionPhotoQuestion(question, survey) {
-  return Boolean(getBijirisSessionPhotoConfig(question, survey));
+function isLegacyBijirisSessionPhotoQuestion(question, survey) {
+  return Boolean(
+    survey?.id === "survey_bijiris_session" &&
+      question &&
+      ["q_bijiris_session_monitor_photos", "q_bijiris_session_ticket_end_photos"].includes(question.id),
+  );
 }
 
 function isBijirisSessionFinalPhotoVisible(answerMap = {}) {
@@ -330,7 +340,7 @@ function getPhotoQuestionRequiredCount(question, visible, survey) {
 }
 
 function isQuestionVisible(question, answerMap, survey) {
-  if (isBijirisSessionPhotoQuestion(question, survey)) {
+  if (isLegacyBijirisSessionPhotoQuestion(question, survey)) {
     return isBijirisSessionFinalPhotoVisible(answerMap);
   }
   const conditions = getQuestionVisibilityConditions(question);

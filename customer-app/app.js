@@ -5,14 +5,24 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-08";
+const APP_VERSION = "20260413-09";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
 const SESSION_TICKET_SHEET_QUESTION_ID = "q_bijiris_session_ticket_sheet";
 const SESSION_TICKET_ROUND_QUESTION_ID = "q_bijiris_session_ticket_round";
-const SESSION_MONITOR_PHOTOS_QUESTION_ID = "q_bijiris_session_monitor_photos";
-const SESSION_TICKET_END_PHOTOS_QUESTION_ID = "q_bijiris_session_ticket_end_photos";
+const LEGACY_SESSION_MONITOR_PHOTOS_QUESTION_ID = "q_bijiris_session_monitor_photos";
+const LEGACY_SESSION_TICKET_END_PHOTOS_QUESTION_ID = "q_bijiris_session_ticket_end_photos";
+const SESSION_MONITOR_PHOTOS_QUESTION_IDS = [
+  "q_bijiris_session_monitor_photos_6",
+  "q_bijiris_session_monitor_photos_10",
+  LEGACY_SESSION_MONITOR_PHOTOS_QUESTION_ID,
+];
+const SESSION_TICKET_END_PHOTOS_QUESTION_IDS = [
+  "q_bijiris_session_ticket_end_photos_6",
+  "q_bijiris_session_ticket_end_photos_10",
+  LEGACY_SESSION_TICKET_END_PHOTOS_QUESTION_ID,
+];
 const SESSION_CONCERN_QUESTION_ID = "q_bijiris_session_concern";
 const SESSION_LIFE_CHANGES_QUESTION_ID = "q_bijiris_session_life_changes";
 const SESSION_LIFE_CHANGES_OTHER_QUESTION_ID = "q_bijiris_session_life_changes_other";
@@ -486,16 +496,22 @@ function getSessionPhotoQuestionConfig(question) {
     return { maxFiles: 4, requiredCount: 4 };
   }
   if (
-    question.id === SESSION_MONITOR_PHOTOS_QUESTION_ID ||
-    question.id === SESSION_TICKET_END_PHOTOS_QUESTION_ID
+    SESSION_MONITOR_PHOTOS_QUESTION_IDS.includes(question.id) ||
+    SESSION_TICKET_END_PHOTOS_QUESTION_IDS.includes(question.id)
   ) {
     return { maxFiles: 2, requiredCount: 2 };
   }
   return null;
 }
 
-function isBijirisSessionPhotoQuestion(question) {
-  return Boolean(getSessionPhotoQuestionConfig(question));
+function isLegacyBijirisSessionPhotoQuestion(question) {
+  return Boolean(
+    question &&
+      [
+        LEGACY_SESSION_MONITOR_PHOTOS_QUESTION_ID,
+        LEGACY_SESSION_TICKET_END_PHOTOS_QUESTION_ID,
+      ].includes(question.id),
+  );
 }
 
 function isBijirisSessionFinalPhotoVisible(answerMap = {}) {
@@ -668,7 +684,7 @@ function buildDraftAnswerMap(survey, draft) {
 }
 
 function isQuestionVisible(question, answerMap, surveyId = appState.selectedSurveyId) {
-  if (surveyId === SESSION_SURVEY_ID && isBijirisSessionPhotoQuestion(question)) {
+  if (surveyId === SESSION_SURVEY_ID && isLegacyBijirisSessionPhotoQuestion(question)) {
     return isBijirisSessionFinalPhotoVisible(answerMap);
   }
   const conditions = getQuestionVisibilityConditions(question);
@@ -2511,7 +2527,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-08", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-09", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
