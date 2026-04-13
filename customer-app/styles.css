@@ -180,6 +180,20 @@ p {
   gap: 12px;
 }
 
+.member-guide {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-mid);
+  line-height: 1.8;
+}
+
+.member-guide strong {
+  color: var(--sage-dark);
+}
+
 label {
   display: grid;
   gap: 7px;

@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-12";
+const APP_VERSION = "20260413-13";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -185,6 +185,9 @@ const homeTicketStatus = document.querySelector("#homeTicketStatus");
 const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
 const installButton = document.querySelector("#installButton");
+const registrationLead = document.querySelector("#registrationLead");
+const registrationGuide = document.querySelector("#registrationGuide");
+const customerRegisterButton = document.querySelector("#customerRegisterButton");
 const recoverAccountButton = document.querySelector("#recoverAccountButton");
 const bottomNav = document.querySelector("#bottomNav");
 
@@ -244,6 +247,44 @@ function hasCustomerSession() {
 function getCustomerDisplayName() {
   if (!hasCustomerSession()) return "";
   return `${appState.customer.name}（${appState.customer.nameKana}）`;
+}
+
+function isStandaloneApp() {
+  return (
+    window.matchMedia?.("(display-mode: standalone)")?.matches ||
+    window.navigator.standalone === true
+  );
+}
+
+function canRegisterFromThisContext() {
+  const host = window.location.hostname;
+  return isStandaloneApp() || host === "localhost" || host === "127.0.0.1";
+}
+
+function renderRegistrationGuide() {
+  const canRegister = canRegisterFromThisContext();
+  if (registrationLead) {
+    registrationLead.textContent = canRegister
+      ? "このアプリから会員登録してください。登録後は回答履歴もそのまま確認できます。"
+      : "ブラウザでは初回会員登録を行わず、ホーム画面に追加したアプリから会員登録してください。";
+  }
+  if (registrationGuide) {
+    registrationGuide.innerHTML = canRegister
+      ? `
+          <strong>初回の流れ</strong><br />
+          1. お名前とフリガナを入力して会員登録します。<br />
+          2. 登録後はこのアプリから回答と履歴確認を行ってください。
+        `
+      : `
+          <strong>重複登録を防ぐ方法</strong><br />
+          初回会員登録はホーム画面に追加したアプリからだけ行ってください。<br />
+          ブラウザで開いた場合は、下の「登録済みの方 / 名前一致で復旧」を使ってください。
+        `;
+  }
+  if (customerRegisterButton) {
+    customerRegisterButton.disabled = !canRegister;
+    customerRegisterButton.textContent = canRegister ? "会員登録する" : "ホーム画面アプリで会員登録";
+  }
 }
 
 function escapeHtml(value) {
@@ -1010,7 +1051,7 @@ async function applyCustomerSession(profile, options = {}) {
   setPage("home");
   renderHomeTicketStatus();
   renderHistory();
-  showToast(recovery ? "名前一致でアカウントを復旧しました。" : "ログインしました。");
+  showToast(recovery ? "名前一致でアカウントを復旧しました。" : "会員登録しました。");
 }
 
 function selectSurvey(surveyId) {
@@ -2700,7 +2741,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-12", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-13", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -2723,6 +2764,10 @@ function setupInstall() {
 
 customerLoginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!canRegisterFromThisContext()) {
+    showToast("初回会員登録はホーム画面に追加したアプリから行ってください。");
+    return;
+  }
   try {
     await applyCustomerSession(readCustomerProfileFromForm(event.currentTarget));
   } catch (error) {
@@ -2753,7 +2798,7 @@ customerForm.addEventListener("submit", async (event) => {
     };
     saveLocal(CUSTOMER_KEY, appState.customer);
     syncCustomerForms();
-    showToast("お客様情報を保存しました。");
+    showToast("会員情報を保存しました。");
     if (previousName !== appState.customer.name) {
       appState.historySurveyId = "";
       appState.historyResponseId = "";
@@ -2801,6 +2846,7 @@ window.addEventListener("unhandledrejection", (event) => {
   reportClientError("customer.promise", event.reason || "unhandled rejection");
 });
 syncCustomerForms();
+renderRegistrationGuide();
 renderHomeTicketStatus();
 renderSurveys();
 renderAnswerPanel();

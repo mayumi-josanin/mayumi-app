@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみアンケート" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260413-12" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260413-13" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <link rel="icon" href="./icons/icon-192.png" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260413-12" />
+    <link rel="stylesheet" href="./styles.css?v=20260413-13" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -30,13 +30,14 @@
     <main>
       <section id="page-login" class="page active">
         <section class="welcome-card">
-          <p class="eyebrow">Login</p>
-          <h1>ログインしてください</h1>
-          <p>お名前を入力するとアンケート回答と履歴確認ができます。</p>
+          <p class="eyebrow">Member</p>
+          <h1>初めての方は会員登録してください</h1>
+          <p id="registrationLead">ホーム画面に追加したアプリから会員登録してください。</p>
         </section>
 
         <section class="section-card">
-          <h2>ログイン</h2>
+          <h2>会員登録 / 復旧</h2>
+          <div id="registrationGuide" class="member-guide"></div>
           <form id="customerLoginForm" class="form-grid">
             <label>
               お名前(漢字・フルネーム)
@@ -46,8 +47,8 @@
               フリガナ(カタカナ)
               <input name="nameKana" type="text" autocapitalize="characters" required />
             </label>
-            <button class="primary-button" type="submit">ログインする</button>
-            <button class="secondary-button" type="button" id="recoverAccountButton">名前一致で復旧する</button>
+            <button class="primary-button" type="submit" id="customerRegisterButton">会員登録する</button>
+            <button class="secondary-button" type="button" id="recoverAccountButton">登録済みの方 / 名前一致で復旧</button>
           </form>
         </section>
       </section>
@@ -127,9 +128,9 @@
       </button>
     </nav>
 
-    <script src="../default-surveys.js?v=20260413-12"></script>
-    <script src="../shared/gas-config.js?v=20260413-12"></script>
-    <script src="../shared/api.js?v=20260413-12"></script>
-    <script src="./app.js?v=20260413-12"></script>
+    <script src="../default-surveys.js?v=20260413-13"></script>
+    <script src="../shared/gas-config.js?v=20260413-13"></script>
+    <script src="../shared/api.js?v=20260413-13"></script>
+    <script src="./app.js?v=20260413-13"></script>
   </body>
 </html>
