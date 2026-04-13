@@ -1217,16 +1217,27 @@ function renderCustomerManagement() {
             ? customers
                 .map(
                   (customer) => `
-                    <button
-                      class="customer-card selectable-card"
-                      type="button"
-                      data-open-customer="${escapeHtml(customer.name)}"
-                    >
-                      <strong>${escapeHtml(customer.name)}</strong>
-                      <div>回答数: ${customer.count}件</div>
-                      <div class="meta">最新回答: ${formatDate(customer.latestAt)}</div>
-                      ${renderTicketStampList(getCurrentTicketInfoForCustomer(customer.name))}
-                    </button>
+                    <article class="customer-card selectable-card">
+                      <button
+                        class="history-open-button"
+                        type="button"
+                        data-open-customer="${escapeHtml(customer.name)}"
+                      >
+                        <strong>${escapeHtml(customer.name)}</strong>
+                        <div>回答数: ${customer.count}件</div>
+                        <div class="meta">最新回答: ${formatDate(customer.latestAt)}</div>
+                        ${renderTicketStampList(getCurrentTicketInfoForCustomer(customer.name))}
+                      </button>
+                      <div class="action-row">
+                        <button
+                          class="secondary-button danger-button"
+                          type="button"
+                          data-delete-customer-card="${escapeHtml(customer.name)}"
+                        >
+                          顧客削除
+                        </button>
+                      </div>
+                    </article>
                   `,
                 )
                 .join("")
@@ -1241,7 +1252,10 @@ function renderCustomerManagement() {
           <div class="card-title">顧客情報</div>
           <div class="meta">名前・回数券スタンプ情報と、アンケート回答履歴を表示しています。</div>
         </div>
-        <button class="secondary-button" type="button" data-back-customer-stage="customers">戻る</button>
+        <div class="action-row">
+          <button class="secondary-button danger-button" type="button" data-delete-customer="${escapeHtml(selectedCustomer.name)}">顧客削除</button>
+          <button class="secondary-button" type="button" data-back-customer-stage="customers">戻る</button>
+        </div>
       </div>
       <div class="stack">
         ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
@@ -1285,22 +1299,33 @@ function renderCustomerManagement() {
         <div class="response-list">
           ${
             surveyResponses.length
-              ? surveyResponses
-                  .map(
-                    (response) => `
-                      <button
-                        class="response-history-card selectable-card"
-                        type="button"
-                        data-open-customer-response="${escapeHtml(response.id)}"
-                      >
-                        <strong>${escapeHtml(formatResponseEntryTitle(response))}</strong>
-                        <div class="meta">${formatDate(response.submittedAt)}</div>
-                        ${renderTicketStampList(getResponseTicketInfo(response))}
-                        ${renderResponsePhotoPreview(response, 3)}
-                        <span class="badge ${normalizeStatus(response.status)}">
-                          ${STATUS_LABELS[normalizeStatus(response.status)]}
-                        </span>
-                      </button>
+                ? surveyResponses
+                    .map(
+                      (response) => `
+                      <article class="response-history-card selectable-card">
+                        <button
+                          class="history-open-button"
+                          type="button"
+                          data-open-customer-response="${escapeHtml(response.id)}"
+                        >
+                          <strong>${escapeHtml(formatResponseEntryTitle(response))}</strong>
+                          <div class="meta">${formatDate(response.submittedAt)}</div>
+                          ${renderTicketStampList(getResponseTicketInfo(response))}
+                          ${renderResponsePhotoPreview(response, 3)}
+                          <span class="badge ${normalizeStatus(response.status)}">
+                            ${STATUS_LABELS[normalizeStatus(response.status)]}
+                          </span>
+                        </button>
+                        <div class="action-row">
+                          <button
+                            class="secondary-button danger-button"
+                            type="button"
+                            data-delete-response="${escapeHtml(response.id)}"
+                          >
+                            ${normalizeStatus(response.status) === "trash" ? "完全削除" : "回答削除"}
+                          </button>
+                        </div>
+                      </article>
                     `,
                   )
                   .join("")
@@ -1319,6 +1344,7 @@ function renderCustomerManagement() {
         <div class="action-row">
           <button class="secondary-button" type="button" data-print-customer-response="${selectedResponse.id}">印刷</button>
           <button class="secondary-button" type="button" data-download-customer-photos="${selectedResponse.id}">写真保存</button>
+          <button class="secondary-button danger-button" type="button" data-delete-response="${selectedResponse.id}">${normalizeStatus(selectedResponse.status) === "trash" ? "完全削除" : "回答削除"}</button>
           <button class="secondary-button" type="button" data-back-customer-stage="responses">戻る</button>
           <button class="secondary-button" type="button" data-close-customer-detail>閉じる</button>
         </div>
@@ -1376,6 +1402,12 @@ function renderCustomerManagement() {
     button.addEventListener("click", () => {
       const response = state.responses.find((item) => item.id === button.dataset.printCustomerResponse);
       if (response) printResponse(response);
+    });
+  });
+
+  stage.querySelectorAll("[data-delete-customer], [data-delete-customer-card]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void deleteCustomerProfile(button.dataset.deleteCustomer || button.dataset.deleteCustomerCard || "");
     });
   });
 
@@ -2213,6 +2245,15 @@ function renderResponses() {
                           ${STATUS_LABELS[normalizeStatus(response.status)]}
                         </span>
                       </button>
+                      <div class="action-row">
+                        <button
+                          class="secondary-button danger-button"
+                          type="button"
+                          data-delete-response="${escapeHtml(response.id)}"
+                        >
+                          ${normalizeStatus(response.status) === "trash" ? "完全削除" : "回答削除"}
+                        </button>
+                      </div>
                     </article>
                   `,
                 )
@@ -2231,6 +2272,7 @@ function renderResponses() {
         <div class="action-row">
           <button class="secondary-button" type="button" data-print-response="${selectedResponse.id}">印刷</button>
           <button class="secondary-button" type="button" data-download-response-photos="${selectedResponse.id}">写真保存</button>
+          <button class="secondary-button danger-button" type="button" data-delete-response="${selectedResponse.id}">${normalizeStatus(selectedResponse.status) === "trash" ? "完全削除" : "回答削除"}</button>
           <button class="secondary-button" type="button" data-back-stage="survey-history">戻る</button>
           <button class="secondary-button" type="button" data-close-response-detail>閉じる</button>
         </div>
@@ -3864,7 +3906,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-22", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-23", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
