@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-01";
+const APP_VERSION = "20260413-02";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -478,7 +478,7 @@ function getConcernActiveCategory(surveyId, questionId, selectedOptions = []) {
   const matched = SESSION_CONCERN_CATEGORIES.find((category) =>
     category.options.some((option) => selectedOptions.includes(option)),
   );
-  return matched?.id || SESSION_CONCERN_CATEGORIES[0]?.id || "";
+  return matched?.id || "";
 }
 
 function setConcernActiveCategory(surveyId, questionId, categoryId) {
@@ -1091,7 +1091,7 @@ function renderQuestion(question, index, surveyId) {
       const activeCategoryId = getConcernActiveCategory(surveyId, question.id, selectedCheckboxValues);
       const activeCategory =
         SESSION_CONCERN_CATEGORIES.find((category) => category.id === activeCategoryId) ||
-        SESSION_CONCERN_CATEGORIES[0];
+        null;
       return `
         <fieldset class="question-block" data-question-wrap="${question.id}">
           <legend>${label}</legend>
@@ -1110,18 +1110,24 @@ function renderQuestion(question, index, surveyId) {
               `,
             ).join("")}
           </div>
-          <div class="checkbox-row">
-            ${activeCategory.options
-              .map(
-                (option) => `
-                  <label>
-                    <input type="checkbox" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${selected.has(option) ? "checked" : ""} />
-                    ${escapeHtml(option)}
-                  </label>
-                `,
-              )
-              .join("")}
-          </div>
+          ${
+            activeCategory
+              ? `
+                <div class="checkbox-row">
+                  ${activeCategory.options
+                    .map(
+                      (option) => `
+                        <label>
+                          <input type="checkbox" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${selected.has(option) ? "checked" : ""} />
+                          ${escapeHtml(option)}
+                        </label>
+                      `,
+                    )
+                    .join("")}
+                </div>
+              `
+              : `<div class="empty">カテゴリを選択すると詳細項目を表示します。</div>`
+          }
         </fieldset>
       `;
     }
@@ -2161,7 +2167,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-01", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-02", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

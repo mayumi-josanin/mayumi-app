@@ -628,6 +628,20 @@ textarea {
   align-items: center;
 }
 
+.category-editor-list {
+  display: grid;
+  gap: 12px;
+}
+
+.category-editor-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
 .condition-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;

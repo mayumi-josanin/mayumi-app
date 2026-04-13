@@ -10,6 +10,52 @@ const TICKET_INFO_QUESTION_IDS = {
   sheet: "q_ticket_end_ticket_sheet",
   round: "q_ticket_end_ticket_round",
 };
+const SESSION_CONCERN_QUESTION_ID = "q_bijiris_session_concern";
+const SESSION_CONCERN_CATEGORIES = [
+  {
+    id: "toilet",
+    label: "【トイレ・デリケートゾーンのお悩み】",
+    options: [
+      "咳、くしゃみ、大笑いした時に尿もれすることがある",
+      "ジャンプや運動、重いものを持った時に尿もれすることがある",
+      "急にトイレに行きたくなる、我慢できず間に合わないことがある",
+      "トイレが近い・夜中に何度もトイレで起きる",
+      "デリケートゾーンの違和感や乾燥が気になる",
+      "便秘しやすい・お腹が張りやすい",
+    ],
+  },
+  {
+    id: "posture",
+    label: "【姿勢・体型のお悩み】",
+    options: [
+      "姿勢が崩れやすい・猫背や反り腰が気になる",
+      "下腹ぽっこりが気になる",
+      "ヒップラインや骨盤まわりのゆるみが気になる",
+      "産後の体型変化が気になる",
+    ],
+  },
+  {
+    id: "pain",
+    label: "【痛み・めぐりのお悩み】",
+    options: [
+      "腰痛がある",
+      "股関節や骨盤まわりに痛み・違和感がある",
+      "冷えやむくみが気になる",
+      "疲れやすい・眠りが浅い",
+    ],
+  },
+  {
+    id: "care",
+    label: "【ビジリス（骨盤底筋ケア）について知りたいこと】",
+    options: [
+      "骨盤底筋ケアでどんな変化が期待できるか知りたい",
+      "自宅でできる骨盤底筋ケアを知りたい",
+      "妊活や産後ケアにどう役立つか知りたい",
+      "自分に合う通い方や頻度を知りたい",
+      "その他",
+    ],
+  },
+];
 
 const api = window.MayumiSurveyApi;
 const state = {
@@ -1668,6 +1714,76 @@ function getQuestionConditionOptions(question) {
     : [];
 }
 
+function isSessionConcernQuestion(question) {
+  return String(question?.id || "").trim() === SESSION_CONCERN_QUESTION_ID;
+}
+
+function getSessionConcernCategoryGroups(options) {
+  const normalizedOptions = Array.isArray(options)
+    ? options.map((option) => String(option || "").trim()).filter(Boolean)
+    : [];
+  const definedValues = new Set(SESSION_CONCERN_CATEGORIES.flatMap((category) => category.options));
+  const groups = SESSION_CONCERN_CATEGORIES.map((category) => ({
+    id: category.id,
+    label: category.label,
+    options: normalizedOptions.filter((option) => category.options.includes(option)),
+  }));
+  const extras = normalizedOptions.filter((option) => !definedValues.has(option));
+  if (extras.length) {
+    groups.push({
+      id: "custom",
+      label: "【その他の項目】",
+      options: extras,
+    });
+  }
+  return groups;
+}
+
+function renderQuestionOptionsEditorContent(question) {
+  const normalizedQuestion = normalizeQuestionForEditor(question);
+  const type = normalizedQuestion.type;
+  if (!questionSupportsOptions(type)) return "";
+
+  if (type === "checkbox" && isSessionConcernQuestion(normalizedQuestion)) {
+    const groups = getSessionConcernCategoryGroups(normalizedQuestion.options);
+    return `
+      <div class="category-editor-list">
+        <div class="meta">カテゴリは固定表示です。各欄を1行1項目で編集できます。</div>
+        ${groups
+          .map(
+            (group) => `
+              <label class="category-editor-card">
+                <span>${escapeHtml(group.label)}</span>
+                <textarea data-category-options-input data-category-id="${escapeHtml(group.id)}" placeholder="1行に1項目">${escapeHtml(group.options.join("\n"))}</textarea>
+              </label>
+            `,
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  const options = Array.isArray(normalizedQuestion.options) && normalizedQuestion.options.length
+    ? normalizedQuestion.options
+    : ["", ""];
+
+  return `
+    <div class="option-list" data-option-list>
+      ${options
+        .map(
+          (option) => `
+            <div class="option-row">
+              <input type="text" data-option-input value="${escapeHtml(option)}" placeholder="選択肢" />
+              <button class="secondary-button" type="button" data-remove-option>削除</button>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+    <button class="secondary-button" type="button" data-add-option>選択肢を追加</button>
+  `;
+}
+
 function makeBlankQuestion() {
   return {
     id: makeEditorQuestionId(),
@@ -1677,6 +1793,22 @@ function makeBlankQuestion() {
     options: [],
     visibilityConditions: [],
   };
+}
+
+function readQuestionOptionsFromBlock(block) {
+  if (!block) return [];
+  if (block.querySelectorAll("[data-category-options-input]").length) {
+    return Array.from(block.querySelectorAll("[data-category-options-input]"))
+      .flatMap((input) =>
+        String(input.value || "")
+          .split(/\r?\n/)
+          .map((value) => value.trim())
+          .filter(Boolean),
+      );
+  }
+  return Array.from(block.querySelectorAll("[data-option-input]"))
+    .map((input) => String(input.value || "").trim())
+    .filter(Boolean);
 }
 
 function makeBlankSurveyDraft() {
@@ -1770,11 +1902,6 @@ function renderSurveyQuestionEditor(question, index, allQuestions) {
   const normalizedQuestion = normalizeQuestionForEditor(question);
   const type = normalizedQuestion.type;
   const supportsOptions = questionSupportsOptions(type);
-  const options = supportsOptions
-    ? Array.isArray(normalizedQuestion.options) && normalizedQuestion.options.length
-      ? normalizedQuestion.options
-      : ["", ""]
-    : [];
   const previousQuestions = Array.isArray(allQuestions)
     ? allQuestions.slice(0, index).map(normalizeQuestionForEditor).filter((item) => item?.id || item?.label)
     : [];
@@ -1821,19 +1948,7 @@ function renderSurveyQuestionEditor(question, index, allQuestions) {
         </label>
       </div>
       <div data-options-wrapper ${supportsOptions ? "" : "hidden"}>
-        <div class="option-list" data-option-list>
-          ${options
-            .map(
-              (option) => `
-                <div class="option-row">
-                  <input type="text" data-option-input value="${escapeHtml(option)}" placeholder="選択肢" />
-                  <button class="secondary-button" type="button" data-remove-option>削除</button>
-                </div>
-              `,
-            )
-            .join("")}
-        </div>
-        <button class="secondary-button" type="button" data-add-option>選択肢を追加</button>
+        ${renderQuestionOptionsEditorContent(normalizedQuestion)}
       </div>
     </article>
   `;
@@ -1871,9 +1986,7 @@ function getEditorQuestionReferences(container) {
       label: String(block.querySelector("[data-question-label]")?.value || "").trim(),
       type,
       options: questionSupportsOptions(type)
-        ? Array.from(block.querySelectorAll("[data-option-input]"))
-            .map((input) => String(input.value || "").trim())
-            .filter(Boolean)
+        ? readQuestionOptionsFromBlock(block)
         : [],
     };
   });
@@ -1929,6 +2042,26 @@ function ensureQuestionOptions(block) {
   );
 }
 
+function refreshQuestionOptionsEditor(block) {
+  const wrapper = block?.querySelector("[data-options-wrapper]");
+  if (!block || !wrapper) return;
+  const type = String(block.querySelector("[data-question-type]")?.value || "text");
+  if (!questionSupportsOptions(type)) {
+    wrapper.hidden = true;
+    wrapper.innerHTML = "";
+    return;
+  }
+
+  const currentQuestion = {
+    id: block.dataset.questionId || "",
+    type,
+    options: readQuestionOptionsFromBlock(block),
+  };
+  wrapper.hidden = false;
+  wrapper.innerHTML = renderQuestionOptionsEditorContent(currentQuestion);
+  ensureQuestionOptions(block);
+}
+
 function buildSurveyPayload(form) {
   const title = String(form.elements.title.value || "").trim();
   const description = String(form.elements.description.value || "").trim();
@@ -1958,9 +2091,7 @@ function buildSurveyPayload(form) {
       type,
       required: Boolean(block.querySelector("[data-question-required]")?.checked),
       options: questionSupportsOptions(type)
-        ? Array.from(block.querySelectorAll("[data-option-input]"))
-            .map((input) => String(input.value || "").trim())
-            .filter(Boolean)
+        ? readQuestionOptionsFromBlock(block)
         : [],
       visibilityConditions,
       visibleWhen: visibilityConditions[0] || null,
@@ -2275,15 +2406,7 @@ function renderSurveyManager() {
     const typeSelect = event.target.closest("[data-question-type]");
     if (typeSelect) {
       const block = typeSelect.closest("[data-question-block]");
-      const wrapper = block?.querySelector("[data-options-wrapper]");
-      if (block && wrapper) {
-        if (questionSupportsOptions(typeSelect.value)) {
-          wrapper.hidden = false;
-          ensureQuestionOptions(block);
-        } else {
-          wrapper.hidden = true;
-        }
-      }
+      if (block) refreshQuestionOptionsEditor(block);
       refreshVisibilityConditionEditors(questionsContainer);
       return;
     }
@@ -2291,6 +2414,7 @@ function renderSurveyManager() {
     if (
       event.target.closest("[data-condition-question-id]") ||
       event.target.closest("[data-option-input]") ||
+      event.target.closest("[data-category-options-input]") ||
       event.target.closest("[data-question-label]")
     ) {
       refreshVisibilityConditionEditors(questionsContainer);
@@ -2300,6 +2424,7 @@ function renderSurveyManager() {
   questionsContainer?.addEventListener("input", (event) => {
     if (
       event.target.closest("[data-option-input]") ||
+      event.target.closest("[data-category-options-input]") ||
       event.target.closest("[data-question-label]")
     ) {
       refreshVisibilityConditionEditors(questionsContainer);
@@ -2590,7 +2715,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-01", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-02", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
