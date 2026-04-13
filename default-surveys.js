@@ -44,6 +44,45 @@ const BIJIRIS_SESSION_CONCERN_CATEGORIES = [
   },
 ];
 
+const BIJIRIS_SESSION_TICKET_SHEET_OPTIONS = [
+  "1枚目",
+  "2枚目",
+  "3枚目",
+  "4枚目",
+  "5枚目",
+  "6枚目",
+  "7枚目",
+  "8枚目",
+  "9枚目",
+  "10枚目",
+];
+
+const BIJIRIS_SESSION_TICKET_ROUND_OPTIONS = [
+  "1回目",
+  "2回目",
+  "3回目",
+  "4回目",
+  "5回目",
+  "6回目",
+  "7回目",
+  "8回目",
+  "9回目",
+  "10回目",
+];
+
+const BIJIRIS_SESSION_LIFE_CHANGE_OPTIONS = [
+  "咳やくしゃみをした時の不安が以前より減った",
+  "急な尿意を気にする場面が減った",
+  "外出時にトイレの場所を気にしすぎなくなった",
+  "夜中にトイレで起きる回数が減った",
+  "お腹の奥に力が入りやすくなった",
+  "骨盤まわりが安定した感じがある",
+  "姿勢を意識しやすくなった",
+  "下腹まわりがすっきりした感じがある",
+  "歩く・立つ・動くことが以前より楽になった",
+  "その他（自由記述）",
+];
+
 function getBijirisSessionConcernOptions() {
   return BIJIRIS_SESSION_CONCERN_CATEGORIES.flatMap((category) => category.options);
 }
@@ -76,19 +115,27 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" },
         },
         {
+          id: "q_bijiris_session_ticket_sheet",
+          label: "回数券の何枚目ですか？",
+          type: "choice",
+          required: true,
+          options: BIJIRIS_SESSION_TICKET_SHEET_OPTIONS,
+          visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" },
+        },
+        {
+          id: "q_bijiris_session_ticket_round",
+          label: "回数券の何回目ですか？",
+          type: "choice",
+          required: true,
+          options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS,
+          visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" },
+        },
+        {
           id: "q_bijiris_session_feeling",
           label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください",
           type: "textarea",
           required: true,
           options: [],
-        },
-        {
-          id: "q_bijiris_session_ticket_photos",
-          label: "写真4枚（モニター時の写真2枚・回数券終了時の写真2枚）",
-          type: "photo",
-          required: true,
-          options: [],
-          visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" },
         },
         {
           id: "q_bijiris_session_concern",
@@ -97,6 +144,40 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           type: "checkbox",
           required: false,
           options: getBijirisSessionConcernOptions(),
+        },
+        {
+          id: "q_bijiris_session_life_changes",
+          label: "日常生活にどのような変化がありましたか？（複数選択可）",
+          type: "checkbox",
+          required: false,
+          options: BIJIRIS_SESSION_LIFE_CHANGE_OPTIONS,
+        },
+        {
+          id: "q_bijiris_session_life_changes_other",
+          label: "日常生活の変化（その他）",
+          type: "textarea",
+          required: false,
+          options: [],
+          visibleWhen: {
+            questionId: "q_bijiris_session_life_changes",
+            value: "その他（自由記述）",
+          },
+        },
+        {
+          id: "q_bijiris_session_monitor_photos",
+          label: "モニター時の写真2枚",
+          type: "photo",
+          required: true,
+          options: [],
+          visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" },
+        },
+        {
+          id: "q_bijiris_session_ticket_end_photos",
+          label: "回数券終了時の写真2枚",
+          type: "photo",
+          required: true,
+          options: [],
+          visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" },
         },
       ],
     },

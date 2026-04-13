@@ -5,16 +5,26 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-05";
+const APP_VERSION = "20260413-06";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
-const SESSION_TICKET_PHOTO_QUESTION_ID = "q_bijiris_session_ticket_photos";
+const SESSION_TICKET_SHEET_QUESTION_ID = "q_bijiris_session_ticket_sheet";
+const SESSION_TICKET_ROUND_QUESTION_ID = "q_bijiris_session_ticket_round";
+const SESSION_MONITOR_PHOTOS_QUESTION_ID = "q_bijiris_session_monitor_photos";
+const SESSION_TICKET_END_PHOTOS_QUESTION_ID = "q_bijiris_session_ticket_end_photos";
 const SESSION_CONCERN_QUESTION_ID = "q_bijiris_session_concern";
+const SESSION_LIFE_CHANGES_QUESTION_ID = "q_bijiris_session_life_changes";
+const SESSION_LIFE_CHANGES_OTHER_QUESTION_ID = "q_bijiris_session_life_changes_other";
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
-const TICKET_END_COUNT_QUESTION_ID = "q_ticket_end_ticket_size";
-const TICKET_END_SHEET_QUESTION_ID = "q_ticket_end_ticket_sheet";
-const TICKET_END_ROUND_QUESTION_ID = "q_ticket_end_ticket_round";
+const LEGACY_TICKET_INFO_QUESTION_IDS = {
+  size: "q_ticket_end_ticket_size",
+  sheet: "q_ticket_end_ticket_sheet",
+  round: "q_ticket_end_ticket_round",
+};
+const TICKET_END_COUNT_QUESTION_ID = LEGACY_TICKET_INFO_QUESTION_IDS.size;
+const TICKET_END_SHEET_QUESTION_ID = LEGACY_TICKET_INFO_QUESTION_IDS.sheet;
+const TICKET_END_ROUND_QUESTION_ID = LEGACY_TICKET_INFO_QUESTION_IDS.round;
 const SESSION_CONCERN_CATEGORIES = [
   {
     id: "toilet",
@@ -349,10 +359,20 @@ function getSessionTicketPlanSelection(surveyId) {
   return normalizeText(getDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID));
 }
 
+function getSessionTicketSheetSelection(surveyId) {
+  return normalizeText(getDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID));
+}
+
+function getSessionTicketRoundSelection(surveyId) {
+  return normalizeText(getDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID));
+}
+
 function clearSessionSelections(surveyId) {
   const draft = getSurveyDraft(surveyId);
   delete draft.values[SESSION_TYPE_QUESTION_ID];
   delete draft.values[SESSION_TICKET_PLAN_QUESTION_ID];
+  delete draft.values[SESSION_TICKET_SHEET_QUESTION_ID];
+  delete draft.values[SESSION_TICKET_ROUND_QUESTION_ID];
   setSurveyDraft(surveyId, draft);
 }
 
@@ -364,36 +384,51 @@ function getSessionTicketPlanQuestion(survey) {
   return survey.questions.find((question) => question.id === SESSION_TICKET_PLAN_QUESTION_ID);
 }
 
+function getSessionTicketSheetQuestion(survey) {
+  return survey.questions.find((question) => question.id === SESSION_TICKET_SHEET_QUESTION_ID);
+}
+
+function getSessionTicketRoundQuestion(survey) {
+  return survey.questions.find((question) => question.id === SESSION_TICKET_ROUND_QUESTION_ID);
+}
+
+function clearSessionTicketProgressSelections(surveyId) {
+  const draft = getSurveyDraft(surveyId);
+  delete draft.values[SESSION_TICKET_SHEET_QUESTION_ID];
+  delete draft.values[SESSION_TICKET_ROUND_QUESTION_ID];
+  setSurveyDraft(surveyId, draft);
+}
+
 function getTicketEndCountSelection(surveyId) {
-  return normalizeText(getDraftValue(surveyId, TICKET_END_COUNT_QUESTION_ID));
+  return normalizeText(getDraftValue(surveyId, LEGACY_TICKET_INFO_QUESTION_IDS.size));
 }
 
 function getTicketEndSheetSelection(surveyId) {
-  return normalizeText(getDraftValue(surveyId, TICKET_END_SHEET_QUESTION_ID));
+  return normalizeText(getDraftValue(surveyId, LEGACY_TICKET_INFO_QUESTION_IDS.sheet));
 }
 
 function getTicketEndRoundSelection(surveyId) {
-  return normalizeText(getDraftValue(surveyId, TICKET_END_ROUND_QUESTION_ID));
+  return normalizeText(getDraftValue(surveyId, LEGACY_TICKET_INFO_QUESTION_IDS.round));
 }
 
 function clearTicketEndSelections(surveyId) {
   const draft = getSurveyDraft(surveyId);
-  delete draft.values[TICKET_END_COUNT_QUESTION_ID];
-  delete draft.values[TICKET_END_SHEET_QUESTION_ID];
-  delete draft.values[TICKET_END_ROUND_QUESTION_ID];
+  delete draft.values[LEGACY_TICKET_INFO_QUESTION_IDS.size];
+  delete draft.values[LEGACY_TICKET_INFO_QUESTION_IDS.sheet];
+  delete draft.values[LEGACY_TICKET_INFO_QUESTION_IDS.round];
   setSurveyDraft(surveyId, draft);
 }
 
 function getTicketEndCountQuestion(survey) {
-  return survey.questions.find((question) => question.id === TICKET_END_COUNT_QUESTION_ID);
+  return survey.questions.find((question) => question.id === LEGACY_TICKET_INFO_QUESTION_IDS.size);
 }
 
 function getTicketEndSheetQuestion(survey) {
-  return survey.questions.find((question) => question.id === TICKET_END_SHEET_QUESTION_ID);
+  return survey.questions.find((question) => question.id === LEGACY_TICKET_INFO_QUESTION_IDS.sheet);
 }
 
 function getTicketEndRoundQuestion(survey) {
-  return survey.questions.find((question) => question.id === TICKET_END_ROUND_QUESTION_ID);
+  return survey.questions.find((question) => question.id === LEGACY_TICKET_INFO_QUESTION_IDS.round);
 }
 
 function getTicketRoundOptions(ticketCount) {
@@ -401,8 +436,18 @@ function getTicketRoundOptions(ticketCount) {
   return Array.from({ length: max }, (_, index) => `${index + 1}回目`);
 }
 
-function isSessionTicketPhotoQuestion(question) {
-  return question?.id === SESSION_TICKET_PHOTO_QUESTION_ID;
+function getSessionPhotoQuestionConfig(question) {
+  if (!question) return null;
+  if (question.id === "q_bijiris_session_ticket_photos") {
+    return { maxFiles: 4, requiredCount: 4 };
+  }
+  if (
+    question.id === SESSION_MONITOR_PHOTOS_QUESTION_ID ||
+    question.id === SESSION_TICKET_END_PHOTOS_QUESTION_ID
+  ) {
+    return { maxFiles: 2, requiredCount: 2 };
+  }
+  return null;
 }
 
 function isTicketEndLastPhotoQuestion(question) {
@@ -410,12 +455,14 @@ function isTicketEndLastPhotoQuestion(question) {
 }
 
 function getPhotoQuestionFileLimit(question) {
-  if (isSessionTicketPhotoQuestion(question)) return 4;
+  const sessionPhotoQuestionConfig = getSessionPhotoQuestionConfig(question);
+  if (sessionPhotoQuestionConfig) return sessionPhotoQuestionConfig.maxFiles;
   return PHOTO_FILE_LIMIT;
 }
 
 function getPhotoQuestionRequiredCount(question, surveyId = appState.selectedSurveyId) {
-  if (isSessionTicketPhotoQuestion(question)) return 4;
+  const sessionPhotoQuestionConfig = getSessionPhotoQuestionConfig(question);
+  if (sessionPhotoQuestionConfig) return sessionPhotoQuestionConfig.requiredCount;
   if (isTicketEndLastPhotoQuestion(question) && !getQuestionVisibilityConditions(question).length) {
     return isTicketEndLastPhotoRequired(surveyId) ? 1 : 0;
   }
@@ -423,8 +470,8 @@ function getPhotoQuestionRequiredCount(question, surveyId = appState.selectedSur
 }
 
 function isTicketEndLastPhotoRequired(surveyId) {
-  const ticketCount = getTicketEndCountSelection(surveyId);
-  const ticketRound = getTicketEndRoundSelection(surveyId);
+  const ticketCount = normalizeText(getDraftValue(surveyId, LEGACY_TICKET_INFO_QUESTION_IDS.size));
+  const ticketRound = normalizeText(getDraftValue(surveyId, LEGACY_TICKET_INFO_QUESTION_IDS.round));
   return (
     (ticketCount === "6回券" && ticketRound === "6回目") ||
     (ticketCount === "10回券" && ticketRound === "10回目")
@@ -448,6 +495,12 @@ function getQuestionVisibilityConditions(question) {
     : [];
 }
 
+function doesQuestionAffectVisibility(survey, questionId) {
+  return survey.questions.some((question) =>
+    getQuestionVisibilityConditions(question).some((condition) => condition.questionId === questionId),
+  );
+}
+
 function isQuestionRequired(question, surveyId) {
   if (question?.type === "photo") {
     return getPhotoQuestionRequiredCount(question, surveyId) > 0;
@@ -457,9 +510,9 @@ function isQuestionRequired(question, surveyId) {
 
 function getQuestionLabel(question, surveyId = appState.selectedSurveyId) {
   if (question.id === "q_ticket_end_photo_last") {
-    const ticketRound = getTicketEndRoundSelection(surveyId);
+    const ticketRound = normalizeText(getDraftValue(surveyId, LEGACY_TICKET_INFO_QUESTION_IDS.round));
     if (ticketRound) return `計測写真(${ticketRound})`;
-    const ticketCount = getTicketEndCountSelection(surveyId);
+    const ticketCount = normalizeText(getDraftValue(surveyId, LEGACY_TICKET_INFO_QUESTION_IDS.size));
     if (ticketCount === "6回券") return "計測写真(6回目)";
     if (ticketCount === "10回券") return "計測写真(10回目)";
   }
@@ -471,10 +524,14 @@ function getSubmissionQuestionVisibility(question, answerMap, surveyId = appStat
   if (question.id === SESSION_TICKET_PLAN_QUESTION_ID) {
     return getSessionTypeSelection(surveyId) === "回数券";
   }
-  if (question.id === TICKET_END_COUNT_QUESTION_ID) return true;
-  if (question.id === TICKET_END_SHEET_QUESTION_ID) return Boolean(getTicketEndCountSelection(surveyId));
-  if (question.id === TICKET_END_ROUND_QUESTION_ID) {
-    return Boolean(getTicketEndCountSelection(surveyId) && getTicketEndSheetSelection(surveyId));
+  if (question.id === SESSION_TICKET_SHEET_QUESTION_ID) {
+    return getSessionTypeSelection(surveyId) === "回数券" && Boolean(getSessionTicketPlanSelection(surveyId));
+  }
+  if (question.id === SESSION_TICKET_ROUND_QUESTION_ID) {
+    return (
+      getSessionTypeSelection(surveyId) === "回数券" &&
+      Boolean(getSessionTicketPlanSelection(surveyId) && getSessionTicketSheetSelection(surveyId))
+    );
   }
   return isQuestionVisible(question, answerMap, surveyId);
 }
@@ -568,13 +625,11 @@ function isQuestionVisible(question, answerMap, surveyId = appState.selectedSurv
 function getVisibleQuestions(survey, draft) {
   const answerMap = buildDraftAnswerMap(survey, draft);
   return survey.questions.filter((question) => {
-    if (question.id === SESSION_TYPE_QUESTION_ID || question.id === SESSION_TICKET_PLAN_QUESTION_ID) {
-      return false;
-    }
     if (
-      question.id === TICKET_END_COUNT_QUESTION_ID ||
-      question.id === TICKET_END_SHEET_QUESTION_ID ||
-      question.id === TICKET_END_ROUND_QUESTION_ID
+      question.id === SESSION_TYPE_QUESTION_ID ||
+      question.id === SESSION_TICKET_PLAN_QUESTION_ID ||
+      question.id === SESSION_TICKET_SHEET_QUESTION_ID ||
+      question.id === SESSION_TICKET_ROUND_QUESTION_ID
     ) {
       return false;
     }
@@ -584,7 +639,7 @@ function getVisibleQuestions(survey, draft) {
 
 function isQuestionAnswered(question, surveyId, draft) {
   if (question.type === "photo") {
-    return getDraftPhotos(surveyId, question.id).length > 0;
+    return getDraftPhotos(surveyId, question.id).length >= getPhotoQuestionRequiredCount(question, surveyId);
   }
   const raw = draft.values[question.id];
   if (Array.isArray(raw)) return raw.some((item) => normalizeText(item));
@@ -813,6 +868,7 @@ function renderSessionTypeStep(survey, surveyId) {
       if (!nextType) return;
       updateDraftValue(surveyId, SESSION_TYPE_QUESTION_ID, nextType);
       if (nextType !== "回数券") {
+        clearSessionTicketProgressSelections(surveyId);
         updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, "");
       }
       renderAnswerPanel();
@@ -860,8 +916,7 @@ function renderSessionTicketPlanStep(survey, surveyId) {
   `;
 
   document.querySelector("#backToSessionTypeButton").addEventListener("click", () => {
-    updateDraftValue(surveyId, SESSION_TYPE_QUESTION_ID, "");
-    updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, "");
+    clearSessionSelections(surveyId);
     renderAnswerPanel();
   });
   document.querySelectorAll("[data-session-ticket-plan-option]").forEach((button) => {
@@ -869,8 +924,131 @@ function renderSessionTicketPlanStep(survey, surveyId) {
       const nextPlan = normalizeText(button.dataset.sessionTicketPlanOption);
       if (!nextPlan) return;
       updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, nextPlan);
+      clearSessionTicketProgressSelections(surveyId);
       renderAnswerPanel();
     });
+  });
+  attachCommonButtons();
+}
+
+function renderSessionTicketSheetStep(survey, surveyId) {
+  const ticketSheetQuestion = getSessionTicketSheetQuestion(survey);
+  const selectedPlan = getSessionTicketPlanSelection(surveyId);
+  const selectedValue = getSessionTicketSheetSelection(surveyId);
+  answerPanel.innerHTML = `
+    ${renderPendingNotice()}
+    <div class="section-head survey-toolbar">
+      <div>
+        <h2>${escapeHtml(survey.title)}</h2>
+        <p>${escapeHtml(selectedPlan)} の何枚目かを選択してください。</p>
+      </div>
+      <button id="backToSessionPlanButton" class="ghost-button" type="button">戻る</button>
+    </div>
+    <form id="sessionTicketSheetForm" class="question-list">
+      <div class="question-block prefilled-answer">
+        <strong>施術内容</strong>
+        <div>${escapeHtml(getSessionTypeSelection(surveyId))}</div>
+        <strong>回数券の種類</strong>
+        <div>${escapeHtml(selectedPlan)}</div>
+      </div>
+      <fieldset class="question-block">
+        <legend><span>${escapeHtml(ticketSheetQuestion.label)}</span></legend>
+        <div class="choice-row">
+          ${ticketSheetQuestion.options
+            .map(
+              (option) => `
+                <label>
+                  <input type="radio" name="sessionTicketSheet" value="${escapeHtml(option)}" ${selectedValue === option ? "checked" : ""} />
+                  ${escapeHtml(option)}
+                </label>
+              `,
+            )
+            .join("")}
+        </div>
+      </fieldset>
+      <button class="primary-button" type="submit">次へ</button>
+    </form>
+  `;
+
+  document.querySelector("#backToSessionPlanButton").addEventListener("click", () => {
+    updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, "");
+    clearSessionTicketProgressSelections(surveyId);
+    renderAnswerPanel();
+  });
+  document.querySelector("#sessionTicketSheetForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const ticketSheet = normalizeText(formData.get("sessionTicketSheet"));
+    if (!ticketSheet) {
+      showToast("回数券の何枚目かを選択してください。");
+      return;
+    }
+    updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, ticketSheet);
+    updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, "");
+    renderAnswerPanel();
+  });
+  attachCommonButtons();
+}
+
+function renderSessionTicketRoundStep(survey, surveyId) {
+  const ticketRoundQuestion = getSessionTicketRoundQuestion(survey);
+  const selectedPlan = getSessionTicketPlanSelection(surveyId);
+  const selectedSheet = getSessionTicketSheetSelection(surveyId);
+  const selectedValue = getSessionTicketRoundSelection(surveyId);
+  const roundOptions = getTicketRoundOptions(selectedPlan);
+
+  answerPanel.innerHTML = `
+    ${renderPendingNotice()}
+    <div class="section-head survey-toolbar">
+      <div>
+        <h2>${escapeHtml(survey.title)}</h2>
+        <p>${escapeHtml(selectedPlan)} の ${escapeHtml(selectedSheet)} の何回目かを選択してください。</p>
+      </div>
+      <button id="backToSessionSheetButton" class="ghost-button" type="button">戻る</button>
+    </div>
+    <form id="sessionTicketRoundForm" class="question-list">
+      <div class="question-block prefilled-answer">
+        <strong>施術内容</strong>
+        <div>${escapeHtml(getSessionTypeSelection(surveyId))}</div>
+        <strong>回数券の種類</strong>
+        <div>${escapeHtml(selectedPlan)}</div>
+        <strong>回数券の何枚目</strong>
+        <div>${escapeHtml(selectedSheet)}</div>
+      </div>
+      <fieldset class="question-block">
+        <legend><span>${escapeHtml(ticketRoundQuestion.label)}</span></legend>
+        <div class="choice-row">
+          ${roundOptions
+            .map(
+              (option) => `
+                <label>
+                  <input type="radio" name="sessionTicketRound" value="${escapeHtml(option)}" ${selectedValue === option ? "checked" : ""} />
+                  ${escapeHtml(option)}
+                </label>
+              `,
+            )
+            .join("")}
+        </div>
+      </fieldset>
+      <button class="primary-button" type="submit">質問へ進む</button>
+    </form>
+  `;
+
+  document.querySelector("#backToSessionSheetButton").addEventListener("click", () => {
+    updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, "");
+    updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, "");
+    renderAnswerPanel();
+  });
+  document.querySelector("#sessionTicketRoundForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const ticketRound = normalizeText(formData.get("sessionTicketRound"));
+    if (!ticketRound) {
+      showToast("回数券の何回目ですか？を選択してください。");
+      return;
+    }
+    updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, ticketRound);
+    renderAnswerPanel();
   });
   attachCommonButtons();
 }
@@ -1380,25 +1558,14 @@ function renderFormPanel(survey) {
                 ? `
                   <strong>回数券の種類</strong>
                   <div>${escapeHtml(getSessionTicketPlanSelection(surveyId))}</div>
+                  <strong>回数券の何枚目</strong>
+                  <div>${escapeHtml(getSessionTicketSheetSelection(surveyId))}</div>
+                  <strong>回数券の何回目</strong>
+                  <div>${escapeHtml(getSessionTicketRoundSelection(surveyId))}</div>
                 `
                 : ""
             }
             <button id="changeSessionTypeButton" class="ghost-button" type="button">変更する</button>
-          </div>
-        `
-        : ""
-    }
-    ${
-      isTicketEndSurvey(survey)
-        ? `
-          <div class="question-block prefilled-answer">
-            <strong>回数券の種類</strong>
-            <div>${escapeHtml(getTicketEndCountSelection(surveyId))}</div>
-            <strong>回数券の何枚目</strong>
-            <div>${escapeHtml(getTicketEndSheetSelection(surveyId))}</div>
-            <strong>回数券の何回目</strong>
-            <div>${escapeHtml(getTicketEndRoundSelection(surveyId))}</div>
-            <button id="changeTicketCountButton" class="ghost-button" type="button">変更する</button>
           </div>
         `
         : ""
@@ -1446,10 +1613,6 @@ function renderFormPanel(survey) {
     clearSessionSelections(surveyId);
     renderAnswerPanel();
   });
-  document.querySelector("#changeTicketCountButton")?.addEventListener("click", () => {
-    clearTicketEndSelections(surveyId);
-    renderAnswerPanel();
-  });
 
   if (availability.open) {
     attachAnswerFormHandlers(document.querySelector("#answerForm"), survey);
@@ -1492,16 +1655,20 @@ function renderAnswerPanel() {
     renderSessionTicketPlanStep(survey, surveyId);
     return;
   }
-  if (isTicketEndSurvey(survey) && !getTicketEndCountSelection(surveyId)) {
-    renderTicketStepCount(survey, surveyId);
+  if (
+    isSessionSurvey(survey) &&
+    getSessionTypeSelection(surveyId) === "回数券" &&
+    !getSessionTicketSheetSelection(surveyId)
+  ) {
+    renderSessionTicketSheetStep(survey, surveyId);
     return;
   }
-  if (isTicketEndSurvey(survey) && !getTicketEndSheetSelection(surveyId)) {
-    renderTicketStepSheet(survey, surveyId);
-    return;
-  }
-  if (isTicketEndSurvey(survey) && !getTicketEndRoundSelection(surveyId)) {
-    renderTicketStepRound(survey, surveyId);
+  if (
+    isSessionSurvey(survey) &&
+    getSessionTypeSelection(surveyId) === "回数券" &&
+    !getSessionTicketRoundSelection(surveyId)
+  ) {
+    renderSessionTicketRoundStep(survey, surveyId);
     return;
   }
 
@@ -1525,6 +1692,10 @@ function attachAnswerFormHandlers(form, survey) {
         (node) => node.value,
       );
       updateDraftValue(survey.id, questionId, values);
+      if (doesQuestionAffectVisibility(survey, questionId)) {
+        renderAnswerPanel();
+        return;
+      }
       refreshProgressDisplay(survey);
       return;
     }
@@ -1841,20 +2012,37 @@ function renderTicketStampList(ticketInfo) {
   `;
 }
 
+function getAnswerValueFromQuestionIds(answerMap, questionIds) {
+  for (const questionId of questionIds) {
+    const value = normalizeText(answerMap.get(questionId)?.value);
+    if (value) return value;
+  }
+  return "";
+}
+
 function getResponseTicketInfo(response) {
   const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
   return [
     {
       label: "回数券",
-      value: normalizeText(answerMap.get(TICKET_END_COUNT_QUESTION_ID)?.value),
+      value: getAnswerValueFromQuestionIds(answerMap, [
+        SESSION_TICKET_PLAN_QUESTION_ID,
+        LEGACY_TICKET_INFO_QUESTION_IDS.size,
+      ]),
     },
     {
       label: "何枚目",
-      value: normalizeText(answerMap.get(TICKET_END_SHEET_QUESTION_ID)?.value),
+      value: getAnswerValueFromQuestionIds(answerMap, [
+        SESSION_TICKET_SHEET_QUESTION_ID,
+        LEGACY_TICKET_INFO_QUESTION_IDS.sheet,
+      ]),
     },
     {
       label: "何回目",
-      value: normalizeText(answerMap.get(TICKET_END_ROUND_QUESTION_ID)?.value),
+      value: getAnswerValueFromQuestionIds(answerMap, [
+        SESSION_TICKET_ROUND_QUESTION_ID,
+        LEGACY_TICKET_INFO_QUESTION_IDS.round,
+      ]),
     },
   ].filter((item) => item.value);
 }
@@ -1869,6 +2057,31 @@ function parseTicketCount(ticketValue) {
 function parseTicketStep(stepValue) {
   const matched = normalizeText(stepValue).match(/\d+/);
   return matched ? Number(matched[0]) : 0;
+}
+
+function parseTicketSheet(sheetValue) {
+  const matched = normalizeText(sheetValue).match(/\d+/);
+  return matched ? Number(matched[0]) : 0;
+}
+
+function getNextTicketSheetLabel(sheetValue) {
+  const currentSheet = parseTicketSheet(sheetValue);
+  return currentSheet ? `${currentSheet + 1}枚目` : "";
+}
+
+function openNextTicketSheetDraft(ticketPlan, nextSheetLabel) {
+  const survey = appState.surveys.find((item) => item.id === SESSION_SURVEY_ID);
+  if (!survey) {
+    showToast("ビジリス施術アンケートを読み込んでからお試しください。");
+    return;
+  }
+  setSurveyDraft(SESSION_SURVEY_ID, { values: {}, photos: {} });
+  updateDraftValue(SESSION_SURVEY_ID, SESSION_TYPE_QUESTION_ID, "回数券");
+  updateDraftValue(SESSION_SURVEY_ID, SESSION_TICKET_PLAN_QUESTION_ID, ticketPlan);
+  updateDraftValue(SESSION_SURVEY_ID, SESSION_TICKET_SHEET_QUESTION_ID, nextSheetLabel);
+  updateDraftValue(SESSION_SURVEY_ID, SESSION_TICKET_ROUND_QUESTION_ID, "1回目");
+  selectSurvey(SESSION_SURVEY_ID);
+  showToast(`${nextSheetLabel} の回答入力を開きました。`);
 }
 
 function getLatestTicketResponse() {
@@ -1918,6 +2131,13 @@ function renderHomeTicketStatus() {
   const ticketMap = new Map(ticketInfo.map((item) => [item.label, item.value]));
   const ticketCount = parseTicketCount(ticketMap.get("回数券") || "");
   const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
+  const nextSheetLabel = getNextTicketSheetLabel(ticketMap.get("何枚目") || "");
+  const showNextSheetButton = Boolean(
+    ticketCount &&
+      currentRound >= ticketCount &&
+      ticketMap.get("回数券") &&
+      nextSheetLabel,
+  );
 
   homeTicketStatus.innerHTML = `
     <article class="ticket-home-card">
@@ -1938,12 +2158,27 @@ function renderHomeTicketStatus() {
                 <span>${currentRound} / ${ticketCount}</span>
               </div>
               ${renderTicketStampProgress(ticketCount, currentRound)}
+              ${
+                showNextSheetButton
+                  ? `
+                    <div class="ticket-next-sheet-action">
+                      <button class="secondary-button" type="button" data-next-ticket-sheet="${escapeHtml(nextSheetLabel)}">
+                        ${escapeHtml(nextSheetLabel)}取得
+                      </button>
+                    </div>
+                  `
+                  : ""
+              }
             </div>
           `
           : ""
       }
     </article>
   `;
+
+  homeTicketStatus.querySelector("[data-next-ticket-sheet]")?.addEventListener("click", () => {
+    openNextTicketSheetDraft(ticketMap.get("回数券") || "", nextSheetLabel);
+  });
 }
 
 function renderResponseTicketInfo(response) {
@@ -2183,7 +2418,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-05", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-06", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

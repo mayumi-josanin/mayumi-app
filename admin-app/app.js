@@ -6,9 +6,9 @@ const STATUS_LABELS = {
   trash: "ゴミ箱",
 };
 const TICKET_INFO_QUESTION_IDS = {
-  size: "q_ticket_end_ticket_size",
-  sheet: "q_ticket_end_ticket_sheet",
-  round: "q_ticket_end_ticket_round",
+  size: ["q_bijiris_session_ticket_plan", "q_ticket_end_ticket_size"],
+  sheet: ["q_bijiris_session_ticket_sheet", "q_ticket_end_ticket_sheet"],
+  round: ["q_bijiris_session_ticket_round", "q_ticket_end_ticket_round"],
 };
 const SESSION_CONCERN_QUESTION_ID = "q_bijiris_session_concern";
 const SESSION_CONCERN_CATEGORIES = [
@@ -547,20 +547,28 @@ function renderAnswerValue(answer) {
   return escapeHtml(answer.value || "未回答");
 }
 
+function getAnswerValueFromQuestionIds(answerMap, questionIds) {
+  for (const questionId of questionIds) {
+    const value = String(answerMap.get(questionId)?.value || "").trim();
+    if (value) return value;
+  }
+  return "";
+}
+
 function getResponseTicketInfo(response) {
   const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
   return [
     {
       label: "回数券",
-      value: String(answerMap.get(TICKET_INFO_QUESTION_IDS.size)?.value || "").trim(),
+      value: getAnswerValueFromQuestionIds(answerMap, TICKET_INFO_QUESTION_IDS.size),
     },
     {
       label: "何枚目",
-      value: String(answerMap.get(TICKET_INFO_QUESTION_IDS.sheet)?.value || "").trim(),
+      value: getAnswerValueFromQuestionIds(answerMap, TICKET_INFO_QUESTION_IDS.sheet),
     },
     {
       label: "何回目",
-      value: String(answerMap.get(TICKET_INFO_QUESTION_IDS.round)?.value || "").trim(),
+      value: getAnswerValueFromQuestionIds(answerMap, TICKET_INFO_QUESTION_IDS.round),
     },
   ].filter((item) => item.value);
 }
@@ -2799,7 +2807,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-05", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-06", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

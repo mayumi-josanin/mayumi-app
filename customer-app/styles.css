@@ -429,6 +429,11 @@ textarea {
   background: #fff;
 }
 
+.ticket-next-sheet-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .ticket-stamp-list {
   display: flex;
   flex-wrap: wrap;
@@ -532,6 +537,16 @@ legend {
   margin-bottom: 10px;
   color: var(--text-mid);
   font-weight: 700;
+}
+
+.question-block > span:first-child,
+.question-label > span:first-child,
+legend > span:first-child {
+  display: block;
+  color: var(--text-dark);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.7;
 }
 
 .checkbox-row,

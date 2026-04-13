@@ -275,8 +275,18 @@ function isLegacyTicketEndLastPhotoQuestion(question, survey) {
   return survey?.id === "survey_bijiris_ticket_end" && question?.id === "q_ticket_end_photo_last";
 }
 
-function isBijirisSessionTicketPhotoQuestion(question, survey) {
-  return survey?.id === "survey_bijiris_session" && question?.id === "q_bijiris_session_ticket_photos";
+function getBijirisSessionPhotoConfig(question, survey) {
+  if (!(survey?.id === "survey_bijiris_session" && question)) return null;
+  if (question.id === "q_bijiris_session_ticket_photos") {
+    return { maxFiles: 4, requiredCount: 4 };
+  }
+  if (
+    question.id === "q_bijiris_session_monitor_photos" ||
+    question.id === "q_bijiris_session_ticket_end_photos"
+  ) {
+    return { maxFiles: 2, requiredCount: 2 };
+  }
+  return null;
 }
 
 function isLegacyTicketEndLastPhotoVisible(answerMap) {
@@ -289,13 +299,15 @@ function isLegacyTicketEndLastPhotoVisible(answerMap) {
 }
 
 function getPhotoQuestionMaxFiles(question, survey) {
-  if (isBijirisSessionTicketPhotoQuestion(question, survey)) return 4;
+  const bijirisSessionPhotoConfig = getBijirisSessionPhotoConfig(question, survey);
+  if (bijirisSessionPhotoConfig) return bijirisSessionPhotoConfig.maxFiles;
   return PHOTO_FILE_LIMIT;
 }
 
 function getPhotoQuestionRequiredCount(question, visible, survey) {
   if (!visible) return 0;
-  if (isBijirisSessionTicketPhotoQuestion(question, survey)) return 4;
+  const bijirisSessionPhotoConfig = getBijirisSessionPhotoConfig(question, survey);
+  if (bijirisSessionPhotoConfig) return bijirisSessionPhotoConfig.requiredCount;
   if (isLegacyTicketEndLastPhotoQuestion(question, survey) && !getQuestionVisibilityConditions(question).length) {
     return 1;
   }
