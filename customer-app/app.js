@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-02";
+const APP_VERSION = "20260413-03";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -690,9 +690,10 @@ function selectSurvey(surveyId) {
   appState.editingResponseId = "";
   appState.lastSubmittedResponse = null;
   appState.lastSubmissionWasEdit = false;
+  setPage("survey");
+  window.scrollTo({ top: 0, behavior: "auto" });
   renderSurveys();
   renderAnswerPanel();
-  setPage("survey");
 }
 
 function renderSurveys() {
@@ -1100,7 +1101,7 @@ function renderQuestion(question, index, surveyId) {
             ${SESSION_CONCERN_CATEGORIES.map(
               (category) => `
                 <button
-                  class="selection-button ${category.id === activeCategory.id ? "active" : ""}"
+                  class="selection-button ${category.id === activeCategoryId ? "active" : ""}"
                   type="button"
                   data-concern-category="${escapeHtml(category.id)}"
                   data-question-id="${question.id}"
@@ -2167,7 +2168,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-02", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-03", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
