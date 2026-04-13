@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみアンケート" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260413-14" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260413-15" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <link rel="icon" href="./icons/icon-192.png" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260413-14" />
+    <link rel="stylesheet" href="./styles.css?v=20260413-15" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -24,7 +24,10 @@
           <div class="brand-sub">アンケート回答アプリ</div>
         </div>
       </div>
-      <button id="installButton" class="header-button" type="button" hidden>追加</button>
+      <div class="header-actions">
+        <button id="appUpdateButton" class="header-button" type="button">更新</button>
+        <button id="installButton" class="header-button" type="button" hidden>追加</button>
+      </div>
     </header>
 
     <main>
@@ -127,9 +130,9 @@
       </button>
     </nav>
 
-    <script src="../default-surveys.js?v=20260413-14"></script>
-    <script src="../shared/gas-config.js?v=20260413-14"></script>
-    <script src="../shared/api.js?v=20260413-14"></script>
-    <script src="./app.js?v=20260413-14"></script>
+    <script src="../default-surveys.js?v=20260413-15"></script>
+    <script src="../shared/gas-config.js?v=20260413-15"></script>
+    <script src="../shared/api.js?v=20260413-15"></script>
+    <script src="./app.js?v=20260413-15"></script>
   </body>
 </html>

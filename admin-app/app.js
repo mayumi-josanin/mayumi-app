@@ -150,6 +150,7 @@ const adminView = document.querySelector("#adminView");
 const toast = document.querySelector("#toast");
 const loginForm = document.querySelector("#loginForm");
 const credentialForm = document.querySelector("#credentialForm");
+const appUpdateButton = document.querySelector("#appUpdateButton");
 const installButton = document.querySelector("#installButton");
 const loginSubmitButton = document.querySelector("#loginSubmitButton");
 
@@ -3068,11 +3069,45 @@ function attachLightboxHandlers(root = document) {
   });
 }
 
+async function runAppUpdate() {
+  if (appUpdateButton) {
+    appUpdateButton.disabled = true;
+    appUpdateButton.textContent = "更新中";
+  }
+  try {
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      await registration?.update().catch(() => {});
+      registration?.waiting?.postMessage({ type: "SKIP_WAITING" });
+    }
+    if ("caches" in window) {
+      const cacheKeys = await caches.keys();
+      await Promise.all(
+        cacheKeys
+          .filter((key) => key.startsWith("mayumi-admin-survey-"))
+          .map((key) => caches.delete(key)),
+      );
+    }
+    showToast("アプリを更新しています。");
+    const url = new URL(window.location.href);
+    url.searchParams.set("appRefresh", String(Date.now()));
+    window.location.replace(url.toString());
+  } catch (error) {
+    reportClientError("admin.appUpdate", error);
+    showToast(error.message || "アプリを更新できませんでした。");
+  } finally {
+    if (appUpdateButton) {
+      appUpdateButton.disabled = false;
+      appUpdateButton.textContent = "アプリ更新";
+    }
+  }
+}
+
 function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-12", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-15", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -3163,6 +3198,9 @@ document.querySelector("#logoutButton").addEventListener("click", () => {
 
 document.querySelector("#refreshButton").addEventListener("click", () => {
   void loadAdminData();
+});
+appUpdateButton?.addEventListener("click", () => {
+  void runAppUpdate();
 });
 
 document.querySelector("#exportCsvButton").addEventListener("click", exportCsv);

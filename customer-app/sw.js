@@ -1,5 +1,5 @@
-const CACHE_NAME = "mayumi-customer-survey-v34";
-const ASSET_VERSION = "20260413-14";
+const CACHE_NAME = "mayumi-customer-survey-v35";
+const ASSET_VERSION = "20260413-15";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -15,6 +15,12 @@ const APP_ASSETS = [
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_ASSETS)));
   self.skipWaiting();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {

@@ -5,7 +5,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-14";
+const APP_VERSION = "20260413-15";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -184,6 +184,7 @@ const historyList = document.querySelector("#historyList");
 const homeTicketStatus = document.querySelector("#homeTicketStatus");
 const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
+const appUpdateButton = document.querySelector("#appUpdateButton");
 const installButton = document.querySelector("#installButton");
 const registrationLead = document.querySelector("#registrationLead");
 const customerRegisterButton = document.querySelector("#customerRegisterButton");
@@ -2723,11 +2724,45 @@ function attachCommonButtons() {
   });
 }
 
+async function runAppUpdate() {
+  if (appUpdateButton) {
+    appUpdateButton.disabled = true;
+    appUpdateButton.textContent = "更新中";
+  }
+  try {
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      await registration?.update().catch(() => {});
+      registration?.waiting?.postMessage({ type: "SKIP_WAITING" });
+    }
+    if ("caches" in window) {
+      const cacheKeys = await caches.keys();
+      await Promise.all(
+        cacheKeys
+          .filter((key) => key.startsWith("mayumi-customer-survey-"))
+          .map((key) => caches.delete(key)),
+      );
+    }
+    showToast("アプリを更新しています。");
+    const url = new URL(window.location.href);
+    url.searchParams.set("appRefresh", String(Date.now()));
+    window.location.replace(url.toString());
+  } catch (error) {
+    reportClientError("customer.appUpdate", error);
+    showToast(error.message || "アプリを更新できませんでした。");
+  } finally {
+    if (appUpdateButton) {
+      appUpdateButton.disabled = false;
+      appUpdateButton.textContent = "更新";
+    }
+  }
+}
+
 function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-14", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-15", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -2814,6 +2849,9 @@ document.querySelector("#refreshButton").addEventListener("click", () => {
 
 document.querySelector("#historyRefreshButton").addEventListener("click", () => {
   void loadHistory();
+});
+appUpdateButton?.addEventListener("click", () => {
+  void runAppUpdate();
 });
 
 setupInstall();
