@@ -497,6 +497,26 @@ textarea {
   margin-top: 8px;
 }
 
+.response-photo-panel,
+.photo-answer-group,
+.concern-answer-group,
+.concern-answer-groups {
+  display: grid;
+  gap: 8px;
+}
+
+.response-photo-panel {
+  margin-bottom: 12px;
+}
+
+.photo-answer-group + .photo-answer-group {
+  margin-top: 8px;
+}
+
+.concern-answer-group + .concern-answer-group {
+  margin-top: 10px;
+}
+
 .photo-thumb {
   display: grid;
   gap: 5px;

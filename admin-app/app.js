@@ -848,6 +848,121 @@ function getAnswerValues(answer) {
     .filter(Boolean);
 }
 
+function getConcernAnswerGroups(answer) {
+  const selected = new Set(getAnswerValues(answer));
+  const groups = SESSION_CONCERN_CATEGORIES.map((category) => ({
+    id: category.id,
+    label: category.label,
+    options: category.options.filter((option) => selected.has(option)),
+  })).filter((category) => category.options.length);
+  const knownOptions = new Set(SESSION_CONCERN_CATEGORIES.flatMap((category) => category.options));
+  const extras = Array.from(selected).filter((option) => !knownOptions.has(option));
+  if (extras.length) {
+    groups.push({
+      id: "extras",
+      label: "【その他】",
+      options: extras,
+    });
+  }
+  return groups;
+}
+
+function renderConcernAnswerEditor(answer, questionId) {
+  const selected = new Set(getAnswerValues(answer));
+  return `
+    <div class="concern-answer-groups">
+      ${SESSION_CONCERN_CATEGORIES.map(
+        (category) => `
+          <section class="concern-answer-group">
+            <strong>${escapeHtml(category.label)}</strong>
+            <div class="checkbox-row">
+              ${category.options
+                .map(
+                  (option) => `
+                    <label>
+                      <input
+                        type="checkbox"
+                        data-answer-checkbox="${questionId}"
+                        value="${escapeHtml(option)}"
+                        ${selected.has(option) ? "checked" : ""}
+                      />
+                      ${escapeHtml(option)}
+                    </label>
+                  `,
+                )
+                .join("")}
+            </div>
+          </section>
+        `,
+      ).join("")}
+    </div>
+  `;
+}
+
+function collectPhotosFromResponse(response) {
+  const answerFiles = (response?.answers || []).flatMap((answer) =>
+    Array.isArray(answer.files) ? answer.files : [],
+  );
+  const responseFiles = Array.isArray(response?.files) ? response.files : [];
+  const files = answerFiles.concat(responseFiles);
+  const seen = new Set();
+  return files.filter((file) => {
+    const key = String(file?.fileId || file?.previewUrl || file?.url || file?.name || "");
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function renderResponsePhotoGallery(response, survey) {
+  const photoAnswers = getDisplayAnswers(response, survey).filter(
+    (answer) => Array.isArray(answer.files) && answer.files.length,
+  );
+  const photos = collectPhotosFromResponse(response);
+  if (!photos.length) return "";
+
+  return `
+    <article class="answer-item response-photo-panel">
+      <strong>アップロード写真</strong>
+      <div class="meta">回答で添付された写真を表示しています。</div>
+      ${
+        photoAnswers.length
+          ? photoAnswers
+              .map(
+                (answer) => `
+                  <div class="photo-answer-group">
+                    <strong>${escapeHtml(answer.label)}</strong>
+                    ${renderAnswerValue(answer)}
+                  </div>
+                `,
+              )
+              .join("")
+          : `
+              <div class="photo-list">
+                ${photos
+                  .map((file) => {
+                    const preview = file.previewUrl || file.thumbnailUrl || file.dataUrl || file.url || "";
+                    const href = file.previewUrl || file.url || file.dataUrl || "#";
+                    return `
+                      <button
+                        class="photo-thumb lightbox-trigger"
+                        type="button"
+                        data-lightbox-src="${escapeHtml(href)}"
+                        data-lightbox-title="${escapeHtml(file.name || "写真")}"
+                      >
+                        ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || "写真")}" />` : ""}
+                        <span>${escapeHtml(file.name || "写真")}</span>
+                      </button>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            `
+      }
+    </article>
+  `;
+}
+
 function renderEditableAnswerField(question, answer) {
   if (question.type === "photo") {
     return `
@@ -895,6 +1010,9 @@ function renderEditableAnswerField(question, answer) {
   }
 
   if (question.type === "checkbox") {
+    if (question.id === SESSION_CONCERN_QUESTION_ID) {
+      return renderConcernAnswerEditor(answer, question.id);
+    }
     const selected = new Set(getAnswerValues(answer));
     return `
       <div class="checkbox-row">
@@ -925,6 +1043,11 @@ function formatAnswerForCsv(answer) {
     return `${answer.label}: ${answer.files
       .map((file) => file.url || file.previewUrl || file.name)
       .join(", ")}`;
+  }
+  if (answer.questionId === SESSION_CONCERN_QUESTION_ID) {
+    return `${answer.label}: ${getConcernAnswerGroups(answer)
+      .map((group) => `${group.label} ${group.options.join(" / ")}`)
+      .join(" | ")}`;
   }
   return `${answer.label}: ${answer.value || ""}`;
 }
@@ -1100,9 +1223,7 @@ function renderMemoTimeline(customerName) {
 }
 
 function collectPhotosFromResponses(responses) {
-  return responses.flatMap((response) =>
-    (response.answers || []).flatMap((answer) => (Array.isArray(answer.files) ? answer.files : [])),
-  );
+  return responses.flatMap((response) => collectPhotosFromResponse(response));
 }
 
 function downloadFiles(files, prefix) {
@@ -1392,8 +1513,15 @@ function renderResponseCard(response) {
         </div>
         <span class="badge ${status}">${STATUS_LABELS[status]}</span>
       </div>
+      ${renderResponsePhotoGallery(response, survey)}
       <div class="answer-list">
         ${displayAnswers
+          .filter((answer) => {
+            const question = survey?.questions.find((item) => item.id === answer.questionId) || {
+              type: answer.type,
+            };
+            return question.type !== "photo";
+          })
           .map((answer) => {
             const question = survey?.questions.find((item) => item.id === answer.questionId) || {
               id: answer.questionId,
@@ -2876,7 +3004,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-10", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-11", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

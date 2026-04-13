@@ -154,15 +154,15 @@ window.MayumiSurveyApi = (() => {
     return fallback ? [fallback] : [];
   }
 
-  function makeSurveySignature(survey) {
-    return JSON.stringify({
-      id: normalizeText(survey?.id),
+  function makeSurveySignature(survey, options = {}) {
+    const includeId = options.includeId !== false;
+    const includeSortOrder = options.includeSortOrder !== false;
+    const signature = {
       title: normalizeText(survey?.title),
       description: normalizeText(survey?.description),
       introMessage: normalizeText(survey?.introMessage),
       completionMessage: normalizeText(survey?.completionMessage),
       status: normalizeSurveyStatus(survey?.status),
-      sortOrder: Number.isFinite(Number(survey?.sortOrder)) ? Number(survey.sortOrder) : 0,
       acceptingResponses: survey?.acceptingResponses === false ? false : true,
       startAt: normalizeText(survey?.startAt),
       endAt: normalizeText(survey?.endAt),
@@ -176,7 +176,14 @@ window.MayumiSurveyApi = (() => {
           : [],
         visibilityConditions: normalizeVisibilityConditions(question),
       })),
-    });
+    };
+    if (includeId) {
+      signature.id = normalizeText(survey?.id);
+    }
+    if (includeSortOrder) {
+      signature.sortOrder = Number.isFinite(Number(survey?.sortOrder)) ? Number(survey.sortOrder) : 0;
+    }
+    return JSON.stringify(signature);
   }
 
   function makePreferencesSignature(preferences) {
@@ -498,13 +505,22 @@ window.MayumiSurveyApi = (() => {
 
       if (path === "/api/admin/surveys" && method === "POST") {
         const payload = options.body || {};
-        const expectedSignature = makeSurveySignature(payload);
+        const expectedSignature = makeSurveySignature(payload, {
+          includeId: false,
+          includeSortOrder: false,
+        });
         await postToGas(gasUrl, "adminCreateSurvey", {
           token: options.token,
           payload,
         });
         const survey = await waitForAdminSurvey(gasUrl, options.token, (surveys) =>
-          surveys.find((item) => makeSurveySignature(item) === expectedSignature),
+          surveys.find(
+            (item) =>
+              makeSurveySignature(item, {
+                includeId: false,
+                includeSortOrder: false,
+              }) === expectedSignature,
+          ),
         );
         if (!survey) throw new Error("アンケートの作成を確認できませんでした。");
         return { survey };
@@ -530,7 +546,10 @@ window.MayumiSurveyApi = (() => {
       if (path.startsWith("/api/admin/surveys/") && method === "PUT") {
         const surveyId = getRouteId(path, "/api/admin/surveys/");
         const payload = options.body || {};
-        const expectedSignature = makeSurveySignature(payload);
+        const expectedSignature = makeSurveySignature(
+          { ...payload, id: surveyId },
+          { includeSortOrder: false },
+        );
         await postToGas(gasUrl, "adminUpdateSurvey", {
           token: options.token,
           surveyId,
@@ -539,7 +558,9 @@ window.MayumiSurveyApi = (() => {
         const survey = await waitForAdminSurvey(gasUrl, options.token, (surveys) => {
           const updated = surveys.find((item) => item.id === surveyId);
           if (!updated) return undefined;
-          return makeSurveySignature(updated) === expectedSignature ? updated : undefined;
+          return makeSurveySignature(updated, { includeSortOrder: false }) === expectedSignature
+            ? updated
+            : undefined;
         });
         if (!survey) throw new Error("アンケートの更新を確認できませんでした。");
         return { survey };
