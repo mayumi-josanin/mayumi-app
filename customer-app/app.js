@@ -1,11 +1,12 @@
 const CUSTOMER_KEY = "mayumi_survey_customer";
 const DRAFTS_KEY = "mayumi_survey_drafts";
 const PENDING_KEY = "mayumi_survey_pending_submission";
+const TICKET_CARD_OVERRIDE_KEY = "mayumi_survey_ticket_card_overrides";
 const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260413-19";
+const APP_VERSION = "20260413-20";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -154,6 +155,7 @@ const appState = {
   customer: normalizeCustomerProfile(loadLocal(CUSTOMER_KEY, { name: "", nameKana: "", historyMatchMode: "device" })),
   drafts: loadLocal(DRAFTS_KEY, {}),
   pendingSubmission: loadLocal(PENDING_KEY, null),
+  ticketCardOverrides: normalizeTicketCardOverrides(loadLocal(TICKET_CARD_OVERRIDE_KEY, {})),
   surveys: [],
   history: [],
   publicInfo: {
@@ -234,6 +236,72 @@ function normalizeCustomerProfile(value) {
     nameKana: normalizeKana(value?.nameKana),
     historyMatchMode: value?.historyMatchMode === "name" ? "name" : "device",
   };
+}
+
+function normalizeTicketCardOverrides(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const normalized = {};
+  Object.entries(source).forEach(([plan, override]) => {
+    const normalizedPlan = normalizeText(plan);
+    const sheetNumber = Math.floor(
+      Number(
+        typeof override === "object" && override
+          ? override.sheetNumber
+          : override,
+      ) || 0,
+    );
+    if (!normalizedPlan || sheetNumber <= 0) return;
+    normalized[normalizedPlan] = { sheetNumber };
+  });
+  return normalized;
+}
+
+function saveTicketCardOverrides() {
+  saveLocal(TICKET_CARD_OVERRIDE_KEY, appState.ticketCardOverrides);
+}
+
+function getTicketCardOverride(plan) {
+  const normalizedPlan = normalizeText(plan);
+  if (!normalizedPlan) return 0;
+  return Number(appState.ticketCardOverrides?.[normalizedPlan]?.sheetNumber || 0);
+}
+
+function setTicketCardOverride(plan, sheetNumber) {
+  const normalizedPlan = normalizeText(plan);
+  const normalizedSheetNumber = Math.floor(Number(sheetNumber) || 0);
+  if (!normalizedPlan || normalizedSheetNumber <= 0) return;
+  appState.ticketCardOverrides = normalizeTicketCardOverrides({
+    ...appState.ticketCardOverrides,
+    [normalizedPlan]: { sheetNumber: normalizedSheetNumber },
+  });
+  saveTicketCardOverrides();
+}
+
+function clearTicketCardOverride(plan) {
+  const normalizedPlan = normalizeText(plan);
+  if (!normalizedPlan || !appState.ticketCardOverrides?.[normalizedPlan]) return;
+  const nextOverrides = { ...appState.ticketCardOverrides };
+  delete nextOverrides[normalizedPlan];
+  appState.ticketCardOverrides = normalizeTicketCardOverrides(nextOverrides);
+  saveTicketCardOverrides();
+}
+
+function syncTicketCardOverridesWithHistory() {
+  const nextOverrides = normalizeTicketCardOverrides(appState.ticketCardOverrides);
+  let changed = false;
+  Object.keys(nextOverrides).forEach((plan) => {
+    const latestResponse = getLatestTicketResponseByPlan(plan);
+    if (!latestResponse) return;
+    const ticketMap = new Map(getResponseTicketInfo(latestResponse).map((item) => [item.label, item.value]));
+    const latestSheetNumber = parseTicketSheet(ticketMap.get("何枚目") || "");
+    if (nextOverrides[plan].sheetNumber <= latestSheetNumber) {
+      delete nextOverrides[plan];
+      changed = true;
+    }
+  });
+  if (!changed) return;
+  appState.ticketCardOverrides = nextOverrides;
+  saveTicketCardOverrides();
 }
 
 function normalizeServerCustomerProfile(value) {
@@ -564,13 +632,21 @@ function getLatestTicketResponseByPlan(ticketPlan) {
 function resolveCurrentSessionTicketSheetLabel(ticketPlan) {
   const normalizedPlan = normalizeText(ticketPlan);
   if (!normalizedPlan) return "";
+  const overrideSheetNumber = getTicketCardOverride(normalizedPlan);
   const latestResponse = getLatestTicketResponseByPlan(normalizedPlan);
-  if (!latestResponse) return "1枚目";
+  if (!latestResponse) {
+    return overrideSheetNumber ? `${overrideSheetNumber}枚目` : "1枚目";
+  }
 
   const ticketMap = new Map(getResponseTicketInfo(latestResponse).map((item) => [item.label, item.value]));
   const currentSheet = normalizeText(ticketMap.get("何枚目") || "");
   const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
   const ticketCount = parseTicketCount(normalizedPlan);
+  const currentSheetNumber = parseTicketSheet(currentSheet);
+
+  if (overrideSheetNumber > currentSheetNumber) {
+    return `${overrideSheetNumber}枚目`;
+  }
 
   if (!currentSheet) return "1枚目";
   if (ticketCount && currentRound >= ticketCount) {
@@ -991,6 +1067,7 @@ async function loadHistory() {
     );
     appState.history = Array.isArray(result.responses) ? result.responses : [];
     syncCustomerProfileFromServer(result.customerProfile);
+    syncTicketCardOverridesWithHistory();
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
@@ -2366,6 +2443,23 @@ function renderTicketStampList(ticketInfo) {
   `;
 }
 
+function buildTicketInfoFromValues(ticketPlan, ticketSheetLabel, ticketRoundLabel) {
+  return [
+    {
+      label: "回数券",
+      value: normalizeText(ticketPlan),
+    },
+    {
+      label: "何枚目",
+      value: normalizeText(ticketSheetLabel),
+    },
+    {
+      label: "何回目",
+      value: normalizeText(ticketRoundLabel),
+    },
+  ].filter((item) => item.value);
+}
+
 function getAnswerValueFromQuestionIds(answerMap, questionIds) {
   for (const questionId of questionIds) {
     const value = normalizeText(answerMap.get(questionId)?.value);
@@ -2423,19 +2517,15 @@ function getNextTicketSheetLabel(sheetValue) {
   return currentSheet ? `${currentSheet + 1}枚目` : "";
 }
 
-function openNextTicketSheetDraft(ticketPlan, nextSheetLabel) {
-  const survey = appState.surveys.find((item) => item.id === SESSION_SURVEY_ID);
-  if (!survey) {
-    showToast("ビジリス施術アンケートを読み込んでからお試しください。");
+function acquireNextTicketSheet(ticketPlan, nextSheetLabel) {
+  const nextSheetNumber = parseTicketSheet(nextSheetLabel);
+  if (!normalizeText(ticketPlan) || !nextSheetNumber) {
+    showToast("新しいスタンプカードを取得できませんでした。");
     return;
   }
-  setSurveyDraft(SESSION_SURVEY_ID, { values: {}, photos: {} });
-  updateDraftValue(SESSION_SURVEY_ID, SESSION_TYPE_QUESTION_ID, "回数券");
-  updateDraftValue(SESSION_SURVEY_ID, SESSION_TICKET_PLAN_QUESTION_ID, ticketPlan);
-  updateDraftValue(SESSION_SURVEY_ID, SESSION_TICKET_SHEET_QUESTION_ID, nextSheetLabel);
-  updateDraftValue(SESSION_SURVEY_ID, SESSION_TICKET_ROUND_QUESTION_ID, "1回目");
-  selectSurvey(SESSION_SURVEY_ID);
-  showToast(`${nextSheetLabel} の回答入力を開きました。`);
+  setTicketCardOverride(ticketPlan, nextSheetNumber);
+  renderHomeTicketStatus();
+  showToast(`${nextSheetLabel} を取得しました。`);
 }
 
 function getLatestTicketResponse() {
@@ -2444,14 +2534,63 @@ function getLatestTicketResponse() {
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null;
 }
 
+function getActiveTicketCardState() {
+  const response = getLatestTicketResponse();
+  if (!response) return null;
+
+  const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
+  const ticketPlan = normalizeText(ticketMap.get("回数券") || "");
+  const currentSheetLabel = normalizeText(ticketMap.get("何枚目") || "");
+  const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
+  const ticketCount = parseTicketCount(ticketPlan);
+  const currentSheetNumber = parseTicketSheet(currentSheetLabel);
+  const overrideSheetNumber = getTicketCardOverride(ticketPlan);
+
+  if (
+    ticketPlan &&
+    ticketCount &&
+    currentSheetNumber &&
+    overrideSheetNumber > currentSheetNumber &&
+    currentRound >= ticketCount
+  ) {
+    return {
+      response,
+      ticketPlan,
+      ticketSheetLabel: `${overrideSheetNumber}枚目`,
+      currentRound: 0,
+      ticketCount,
+      ticketInfo: buildTicketInfoFromValues(ticketPlan, `${overrideSheetNumber}枚目`, "0回目"),
+      showNextSheetButton: false,
+    };
+  }
+
+  const nextSheetLabel = getNextTicketSheetLabel(currentSheetLabel);
+  return {
+    response,
+    ticketPlan,
+    ticketSheetLabel: currentSheetLabel,
+    currentRound,
+    ticketCount,
+    ticketInfo: buildTicketInfoFromValues(ticketPlan, currentSheetLabel, ticketMap.get("何回目") || ""),
+    showNextSheetButton: Boolean(
+      ticketPlan &&
+      ticketCount &&
+      currentRound >= ticketCount &&
+      nextSheetLabel,
+    ),
+    nextSheetLabel,
+  };
+}
+
 function renderTicketStampProgress(ticketCount, currentRound) {
-  if (!ticketCount || !currentRound) return "";
+  if (!ticketCount) return "";
+  const normalizedRound = Math.max(0, Number(currentRound) || 0);
   return `
     <div class="ticket-progress">
       ${Array.from({ length: ticketCount }, (_, index) => {
         const step = index + 1;
         return `
-          <span class="stamp-dot ${step <= currentRound ? "active" : ""}" aria-label="${step}回目">
+          <span class="stamp-dot ${step <= normalizedRound ? "active" : ""}" aria-label="${step}回目">
             ${step}
           </span>
         `;
@@ -2475,49 +2614,37 @@ function renderHomeTicketStatus() {
     return;
   }
 
-  const response = getLatestTicketResponse();
-  if (!response) {
+  const activeTicketCard = getActiveTicketCardState();
+  if (!activeTicketCard) {
     homeTicketStatus.innerHTML = `<div class="empty">回数券情報のある回答がまだありません。</div>`;
     return;
   }
-
-  const ticketInfo = getResponseTicketInfo(response);
-  const ticketMap = new Map(ticketInfo.map((item) => [item.label, item.value]));
-  const ticketCount = parseTicketCount(ticketMap.get("回数券") || "");
-  const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
-  const nextSheetLabel = getNextTicketSheetLabel(ticketMap.get("何枚目") || "");
-  const showNextSheetButton = Boolean(
-    ticketCount &&
-      currentRound >= ticketCount &&
-      ticketMap.get("回数券") &&
-      nextSheetLabel,
-  );
 
   homeTicketStatus.innerHTML = `
     <article class="ticket-home-card">
       <div class="ticket-home-head">
         <div>
           <strong>${escapeHtml(getCustomerDisplayName())}</strong>
-          <div class="meta">最新更新: ${formatDate(response.submittedAt)}</div>
+          <div class="meta">最新更新: ${formatDate(activeTicketCard.response.submittedAt)}</div>
         </div>
-        <span class="badge open">${escapeHtml(ticketMap.get("何回目") || "-")}</span>
+        <span class="badge open">${escapeHtml(`${activeTicketCard.currentRound}回目`)}</span>
       </div>
-      ${renderTicketStampList(ticketInfo)}
+      ${renderTicketStampList(activeTicketCard.ticketInfo)}
       ${
-        ticketCount
+        activeTicketCard.ticketCount
           ? `
             <div class="ticket-progress-card">
               <div class="ticket-progress-head">
-                <strong>${escapeHtml(ticketMap.get("何枚目") || "-")}</strong>
-                <span>${currentRound} / ${ticketCount}</span>
+                <strong>${escapeHtml(activeTicketCard.ticketSheetLabel || "-")}</strong>
+                <span>${activeTicketCard.currentRound} / ${activeTicketCard.ticketCount}</span>
               </div>
-              ${renderTicketStampProgress(ticketCount, currentRound)}
+              ${renderTicketStampProgress(activeTicketCard.ticketCount, activeTicketCard.currentRound)}
               ${
-                showNextSheetButton
+                activeTicketCard.showNextSheetButton
                   ? `
                     <div class="ticket-next-sheet-action">
-                      <button class="secondary-button" type="button" data-next-ticket-sheet="${escapeHtml(nextSheetLabel)}">
-                        ${escapeHtml(nextSheetLabel)}取得
+                      <button class="secondary-button" type="button" data-next-ticket-sheet="${escapeHtml(activeTicketCard.nextSheetLabel)}">
+                        ${escapeHtml(activeTicketCard.nextSheetLabel)}取得
                       </button>
                     </div>
                   `
@@ -2531,7 +2658,7 @@ function renderHomeTicketStatus() {
   `;
 
   homeTicketStatus.querySelector("[data-next-ticket-sheet]")?.addEventListener("click", () => {
-    openNextTicketSheetDraft(ticketMap.get("回数券") || "", nextSheetLabel);
+    acquireNextTicketSheet(activeTicketCard.ticketPlan, activeTicketCard.nextSheetLabel);
   });
 }
 
@@ -2806,7 +2933,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-19", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-20", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
