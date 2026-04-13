@@ -1,14 +1,14 @@
-const CACHE_NAME = "mayumi-customer-survey-v41";
-const ASSET_VERSION = "20260413-23";
+const CACHE_NAME = "mayumi-customer-survey-v42";
+const ASSET_VERSION = "20260414-01";
 const APP_ASSETS = [
   "./",
   "./index.html",
   `./styles.css?v=${ASSET_VERSION}`,
   `./app.js?v=${ASSET_VERSION}`,
   `./manifest.webmanifest?v=${ASSET_VERSION}`,
-  "./icons/apple-touch-icon.png",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
+  `./icons/apple-touch-icon.png?v=${ASSET_VERSION}`,
+  `./icons/icon-192.png?v=${ASSET_VERSION}`,
+  `./icons/icon-512.png?v=${ASSET_VERSION}`,
   `../default-surveys.js?v=${ASSET_VERSION}`,
   `../shared/api.js?v=${ASSET_VERSION}`,
 ];
