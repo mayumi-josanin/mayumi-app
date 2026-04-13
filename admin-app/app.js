@@ -683,17 +683,43 @@ function extractDriveFileId(url) {
   return match ? match[1] : "";
 }
 
+function buildDrivePreviewUrl(fileId) {
+  return fileId ? `https://drive.google.com/uc?export=view&id=${encodeURIComponent(fileId)}` : "";
+}
+
+function buildDriveThumbnailUrl(fileId) {
+  return fileId ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w1200` : "";
+}
+
+function buildDriveDownloadUrl(fileId) {
+  return fileId ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}` : "";
+}
+
+function ensureDownloadablePhotoFile(file, index = 0) {
+  if (!file) return null;
+  const fallbackUrl = String(file.url || file.value || file.previewUrl || file.thumbnailUrl || "").trim();
+  const driveFileId = String(
+    file.fileId ||
+    extractDriveFileId(file.downloadUrl || file.previewUrl || file.thumbnailUrl || file.url || file.value || ""),
+  ).trim();
+  return {
+    ...file,
+    name: String(file.name || `写真${index + 1}`).trim(),
+    fileId: driveFileId || "",
+    url: String(file.url || fallbackUrl).trim(),
+    previewUrl: String(file.previewUrl || buildDrivePreviewUrl(driveFileId) || fallbackUrl).trim(),
+    thumbnailUrl: String(file.thumbnailUrl || buildDriveThumbnailUrl(driveFileId) || fallbackUrl).trim(),
+    downloadUrl: String(file.downloadUrl || buildDriveDownloadUrl(driveFileId) || fallbackUrl).trim(),
+  };
+}
+
 function derivePhotoFileFromUrl(url, index = 0) {
   const normalizedUrl = String(url || "").trim();
   if (!normalizedUrl) return null;
-  const driveFileId = extractDriveFileId(normalizedUrl);
-  return {
+  return ensureDownloadablePhotoFile({
     name: `写真${index + 1}`,
-    fileId: driveFileId || "",
     url: normalizedUrl,
-    previewUrl: driveFileId ? `https://drive.google.com/uc?export=view&id=${driveFileId}` : normalizedUrl,
-    thumbnailUrl: driveFileId ? `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w1200` : normalizedUrl,
-  };
+  }, index);
 }
 
 function getPhotoPreviewSrc(file) {
@@ -706,7 +732,7 @@ function getPhotoLightboxSrc(file) {
 
 function getPhotoFilesFromAnswer(answer) {
   if (Array.isArray(answer?.files) && answer.files.length) {
-    return answer.files;
+    return answer.files.map((file, index) => ensureDownloadablePhotoFile(file, index)).filter(Boolean);
   }
   const value = String(answer?.value || "").trim();
   if (!value || !value.includes("http")) {
@@ -1292,7 +1318,7 @@ function renderCustomerManagement() {
         </div>
         <div class="action-row">
           <button class="secondary-button" type="button" data-print-customer-response="${selectedResponse.id}">印刷</button>
-          <button class="secondary-button" type="button" data-download-customer-photos="${selectedResponse.id}">写真DL</button>
+          <button class="secondary-button" type="button" data-download-customer-photos="${selectedResponse.id}">写真保存</button>
           <button class="secondary-button" type="button" data-back-customer-stage="responses">戻る</button>
           <button class="secondary-button" type="button" data-close-customer-detail>閉じる</button>
         </div>
@@ -1356,7 +1382,9 @@ function renderCustomerManagement() {
   stage.querySelectorAll("[data-download-customer-photos]").forEach((button) => {
     button.addEventListener("click", () => {
       const response = state.responses.find((item) => item.id === button.dataset.downloadCustomerPhotos);
-      if (response) downloadFiles(collectPhotosFromResponses([response]), response.customerName || "response");
+      if (response) {
+        void downloadFiles(collectPhotosFromResponses([response]), response.customerName || "response");
+      }
     });
   });
 
@@ -1424,7 +1452,7 @@ function renderCurrentCustomerInfo() {
       <textarea id="customerMemoInput" placeholder="自由にメモを残せます。">${escapeHtml(memoRecord.latestMemo)}</textarea>
       <div class="action-row">
         <button class="secondary-button" type="button" id="saveCustomerMemoButton">メモ保存</button>
-        <button class="secondary-button" type="button" id="downloadCustomerPhotosButton">写真一括ダウンロード</button>
+        <button class="secondary-button" type="button" id="downloadCustomerPhotosButton">写真一括保存</button>
       </div>
     </article>
     <article class="answer-item">
@@ -1436,7 +1464,7 @@ function renderCurrentCustomerInfo() {
     void saveCustomerMemo(response.customerName);
   });
   container.querySelector("#downloadCustomerPhotosButton")?.addEventListener("click", () => {
-    downloadFiles(
+    void downloadFiles(
       collectPhotosFromResponses(customerResponses),
       response.customerName || "customer",
     );
@@ -1592,7 +1620,7 @@ function collectPhotosFromResponse(response) {
   const responseFiles = (Array.isArray(response?.files) ? response.files : [])
     .map((file, index) => {
       if (file?.previewUrl || file?.thumbnailUrl || file?.dataUrl || file?.url) {
-        return file;
+        return ensureDownloadablePhotoFile(file, index);
       }
       return derivePhotoFileFromUrl(file?.url || file?.value || "", index);
     })
@@ -1920,24 +1948,113 @@ function collectPhotosFromResponses(responses) {
   return responses.flatMap((response) => collectPhotosFromResponse(response));
 }
 
-function downloadFiles(files, prefix) {
-  if (!files.length) {
+function sanitizeDownloadNamePart(value, fallback = "") {
+  const normalized = String(value || "")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized || fallback;
+}
+
+function getPhotoDownloadExtension(file) {
+  const name = String(file?.name || "").trim();
+  const matched = name.match(/\.[a-zA-Z0-9]{2,5}$/);
+  if (matched) return matched[0];
+  const type = String(file?.type || "").toLowerCase();
+  if (type.includes("png")) return ".png";
+  if (type.includes("webp")) return ".webp";
+  if (type.includes("gif")) return ".gif";
+  return ".jpg";
+}
+
+function buildPhotoDownloadName(file, prefix, index) {
+  const safePrefix = sanitizeDownloadNamePart(prefix, "photo");
+  const safeName = sanitizeDownloadNamePart(file?.name || "", "");
+  if (safeName) {
+    return `${safePrefix}-${String(index + 1).padStart(2, "0")}-${safeName}`;
+  }
+  return `${safePrefix}-${String(index + 1).padStart(2, "0")}${getPhotoDownloadExtension(file)}`;
+}
+
+function triggerDownloadLink(href, fileName) {
+  const link = document.createElement("a");
+  link.href = href;
+  link.rel = "noopener";
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function downloadSingleFile(file, prefix, index) {
+  const normalizedFile = ensureDownloadablePhotoFile(file, index);
+  if (!normalizedFile) return false;
+  const fileName = buildPhotoDownloadName(normalizedFile, prefix, index);
+  const sourceCandidates = [
+    normalizedFile.downloadUrl,
+    normalizedFile.url,
+    normalizedFile.previewUrl,
+    normalizedFile.thumbnailUrl,
+    normalizedFile.dataUrl,
+  ].filter(Boolean);
+
+  for (const href of sourceCandidates) {
+    if (href.startsWith("data:")) {
+      triggerDownloadLink(href, fileName);
+      return true;
+    }
+    try {
+      const response = await fetch(href, {
+        method: "GET",
+        mode: "cors",
+        credentials: "omit",
+        cache: "no-store",
+      });
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      if (!blob.size) continue;
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        triggerDownloadLink(objectUrl, fileName);
+      } finally {
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+      }
+      return true;
+    } catch {
+      // Try the next candidate and fall back to a direct browser download.
+    }
+  }
+
+  const fallbackHref = sourceCandidates[0];
+  if (!fallbackHref) return false;
+  triggerDownloadLink(fallbackHref, fileName);
+  return true;
+}
+
+async function downloadFiles(files, prefix) {
+  const normalizedFiles = (Array.isArray(files) ? files : [])
+    .map((file, index) => ensureDownloadablePhotoFile(file, index))
+    .filter(Boolean);
+  if (!normalizedFiles.length) {
     showToast("ダウンロードできる写真がありません。");
     return;
   }
-  files.forEach((file, index) => {
-    const href = file.downloadUrl || file.previewUrl || file.url;
-    if (!href) return;
-    const link = document.createElement("a");
-    link.href = href;
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.download = `${prefix || "photo"}-${index + 1}-${file.name || "image.jpg"}`;
-    document.body.append(link);
-    link.click();
-    link.remove();
-  });
-  showToast(`${files.length}件の写真ダウンロードを開始しました。`);
+  let successCount = 0;
+  for (let index = 0; index < normalizedFiles.length; index += 1) {
+    if (await downloadSingleFile(normalizedFiles[index], prefix, index)) {
+      successCount += 1;
+    }
+    await wait(140);
+  }
+  if (!successCount) {
+    showToast("写真を保存できませんでした。");
+    return;
+  }
+  showToast(`${successCount}件の写真保存を開始しました。`);
 }
 
 function printResponse(response) {
@@ -2113,7 +2230,7 @@ function renderResponses() {
         </div>
         <div class="action-row">
           <button class="secondary-button" type="button" data-print-response="${selectedResponse.id}">印刷</button>
-          <button class="secondary-button" type="button" data-download-response-photos="${selectedResponse.id}">写真DL</button>
+          <button class="secondary-button" type="button" data-download-response-photos="${selectedResponse.id}">写真保存</button>
           <button class="secondary-button" type="button" data-back-stage="survey-history">戻る</button>
           <button class="secondary-button" type="button" data-close-response-detail>閉じる</button>
         </div>
@@ -2196,7 +2313,9 @@ function renderResponses() {
   stage.querySelectorAll("[data-download-response-photos]").forEach((button) => {
     button.addEventListener("click", () => {
       const response = state.responses.find((item) => item.id === button.dataset.downloadResponsePhotos);
-      if (response) downloadFiles(collectPhotosFromResponses([response]), response.customerName || "response");
+      if (response) {
+        void downloadFiles(collectPhotosFromResponses([response]), response.customerName || "response");
+      }
     });
   });
 
@@ -3745,7 +3864,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-21", { updateViaCache: "none" })
+        .register("./sw.js?v=20260413-22", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
