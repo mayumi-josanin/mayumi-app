@@ -419,6 +419,7 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #faf7f2;
+  overflow: hidden;
 }
 
 .ticket-home-head,
@@ -430,12 +431,34 @@ textarea {
 }
 
 .ticket-progress-card {
+  position: relative;
   display: grid;
   gap: 10px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 251, 246, 0.9)),
+    linear-gradient(135deg, rgba(192, 57, 43, 0.04), rgba(138, 158, 126, 0.08));
+  overflow: hidden;
+}
+
+.ticket-progress-card::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  background-image: url("./icons/icon-512.png?v=20260414-02");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  opacity: 0.12;
+  filter: saturate(0.75);
+  pointer-events: none;
+}
+
+.ticket-progress-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .ticket-next-sheet-action {
@@ -452,26 +475,78 @@ textarea {
 .ticket-progress {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
+}
+
+.ticket-progress[data-ticket-count="6"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .stamp-dot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 42px;
-  border: 1px solid var(--border);
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-height: 64px;
+  aspect-ratio: 1 / 1;
+  border: 1px dashed rgba(192, 57, 43, 0.25);
   border-radius: 999px;
-  background: #f5f1ea;
-  color: var(--text-light);
-  font-size: 13px;
+  background: rgba(255, 255, 255, 0.78);
+  color: rgba(192, 57, 43, 0.38);
+  font-size: 12px;
   font-weight: 700;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
+.stamp-dot-step,
+.stamp-dot-unit {
+  position: relative;
+  z-index: 1;
+}
+
+.stamp-dot-step {
+  align-self: end;
+  margin-top: 12px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.stamp-dot-unit {
+  align-self: start;
+  margin-top: -2px;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.stamp-dot.active::before {
+  content: "済";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(192, 57, 43, 0.9);
+  font-size: 28px;
+  font-weight: 900;
+  transform: rotate(-14deg);
 }
 
 .stamp-dot.active {
-  background: var(--sage);
-  border-color: var(--sage);
-  color: #fff;
+  border: 2px solid rgba(192, 57, 43, 0.68);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.3), transparent 45%),
+    rgba(200, 57, 43, 0.12);
+  color: rgba(192, 57, 43, 0.92);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 8px 18px rgba(192, 57, 43, 0.12);
+}
+
+.stamp-dot.active:nth-child(odd) {
+  transform: rotate(-8deg);
+}
+
+.stamp-dot.active:nth-child(even) {
+  transform: rotate(7deg);
 }
 
 .ticket-stamp {
@@ -480,8 +555,8 @@ textarea {
   gap: 6px;
   min-height: 30px;
   padding: 0 10px;
-  border-radius: 999px;
-  background: #fff;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
   border: 1px solid var(--border);
   color: var(--text-dark);
   font-size: 12px;

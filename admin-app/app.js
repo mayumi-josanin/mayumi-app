@@ -840,14 +840,16 @@ function getTicketProgressInfo(ticketInfo) {
 
 function renderTicketStampProgress(ticketCount, currentRound) {
   if (!ticketCount) return "";
-  const normalizedRound = Math.max(0, Number(currentRound) || 0);
+  const normalizedCount = Math.max(0, Number(ticketCount) || 0);
+  const normalizedRound = Math.max(0, Math.min(normalizedCount, Number(currentRound) || 0));
   return `
-    <div class="ticket-progress">
-      ${Array.from({ length: ticketCount }, (_, index) => {
+    <div class="ticket-progress" data-ticket-count="${normalizedCount}">
+      ${Array.from({ length: normalizedCount }, (_, index) => {
         const step = index + 1;
         return `
           <span class="stamp-dot ${step <= normalizedRound ? "active" : ""}" aria-label="${step}回目">
-            ${step}
+            <span class="stamp-dot-step">${step}</span>
+            <span class="stamp-dot-unit">回</span>
           </span>
         `;
       }).join("")}
@@ -3906,7 +3908,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260413-23", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-02", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

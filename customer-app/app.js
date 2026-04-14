@@ -6,7 +6,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260414-01";
+const APP_VERSION = "20260414-02";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -2737,14 +2737,16 @@ function getPhotoOpenHref(file) {
 
 function renderTicketStampProgress(ticketCount, currentRound) {
   if (!ticketCount) return "";
-  const normalizedRound = Math.max(0, Number(currentRound) || 0);
+  const normalizedCount = Math.max(0, Number(ticketCount) || 0);
+  const normalizedRound = Math.max(0, Math.min(normalizedCount, Number(currentRound) || 0));
   return `
-    <div class="ticket-progress">
-      ${Array.from({ length: ticketCount }, (_, index) => {
+    <div class="ticket-progress" data-ticket-count="${normalizedCount}">
+      ${Array.from({ length: normalizedCount }, (_, index) => {
         const step = index + 1;
         return `
           <span class="stamp-dot ${step <= normalizedRound ? "active" : ""}" aria-label="${step}回目">
-            ${step}
+            <span class="stamp-dot-step">${step}</span>
+            <span class="stamp-dot-unit">回</span>
           </span>
         `;
       }).join("")}
@@ -3101,7 +3103,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-01", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-02", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
