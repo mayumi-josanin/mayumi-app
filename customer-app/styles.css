@@ -486,7 +486,7 @@ textarea {
   position: relative;
   display: inline-grid;
   place-items: center;
-  min-height: 64px;
+  min-height: 72px;
   aspect-ratio: 1 / 1;
   border: none;
   border-radius: 999px;
@@ -502,21 +502,21 @@ textarea {
 .stamp-dot::before {
   content: "";
   position: absolute;
-  inset: 7px;
+  inset: 3px;
   border-radius: 999px;
-  background-image: url("../shared/assets/bijiris-stamp.png?v=20260414-06");
+  background-image: url("../shared/assets/bijiris-stamp.png?v=20260414-07");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 78%;
-  opacity: 0.58;
-  filter: saturate(0.82) contrast(1);
+  background-size: 94%;
+  opacity: 0.68;
+  filter: saturate(0.88) contrast(1.02);
 }
 
 .stamp-dot::after {
   content: "";
   position: absolute;
   inset-inline: 8px;
-  bottom: 6px;
+  bottom: 7px;
   height: 18px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
@@ -531,7 +531,7 @@ textarea {
 
 .stamp-dot-step {
   align-self: end;
-  margin-top: 18px;
+  margin-top: 20px;
   font-size: 17px;
   font-weight: 800;
 }
@@ -544,7 +544,7 @@ textarea {
 }
 
 .stamp-dot.active::before {
-  opacity: 0.32;
+  opacity: 0.42;
 }
 
 .stamp-dot.active::after {
