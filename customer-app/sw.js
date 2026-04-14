@@ -1,5 +1,5 @@
-const CACHE_NAME = "mayumi-customer-survey-v45";
-const ASSET_VERSION = "20260414-04";
+const CACHE_NAME = "mayumi-customer-survey-v46";
+const ASSET_VERSION = "20260414-06";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const APP_ASSETS = [
   `./icons/apple-touch-icon.png?v=${ASSET_VERSION}`,
   `./icons/icon-192.png?v=${ASSET_VERSION}`,
   `./icons/icon-512.png?v=${ASSET_VERSION}`,
+  `../shared/assets/bijiris-stamp.png?v=${ASSET_VERSION}`,
   `../default-surveys.js?v=${ASSET_VERSION}`,
   `../shared/api.js?v=${ASSET_VERSION}`,
 ];

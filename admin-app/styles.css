@@ -461,7 +461,7 @@ textarea {
   content: "";
   position: absolute;
   inset: 6px;
-  background-image: url("../customer-app/icons/icon-512.png?v=20260414-04");
+  background-image: url("../shared/assets/bijiris-stamp.png?v=20260414-06");
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
@@ -517,7 +517,7 @@ textarea {
   position: absolute;
   inset: 5px;
   border-radius: 999px;
-  background-image: url("../customer-app/icons/icon-512.png?v=20260414-04");
+  background-image: url("../shared/assets/bijiris-stamp.png?v=20260414-06");
   background-repeat: no-repeat;
   background-position: center;
   background-size: 76%;
