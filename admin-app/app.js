@@ -1636,7 +1636,7 @@ function renderConcernAnswerEditor(answer, questionId) {
                         value="${escapeHtml(option)}"
                         ${selected.has(option) ? "checked" : ""}
                       />
-                      ${escapeHtml(option)}
+                      <span class="option-text">${escapeHtml(option)}</span>
                     </label>
                   `,
                 )
@@ -1645,6 +1645,20 @@ function renderConcernAnswerEditor(answer, questionId) {
           </section>
         `,
       ).join("")}
+      <section class="concern-answer-group">
+        <strong>【その他】</strong>
+        <div class="checkbox-row">
+          <label>
+            <input
+              type="checkbox"
+              data-answer-checkbox="${questionId}"
+              value="その他（長文）"
+              ${selected.has("その他（長文）") ? "checked" : ""}
+            />
+            <span class="option-text">その他（長文）</span>
+          </label>
+        </div>
+      </section>
     </div>
   `;
 }
@@ -3908,7 +3922,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-08", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-09", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

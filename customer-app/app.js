@@ -6,7 +6,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260414-08";
+const APP_VERSION = "20260414-09";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -25,6 +25,8 @@ const SESSION_TICKET_END_PHOTOS_QUESTION_IDS = [
   LEGACY_SESSION_TICKET_END_PHOTOS_QUESTION_ID,
 ];
 const SESSION_CONCERN_QUESTION_ID = "q_bijiris_session_concern";
+const SESSION_CONCERN_OTHER_QUESTION_ID = "q_bijiris_session_concern_other";
+const SESSION_CONCERN_OTHER_OPTION = "その他（長文）";
 const SESSION_LIFE_CHANGES_QUESTION_ID = "q_bijiris_session_life_changes";
 const SESSION_LIFE_CHANGES_OTHER_QUESTION_ID = "q_bijiris_session_life_changes_other";
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
@@ -1782,7 +1784,7 @@ function renderQuestion(question, index, surveyId) {
               (value) => `
                 <label>
                   <input type="radio" name="${name}" value="${value}" data-question-id="${question.id}" ${String(draft.values[question.id] || "") === String(value) ? "checked" : ""} />
-                  ${value}
+                  <span class="option-text">${value}</span>
                 </label>
               `,
             )
@@ -1802,7 +1804,7 @@ function renderQuestion(question, index, surveyId) {
               (option) => `
                 <label>
                   <input type="radio" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${String(draft.values[question.id] || "") === option ? "checked" : ""} />
-                  ${escapeHtml(option)}
+                  <span class="option-text">${escapeHtml(option)}</span>
                 </label>
               `,
             )
@@ -1842,7 +1844,7 @@ function renderQuestion(question, index, surveyId) {
                               (option) => `
                                 <label>
                                   <input type="checkbox" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${selected.has(option) ? "checked" : ""} />
-                                  ${escapeHtml(option)}
+                                  <span class="option-text">${escapeHtml(option)}</span>
                                 </label>
                               `,
                             )
@@ -1854,6 +1856,18 @@ function renderQuestion(question, index, surveyId) {
                 </div>
               `;
             }).join("")}
+          </div>
+          <div class="checkbox-row concern-option-list">
+            <label>
+              <input
+                type="checkbox"
+                name="${name}"
+                value="${escapeHtml(SESSION_CONCERN_OTHER_OPTION)}"
+                data-question-id="${question.id}"
+                ${selected.has(SESSION_CONCERN_OTHER_OPTION) ? "checked" : ""}
+              />
+              <span class="option-text">${escapeHtml(SESSION_CONCERN_OTHER_OPTION)}</span>
+            </label>
           </div>
           ${activeCategoryId ? "" : `<div class="empty">カテゴリを選択すると詳細項目を表示します。</div>`}
         </fieldset>
@@ -1868,7 +1882,7 @@ function renderQuestion(question, index, surveyId) {
               (option) => `
                 <label>
                   <input type="checkbox" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${selected.has(option) ? "checked" : ""} />
-                  ${escapeHtml(option)}
+                  <span class="option-text">${escapeHtml(option)}</span>
                 </label>
               `,
             )
@@ -3103,7 +3117,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-08", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-09", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

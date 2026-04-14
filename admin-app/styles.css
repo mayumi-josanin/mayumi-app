@@ -423,6 +423,8 @@ textarea {
   padding: 10px;
   border-radius: 8px;
   background: var(--cream);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ticket-info-panel {
@@ -628,19 +630,25 @@ textarea {
 }
 
 .checkbox-row label {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 8px;
   min-height: 40px;
-  padding: 0 12px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
   color: var(--text-dark);
+  line-height: 1.7;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .checkbox-row input {
   width: auto;
   min-height: auto;
+  margin-top: 3px;
 }
 
 .photo-list {
@@ -728,6 +736,16 @@ textarea {
   color: var(--text-dark);
   font-size: 14px;
   font-weight: 400;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.option-text {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .photo-thumb img {

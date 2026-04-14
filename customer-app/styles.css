@@ -626,6 +626,7 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
+  min-width: 0;
 }
 
 .prefilled-answer strong {
@@ -635,12 +636,15 @@ textarea {
 fieldset {
   margin: 0;
   border: none;
+  min-width: 0;
 }
 
 legend {
   margin-bottom: 10px;
   color: var(--text-mid);
   font-weight: 700;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .question-block > span:first-child,
@@ -664,16 +668,19 @@ legend > span:first-child {
 .checkbox-row label,
 .choice-row label,
 .rating-row label {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: flex-start;
   gap: 8px;
   min-height: 42px;
+  width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--warm-white);
   color: var(--text-dark);
   line-height: 1.7;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
@@ -682,6 +689,7 @@ legend > span:first-child {
 .rating-row input {
   width: auto;
   min-height: auto;
+  margin-top: 3px;
 }
 
 .field-help {
@@ -704,8 +712,17 @@ legend > span:first-child {
   color: var(--text-mid);
   font-size: 13px;
   font-weight: 700;
+  width: 100%;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.option-text {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .photo-list {

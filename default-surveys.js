@@ -152,8 +152,12 @@ const BIJIRIS_SESSION_LIFE_CHANGE_OPTIONS = [
   "その他（自由記述）",
 ];
 
+const BIJIRIS_SESSION_CONCERN_OTHER_OPTION = "その他（長文）";
+
 function getBijirisSessionConcernOptions() {
-  return BIJIRIS_SESSION_CONCERN_CATEGORIES.flatMap((category) => category.options);
+  return BIJIRIS_SESSION_CONCERN_CATEGORIES
+    .flatMap((category) => category.options)
+    .concat(BIJIRIS_SESSION_CONCERN_OTHER_OPTION);
 }
 
 function makeDefaultSurveys(timestamp = new Date().toISOString()) {
@@ -213,6 +217,17 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           type: "checkbox",
           required: false,
           options: getBijirisSessionConcernOptions(),
+        },
+        {
+          id: "q_bijiris_session_concern_other",
+          label: "気になること・知りたいこと（その他・長文）",
+          type: "textarea",
+          required: false,
+          options: [],
+          visibleWhen: {
+            questionId: "q_bijiris_session_concern",
+            value: BIJIRIS_SESSION_CONCERN_OTHER_OPTION,
+          },
         },
         {
           id: "q_bijiris_session_life_changes",
