@@ -149,6 +149,7 @@ const state = {
   selectedCustomerViewName: "",
   selectedCustomerViewSurveyId: "",
   selectedCustomerViewResponseId: "",
+  selectedCustomerTimelineOpen: false,
   installPrompt: null,
 };
 
@@ -209,8 +210,10 @@ function normalizeActiveTicketCard(value) {
 function normalizeCustomerProfile(value) {
   return {
     name: String(value?.name || "").trim(),
+    memberNumber: String(value?.memberNumber || "").trim().toUpperCase(),
     nameKana: String(value?.nameKana || "").trim(),
     activeTicketCard: normalizeActiveTicketCard(value?.activeTicketCard),
+    updatedAt: String(value?.updatedAt || "").trim(),
   };
 }
 
@@ -226,6 +229,15 @@ function indexCustomerProfiles(list) {
 
 function getCustomerProfileByName(customerName) {
   return state.customerProfiles[String(customerName || "").trim()] || null;
+}
+
+function getCustomerMemberNumber(customerName) {
+  return String(getCustomerProfileByName(customerName)?.memberNumber || "").trim().toUpperCase();
+}
+
+function getCustomerNameWithMember(customerName) {
+  const memberNumber = getCustomerMemberNumber(customerName);
+  return memberNumber ? `${memberNumber} / ${customerName}` : customerName;
 }
 
 function buildTicketInfoFromActiveTicketCard(ticketCard) {
@@ -462,7 +474,7 @@ function renderCompactResponse(response) {
   const status = normalizeStatus(response.status);
   return `
     <article class="card">
-      <strong>${escapeHtml(response.customerName)}</strong>
+      <strong>${escapeHtml(getCustomerNameWithMember(response.customerName))}</strong>
       <div class="meta">${escapeHtml(response.surveyTitle)} / ${formatDate(response.submittedAt)}</div>
       <span class="badge ${status}">${STATUS_LABELS[status]}</span>
     </article>
@@ -942,6 +954,79 @@ function getActiveCustomerResponses(customerName) {
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
 }
 
+function getCustomerDirectoryEntries() {
+  const map = new Map();
+  Object.values(state.customerProfiles || {}).forEach((profile) => {
+    if (!profile?.name) return;
+    map.set(profile.name, {
+      name: profile.name,
+      memberNumber: profile.memberNumber || "",
+      latestAt: profile.updatedAt || "",
+      count: 0,
+      surveys: new Map(),
+      hasResponses: false,
+    });
+  });
+  getActiveResponses().forEach((response) => {
+    const existing = map.get(response.customerName) || {
+      name: response.customerName,
+      memberNumber: getCustomerMemberNumber(response.customerName) || response.customerMemberNumber || "",
+      latestAt: response.submittedAt,
+      count: 0,
+      surveys: new Map(),
+      hasResponses: false,
+    };
+    existing.memberNumber =
+      existing.memberNumber || response.customerMemberNumber || getCustomerMemberNumber(response.customerName) || "";
+    existing.count += 1;
+    existing.hasResponses = true;
+    existing.latestAt =
+      !existing.latestAt || new Date(response.submittedAt) > new Date(existing.latestAt)
+        ? response.submittedAt
+        : existing.latestAt;
+    existing.surveys.set(response.surveyTitle, (existing.surveys.get(response.surveyTitle) || 0) + 1);
+    map.set(response.customerName, existing);
+  });
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.latestAt && b.latestAt) return new Date(b.latestAt) - new Date(a.latestAt);
+    if (a.latestAt) return -1;
+    if (b.latestAt) return 1;
+    return String(a.memberNumber || "").localeCompare(String(b.memberNumber || "")) || a.name.localeCompare(b.name);
+  });
+}
+
+function getFilteredCustomerDirectoryEntries() {
+  const keyword = String(document.querySelector("#customerKeywordFilter")?.value || "").trim().toLowerCase();
+  const ticketPlan = String(document.querySelector("#customerTicketPlanFilter")?.value || "").trim();
+  const responseState = String(document.querySelector("#customerResponseStateFilter")?.value || "").trim();
+  return getCustomerDirectoryEntries()
+    .filter((entry) => {
+      if (!keyword) return true;
+      const profile = getCustomerProfileByName(entry.name);
+      const haystack = [
+        entry.name,
+        entry.memberNumber,
+        profile?.nameKana,
+        getCurrentTicketInfoForCustomer(entry.name).map((item) => item.value).join(" "),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(keyword);
+    })
+    .filter((entry) => {
+      if (!ticketPlan) return true;
+      return getCurrentTicketInfoForCustomer(entry.name).some(
+        (item) => item.label === "回数券" && item.value === ticketPlan,
+      );
+    })
+    .filter((entry) => {
+      if (responseState === "with") return entry.hasResponses;
+      if (responseState === "without") return !entry.hasResponses;
+      return true;
+    });
+}
+
 function formatResponseEntryTitle(response) {
   const ticketInfo = getResponseTicketInfo(response);
   if (ticketInfo.length) {
@@ -956,9 +1041,11 @@ function renderCustomerSummaryCard(customerName, responses) {
   const latestResponse = responses[0] || null;
   const ticketInfo = getCurrentTicketInfoForCustomer(customerName);
   const surveyCount = new Set(responses.map((response) => response.surveyId || response.surveyTitle || response.id)).size;
+  const profile = getCustomerProfileByName(customerName);
   return `
     <article class="answer-item">
-      <strong>${escapeHtml(customerName)}</strong>
+      <strong>${escapeHtml(getCustomerNameWithMember(customerName))}</strong>
+      <div class="meta">フリガナ: ${escapeHtml(profile?.nameKana || "-")}</div>
       <div class="meta">回答数: ${responses.length}件 / アンケート種類: ${surveyCount}件</div>
       <div class="meta">最新回答: ${latestResponse ? `${escapeHtml(latestResponse.surveyTitle)} / ${formatDate(latestResponse.submittedAt)}` : "-"}</div>
       ${
@@ -971,8 +1058,10 @@ function renderCustomerSummaryCard(customerName, responses) {
 }
 
 function getCurrentTicketDraft(customerName) {
+  const profile = getCustomerProfileByName(customerName);
   const ticketMap = new Map(getCurrentTicketInfoForCustomer(customerName).map((item) => [item.label, item.value]));
   return {
+    memberNumber: profile?.memberNumber || "",
     ticketPlan: ticketMap.get("回数券") || "",
     ticketSheet: ticketMap.get("何枚目") || "",
     ticketRound: ticketMap.get("何回目") || "",
@@ -989,6 +1078,10 @@ function renderCustomerEditorCard(customerName) {
           <label>
             お名前
             <input name="customerName" type="text" value="${escapeHtml(customerName)}" required />
+          </label>
+          <label>
+            会員番号
+            <input name="memberNumber" type="text" value="${escapeHtml(draft.memberNumber)}" placeholder="自動採番" />
           </label>
           <label>
             回数券の種類
@@ -1048,6 +1141,7 @@ async function saveCustomerProfile(form) {
   const currentName = String(form.dataset.customerName || "").trim();
   const formData = new FormData(form);
   const name = String(formData.get("customerName") || "").trim();
+  const memberNumber = String(formData.get("memberNumber") || "").trim().toUpperCase();
   const ticketPlan = String(formData.get("ticketPlan") || "").trim();
   const ticketSheet = String(formData.get("ticketSheet") || "").trim();
   const ticketRound = String(formData.get("ticketRound") || "").trim();
@@ -1071,6 +1165,7 @@ async function saveCustomerProfile(form) {
       token: state.token,
       body: {
         name,
+        memberNumber,
         ticketPlan,
         ticketSheet,
         ticketRound,
@@ -1101,6 +1196,7 @@ async function deleteCustomerProfile(customerName) {
     state.selectedCustomerViewName = "";
     state.selectedCustomerViewSurveyId = "";
     state.selectedCustomerViewResponseId = "";
+    state.selectedCustomerTimelineOpen = false;
     await loadAdminData();
     setPage("customers");
     showToast("顧客情報を削除しました。");
@@ -1117,7 +1213,7 @@ function renderReadOnlyResponseCard(response) {
     <article class="response-card response-card-readonly">
       <div class="response-head">
         <div>
-          <strong>${escapeHtml(response.customerName)}</strong>
+          <strong>${escapeHtml(getCustomerNameWithMember(response.customerName))}</strong>
           <div class="meta">${formatDate(response.submittedAt)}</div>
           <div class="meta">${escapeHtml(response.surveyTitle)}</div>
         </div>
@@ -1165,15 +1261,160 @@ function renderReadOnlyResponseCard(response) {
   `;
 }
 
+function renderCustomerTimeline(responseList) {
+  const chronological = responseList
+    .slice()
+    .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+  if (!chronological.length) {
+    return `<div class="empty">まだカルテに表示できる回答がありません。</div>`;
+  }
+  return `
+    <div class="timeline-list">
+      ${chronological
+        .map((response) => {
+          const survey = findSurveyById(response.surveyId);
+          return `
+            <article class="timeline-entry">
+              <div class="timeline-marker"></div>
+              <div class="timeline-content">
+                <div class="timeline-head">
+                  <div>
+                    <strong>${escapeHtml(response.surveyTitle)}</strong>
+                    <div class="meta">${formatDate(response.submittedAt)}</div>
+                  </div>
+                  <span class="badge ${normalizeStatus(response.status)}">${STATUS_LABELS[normalizeStatus(response.status)]}</span>
+                </div>
+                ${renderTicketStampList(getResponseTicketInfo(response))}
+                ${renderResponsePhotoPreview(response, 4)}
+                ${renderResponsePhotoGallery(response, survey)}
+                <div class="answer-list">
+                  ${
+                    response.adminMemo
+                      ? `
+                        <div class="answer-item">
+                          <strong>管理メモ</strong><br />
+                          ${escapeHtml(response.adminMemo)}
+                        </div>
+                      `
+                      : ""
+                  }
+                  ${getDisplayAnswers(response, survey)
+                    .filter((answer) => {
+                      const question = survey?.questions.find((item) => item.id === answer.questionId) || {
+                        type: answer.type,
+                      };
+                      return question.type !== "photo";
+                    })
+                    .map(
+                      (answer) => `
+                        <div class="answer-item">
+                          <strong>${escapeHtml(answer.label)}</strong><br />
+                          ${answer.questionId === SESSION_CONCERN_QUESTION_ID
+                            ? `
+                              <div class="concern-answer-groups">
+                                ${getConcernAnswerGroups(answer)
+                                  .map(
+                                    (group) => `
+                                      <section class="concern-answer-group">
+                                        <strong>${escapeHtml(group.label)}</strong>
+                                        <div class="checkbox-row">
+                                          ${group.options.map((option) => `<label>${escapeHtml(option)}</label>`).join("")}
+                                        </div>
+                                      </section>
+                                    `,
+                                  )
+                                  .join("")}
+                              </div>
+                            `
+                            : renderAnswerValue(answer)}
+                        </div>
+                      `,
+                    )
+                    .join("")}
+                </div>
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function printCustomerTimeline(customerName) {
+  const responses = getActiveCustomerResponses(customerName);
+  if (!responses.length) {
+    showToast("PDF出力できるカルテがありません。");
+    return;
+  }
+  const profile = getCustomerProfileByName(customerName);
+  const printWindow = window.open("", "_blank", "noopener,noreferrer");
+  if (!printWindow) {
+    showToast("PDF出力画面を開けませんでした。");
+    return;
+  }
+  printWindow.document.write(`
+    <!doctype html>
+    <html lang="ja">
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(getCustomerNameWithMember(customerName))}_カルテ</title>
+        <style>
+          body { font-family: sans-serif; padding: 24px; color: #222; }
+          h1 { font-size: 22px; margin-bottom: 8px; }
+          .meta { color: #666; margin-bottom: 12px; }
+          .entry { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+          .entry h2 { font-size: 16px; margin: 0 0 6px; }
+          .item { margin-top: 8px; }
+          .item strong { display: block; margin-bottom: 4px; }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(customerName)}</h1>
+        <div class="meta">会員番号: ${escapeHtml(profile?.memberNumber || "-")}</div>
+        <div class="meta">フリガナ: ${escapeHtml(profile?.nameKana || "-")}</div>
+        ${responses
+          .slice()
+          .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt))
+          .map((response) => {
+            const survey = findSurveyById(response.surveyId);
+            return `
+              <section class="entry">
+                <h2>${escapeHtml(response.surveyTitle)}</h2>
+                <div class="meta">${escapeHtml(formatDate(response.submittedAt))}</div>
+                ${response.adminMemo ? `<div class="item"><strong>管理メモ</strong><div>${escapeHtml(response.adminMemo)}</div></div>` : ""}
+                ${getDisplayAnswers(response, survey)
+                  .map(
+                    (answer) => `
+                      <div class="item">
+                        <strong>${escapeHtml(answer.label)}</strong>
+                        <div>${Array.isArray(answer.files) && answer.files.length ? escapeHtml(answer.files.map((file) => file.name || "写真").join(", ")) : escapeHtml(answer.value || "未回答")}</div>
+                      </div>
+                    `,
+                  )
+                  .join("")}
+              </section>
+            `;
+          })
+          .join("")}
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
 function renderCustomerManagement() {
   const stage = document.querySelector("#customerManagementStage");
   if (!stage) return;
 
-  const customers = groupByCustomerFrom(getActiveResponses());
+  const customers = getFilteredCustomerDirectoryEntries();
   if (state.selectedCustomerViewName && !customers.some((customer) => customer.name === state.selectedCustomerViewName)) {
     state.selectedCustomerViewName = "";
     state.selectedCustomerViewSurveyId = "";
     state.selectedCustomerViewResponseId = "";
+    state.selectedCustomerTimelineOpen = false;
   }
 
   const selectedCustomer =
@@ -1225,9 +1466,9 @@ function renderCustomerManagement() {
                         type="button"
                         data-open-customer="${escapeHtml(customer.name)}"
                       >
-                        <strong>${escapeHtml(customer.name)}</strong>
+                        <strong>${escapeHtml(customer.memberNumber ? `${customer.memberNumber} / ${customer.name}` : customer.name)}</strong>
                         <div>回答数: ${customer.count}件</div>
-                        <div class="meta">最新回答: ${formatDate(customer.latestAt)}</div>
+                        <div class="meta">${customer.hasResponses ? `最新回答: ${formatDate(customer.latestAt)}` : "回答履歴はまだありません。"}</div>
                         ${renderTicketStampList(getCurrentTicketInfoForCustomer(customer.name))}
                       </button>
                       <div class="action-row">
@@ -1247,6 +1488,27 @@ function renderCustomerManagement() {
         }
       </div>
     `;
+  } else if (state.selectedCustomerTimelineOpen) {
+    stage.innerHTML = `
+      <div class="stage-head">
+        <div>
+          <div class="card-title">時系列カルテ</div>
+          <div class="meta">${escapeHtml(getCustomerNameWithMember(selectedCustomer.name))}</div>
+        </div>
+        <div class="action-row">
+          <button class="secondary-button" type="button" data-export-customer-timeline="${escapeHtml(selectedCustomer.name)}">PDF出力</button>
+          <button class="secondary-button" type="button" data-back-customer-stage="profile">戻る</button>
+        </div>
+      </div>
+      <div class="stack">
+        ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
+        <article class="answer-item">
+          <strong>時系列カルテ</strong>
+          <div class="meta">古い回答から順に表示しています。</div>
+          ${renderCustomerTimeline(customerResponses)}
+        </article>
+      </div>
+    `;
   } else if (!selectedSurveyGroup) {
     stage.innerHTML = `
       <div class="stage-head">
@@ -1262,6 +1524,14 @@ function renderCustomerManagement() {
       <div class="stack">
         ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
         ${renderCustomerEditorCard(selectedCustomer.name)}
+        <article class="answer-item">
+          <strong>カルテ</strong>
+          <div class="meta">顧客ごとの時系列カルテを表示して、PDF出力できます。</div>
+          <div class="action-row">
+            <button class="secondary-button" type="button" data-open-customer-timeline="${escapeHtml(selectedCustomer.name)}">時系列カルテを見る</button>
+            <button class="secondary-button" type="button" data-export-customer-timeline="${escapeHtml(selectedCustomer.name)}">PDF出力</button>
+          </div>
+        </article>
         <article class="answer-item">
           <strong>アンケート回答履歴</strong>
           <div class="survey-history-list">
@@ -1289,10 +1559,10 @@ function renderCustomerManagement() {
     `;
   } else if (!selectedResponse) {
     stage.innerHTML = `
-      <div class="stage-head">
+        <div class="stage-head">
         <div>
           <div class="card-title">アンケート回答履歴</div>
-          <div class="meta">${escapeHtml(selectedCustomer.name)} / ${escapeHtml(selectedSurveyGroup.surveyTitle)}</div>
+          <div class="meta">${escapeHtml(getCustomerNameWithMember(selectedCustomer.name))} / ${escapeHtml(selectedSurveyGroup.surveyTitle)}</div>
         </div>
         <button class="secondary-button" type="button" data-back-customer-stage="surveys">戻る</button>
       </div>
@@ -1341,7 +1611,7 @@ function renderCustomerManagement() {
       <div class="stage-head">
         <div>
           <div class="card-title">アンケート回答詳細</div>
-          <div class="meta">${escapeHtml(selectedCustomer.name)} / ${escapeHtml(selectedSurveyGroup.surveyTitle)} / ${formatDate(selectedResponse.submittedAt)}</div>
+          <div class="meta">${escapeHtml(getCustomerNameWithMember(selectedCustomer.name))} / ${escapeHtml(selectedSurveyGroup.surveyTitle)} / ${formatDate(selectedResponse.submittedAt)}</div>
         </div>
         <div class="action-row">
           <button class="secondary-button" type="button" data-print-customer-response="${selectedResponse.id}">印刷</button>
@@ -1364,6 +1634,16 @@ function renderCustomerManagement() {
       state.selectedCustomerViewName = button.dataset.openCustomer || "";
       state.selectedCustomerViewSurveyId = "";
       state.selectedCustomerViewResponseId = "";
+      state.selectedCustomerTimelineOpen = false;
+      renderCustomerManagement();
+    });
+  });
+
+  stage.querySelectorAll("[data-open-customer-timeline]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedCustomerTimelineOpen = true;
+      state.selectedCustomerViewSurveyId = "";
+      state.selectedCustomerViewResponseId = "";
       renderCustomerManagement();
     });
   });
@@ -1372,6 +1652,7 @@ function renderCustomerManagement() {
     button.addEventListener("click", () => {
       state.selectedCustomerViewSurveyId = button.dataset.openCustomerSurvey || "";
       state.selectedCustomerViewResponseId = "";
+      state.selectedCustomerTimelineOpen = false;
       renderCustomerManagement();
     });
   });
@@ -1379,6 +1660,7 @@ function renderCustomerManagement() {
   stage.querySelectorAll("[data-open-customer-response]").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedCustomerViewResponseId = button.dataset.openCustomerResponse || "";
+      state.selectedCustomerTimelineOpen = false;
       renderCustomerManagement();
     });
   });
@@ -1388,6 +1670,11 @@ function renderCustomerManagement() {
       const step = button.dataset.backCustomerStage;
       if (step === "customers") {
         state.selectedCustomerViewName = "";
+        state.selectedCustomerViewSurveyId = "";
+        state.selectedCustomerViewResponseId = "";
+        state.selectedCustomerTimelineOpen = false;
+      } else if (step === "profile") {
+        state.selectedCustomerTimelineOpen = false;
         state.selectedCustomerViewSurveyId = "";
         state.selectedCustomerViewResponseId = "";
       } else if (step === "surveys") {
@@ -1425,7 +1712,14 @@ function renderCustomerManagement() {
   stage.querySelector("[data-close-customer-detail]")?.addEventListener("click", () => {
     state.selectedCustomerViewSurveyId = "";
     state.selectedCustomerViewResponseId = "";
+    state.selectedCustomerTimelineOpen = false;
     renderCustomerManagement();
+  });
+
+  stage.querySelectorAll("[data-export-customer-timeline]").forEach((button) => {
+    button.addEventListener("click", () => {
+      printCustomerTimeline(button.dataset.exportCustomerTimeline || "");
+    });
   });
 
   stage.querySelector("#customerProfileForm")?.addEventListener("submit", (event) => {
@@ -1470,7 +1764,8 @@ function renderCurrentCustomerInfo() {
   const memoRecord = getCustomerMemoRecord(response.customerName);
   container.innerHTML = `
     <article class="answer-item">
-      <strong>${escapeHtml(response.customerName)}</strong>
+      <strong>${escapeHtml(getCustomerNameWithMember(response.customerName))}</strong>
+      <div class="meta">フリガナ: ${escapeHtml(getCustomerProfileByName(response.customerName)?.nameKana || "-")}</div>
       <div class="meta">最新表示中の回答: ${escapeHtml(response.surveyTitle)} / ${formatDate(response.submittedAt)}</div>
       <div class="meta">回答数: ${customerResponses.length}件</div>
       ${
@@ -1533,7 +1828,7 @@ function renderAllResponsesBySurveySection() {
                     data-survey-history-open="${escapeHtml(response.id)}"
                     data-survey-history-survey="${escapeHtml(group.surveyId)}"
                   >
-                    <strong>${escapeHtml(response.customerName)}</strong>
+                    <strong>${escapeHtml(getCustomerNameWithMember(response.customerName))}</strong>
                     <div class="meta">${formatDate(response.submittedAt)}</div>
                     ${renderTicketStampList(getResponseTicketInfo(response))}
                     ${renderResponsePhotoPreview(response, 2)}
@@ -1824,12 +2119,47 @@ function formatAnswerForCsv(answer) {
 
 function renderFilters() {
   const surveyFilter = document.querySelector("#surveyFilter");
+  const ticketPlanFilter = document.querySelector("#ticketPlanFilter");
+  const ticketSheetFilter = document.querySelector("#ticketSheetFilter");
+  const ticketRoundFilter = document.querySelector("#ticketRoundFilter");
   const current = surveyFilter.value;
   surveyFilter.innerHTML = `
     <option value="">すべて</option>
     ${state.surveys.map((survey) => `<option value="${survey.id}">${escapeHtml(survey.title)}</option>`).join("")}
   `;
   surveyFilter.value = Array.from(surveyFilter.options).some((option) => option.value === current) ? current : "";
+  if (ticketPlanFilter) {
+    const currentPlan = ticketPlanFilter.value;
+    ticketPlanFilter.innerHTML = `
+      <option value="">すべての回数券</option>
+      ${CUSTOMER_TICKET_PLAN_OPTIONS.filter(Boolean)
+        .map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`)
+        .join("")}
+    `;
+    ticketPlanFilter.value = Array.from(ticketPlanFilter.options).some((option) => option.value === currentPlan)
+      ? currentPlan
+      : "";
+  }
+  if (ticketSheetFilter) {
+    const currentSheet = ticketSheetFilter.value;
+    ticketSheetFilter.innerHTML = `
+      <option value="">すべての枚数</option>
+      ${CUSTOMER_TICKET_SHEET_OPTIONS.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}
+    `;
+    ticketSheetFilter.value = Array.from(ticketSheetFilter.options).some((option) => option.value === currentSheet)
+      ? currentSheet
+      : "";
+  }
+  if (ticketRoundFilter) {
+    const currentRound = ticketRoundFilter.value;
+    ticketRoundFilter.innerHTML = `
+      <option value="">すべての回数</option>
+      ${CUSTOMER_TICKET_ROUND_OPTIONS.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}
+    `;
+    ticketRoundFilter.value = Array.from(ticketRoundFilter.options).some((option) => option.value === currentRound)
+      ? currentRound
+      : "";
+  }
 }
 
 function getCustomerMemo(customerName) {
@@ -1887,10 +2217,30 @@ async function applyBulkStatus() {
   }
 }
 
+function getResponseSearchHaystack(response) {
+  const profile = getCustomerProfileByName(response.customerName);
+  return [
+    response.customerName,
+    response.customerMemberNumber,
+    profile?.memberNumber,
+    profile?.nameKana,
+    response.surveyTitle,
+    response.adminMemo,
+    response.answers.map((answer) => formatAnswerForCsv(answer)).join(" "),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
 function getFilteredResponses() {
   const surveyId = document.querySelector("#surveyFilter").value;
   const status = document.querySelector("#statusFilter").value;
   const keyword = document.querySelector("#keywordFilter").value.trim().toLowerCase();
+  const ticketPlan = document.querySelector("#ticketPlanFilter")?.value || "";
+  const ticketSheet = document.querySelector("#ticketSheetFilter")?.value || "";
+  const ticketRound = document.querySelector("#ticketRoundFilter")?.value || "";
+  const photoFilter = document.querySelector("#photoFilter")?.value || "";
   const dateFrom = document.querySelector("#dateFromFilter")?.value || "";
   const dateTo = document.querySelector("#dateToFilter")?.value || "";
 
@@ -1909,10 +2259,16 @@ function getFilteredResponses() {
     })
     .filter((response) => {
       if (!keyword) return true;
-      return (
-        String(response.customerName || "").toLowerCase().includes(keyword) ||
-        String(response.surveyTitle || "").toLowerCase().includes(keyword)
-      );
+      return getResponseSearchHaystack(response).includes(keyword);
+    })
+    .filter((response) => {
+      const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
+      if (ticketPlan && ticketMap.get("回数券") !== ticketPlan) return false;
+      if (ticketSheet && ticketMap.get("何枚目") !== ticketSheet) return false;
+      if (ticketRound && ticketMap.get("何回目") !== ticketRound) return false;
+      if (photoFilter === "with" && !collectPhotosFromResponse(response).length) return false;
+      if (photoFilter === "without" && collectPhotosFromResponse(response).length) return false;
+      return true;
     })
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
 }
@@ -2108,6 +2464,7 @@ async function downloadFiles(files, prefix) {
 function printResponse(response) {
   const survey = findSurveyById(response.surveyId);
   const answers = getDisplayAnswers(response, survey);
+  const customerLabel = getCustomerNameWithMember(response.customerName);
   const printWindow = window.open("", "_blank", "noopener,noreferrer");
   if (!printWindow) {
     showToast("印刷画面を開けませんでした。");
@@ -2118,7 +2475,7 @@ function printResponse(response) {
     <html lang="ja">
       <head>
         <meta charset="utf-8" />
-        <title>${escapeHtml(response.customerName)}_${escapeHtml(response.surveyTitle)}</title>
+        <title>${escapeHtml(customerLabel)}_${escapeHtml(response.surveyTitle)}</title>
         <style>
           body { font-family: sans-serif; padding: 24px; color: #222; }
           h1 { font-size: 20px; margin-bottom: 8px; }
@@ -2129,7 +2486,7 @@ function printResponse(response) {
       </head>
       <body>
         <h1>${escapeHtml(response.surveyTitle)}</h1>
-        <div class="meta">${escapeHtml(response.customerName)} / ${escapeHtml(formatDate(response.submittedAt))}</div>
+        <div class="meta">${escapeHtml(customerLabel)} / ${escapeHtml(formatDate(response.submittedAt))}</div>
         ${answers
           .map(
             (answer) => `
@@ -2253,7 +2610,7 @@ function renderResponses() {
                         type="button"
                         data-history-response-id="${response.id}"
                       >
-                        <strong>${escapeHtml(response.customerName)}</strong>
+                        <strong>${escapeHtml(getCustomerNameWithMember(response.customerName))}</strong>
                         <div class="meta">${formatDate(response.submittedAt)}</div>
                         ${renderTicketStampList(getResponseTicketInfo(response))}
                         ${renderResponsePhotoPreview(response, 3)}
@@ -2283,7 +2640,7 @@ function renderResponses() {
       <div class="stage-head">
         <div>
           <div class="card-title">${escapeHtml(selectedResponse.surveyTitle)}</div>
-          <div class="meta">${escapeHtml(selectedResponse.customerName)} / ${formatDate(selectedResponse.submittedAt)}</div>
+          <div class="meta">${escapeHtml(getCustomerNameWithMember(selectedResponse.customerName))} / ${formatDate(selectedResponse.submittedAt)}</div>
         </div>
         <div class="action-row">
           <button class="secondary-button" type="button" data-print-response="${selectedResponse.id}">印刷</button>
@@ -2390,7 +2747,7 @@ function renderResponseCard(response) {
     <article class="response-card" data-response-card="${response.id}">
       <div class="response-head">
         <div>
-          <strong>${escapeHtml(response.customerName)}</strong>
+          <strong>${escapeHtml(getCustomerNameWithMember(response.customerName))}</strong>
           <div class="meta">${formatDate(response.submittedAt)}</div>
           <div class="meta">${escapeHtml(response.surveyTitle)}</div>
         </div>
@@ -2576,6 +2933,7 @@ function renderSettings() {
   const auditLogList = document.querySelector("#auditLogList");
   const errorLogList = document.querySelector("#errorLogList");
   const versionInfo = document.querySelector("#versionInfo");
+  const backupMetaInfo = document.querySelector("#backupMetaInfo");
   if (!state.adminInfo) {
     credentialInfo.textContent = "認証情報を読み込み中です。";
     storageInfo.innerHTML = `<div class="empty">保存先情報を読み込み中です。</div>`;
@@ -2826,6 +3184,27 @@ function renderSettings() {
       <div class="meta">管理アプリ Version: ${escapeHtml(state.adminInfo.version || "-")}</div>
       <div class="meta">API モード: ${escapeHtml(api.mode || "-")}</div>
       <div class="meta">バックアップ保存先: ${state.adminInfo.backupFolderUrl ? `<a href="${escapeHtml(state.adminInfo.backupFolderUrl)}" target="_blank" rel="noopener">Google Drive</a>` : "-"}</div>
+    `;
+  }
+
+  if (backupMetaInfo) {
+    const latestBackup = state.adminInfo?.latestBackup || {};
+    const lastMaintenance = state.adminInfo?.lastMaintenance || {};
+    backupMetaInfo.innerHTML = `
+      <article class="answer-item">
+        <strong>最終バックアップ</strong>
+        <div class="meta">${latestBackup.at ? formatDate(latestBackup.at) : "まだ実行されていません。"}</div>
+        ${
+          latestBackup.fileUrl
+            ? `<div class="meta"><a href="${escapeHtml(latestBackup.fileUrl)}" target="_blank" rel="noopener">${escapeHtml(latestBackup.fileName || "バックアップファイル")}</a></div>`
+            : ""
+        }
+      </article>
+      <article class="answer-item">
+        <strong>最終メンテナンス</strong>
+        <div class="meta">${lastMaintenance.at ? formatDate(lastMaintenance.at) : "まだ実行されていません。"}</div>
+        <div class="meta">ごみ箱削除件数: ${Number(lastMaintenance.purged || 0)}件</div>
+      </article>
     `;
   }
 }
@@ -3666,13 +4045,18 @@ function exportCsv() {
     return;
   }
   const rows = [
-    ["日時", "お客様", "アンケート", "対応状況", "管理メモ", "回答"],
+    ["日時", "会員番号", "お客様", "アンケート", "回数券", "何枚目", "何回目", "対応状況", "管理メモ", "写真枚数", "回答"],
     ...filteredResponses.map((response) => [
       formatDate(response.submittedAt),
+      getCustomerMemberNumber(response.customerName) || response.customerMemberNumber || "",
       response.customerName,
       response.surveyTitle,
+      getResponseTicketInfo(response).find((item) => item.label === "回数券")?.value || "",
+      getResponseTicketInfo(response).find((item) => item.label === "何枚目")?.value || "",
+      getResponseTicketInfo(response).find((item) => item.label === "何回目")?.value || "",
       STATUS_LABELS[normalizeStatus(response.status)],
       response.adminMemo || "",
+      String(collectPhotosFromResponse(response).length),
       response.answers.map(formatAnswerForCsv).join(" / "),
     ]),
   ];
@@ -3688,44 +4072,58 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
-function exportExcel() {
+function exportResponsesPdf() {
   const filteredResponses = getFilteredResponses();
   if (!filteredResponses.length) {
     showToast("出力対象の回答がありません。");
     return;
   }
+  const printWindow = window.open("", "_blank", "noopener,noreferrer");
+  if (!printWindow) {
+    showToast("PDF出力画面を開けませんでした。");
+    return;
+  }
   const rows = filteredResponses
     .map(
       (response) => `
-        <tr>
-          <td>${escapeHtml(formatDate(response.submittedAt))}</td>
-          <td>${escapeHtml(response.customerName)}</td>
-          <td>${escapeHtml(response.surveyTitle)}</td>
-          <td>${escapeHtml(STATUS_LABELS[normalizeStatus(response.status)])}</td>
-          <td>${escapeHtml(response.adminMemo || "")}</td>
-          <td>${escapeHtml(response.answers.map(formatAnswerForCsv).join(" / "))}</td>
-        </tr>
+        <section class="entry">
+          <h2>${escapeHtml(response.surveyTitle)}</h2>
+          <div class="meta">${escapeHtml(formatDate(response.submittedAt))} / ${escapeHtml(getCustomerNameWithMember(response.customerName))}</div>
+          <div class="meta">対応状況: ${escapeHtml(STATUS_LABELS[normalizeStatus(response.status)])}</div>
+          <div class="meta">回数券: ${escapeHtml(getResponseTicketInfo(response).map((item) => `${item.label} ${item.value}`).join(" / ") || "-")}</div>
+          <div class="meta">写真枚数: ${collectPhotosFromResponse(response).length}</div>
+          ${response.adminMemo ? `<div class="item"><strong>管理メモ</strong><div>${escapeHtml(response.adminMemo)}</div></div>` : ""}
+          <div class="item"><strong>回答</strong><div>${escapeHtml(response.answers.map(formatAnswerForCsv).join(" / "))}</div></div>
+        </section>
       `,
     )
     .join("");
-  const html = `
-    <html>
-      <head><meta charset="UTF-8" /></head>
+  printWindow.document.write(`
+    <!doctype html>
+    <html lang="ja">
+      <head>
+        <meta charset="UTF-8" />
+        <title>回答一覧 PDF</title>
+        <style>
+          body { font-family: sans-serif; padding: 24px; color: #222; }
+          h1 { font-size: 22px; margin-bottom: 8px; }
+          .meta { color: #666; margin-bottom: 8px; }
+          .entry { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+          .entry h2 { font-size: 16px; margin: 0 0 6px; }
+          .item { margin-top: 8px; }
+          .item strong { display: block; margin-bottom: 4px; }
+        </style>
+      </head>
       <body>
-        <table border="1">
-          <tr><th>日時</th><th>お客様</th><th>アンケート</th><th>対応状況</th><th>管理メモ</th><th>回答</th></tr>
-          ${rows}
-        </table>
+        <h1>回答一覧</h1>
+        <div class="meta">件数: ${filteredResponses.length}件</div>
+        ${rows}
       </body>
     </html>
-  `;
-  const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `survey-responses-${Date.now()}.xls`;
-  link.click();
-  URL.revokeObjectURL(url);
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
 }
 
 function exportBackup() {
@@ -3735,6 +4133,8 @@ function exportBackup() {
     preferences: state.preferences,
     adminUsers: state.adminUsers,
     customerMemos: state.customerMemos,
+    customerProfiles: Object.values(state.customerProfiles || {}),
+    responses: state.responses,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: "application/json;charset=utf-8",
@@ -3780,6 +4180,22 @@ async function restoreBackup(file) {
     }
     state.customerMemos = payload.customerMemos;
   }
+  if (Array.isArray(payload.customerProfiles) && payload.customerProfiles.length) {
+    for (const profile of payload.customerProfiles) {
+      const ticketCard = profile?.activeTicketCard || null;
+      await api.request(`/api/admin/customers/${encodeURIComponent(profile.name)}`, {
+        method: "PUT",
+        token: state.token,
+        body: {
+          name: String(profile?.name || "").trim(),
+          memberNumber: String(profile?.memberNumber || "").trim(),
+          ticketPlan: String(ticketCard?.plan || "").trim(),
+          ticketSheet: ticketCard?.sheetNumber ? `${ticketCard.sheetNumber}枚目` : "",
+          ticketRound: ticketCard?.round ? `${ticketCard.round}回目` : "",
+        },
+      });
+    }
+  }
   if (Array.isArray(payload.adminUsers) && payload.adminUsers.length) {
     await api.request("/api/admin/users", {
       method: "PUT",
@@ -3788,6 +4204,7 @@ async function restoreBackup(file) {
     });
     state.adminUsers = payload.adminUsers;
   }
+  await loadAdminData();
   showToast("バックアップを復元しました。");
   renderAll();
 }
@@ -3922,7 +4339,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-09", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-10", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -4021,7 +4438,7 @@ appUpdateButton?.addEventListener("click", () => {
 });
 
 document.querySelector("#exportCsvButton").addEventListener("click", exportCsv);
-document.querySelector("#exportExcelButton")?.addEventListener("click", exportExcel);
+document.querySelector("#exportPdfButton")?.addEventListener("click", exportResponsesPdf);
 document.querySelector("#backupExportButton")?.addEventListener("click", exportBackup);
 document.querySelector("#runMaintenanceButton")?.addEventListener("click", () => {
   void runMaintenanceNow();
@@ -4035,9 +4452,13 @@ document.querySelector("#backupImportInput")?.addEventListener("change", (event)
   event.target.value = "";
 });
 
-["surveyFilter", "statusFilter", "keywordFilter", "dateFromFilter", "dateToFilter"].forEach((id) => {
+["surveyFilter", "statusFilter", "keywordFilter", "ticketPlanFilter", "ticketSheetFilter", "ticketRoundFilter", "photoFilter", "dateFromFilter", "dateToFilter"].forEach((id) => {
   document.querySelector(`#${id}`).addEventListener("input", renderResponses);
   document.querySelector(`#${id}`).addEventListener("change", renderResponses);
+});
+["customerKeywordFilter", "customerTicketPlanFilter", "customerResponseStateFilter"].forEach((id) => {
+  document.querySelector(`#${id}`)?.addEventListener("input", renderCustomerManagement);
+  document.querySelector(`#${id}`)?.addEventListener("change", renderCustomerManagement);
 });
 document.querySelector("#onlyUnreadButton")?.addEventListener("click", () => {
   document.querySelector("#statusFilter").value = "new";

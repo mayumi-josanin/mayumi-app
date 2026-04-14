@@ -405,15 +405,38 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
-  async function waitForAdminCustomerUpdate(gasUrl, token, currentName, nextName) {
+  async function waitForAdminCustomerUpdate(gasUrl, token, currentName, nextName, expected = {}) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
+      const info = await jsonp(gasUrl, "adminInfo", { token });
+      const profiles = Array.isArray(info.customerProfiles) ? info.customerProfiles : [];
+      const matchedProfile = profiles.find(
+        (profile) => normalizeText(profile.name) === normalizeText(nextName || currentName),
+      );
+      if (matchedProfile) {
+        const activeTicketCard = matchedProfile.activeTicketCard || {};
+        const memberNumber = normalizeText(expected.memberNumber).toUpperCase();
+        const ticketPlan = normalizeText(expected.ticketPlan);
+        const ticketSheet = normalizeText(expected.ticketSheet);
+        const ticketRound = normalizeText(expected.ticketRound);
+        const memberMatches =
+          !memberNumber || normalizeText(matchedProfile.memberNumber).toUpperCase() === memberNumber;
+        const planMatches = !ticketPlan || normalizeText(activeTicketCard.plan) === ticketPlan;
+        const sheetMatches =
+          !ticketSheet || `${Math.floor(Number(activeTicketCard.sheetNumber) || 0)}枚目` === ticketSheet;
+        const roundMatches =
+          !ticketRound || `${Math.floor(Number(activeTicketCard.round) || 0)}回目` === ticketRound;
+        if (memberMatches && planMatches && sheetMatches && roundMatches) {
+          return matchedProfile;
+        }
+      }
+
       const data = await jsonp(gasUrl, "adminResponses", { token });
       const responses = Array.isArray(data.responses) ? data.responses : [];
-      const matched = responses.filter(
+      const matchedResponse = responses.find(
         (response) => normalizeText(response.customerName) === normalizeText(nextName || currentName),
       );
-      if (matched.length) return matched;
+      if (matchedResponse) return matchedResponse;
     }
     return null;
   }
@@ -421,6 +444,20 @@ window.MayumiSurveyApi = (() => {
   async function waitForAdminCustomerDeletion(gasUrl, token, customerName) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
+      const info = await jsonp(gasUrl, "adminInfo", { token });
+      const profiles = Array.isArray(info.customerProfiles) ? info.customerProfiles : [];
+      const profileRemains = profiles.some(
+        (profile) => normalizeText(profile.name) === normalizeText(customerName),
+      );
+      if (!profileRemains) {
+        const data = await jsonp(gasUrl, "adminResponses", { token });
+        const responses = Array.isArray(data.responses) ? data.responses : [];
+        const remains = responses.some(
+          (response) => normalizeText(response.customerName) === normalizeText(customerName),
+        );
+        if (!remains) return true;
+      }
+
       const data = await jsonp(gasUrl, "adminResponses", { token });
       const responses = Array.isArray(data.responses) ? data.responses : [];
       const remains = responses.some(
@@ -693,6 +730,7 @@ window.MayumiSurveyApi = (() => {
         const currentName = getRouteId(path, "/api/admin/customers/");
         const payload = {
           name: normalizeText(options.body?.name),
+          memberNumber: normalizeText(options.body?.memberNumber),
           ticketPlan: normalizeText(options.body?.ticketPlan),
           ticketSheet: normalizeText(options.body?.ticketSheet),
           ticketRound: normalizeText(options.body?.ticketRound),
@@ -703,7 +741,13 @@ window.MayumiSurveyApi = (() => {
           payload,
         });
         const updatedName = payload.name || currentName;
-        const updated = await waitForAdminCustomerUpdate(gasUrl, options.token, currentName, updatedName);
+        const updated = await waitForAdminCustomerUpdate(
+          gasUrl,
+          options.token,
+          currentName,
+          updatedName,
+          payload,
+        );
         if (!updated) throw new Error("顧客情報の更新を確認できませんでした。");
         return { customerName: updatedName };
       }

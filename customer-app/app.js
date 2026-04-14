@@ -6,7 +6,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260414-09";
+const APP_VERSION = "20260414-10";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -188,6 +188,7 @@ const historyList = document.querySelector("#historyList");
 const homeTicketStatus = document.querySelector("#homeTicketStatus");
 const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
+const customerMemberInfo = document.querySelector("#customerMemberInfo");
 const appUpdateButton = document.querySelector("#appUpdateButton");
 const installButton = document.querySelector("#installButton");
 const registrationLead = document.querySelector("#registrationLead");
@@ -235,6 +236,7 @@ function normalizeKana(value) {
 function normalizeCustomerProfile(value) {
   return {
     name: normalizeText(value?.name),
+    memberNumber: normalizeText(value?.memberNumber).toUpperCase(),
     nameKana: normalizeKana(value?.nameKana),
     historyMatchMode: value?.historyMatchMode === "name" ? "name" : "device",
   };
@@ -320,6 +322,7 @@ function normalizeServerActiveTicketCard(value) {
 function normalizeServerCustomerProfile(value) {
   return {
     name: normalizeText(value?.name),
+    memberNumber: normalizeText(value?.memberNumber).toUpperCase(),
     nameKana: normalizeKana(value?.nameKana),
     activeTicketCard: normalizeServerActiveTicketCard(value?.activeTicketCard),
   };
@@ -331,6 +334,7 @@ function mergeCustomerProfile(baseProfile, serverProfile) {
   if (!server.name && !server.nameKana) return base;
   return normalizeCustomerProfile({
     name: server.name || base.name,
+    memberNumber: server.memberNumber || base.memberNumber,
     nameKana: server.nameKana || base.nameKana,
     historyMatchMode: base.historyMatchMode,
   });
@@ -400,6 +404,10 @@ function hasCustomerSession() {
 function getCustomerDisplayName() {
   if (!hasCustomerSession()) return "";
   return `${appState.customer.name}（${appState.customer.nameKana}）`;
+}
+
+function getCustomerMemberNumber() {
+  return normalizeText(appState.customer.memberNumber).toUpperCase();
 }
 
 function isStandaloneApp() {
@@ -1196,6 +1204,21 @@ function syncCustomerForms() {
     customerForm.elements.name.value = appState.customer.name || "";
     customerForm.elements.nameKana.value = appState.customer.nameKana || "";
   }
+  renderCustomerMemberInfo();
+}
+
+function renderCustomerMemberInfo() {
+  if (!customerMemberInfo) return;
+  const memberNumber = getCustomerMemberNumber();
+  customerMemberInfo.innerHTML = memberNumber
+    ? `
+        <strong>会員番号</strong>
+        <div>${escapeHtml(memberNumber)}</div>
+      `
+    : `
+        <strong>会員番号</strong>
+        <div class="meta">会員登録後に自動発行されます。</div>
+      `;
 }
 
 function readCustomerProfileFromForm(form) {
@@ -2794,6 +2817,7 @@ function renderHomeTicketStatus() {
       <div class="ticket-home-head">
         <div>
           <strong>${escapeHtml(getCustomerDisplayName())}</strong>
+          <div class="meta">会員番号: ${escapeHtml(getCustomerMemberNumber() || "未発行")}</div>
           <div class="meta">最新更新: ${formatDate(activeTicketCard.response.submittedAt)}</div>
         </div>
         <span class="badge open">${escapeHtml(`${activeTicketCard.currentRound}回目`)}</span>
@@ -3117,7 +3141,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-09", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-10", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

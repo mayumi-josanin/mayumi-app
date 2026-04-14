@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260414-09" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260414-09" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260414-09" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260414-09" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260414-10" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260414-10" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260414-10" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260414-10" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -131,8 +131,28 @@
                   </select>
                 </label>
                 <label>
-                  お客様名
-                  <input id="keywordFilter" type="search" placeholder="検索" />
+                  検索
+                  <input id="keywordFilter" type="search" placeholder="会員番号・氏名・アンケート・回答内容" />
+                </label>
+                <label>
+                  回数券
+                  <select id="ticketPlanFilter"></select>
+                </label>
+                <label>
+                  何枚目
+                  <select id="ticketSheetFilter"></select>
+                </label>
+                <label>
+                  何回目
+                  <select id="ticketRoundFilter"></select>
+                </label>
+                <label>
+                  写真
+                  <select id="photoFilter">
+                    <option value="">すべて</option>
+                    <option value="with">写真あり</option>
+                    <option value="without">写真なし</option>
+                  </select>
                 </label>
                 <label>
                   開始日
@@ -144,7 +164,7 @@
                 </label>
                 <button id="onlyUnreadButton" class="secondary-button" type="button">未対応のみ</button>
                 <button id="exportCsvButton" class="secondary-button" type="button">CSV出力</button>
-                <button id="exportExcelButton" class="secondary-button" type="button">Excel出力</button>
+                <button id="exportPdfButton" class="secondary-button" type="button">PDF出力</button>
               </div>
             </div>
             <section id="responseStage" class="card response-stage"></section>
@@ -160,6 +180,30 @@
 
           <section id="page-customers" class="page">
             <h2>顧客管理</h2>
+            <div class="card">
+              <div class="filter-grid">
+                <label>
+                  検索
+                  <input id="customerKeywordFilter" type="search" placeholder="会員番号・氏名・フリガナ" />
+                </label>
+                <label>
+                  回数券
+                  <select id="customerTicketPlanFilter">
+                    <option value="">すべて</option>
+                    <option value="6回券">6回券</option>
+                    <option value="10回券">10回券</option>
+                  </select>
+                </label>
+                <label>
+                  回答状態
+                  <select id="customerResponseStateFilter">
+                    <option value="">すべて</option>
+                    <option value="with">回答あり</option>
+                    <option value="without">回答なし</option>
+                  </select>
+                </label>
+              </div>
+            </div>
             <section id="customerManagementStage" class="card response-stage"></section>
           </section>
 
@@ -206,6 +250,7 @@
               <section class="card">
                 <div class="card-title">バックアップ / 復元</div>
                 <div class="stack">
+                  <div id="backupMetaInfo" class="stack"></div>
                   <button id="backupExportButton" class="secondary-button" type="button">バックアップを保存</button>
                   <button id="runMaintenanceButton" class="secondary-button" type="button">定期メンテナンスを実行</button>
                   <label>
@@ -268,9 +313,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260414-09"></script>
-    <script src="../shared/gas-config.js?v=20260414-09"></script>
-    <script src="../shared/api.js?v=20260414-09"></script>
-    <script src="./app.js?v=20260414-09"></script>
+    <script src="../default-surveys.js?v=20260414-10"></script>
+    <script src="../shared/gas-config.js?v=20260414-10"></script>
+    <script src="../shared/api.js?v=20260414-10"></script>
+    <script src="./app.js?v=20260414-10"></script>
   </body>
 </html>
