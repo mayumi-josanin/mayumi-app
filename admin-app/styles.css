@@ -1115,6 +1115,197 @@ textarea {
   font-size: 13px;
 }
 
+.measurement-section {
+  display: grid;
+  gap: 12px;
+}
+
+.measurement-summary-grid,
+.measurement-target-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.measurement-summary-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.measurement-summary-card strong {
+  color: var(--sage-dark);
+  font-size: 20px;
+}
+
+.measurement-summary-label {
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.meta-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.measurement-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.measurement-toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-dark);
+}
+
+.measurement-toggle-chip input {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+}
+
+.measurement-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 10px 0 6px;
+}
+
+.measurement-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-mid);
+  font-size: 12px;
+}
+
+.measurement-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.measurement-chart-shell {
+  overflow-x: auto;
+}
+
+.measurement-chart {
+  width: 100%;
+  min-width: 640px;
+  height: auto;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.measurement-grid-line {
+  stroke: rgba(122, 92, 62, 0.12);
+  stroke-width: 1;
+}
+
+.measurement-axis-label,
+.measurement-target-label {
+  fill: var(--text-light);
+  font-size: 11px;
+}
+
+.measurement-table-wrap {
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
+.measurement-table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: collapse;
+}
+
+.measurement-table th,
+.measurement-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(122, 92, 62, 0.12);
+  vertical-align: top;
+  text-align: left;
+}
+
+.measurement-table th {
+  color: var(--sage-dark);
+  font-size: 12px;
+}
+
+.measurement-cell-main {
+  color: var(--text-dark);
+  font-weight: 700;
+}
+
+.measurement-cell-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--text-light);
+  font-size: 12px;
+}
+
+.measurement-memo-cell {
+  min-width: 220px;
+  max-width: 320px;
+  color: var(--text-mid);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.measurement-row-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.delta-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.delta-badge.increase {
+  background: #f9e9e7;
+  color: #9f3b2d;
+}
+
+.delta-badge.decrease,
+.delta-badge.achieved {
+  background: #e8f3ea;
+  color: #2f6b4f;
+}
+
+.delta-badge.remaining {
+  background: #fff3d5;
+  color: #8a6200;
+}
+
+.delta-badge.neutral {
+  background: #f1eeea;
+  color: var(--text-mid);
+}
+
 .bottom-nav {
   display: none;
 }
@@ -1142,6 +1333,8 @@ textarea {
   .survey-manager-grid,
   .filter-grid,
   .customer-editor-grid,
+  .measurement-summary-grid,
+  .measurement-target-grid,
   .management-grid,
   .survey-question-grid,
   .condition-row,

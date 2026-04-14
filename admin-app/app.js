@@ -128,12 +128,32 @@ const SESSION_CONCERN_CATEGORIES = [
 const CUSTOMER_TICKET_PLAN_OPTIONS = ["", "6回券", "10回券"];
 const CUSTOMER_TICKET_SHEET_OPTIONS = Array.from({ length: 20 }, (_, index) => `${index + 1}枚目`);
 const CUSTOMER_TICKET_ROUND_OPTIONS = Array.from({ length: 10 }, (_, index) => `${index + 1}回目`);
+const MEASUREMENT_METRICS = [
+  { key: "waist", label: "ウエスト", shortLabel: "W", color: "#c95f50", unit: "cm" },
+  { key: "hip", label: "ヒップ", shortLabel: "H", color: "#4e8c73", unit: "cm" },
+  { key: "thighRight", label: "太もも右", shortLabel: "右", color: "#c78a2c", unit: "cm" },
+  { key: "thighLeft", label: "太もも左", shortLabel: "左", color: "#6e7fba", unit: "cm" },
+];
+const MEASUREMENT_PERIOD_OPTIONS = [
+  { value: "1m", label: "過去1ヶ月" },
+  { value: "6m", label: "過去半年" },
+  { value: "1y", label: "過去1年" },
+  { value: "all", label: "全期間" },
+];
+const DEFAULT_MEASUREMENT_VISIBILITY = {
+  waist: true,
+  hip: true,
+  thighRight: true,
+  thighLeft: true,
+  whr: true,
+};
 
 const api = window.MayumiSurveyApi;
 const state = {
   token: localStorage.getItem(TOKEN_KEY) || "",
   surveys: [],
   responses: [],
+  measurements: [],
   adminInfo: null,
   customerProfiles: {},
   preferences: null,
@@ -150,6 +170,9 @@ const state = {
   selectedCustomerViewSurveyId: "",
   selectedCustomerViewResponseId: "",
   selectedCustomerTimelineOpen: false,
+  selectedMeasurementEditId: "",
+  selectedMeasurementPeriod: "6m",
+  measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
   installPrompt: null,
 };
 
@@ -189,6 +212,15 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
+function formatDateOnly(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+}
+
 function parseTicketLabelNumber(value) {
   const matched = String(value || "").match(/\d+/);
   return matched ? Number(matched[0]) : 0;
@@ -207,13 +239,58 @@ function normalizeActiveTicketCard(value) {
   };
 }
 
+function normalizeMeasurementValue(value) {
+  if (value === null || value === undefined || value === "") return "";
+  const normalized = String(value).replace(/[^\d.-]/g, "");
+  if (!normalized) return "";
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return "";
+  return Math.round(parsed * 10) / 10;
+}
+
+function normalizeMeasurementTargets(value) {
+  const targets = {
+    waist: normalizeMeasurementValue(value?.waist),
+    hip: normalizeMeasurementValue(value?.hip),
+    thighRight: normalizeMeasurementValue(value?.thighRight),
+    thighLeft: normalizeMeasurementValue(value?.thighLeft),
+  };
+  return Object.values(targets).some((item) => item !== "") ? targets : null;
+}
+
 function normalizeCustomerProfile(value) {
   return {
     name: String(value?.name || "").trim(),
     memberNumber: String(value?.memberNumber || "").trim().toUpperCase(),
     nameKana: String(value?.nameKana || "").trim(),
     activeTicketCard: normalizeActiveTicketCard(value?.activeTicketCard),
+    measurementTargets: normalizeMeasurementTargets(value?.measurementTargets),
     updatedAt: String(value?.updatedAt || "").trim(),
+  };
+}
+
+function normalizeMeasurementRecord(value) {
+  const measuredAt = String(value?.measuredAt || "").trim();
+  const createdAt = String(value?.createdAt || "").trim();
+  const updatedAt = String(value?.updatedAt || "").trim();
+  const waist = normalizeMeasurementValue(value?.waist);
+  const hip = normalizeMeasurementValue(value?.hip);
+  const thighRight = normalizeMeasurementValue(value?.thighRight);
+  const thighLeft = normalizeMeasurementValue(value?.thighLeft);
+  return {
+    id: String(value?.id || "").trim(),
+    customerName: String(value?.customerName || "").trim(),
+    memberNumber: String(value?.memberNumber || "").trim().toUpperCase(),
+    measuredAt,
+    waist,
+    hip,
+    thighRight,
+    thighLeft,
+    whr: hip === "" || !(Number(hip) > 0) || waist === "" ? "" : Math.round((waist / hip) * 1000) / 1000,
+    memo: String(value?.memo || "").trim(),
+    createdAt,
+    updatedAt,
+    target: normalizeMeasurementTargets(value?.target),
   };
 }
 
@@ -317,6 +394,7 @@ async function loadAdminData() {
     adminInfoResult,
     surveysResult,
     responsesResult,
+    measurementsResult,
     preferencesResult,
     logsResult,
     customerMemosResult,
@@ -324,6 +402,7 @@ async function loadAdminData() {
     api.request("/api/admin/info", { token: state.token }),
     api.request("/api/admin/surveys", { token: state.token }),
     api.request("/api/admin/responses", { token: state.token }),
+    api.request("/api/admin/measurements", { token: state.token }),
     api.request("/api/admin/preferences", { token: state.token }),
     api.request("/api/admin/logs", { token: state.token }),
     api.request("/api/admin/customer-memos", { token: state.token }),
@@ -343,6 +422,9 @@ async function loadAdminData() {
     .filter((response) =>
       !visibleSurveyIds.size || visibleSurveyIds.has(String(response?.surveyId || "").trim()),
     );
+  state.measurements = Array.isArray(measurementsResult?.measurements)
+    ? measurementsResult.measurements.map(normalizeMeasurementRecord)
+    : [];
   state.preferences = preferencesResult?.preferences || null;
   state.logs = logsResult || { auditLogs: [], errorLogs: [] };
   state.customerMemos = customerMemosResult?.memos || {};
@@ -1039,6 +1121,7 @@ function formatResponseEntryTitle(response) {
 
 function renderCustomerSummaryCard(customerName, responses) {
   const latestResponse = responses[0] || null;
+  const latestMeasurement = getCustomerMeasurements(customerName)[0] || null;
   const ticketInfo = getCurrentTicketInfoForCustomer(customerName);
   const surveyCount = new Set(responses.map((response) => response.surveyId || response.surveyTitle || response.id)).size;
   const profile = getCustomerProfileByName(customerName);
@@ -1048,6 +1131,7 @@ function renderCustomerSummaryCard(customerName, responses) {
       <div class="meta">フリガナ: ${escapeHtml(profile?.nameKana || "-")}</div>
       <div class="meta">回答数: ${responses.length}件 / アンケート種類: ${surveyCount}件</div>
       <div class="meta">最新回答: ${latestResponse ? `${escapeHtml(latestResponse.surveyTitle)} / ${formatDate(latestResponse.submittedAt)}` : "-"}</div>
+      <div class="meta">最新測定: ${latestMeasurement ? `${escapeHtml(formatDateOnly(latestMeasurement.measuredAt))} / WHR ${escapeHtml(formatWhr(latestMeasurement.whr))}` : "-"}</div>
       ${
         ticketInfo.length
           ? renderTicketStampPanel(ticketInfo)
@@ -1137,6 +1221,668 @@ function renderCustomerEditorCard(customerName) {
   `;
 }
 
+function getMeasurementMetric(metricKey) {
+  return MEASUREMENT_METRICS.find((metric) => metric.key === metricKey) || null;
+}
+
+function roundMeasurementDelta(value) {
+  if (!Number.isFinite(Number(value))) return "";
+  return Math.round(Number(value) * 10) / 10;
+}
+
+function formatMeasurementValue(value, unit = "cm") {
+  const normalized = normalizeMeasurementValue(value);
+  if (normalized === "") return "-";
+  return `${normalized.toFixed(1)}${unit}`;
+}
+
+function formatMeasurementDelta(value, unit = "cm") {
+  if (value === "" || value === null || value === undefined || !Number.isFinite(Number(value))) {
+    return '<span class="delta-badge neutral">-</span>';
+  }
+  const normalized = roundMeasurementDelta(value);
+  const className = normalized > 0 ? "increase" : normalized < 0 ? "decrease" : "neutral";
+  const sign = normalized > 0 ? "+" : normalized < 0 ? "" : "+/-";
+  const text =
+    normalized === 0
+      ? `0.0${unit}`
+      : `${sign}${Math.abs(normalized).toFixed(1)}${unit}`;
+  return `<span class="delta-badge ${className}">${escapeHtml(text)}</span>`;
+}
+
+function formatMeasurementGapToTarget(value, target) {
+  const normalizedValue = normalizeMeasurementValue(value);
+  const normalizedTarget = normalizeMeasurementValue(target);
+  if (normalizedValue === "" || normalizedTarget === "") return '<span class="delta-badge neutral">未設定</span>';
+  const diff = roundMeasurementDelta(normalizedValue - normalizedTarget);
+  if (diff <= 0) {
+    return `<span class="delta-badge achieved">達成</span>`;
+  }
+  return `<span class="delta-badge remaining">残り${escapeHtml(diff.toFixed(1))}cm</span>`;
+}
+
+function formatWhr(value) {
+  if (value === "" || value === null || value === undefined || !Number.isFinite(Number(value))) return "-";
+  return Number(value).toFixed(3);
+}
+
+function getTodayDateInputValue() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function getCustomerMeasurements(customerName) {
+  return state.measurements
+    .filter((measurement) => measurement.customerName === customerName)
+    .sort((a, b) => {
+      const measuredDiff = new Date(b.measuredAt) - new Date(a.measuredAt);
+      if (measuredDiff !== 0) return measuredDiff;
+      return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+    });
+}
+
+function getMeasurementTargetsForCustomer(customerName) {
+  return getCustomerProfileByName(customerName)?.measurementTargets || null;
+}
+
+function filterMeasurementsByPeriod(measurements, period) {
+  if (!Array.isArray(measurements) || !measurements.length || period === "all") return measurements.slice();
+  const latest = measurements
+    .map((measurement) => new Date(measurement.measuredAt))
+    .filter((date) => Number.isFinite(date.getTime()))
+    .sort((a, b) => b - a)[0];
+  if (!latest) return measurements.slice();
+  const threshold = new Date(latest);
+  if (period === "1m") threshold.setMonth(threshold.getMonth() - 1);
+  else if (period === "6m") threshold.setMonth(threshold.getMonth() - 6);
+  else if (period === "1y") threshold.setFullYear(threshold.getFullYear() - 1);
+  return measurements.filter((measurement) => new Date(measurement.measuredAt) >= threshold);
+}
+
+function buildMeasurementHistoryRows(measurements, targets) {
+  const chronological = measurements
+    .slice()
+    .sort((a, b) => {
+      const measuredDiff = new Date(a.measuredAt) - new Date(b.measuredAt);
+      if (measuredDiff !== 0) return measuredDiff;
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    });
+  const first = chronological[0] || null;
+  const rowsById = new Map();
+  chronological.forEach((measurement, index) => {
+    const previous = index > 0 ? chronological[index - 1] : null;
+    const metrics = {};
+    MEASUREMENT_METRICS.forEach((metric) => {
+      const value = normalizeMeasurementValue(measurement[metric.key]);
+      const previousValue = normalizeMeasurementValue(previous?.[metric.key]);
+      const firstValue = normalizeMeasurementValue(first?.[metric.key]);
+      const targetValue = normalizeMeasurementValue(targets?.[metric.key]);
+      metrics[metric.key] = {
+        value,
+        previousDelta:
+          value === "" || previousValue === "" ? "" : roundMeasurementDelta(value - previousValue),
+        firstDelta: value === "" || firstValue === "" ? "" : roundMeasurementDelta(value - firstValue),
+        targetGap: value === "" || targetValue === "" ? "" : roundMeasurementDelta(value - targetValue),
+      };
+    });
+    const thighRight = normalizeMeasurementValue(measurement.thighRight);
+    const thighLeft = normalizeMeasurementValue(measurement.thighLeft);
+    rowsById.set(measurement.id, {
+      ...measurement,
+      metrics,
+      leftRightGap:
+        thighRight === "" || thighLeft === "" ? "" : roundMeasurementDelta(Math.abs(thighRight - thighLeft)),
+    });
+  });
+  return measurements.map((measurement) => rowsById.get(measurement.id)).filter(Boolean);
+}
+
+function renderMeasurementSummaryCards(measurements, targets) {
+  const latest = measurements[0] || null;
+  const first = measurements[measurements.length - 1] || null;
+  const thighGap =
+    latest && latest.thighRight !== "" && latest.thighLeft !== ""
+      ? roundMeasurementDelta(Math.abs(latest.thighRight - latest.thighLeft))
+      : "";
+  return `
+    <div class="measurement-summary-grid">
+      <article class="measurement-summary-card">
+        <div class="measurement-summary-label">最新測定日</div>
+        <strong>${escapeHtml(formatDateOnly(latest?.measuredAt || ""))}</strong>
+        <div class="meta">履歴 ${measurements.length}件</div>
+      </article>
+      <article class="measurement-summary-card">
+        <div class="measurement-summary-label">最新 WHR</div>
+        <strong>${escapeHtml(formatWhr(latest?.whr))}</strong>
+        <div class="meta">初回 ${escapeHtml(formatWhr(first?.whr))}</div>
+      </article>
+      <article class="measurement-summary-card">
+        <div class="measurement-summary-label">太もも左右差</div>
+        <strong>${thighGap === "" ? "-" : `${escapeHtml(thighGap.toFixed(1))}cm`}</strong>
+        <div class="meta">左右のバランス確認用</div>
+      </article>
+      ${MEASUREMENT_METRICS.map((metric) => {
+        const value = latest?.[metric.key];
+        const target = targets?.[metric.key];
+        const firstValue = first?.[metric.key];
+        const firstDelta =
+          normalizeMeasurementValue(value) === "" || normalizeMeasurementValue(firstValue) === ""
+            ? ""
+            : roundMeasurementDelta(normalizeMeasurementValue(value) - normalizeMeasurementValue(firstValue));
+        return `
+          <article class="measurement-summary-card metric-${escapeHtml(metric.key)}">
+            <div class="measurement-summary-label">${escapeHtml(metric.label)}</div>
+            <strong>${escapeHtml(formatMeasurementValue(value))}</strong>
+            <div class="meta">初回比 ${formatMeasurementDelta(firstDelta)}</div>
+            <div class="meta-inline">${formatMeasurementGapToTarget(value, target)}</div>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderMeasurementTargetsForm(customerName) {
+  const targets = getMeasurementTargetsForCustomer(customerName) || {};
+  return `
+    <article class="answer-item">
+      <strong>目標値</strong>
+      <div class="meta">各部位の目標数値を設定すると、グラフに目標ラインを表示します。</div>
+      <form id="measurementTargetForm" class="stack" data-customer-name="${escapeHtml(customerName)}">
+        <div class="measurement-target-grid">
+          ${MEASUREMENT_METRICS.map((metric) => `
+            <label>
+              ${escapeHtml(metric.label)}
+              <input
+                name="target_${escapeHtml(metric.key)}"
+                type="number"
+                step="0.1"
+                min="0"
+                inputmode="decimal"
+                value="${targets?.[metric.key] === "" || targets?.[metric.key] === undefined ? "" : escapeHtml(String(targets[metric.key]))}"
+                placeholder="目標 cm"
+              />
+            </label>
+          `).join("")}
+        </div>
+        <div class="action-row">
+          <button class="secondary-button" type="submit">目標値を保存</button>
+        </div>
+      </form>
+    </article>
+  `;
+}
+
+function renderMeasurementForm(customerName) {
+  const editingMeasurement = getCustomerMeasurements(customerName).find(
+    (measurement) => measurement.id === state.selectedMeasurementEditId,
+  ) || null;
+  return `
+    <article class="answer-item">
+      <strong>${editingMeasurement ? "測定データを編集" : "測定データを追加"}</strong>
+      <form id="measurementForm" class="stack" data-customer-name="${escapeHtml(customerName)}">
+        <input name="measurementId" type="hidden" value="${escapeHtml(editingMeasurement?.id || "")}" />
+        <div class="measurement-target-grid">
+          <label>
+            測定日
+            <input name="measuredAt" type="date" required value="${escapeHtml(editingMeasurement?.measuredAt || getTodayDateInputValue())}" />
+          </label>
+          <label>
+            ウエスト (cm)
+            <input name="waist" type="number" step="0.1" min="0" inputmode="decimal" value="${editingMeasurement?.waist === "" ? "" : escapeHtml(String(editingMeasurement?.waist || ""))}" />
+          </label>
+          <label>
+            ヒップ (cm)
+            <input name="hip" type="number" step="0.1" min="0" inputmode="decimal" value="${editingMeasurement?.hip === "" ? "" : escapeHtml(String(editingMeasurement?.hip || ""))}" />
+          </label>
+          <label>
+            太もも 右 (cm)
+            <input name="thighRight" type="number" step="0.1" min="0" inputmode="decimal" value="${editingMeasurement?.thighRight === "" ? "" : escapeHtml(String(editingMeasurement?.thighRight || ""))}" />
+          </label>
+          <label>
+            太もも 左 (cm)
+            <input name="thighLeft" type="number" step="0.1" min="0" inputmode="decimal" value="${editingMeasurement?.thighLeft === "" ? "" : escapeHtml(String(editingMeasurement?.thighLeft || ""))}" />
+          </label>
+        </div>
+        <label>
+          分析メモ・コメント
+          <textarea name="memo" rows="3" placeholder="変化の背景や次回の見立てを記録">${escapeHtml(editingMeasurement?.memo || "")}</textarea>
+        </label>
+        <div class="action-row">
+          <button class="secondary-button" type="submit">${editingMeasurement ? "測定を更新" : "測定を保存"}</button>
+          ${
+            editingMeasurement
+              ? '<button class="secondary-button" type="button" data-cancel-measurement-edit>編集をやめる</button>'
+              : ""
+          }
+        </div>
+      </form>
+    </article>
+  `;
+}
+
+function renderMeasurementLineChart(title, measurements, metrics, options = {}) {
+  const visibleMetrics = metrics.filter((metric) => state.measurementMetricVisibility[metric.key] !== false);
+  if (!measurements.length) {
+    return `
+      <article class="answer-item">
+        <strong>${escapeHtml(title)}</strong>
+        <div class="empty">まだグラフを表示できる測定データがありません。</div>
+      </article>
+    `;
+  }
+  if (!visibleMetrics.length) {
+    return `
+      <article class="answer-item">
+        <strong>${escapeHtml(title)}</strong>
+        <div class="empty">表示する項目を選択してください。</div>
+      </article>
+    `;
+  }
+
+  const chronological = measurements
+    .slice()
+    .sort((a, b) => new Date(a.measuredAt) - new Date(b.measuredAt));
+  const targetMap = options.targets || {};
+  const values = [];
+  chronological.forEach((measurement) => {
+    visibleMetrics.forEach((metric) => {
+      const value = normalizeMeasurementValue(measurement[metric.key]);
+      if (value !== "") values.push(Number(value));
+    });
+  });
+  visibleMetrics.forEach((metric) => {
+    const target = normalizeMeasurementValue(targetMap?.[metric.key]);
+    if (target !== "") values.push(Number(target));
+  });
+  if (!values.length) {
+    return `
+      <article class="answer-item">
+        <strong>${escapeHtml(title)}</strong>
+        <div class="empty">表示できる数値がまだありません。</div>
+      </article>
+    `;
+  }
+
+  const chartWidth = 760;
+  const chartHeight = options.compact ? 220 : 280;
+  const padding = { top: 20, right: 20, bottom: 44, left: 52 };
+  const plotWidth = chartWidth - padding.left - padding.right;
+  const plotHeight = chartHeight - padding.top - padding.bottom;
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const pad = Math.max((maxValue - minValue) * 0.15, options.pad || 1);
+  const domainMin = Math.max(0, Math.floor((minValue - pad) * 10) / 10);
+  const domainMax = Math.ceil((maxValue + pad) * 10) / 10;
+  const domainRange = domainMax - domainMin || 1;
+  const xForIndex = (index) =>
+    chronological.length === 1
+      ? padding.left + plotWidth / 2
+      : padding.left + (plotWidth * index) / (chronological.length - 1);
+  const yForValue = (value) => padding.top + ((domainMax - value) / domainRange) * plotHeight;
+
+  const tickCount = 4;
+  const grid = Array.from({ length: tickCount + 1 }, (_, index) => {
+    const value = domainMin + (domainRange * index) / tickCount;
+    const y = yForValue(value);
+    return `
+      <g>
+        <line x1="${padding.left}" y1="${y}" x2="${chartWidth - padding.right}" y2="${y}" class="measurement-grid-line" />
+        <text x="${padding.left - 8}" y="${y + 4}" text-anchor="end" class="measurement-axis-label">
+          ${escapeHtml(options.valueFormatter ? options.valueFormatter(value) : value.toFixed(1))}
+        </text>
+      </g>
+    `;
+  }).join("");
+
+  const targetLines = visibleMetrics
+    .map((metric) => {
+      const target = normalizeMeasurementValue(targetMap?.[metric.key]);
+      if (target === "") return "";
+      const y = yForValue(target);
+      return `
+        <g>
+          <line
+            x1="${padding.left}"
+            y1="${y}"
+            x2="${chartWidth - padding.right}"
+            y2="${y}"
+            stroke="${metric.color}"
+            stroke-width="1.5"
+            stroke-dasharray="6 6"
+            opacity="0.6"
+          />
+          <text x="${chartWidth - padding.right}" y="${y - 6}" text-anchor="end" class="measurement-target-label" fill="${metric.color}">
+            ${escapeHtml(metric.label)} 目標 ${escapeHtml(target.toFixed(1))}${escapeHtml(options.unit || "")}
+          </text>
+        </g>
+      `;
+    })
+    .join("");
+
+  const series = visibleMetrics
+    .map((metric) => {
+      const points = chronological
+        .map((measurement, index) => {
+          const value = normalizeMeasurementValue(measurement[metric.key]);
+          if (value === "") return "";
+          return `${xForIndex(index)},${yForValue(value)}`;
+        })
+        .filter(Boolean);
+      if (!points.length) return "";
+      const markers = chronological
+        .map((measurement, index) => {
+          const value = normalizeMeasurementValue(measurement[metric.key]);
+          if (value === "") return "";
+          return `
+            <circle cx="${xForIndex(index)}" cy="${yForValue(value)}" r="4" fill="${metric.color}">
+              <title>${escapeHtml(metric.label)} ${escapeHtml(formatDateOnly(measurement.measuredAt))}: ${escapeHtml(options.valueFormatter ? options.valueFormatter(value) : `${Number(value).toFixed(1)}${options.unit || ""}`)}</title>
+            </circle>
+          `;
+        })
+        .join("");
+      return `
+        <g>
+          <polyline
+            fill="none"
+            stroke="${metric.color}"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            points="${points.join(" ")}"
+          />
+          ${markers}
+        </g>
+      `;
+    })
+    .join("");
+
+  const xLabels = chronological
+    .map((measurement, index) => `
+      <text
+        x="${xForIndex(index)}"
+        y="${chartHeight - 14}"
+        text-anchor="middle"
+        class="measurement-axis-label"
+      >
+        ${escapeHtml(formatDateOnly(measurement.measuredAt).slice(5))}
+      </text>
+    `)
+    .join("");
+
+  const legend = visibleMetrics
+    .map((metric) => `
+      <label class="measurement-legend-item">
+        <span class="measurement-legend-dot" style="background:${metric.color}"></span>
+        ${escapeHtml(metric.label)}
+      </label>
+    `)
+    .join("");
+
+  return `
+    <article class="answer-item">
+      <strong>${escapeHtml(title)}</strong>
+      <div class="measurement-legend">${legend}</div>
+      <div class="measurement-chart-shell">
+        <svg class="measurement-chart" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="${escapeHtml(title)}">
+          ${grid}
+          ${targetLines}
+          ${series}
+          ${xLabels}
+        </svg>
+      </div>
+    </article>
+  `;
+}
+
+function renderMeasurementHistoryTable(measurements, targets) {
+  const rows = buildMeasurementHistoryRows(measurements, targets);
+  if (!rows.length) {
+    return `
+      <article class="answer-item">
+        <strong>測定履歴</strong>
+        <div class="empty">まだ測定履歴はありません。</div>
+      </article>
+    `;
+  }
+  return `
+    <article class="answer-item">
+      <strong>測定履歴</strong>
+      <div class="meta">新しい測定が上に表示されます。前回比・初回比・目標との差を自動計算しています。</div>
+      <div class="measurement-table-wrap">
+        <table class="measurement-table">
+          <thead>
+            <tr>
+              <th>測定日</th>
+              ${MEASUREMENT_METRICS.map((metric) => `<th>${escapeHtml(metric.label)}</th>`).join("")}
+              <th>WHR</th>
+              <th>左右差</th>
+              <th>メモ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map((row) => `
+                <tr>
+                  <td>
+                    <strong>${escapeHtml(formatDateOnly(row.measuredAt))}</strong>
+                  </td>
+                  ${MEASUREMENT_METRICS.map((metric) => {
+                    const metricRow = row.metrics[metric.key];
+                    return `
+                      <td>
+                        <div class="measurement-cell-main">${escapeHtml(formatMeasurementValue(metricRow.value))}</div>
+                        <div class="measurement-cell-sub">前回 ${formatMeasurementDelta(metricRow.previousDelta)}</div>
+                        <div class="measurement-cell-sub">初回 ${formatMeasurementDelta(metricRow.firstDelta)}</div>
+                        <div class="measurement-cell-sub">目標 ${formatMeasurementGapToTarget(metricRow.value, targets?.[metric.key])}</div>
+                      </td>
+                    `;
+                  }).join("")}
+                  <td>${escapeHtml(formatWhr(row.whr))}</td>
+                  <td>${row.leftRightGap === "" ? "-" : `${escapeHtml(row.leftRightGap.toFixed(1))}cm`}</td>
+                  <td class="measurement-memo-cell">${escapeHtml(row.memo || "-")}</td>
+                  <td>
+                    <div class="measurement-row-actions">
+                      <button class="secondary-button" type="button" data-edit-measurement="${escapeHtml(row.id)}">編集</button>
+                      <button class="secondary-button danger-button" type="button" data-delete-measurement="${escapeHtml(row.id)}">削除</button>
+                    </div>
+                  </td>
+                </tr>
+              `)
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  `;
+}
+
+function renderMeasurementSection(customerName) {
+  const allMeasurements = getCustomerMeasurements(customerName);
+  const filteredMeasurements = filterMeasurementsByPeriod(allMeasurements, state.selectedMeasurementPeriod);
+  const targets = getMeasurementTargetsForCustomer(customerName);
+  return `
+    <section class="measurement-section">
+      ${renderMeasurementSummaryCards(allMeasurements, targets)}
+      ${renderMeasurementTargetsForm(customerName)}
+      ${renderMeasurementForm(customerName)}
+      <article class="answer-item">
+        <div class="stage-head">
+          <div>
+            <strong>推移グラフ</strong>
+            <div class="meta">期間を絞り込み、表示する部位を切り替えられます。</div>
+          </div>
+          <label>
+            表示期間
+            <select id="measurementPeriodFilter">
+              ${MEASUREMENT_PERIOD_OPTIONS.map((option) => `
+                <option value="${escapeHtml(option.value)}" ${state.selectedMeasurementPeriod === option.value ? "selected" : ""}>
+                  ${escapeHtml(option.label)}
+                </option>
+              `).join("")}
+            </select>
+          </label>
+        </div>
+        <div class="measurement-toggle-row">
+          ${MEASUREMENT_METRICS.map((metric) => `
+            <label class="measurement-toggle-chip">
+              <input
+                type="checkbox"
+                data-toggle-measurement-metric="${escapeHtml(metric.key)}"
+                ${state.measurementMetricVisibility[metric.key] !== false ? "checked" : ""}
+              />
+              ${escapeHtml(metric.label)}
+            </label>
+          `).join("")}
+          <label class="measurement-toggle-chip">
+            <input
+              type="checkbox"
+              data-toggle-measurement-metric="whr"
+              ${state.measurementMetricVisibility.whr !== false ? "checked" : ""}
+            />
+            WHR
+          </label>
+        </div>
+      </article>
+      ${renderMeasurementLineChart("部位別の推移", filteredMeasurements, MEASUREMENT_METRICS, {
+        targets,
+        unit: "cm",
+      })}
+      ${
+        state.measurementMetricVisibility.whr !== false
+          ? renderMeasurementLineChart(
+              "WHR の推移",
+              filteredMeasurements,
+              [{ key: "whr", label: "WHR", shortLabel: "WHR", color: "#7a5b9f", unit: "" }],
+              {
+                compact: true,
+                pad: 0.03,
+                valueFormatter: (value) => Number(value).toFixed(3),
+              },
+            )
+          : ""
+      }
+      ${renderMeasurementHistoryTable(filteredMeasurements, targets)}
+    </section>
+  `;
+}
+
+async function saveCustomerMeasurementTargets(form) {
+  const customerName = String(form.dataset.customerName || "").trim();
+  if (!customerName) return;
+  const currentDraft = getCurrentTicketDraft(customerName);
+  const formData = new FormData(form);
+  const measurementTargets = MEASUREMENT_METRICS.reduce((accumulator, metric) => {
+    accumulator[metric.key] = String(formData.get(`target_${metric.key}`) || "").trim();
+    return accumulator;
+  }, {});
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "保存中";
+  }
+  try {
+    await api.request(`/api/admin/customers/${encodeURIComponent(customerName)}`, {
+      method: "PUT",
+      token: state.token,
+      body: {
+        name: customerName,
+        memberNumber: currentDraft.memberNumber,
+        ticketPlan: currentDraft.ticketPlan,
+        ticketSheet: currentDraft.ticketSheet,
+        ticketRound: currentDraft.ticketRound,
+        measurementTargets,
+      },
+    });
+    await loadAdminData();
+    state.selectedCustomerViewName = customerName;
+    setPage("customers");
+    showToast("目標値を保存しました。");
+  } catch (error) {
+    showToast(error.message || "目標値を保存できませんでした。");
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = "目標値を保存";
+    }
+  }
+}
+
+async function saveMeasurement(form) {
+  const customerName = String(form.dataset.customerName || "").trim();
+  if (!customerName) return;
+  const formData = new FormData(form);
+  const measurementId = String(formData.get("measurementId") || "").trim();
+  const payload = {
+    measuredAt: String(formData.get("measuredAt") || "").trim(),
+    waist: String(formData.get("waist") || "").trim(),
+    hip: String(formData.get("hip") || "").trim(),
+    thighRight: String(formData.get("thighRight") || "").trim(),
+    thighLeft: String(formData.get("thighLeft") || "").trim(),
+    memo: String(formData.get("memo") || "").trim(),
+  };
+  if (!payload.measuredAt) {
+    showToast("測定日を入力してください。");
+    return;
+  }
+  if (![payload.waist, payload.hip, payload.thighRight, payload.thighLeft].some(Boolean)) {
+    showToast("測定値を1つ以上入力してください。");
+    return;
+  }
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = measurementId ? "更新中" : "保存中";
+  }
+  try {
+    if (measurementId) {
+      await api.request(`/api/admin/measurements/${encodeURIComponent(measurementId)}`, {
+        method: "PUT",
+        token: state.token,
+        body: payload,
+      });
+    } else {
+      await api.request(`/api/admin/customers/${encodeURIComponent(customerName)}/measurements`, {
+        method: "POST",
+        token: state.token,
+        body: payload,
+      });
+    }
+    state.selectedMeasurementEditId = "";
+    await loadAdminData();
+    state.selectedCustomerViewName = customerName;
+    setPage("customers");
+    showToast(measurementId ? "測定データを更新しました。" : "測定データを保存しました。");
+  } catch (error) {
+    showToast(error.message || "測定データを保存できませんでした。");
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = measurementId ? "測定を更新" : "測定を保存";
+    }
+  }
+}
+
+async function deleteMeasurement(measurementId) {
+  if (!measurementId) return;
+  if (!confirm("この測定データを削除しますか？")) return;
+  try {
+    await api.request(`/api/admin/measurements/${encodeURIComponent(measurementId)}`, {
+      method: "DELETE",
+      token: state.token,
+    });
+    if (state.selectedMeasurementEditId === measurementId) {
+      state.selectedMeasurementEditId = "";
+    }
+    await loadAdminData();
+    showToast("測定データを削除しました。");
+  } catch (error) {
+    showToast(error.message || "測定データを削除できませんでした。");
+  }
+}
+
 async function saveCustomerProfile(form) {
   const currentName = String(form.dataset.customerName || "").trim();
   const formData = new FormData(form);
@@ -1197,6 +1943,7 @@ async function deleteCustomerProfile(customerName) {
     state.selectedCustomerViewSurveyId = "";
     state.selectedCustomerViewResponseId = "";
     state.selectedCustomerTimelineOpen = false;
+    state.selectedMeasurementEditId = "";
     await loadAdminData();
     setPage("customers");
     showToast("顧客情報を削除しました。");
@@ -1420,7 +2167,15 @@ function renderCustomerManagement() {
   const selectedCustomer =
     customers.find((customer) => customer.name === state.selectedCustomerViewName) || null;
   const customerResponses = selectedCustomer ? getActiveCustomerResponses(selectedCustomer.name) : [];
+  const customerMeasurements = selectedCustomer ? getCustomerMeasurements(selectedCustomer.name) : [];
   const surveyGroups = selectedCustomer ? groupResponsesBySurvey(customerResponses) : [];
+
+  if (
+    state.selectedMeasurementEditId &&
+    !customerMeasurements.some((measurement) => measurement.id === state.selectedMeasurementEditId)
+  ) {
+    state.selectedMeasurementEditId = "";
+  }
 
   if (
     state.selectedCustomerViewSurveyId &&
@@ -1524,6 +2279,7 @@ function renderCustomerManagement() {
       <div class="stack">
         ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
         ${renderCustomerEditorCard(selectedCustomer.name)}
+        ${renderMeasurementSection(selectedCustomer.name)}
         <article class="answer-item">
           <strong>カルテ</strong>
           <div class="meta">顧客ごとの時系列カルテを表示して、PDF出力できます。</div>
@@ -1635,6 +2391,7 @@ function renderCustomerManagement() {
       state.selectedCustomerViewSurveyId = "";
       state.selectedCustomerViewResponseId = "";
       state.selectedCustomerTimelineOpen = false;
+      state.selectedMeasurementEditId = "";
       renderCustomerManagement();
     });
   });
@@ -1673,6 +2430,7 @@ function renderCustomerManagement() {
         state.selectedCustomerViewSurveyId = "";
         state.selectedCustomerViewResponseId = "";
         state.selectedCustomerTimelineOpen = false;
+        state.selectedMeasurementEditId = "";
       } else if (step === "profile") {
         state.selectedCustomerTimelineOpen = false;
         state.selectedCustomerViewSurveyId = "";
@@ -1697,6 +2455,51 @@ function renderCustomerManagement() {
   stage.querySelectorAll("[data-delete-customer], [data-delete-customer-card]").forEach((button) => {
     button.addEventListener("click", () => {
       void deleteCustomerProfile(button.dataset.deleteCustomer || button.dataset.deleteCustomerCard || "");
+    });
+  });
+
+  stage.querySelector("#measurementTargetForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void saveCustomerMeasurementTargets(event.currentTarget);
+  });
+
+  stage.querySelector("#measurementForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void saveMeasurement(event.currentTarget);
+  });
+
+  stage.querySelector("[data-cancel-measurement-edit]")?.addEventListener("click", () => {
+    state.selectedMeasurementEditId = "";
+    renderCustomerManagement();
+  });
+
+  stage.querySelectorAll("[data-edit-measurement]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedMeasurementEditId = button.dataset.editMeasurement || "";
+      renderCustomerManagement();
+    });
+  });
+
+  stage.querySelectorAll("[data-delete-measurement]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void deleteMeasurement(button.dataset.deleteMeasurement || "");
+    });
+  });
+
+  stage.querySelector("#measurementPeriodFilter")?.addEventListener("change", (event) => {
+    state.selectedMeasurementPeriod = String(event.currentTarget.value || "all");
+    renderCustomerManagement();
+  });
+
+  stage.querySelectorAll("[data-toggle-measurement-metric]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const metricKey = checkbox.dataset.toggleMeasurementMetric;
+      if (!metricKey) return;
+      state.measurementMetricVisibility = {
+        ...state.measurementMetricVisibility,
+        [metricKey]: checkbox.checked,
+      };
+      renderCustomerManagement();
     });
   });
 
@@ -4134,6 +4937,7 @@ function exportBackup() {
     adminUsers: state.adminUsers,
     customerMemos: state.customerMemos,
     customerProfiles: Object.values(state.customerProfiles || {}),
+    measurements: state.measurements,
     responses: state.responses,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -4192,9 +4996,17 @@ async function restoreBackup(file) {
           ticketPlan: String(ticketCard?.plan || "").trim(),
           ticketSheet: ticketCard?.sheetNumber ? `${ticketCard.sheetNumber}枚目` : "",
           ticketRound: ticketCard?.round ? `${ticketCard.round}回目` : "",
+          measurementTargets: profile?.measurementTargets || {},
         },
       });
     }
+  }
+  if (Array.isArray(payload.measurements)) {
+    await api.request("/api/admin/measurements/replace", {
+      method: "POST",
+      token: state.token,
+      body: { measurements: payload.measurements },
+    });
   }
   if (Array.isArray(payload.adminUsers) && payload.adminUsers.length) {
     await api.request("/api/admin/users", {
@@ -4339,7 +5151,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-10", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-11", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

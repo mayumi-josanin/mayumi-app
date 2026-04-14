@@ -44,6 +44,25 @@ window.MayumiSurveyApi = (() => {
     return ["published", "draft", "archived"].includes(status) ? status : "published";
   }
 
+  function normalizeMeasurementValue(value) {
+    if (value === null || value === undefined || value === "") return "";
+    const normalized = String(value).replace(/[^\d.-]/g, "");
+    if (!normalized) return "";
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed)) return "";
+    return Math.round(parsed * 10) / 10;
+  }
+
+  function normalizeMeasurementTargets(targets) {
+    const normalized = {
+      waist: normalizeMeasurementValue(targets?.waist),
+      hip: normalizeMeasurementValue(targets?.hip),
+      thighRight: normalizeMeasurementValue(targets?.thighRight),
+      thighLeft: normalizeMeasurementValue(targets?.thighLeft),
+    };
+    return Object.values(normalized).some((value) => value !== "") ? normalized : null;
+  }
+
   function sleep(ms) {
     return new Promise((resolve) => {
       setTimeout(resolve, ms);
@@ -200,6 +219,19 @@ window.MayumiSurveyApi = (() => {
       retentionDays: Number(preferences?.retentionDays || 0),
       recoveryMemo: normalizeText(preferences?.recoveryMemo),
       twoFactorEnabled: preferences?.twoFactorEnabled === false ? false : true,
+    });
+  }
+
+  function makeMeasurementSignature(measurement) {
+    return JSON.stringify({
+      id: normalizeText(measurement?.id),
+      customerName: normalizeText(measurement?.customerName),
+      measuredAt: normalizeText(measurement?.measuredAt),
+      waist: normalizeMeasurementValue(measurement?.waist),
+      hip: normalizeMeasurementValue(measurement?.hip),
+      thighRight: normalizeMeasurementValue(measurement?.thighRight),
+      thighLeft: normalizeMeasurementValue(measurement?.thighLeft),
+      memo: normalizeText(measurement?.memo),
     });
   }
 
@@ -405,6 +437,17 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
+  async function waitForAdminMeasurement(gasUrl, token, matcher) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "adminMeasurements", { token });
+      const measurements = Array.isArray(data.measurements) ? data.measurements : [];
+      const matched = matcher(measurements);
+      if (matched !== undefined) return matched;
+    }
+    return null;
+  }
+
   async function waitForAdminCustomerUpdate(gasUrl, token, currentName, nextName, expected = {}) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
@@ -419,6 +462,9 @@ window.MayumiSurveyApi = (() => {
         const ticketPlan = normalizeText(expected.ticketPlan);
         const ticketSheet = normalizeText(expected.ticketSheet);
         const ticketRound = normalizeText(expected.ticketRound);
+        const shouldMatchTargets = Object.prototype.hasOwnProperty.call(expected, "measurementTargets");
+        const expectedTargets = normalizeMeasurementTargets(expected.measurementTargets);
+        const actualTargets = normalizeMeasurementTargets(matchedProfile.measurementTargets);
         const memberMatches =
           !memberNumber || normalizeText(matchedProfile.memberNumber).toUpperCase() === memberNumber;
         const planMatches = !ticketPlan || normalizeText(activeTicketCard.plan) === ticketPlan;
@@ -426,7 +472,9 @@ window.MayumiSurveyApi = (() => {
           !ticketSheet || `${Math.floor(Number(activeTicketCard.sheetNumber) || 0)}枚目` === ticketSheet;
         const roundMatches =
           !ticketRound || `${Math.floor(Number(activeTicketCard.round) || 0)}回目` === ticketRound;
-        if (memberMatches && planMatches && sheetMatches && roundMatches) {
+        const targetMatches =
+          !shouldMatchTargets || JSON.stringify(actualTargets || null) === JSON.stringify(expectedTargets || null);
+        if (memberMatches && planMatches && sheetMatches && roundMatches && targetMatches) {
           return matchedProfile;
         }
       }
@@ -726,6 +774,10 @@ window.MayumiSurveyApi = (() => {
         return jsonp(gasUrl, "adminCustomerMemos", { token: options.token });
       }
 
+      if (path === "/api/admin/measurements" && method === "GET") {
+        return jsonp(gasUrl, "adminMeasurements", { token: options.token });
+      }
+
       if (path.startsWith("/api/admin/customers/") && method === "PUT") {
         const currentName = getRouteId(path, "/api/admin/customers/");
         const payload = {
@@ -735,6 +787,9 @@ window.MayumiSurveyApi = (() => {
           ticketSheet: normalizeText(options.body?.ticketSheet),
           ticketRound: normalizeText(options.body?.ticketRound),
         };
+        if (Object.prototype.hasOwnProperty.call(options.body || {}, "measurementTargets")) {
+          payload.measurementTargets = normalizeMeasurementTargets(options.body?.measurementTargets);
+        }
         await postToGas(gasUrl, "adminUpdateCustomer", {
           token: options.token,
           customerName: currentName,
@@ -750,6 +805,29 @@ window.MayumiSurveyApi = (() => {
         );
         if (!updated) throw new Error("顧客情報の更新を確認できませんでした。");
         return { customerName: updatedName };
+      }
+
+      if (path.startsWith("/api/admin/customers/") && path.endsWith("/measurements") && method === "POST") {
+        const customerName = getRouteId(path, "/api/admin/customers/").replace(/\/measurements$/, "");
+        const payload = {
+          id: normalizeText(options.body?.id) || makeId("measure"),
+          measuredAt: normalizeText(options.body?.measuredAt),
+          waist: normalizeMeasurementValue(options.body?.waist),
+          hip: normalizeMeasurementValue(options.body?.hip),
+          thighRight: normalizeMeasurementValue(options.body?.thighRight),
+          thighLeft: normalizeMeasurementValue(options.body?.thighLeft),
+          memo: normalizeText(options.body?.memo),
+        };
+        await postToGas(gasUrl, "adminCreateMeasurement", {
+          token: options.token,
+          customerName,
+          payload,
+        });
+        const measurement = await waitForAdminMeasurement(gasUrl, options.token, (measurements) =>
+          measurements.find((item) => normalizeText(item.id) === payload.id),
+        );
+        if (!measurement) throw new Error("測定データの保存を確認できませんでした。");
+        return { measurement };
       }
 
       if (path.startsWith("/api/admin/customers/") && method === "DELETE") {
@@ -776,8 +854,82 @@ window.MayumiSurveyApi = (() => {
         return { memos };
       }
 
+      if (path === "/api/admin/measurements/replace" && method === "POST") {
+        const measurements = Array.isArray(options.body?.measurements) ? options.body.measurements : [];
+        const expectedSignature = JSON.stringify(
+          measurements
+            .map((measurement) =>
+              makeMeasurementSignature({
+                id: measurement?.id,
+                customerName: measurement?.customerName,
+                measuredAt: measurement?.measuredAt,
+                waist: measurement?.waist,
+                hip: measurement?.hip,
+                thighRight: measurement?.thighRight,
+                thighLeft: measurement?.thighLeft,
+                memo: measurement?.memo,
+              }),
+            )
+            .sort(),
+        );
+        await postToGas(gasUrl, "adminReplaceMeasurements", {
+          token: options.token,
+          payload: { measurements },
+        });
+        const restored = await waitForAdminMeasurement(gasUrl, options.token, (items) => {
+          const actualSignature = JSON.stringify(items.map(makeMeasurementSignature).sort());
+          return actualSignature === expectedSignature ? items : undefined;
+        });
+        if (!restored) throw new Error("測定データの復元を確認できませんでした。");
+        return { measurements: restored };
+      }
+
       if (path === "/api/admin/responses" && method === "GET") {
         return jsonp(gasUrl, "adminResponses", { token: options.token });
+      }
+
+      if (path.startsWith("/api/admin/measurements/") && method === "PUT") {
+        const measurementId = getRouteId(path, "/api/admin/measurements/");
+        const payload = {
+          measuredAt: normalizeText(options.body?.measuredAt),
+          waist: normalizeMeasurementValue(options.body?.waist),
+          hip: normalizeMeasurementValue(options.body?.hip),
+          thighRight: normalizeMeasurementValue(options.body?.thighRight),
+          thighLeft: normalizeMeasurementValue(options.body?.thighLeft),
+          memo: normalizeText(options.body?.memo),
+        };
+        await postToGas(gasUrl, "adminUpdateMeasurement", {
+          token: options.token,
+          measurementId,
+          payload,
+        });
+        const measurement = await waitForAdminMeasurement(gasUrl, options.token, (measurements) => {
+          const matched = measurements.find((item) => normalizeText(item.id) === measurementId);
+          if (!matched) return undefined;
+          const sameValues =
+            normalizeText(matched.measuredAt) === payload.measuredAt &&
+            normalizeMeasurementValue(matched.waist) === payload.waist &&
+            normalizeMeasurementValue(matched.hip) === payload.hip &&
+            normalizeMeasurementValue(matched.thighRight) === payload.thighRight &&
+            normalizeMeasurementValue(matched.thighLeft) === payload.thighLeft &&
+            normalizeText(matched.memo) === payload.memo;
+          return sameValues ? matched : undefined;
+        });
+        if (!measurement) throw new Error("測定データの更新を確認できませんでした。");
+        return { measurement };
+      }
+
+      if (path.startsWith("/api/admin/measurements/") && method === "DELETE") {
+        const measurementId = getRouteId(path, "/api/admin/measurements/");
+        await postToGas(gasUrl, "adminDeleteMeasurement", {
+          token: options.token,
+          measurementId,
+        });
+        const deleted = await waitForAdminMeasurement(gasUrl, options.token, (measurements) =>
+          measurements.some((item) => normalizeText(item.id) === measurementId) ? undefined : true,
+        );
+        if (!deleted) throw new Error("測定データの削除を確認できませんでした。");
+        return { ok: true };
       }
 
       if (path.startsWith("/api/admin/responses/") && method === "PUT") {
