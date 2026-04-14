@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.06.63';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.14.64';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -115,6 +115,10 @@ const REWARD_GACHA_PRIZE_POOL = [
   { key: 'C', rankLabel: 'C賞', rewardName: 'C賞プレゼント', capsuleColor: '#b9d8a7', accentColor: '#628f58', message: '当日のおたのしみプレゼントをご用意しています。', weight: 30 },
   { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: '当日のおたのしみプレゼントをご用意しています。', weight: 40 }
 ];
+let lastHandledIncomingUrl = '';
+let lastHandledIncomingUrlAt = 0;
+let nativeDeepLinkListenerReady = false;
+let pendingIncomingStampAction = null;
 
 function readJsonStorage(key, fallbackValue) {
   try {
@@ -2280,10 +2284,20 @@ function normalizeProductCategory(category) {
     .toLowerCase();
 }
 
+function normalizeProductSoldOutStatus(status) {
+  return String(status || '').trim() === '売切' ? '売切' : '在庫あり';
+}
+
 function normalizeProductEntry(product, index) {
   const item = product && typeof product === 'object' ? product : {};
   const iconImages = normalizeManagedImageList(item.imageUrls || item.iconImages || item.icon);
   const descriptionImageUrls = normalizeManagedImageList(item.descriptionImageUrls || item.descriptionImage);
+  const hasStockQty = item.stockQty !== undefined && item.stockQty !== null && String(item.stockQty).trim() !== '';
+  const stockQty = hasStockQty ? Number(item.stockQty || 0) : null;
+  const lowStockThreshold = Number(item.lowStockThreshold || 0);
+  const soldOutStatus = normalizeProductSoldOutStatus(item.soldOutStatus || (item.isSoldOut === true ? '売切' : '在庫あり'));
+  const isSoldOut = soldOutStatus === '売切';
+  const isLowStock = !isSoldOut && (item.isLowStock === true || (hasStockQty && lowStockThreshold > 0 && stockQty <= lowStockThreshold));
   return {
     category: String(item.category || ''),
     name: String(item.name || ''),
@@ -2297,8 +2311,42 @@ function normalizeProductEntry(product, index) {
     descriptionImageUrls: descriptionImageUrls,
     updatedAt: String(item.updatedAt || ''),
     noticeListedAt: String(item.noticeListedAt || ''),
-    noticeStatus: normalizeNoticeVisibilityStatus(item.noticeStatus)
+    noticeStatus: normalizeNoticeVisibilityStatus(item.noticeStatus),
+    stockQty: stockQty,
+    lowStockThreshold: lowStockThreshold,
+    soldOutStatus: soldOutStatus,
+    isSoldOut: isSoldOut,
+    isLowStock: isLowStock
   };
+}
+
+function isProductSoldOut(product) {
+  if (!product) return false;
+  if (normalizeProductSoldOutStatus(product.soldOutStatus || (product.isSoldOut === true ? '売切' : '在庫あり')) === '売切') return true;
+  return product.isSoldOut === true;
+}
+
+function isProductLowStock(product) {
+  if (!product || isProductSoldOut(product)) return false;
+  if (product.stockQty === null || product.stockQty === undefined || String(product.stockQty).trim() === '') {
+    return product.isLowStock === true;
+  }
+  const stockQty = Number(product.stockQty || 0);
+  const threshold = Number(product.lowStockThreshold || 0);
+  return product.isLowStock === true || (threshold > 0 && stockQty > 0 && stockQty <= threshold);
+}
+
+function getProductAvailabilityLabel(product) {
+  if (isProductSoldOut(product)) return 'SOLD OUT';
+  if (isProductLowStock(product)) return '残りわずか';
+  return '';
+}
+
+function getUnavailableCartEntries() {
+  return (cart || []).filter(function (entry) {
+    const product = PRODUCTS[entry.idx];
+    return !product || isProductSoldOut(product);
+  });
 }
 
 function getProductPricing(product, quantity) {
@@ -2404,7 +2452,9 @@ async function loadProducts() {
 
   const createProductCard = function (product, index) {
     const card = document.createElement('div');
-    card.className = 'shop-card';
+    const availabilityLabel = getProductAvailabilityLabel(product);
+    const isSoldOut = isProductSoldOut(product);
+    card.className = 'shop-card' + (isSoldOut ? ' is-sold-out' : '');
     card.setAttribute('onclick', `openProductModal(${index})`);
     const imageSource = (product.icon && (product.icon.startsWith('http') || product.icon.startsWith('data:')))
       ? getContentDisplayImageUrl(product.icon)
@@ -2414,16 +2464,22 @@ async function loadProducts() {
       : '';
     const unreadBadge = buildUnreadBadgeHtml('product', product);
     const favoriteBadge = isFavoriteKey(buildContentItemKey('product', product)) ? '<span class="item-favorite-badge">★</span>' : '';
+    const soldOutBadge = isSoldOut ? '<span class="shop-soldout-badge">SOLD OUT</span>' : '';
+    const stockNote = availabilityLabel
+      ? `<div class="shop-stock-note${isSoldOut ? ' soldout' : ''}">${escapeHtml(availabilityLabel)}</div>`
+      : '';
     card.innerHTML = `
       <div class="shop-img ${product.bg}">
         <img src="${imageSource}" alt="${product.name}">
         ${iconBadge}
         ${unreadBadge}
         ${favoriteBadge}
+        ${soldOutBadge}
       </div>
       <div class="shop-info">
         <div class="shop-name">${product.name}</div>
         <div class="shop-price">${buildProductPriceMarkup(product, 1, { mode: 'unit', includeTax: true, showPeriod: true })}</div>
+        ${stockNote}
       </div>
     `;
     return card;
@@ -2442,6 +2498,8 @@ async function loadProducts() {
       container.appendChild(createProductCard(product, index));
     }
   });
+
+  updateCartUI();
 
   if (document.getElementById('page-notices').classList.contains('active')) {
     renderPushNotices();
@@ -3899,8 +3957,16 @@ function openBlogDetail(item) {
 function openProductModal(idx) {
   currentProdIdx = idx; modalQty = 1;
   const p = PRODUCTS[idx];
+  if (!p) return;
   markContentItemSeen('product', p);
   const img = document.getElementById('prodModalImg');
+  const statusEl = document.getElementById('prodModalStatus');
+  const qtyRow = document.getElementById('prodQtyRow');
+  const minusBtn = document.getElementById('prodQtyMinusBtn');
+  const plusBtn = document.getElementById('prodQtyPlusBtn');
+  const addBtn = document.getElementById('prodAddToCartBtn');
+  const soldOut = isProductSoldOut(p);
+  const lowStock = isProductLowStock(p);
   img.className = 'prod-img';
   const productGalleryHtml = buildDetailImageGalleryHtml(p.imageUrls || p.icon, p.name || 'Product Image');
 
@@ -3920,6 +3986,21 @@ function openProductModal(idx) {
   }
   document.getElementById('prodModalName').textContent = p.name;
   document.getElementById('prodModalPrice').innerHTML = buildProductPriceMarkup(p, 1, { mode: 'unit', includeTax: true, showPeriod: true });
+  if (statusEl) {
+    if (soldOut) {
+      statusEl.className = 'prod-status-badge soldout';
+      statusEl.textContent = 'SOLD OUT';
+      statusEl.style.display = 'inline-flex';
+    } else if (lowStock) {
+      statusEl.className = 'prod-status-badge lowstock';
+      statusEl.textContent = '残りわずか';
+      statusEl.style.display = 'inline-flex';
+    } else {
+      statusEl.className = 'prod-status-badge';
+      statusEl.textContent = '';
+      statusEl.style.display = 'none';
+    }
+  }
 
   let descHtml = renderManagedTextHtml(p.description || '', {
     inlineImageClass: 'blog-inline-image blog-inline-image--detail',
@@ -3936,6 +4017,13 @@ function openProductModal(idx) {
   const favoriteWrap = document.getElementById('prodModalFavoriteWrap');
   if (favoriteWrap) favoriteWrap.innerHTML = buildFavoriteActionMarkup('product', p);
   document.getElementById('modalQtyDisp').textContent = 1;
+  if (qtyRow) qtyRow.classList.toggle('is-disabled', soldOut);
+  if (minusBtn) minusBtn.disabled = soldOut;
+  if (plusBtn) plusBtn.disabled = soldOut;
+  if (addBtn) {
+    addBtn.disabled = soldOut;
+    addBtn.textContent = soldOut ? 'SOLD OUT' : 'カートに追加する 🛒';
+  }
   updateNavBadges();
   openModal('productModal');
 }
@@ -3947,10 +4035,17 @@ function toggleModalDesc() {
   event.target.textContent = isHidden ? '× 閉じる' : '商品説明をみる';
 }
 function changeQty(d) {
+  const product = PRODUCTS[currentProdIdx];
+  if (isProductSoldOut(product)) return;
   modalQty = Math.max(1, modalQty + d);
   document.getElementById('modalQtyDisp').textContent = modalQty;
 }
 function addToCart() {
+  const product = PRODUCTS[currentProdIdx];
+  if (!product || isProductSoldOut(product)) {
+    showToast('現在この商品は売切です');
+    return;
+  }
   const ex = cart.find(c => c.idx === currentProdIdx);
   if (ex) ex.qty += modalQty; else cart.push({ idx: currentProdIdx, qty: modalQty });
   closeModal('productModal');
@@ -3975,7 +4070,9 @@ function renderCart() {
   let total = 0;
   cart.forEach((c, ci) => {
     const p = PRODUCTS[c.idx];
+    if (!p) return;
     const el = document.createElement('div'); el.className = 'cart-row';
+    const soldOut = isProductSoldOut(p);
 
     // 表示用画像の決定
     let imgSrcHtml = p.icon;
@@ -3988,9 +4085,13 @@ function renderCart() {
     const pricing = getProductPricing(p, c.qty);
     let subtotal = pricing.total;
     let priceNote = buildProductPriceMarkup(p, c.qty, { mode: 'total', includeTax: false, showPeriod: false });
-    total += subtotal;
+    if (!soldOut) total += subtotal;
 
-    el.innerHTML = `<div class="cart-thumb ${p.bg}">${imgSrcHtml}</div><div class="cart-info"><div class="cart-item-name">${p.name}</div><div class="cart-item-price">${priceNote}</div><div class="cart-qty-row"><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},-1)">－</button><span class="qty-ctrl-num">${c.qty}</span><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},1)">＋</button></div></div><div class="cart-del" onclick="rmCartItem(${ci})">🗑</div>`;
+    const cartControlsHtml = soldOut
+      ? `<div class="cart-unavailable-note">SOLD OUT / カートから削除してください</div>`
+      : `<div class="cart-qty-row"><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},-1)">－</button><span class="qty-ctrl-num">${c.qty}</span><button class="qty-ctrl-btn" onclick="chgCartQty(${ci},1)">＋</button></div>`;
+
+    el.innerHTML = `<div class="cart-thumb ${p.bg}">${imgSrcHtml}</div><div class="cart-info"><div class="cart-item-name">${p.name}</div><div class="cart-item-price">${priceNote}</div>${cartControlsHtml}</div><div class="cart-del" onclick="rmCartItem(${ci})">🗑</div>`;
     list.appendChild(el);
   });
   document.getElementById('cartSubtotal').textContent = '¥' + total.toLocaleString();
@@ -4012,8 +4113,15 @@ function rmCartItem(ci) {
 function updateCheckoutBtn() {
   const btn = document.getElementById('checkoutBtn');
   if (!btn) return;
-  btn.disabled = !cart.length || isOrderSubmitting;
-  btn.textContent = isOrderSubmitting ? '送信中...' : 'ご注文を確定する';
+  const hasUnavailableItems = getUnavailableCartEntries().length > 0;
+  btn.disabled = !cart.length || isOrderSubmitting || hasUnavailableItems;
+  if (isOrderSubmitting) {
+    btn.textContent = '送信中...';
+  } else if (hasUnavailableItems) {
+    btn.textContent = '売切商品をカートから外してください';
+  } else {
+    btn.textContent = 'ご注文を確定する';
+  }
 }
 function proceedCheckout() {
   if (isOrderSubmitting) return;
@@ -4024,6 +4132,19 @@ async function finalizeOrder(payLabel) {
   if (!_profile || !_profile.memberId) {
     showToast('先にプロフィールを登録してください');
     switchPage('mypage');
+    return;
+  }
+  const unavailableEntries = getUnavailableCartEntries();
+  if (unavailableEntries.length) {
+    const names = unavailableEntries.map(function (entry) {
+      const product = PRODUCTS[entry.idx];
+      return '・' + (product && product.name ? product.name : '不明な商品');
+    }).join('\n');
+    await showAppAlert('次の商品は現在売切のため購入できません。\n\n' + names + '\n\nカートから削除してからご注文ください。', {
+      title: '売切商品があります',
+      confirmLabel: 'OK'
+    });
+    switchPage('cart');
     return;
   }
 
@@ -6524,6 +6645,7 @@ async function applyRecoveredUserState(user, passcode, successMessage) {
   markPasscodeUnlockSkippedOnce();
 
   try { closePasscodeOverlay(); } catch (e) { }
+  flushPendingIncomingStampAction();
   try { closeSetupModal(); } catch (e) { }
   const onboarding = document.getElementById('onboardingScreen');
   const migrationOverlay = document.getElementById('migrationOverlay');
@@ -6652,6 +6774,7 @@ async function unlockAppWithPasscode() {
     }
     isPasscodeAuthenticated = true;
     closePasscodeOverlay();
+    flushPendingIncomingStampAction();
     showToast('ログインしました🌿');
   } finally {
     if (btn) {
@@ -7175,6 +7298,7 @@ async function saveMigrationPasscode() {
       localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
       await storeLocalPasscode(passcode);
       isPasscodeAuthenticated = true;
+      flushPendingIncomingStampAction();
       syncCurrentDeviceSession({ silent: true }).catch(function (error) {
         console.error('syncCurrentDeviceSession after saveMigrationPasscode error:', error);
       });
@@ -7189,6 +7313,7 @@ async function saveMigrationPasscode() {
       localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
       await storeLocalPasscode(passcode);
       isPasscodeAuthenticated = true;
+      flushPendingIncomingStampAction();
       showToast('設定を保存しました。通信回復後に同期します');
       document.getElementById('migrationOverlay').classList.remove('open');
       const homePage = document.getElementById('page-home');
@@ -7567,9 +7692,79 @@ function openPageFromNotificationTarget(target) {
   return true;
 }
 
-// ===== URLパラメータからのスタンプ付与処理 =====
-function checkUrlParams() {
-  const params = new URLSearchParams(window.location.search);
+function replaceCurrentWindowSearchParams(params) {
+  const nextUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+  window.history.replaceState({}, document.title, nextUrl);
+}
+
+function getIncomingUrlSearchParams(rawUrl) {
+  const text = String(rawUrl || '').trim();
+  if (!text) return new URLSearchParams();
+  try {
+    return new URL(text).searchParams;
+  } catch (e) { }
+  const queryIndex = text.indexOf('?');
+  if (queryIndex >= 0) {
+    return new URLSearchParams(text.slice(queryIndex + 1));
+  }
+  if (text.includes('=')) {
+    return new URLSearchParams(text);
+  }
+  return new URLSearchParams();
+}
+
+function shouldHandleIncomingUrl(rawUrl) {
+  const urlText = String(rawUrl || '').trim();
+  const now = Date.now();
+  if (urlText && urlText === lastHandledIncomingUrl && (now - lastHandledIncomingUrlAt) < 5000) {
+    return false;
+  }
+  lastHandledIncomingUrl = urlText;
+  lastHandledIncomingUrlAt = now;
+  return true;
+}
+
+function executeIncomingStampAction(options) {
+  const opts = options || {};
+  if (opts.showScanToast) {
+    showToast('QRコードを読み取りました🎉');
+  }
+  if (_profile) {
+    addStamp();
+    switchPage('home');
+  } else {
+    showToast('まずはプロフィールを登録してください🌿');
+  }
+  if (typeof opts.afterHandled === 'function') {
+    opts.afterHandled();
+  }
+}
+
+function queueIncomingStampAction(options) {
+  const opts = options || {};
+  const delayMs = Math.max(0, Number(opts.delayMs || 0));
+  setTimeout(function () {
+    if (_profile && shouldRequirePasscodeLock() && !isPasscodeAuthenticated) {
+      pendingIncomingStampAction = function () {
+        executeIncomingStampAction(opts);
+      };
+      openPasscodeOverlay();
+      showToast('パスコードを入力するとスタンプを反映します');
+      return;
+    }
+    executeIncomingStampAction(opts);
+  }, delayMs);
+}
+
+function flushPendingIncomingStampAction() {
+  if (typeof pendingIncomingStampAction !== 'function') return;
+  const action = pendingIncomingStampAction;
+  pendingIncomingStampAction = null;
+  action();
+}
+
+function processIncomingUrlParams(params, options) {
+  const opts = options || {};
   const restorePage = normalizeAppPageName(params.get('restorePage'));
   if (restorePage) {
     clearPendingAppReloadTarget();
@@ -7577,9 +7772,10 @@ function checkUrlParams() {
     if (getActivePageName() !== restorePage && _profile) {
       switchPage(restorePage);
     }
-    params.delete('restorePage');
-    const nextUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-    window.history.replaceState({}, document.title, nextUrl);
+    if (opts.cleanupWindowUrl) {
+      params.delete('restorePage');
+      replaceCurrentWindowSearchParams(params);
+    }
     return;
   }
   const openTarget = params.get('open');
@@ -7587,24 +7783,66 @@ function checkUrlParams() {
     setTimeout(function () {
       openPageFromNotificationTarget(openTarget);
     }, 400);
-    params.delete('open');
-    const nextUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-    window.history.replaceState({}, document.title, nextUrl);
+    if (opts.cleanupWindowUrl) {
+      params.delete('open');
+      replaceCurrentWindowSearchParams(params);
+    }
     return;
   }
   if (params.get('action') === 'add_stamp') {
-    setTimeout(() => {
-      // すでにプロフィール登録済みの場合のみスタンプを付与
-      if (_profile) {
-        addStamp();
-        switchPage('home');
-      } else {
-        // 未登録の場合は一旦登録を促す（次回以降のアクセスに備える）
-        showToast('まずはプロフィールを登録してください🌿');
+    if (!shouldHandleIncomingUrl(opts.rawUrl || params.toString())) {
+      if (opts.cleanupWindowUrl) {
+        params.delete('action');
+        replaceCurrentWindowSearchParams(params);
       }
-      // URLをクリーンアップしてリロード時の二重付与を防止
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }, 800);
+      return;
+    }
+    queueIncomingStampAction({
+      delayMs: opts.delayMs == null ? 800 : opts.delayMs,
+      showScanToast: !!opts.showScanToast,
+      afterHandled: opts.cleanupWindowUrl ? function () {
+        params.delete('action');
+        replaceCurrentWindowSearchParams(params);
+      } : null
+    });
+  }
+}
+
+// ===== URLパラメータからのスタンプ付与処理 =====
+function checkUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  processIncomingUrlParams(params, {
+    cleanupWindowUrl: true,
+    rawUrl: window.location.href
+  });
+}
+
+async function initNativeDeepLinkHandling() {
+  if (nativeDeepLinkListenerReady) return;
+  const appPlugin = window.Capacitor && Capacitor.Plugins ? Capacitor.Plugins.App : null;
+  if (!appPlugin) return;
+  nativeDeepLinkListenerReady = true;
+
+  const handleNativeUrl = function (rawUrl, delayMs) {
+    if (!rawUrl) return;
+    processIncomingUrlParams(getIncomingUrlSearchParams(rawUrl), {
+      rawUrl: rawUrl,
+      delayMs: delayMs
+    });
+  };
+
+  try {
+    if (typeof appPlugin.addListener === 'function') {
+      appPlugin.addListener('appUrlOpen', function (event) {
+        handleNativeUrl(event && event.url, 250);
+      });
+    }
+    if (typeof appPlugin.getLaunchUrl === 'function') {
+      const launchData = await appPlugin.getLaunchUrl();
+      handleNativeUrl(launchData && launchData.url, 250);
+    }
+  } catch (e) {
+    console.error('native deep link init error:', e);
   }
 }
 
@@ -7853,6 +8091,7 @@ async function initApp() {
   loadStampRewards();
   updateStampUI();
   checkUrlParams();
+  await initNativeDeepLinkHandling();
 
   // Capacitor環境 (iOS/Androidネイティブアプリ) の場合の通知設定
   (function () {
@@ -8355,10 +8594,11 @@ async function startScanner() {
           if (code && code.data.includes('action=add_stamp')) {
             _qrScanning = false;
             closeScannerModal();
-            showToast('QRコードを読み取りました🎉');
-            setTimeout(() => {
-              if (typeof addStamp === 'function') addStamp();
-            }, 400);
+            processIncomingUrlParams(getIncomingUrlSearchParams(code.data), {
+              rawUrl: code.data,
+              delayMs: 400,
+              showScanToast: true
+            });
             return;
           }
         }

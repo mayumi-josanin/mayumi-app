@@ -807,18 +807,19 @@
         <span id="prodModalName">商品名</span>
         <div class="btn-modal-desc" onclick="toggleModalDesc()">商品説明をみる</div>
       </div>
+      <div id="prodModalStatus" class="prod-status-badge" style="display:none;"></div>
       <div id="prodModalPrice" class="prod-price">¥0</div>
       <div id="prodModalDesc" class="prod-desc">商品説明</div>
       <div id="prodModalFavoriteWrap" style="margin-top:12px;"></div>
-      <div class="qty-row">
+      <div class="qty-row" id="prodQtyRow">
         <span class="qty-label">個数</span>
         <div class="qty-ctrl">
-          <button class="qty-big-btn" onclick="changeQty(-1)">－</button>
+          <button class="qty-big-btn" id="prodQtyMinusBtn" onclick="changeQty(-1)">－</button>
           <span class="qty-disp" id="modalQtyDisp">1</span>
-          <button class="qty-big-btn" onclick="changeQty(1)">＋</button>
+          <button class="qty-big-btn" id="prodQtyPlusBtn" onclick="changeQty(1)">＋</button>
         </div>
       </div>
-      <button class="btn primary" onclick="addToCart()">カートに追加する 🛒</button>
+      <button class="btn primary" id="prodAddToCartBtn" onclick="addToCart()">カートに追加する 🛒</button>
       <button class="btn secondary" onclick="closeModal('productModal')">閉じる</button>
     </div>
   </div>

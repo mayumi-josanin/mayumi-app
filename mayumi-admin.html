@@ -1227,6 +1227,14 @@
                 <label>在庫警告閾値</label>
                 <input type="number" id="prodLowStockThreshold" placeholder="例：3" min="0" value="0">
               </div>
+              <div class="form-group" style="flex:1;">
+                <label>売切表示</label>
+                <select id="prodSoldOutStatus">
+                  <option value="在庫あり" selected>在庫あり</option>
+                  <option value="売切">売切</option>
+                </select>
+                <div style="font-size:11px; color:var(--text-light); margin-top:4px;">ここを「売切」にすると、お客様アプリで赤字の <b>SOLD OUT</b> 表示になります</div>
+              </div>
             </div>
             <div class="form-group mb-2">
               <label>商品説明</label>
@@ -3005,11 +3013,12 @@
   </div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxjaZUpoenBPzbYit9vpgsXvC5Oo74PCie4yCH2CMeQ5gJ27Be6hlkh95J6UfhLnt1jKQ/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
     if (currentStored && (
+      currentStored.includes('AKfycbxjaZUpoenBPzbYit9vpgsXvC5Oo74PCie4yCH2CMeQ5gJ27Be6hlkh95J6UfhLnt1jKQ') ||
       currentStored.includes('AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww') ||
       currentStored.includes('AKfycbz5cIeCDi5x3KaNuAV4SYHVTiIWr0kDq4xSPToQDU1jqeeerxTZU3uxDpxI5ubv3kcR1Q') ||
       currentStored.includes('AKfycbzFi4hL2mSh8VjshupIulGGI3G6V0Q2A3na_6bPPBRcpS3sQMBecN3x93f5XuHuqZgtxQ')
@@ -3025,7 +3034,7 @@
       iosStoreUrl: '',
       updateTitle: 'アップデートが必要です',
       updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
-      webBundleVersion: '2026.04.06.63'
+      webBundleVersion: '2026.04.14.64'
     };
     let allUsers = [];
     let allMenus = [];
@@ -3540,6 +3549,20 @@
       `);
     }
 
+    function normalizeAdminProductSoldOutStatus(status) {
+      return String(status || '').trim() === '売切' ? '売切' : '在庫あり';
+    }
+
+    function isAdminProductSoldOut(product) {
+      return normalizeAdminProductSoldOutStatus(product && product.soldOutStatus) === '売切';
+    }
+
+    function getAdminProductByRowIdx(rowIdx) {
+      return (allProducts || []).find(function (item) {
+        return Number(item && item.rowIdx || 0) === Number(rowIdx || 0);
+      }) || null;
+    }
+
     function previewProductDraft() {
       const name = document.getElementById('prodName').value.trim() || '商品名未入力';
       const category = document.getElementById('prodCat').value.trim() || '未設定';
@@ -3547,12 +3570,13 @@
       const cost = Number(document.getElementById('prodCost').value || 0);
       const stockQty = Number(document.getElementById('prodStockQty').value || 0);
       const lowStockThreshold = Number(document.getElementById('prodLowStockThreshold').value || 0);
+      const soldOutStatus = normalizeAdminProductSoldOutStatus(document.getElementById('prodSoldOutStatus').value);
       const bgColor = document.getElementById('prodBg').value || '#f5f3ee';
       const desc = document.getElementById('prodDesc').value.trim() || '説明はまだ入力されていません。';
       const mainImageHtml = buildPreviewImageHtml(getPreviewImageSrc('prod'), '商品画像');
       const descImageHtml = buildPreviewImageHtml(getPreviewImageSrc('prodDesc'), '説明画像');
-      const inventoryLabel = stockQty <= 0
-        ? '売り切れ'
+      const inventoryLabel = soldOutStatus === '売切'
+        ? 'SOLD OUT'
         : (lowStockThreshold > 0 && stockQty <= lowStockThreshold ? `残り少なめ（在庫 ${stockQty}）` : `在庫 ${stockQty}`);
       openContentPreview('商品プレビュー', `
         <div style="padding:20px; border-radius:22px; background:${escapeHtml(bgColor)}; color:#2f2a24;">
@@ -3560,7 +3584,7 @@
             <span class="badge">${escapeHtml(category)}</span>
             <span class="badge badge-green">販売価格 ¥${price.toLocaleString()}</span>
             ${cost > 0 ? `<span class="badge">原価 ¥${cost.toLocaleString()}</span>` : ''}
-            <span class="badge ${stockQty <= 0 ? 'badge-danger' : ''}">${escapeHtml(inventoryLabel)}</span>
+            <span class="badge ${soldOutStatus === '売切' ? 'badge-danger' : ''}">${escapeHtml(inventoryLabel)}</span>
           </div>
           <div style="font-size:22px; font-weight:700; margin-bottom:12px; line-height:1.5;">${escapeHtml(name)}</div>
           <div class="managed-rich-text" style="line-height:1.9; color:#534a41;">${renderAdminFormattedTextHtml(desc, { stripInlineImages: true })}</div>
@@ -9670,6 +9694,7 @@
         status: status,
         stockQty: Number(document.getElementById('prodStockQty').value || 0),
         lowStockThreshold: Number(document.getElementById('prodLowStockThreshold').value || 0),
+        soldOutStatus: normalizeAdminProductSoldOutStatus(document.getElementById('prodSoldOutStatus').value),
         description: document.getElementById('prodDesc').value,
         descriptionImage: finalProdDescImageUrls[0] || (originalProdDescImageUrls.length ? '' : (currentProduct.descriptionImage || '')),
         descriptionImageUrls: finalProdDescImageUrls,
@@ -9685,9 +9710,14 @@
       draftBtn.innerText = '📁 下書き保存';
 
       if (res && res.status === 'ok') {
-        showToast(rowIdx ? '商品情報を更新しました！' : '新しい商品を追加しました！ 🎉');
         cancelProdEdit();
-        loadAdminProducts();
+        await loadAdminProducts();
+        const refreshedProduct = rowIdx ? getAdminProductByRowIdx(rowIdx) : null;
+        if (rowIdx && refreshedProduct && normalizeAdminProductSoldOutStatus(refreshedProduct.soldOutStatus) !== payload.soldOutStatus) {
+          showToast('売切状態が反映されません。GAS を最新の mayumi_gas_script_3_1.js に更新して再デプロイしてください。');
+        } else {
+          showToast(rowIdx ? '商品情報を更新しました！' : '新しい商品を追加しました！ 🎉');
+        }
         // 背景色を初期カラーに戻す
         document.getElementById('prodBg').value = '#d4e8c8';
       } else {
@@ -9722,6 +9752,7 @@
         { label: '商品総数', value: allProducts.length },
         { label: '公開中', value: allProducts.filter(product => product.status !== '非公開').length },
         { label: '非公開', value: allProducts.filter(product => product.status === '非公開').length },
+        { label: '売切', value: allProducts.filter(product => isAdminProductSoldOut(product)).length },
         { label: '現在表示中', value: filteredProducts.length }
       ]);
       updateFilterMeta('productsFilterMeta', filteredProducts.length, allProducts.length, '商品データはありません');
@@ -9730,6 +9761,13 @@
     function buildProductRowHtml(product) {
       const isPrivate = product.status === '非公開';
       const deleteName = JSON.stringify(product.name || '');
+      const stockQty = Number(product.stockQty || 0);
+      const lowStockThreshold = Number(product.lowStockThreshold || 0);
+      const soldOutStatus = normalizeAdminProductSoldOutStatus(product.soldOutStatus);
+      const inventoryLabel = soldOutStatus === '売切' ? 'SOLD OUT' : `在庫 ${stockQty}`;
+      const inventoryMeta = soldOutStatus === '売切'
+        ? 'アプリで購入不可'
+        : (lowStockThreshold > 0 && stockQty <= lowStockThreshold ? `残り少なめ / 警告 ${lowStockThreshold}` : `警告 ${lowStockThreshold}`);
       let iconHtml = '';
       if (product.icon && (product.icon.startsWith('http') || product.icon.startsWith('data:'))) {
         iconHtml = `<img src="${escapeHtml(product.icon)}" style="width:40px; height:40px; object-fit:cover; border-radius:4px;">`;
@@ -9747,8 +9785,12 @@
             <input type="number" id="p_price_${product.rowIdx}" value="${escapeHtml(String(product.price || ''))}" style="width:80px;">
           </td>
           <td style="font-size:12px; text-align:center;">
-            <div>残り ${Number(product.stockQty || 0)}</div>
-            <div style="color:${Number(product.stockQty || 0) <= 0 ? 'var(--danger)' : 'var(--text-light)'};">警告 ${Number(product.lowStockThreshold || 0)}</div>
+            <div class="badge ${soldOutStatus === '売切' ? 'badge-danger' : ''}">${escapeHtml(inventoryLabel)}</div>
+            <div style="margin-top:6px; color:${soldOutStatus === '売切' ? 'var(--danger)' : 'var(--text-light)'};">${escapeHtml(inventoryMeta)}</div>
+            <select id="p_soldout_${product.rowIdx}" style="margin-top:6px; width:100%; font-size:11px;">
+              <option value="在庫あり" ${soldOutStatus === '在庫あり' ? 'selected' : ''}>在庫あり</option>
+              <option value="売切" ${soldOutStatus === '売切' ? 'selected' : ''}>売切</option>
+            </select>
           </td>
           <td>
             ${buildTextStyleToolbarHtml(`p_desc_${product.rowIdx}`, true)}
@@ -9828,6 +9870,7 @@
       document.getElementById('prodCost').value = p.costPrice || '';
       document.getElementById('prodStockQty').value = Number(p.stockQty || 0);
       document.getElementById('prodLowStockThreshold').value = Number(p.lowStockThreshold || 0);
+      document.getElementById('prodSoldOutStatus').value = normalizeAdminProductSoldOutStatus(p.soldOutStatus);
       document.getElementById('prodBg').value = p.bg;
       document.getElementById('prodDesc').value = p.description || '';
       document.getElementById('prodPublishAt').value = formatDateForDateTimeLocal(p.publishAt || '');
@@ -9856,6 +9899,7 @@
       document.getElementById('prodPublishAt').value = '';
       document.getElementById('prodStockQty').value = 0;
       document.getElementById('prodLowStockThreshold').value = 0;
+      document.getElementById('prodSoldOutStatus').value = '在庫あり';
       clearAllImageState('prod');
       clearAllImageState('prodDesc');
       setContentNoticeToggle('prodNoticeRefresh', true);
@@ -9878,6 +9922,7 @@
       const price = document.getElementById(`p_price_${rowIdx}`).value;
       const desc = document.getElementById(`p_desc_${rowIdx}`).value;
       const status = document.getElementById(`p_status_${rowIdx}`).value;
+      const soldOutStatus = normalizeAdminProductSoldOutStatus(document.getElementById(`p_soldout_${rowIdx}`).value);
       const product = allProducts.find(item => Number(item.rowIdx || 0) === Number(rowIdx || 0));
 
       showToast('商品を更新中...');
@@ -9888,11 +9933,17 @@
         description: desc,
         status: status,
         stockQty: product ? product.stockQty : 0,
-        lowStockThreshold: product ? product.lowStockThreshold : 0
+        lowStockThreshold: product ? product.lowStockThreshold : 0,
+        soldOutStatus: soldOutStatus
       }, true);
       if (res && res.status === 'ok') {
-        showToast('商品情報を更新しました');
-        loadAdminProducts();
+        await loadAdminProducts();
+        const refreshedProduct = getAdminProductByRowIdx(rowIdx);
+        if (refreshedProduct && normalizeAdminProductSoldOutStatus(refreshedProduct.soldOutStatus) !== soldOutStatus) {
+          showToast('売切状態が反映されません。GAS を最新の mayumi_gas_script_3_1.js に更新して再デプロイしてください。');
+        } else {
+          showToast('商品情報を更新しました');
+        }
       } else {
         showToast('更新に失敗しました');
       }
