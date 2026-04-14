@@ -914,6 +914,64 @@ textarea {
   gap: 12px;
 }
 
+.bijiris-template-card,
+.bijiris-preview-wrapper,
+.bijiris-preview-column {
+  display: grid;
+  gap: 12px;
+}
+
+.bijiris-template-grid {
+  align-items: end;
+}
+
+.bijiris-preview-grid,
+.bijiris-preview-document-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.bijiris-preview-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bijiris-preview-document-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.bijiris-preview-document-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.bijiris-preview-card,
+.bijiris-preview-detail,
+.bijiris-preview-document {
+  display: grid;
+  gap: 10px;
+}
+
+.survey-editor-preview-text {
+  color: var(--text-dark);
+  line-height: 1.8;
+}
+
+.bijiris-preview-document {
+  text-decoration: none;
+}
+
+.bijiris-preview-document.compact {
+  padding: 10px;
+}
+
+.bijiris-preview-document-thumb {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
 .survey-question-card {
   padding: 12px;
   border: 1px solid var(--border);
@@ -1416,6 +1474,7 @@ textarea {
   .measurement-target-grid,
   .management-grid,
   .survey-question-grid,
+  .bijiris-preview-grid,
   .condition-row,
   .monthly-bar-row {
     grid-template-columns: 1fr;

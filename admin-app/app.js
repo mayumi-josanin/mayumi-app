@@ -154,6 +154,56 @@ const BIJIRIS_POST_CATEGORY_OPTIONS = [
   "お知らせ",
   "よくある質問",
 ];
+const BIJIRIS_POST_TEMPLATES = [
+  {
+    id: "selfcare_breathing",
+    label: "セルフケア: 呼吸",
+    category: "セルフケア",
+    title: "骨盤底筋を意識しやすくする呼吸のコツ",
+    summary: "毎日の呼吸で骨盤底筋を意識しやすくするポイントを短くまとめます。",
+    body: [
+      "深く息を吐くときに、お腹の奥がやさしく締まる感覚を意識してみてください。",
+      "肩を上げずに、みぞおちから下がゆるやかに動く呼吸にすると続けやすくなります。",
+      "無理に力を入れすぎず、息を吐き切ることを優先すると感覚をつかみやすくなります。",
+    ].join("\n\n"),
+  },
+  {
+    id: "advice_posture",
+    label: "アドバイス: 姿勢",
+    category: "アドバイス",
+    title: "日常で姿勢を整えるときの見直しポイント",
+    summary: "立つ・座る・歩く場面で意識しやすい姿勢のポイントをまとめます。",
+    body: [
+      "座る時は腰だけで支えず、坐骨で座る意識を持つと下腹の力が入りやすくなります。",
+      "立つ時は胸を張りすぎず、あごを軽く引いて重心を真ん中に戻してみてください。",
+      "長時間同じ姿勢が続く時は、1時間に1回ほど骨盤を前後にゆるく動かすのがおすすめです。",
+    ].join("\n\n"),
+  },
+  {
+    id: "faq_ticket",
+    label: "よくある質問: 回数券",
+    category: "よくある質問",
+    title: "回数券で通う時によくあるご質問",
+    summary: "続け方や変化の見方について、よくいただく質問をまとめます。",
+    body: [
+      "体感や変化の出方には個人差がありますが、記録を見返すと小さな変化に気づきやすくなります。",
+      "写真やアンケートを残しておくと、初回との違いを比較しやすくなります。",
+      "気になることがある時は、その都度アンケートや施術時にご相談ください。",
+    ].join("\n\n"),
+  },
+  {
+    id: "notice_campaign",
+    label: "お知らせ",
+    category: "お知らせ",
+    title: "今月のお知らせ",
+    summary: "営業日やご案内内容を共有するためのテンプレートです。",
+    body: [
+      "今月のご案内内容をここに入力してください。",
+      "営業時間やご予約に関する変更がある場合もこの欄に追記できます。",
+      "必要に応じて写真やPDF資料も添付してください。",
+    ].join("\n\n"),
+  },
+];
 
 const api = window.MayumiSurveyApi;
 const state = {
@@ -887,6 +937,25 @@ function getPhotoPreviewSrc(file) {
 
 function getPhotoLightboxSrc(file) {
   return String(file?.previewUrl || file?.thumbnailUrl || file?.dataUrl || file?.url || "").trim();
+}
+
+function createPdfThumbnailDataUrl(fileName) {
+  const label = String(fileName || "PDF").trim().slice(0, 24);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="360" height="240" viewBox="0 0 360 240">
+      <rect width="360" height="240" rx="18" fill="#fbf7f2"/>
+      <rect x="20" y="20" width="320" height="200" rx="14" fill="#ffffff" stroke="#eadfd2"/>
+      <rect x="40" y="38" width="74" height="28" rx="8" fill="#c95f50"/>
+      <text x="77" y="57" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#ffffff">PDF</text>
+      <text x="40" y="102" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#5b493d">${escapeHtml(label)}</text>
+      <text x="40" y="138" font-family="Arial, sans-serif" font-size="14" fill="#866f60">資料プレビュー</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function getBijirisDocumentThumbnailSrc(file) {
+  return String(file?.thumbnailUrl || "").trim() || createPdfThumbnailDataUrl(file?.name);
 }
 
 function getPhotoFilesFromAnswer(answer) {
@@ -4828,6 +4897,118 @@ function getBijirisEditorDraft() {
   return state.bijirisEditorDraft;
 }
 
+function getBijirisTemplateById(templateId) {
+  return BIJIRIS_POST_TEMPLATES.find((template) => template.id === templateId) || null;
+}
+
+function applyBijirisTemplate(templateId) {
+  const template = getBijirisTemplateById(templateId);
+  if (!template) throw new Error("テンプレートが見つかりません。");
+  const draft = getBijirisEditorDraft();
+  draft.title = template.title;
+  draft.category = template.category;
+  draft.summary = template.summary;
+  draft.body = template.body;
+  state.bijirisEditorDraft = draft;
+}
+
+function renderAdminBijirisDocumentPreview(file, index, compact = false) {
+  const href = String(file?.downloadUrl || file?.previewUrl || file?.url || "#").trim();
+  return `
+    <a class="history-card bijiris-preview-document ${compact ? "compact" : ""}" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">
+      <img class="bijiris-preview-document-thumb" src="${escapeHtml(getBijirisDocumentThumbnailSrc(file))}" alt="${escapeHtml(file?.name || `資料${index + 1}`)}" />
+      <strong>${escapeHtml(file?.name || `資料${index + 1}`)}</strong>
+      <div class="meta">PDFを開く</div>
+    </a>
+  `;
+}
+
+function renderAdminBijirisPreviewCard(post) {
+  const publishedAt = post.publishedAt || post.updatedAt || post.createdAt || new Date().toISOString();
+  const preview = post.summary || post.body.slice(0, 90);
+  return `
+    <article class="history-card bijiris-preview-card">
+      <div class="section-head">
+        <div>
+          <strong>${escapeHtml(post.title || "タイトル未入力")}</strong>
+          <div class="meta">${escapeHtml(post.category || "豆知識")} / ${escapeHtml(formatDate(publishedAt))}</div>
+        </div>
+        <div class="action-row">
+          ${post.pinned ? `<span class="badge open">重要</span>` : ""}
+          ${post.status === "draft" ? `<span class="badge draft">下書き</span>` : ""}
+          ${post.documents.length ? `<span class="badge">PDF ${post.documents.length}</span>` : ""}
+          ${post.photos.length ? `<span class="badge draft">写真 ${post.photos.length}</span>` : ""}
+        </div>
+      </div>
+      ${preview ? `<div class="meta">${escapeHtml(preview)}</div>` : `<div class="meta">概要または本文が入ると一覧に表示されます。</div>`}
+      ${
+        post.documents.length
+          ? `<div class="bijiris-preview-document-grid compact">${post.documents.slice(0, 2).map((file, index) => renderAdminBijirisDocumentPreview(file, index, true)).join("")}</div>`
+          : ""
+      }
+    </article>
+  `;
+}
+
+function renderAdminBijirisPreviewDetail(post) {
+  return `
+    <article class="history-card bijiris-preview-detail">
+      <div class="section-head">
+        <div>
+          <strong>${escapeHtml(post.title || "タイトル未入力")}</strong>
+          <div class="meta">${escapeHtml(post.category || "豆知識")}</div>
+        </div>
+        <div class="action-row">
+          ${post.pinned ? `<span class="badge open">重要</span>` : ""}
+          <span class="badge ${escapeHtml(post.status)}">${escapeHtml(post.status === "published" ? "公開" : post.status === "archived" ? "アーカイブ" : "下書き")}</span>
+        </div>
+      </div>
+      ${post.summary ? `<div class="history-card"><strong>概要</strong><div class="survey-editor-preview-text">${escapeHtml(post.summary).replaceAll("\n", "<br />")}</div></div>` : ""}
+      <div class="history-card">
+        <strong>内容</strong>
+        <div class="survey-editor-preview-text">${post.body ? escapeHtml(post.body).replaceAll("\n", "<br />") : "本文はありません。"}</div>
+      </div>
+      <div class="history-card">
+        <strong>写真</strong>
+        ${
+          post.photos.length
+            ? `
+              <div class="history-photo-grid">
+                ${post.photos.map((file, index) => `
+                  <article class="history-photo-card">
+                    ${getPhotoPreviewSrc(file) ? `<img src="${escapeHtml(getPhotoPreviewSrc(file))}" alt="${escapeHtml(file.name || `写真${index + 1}`)}" />` : ""}
+                    <div class="history-photo-meta"><strong>${escapeHtml(file.name || `写真${index + 1}`)}</strong></div>
+                  </article>
+                `).join("")}
+              </div>
+            `
+            : `<div class="empty">写真はありません。</div>`
+        }
+      </div>
+      <div class="history-card">
+        <strong>PDF資料</strong>
+        ${
+          post.documents.length
+            ? `<div class="bijiris-preview-document-grid">${post.documents.map((file, index) => renderAdminBijirisDocumentPreview(file, index)).join("")}</div>`
+            : `<div class="empty">PDFはありません。</div>`
+        }
+      </div>
+    </article>
+  `;
+}
+
+function refreshBijirisPreview() {
+  const draft = normalizeBijirisPost(getBijirisEditorDraft());
+  const listPreview = document.querySelector("#bijirisPreviewList");
+  const detailPreview = document.querySelector("#bijirisPreviewDetail");
+  if (listPreview) {
+    listPreview.innerHTML = renderAdminBijirisPreviewCard(draft);
+  }
+  if (detailPreview) {
+    detailPreview.innerHTML = renderAdminBijirisPreviewDetail(draft);
+  }
+}
+
 function syncBijirisDraftFromForm(form) {
   if (!form) return getBijirisEditorDraft();
   const draft = getBijirisEditorDraft();
@@ -5067,6 +5248,26 @@ function renderBijirisManager() {
       </div>
       ${selectedPost ? `<button class="secondary-button danger-button" type="button" data-delete-bijiris-post="${escapeHtml(selectedPost.id)}">削除</button>` : ""}
     </div>
+    <div class="history-card bijiris-template-card">
+      <div class="survey-editor-head">
+        <div>
+          <div class="card-title">テンプレート投稿</div>
+          <div class="meta">よく使う構成を選んで本文を下書きできます。</div>
+        </div>
+      </div>
+      <div class="survey-question-grid bijiris-template-grid">
+        <label>
+          テンプレート
+          <select id="bijirisTemplateSelect">
+            <option value="">選択してください</option>
+            ${BIJIRIS_POST_TEMPLATES.map((template) => `
+              <option value="${escapeHtml(template.id)}">${escapeHtml(template.label)}</option>
+            `).join("")}
+          </select>
+        </label>
+        <button id="applyBijirisTemplateButton" class="secondary-button" type="button">テンプレートを反映</button>
+      </div>
+    </div>
     <form id="bijirisEditorForm" class="survey-editor-form" data-post-id="${escapeHtml(draft.id || "")}">
       <label>
         タイトル
@@ -5120,6 +5321,28 @@ function renderBijirisManager() {
         <button class="primary-button" type="submit">${selectedPost ? "保存" : "作成"}</button>
       </div>
     </form>
+    <article class="history-card bijiris-preview-wrapper">
+      <div class="survey-editor-head">
+        <div>
+          <div class="card-title">公開プレビュー</div>
+          <div class="meta">顧客アプリでの見え方を確認できます。</div>
+        </div>
+      </div>
+      <div class="bijiris-preview-grid">
+        <section class="bijiris-preview-column">
+          <strong>一覧プレビュー</strong>
+          <div id="bijirisPreviewList">
+            ${renderAdminBijirisPreviewCard(draft)}
+          </div>
+        </section>
+        <section class="bijiris-preview-column">
+          <strong>詳細プレビュー</strong>
+          <div id="bijirisPreviewDetail">
+            ${renderAdminBijirisPreviewDetail(draft)}
+          </div>
+        </section>
+      </div>
+    </article>
   `;
 
   createButton.onclick = () => {
@@ -5139,11 +5362,28 @@ function renderBijirisManager() {
   });
 
   const form = document.querySelector("#bijirisEditorForm");
+  document.querySelector("#applyBijirisTemplateButton")?.addEventListener("click", () => {
+    const templateId = document.querySelector("#bijirisTemplateSelect")?.value || "";
+    if (!templateId) {
+      showToast("テンプレートを選択してください。");
+      return;
+    }
+    try {
+      applyBijirisTemplate(templateId);
+      renderBijirisManager();
+      setPage("bijiris");
+      showToast("テンプレートを反映しました。");
+    } catch (error) {
+      showToast(error.message || "テンプレートを反映できませんでした。");
+    }
+  });
   form?.addEventListener("input", () => {
     syncBijirisDraftFromForm(form);
+    refreshBijirisPreview();
   });
   form?.addEventListener("change", () => {
     syncBijirisDraftFromForm(form);
+    refreshBijirisPreview();
   });
   form?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -5798,7 +6038,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-16", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-17", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

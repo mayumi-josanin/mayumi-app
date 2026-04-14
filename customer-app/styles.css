@@ -255,6 +255,10 @@ textarea {
   gap: 12px;
 }
 
+.bijiris-home-notice {
+  margin-bottom: 12px;
+}
+
 .bijiris-filter-row {
   display: flex;
   flex-wrap: wrap;
@@ -264,6 +268,10 @@ textarea {
 
 .bijiris-filter-row-secondary {
   justify-content: space-between;
+}
+
+.bijiris-toolbar-head {
+  align-items: center;
 }
 
 .bijiris-filter-chip {
@@ -294,6 +302,12 @@ textarea {
 
 .bijiris-post-head {
   align-items: center;
+}
+
+.bijiris-document-preview-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
 }
 
 .bijiris-post-open {
@@ -341,6 +355,20 @@ textarea {
 
 .bijiris-document-card {
   text-decoration: none;
+}
+
+.bijiris-document-card.compact {
+  gap: 6px;
+  padding: 10px;
+}
+
+.bijiris-document-thumb {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(136, 112, 96, 0.16);
+  background: #fff;
 }
 
 .bijiris-list-head {
@@ -750,6 +778,11 @@ textarea {
 .badge.draft {
   background: #eef2fb;
   color: #51649a;
+}
+
+.badge.info {
+  background: #edf5fb;
+  color: #38688f;
 }
 
 .draft-status-head {

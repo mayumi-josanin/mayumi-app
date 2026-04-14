@@ -3,12 +3,14 @@ const DRAFTS_KEY = "mayumi_survey_drafts";
 const PENDING_KEY = "mayumi_survey_pending_submission";
 const TICKET_CARD_OVERRIDE_KEY = "mayumi_survey_ticket_card_overrides";
 const BIJIRIS_FAVORITES_KEY = "mayumi_bijiris_favorites";
+const BIJIRIS_READER_STATE_KEY = "mayumi_bijiris_reader_state";
 const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
-const APP_VERSION = "20260414-16";
+const BIJIRIS_HISTORY_LIMIT = 8;
+const APP_VERSION = "20260414-17";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -32,6 +34,48 @@ const SESSION_CONCERN_OTHER_OPTION = "その他（長文）";
 const SESSION_LIFE_CHANGES_QUESTION_ID = "q_bijiris_session_life_changes";
 const SESSION_LIFE_CHANGES_OTHER_QUESTION_ID = "q_bijiris_session_life_changes_other";
 const TICKET_END_SURVEY_ID = "survey_bijiris_ticket_end";
+const BIJIRIS_RECOMMENDATION_TOPICS = [
+  {
+    id: "toilet",
+    answerTerms: ["トイレ", "尿", "尿もれ", "尿意", "夜中", "パッド", "くしゃみ", "咳"],
+    postTerms: ["トイレ", "尿", "尿もれ", "頻尿", "夜間", "尿意", "咳", "くしゃみ", "パッド"],
+  },
+  {
+    id: "pelvic",
+    answerTerms: ["骨盤", "骨盤底筋", "体幹", "インナーマッスル", "内側", "締める感覚"],
+    postTerms: ["骨盤", "骨盤底筋", "体幹", "インナー", "内側", "支える力"],
+  },
+  {
+    id: "belly",
+    answerTerms: ["お腹", "下腹", "便秘", "便通", "ぽっこり"],
+    postTerms: ["お腹", "下腹", "便秘", "便通", "腹圧", "ぽっこり"],
+  },
+  {
+    id: "posture",
+    answerTerms: ["姿勢", "猫背", "反り腰", "立ち姿", "歩き方"],
+    postTerms: ["姿勢", "猫背", "反り腰", "立ち方", "歩き方"],
+  },
+  {
+    id: "lower-body",
+    answerTerms: ["下半身", "股関節", "お尻", "ヒップ", "太もも", "腰"],
+    postTerms: ["下半身", "股関節", "お尻", "ヒップ", "太もも", "腰"],
+  },
+  {
+    id: "postpartum-aging",
+    answerTerms: ["産後", "出産後", "年齢", "更年期", "予防", "将来"],
+    postTerms: ["産後", "出産後", "年齢", "更年期", "予防", "将来"],
+  },
+  {
+    id: "daily-life",
+    answerTerms: ["外出", "旅行", "移動", "会議", "授業", "運動", "抱っこ", "日常"],
+    postTerms: ["外出", "旅行", "移動", "会議", "授業", "運動", "抱っこ", "日常"],
+  },
+  {
+    id: "self-care",
+    answerTerms: ["セルフケア", "呼吸", "ストレッチ", "整える"],
+    postTerms: ["セルフケア", "呼吸", "ストレッチ", "整える", "ホームケア"],
+  },
+];
 const LEGACY_TICKET_INFO_QUESTION_IDS = {
   size: "q_ticket_end_ticket_size",
   sheet: "q_ticket_end_ticket_sheet",
@@ -180,6 +224,7 @@ const appState = {
   pendingSubmission: loadLocal(PENDING_KEY, null),
   ticketCardOverride: normalizeActiveTicketCardOverride(loadLocal(TICKET_CARD_OVERRIDE_KEY, null)),
   bijirisFavoritesByCustomer: loadLocal(BIJIRIS_FAVORITES_KEY, {}),
+  bijirisReaderStateByCustomer: loadLocal(BIJIRIS_READER_STATE_KEY, {}),
   surveys: [],
   history: [],
   measurements: [],
@@ -203,7 +248,9 @@ const appState = {
   historyLoadError: "",
   selectedBijirisPostId: "",
   selectedBijirisCategory: "all",
+  bijirisSearchQuery: "",
   showFavoriteBijirisOnly: false,
+  showReadLaterBijirisOnly: false,
   bijirisLoading: false,
   bijirisLoadError: "",
   concernCategoryByQuestion: {},
@@ -1376,6 +1423,219 @@ function toggleBijirisFavorite(postId) {
   showToast(alreadySaved ? "お気に入りを解除しました。" : "お気に入りに保存しました。");
 }
 
+function createEmptyBijirisReaderState() {
+  return {
+    readIds: [],
+    readLaterIds: [],
+    historyIds: [],
+  };
+}
+
+function getBijirisReaderStateProfileKey(customer = appState.customer) {
+  return getBijirisFavoriteProfileKey(customer);
+}
+
+function getBijirisReaderState() {
+  const profileKey = getBijirisReaderStateProfileKey();
+  if (!profileKey) return createEmptyBijirisReaderState();
+  const saved = appState.bijirisReaderStateByCustomer?.[profileKey];
+  return {
+    readIds: Array.isArray(saved?.readIds) ? saved.readIds.map((value) => normalizeText(value)).filter(Boolean) : [],
+    readLaterIds: Array.isArray(saved?.readLaterIds) ? saved.readLaterIds.map((value) => normalizeText(value)).filter(Boolean) : [],
+    historyIds: Array.isArray(saved?.historyIds) ? saved.historyIds.map((value) => normalizeText(value)).filter(Boolean) : [],
+  };
+}
+
+function saveBijirisReaderState(nextState) {
+  const profileKey = getBijirisReaderStateProfileKey();
+  if (!profileKey) return;
+  const normalized = {
+    readIds: Array.from(new Set((Array.isArray(nextState?.readIds) ? nextState.readIds : []).map((value) => normalizeText(value)).filter(Boolean))),
+    readLaterIds: Array.from(new Set((Array.isArray(nextState?.readLaterIds) ? nextState.readLaterIds : []).map((value) => normalizeText(value)).filter(Boolean))),
+    historyIds: Array.from(new Set((Array.isArray(nextState?.historyIds) ? nextState.historyIds : []).map((value) => normalizeText(value)).filter(Boolean))).slice(0, BIJIRIS_HISTORY_LIMIT),
+  };
+  const nextMap = {
+    ...(appState.bijirisReaderStateByCustomer && typeof appState.bijirisReaderStateByCustomer === "object"
+      ? appState.bijirisReaderStateByCustomer
+      : {}),
+    [profileKey]: normalized,
+  };
+  appState.bijirisReaderStateByCustomer = nextMap;
+  saveLocal(BIJIRIS_READER_STATE_KEY, nextMap);
+}
+
+function isBijirisRead(postId) {
+  return getBijirisReaderState().readIds.includes(normalizeText(postId));
+}
+
+function isBijirisReadLater(postId) {
+  return getBijirisReaderState().readLaterIds.includes(normalizeText(postId));
+}
+
+function toggleBijirisReadLater(postId) {
+  const normalizedId = normalizeText(postId);
+  if (!normalizedId || !hasCustomerSession()) return;
+  const nextState = getBijirisReaderState();
+  const current = new Set(nextState.readLaterIds);
+  const alreadySaved = current.has(normalizedId);
+  if (alreadySaved) current.delete(normalizedId);
+  else current.add(normalizedId);
+  nextState.readLaterIds = Array.from(current);
+  saveBijirisReaderState(nextState);
+  renderBijirisPosts();
+  showToast(alreadySaved ? "あとで読むを解除しました。" : "あとで読むに保存しました。");
+}
+
+function recordBijirisView(postId) {
+  const normalizedId = normalizeText(postId);
+  if (!normalizedId || !hasCustomerSession()) return;
+  const nextState = getBijirisReaderState();
+  const readIds = new Set(nextState.readIds);
+  readIds.add(normalizedId);
+  nextState.readIds = Array.from(readIds);
+  nextState.historyIds = [normalizedId]
+    .concat(nextState.historyIds.filter((value) => value !== normalizedId))
+    .slice(0, BIJIRIS_HISTORY_LIMIT);
+  saveBijirisReaderState(nextState);
+}
+
+function getBijirisRecentHistoryPosts() {
+  const historyIds = getBijirisReaderState().historyIds;
+  if (!historyIds.length) return [];
+  const postMap = new Map(appState.bijirisPosts.map((post) => [post.id, post]));
+  return historyIds.map((id) => postMap.get(id)).filter(Boolean);
+}
+
+function getUnreadBijirisPosts() {
+  return sortBijirisPosts(appState.bijirisPosts).filter((post) => !isBijirisRead(post.id));
+}
+
+function getNewUnreadBijirisPosts() {
+  return getUnreadBijirisPosts().filter((post) => isBijirisPostNew(post));
+}
+
+function getBijirisSearchSource(post) {
+  return [
+    post?.title,
+    post?.category,
+    post?.summary,
+    post?.body,
+    ...(Array.isArray(post?.documents) ? post.documents.map((file) => file.name) : []),
+    ...(Array.isArray(post?.photos) ? post.photos.map((file) => file.name) : []),
+  ]
+    .map((value) => normalizeText(value))
+    .filter(Boolean)
+    .join("\n")
+    .toLocaleLowerCase();
+}
+
+function getAnswerValueTokens(value) {
+  return normalizeText(value)
+    .split(/\s*,\s*|\n+/)
+    .map((item) => normalizeText(item))
+    .filter(Boolean);
+}
+
+function collectCustomerInterestTopics() {
+  const matchedTopics = new Set();
+  getVisibleHistoryResponses().forEach((response) => {
+    (Array.isArray(response?.answers) ? response.answers : []).forEach((answer) => {
+      const value = normalizeText(answer?.value);
+      if (!value) return;
+      BIJIRIS_RECOMMENDATION_TOPICS.forEach((topic) => {
+        if (topic.answerTerms.some((term) => value.includes(term))) {
+          matchedTopics.add(topic.id);
+        }
+      });
+    });
+  });
+  return Array.from(matchedTopics);
+}
+
+function getPostTopicIds(post) {
+  const source = getBijirisSearchSource(post);
+  return BIJIRIS_RECOMMENDATION_TOPICS
+    .filter((topic) => topic.postTerms.some((term) => source.includes(term)))
+    .map((topic) => topic.id);
+}
+
+function scoreBijirisPostForTopics(post, topicIds) {
+  if (!topicIds.length) return 0;
+  const source = getBijirisSearchSource(post);
+  let score = 0;
+  topicIds.forEach((topicId) => {
+    const topic = BIJIRIS_RECOMMENDATION_TOPICS.find((item) => item.id === topicId);
+    if (!topic) return;
+    if (topic.postTerms.some((term) => source.includes(term))) {
+      score += 3;
+    }
+  });
+  return score;
+}
+
+function getRecommendedBijirisPosts(limit = 3, excludeIds = []) {
+  const exclude = new Set((Array.isArray(excludeIds) ? excludeIds : []).map((value) => normalizeText(value)).filter(Boolean));
+  const topics = collectCustomerInterestTopics();
+  const scored = sortBijirisPosts(appState.bijirisPosts)
+    .filter((post) => !exclude.has(post.id))
+    .map((post) => ({
+      post,
+      score: scoreBijirisPostForTopics(post, topics),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (Boolean(b.post?.pinned) !== Boolean(a.post?.pinned)) return b.post?.pinned ? 1 : -1;
+      return new Date(b.post?.publishedAt || b.post?.updatedAt || 0) - new Date(a.post?.publishedAt || a.post?.updatedAt || 0);
+    })
+    .map((entry) => entry.post);
+  if (scored.length) return scored.slice(0, limit);
+  return sortBijirisPosts(appState.bijirisPosts)
+    .filter((post) => !exclude.has(post.id))
+    .slice(0, limit);
+}
+
+function getRelatedBijirisPosts(post, limit = 3) {
+  const baseTopics = new Set(getPostTopicIds(post));
+  return sortBijirisPosts(appState.bijirisPosts)
+    .filter((item) => item.id !== post.id)
+    .map((item) => {
+      let score = 0;
+      if (normalizeText(item.category) && normalizeText(item.category) === normalizeText(post.category)) {
+        score += 3;
+      }
+      const sharedTopics = getPostTopicIds(item).filter((topicId) => baseTopics.has(topicId)).length;
+      score += sharedTopics * 2;
+      return { post: item, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return new Date(b.post?.publishedAt || b.post?.updatedAt || 0) - new Date(a.post?.publishedAt || a.post?.updatedAt || 0);
+    })
+    .slice(0, limit)
+    .map((entry) => entry.post);
+}
+
+function createPdfThumbnailDataUrl(fileName) {
+  const label = normalizeText(fileName || "PDF").slice(0, 24);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="360" height="240" viewBox="0 0 360 240">
+      <rect width="360" height="240" rx="18" fill="#fbf7f2"/>
+      <rect x="20" y="20" width="320" height="200" rx="14" fill="#ffffff" stroke="#eadfd2"/>
+      <rect x="40" y="38" width="74" height="28" rx="8" fill="#c95f50"/>
+      <text x="77" y="57" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#ffffff">PDF</text>
+      <text x="40" y="102" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#5b493d">${escapeHtml(label)}</text>
+      <text x="40" y="138" font-family="Arial, sans-serif" font-size="14" fill="#866f60">資料を開いて確認できます</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function getBijirisDocumentThumbnailSrc(file) {
+  return normalizeText(file?.thumbnailUrl) || createPdfThumbnailDataUrl(file?.name);
+}
+
 function sortBijirisPosts(posts) {
   return posts.slice().sort((a, b) => {
     if (Boolean(b?.pinned) !== Boolean(a?.pinned)) {
@@ -1413,6 +1673,10 @@ function getFilteredBijirisPosts() {
     appState.selectedBijirisCategory = "all";
   }
   let posts = sortBijirisPosts(appState.bijirisPosts);
+  const searchQuery = normalizeText(appState.bijirisSearchQuery).toLocaleLowerCase();
+  if (searchQuery) {
+    posts = posts.filter((post) => getBijirisSearchSource(post).includes(searchQuery));
+  }
   if (appState.selectedBijirisCategory !== "all") {
     posts = posts.filter((post) => normalizeText(post.category) === appState.selectedBijirisCategory);
   }
@@ -1420,11 +1684,16 @@ function getFilteredBijirisPosts() {
     const favoriteIds = getBijirisFavoriteIds();
     posts = posts.filter((post) => favoriteIds.has(post.id));
   }
+  if (appState.showReadLaterBijirisOnly) {
+    const readLaterIds = new Set(getBijirisReaderState().readLaterIds);
+    posts = posts.filter((post) => readLaterIds.has(post.id));
+  }
   return posts;
 }
 
 function renderBijirisBadges(post) {
   return `
+    ${!isBijirisRead(post.id) ? `<span class="badge info">未読</span>` : ""}
     ${post.pinned ? `<span class="badge closed">重要</span>` : ""}
     ${isBijirisPostNew(post) ? `<span class="badge warn">新着</span>` : ""}
     ${post.photos.length ? `<span class="badge draft">写真 ${post.photos.length}</span>` : ""}
@@ -1432,11 +1701,55 @@ function renderBijirisBadges(post) {
   `;
 }
 
+function renderBijirisHomeNotice() {
+  if (!hasCustomerSession() || !appState.bijirisPosts.length) return "";
+  const unreadCount = getUnreadBijirisPosts().length;
+  const newUnreadCount = getNewUnreadBijirisPosts().length;
+  const readLaterCount = getBijirisReaderState().readLaterIds.length;
+  if (!unreadCount && !newUnreadCount && !readLaterCount) return "";
+  return `
+    <article class="history-card bijiris-home-notice">
+      <div class="section-head">
+        <div>
+          <strong>豆知識のお知らせ</strong>
+          <div class="meta">
+            ${
+              newUnreadCount
+                ? `新着 ${newUnreadCount}件 / 未読 ${unreadCount}件`
+                : `未読 ${unreadCount}件`
+            }
+            ${readLaterCount ? ` / あとで読む ${readLaterCount}件` : ""}
+          </div>
+        </div>
+        <button class="ghost-button" type="button" data-open-bijiris-home>豆知識を見る</button>
+      </div>
+    </article>
+  `;
+}
+
 function renderBijirisToolbar() {
   const categories = getBijirisCategories(appState.bijirisPosts);
   const favoriteCount = sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id)).length;
+  const readerState = getBijirisReaderState();
+  const unreadCount = getUnreadBijirisPosts().length;
+  const newUnreadCount = getNewUnreadBijirisPosts().length;
   return `
     <div class="history-card bijiris-toolbar-card">
+      <div class="section-head bijiris-toolbar-head">
+        <div>
+          <strong>探す</strong>
+          <div class="meta">新着 ${newUnreadCount}件 / 未読 ${unreadCount}件 / あとで読む ${readerState.readLaterIds.length}件</div>
+        </div>
+      </div>
+      <label>
+        キーワード検索
+        <input
+          id="bijirisSearchInput"
+          type="search"
+          placeholder="例: 尿もれ / 骨盤底筋 / 産後 / 姿勢"
+          value="${escapeHtml(appState.bijirisSearchQuery)}"
+        />
+      </label>
       <div class="bijiris-filter-row">
         <button class="bijiris-filter-chip ${appState.selectedBijirisCategory === "all" ? "active" : ""}" type="button" data-bijiris-category="all">すべて</button>
         ${categories
@@ -1455,7 +1768,10 @@ function renderBijirisToolbar() {
         <button class="bijiris-filter-chip ${appState.showFavoriteBijirisOnly ? "active" : ""}" type="button" data-bijiris-favorite-filter>
           ${appState.showFavoriteBijirisOnly ? "お気に入りのみ表示中" : "お気に入りのみ"}
         </button>
-        <span class="meta">保存済み ${favoriteCount}件</span>
+        <button class="bijiris-filter-chip ${appState.showReadLaterBijirisOnly ? "active" : ""}" type="button" data-bijiris-read-later-filter>
+          ${appState.showReadLaterBijirisOnly ? "あとで読むのみ表示中" : "あとで読むのみ"}
+        </button>
+        <span class="meta">お気に入り ${favoriteCount}件 / あとで読む ${readerState.readLaterIds.length}件</span>
       </div>
     </div>
   `;
@@ -1470,10 +1786,28 @@ function renderMultilineText(text) {
     .join("");
 }
 
+function renderBijirisDocumentPreview(file, index, compact = false) {
+  const href = getPhotoOpenHref(file);
+  const thumbnail = getBijirisDocumentThumbnailSrc(file);
+  return `
+    <a
+      class="history-card bijiris-document-card ${compact ? "compact" : ""}"
+      href="${escapeHtml(href)}"
+      target="_blank"
+      rel="noreferrer"
+    >
+      <img class="bijiris-document-thumb" src="${escapeHtml(thumbnail)}" alt="${escapeHtml(file.name || `資料${index + 1}`)}" />
+      <strong>${escapeHtml(file.name || `資料${index + 1}`)}</strong>
+      <div class="meta">PDFを開く</div>
+    </a>
+  `;
+}
+
 function renderBijirisPostCard(post) {
   const publishedAt = post.publishedAt || post.updatedAt || post.createdAt;
   const preview = post.summary || post.body.slice(0, 90);
   const favoriteSaved = isBijirisFavorite(post.id);
+  const readLaterSaved = isBijirisReadLater(post.id);
   return `
     <article class="history-card bijiris-post-card ${post.pinned ? "is-pinned" : ""}">
       <div class="section-head bijiris-post-head">
@@ -1481,18 +1815,32 @@ function renderBijirisPostCard(post) {
           <strong>${escapeHtml(post.title)}</strong>
           <div class="meta">${escapeHtml(post.category || "豆知識")} / ${escapeHtml(formatDate(publishedAt))}</div>
         </div>
-        <button
-          class="ghost-button bijiris-favorite-button ${favoriteSaved ? "active" : ""}"
-          type="button"
-          data-toggle-bijiris-favorite="${escapeHtml(post.id)}"
-        >
-          ${favoriteSaved ? "保存済み" : "お気に入り"}
-        </button>
+        <div class="action-row">
+          <button
+            class="ghost-button bijiris-favorite-button ${favoriteSaved ? "active" : ""}"
+            type="button"
+            data-toggle-bijiris-favorite="${escapeHtml(post.id)}"
+          >
+            ${favoriteSaved ? "保存済み" : "お気に入り"}
+          </button>
+          <button
+            class="ghost-button bijiris-favorite-button ${readLaterSaved ? "active" : ""}"
+            type="button"
+            data-toggle-bijiris-read-later="${escapeHtml(post.id)}"
+          >
+            ${readLaterSaved ? "あとで読む済み" : "あとで読む"}
+          </button>
+        </div>
       </div>
       <div class="action-row">${renderBijirisBadges(post)}</div>
       <button class="bijiris-post-open" type="button" data-open-bijiris-post="${escapeHtml(post.id)}">
         ${preview ? `<div class="meta bijiris-post-preview">${escapeHtml(preview)}</div>` : `<div class="meta">本文は詳細で確認できます。</div>`}
       </button>
+      ${
+        post.documents.length
+          ? `<div class="bijiris-document-preview-strip">${post.documents.slice(0, 2).map((file, index) => renderBijirisDocumentPreview(file, index, true)).join("")}</div>`
+          : ""
+      }
     </article>
   `;
 }
@@ -1500,6 +1848,8 @@ function renderBijirisPostCard(post) {
 function renderBijirisPostDetail(post) {
   const publishedAt = post.publishedAt || post.updatedAt || post.createdAt;
   const favoriteSaved = isBijirisFavorite(post.id);
+  const readLaterSaved = isBijirisReadLater(post.id);
+  const relatedPosts = getRelatedBijirisPosts(post, 3);
   return `
     <div class="section-head">
       <div>
@@ -1514,6 +1864,13 @@ function renderBijirisPostDetail(post) {
           data-toggle-bijiris-favorite="${escapeHtml(post.id)}"
         >
           ${favoriteSaved ? "保存済み" : "お気に入り"}
+        </button>
+        <button
+          class="ghost-button bijiris-favorite-button ${readLaterSaved ? "active" : ""}"
+          type="button"
+          data-toggle-bijiris-read-later="${escapeHtml(post.id)}"
+        >
+          ${readLaterSaved ? "あとで読む済み" : "あとで読む"}
         </button>
         <button class="ghost-button" type="button" data-back-bijiris-list>戻る</button>
       </div>
@@ -1554,19 +1911,25 @@ function renderBijirisPostDetail(post) {
         post.documents.length
           ? `
             <div class="bijiris-document-list">
-              ${post.documents
-                .map((file, index) => `
-                  <a class="history-card bijiris-document-card" href="${escapeHtml(getPhotoOpenHref(file))}" target="_blank" rel="noreferrer">
-                    <strong>${escapeHtml(file.name || `資料${index + 1}`)}</strong>
-                    <div class="meta">PDFを開く</div>
-                  </a>
-                `)
-                .join("")}
+              ${post.documents.map((file, index) => renderBijirisDocumentPreview(file, index)).join("")}
             </div>
           `
           : `<div class="empty">PDF資料はありません。</div>`
       }
     </article>
+    ${
+      relatedPosts.length
+        ? `
+          <article class="history-card">
+            <strong>関連する豆知識</strong>
+            <div class="meta">近いテーマの記事を表示しています。</div>
+            <div class="bijiris-panel">
+              ${relatedPosts.map(renderBijirisPostCard).join("")}
+            </div>
+          </article>
+        `
+        : ""
+    }
   `;
 }
 
@@ -1578,9 +1941,18 @@ function attachBijirisPostActions() {
       toggleBijirisFavorite(button.dataset.toggleBijirisFavorite || "");
     });
   });
+  bijirisPanel.querySelectorAll("[data-toggle-bijiris-read-later]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleBijirisReadLater(button.dataset.toggleBijirisReadLater || "");
+    });
+  });
   bijirisPanel.querySelectorAll("[data-open-bijiris-post]").forEach((button) => {
     button.addEventListener("click", () => {
       appState.selectedBijirisPostId = button.dataset.openBijirisPost || "";
+      recordBijirisView(appState.selectedBijirisPostId);
+      renderSurveys();
       renderBijirisPosts();
       window.scrollTo({ top: 0, behavior: "auto" });
     });
@@ -1591,8 +1963,22 @@ function attachBijirisPostActions() {
       renderBijirisPosts();
     });
   });
+  bijirisPanel.querySelector("#bijirisSearchInput")?.addEventListener("input", (event) => {
+    const nextQuery = normalizeText(event.currentTarget.value);
+    appState.bijirisSearchQuery = nextQuery;
+    renderBijirisPosts();
+    const input = bijirisPanel.querySelector("#bijirisSearchInput");
+    input?.focus();
+    if (typeof input?.setSelectionRange === "function") {
+      input.setSelectionRange(nextQuery.length, nextQuery.length);
+    }
+  });
   bijirisPanel.querySelector("[data-bijiris-favorite-filter]")?.addEventListener("click", () => {
     appState.showFavoriteBijirisOnly = !appState.showFavoriteBijirisOnly;
+    renderBijirisPosts();
+  });
+  bijirisPanel.querySelector("[data-bijiris-read-later-filter]")?.addEventListener("click", () => {
+    appState.showReadLaterBijirisOnly = !appState.showReadLaterBijirisOnly;
     renderBijirisPosts();
   });
 }
@@ -1616,6 +2002,7 @@ function renderBijirisPosts() {
     appState.selectedBijirisPostId = "";
   }
   if (selectedPost) {
+    recordBijirisView(selectedPost.id);
     bijirisPanel.innerHTML = `
       ${appState.bijirisLoadError ? `<div class="meta">更新に失敗したため前回取得内容を表示しています。</div>` : ""}
       ${renderBijirisPostDetail(selectedPost)}
@@ -1628,17 +2015,78 @@ function renderBijirisPosts() {
     return;
   }
   const visiblePosts = getFilteredBijirisPosts();
+  const hasFocusFilter = Boolean(
+    normalizeText(appState.bijirisSearchQuery) ||
+    appState.selectedBijirisCategory !== "all" ||
+    appState.showFavoriteBijirisOnly ||
+    appState.showReadLaterBijirisOnly,
+  );
   const pinnedPosts = visiblePosts.filter((post) => post.pinned);
   const regularPosts = visiblePosts.filter((post) => !post.pinned);
+  const recommendedPosts = hasFocusFilter ? [] : getRecommendedBijirisPosts(3);
+  const readLaterPosts = hasFocusFilter
+    ? []
+    : sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisReadLater(post.id)).slice(0, 3);
+  const recentPosts = hasFocusFilter ? [] : getBijirisRecentHistoryPosts().slice(0, 3);
   const emptyMessage = appState.showFavoriteBijirisOnly
     ? "お気に入りの投稿はまだありません。"
+    : appState.showReadLaterBijirisOnly
+      ? "あとで読むの投稿はまだありません。"
     : appState.selectedBijirisCategory !== "all"
-      ? `${escapeHtml(appState.selectedBijirisCategory)} の投稿はまだありません。`
-      : "まだ豆知識の投稿はありません。";
+      ? `${appState.selectedBijirisCategory} の投稿はまだありません。`
+      : normalizeText(appState.bijirisSearchQuery)
+        ? "検索条件に合う投稿はありません。"
+        : "まだ豆知識の投稿はありません。";
   bijirisPanel.innerHTML = `
     ${appState.bijirisLoadError ? `<div class="meta">更新に失敗したため前回取得内容を表示しています。</div>` : ""}
+    ${getNewUnreadBijirisPosts().length ? `<article class="history-card bijiris-home-notice"><strong>新着のお知らせ</strong><div class="meta">新着 ${getNewUnreadBijirisPosts().length}件 / 未読 ${getUnreadBijirisPosts().length}件</div></article>` : ""}
     ${renderBijirisToolbar()}
     <div class="history-group-list">
+      ${
+        recommendedPosts.length
+          ? `
+            <section class="bijiris-list-section">
+              <div class="bijiris-list-head">
+                <strong>あなたへのおすすめ</strong>
+                <span class="meta">回答履歴に近い内容</span>
+              </div>
+              <div class="bijiris-panel">
+                ${recommendedPosts.map(renderBijirisPostCard).join("")}
+              </div>
+            </section>
+          `
+          : ""
+      }
+      ${
+        readLaterPosts.length
+          ? `
+            <section class="bijiris-list-section">
+              <div class="bijiris-list-head">
+                <strong>あとで読む</strong>
+                <span class="meta">${readLaterPosts.length}件</span>
+              </div>
+              <div class="bijiris-panel">
+                ${readLaterPosts.map(renderBijirisPostCard).join("")}
+              </div>
+            </section>
+          `
+          : ""
+      }
+      ${
+        recentPosts.length
+          ? `
+            <section class="bijiris-list-section">
+              <div class="bijiris-list-head">
+                <strong>最近見た記事</strong>
+                <span class="meta">${recentPosts.length}件</span>
+              </div>
+              <div class="bijiris-panel">
+                ${recentPosts.map(renderBijirisPostCard).join("")}
+              </div>
+            </section>
+          `
+          : ""
+      }
       ${
         pinnedPosts.length
           ? `
@@ -1687,11 +2135,13 @@ async function loadBijirisPosts() {
       : [];
     appState.bijirisLoading = false;
     appState.bijirisLoadError = "";
+    renderSurveys();
     renderBijirisPosts();
   } catch (error) {
     appState.bijirisLoading = false;
     appState.bijirisLoadError = error.message || "豆知識を読み込めませんでした。";
     reportClientError("customer.loadBijirisPosts", error);
+    renderSurveys();
     renderBijirisPosts();
   }
 }
@@ -1727,8 +2177,12 @@ async function loadHistory() {
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
+    renderSurveys();
     renderHistory();
     renderMeasurements();
+    if (document.querySelector("#page-bijiris")?.classList.contains("active")) {
+      renderBijirisPosts();
+    }
     if (
       appState.selectedSurveyId === SESSION_SURVEY_ID &&
       getSessionTypeSelection(SESSION_SURVEY_ID) === "回数券" &&
@@ -1858,13 +2312,17 @@ function selectSurvey(surveyId) {
 
 function renderSurveys() {
   if (!appState.surveys.length) {
-    surveyList.innerHTML = `${renderPendingNotice()}<div class="empty">現在回答できるアンケートはありません。</div>`;
+    surveyList.innerHTML = `${renderPendingNotice()}${renderBijirisHomeNotice()}<div class="empty">現在回答できるアンケートはありません。</div>`;
+    document.querySelector("[data-open-bijiris-home]")?.addEventListener("click", () => {
+      setPage("bijiris");
+    });
     attachCommonButtons();
     return;
   }
 
   surveyList.innerHTML = `
     ${renderPendingNotice()}
+    ${renderBijirisHomeNotice()}
     ${appState.surveys
       .map((survey) => {
         const availability = getSurveyAvailability(survey);
@@ -1899,6 +2357,9 @@ function renderSurveys() {
     button.addEventListener("click", () => {
       selectSurvey(button.dataset.surveyId);
     });
+  });
+  document.querySelector("[data-open-bijiris-home]")?.addEventListener("click", () => {
+    setPage("bijiris");
   });
 
   attachCommonButtons();
@@ -4250,7 +4711,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-16", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-17", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
