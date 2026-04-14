@@ -110,6 +110,7 @@ function seedDb() {
     surveys: makeDefaultSurveys(now()),
     responses: [],
     measurements: [],
+    bijirisPosts: [],
     settings: {
       adminUsername: ADMIN_USERNAME,
       adminPassword: ADMIN_PASSWORD,
@@ -146,6 +147,7 @@ function buildAdminInfo(db) {
     masterSheetName: "data/db.json",
     photoRootFolderName: "ローカル確認",
     photoRootFolderUrl: "",
+    bijirisPostsFolderUrl: "",
   };
 }
 
@@ -170,6 +172,7 @@ async function syncDefaultSurveys() {
 
   db.surveys = makeDefaultSurveys(now());
   db.responses = Array.isArray(db.responses) ? db.responses : [];
+  db.bijirisPosts = Array.isArray(db.bijirisPosts) ? db.bijirisPosts : [];
   await fs.writeFile(DB_FILE, `${JSON.stringify(db, null, 2)}\n`);
 }
 
@@ -187,7 +190,12 @@ async function ensureDb() {
 async function readDb() {
   await ensureDb();
   const raw = await fs.readFile(DB_FILE, "utf8");
-  return JSON.parse(raw);
+  const db = JSON.parse(raw);
+  db.surveys = Array.isArray(db.surveys) ? db.surveys : [];
+  db.responses = Array.isArray(db.responses) ? db.responses : [];
+  db.measurements = Array.isArray(db.measurements) ? db.measurements : [];
+  db.bijirisPosts = Array.isArray(db.bijirisPosts) ? db.bijirisPosts : [];
+  return db;
 }
 
 async function writeDb(db) {
@@ -229,6 +237,81 @@ function normalizeEmail(value) {
 
 function normalizeResponseStatus(status) {
   return ["new", "checked", "done"].includes(status) ? status : "new";
+}
+
+function normalizeBijirisPostStatus(status) {
+  return ["published", "draft", "archived"].includes(normalizeText(status))
+    ? normalizeText(status)
+    : "draft";
+}
+
+function normalizeBijirisPostFile(file, kind = "photo", index = 0) {
+  const name = normalizeText(file?.name) || (kind === "pdf" ? `資料${index + 1}.pdf` : `写真${index + 1}.jpg`);
+  if (kind === "pdf") {
+    const base64Data = normalizeText(file?.base64Data);
+    const dataUrl = /^data:application\/pdf;base64,/i.test(String(file?.url || ""))
+      ? String(file.url)
+      : base64Data
+        ? `data:application/pdf;base64,${base64Data}`
+        : "";
+    const url = normalizeText(file?.url) || dataUrl;
+    if (!url) return null;
+    return {
+      kind,
+      name,
+      type: "application/pdf",
+      fileId: normalizeText(file?.fileId),
+      url,
+      previewUrl: normalizeText(file?.previewUrl) || url,
+      downloadUrl: normalizeText(file?.downloadUrl) || url,
+      thumbnailUrl: normalizeText(file?.thumbnailUrl),
+    };
+  }
+  const dataUrl = String(file?.dataUrl || file?.url || "");
+  if (!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(dataUrl)) return null;
+  return {
+    kind,
+    name,
+    type: normalizeText(file?.type) || "image/jpeg",
+    fileId: normalizeText(file?.fileId),
+    url: normalizeText(file?.url) || dataUrl,
+    previewUrl: normalizeText(file?.previewUrl) || dataUrl,
+    downloadUrl: normalizeText(file?.downloadUrl) || dataUrl,
+    thumbnailUrl: normalizeText(file?.thumbnailUrl) || dataUrl,
+  };
+}
+
+function validateBijirisPostPayload(payload, existing) {
+  const title = normalizeText(payload?.title);
+  if (!title) throw new Error("タイトルを入力してください。");
+  const summary = normalizeText(payload?.summary);
+  const body = normalizeText(payload?.body);
+  const photos = (Array.isArray(payload?.photos) ? payload.photos : [])
+    .map((file, index) => normalizeBijirisPostFile(file, "photo", index))
+    .filter(Boolean);
+  const documents = (Array.isArray(payload?.documents) ? payload.documents : [])
+    .map((file, index) => normalizeBijirisPostFile(file, "pdf", index))
+    .filter(Boolean);
+  if (!summary && !body && !photos.length && !documents.length) {
+    throw new Error("本文、要約、写真、PDF のいずれかを入力してください。");
+  }
+  return {
+    id: existing?.id || normalizeText(payload?.id) || id("bijiris"),
+    title,
+    category: normalizeText(payload?.category) || "豆知識",
+    summary,
+    body,
+    status: normalizeBijirisPostStatus(payload?.status),
+    pinned: payload?.pinned === true,
+    createdAt: existing?.createdAt || now(),
+    updatedAt: now(),
+    publishedAt:
+      normalizeBijirisPostStatus(payload?.status) === "published"
+        ? normalizeText(payload?.publishedAt) || existing?.publishedAt || now()
+        : existing?.publishedAt || "",
+    photos,
+    documents,
+  };
 }
 
 function isChoiceType(type) {
@@ -605,6 +688,18 @@ async function handleApi(req, res, pathname, searchParams) {
       return;
     }
 
+    if (req.method === "GET" && pathname === "/api/public/bijiris-posts") {
+      const db = await readDb();
+      const posts = db.bijirisPosts
+        .filter((post) => normalizeBijirisPostStatus(post.status) === "published")
+        .sort((a, b) => {
+          if (Boolean(b?.pinned) !== Boolean(a?.pinned)) return b?.pinned ? 1 : -1;
+          return new Date(b?.publishedAt || b?.updatedAt || 0) - new Date(a?.publishedAt || a?.updatedAt || 0);
+        });
+      sendJson(res, 200, { posts });
+      return;
+    }
+
     if (req.method === "GET" && pathname === "/api/public/responses") {
       const name = normalizeText(searchParams.get("name"));
       const db = await readDb();
@@ -663,6 +758,23 @@ async function handleApi(req, res, pathname, searchParams) {
       return;
     }
 
+    if (req.method === "GET" && pathname === "/api/admin/bijiris-posts") {
+      const db = await readDb();
+      sendJson(res, 200, { posts: db.bijirisPosts });
+      return;
+    }
+
+    if (req.method === "POST" && pathname === "/api/admin/bijiris-posts") {
+      const payload = await readBody(req);
+      const result = await updateDb((db) => {
+        const post = validateBijirisPostPayload(payload);
+        db.bijirisPosts.unshift(post);
+        return { post };
+      });
+      sendJson(res, 201, result);
+      return;
+    }
+
     if (req.method === "POST" && pathname === "/api/admin/surveys") {
       const payload = await readBody(req);
       const result = await updateDb((db) => {
@@ -694,6 +806,45 @@ async function handleApi(req, res, pathname, searchParams) {
         const before = db.surveys.length;
         db.surveys = db.surveys.filter((survey) => survey.id !== surveyId);
         if (db.surveys.length === before) throw new Error("アンケートが見つかりません。");
+        return { ok: true };
+      });
+      sendJson(res, 200, result);
+      return;
+    }
+
+    if (req.method === "POST" && pathname === "/api/admin/bijiris-posts/replace") {
+      const payload = await readBody(req);
+      const result = await updateDb((db) => {
+        const posts = Array.isArray(payload.posts) ? payload.posts : [];
+        db.bijirisPosts = posts
+          .map((post) => validateBijirisPostPayload(post, post))
+          .filter(Boolean);
+        return { posts: db.bijirisPosts };
+      });
+      sendJson(res, 200, result);
+      return;
+    }
+
+    if (req.method === "PUT" && pathname.startsWith("/api/admin/bijiris-posts/")) {
+      const postId = getRouteId(pathname, "/api/admin/bijiris-posts/");
+      const payload = await readBody(req);
+      const result = await updateDb((db) => {
+        const existing = db.bijirisPosts.find((post) => post.id === postId);
+        if (!existing) throw new Error("投稿が見つかりません。");
+        const post = validateBijirisPostPayload(payload, existing);
+        db.bijirisPosts = db.bijirisPosts.map((item) => (item.id === postId ? post : item));
+        return { post };
+      });
+      sendJson(res, 200, result);
+      return;
+    }
+
+    if (req.method === "DELETE" && pathname.startsWith("/api/admin/bijiris-posts/")) {
+      const postId = getRouteId(pathname, "/api/admin/bijiris-posts/");
+      const result = await updateDb((db) => {
+        const before = db.bijirisPosts.length;
+        db.bijirisPosts = db.bijirisPosts.filter((post) => post.id !== postId);
+        if (db.bijirisPosts.length === before) throw new Error("投稿が見つかりません。");
         return { ok: true };
       });
       sendJson(res, 200, result);

@@ -235,6 +235,29 @@ window.MayumiSurveyApi = (() => {
     });
   }
 
+  function makeBijirisFileSignature(file, kind = "") {
+    return JSON.stringify({
+      kind: normalizeText(file?.kind || kind),
+      name: normalizeText(file?.name),
+      type: normalizeText(file?.type || file?.mimeType),
+    });
+  }
+
+  function makeBijirisPostSignature(post) {
+    return JSON.stringify({
+      id: normalizeText(post?.id),
+      title: normalizeText(post?.title),
+      category: normalizeText(post?.category),
+      summary: normalizeText(post?.summary),
+      body: normalizeText(post?.body),
+      status: normalizeText(post?.status) || "draft",
+      pinned: post?.pinned === true,
+      publishedAt: normalizeText(post?.publishedAt),
+      photos: (Array.isArray(post?.photos) ? post.photos : []).map((file) => makeBijirisFileSignature(file, "photo")),
+      documents: (Array.isArray(post?.documents) ? post.documents : []).map((file) => makeBijirisFileSignature(file, "pdf")),
+    });
+  }
+
   function buildLocalResponse(payload, responseId) {
     const surveys = getDefaultSurveys();
     const survey = surveys.find((item) => item.id === payload.surveyId && item.status === "published");
@@ -448,6 +471,28 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
+  async function waitForPublicBijirisPosts(gasUrl, matcher) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "bijirisPosts", {});
+      const posts = Array.isArray(data.posts) ? data.posts : [];
+      const matched = matcher(posts);
+      if (matched !== undefined) return matched;
+    }
+    return null;
+  }
+
+  async function waitForAdminBijirisPosts(gasUrl, token, matcher) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const data = await jsonp(gasUrl, "adminBijirisPosts", { token });
+      const posts = Array.isArray(data.posts) ? data.posts : [];
+      const matched = matcher(posts);
+      if (matched !== undefined) return matched;
+    }
+    return null;
+  }
+
   async function waitForAdminCustomerUpdate(gasUrl, token, currentName, nextName, expected = {}) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
@@ -547,6 +592,10 @@ window.MayumiSurveyApi = (() => {
           consentText: "",
           version: "",
         };
+      }
+
+      if (path === "/api/public/bijiris-posts" && method === "GET") {
+        return jsonp(gasUrl, "bijirisPosts");
       }
 
       if (path.startsWith("/api/public/responses") && method === "GET") {
@@ -778,6 +827,43 @@ window.MayumiSurveyApi = (() => {
         return jsonp(gasUrl, "adminMeasurements", { token: options.token });
       }
 
+      if (path === "/api/admin/bijiris-posts" && method === "GET") {
+        return jsonp(gasUrl, "adminBijirisPosts", { token: options.token });
+      }
+
+      if (path === "/api/admin/bijiris-posts" && method === "POST") {
+        const payload = {
+          ...options.body,
+          id: normalizeText(options.body?.id) || makeId("bijiris"),
+        };
+        await postToGas(gasUrl, "adminCreateBijirisPost", {
+          token: options.token,
+          payload,
+        });
+        const post = await waitForAdminBijirisPosts(gasUrl, options.token, (posts) => {
+          const matched = posts.find((item) => normalizeText(item.id) === payload.id);
+          if (!matched) return undefined;
+          return makeBijirisPostSignature(matched) === makeBijirisPostSignature(payload) ? matched : undefined;
+        });
+        if (!post) throw new Error("ビジリス通信の保存を確認できませんでした。");
+        return { post };
+      }
+
+      if (path === "/api/admin/bijiris-posts/replace" && method === "POST") {
+        const posts = Array.isArray(options.body?.posts) ? options.body.posts : [];
+        const expectedSignature = JSON.stringify(posts.map(makeBijirisPostSignature).sort());
+        await postToGas(gasUrl, "adminReplaceBijirisPosts", {
+          token: options.token,
+          payload: { posts },
+        });
+        const restored = await waitForAdminBijirisPosts(gasUrl, options.token, (items) => {
+          const actualSignature = JSON.stringify(items.map(makeBijirisPostSignature).sort());
+          return actualSignature === expectedSignature ? items : undefined;
+        });
+        if (!restored) throw new Error("ビジリス通信の復元を確認できませんでした。");
+        return { posts: restored };
+      }
+
       if (path.startsWith("/api/admin/customers/") && method === "PUT") {
         const currentName = getRouteId(path, "/api/admin/customers/");
         const payload = {
@@ -919,6 +1005,26 @@ window.MayumiSurveyApi = (() => {
         return { measurement };
       }
 
+      if (path.startsWith("/api/admin/bijiris-posts/") && method === "PUT") {
+        const postId = getRouteId(path, "/api/admin/bijiris-posts/");
+        const payload = {
+          ...options.body,
+          id: postId,
+        };
+        await postToGas(gasUrl, "adminUpdateBijirisPost", {
+          token: options.token,
+          postId,
+          payload,
+        });
+        const post = await waitForAdminBijirisPosts(gasUrl, options.token, (posts) => {
+          const matched = posts.find((item) => normalizeText(item.id) === postId);
+          if (!matched) return undefined;
+          return makeBijirisPostSignature(matched) === makeBijirisPostSignature(payload) ? matched : undefined;
+        });
+        if (!post) throw new Error("ビジリス通信の更新を確認できませんでした。");
+        return { post };
+      }
+
       if (path.startsWith("/api/admin/measurements/") && method === "DELETE") {
         const measurementId = getRouteId(path, "/api/admin/measurements/");
         await postToGas(gasUrl, "adminDeleteMeasurement", {
@@ -929,6 +1035,19 @@ window.MayumiSurveyApi = (() => {
           measurements.some((item) => normalizeText(item.id) === measurementId) ? undefined : true,
         );
         if (!deleted) throw new Error("測定データの削除を確認できませんでした。");
+        return { ok: true };
+      }
+
+      if (path.startsWith("/api/admin/bijiris-posts/") && method === "DELETE") {
+        const postId = getRouteId(path, "/api/admin/bijiris-posts/");
+        await postToGas(gasUrl, "adminDeleteBijirisPost", {
+          token: options.token,
+          postId,
+        });
+        const deleted = await waitForAdminBijirisPosts(gasUrl, options.token, (posts) =>
+          posts.some((item) => normalizeText(item.id) === postId) ? undefined : true,
+        );
+        if (!deleted) throw new Error("ビジリス通信の削除を確認できませんでした。");
         return { ok: true };
       }
 
@@ -998,6 +1117,11 @@ window.MayumiSurveyApi = (() => {
       if (path === "/api/public/surveys") {
         return {
           surveys: getDefaultSurveys().filter((survey) => survey.status === "published"),
+        };
+      }
+      if (path === "/api/public/bijiris-posts") {
+        return {
+          posts: [],
         };
       }
       throw new Error("保存先が未設定です。Google Apps Script のURLを設定してください。");

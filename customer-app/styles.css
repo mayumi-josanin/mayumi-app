@@ -243,6 +243,38 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.bijiris-panel,
+.bijiris-document-list {
+  display: grid;
+  gap: 12px;
+}
+
+.bijiris-post-card {
+  cursor: pointer;
+}
+
+.bijiris-post-preview {
+  line-height: 1.7;
+}
+
+.bijiris-summary-card {
+  background: #fcfaf5;
+}
+
+.bijiris-richtext {
+  display: grid;
+  gap: 10px;
+  line-height: 1.8;
+}
+
+.bijiris-richtext p {
+  margin: 0;
+}
+
+.bijiris-document-card {
+  text-decoration: none;
+}
+
 .selection-grid {
   display: grid;
   gap: 10px;
@@ -1001,7 +1033,7 @@ legend > span:first-child {
   bottom: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
   background: rgba(254, 252, 248, 0.96);

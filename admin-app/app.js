@@ -147,6 +147,13 @@ const DEFAULT_MEASUREMENT_VISIBILITY = {
   thighLeft: true,
   whr: true,
 };
+const BIJIRIS_POST_CATEGORY_OPTIONS = [
+  "豆知識",
+  "アドバイス",
+  "セルフケア",
+  "お知らせ",
+  "よくある質問",
+];
 
 const api = window.MayumiSurveyApi;
 const state = {
@@ -154,6 +161,7 @@ const state = {
   surveys: [],
   responses: [],
   measurements: [],
+  bijirisPosts: [],
   adminInfo: null,
   customerProfiles: {},
   preferences: null,
@@ -171,6 +179,8 @@ const state = {
   selectedCustomerViewResponseId: "",
   selectedCustomerTimelineOpen: false,
   selectedMeasurementEditId: "",
+  selectedBijirisPostId: "",
+  bijirisEditorDraft: null,
   selectedMeasurementPeriod: "6m",
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
   installPrompt: null,
@@ -294,6 +304,55 @@ function normalizeMeasurementRecord(value) {
   };
 }
 
+function normalizeBijirisPostFile(file, kind = "photo") {
+  if (!file || typeof file !== "object") return null;
+  const normalizedKind = String(file.kind || kind || "").trim() || kind;
+  const name = String(file.name || "").trim();
+  const fileId = String(file.fileId || "").trim();
+  const url = String(file.url || "").trim();
+  const previewUrl = String(file.previewUrl || "").trim();
+  const downloadUrl = String(file.downloadUrl || "").trim();
+  const thumbnailUrl = String(file.thumbnailUrl || "").trim();
+  const dataUrl = typeof file.dataUrl === "string" ? file.dataUrl : "";
+  const base64Data = typeof file.base64Data === "string" ? file.base64Data : "";
+  if (!name && !fileId && !url && !previewUrl && !downloadUrl && !dataUrl && !base64Data) return null;
+  return {
+    kind: normalizedKind,
+    name: name || (normalizedKind === "pdf" ? "資料" : "写真"),
+    type: String(file.type || file.mimeType || "").trim(),
+    fileId,
+    url,
+    previewUrl,
+    downloadUrl,
+    thumbnailUrl,
+    dataUrl,
+    base64Data,
+  };
+}
+
+function normalizeBijirisPost(post) {
+  return {
+    id: String(post?.id || "").trim(),
+    title: String(post?.title || "").trim(),
+    category: String(post?.category || "").trim(),
+    summary: String(post?.summary || "").trim(),
+    body: String(post?.body || "").trim(),
+    status: ["published", "draft", "archived"].includes(String(post?.status || "").trim())
+      ? String(post.status).trim()
+      : "draft",
+    pinned: post?.pinned === true,
+    createdAt: String(post?.createdAt || "").trim(),
+    updatedAt: String(post?.updatedAt || "").trim(),
+    publishedAt: String(post?.publishedAt || "").trim(),
+    photos: (Array.isArray(post?.photos) ? post.photos : [])
+      .map((file) => normalizeBijirisPostFile(file, "photo"))
+      .filter(Boolean),
+    documents: (Array.isArray(post?.documents) ? post.documents : [])
+      .map((file) => normalizeBijirisPostFile(file, "pdf"))
+      .filter(Boolean),
+  };
+}
+
 function indexCustomerProfiles(list) {
   const indexed = {};
   (Array.isArray(list) ? list : []).forEach((item) => {
@@ -395,6 +454,7 @@ async function loadAdminData() {
     surveysResult,
     responsesResult,
     measurementsResult,
+    bijirisPostsResult,
     preferencesResult,
     logsResult,
     customerMemosResult,
@@ -403,6 +463,7 @@ async function loadAdminData() {
     api.request("/api/admin/surveys", { token: state.token }),
     api.request("/api/admin/responses", { token: state.token }),
     api.request("/api/admin/measurements", { token: state.token }),
+    api.request("/api/admin/bijiris-posts", { token: state.token }),
     api.request("/api/admin/preferences", { token: state.token }),
     api.request("/api/admin/logs", { token: state.token }),
     api.request("/api/admin/customer-memos", { token: state.token }),
@@ -425,6 +486,9 @@ async function loadAdminData() {
   state.measurements = Array.isArray(measurementsResult?.measurements)
     ? measurementsResult.measurements.map(normalizeMeasurementRecord)
     : [];
+  state.bijirisPosts = Array.isArray(bijirisPostsResult?.posts)
+    ? bijirisPostsResult.posts.map(normalizeBijirisPost).filter((post) => post.id)
+    : [];
   state.preferences = preferencesResult?.preferences || null;
   state.logs = logsResult || { auditLogs: [], errorLogs: [] };
   state.customerMemos = customerMemosResult?.memos || {};
@@ -438,6 +502,7 @@ async function loadAdminData() {
 function renderAll() {
   renderNavigation();
   renderDashboard();
+  renderBijirisManager();
   renderSurveyManager();
   renderFilters();
   renderCustomerManagement();
@@ -3930,6 +3995,11 @@ function renderSettings() {
         ${escapeHtml(state.adminInfo.photoRootFolderName || "未設定")}
       </a>`
     : escapeHtml(state.adminInfo.photoRootFolderName || "未設定");
+  const bijirisFolderLink = state.adminInfo.bijirisPostsFolderUrl
+    ? `<a href="${escapeHtml(state.adminInfo.bijirisPostsFolderUrl)}" target="_blank" rel="noopener">
+        ビジリス通信
+      </a>`
+    : "未設定";
 
   storageInfo.innerHTML = `
     <article class="answer-item">
@@ -3939,6 +4009,10 @@ function renderSettings() {
     <article class="answer-item">
       <strong>画像保存フォルダ</strong><br />
       ${photoFolderLink}
+    </article>
+    <article class="answer-item">
+      <strong>ビジリス通信フォルダ</strong><br />
+      ${bijirisFolderLink}
     </article>
     <article class="answer-item">
       <strong>実行アカウント</strong><br />
@@ -4714,6 +4788,403 @@ async function archiveSurvey(surveyId) {
   }
 }
 
+function sortBijirisPosts(posts) {
+  return posts.slice().sort((a, b) => {
+    if (Boolean(b?.pinned) !== Boolean(a?.pinned)) {
+      return b?.pinned ? 1 : -1;
+    }
+    const aTime = new Date(a?.publishedAt || a?.updatedAt || a?.createdAt || 0).getTime();
+    const bTime = new Date(b?.publishedAt || b?.updatedAt || b?.createdAt || 0).getTime();
+    return bTime - aTime;
+  });
+}
+
+function createEmptyBijirisPostDraft() {
+  return normalizeBijirisPost({
+    id: "",
+    title: "",
+    category: BIJIRIS_POST_CATEGORY_OPTIONS[0],
+    summary: "",
+    body: "",
+    status: "draft",
+    pinned: false,
+    photos: [],
+    documents: [],
+  });
+}
+
+function cloneBijirisPostForEditor(post) {
+  return normalizeBijirisPost(JSON.parse(JSON.stringify(post || createEmptyBijirisPostDraft())));
+}
+
+function getBijirisPostById(postId) {
+  return state.bijirisPosts.find((post) => post.id === postId) || null;
+}
+
+function getBijirisEditorDraft() {
+  if (state.bijirisEditorDraft) return state.bijirisEditorDraft;
+  const selected = getBijirisPostById(state.selectedBijirisPostId);
+  state.bijirisEditorDraft = selected ? cloneBijirisPostForEditor(selected) : createEmptyBijirisPostDraft();
+  return state.bijirisEditorDraft;
+}
+
+function syncBijirisDraftFromForm(form) {
+  if (!form) return getBijirisEditorDraft();
+  const draft = getBijirisEditorDraft();
+  draft.title = String(form.elements.title?.value || "").trim();
+  draft.category = String(form.elements.category?.value || "").trim();
+  draft.summary = String(form.elements.summary?.value || "").trim();
+  draft.body = String(form.elements.body?.value || "").trim();
+  draft.status = ["published", "draft", "archived"].includes(String(form.elements.status?.value || "").trim())
+    ? String(form.elements.status.value).trim()
+    : "draft";
+  draft.pinned = Boolean(form.elements.pinned?.checked);
+  return draft;
+}
+
+function readFileAsDataUrl(file, errorMessage = "ファイルを読み込めませんでした。") {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")));
+    reader.addEventListener("error", () => reject(new Error(errorMessage)));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", () => reject(new Error("写真を読み込めませんでした。")));
+    image.src = src;
+  });
+}
+
+async function prepareBijirisImageFile(file) {
+  if (!String(file?.type || "").startsWith("image/")) {
+    throw new Error("写真ファイルを選択してください。");
+  }
+  const source = await readFileAsDataUrl(file, "写真を読み込めませんでした。");
+  const image = await loadImage(source);
+  const maxSize = 1600;
+  const quality = 0.8;
+  const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0, width, height);
+  return {
+    kind: "photo",
+    name: file.name || "photo.jpg",
+    type: "image/jpeg",
+    dataUrl: canvas.toDataURL("image/jpeg", quality),
+  };
+}
+
+async function prepareBijirisDocumentFile(file) {
+  const isPdf = String(file?.type || "").includes("pdf") || /\.pdf$/i.test(String(file?.name || ""));
+  if (!isPdf) {
+    throw new Error("PDF ファイルを選択してください。");
+  }
+  const source = await readFileAsDataUrl(file, "PDF を読み込めませんでした。");
+  const match = source.match(/^data:application\/pdf;base64,(.+)$/i);
+  if (!match) {
+    throw new Error("PDF データの形式が正しくありません。");
+  }
+  return {
+    kind: "pdf",
+    name: file.name || "document.pdf",
+    mimeType: "application/pdf",
+    type: "application/pdf",
+    base64Data: match[1],
+  };
+}
+
+function renderBijirisAttachmentPreview(files, kind) {
+  if (!files.length) {
+    return `<div class="empty">${kind === "pdf" ? "PDF はまだありません。" : "写真はまだありません。"}</div>`;
+  }
+  if (kind === "pdf") {
+    return `
+      <div class="bijiris-attachment-list">
+        ${files
+          .map((file, index) => `
+            <article class="history-photo-badge bijiris-attachment-chip">
+              <span>${escapeHtml(file.name || `資料${index + 1}`)}</span>
+              <button class="ghost-button" type="button" data-remove-bijiris-document="${index}">削除</button>
+            </article>
+          `)
+          .join("")}
+      </div>
+    `;
+  }
+  return `
+    <div class="history-photo-grid">
+      ${files
+        .map((file, index) => {
+          const preview = getPhotoPreviewSrc(file);
+          return `
+            <article class="history-photo-card">
+              ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || `写真${index + 1}`)}" />` : ""}
+              <div class="history-photo-meta">
+                <strong>${escapeHtml(file.name || `写真${index + 1}`)}</strong>
+                <button class="ghost-button" type="button" data-remove-bijiris-photo="${index}">削除</button>
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+async function handleBijirisImageInput(input) {
+  const form = input?.form;
+  syncBijirisDraftFromForm(form);
+  const files = Array.from(input?.files || []);
+  if (!files.length) return;
+  const prepared = [];
+  for (const file of files) {
+    prepared.push(await prepareBijirisImageFile(file));
+  }
+  state.bijirisEditorDraft.photos = state.bijirisEditorDraft.photos.concat(prepared).slice(0, 8);
+  renderBijirisManager();
+  setPage("bijiris");
+}
+
+async function handleBijirisDocumentInput(input) {
+  const form = input?.form;
+  syncBijirisDraftFromForm(form);
+  const files = Array.from(input?.files || []);
+  if (!files.length) return;
+  const prepared = [];
+  for (const file of files) {
+    prepared.push(await prepareBijirisDocumentFile(file));
+  }
+  state.bijirisEditorDraft.documents = state.bijirisEditorDraft.documents.concat(prepared).slice(0, 5);
+  renderBijirisManager();
+  setPage("bijiris");
+}
+
+async function saveBijirisPost() {
+  const draft = normalizeBijirisPost(getBijirisEditorDraft());
+  if (!draft.title) throw new Error("タイトルを入力してください。");
+  if (!draft.summary && !draft.body && !draft.photos.length && !draft.documents.length) {
+    throw new Error("本文、要約、写真、PDF のいずれかを入力してください。");
+  }
+  const payload = {
+    id: draft.id,
+    title: draft.title,
+    category: draft.category,
+    summary: draft.summary,
+    body: draft.body,
+    status: draft.status,
+    pinned: draft.pinned,
+    publishedAt: draft.publishedAt,
+    photos: draft.photos,
+    documents: draft.documents,
+  };
+  const result = draft.id
+    ? await api.request(`/api/admin/bijiris-posts/${encodeURIComponent(draft.id)}`, {
+        method: "PUT",
+        token: state.token,
+        body: payload,
+      })
+    : await api.request("/api/admin/bijiris-posts", {
+        method: "POST",
+        token: state.token,
+        body: payload,
+      });
+  await loadAdminData();
+  state.selectedBijirisPostId = result.post?.id || draft.id;
+  state.bijirisEditorDraft = cloneBijirisPostForEditor(result.post || getBijirisPostById(state.selectedBijirisPostId));
+  renderAll();
+  setPage("bijiris");
+  showToast(draft.id ? "ビジリス通信を更新しました。" : "ビジリス通信を作成しました。");
+}
+
+async function deleteBijirisPost(postId) {
+  const targetId = String(postId || state.selectedBijirisPostId || "").trim();
+  if (!targetId) return;
+  await api.request(`/api/admin/bijiris-posts/${encodeURIComponent(targetId)}`, {
+    method: "DELETE",
+    token: state.token,
+  });
+  await loadAdminData();
+  state.selectedBijirisPostId = "";
+  state.bijirisEditorDraft = createEmptyBijirisPostDraft();
+  renderAll();
+  setPage("bijiris");
+  showToast("ビジリス通信を削除しました。");
+}
+
+function renderBijirisManager() {
+  const list = document.querySelector("#bijirisPostList");
+  const editorCard = document.querySelector("#bijirisEditorCard");
+  const createButton = document.querySelector("#createBijirisPostButton");
+  if (!list || !editorCard || !createButton) return;
+
+  if (state.selectedBijirisPostId && !getBijirisPostById(state.selectedBijirisPostId)) {
+    state.selectedBijirisPostId = "";
+    state.bijirisEditorDraft = null;
+  }
+
+  const posts = sortBijirisPosts(state.bijirisPosts);
+  const selectedPost = getBijirisPostById(state.selectedBijirisPostId);
+  const draft = getBijirisEditorDraft();
+
+  list.innerHTML = posts.length
+    ? posts
+        .map((post) => `
+          <article class="survey-manager-card selectable-card ${post.id === state.selectedBijirisPostId ? "active" : ""}">
+            <button class="survey-open-button" type="button" data-edit-bijiris-post="${escapeHtml(post.id)}">
+              <div class="survey-manager-card-head">
+                <strong>${escapeHtml(post.title)}</strong>
+                <span class="badge ${escapeHtml(post.status)}">${escapeHtml(post.status === "published" ? "公開" : post.status === "archived" ? "アーカイブ" : "下書き")}</span>
+              </div>
+              <div>${escapeHtml(post.category || "ビジリス通信")}</div>
+              <div class="meta">更新: ${post.updatedAt ? escapeHtml(formatDate(post.updatedAt)) : "-"}</div>
+              <div class="meta">写真 ${post.photos.length} / PDF ${post.documents.length}</div>
+              ${post.pinned ? `<span class="badge open">上部固定</span>` : ""}
+            </button>
+          </article>
+        `)
+        .join("")
+    : `<div class="empty">ビジリス通信の投稿はまだありません。</div>`;
+
+  editorCard.innerHTML = `
+    <div class="survey-editor-head">
+      <div>
+        <div class="card-title">${selectedPost ? "ビジリス通信を編集" : "ビジリス通信を新規作成"}</div>
+        <div class="meta">
+          ${selectedPost
+            ? `作成: ${draft.createdAt ? formatDate(draft.createdAt) : "-"} / 更新: ${draft.updatedAt ? formatDate(draft.updatedAt) : "-"}`
+            : "顧客アプリに表示する内容を登録します。"}
+        </div>
+      </div>
+      ${selectedPost ? `<button class="secondary-button danger-button" type="button" data-delete-bijiris-post="${escapeHtml(selectedPost.id)}">削除</button>` : ""}
+    </div>
+    <form id="bijirisEditorForm" class="survey-editor-form" data-post-id="${escapeHtml(draft.id || "")}">
+      <label>
+        タイトル
+        <input name="title" type="text" value="${escapeHtml(draft.title || "")}" required />
+      </label>
+      <div class="survey-question-grid">
+        <label>
+          カテゴリ
+          <select name="category">
+            ${BIJIRIS_POST_CATEGORY_OPTIONS.map((option) => `<option value="${escapeHtml(option)}" ${draft.category === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+          </select>
+        </label>
+        <label>
+          公開状態
+          <select name="status">
+            <option value="published" ${draft.status === "published" ? "selected" : ""}>公開</option>
+            <option value="draft" ${draft.status === "draft" ? "selected" : ""}>下書き</option>
+            <option value="archived" ${draft.status === "archived" ? "selected" : ""}>アーカイブ</option>
+          </select>
+        </label>
+      </div>
+      <label class="inline-toggle">
+        <input name="pinned" type="checkbox" ${draft.pinned ? "checked" : ""} />
+        一覧の上部に固定表示
+      </label>
+      <label>
+        要約
+        <textarea name="summary" placeholder="一覧に表示する短い説明">${escapeHtml(draft.summary || "")}</textarea>
+      </label>
+      <label>
+        本文
+        <textarea name="body" placeholder="豆知識やアドバイス本文">${escapeHtml(draft.body || "")}</textarea>
+      </label>
+      <div class="survey-editor-head">
+        <div class="card-title">写真</div>
+        <label class="secondary-button upload-button">
+          写真を追加
+          <input id="bijirisPhotoInput" type="file" accept="image/*" multiple hidden />
+        </label>
+      </div>
+      ${renderBijirisAttachmentPreview(draft.photos, "photo")}
+      <div class="survey-editor-head">
+        <div class="card-title">PDF資料</div>
+        <label class="secondary-button upload-button">
+          PDFを追加
+          <input id="bijirisDocumentInput" type="file" accept="application/pdf,.pdf" multiple hidden />
+        </label>
+      </div>
+      ${renderBijirisAttachmentPreview(draft.documents, "pdf")}
+      <div class="survey-editor-actions">
+        <button class="primary-button" type="submit">${selectedPost ? "保存" : "作成"}</button>
+      </div>
+    </form>
+  `;
+
+  createButton.onclick = () => {
+    state.selectedBijirisPostId = "";
+    state.bijirisEditorDraft = createEmptyBijirisPostDraft();
+    renderBijirisManager();
+    setPage("bijiris");
+  };
+
+  list.querySelectorAll("[data-edit-bijiris-post]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedBijirisPostId = button.dataset.editBijirisPost || "";
+      state.bijirisEditorDraft = cloneBijirisPostForEditor(getBijirisPostById(state.selectedBijirisPostId));
+      renderBijirisManager();
+      setPage("bijiris");
+    });
+  });
+
+  const form = document.querySelector("#bijirisEditorForm");
+  form?.addEventListener("input", () => {
+    syncBijirisDraftFromForm(form);
+  });
+  form?.addEventListener("change", () => {
+    syncBijirisDraftFromForm(form);
+  });
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    syncBijirisDraftFromForm(form);
+    saveBijirisPost().catch((error) => {
+      showToast(error.message || "ビジリス通信を保存できませんでした。");
+    });
+  });
+  document.querySelector("#bijirisPhotoInput")?.addEventListener("change", (event) => {
+    handleBijirisImageInput(event.currentTarget).catch((error) => {
+      showToast(error.message || "写真を追加できませんでした。");
+    });
+  });
+  document.querySelector("#bijirisDocumentInput")?.addEventListener("change", (event) => {
+    handleBijirisDocumentInput(event.currentTarget).catch((error) => {
+      showToast(error.message || "PDF を追加できませんでした。");
+    });
+  });
+  document.querySelectorAll("[data-remove-bijiris-photo]").forEach((button) => {
+    button.addEventListener("click", () => {
+      syncBijirisDraftFromForm(form);
+      state.bijirisEditorDraft.photos.splice(Number(button.dataset.removeBijirisPhoto), 1);
+      renderBijirisManager();
+      setPage("bijiris");
+    });
+  });
+  document.querySelectorAll("[data-remove-bijiris-document]").forEach((button) => {
+    button.addEventListener("click", () => {
+      syncBijirisDraftFromForm(form);
+      state.bijirisEditorDraft.documents.splice(Number(button.dataset.removeBijirisDocument), 1);
+      renderBijirisManager();
+      setPage("bijiris");
+    });
+  });
+  document.querySelector("[data-delete-bijiris-post]")?.addEventListener("click", () => {
+    deleteBijirisPost(state.selectedBijirisPostId).catch((error) => {
+      showToast(error.message || "ビジリス通信を削除できませんでした。");
+    });
+  });
+}
+
 function renderSurveyManager() {
   const surveyList = document.querySelector("#surveyManagerList");
   const surveyEditorCard = document.querySelector("#surveyEditorCard");
@@ -5106,6 +5577,7 @@ function exportBackup() {
     customerMemos: state.customerMemos,
     customerProfiles: Object.values(state.customerProfiles || {}),
     measurements: state.measurements,
+    bijirisPosts: state.bijirisPosts,
     responses: state.responses,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -5174,6 +5646,13 @@ async function restoreBackup(file) {
       method: "POST",
       token: state.token,
       body: { measurements: payload.measurements },
+    });
+  }
+  if (Array.isArray(payload.bijirisPosts)) {
+    await api.request("/api/admin/bijiris-posts/replace", {
+      method: "POST",
+      token: state.token,
+      body: { posts: payload.bijirisPosts },
     });
   }
   if (Array.isArray(payload.adminUsers) && payload.adminUsers.length) {
@@ -5319,7 +5798,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-12", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-14", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

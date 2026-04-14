@@ -6,7 +6,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260414-13";
+const APP_VERSION = "20260414-14";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -180,6 +180,7 @@ const appState = {
   surveys: [],
   history: [],
   measurements: [],
+  bijirisPosts: [],
   publicInfo: {
     dataPolicyText: "",
     requireConsent: true,
@@ -197,6 +198,9 @@ const appState = {
   historyResponseId: "",
   historyLoading: false,
   historyLoadError: "",
+  selectedBijirisPostId: "",
+  bijirisLoading: false,
+  bijirisLoadError: "",
   concernCategoryByQuestion: {},
   selectedMeasurementPeriod: "6m",
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
@@ -208,6 +212,7 @@ const surveyList = document.querySelector("#surveyList");
 const answerPanel = document.querySelector("#answerPanel");
 const historyList = document.querySelector("#historyList");
 const measurementPanel = document.querySelector("#measurementPanel");
+const bijirisPanel = document.querySelector("#bijirisPanel");
 const homeTicketStatus = document.querySelector("#homeTicketStatus");
 const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
@@ -219,6 +224,7 @@ const customerRegisterButton = document.querySelector("#customerRegisterButton")
 const recoverAccountButton = document.querySelector("#recoverAccountButton");
 const bottomNav = document.querySelector("#bottomNav");
 const measurementRefreshButton = document.querySelector("#measurementRefreshButton");
+const bijirisRefreshButton = document.querySelector("#bijirisRefreshButton");
 
 function loadLocal(key, fallback) {
   try {
@@ -1235,6 +1241,12 @@ function setPage(page) {
   if (page === "home") {
     renderSurveys();
   }
+  if (page === "bijiris") {
+    renderBijirisPosts();
+    if (!appState.bijirisPosts.length && !appState.bijirisLoading) {
+      void loadBijirisPosts();
+    }
+  }
   if ((page === "history" || page === "home" || page === "measurements") && hasCustomerSession()) {
     void loadHistory();
   }
@@ -1265,6 +1277,204 @@ async function loadSurveys() {
       return;
     }
     surveyList.innerHTML = `<div class="empty">${escapeHtml(error.message || "アンケートを読み込めませんでした。")}</div>`;
+  }
+}
+
+function normalizeBijirisContentFile(file, kind = "photo") {
+  return {
+    kind: normalizeText(file?.kind || kind) || kind,
+    name: normalizeText(file?.name) || (kind === "pdf" ? "資料" : "写真"),
+    type: normalizeText(file?.type || file?.mimeType),
+    fileId: normalizeText(file?.fileId),
+    url: normalizeText(file?.url),
+    previewUrl: normalizeText(file?.previewUrl),
+    downloadUrl: normalizeText(file?.downloadUrl),
+    thumbnailUrl: normalizeText(file?.thumbnailUrl),
+  };
+}
+
+function normalizeBijirisPost(post) {
+  return {
+    id: normalizeText(post?.id),
+    title: normalizeText(post?.title),
+    category: normalizeText(post?.category),
+    summary: normalizeText(post?.summary),
+    body: normalizeText(post?.body),
+    status: normalizeText(post?.status) || "draft",
+    pinned: post?.pinned === true,
+    createdAt: normalizeText(post?.createdAt),
+    updatedAt: normalizeText(post?.updatedAt),
+    publishedAt: normalizeText(post?.publishedAt),
+    photos: (Array.isArray(post?.photos) ? post.photos : [])
+      .map((file) => normalizeBijirisContentFile(file, "photo"))
+      .filter((file) => file.fileId || file.url || file.previewUrl || file.downloadUrl),
+    documents: (Array.isArray(post?.documents) ? post.documents : [])
+      .map((file) => normalizeBijirisContentFile(file, "pdf"))
+      .filter((file) => file.fileId || file.url || file.previewUrl || file.downloadUrl),
+  };
+}
+
+function getSelectedBijirisPost() {
+  return appState.bijirisPosts.find((post) => post.id === appState.selectedBijirisPostId) || null;
+}
+
+function renderMultilineText(text) {
+  const value = normalizeText(text);
+  if (!value) return "";
+  return value
+    .split(/\n{2,}/)
+    .map((block) => `<p>${escapeHtml(block).replaceAll("\n", "<br />")}</p>`)
+    .join("");
+}
+
+function renderBijirisPostCard(post) {
+  const publishedAt = post.publishedAt || post.updatedAt || post.createdAt;
+  const preview = post.summary || post.body.slice(0, 90);
+  return `
+    <button class="history-card bijiris-post-card" type="button" data-open-bijiris-post="${escapeHtml(post.id)}">
+      <div class="section-head">
+        <div>
+          <strong>${escapeHtml(post.title)}</strong>
+          <div class="meta">${escapeHtml(post.category || "ビジリス通信")} / ${escapeHtml(formatDate(publishedAt))}</div>
+        </div>
+        <div class="action-row">
+          ${post.pinned ? `<span class="badge open">おすすめ</span>` : ""}
+          ${post.photos.length ? `<span class="badge draft">写真 ${post.photos.length}</span>` : ""}
+          ${post.documents.length ? `<span class="badge checked">PDF ${post.documents.length}</span>` : ""}
+        </div>
+      </div>
+      ${preview ? `<div class="meta bijiris-post-preview">${escapeHtml(preview)}</div>` : `<div class="meta">本文は詳細で確認できます。</div>`}
+    </button>
+  `;
+}
+
+function renderBijirisPostDetail(post) {
+  const publishedAt = post.publishedAt || post.updatedAt || post.createdAt;
+  return `
+    <div class="section-head">
+      <div>
+        <strong>${escapeHtml(post.title)}</strong>
+        <div class="meta">${escapeHtml(post.category || "ビジリス通信")} / ${escapeHtml(formatDate(publishedAt))}</div>
+      </div>
+      <button class="ghost-button" type="button" data-back-bijiris-list>戻る</button>
+    </div>
+    ${post.summary ? `<article class="history-card bijiris-summary-card"><strong>概要</strong><div class="bijiris-richtext">${renderMultilineText(post.summary)}</div></article>` : ""}
+    <article class="history-card">
+      <strong>内容</strong>
+      <div class="bijiris-richtext">
+        ${post.body ? renderMultilineText(post.body) : `<div class="meta">本文はありません。</div>`}
+      </div>
+    </article>
+    <article class="history-card">
+      <strong>写真</strong>
+      ${
+        post.photos.length
+          ? `
+            <div class="measurement-photo-grid">
+              ${post.photos
+                .map((file, index) => {
+                  const preview = getPhotoPreviewSrc(file);
+                  const href = getPhotoOpenHref(file);
+                  return `
+                    <a class="measurement-photo-card" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">
+                      ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || `写真${index + 1}`)}" />` : ""}
+                      <span>${escapeHtml(file.name || `写真${index + 1}`)}</span>
+                    </a>
+                  `;
+                })
+                .join("")}
+            </div>
+          `
+          : `<div class="empty">写真はありません。</div>`
+      }
+    </article>
+    <article class="history-card">
+      <strong>PDF資料</strong>
+      ${
+        post.documents.length
+          ? `
+            <div class="bijiris-document-list">
+              ${post.documents
+                .map((file, index) => `
+                  <a class="history-card bijiris-document-card" href="${escapeHtml(getPhotoOpenHref(file))}" target="_blank" rel="noreferrer">
+                    <strong>${escapeHtml(file.name || `資料${index + 1}`)}</strong>
+                    <div class="meta">PDFを開く</div>
+                  </a>
+                `)
+                .join("")}
+            </div>
+          `
+          : `<div class="empty">PDF資料はありません。</div>`
+      }
+    </article>
+  `;
+}
+
+function renderBijirisPosts() {
+  if (!bijirisPanel) return;
+  if (!hasCustomerSession()) {
+    bijirisPanel.innerHTML = `<div class="empty">先にログインしてください。</div>`;
+    return;
+  }
+  if (appState.bijirisLoading && !appState.bijirisPosts.length) {
+    bijirisPanel.innerHTML = `<div class="empty">読み込み中です。</div>`;
+    return;
+  }
+  if (appState.bijirisLoadError && !appState.bijirisPosts.length) {
+    bijirisPanel.innerHTML = `<div class="empty">${escapeHtml(appState.bijirisLoadError)}</div>`;
+    return;
+  }
+  const selectedPost = getSelectedBijirisPost();
+  if (appState.selectedBijirisPostId && !selectedPost) {
+    appState.selectedBijirisPostId = "";
+  }
+  if (selectedPost) {
+    bijirisPanel.innerHTML = `
+      ${appState.bijirisLoadError ? `<div class="meta">更新に失敗したため前回取得内容を表示しています。</div>` : ""}
+      ${renderBijirisPostDetail(selectedPost)}
+    `;
+    bijirisPanel.querySelector("[data-back-bijiris-list]")?.addEventListener("click", () => {
+      appState.selectedBijirisPostId = "";
+      renderBijirisPosts();
+    });
+    return;
+  }
+  bijirisPanel.innerHTML = `
+    ${appState.bijirisLoadError ? `<div class="meta">更新に失敗したため前回取得内容を表示しています。</div>` : ""}
+    <div class="history-group-list">
+      ${
+        appState.bijirisPosts.length
+          ? appState.bijirisPosts.map(renderBijirisPostCard).join("")
+          : `<div class="empty">まだビジリス通信の投稿はありません。</div>`
+      }
+    </div>
+  `;
+  bijirisPanel.querySelectorAll("[data-open-bijiris-post]").forEach((button) => {
+    button.addEventListener("click", () => {
+      appState.selectedBijirisPostId = button.dataset.openBijirisPost || "";
+      renderBijirisPosts();
+      window.scrollTo({ top: 0, behavior: "auto" });
+    });
+  });
+}
+
+async function loadBijirisPosts() {
+  appState.bijirisLoading = true;
+  appState.bijirisLoadError = "";
+  renderBijirisPosts();
+  try {
+    const result = await api.request("/api/public/bijiris-posts");
+    appState.bijirisPosts = Array.isArray(result.posts)
+      ? result.posts.map(normalizeBijirisPost).filter((post) => post.id)
+      : [];
+    appState.bijirisLoading = false;
+    appState.bijirisLoadError = "";
+    renderBijirisPosts();
+  } catch (error) {
+    appState.bijirisLoading = false;
+    appState.bijirisLoadError = error.message || "ビジリス通信を読み込めませんでした。";
+    reportClientError("customer.loadBijirisPosts", error);
+    renderBijirisPosts();
   }
 }
 
@@ -3822,7 +4032,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-13", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-14", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -3904,6 +4114,7 @@ document.querySelectorAll("[data-page]").forEach((button) => {
 
 document.querySelector("#refreshButton").addEventListener("click", () => {
   void loadSurveys();
+  void loadBijirisPosts();
   if (hasCustomerSession()) void loadHistory();
 });
 
@@ -3912,6 +4123,9 @@ document.querySelector("#historyRefreshButton").addEventListener("click", () => 
 });
 measurementRefreshButton?.addEventListener("click", () => {
   void loadHistory();
+});
+bijirisRefreshButton?.addEventListener("click", () => {
+  void loadBijirisPosts();
 });
 appUpdateButton?.addEventListener("click", () => {
   void runAppUpdate();
@@ -3938,5 +4152,7 @@ renderHomeTicketStatus();
 renderSurveys();
 renderAnswerPanel();
 renderMeasurements();
+renderBijirisPosts();
 void loadSurveys();
+void loadBijirisPosts();
 setPage(hasCustomerSession() ? "home" : "login");
