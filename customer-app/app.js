@@ -6,7 +6,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260414-14";
+const APP_VERSION = "20260414-15";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -1335,7 +1335,7 @@ function renderBijirisPostCard(post) {
       <div class="section-head">
         <div>
           <strong>${escapeHtml(post.title)}</strong>
-          <div class="meta">${escapeHtml(post.category || "ビジリス通信")} / ${escapeHtml(formatDate(publishedAt))}</div>
+          <div class="meta">${escapeHtml(post.category || "豆知識")} / ${escapeHtml(formatDate(publishedAt))}</div>
         </div>
         <div class="action-row">
           ${post.pinned ? `<span class="badge open">おすすめ</span>` : ""}
@@ -1354,7 +1354,7 @@ function renderBijirisPostDetail(post) {
     <div class="section-head">
       <div>
         <strong>${escapeHtml(post.title)}</strong>
-        <div class="meta">${escapeHtml(post.category || "ビジリス通信")} / ${escapeHtml(formatDate(publishedAt))}</div>
+        <div class="meta">${escapeHtml(post.category || "豆知識")} / ${escapeHtml(formatDate(publishedAt))}</div>
       </div>
       <button class="ghost-button" type="button" data-back-bijiris-list>戻る</button>
     </div>
@@ -1445,7 +1445,7 @@ function renderBijirisPosts() {
       ${
         appState.bijirisPosts.length
           ? appState.bijirisPosts.map(renderBijirisPostCard).join("")
-          : `<div class="empty">まだビジリス通信の投稿はありません。</div>`
+          : `<div class="empty">まだ豆知識の投稿はありません。</div>`
       }
     </div>
   `;
@@ -1472,7 +1472,7 @@ async function loadBijirisPosts() {
     renderBijirisPosts();
   } catch (error) {
     appState.bijirisLoading = false;
-    appState.bijirisLoadError = error.message || "ビジリス通信を読み込めませんでした。";
+    appState.bijirisLoadError = error.message || "豆知識を読み込めませんでした。";
     reportClientError("customer.loadBijirisPosts", error);
     renderBijirisPosts();
   }
@@ -4032,7 +4032,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-14", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-15", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
