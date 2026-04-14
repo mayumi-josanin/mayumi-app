@@ -6,7 +6,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260414-10";
+const APP_VERSION = "20260414-12";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -537,9 +537,11 @@ function isTicketEndSurvey(survey) {
 }
 
 function normalizeDraft(draft) {
+  const updatedAt = String(draft?.updatedAt || "").trim();
   return {
     values: typeof draft?.values === "object" && draft.values ? draft.values : {},
     photos: typeof draft?.photos === "object" && draft.photos ? draft.photos : {},
+    updatedAt,
   };
 }
 
@@ -548,7 +550,9 @@ function getSurveyDraft(surveyId) {
 }
 
 function setSurveyDraft(surveyId, draft) {
-  appState.drafts[surveyId] = normalizeDraft(draft);
+  const normalized = normalizeDraft(draft);
+  normalized.updatedAt = new Date().toISOString();
+  appState.drafts[surveyId] = normalized;
   saveLocal(DRAFTS_KEY, appState.drafts);
 }
 
@@ -623,6 +627,14 @@ function hasDraftContent(draft) {
   });
   const photos = Object.values(draft?.photos || {}).some((files) => Array.isArray(files) && files.length);
   return values || photos;
+}
+
+function getDraftSavedAt(surveyId) {
+  const updatedAt = getSurveyDraft(surveyId).updatedAt;
+  if (!updatedAt) return "";
+  const date = new Date(updatedAt);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
 }
 
 function getSelectedSurvey() {
@@ -1109,6 +1121,9 @@ function setPage(page) {
   if (bottomNav) {
     bottomNav.hidden = !hasCustomerSession();
   }
+  if (page === "home") {
+    renderSurveys();
+  }
   if ((page === "history" || page === "home") && hasCustomerSession()) {
     void loadHistory();
   }
@@ -1304,9 +1319,12 @@ function renderSurveys() {
     ${appState.surveys
       .map((survey) => {
         const availability = getSurveyAvailability(survey);
+        const draft = getSurveyDraft(survey.id);
+        const hasDraft = hasDraftContent(draft);
+        const draftSavedAt = getDraftSavedAt(survey.id);
         return `
           <button
-            class="survey-card ${survey.id === appState.selectedSurveyId ? "active" : ""} ${availability.open ? "" : "disabled"} ${availability.nearDeadline ? "deadline-soon" : ""}"
+            class="survey-card ${survey.id === appState.selectedSurveyId ? "active" : ""} ${availability.open ? "" : "disabled"} ${availability.nearDeadline ? "deadline-soon" : ""} ${hasDraft ? "has-draft" : ""}"
             type="button"
             data-survey-id="${survey.id}"
           >
@@ -1314,8 +1332,14 @@ function renderSurveys() {
             <span>${escapeHtml(survey.description)}</span>
             <div class="survey-card-meta">
               <span class="badge ${availability.open ? "open" : "closed"}">${escapeHtml(availability.label)}</span>
+              ${hasDraft ? `<span class="badge draft">下書きあり</span>` : ""}
               <span class="meta">${escapeHtml(availability.detail)}</span>
             </div>
+            ${
+              hasDraft && draftSavedAt
+                ? `<div class="meta">最終保存: ${escapeHtml(formatDate(draftSavedAt))}</div>`
+                : ""
+            }
           </button>
         `;
       })
@@ -1345,12 +1369,54 @@ function renderProgressBar(progress) {
   `;
 }
 
+function renderDraftStatusCard(surveyId) {
+  const draft = getSurveyDraft(surveyId);
+  const hasDraft = hasDraftContent(draft);
+  const savedAt = getDraftSavedAt(surveyId);
+  return `
+    <article class="draft-status-card">
+      <div class="draft-status-head">
+        <strong>下書き保存</strong>
+        <span class="badge draft">自動保存</span>
+      </div>
+      <div class="meta" data-draft-status-text>
+        ${
+          hasDraft && savedAt
+            ? `この端末に保存中です。最終保存: ${escapeHtml(formatDate(savedAt))}`
+            : "入力内容はこの端末に自動保存されます。"
+        }
+      </div>
+      <div class="action-row">
+        <button id="clearDraftButton" class="ghost-button" type="button" ${hasDraft ? "" : "hidden"}>
+          下書きを破棄
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function refreshProgressDisplay(survey) {
   const progress = getProgress(survey, getSurveyDraft(survey.id));
   document.querySelector(".progress-fill")?.setAttribute("style", `width: ${progress.percent}%`);
   const progressHead = document.querySelector(".progress-head span");
   if (progressHead) {
     progressHead.textContent = `${progress.answeredRequired}/${progress.requiredTotal} 必須回答`;
+  }
+  refreshDraftStatusDisplay(survey.id);
+}
+
+function refreshDraftStatusDisplay(surveyId) {
+  const textNode = document.querySelector("[data-draft-status-text]");
+  const clearButton = document.querySelector("#clearDraftButton");
+  if (!textNode) return;
+  const draft = getSurveyDraft(surveyId);
+  const hasDraft = hasDraftContent(draft);
+  const savedAt = getDraftSavedAt(surveyId);
+  textNode.textContent = hasDraft && savedAt
+    ? `この端末に保存中です。最終保存: ${formatDate(savedAt)}`
+    : "入力内容はこの端末に自動保存されます。";
+  if (clearButton) {
+    clearButton.hidden = !hasDraft;
   }
 }
 
@@ -2117,6 +2183,7 @@ function renderFormPanel(survey) {
         : ""
     }
     ${renderProgressBar(progress)}
+    ${renderDraftStatusCard(surveyId)}
     ${
       isSessionSurvey(survey)
         ? `
@@ -2179,6 +2246,16 @@ function renderFormPanel(survey) {
   `;
 
   document.querySelector("#backToHomeButton").addEventListener("click", () => setPage("home"));
+  document.querySelector("#clearDraftButton")?.addEventListener("click", () => {
+    clearSurveyDraft(surveyId);
+    appState.confirmPayload = null;
+    if (appState.editingResponseId) {
+      appState.editingResponseId = "";
+    }
+    showToast("下書きを削除しました。");
+    renderSurveys();
+    renderAnswerPanel();
+  });
   document.querySelector("#changeSessionTypeButton")?.addEventListener("click", () => {
     clearSessionSelections(surveyId);
     renderAnswerPanel();
@@ -2266,6 +2343,7 @@ function attachAnswerFormHandlers(form, survey) {
     const input = event.target;
     if (input.dataset.agreementInput) {
       setAgreementAccepted(survey.id, input.checked);
+      refreshDraftStatusDisplay(survey.id);
       return;
     }
     const questionId = input.dataset.questionId;
@@ -3141,7 +3219,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-10", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-12", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

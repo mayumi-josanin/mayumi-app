@@ -291,6 +291,11 @@ textarea {
   background: #f5f8f1;
 }
 
+.survey-card.has-draft {
+  border-color: rgba(90, 122, 78, 0.3);
+  background: #fbfdf9;
+}
+
 .survey-card.deadline-soon {
   border-color: #d38b2d;
   background: #fffaf0;
@@ -311,6 +316,7 @@ textarea {
 }
 
 .retry-card,
+.draft-status-card,
 .progress-card,
 .policy-card,
 .completion-card {
@@ -627,6 +633,18 @@ textarea {
 .badge.closed {
   background: #f7e9e2;
   color: var(--danger);
+}
+
+.badge.draft {
+  background: #eef2fb;
+  color: #51649a;
+}
+
+.draft-status-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .question-block {

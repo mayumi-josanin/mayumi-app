@@ -2922,6 +2922,7 @@ function formatAnswerForCsv(answer) {
 
 function renderFilters() {
   const surveyFilter = document.querySelector("#surveyFilter");
+  const concernCategoryFilter = document.querySelector("#concernCategoryFilter");
   const ticketPlanFilter = document.querySelector("#ticketPlanFilter");
   const ticketSheetFilter = document.querySelector("#ticketSheetFilter");
   const ticketRoundFilter = document.querySelector("#ticketRoundFilter");
@@ -2931,6 +2932,21 @@ function renderFilters() {
     ${state.surveys.map((survey) => `<option value="${survey.id}">${escapeHtml(survey.title)}</option>`).join("")}
   `;
   surveyFilter.value = Array.from(surveyFilter.options).some((option) => option.value === current) ? current : "";
+  if (concernCategoryFilter) {
+    const currentCategory = concernCategoryFilter.value;
+    concernCategoryFilter.innerHTML = `
+      <option value="">すべてのカテゴリ</option>
+      ${SESSION_CONCERN_CATEGORIES.map(
+        (category) => `<option value="${escapeHtml(category.id)}">${escapeHtml(category.label)}</option>`,
+      ).join("")}
+      <option value="extras">【その他】</option>
+    `;
+    concernCategoryFilter.value = Array.from(concernCategoryFilter.options).some(
+      (option) => option.value === currentCategory,
+    )
+      ? currentCategory
+      : "";
+  }
   if (ticketPlanFilter) {
     const currentPlan = ticketPlanFilter.value;
     ticketPlanFilter.innerHTML = `
@@ -3029,6 +3045,8 @@ function getResponseSearchHaystack(response) {
     profile?.nameKana,
     response.surveyTitle,
     response.adminMemo,
+    getResponseTicketInfo(response).map((item) => `${item.label} ${item.value}`).join(" "),
+    getResponseConcernCategoryLabels(response).join(" "),
     response.answers.map((answer) => formatAnswerForCsv(answer)).join(" "),
   ]
     .filter(Boolean)
@@ -3036,14 +3054,44 @@ function getResponseSearchHaystack(response) {
     .toLowerCase();
 }
 
+function normalizeLooseSearchText(value) {
+  return String(value || "").replace(/\s+/g, "").trim().toLowerCase();
+}
+
+function getResponseConcernCategoryIds(response) {
+  const answer = (response?.answers || []).find((item) => item.questionId === SESSION_CONCERN_QUESTION_ID);
+  return getConcernAnswerGroups(answer).map((group) => group.id);
+}
+
+function getResponseConcernCategoryLabels(response) {
+  return getResponseConcernCategoryIds(response)
+    .map((categoryId) => {
+      if (categoryId === "extras") return "【その他】";
+      return SESSION_CONCERN_CATEGORIES.find((category) => category.id === categoryId)?.label || "";
+    })
+    .filter(Boolean);
+}
+
+function getPhotoCountBucket(count) {
+  if (count >= 5) return "5plus";
+  if (count >= 3) return "3-4";
+  if (count >= 1) return "1-2";
+  return "0";
+}
+
 function getFilteredResponses() {
   const surveyId = document.querySelector("#surveyFilter").value;
   const status = document.querySelector("#statusFilter").value;
   const keyword = document.querySelector("#keywordFilter").value.trim().toLowerCase();
+  const memberNumber = String(document.querySelector("#memberNumberFilter")?.value || "").trim().toUpperCase();
+  const nameKana = normalizeLooseSearchText(document.querySelector("#nameKanaFilter")?.value || "");
+  const memoFilter = document.querySelector("#memoPresenceFilter")?.value || "";
+  const concernCategory = document.querySelector("#concernCategoryFilter")?.value || "";
   const ticketPlan = document.querySelector("#ticketPlanFilter")?.value || "";
   const ticketSheet = document.querySelector("#ticketSheetFilter")?.value || "";
   const ticketRound = document.querySelector("#ticketRoundFilter")?.value || "";
   const photoFilter = document.querySelector("#photoFilter")?.value || "";
+  const photoCountFilter = document.querySelector("#photoCountFilter")?.value || "";
   const dateFrom = document.querySelector("#dateFromFilter")?.value || "";
   const dateTo = document.querySelector("#dateToFilter")?.value || "";
 
@@ -3065,12 +3113,26 @@ function getFilteredResponses() {
       return getResponseSearchHaystack(response).includes(keyword);
     })
     .filter((response) => {
+      const profile = getCustomerProfileByName(response.customerName);
+      const normalizedMemberNumber = String(
+        response.customerMemberNumber || profile?.memberNumber || "",
+      ).trim().toUpperCase();
+      const normalizedNameKana = normalizeLooseSearchText(profile?.nameKana || "");
+      const responseMemo = String(response.adminMemo || "").trim();
+      const concernCategoryIds = getResponseConcernCategoryIds(response);
+      const photoCount = collectPhotosFromResponse(response).length;
       const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
+      if (memberNumber && !normalizedMemberNumber.includes(memberNumber)) return false;
+      if (nameKana && !normalizedNameKana.includes(nameKana)) return false;
+      if (memoFilter === "with" && !responseMemo) return false;
+      if (memoFilter === "without" && responseMemo) return false;
+      if (concernCategory && !concernCategoryIds.includes(concernCategory)) return false;
       if (ticketPlan && ticketMap.get("回数券") !== ticketPlan) return false;
       if (ticketSheet && ticketMap.get("何枚目") !== ticketSheet) return false;
       if (ticketRound && ticketMap.get("何回目") !== ticketRound) return false;
-      if (photoFilter === "with" && !collectPhotosFromResponse(response).length) return false;
-      if (photoFilter === "without" && collectPhotosFromResponse(response).length) return false;
+      if (photoFilter === "with" && !photoCount) return false;
+      if (photoFilter === "without" && photoCount) return false;
+      if (photoCountFilter && getPhotoCountBucket(photoCount) !== photoCountFilter) return false;
       return true;
     })
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
@@ -3091,6 +3153,111 @@ function getPreviousResponse(response) {
         new Date(item.submittedAt) < new Date(response.submittedAt),
     )
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null;
+}
+
+function hasResponsePhotos(response) {
+  return collectPhotosFromResponse(response).length > 0;
+}
+
+function getPhotoComparisonSlots(response) {
+  const photoResponses = state.responses
+    .filter(
+      (item) =>
+        item.customerName === response.customerName &&
+        item.surveyId === response.surveyId &&
+        normalizeStatus(item.status) !== "trash" &&
+        hasResponsePhotos(item),
+    )
+    .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+
+  if (!photoResponses.length) return [];
+
+  const first = photoResponses[0] || null;
+  const previous =
+    photoResponses.filter((item) => new Date(item.submittedAt) < new Date(response.submittedAt)).slice(-1)[0] || null;
+  const currentHasPhotos = hasResponsePhotos(response);
+  const slots = [];
+
+  if (first) {
+    slots.push({ label: "初回", response: first });
+  }
+  if (previous && previous.id !== first?.id) {
+    slots.push({ label: "前回", response: previous });
+  }
+  if (currentHasPhotos) {
+    const existingSlot = slots.find((slot) => slot.response?.id === response.id);
+    if (existingSlot) {
+      existingSlot.label = `${existingSlot.label} / 今回`;
+    } else {
+      slots.push({ label: "今回", response });
+    }
+  } else {
+    slots.push({ label: "今回", response: null });
+  }
+
+  return slots;
+}
+
+function renderPhotoComparisonSection(response) {
+  const survey = findSurveyById(response.surveyId);
+  const slots = getPhotoComparisonSlots(response);
+  if (!survey || !slots.length) {
+    return `<article class="answer-item"><strong>写真比較</strong><div class="meta">比較できる写真はありません。</div></article>`;
+  }
+
+  return `
+    <article class="answer-item photo-compare-section">
+      <strong>写真比較</strong>
+      <div class="meta">初回・前回・今回の写真を並べて確認できます。</div>
+      <div class="photo-compare-grid">
+        ${slots
+          .map((slot) => {
+            if (!slot.response) {
+              return `
+                <section class="photo-compare-card">
+                  <div class="photo-compare-head">
+                    <strong>${escapeHtml(slot.label)}</strong>
+                    <span class="badge checked">写真なし</span>
+                  </div>
+                  <div class="empty">この回答には写真が添付されていません。</div>
+                </section>
+              `;
+            }
+
+            const photoAnswers = getDisplayAnswers(slot.response, survey).filter(
+              (answer) => Array.isArray(answer.files) && answer.files.length,
+            );
+            return `
+              <section class="photo-compare-card">
+                <div class="photo-compare-head">
+                  <strong>${escapeHtml(slot.label)}</strong>
+                  <span class="meta">${escapeHtml(formatDate(slot.response.submittedAt))}</span>
+                </div>
+                <div class="meta">${escapeHtml(getCustomerNameWithMember(slot.response.customerName))}</div>
+                ${renderTicketStampList(getResponseTicketInfo(slot.response))}
+                <div class="photo-compare-gallery">
+                  ${
+                    photoAnswers.length
+                      ? photoAnswers
+                          .map(
+                            (answer) => `
+                              <div class="photo-answer-group">
+                                <strong>${escapeHtml(answer.label)}</strong>
+                                ${renderAnswerValue(answer)}
+                              </div>
+                            `,
+                          )
+                          .join("")
+                      : `<div class="empty">比較できる写真はありません。</div>`
+                  }
+                </div>
+              </section>
+            `;
+          })
+          .join("")}
+      </div>
+    </article>
+  `;
 }
 
 function renderComparisonSection(response) {
@@ -3454,6 +3621,7 @@ function renderResponses() {
         </div>
       </div>
       ${renderComparisonSection(selectedResponse)}
+      ${renderPhotoComparisonSection(selectedResponse)}
       ${renderResponseCard(selectedResponse)}
     `;
   }
@@ -5151,7 +5319,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-11", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-12", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -5264,7 +5432,7 @@ document.querySelector("#backupImportInput")?.addEventListener("change", (event)
   event.target.value = "";
 });
 
-["surveyFilter", "statusFilter", "keywordFilter", "ticketPlanFilter", "ticketSheetFilter", "ticketRoundFilter", "photoFilter", "dateFromFilter", "dateToFilter"].forEach((id) => {
+["surveyFilter", "statusFilter", "keywordFilter", "memberNumberFilter", "nameKanaFilter", "memoPresenceFilter", "concernCategoryFilter", "ticketPlanFilter", "ticketSheetFilter", "ticketRoundFilter", "photoFilter", "photoCountFilter", "dateFromFilter", "dateToFilter"].forEach((id) => {
   document.querySelector(`#${id}`).addEventListener("input", renderResponses);
   document.querySelector(`#${id}`).addEventListener("change", renderResponses);
 });

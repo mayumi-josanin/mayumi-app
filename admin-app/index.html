@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260414-11" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260414-11" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260414-11" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260414-11" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260414-12" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260414-12" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260414-12" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260414-12" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -135,6 +135,26 @@
                   <input id="keywordFilter" type="search" placeholder="会員番号・氏名・アンケート・回答内容" />
                 </label>
                 <label>
+                  会員番号
+                  <input id="memberNumberFilter" type="search" placeholder="会員番号で絞り込み" />
+                </label>
+                <label>
+                  フリガナ
+                  <input id="nameKanaFilter" type="search" placeholder="カタカナで絞り込み" />
+                </label>
+                <label>
+                  管理メモ
+                  <select id="memoPresenceFilter">
+                    <option value="">すべて</option>
+                    <option value="with">メモあり</option>
+                    <option value="without">メモなし</option>
+                  </select>
+                </label>
+                <label>
+                  お悩みカテゴリ
+                  <select id="concernCategoryFilter"></select>
+                </label>
+                <label>
                   回数券
                   <select id="ticketPlanFilter"></select>
                 </label>
@@ -152,6 +172,15 @@
                     <option value="">すべて</option>
                     <option value="with">写真あり</option>
                     <option value="without">写真なし</option>
+                  </select>
+                </label>
+                <label>
+                  写真枚数
+                  <select id="photoCountFilter">
+                    <option value="">すべて</option>
+                    <option value="1-2">1-2枚</option>
+                    <option value="3-4">3-4枚</option>
+                    <option value="5plus">5枚以上</option>
                   </select>
                 </label>
                 <label>
@@ -313,9 +342,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260414-11"></script>
-    <script src="../shared/gas-config.js?v=20260414-11"></script>
-    <script src="../shared/api.js?v=20260414-11"></script>
-    <script src="./app.js?v=20260414-11"></script>
+    <script src="../default-surveys.js?v=20260414-12"></script>
+    <script src="../shared/gas-config.js?v=20260414-12"></script>
+    <script src="../shared/api.js?v=20260414-12"></script>
+    <script src="./app.js?v=20260414-12"></script>
   </body>
 </html>
