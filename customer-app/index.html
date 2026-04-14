@@ -8,17 +8,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみアンケート" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260414-12" />
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20260414-12" sizes="180x180" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260414-12" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260414-12" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260414-13" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20260414-13" sizes="180x180" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260414-13" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260414-13" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <header class="app-header">
       <div class="brand">
-        <img src="./icons/apple-touch-icon.png?v=20260414-12" alt="まゆみ助産院" />
+        <img src="./icons/apple-touch-icon.png?v=20260414-13" alt="まゆみ助産院" />
         <div>
           <div class="brand-name">まゆみ助産院</div>
           <div class="brand-sub">アンケート回答アプリ</div>
@@ -118,6 +118,19 @@
         </section>
       </section>
 
+      <section id="page-measurements" class="page">
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h1>計測記録</h1>
+              <p>計測履歴、グラフ、写真履歴を確認できます。</p>
+            </div>
+            <button id="measurementRefreshButton" class="ghost-button" type="button">更新</button>
+          </div>
+          <div id="measurementPanel" class="measurement-panel"></div>
+        </section>
+      </section>
+
     </main>
 
     <nav id="bottomNav" class="bottom-nav" aria-label="お客様アプリメニュー" hidden>
@@ -129,11 +142,15 @@
         <span>🕒</span>
         履歴
       </button>
+      <button class="nav-button" type="button" data-page="measurements">
+        <span>📏</span>
+        計測
+      </button>
     </nav>
 
-    <script src="../default-surveys.js?v=20260414-12"></script>
-    <script src="../shared/gas-config.js?v=20260414-12"></script>
-    <script src="../shared/api.js?v=20260414-12"></script>
-    <script src="./app.js?v=20260414-12"></script>
+    <script src="../default-surveys.js?v=20260414-13"></script>
+    <script src="../shared/gas-config.js?v=20260414-13"></script>
+    <script src="../shared/api.js?v=20260414-13"></script>
+    <script src="./app.js?v=20260414-13"></script>
   </body>
 </html>

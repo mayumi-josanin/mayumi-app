@@ -181,7 +181,8 @@ p {
 .survey-list,
 .history-list,
 .guide-list,
-.home-ticket-status {
+.home-ticket-status,
+.measurement-panel {
   display: grid;
   gap: 12px;
 }
@@ -797,6 +798,173 @@ legend > span:first-child {
   gap: 12px;
 }
 
+.measurement-section {
+  display: grid;
+  gap: 12px;
+}
+
+.measurement-summary-grid,
+.measurement-metric-grid,
+.measurement-photo-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.measurement-summary-card,
+.measurement-metric-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.measurement-summary-card strong,
+.measurement-metric-card strong {
+  color: var(--sage-dark);
+  font-size: 18px;
+}
+
+.measurement-summary-label {
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.meta-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.measurement-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.measurement-toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-dark);
+}
+
+.measurement-toggle-chip input {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+}
+
+.measurement-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 6px;
+}
+
+.measurement-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-mid);
+  font-size: 12px;
+}
+
+.measurement-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.measurement-chart-shell {
+  overflow-x: auto;
+}
+
+.measurement-chart {
+  display: block;
+  width: 100%;
+  min-width: 620px;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.measurement-grid-line {
+  stroke: rgba(122, 92, 62, 0.12);
+  stroke-width: 1;
+}
+
+.measurement-axis-label,
+.measurement-target-label {
+  fill: var(--text-light);
+  font-size: 11px;
+}
+
+.measurement-history-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.measurement-history-card {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.measurement-cell-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--text-light);
+  font-size: 12px;
+}
+
+.delta-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.delta-badge.increase {
+  background: #f9e9e7;
+  color: #9f3b2d;
+}
+
+.delta-badge.decrease,
+.delta-badge.achieved {
+  background: #e8f3ea;
+  color: #2f6b4f;
+}
+
+.delta-badge.remaining {
+  background: #fff3d5;
+  color: #8a6200;
+}
+
+.delta-badge.neutral {
+  background: #f1eeea;
+  color: var(--text-mid);
+}
+
 .empty {
   padding: 16px;
   border: 1px dashed var(--border);
@@ -833,7 +1001,7 @@ legend > span:first-child {
   bottom: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
   background: rgba(254, 252, 248, 0.96);

@@ -109,6 +109,7 @@ function seedDb() {
   return {
     surveys: makeDefaultSurveys(now()),
     responses: [],
+    measurements: [],
     settings: {
       adminUsername: ADMIN_USERNAME,
       adminPassword: ADMIN_PASSWORD,
@@ -611,6 +612,8 @@ async function handleApi(req, res, pathname, searchParams) {
         responses: name
           ? db.responses.filter((response) => response.customerName === name)
           : [],
+        measurements: [],
+        customerProfile: null,
       });
       return;
     }

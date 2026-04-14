@@ -6,7 +6,7 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const APP_VERSION = "20260414-12";
+const APP_VERSION = "20260414-13";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -38,6 +38,25 @@ const LEGACY_TICKET_INFO_QUESTION_IDS = {
 const TICKET_END_COUNT_QUESTION_ID = LEGACY_TICKET_INFO_QUESTION_IDS.size;
 const TICKET_END_SHEET_QUESTION_ID = LEGACY_TICKET_INFO_QUESTION_IDS.sheet;
 const TICKET_END_ROUND_QUESTION_ID = LEGACY_TICKET_INFO_QUESTION_IDS.round;
+const MEASUREMENT_METRICS = [
+  { key: "waist", label: "ウエスト", color: "#c95f50", unit: "cm" },
+  { key: "hip", label: "ヒップ", color: "#4e8c73", unit: "cm" },
+  { key: "thighRight", label: "太もも右", color: "#c78a2c", unit: "cm" },
+  { key: "thighLeft", label: "太もも左", color: "#6e7fba", unit: "cm" },
+];
+const MEASUREMENT_PERIOD_OPTIONS = [
+  { value: "1m", label: "過去1ヶ月" },
+  { value: "6m", label: "過去半年" },
+  { value: "1y", label: "過去1年" },
+  { value: "all", label: "全期間" },
+];
+const DEFAULT_MEASUREMENT_VISIBILITY = {
+  waist: true,
+  hip: true,
+  thighRight: true,
+  thighLeft: true,
+  whr: true,
+};
 const SESSION_CONCERN_CATEGORIES = [
   {
     id: "toilet",
@@ -160,6 +179,7 @@ const appState = {
   ticketCardOverride: normalizeActiveTicketCardOverride(loadLocal(TICKET_CARD_OVERRIDE_KEY, null)),
   surveys: [],
   history: [],
+  measurements: [],
   publicInfo: {
     dataPolicyText: "",
     requireConsent: true,
@@ -178,6 +198,8 @@ const appState = {
   historyLoading: false,
   historyLoadError: "",
   concernCategoryByQuestion: {},
+  selectedMeasurementPeriod: "6m",
+  measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
 };
 
 const api = window.MayumiSurveyApi;
@@ -185,6 +207,7 @@ const toast = document.querySelector("#toast");
 const surveyList = document.querySelector("#surveyList");
 const answerPanel = document.querySelector("#answerPanel");
 const historyList = document.querySelector("#historyList");
+const measurementPanel = document.querySelector("#measurementPanel");
 const homeTicketStatus = document.querySelector("#homeTicketStatus");
 const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
@@ -195,6 +218,7 @@ const registrationLead = document.querySelector("#registrationLead");
 const customerRegisterButton = document.querySelector("#customerRegisterButton");
 const recoverAccountButton = document.querySelector("#recoverAccountButton");
 const bottomNav = document.querySelector("#bottomNav");
+const measurementRefreshButton = document.querySelector("#measurementRefreshButton");
 
 function loadLocal(key, fallback) {
   try {
@@ -233,12 +257,32 @@ function normalizeKana(value) {
   return String(value ?? "").replace(/\s+/g, "").trim();
 }
 
+function normalizeMeasurementValue(value) {
+  if (value === null || value === undefined || value === "") return "";
+  const normalized = String(value).replace(/[^\d.-]/g, "");
+  if (!normalized) return "";
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return "";
+  return Math.round(parsed * 10) / 10;
+}
+
+function normalizeMeasurementTargets(value) {
+  const targets = {
+    waist: normalizeMeasurementValue(value?.waist),
+    hip: normalizeMeasurementValue(value?.hip),
+    thighRight: normalizeMeasurementValue(value?.thighRight),
+    thighLeft: normalizeMeasurementValue(value?.thighLeft),
+  };
+  return Object.values(targets).some((item) => item !== "") ? targets : null;
+}
+
 function normalizeCustomerProfile(value) {
   return {
     name: normalizeText(value?.name),
     memberNumber: normalizeText(value?.memberNumber).toUpperCase(),
     nameKana: normalizeKana(value?.nameKana),
     historyMatchMode: value?.historyMatchMode === "name" ? "name" : "device",
+    measurementTargets: normalizeMeasurementTargets(value?.measurementTargets),
   };
 }
 
@@ -325,6 +369,7 @@ function normalizeServerCustomerProfile(value) {
     memberNumber: normalizeText(value?.memberNumber).toUpperCase(),
     nameKana: normalizeKana(value?.nameKana),
     activeTicketCard: normalizeServerActiveTicketCard(value?.activeTicketCard),
+    measurementTargets: normalizeMeasurementTargets(value?.measurementTargets),
   };
 }
 
@@ -337,6 +382,7 @@ function mergeCustomerProfile(baseProfile, serverProfile) {
     memberNumber: server.memberNumber || base.memberNumber,
     nameKana: server.nameKana || base.nameKana,
     historyMatchMode: base.historyMatchMode,
+    measurementTargets: server.measurementTargets || base.measurementTargets,
   });
 }
 
@@ -344,8 +390,10 @@ function syncCustomerProfileFromServer(serverProfile) {
   const merged = mergeCustomerProfile(appState.customer, serverProfile);
   if (
     merged.name === appState.customer.name &&
+    merged.memberNumber === appState.customer.memberNumber &&
     merged.nameKana === appState.customer.nameKana &&
-    merged.historyMatchMode === appState.customer.historyMatchMode
+    merged.historyMatchMode === appState.customer.historyMatchMode &&
+    JSON.stringify(merged.measurementTargets || null) === JSON.stringify(appState.customer.measurementTargets || null)
   ) {
     return false;
   }
@@ -378,6 +426,30 @@ function syncActiveTicketCardOverrideFromServer(serverProfile) {
     return true;
   }
   return false;
+}
+
+function normalizeMeasurementRecord(value) {
+  const measuredAt = normalizeText(value?.measuredAt);
+  const createdAt = normalizeText(value?.createdAt);
+  const updatedAt = normalizeText(value?.updatedAt);
+  const waist = normalizeMeasurementValue(value?.waist);
+  const hip = normalizeMeasurementValue(value?.hip);
+  const thighRight = normalizeMeasurementValue(value?.thighRight);
+  const thighLeft = normalizeMeasurementValue(value?.thighLeft);
+  return {
+    id: normalizeText(value?.id),
+    customerName: normalizeText(value?.customerName),
+    memberNumber: normalizeText(value?.memberNumber).toUpperCase(),
+    measuredAt,
+    waist,
+    hip,
+    thighRight,
+    thighLeft,
+    whr: hip === "" || !(Number(hip) > 0) || waist === "" ? "" : Math.round((waist / hip) * 1000) / 1000,
+    createdAt,
+    updatedAt,
+    target: normalizeMeasurementTargets(value?.target),
+  };
 }
 
 function buildHistorySearchParams(profile, options = {}) {
@@ -460,6 +532,45 @@ function formatDateOnly(value) {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(value));
+}
+
+function roundMeasurementDelta(value) {
+  if (!Number.isFinite(Number(value))) return "";
+  return Math.round(Number(value) * 10) / 10;
+}
+
+function formatMeasurementValue(value, unit = "cm") {
+  const normalized = normalizeMeasurementValue(value);
+  if (normalized === "") return "-";
+  return `${normalized.toFixed(1)}${unit}`;
+}
+
+function formatMeasurementDelta(value, unit = "cm") {
+  if (value === "" || value === null || value === undefined || !Number.isFinite(Number(value))) {
+    return '<span class="delta-badge neutral">-</span>';
+  }
+  const normalized = roundMeasurementDelta(value);
+  const className = normalized > 0 ? "increase" : normalized < 0 ? "decrease" : "neutral";
+  const sign = normalized > 0 ? "+" : normalized < 0 ? "-" : "+/-";
+  const text =
+    normalized === 0
+      ? `0.0${unit}`
+      : `${sign}${Math.abs(normalized).toFixed(1)}${unit}`;
+  return `<span class="delta-badge ${className}">${escapeHtml(text)}</span>`;
+}
+
+function formatMeasurementGapToTarget(value, target) {
+  const normalizedValue = normalizeMeasurementValue(value);
+  const normalizedTarget = normalizeMeasurementValue(target);
+  if (normalizedValue === "" || normalizedTarget === "") return '<span class="delta-badge neutral">未設定</span>';
+  const diff = roundMeasurementDelta(normalizedValue - normalizedTarget);
+  if (diff <= 0) return `<span class="delta-badge achieved">達成</span>`;
+  return `<span class="delta-badge remaining">残り${escapeHtml(diff.toFixed(1))}cm</span>`;
+}
+
+function formatWhr(value) {
+  if (value === "" || value === null || value === undefined || !Number.isFinite(Number(value))) return "-";
+  return Number(value).toFixed(3);
 }
 
 function formatPhotoCapturedAt(value) {
@@ -1124,7 +1235,7 @@ function setPage(page) {
   if (page === "home") {
     renderSurveys();
   }
-  if ((page === "history" || page === "home") && hasCustomerSession()) {
+  if ((page === "history" || page === "home" || page === "measurements") && hasCustomerSession()) {
     void loadHistory();
   }
 }
@@ -1160,10 +1271,12 @@ async function loadSurveys() {
 async function loadHistory() {
   if (!hasCustomerSession()) {
     appState.history = [];
+    appState.measurements = [];
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
     historyList.innerHTML = `<div class="empty">先にログインしてください。</div>`;
+    renderMeasurements();
     return;
   }
 
@@ -1177,6 +1290,9 @@ async function loadHistory() {
       `/api/public/responses?${params.toString()}`,
     );
     appState.history = Array.isArray(result.responses) ? result.responses : [];
+    appState.measurements = Array.isArray(result.measurements)
+      ? result.measurements.map(normalizeMeasurementRecord)
+      : [];
     syncCustomerProfileFromServer(result.customerProfile);
     syncActiveTicketCardOverrideFromServer(result.customerProfile);
     syncActiveTicketCardOverrideWithHistory();
@@ -1184,6 +1300,7 @@ async function loadHistory() {
     appState.historyLoadError = "";
     renderHomeTicketStatus();
     renderHistory();
+    renderMeasurements();
     if (
       appState.selectedSurveyId === SESSION_SURVEY_ID &&
       getSessionTypeSelection(SESSION_SURVEY_ID) === "回数券" &&
@@ -1194,11 +1311,13 @@ async function loadHistory() {
     }
   } catch (error) {
     appState.history = [];
+    appState.measurements = [];
     appState.historyLoading = false;
     appState.historyLoadError = error.message || "履歴を読み込めませんでした。";
     renderHomeTicketStatus();
     reportClientError("customer.loadHistory", error, { name: appState.customer.name });
     historyList.innerHTML = `<div class="empty">${escapeHtml(error.message || "履歴を読み込めませんでした。")}</div>`;
+    renderMeasurements();
     if (
       appState.selectedSurveyId === SESSION_SURVEY_ID &&
       getSessionTypeSelection(SESSION_SURVEY_ID) === "回数券" &&
@@ -1240,8 +1359,10 @@ function readCustomerProfileFromForm(form) {
   const formData = new FormData(form);
   return normalizeCustomerProfile({
     name: formData.get("name"),
+    memberNumber: appState.customer.memberNumber,
     nameKana: formData.get("nameKana"),
     historyMatchMode: appState.customer.historyMatchMode,
+    measurementTargets: appState.customer.measurementTargets,
   });
 }
 
@@ -3146,6 +3267,488 @@ function renderHistory() {
   attachCommonButtons();
 }
 
+function getCustomerMeasurements() {
+  return appState.measurements
+    .filter((measurement) => {
+      if (!measurement.customerName) return true;
+      return measurement.customerName === appState.customer.name;
+    })
+    .sort((a, b) => {
+      const measuredDiff = new Date(b.measuredAt) - new Date(a.measuredAt);
+      if (measuredDiff !== 0) return measuredDiff;
+      return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+    });
+}
+
+function getMeasurementTargets() {
+  return normalizeMeasurementTargets(appState.customer.measurementTargets) || null;
+}
+
+function filterMeasurementsByPeriod(measurements, period) {
+  if (!Array.isArray(measurements) || !measurements.length || period === "all") return measurements.slice();
+  const latest = measurements
+    .map((measurement) => new Date(measurement.measuredAt))
+    .filter((date) => Number.isFinite(date.getTime()))
+    .sort((a, b) => b - a)[0];
+  if (!latest) return measurements.slice();
+  const threshold = new Date(latest);
+  if (period === "1m") threshold.setMonth(threshold.getMonth() - 1);
+  else if (period === "6m") threshold.setMonth(threshold.getMonth() - 6);
+  else if (period === "1y") threshold.setFullYear(threshold.getFullYear() - 1);
+  return measurements.filter((measurement) => new Date(measurement.measuredAt) >= threshold);
+}
+
+function buildMeasurementHistoryRows(measurements, targets) {
+  const chronological = measurements
+    .slice()
+    .sort((a, b) => {
+      const measuredDiff = new Date(a.measuredAt) - new Date(b.measuredAt);
+      if (measuredDiff !== 0) return measuredDiff;
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    });
+  const first = chronological[0] || null;
+  const rowsById = new Map();
+  chronological.forEach((measurement, index) => {
+    const previous = index > 0 ? chronological[index - 1] : null;
+    const metrics = {};
+    MEASUREMENT_METRICS.forEach((metric) => {
+      const value = normalizeMeasurementValue(measurement[metric.key]);
+      const previousValue = normalizeMeasurementValue(previous?.[metric.key]);
+      const firstValue = normalizeMeasurementValue(first?.[metric.key]);
+      metrics[metric.key] = {
+        value,
+        previousDelta:
+          value === "" || previousValue === "" ? "" : roundMeasurementDelta(value - previousValue),
+        firstDelta: value === "" || firstValue === "" ? "" : roundMeasurementDelta(value - firstValue),
+        targetGap: value === "" || normalizeMeasurementValue(targets?.[metric.key]) === ""
+          ? ""
+          : roundMeasurementDelta(value - normalizeMeasurementValue(targets?.[metric.key])),
+      };
+    });
+    const thighRight = normalizeMeasurementValue(measurement.thighRight);
+    const thighLeft = normalizeMeasurementValue(measurement.thighLeft);
+    rowsById.set(measurement.id, {
+      ...measurement,
+      metrics,
+      leftRightGap:
+        thighRight === "" || thighLeft === "" ? "" : roundMeasurementDelta(Math.abs(thighRight - thighLeft)),
+    });
+  });
+  return measurements.map((measurement) => rowsById.get(measurement.id)).filter(Boolean);
+}
+
+function collectPhotoFilesFromResponse(response) {
+  const answerFiles = (response?.answers || []).flatMap((answer) =>
+    Array.isArray(answer?.files) ? answer.files : [],
+  );
+  const responseFiles = Array.isArray(response?.files) ? response.files : [];
+  const files = answerFiles.concat(responseFiles);
+  const seen = new Set();
+  return files.filter((file, index) => {
+    const key = normalizeText(
+      file?.fileId || file?.downloadUrl || file?.previewUrl || file?.thumbnailUrl || file?.url || file?.name || `photo_${index}`,
+    );
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getMeasurementPhotoResponses() {
+  return getVisibleHistoryResponses()
+    .filter((response) => collectPhotoFilesFromResponse(response).length)
+    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+}
+
+function renderMeasurementSummaryCards(measurements, targets) {
+  if (!measurements.length) {
+    return `<div class="empty">まだ計測記録はありません。</div>`;
+  }
+  const latest = measurements[0];
+  const first = measurements[measurements.length - 1];
+  const thighGap =
+    latest.thighRight !== "" && latest.thighLeft !== ""
+      ? roundMeasurementDelta(Math.abs(latest.thighRight - latest.thighLeft))
+      : "";
+  return `
+    <div class="measurement-summary-grid">
+      <article class="measurement-summary-card">
+        <div class="measurement-summary-label">最新測定日</div>
+        <strong>${escapeHtml(formatDateOnly(latest.measuredAt))}</strong>
+        <div class="meta">履歴 ${measurements.length}件</div>
+      </article>
+      <article class="measurement-summary-card">
+        <div class="measurement-summary-label">最新 WHR</div>
+        <strong>${escapeHtml(formatWhr(latest.whr))}</strong>
+        <div class="meta">初回 ${escapeHtml(formatWhr(first.whr))}</div>
+      </article>
+      <article class="measurement-summary-card">
+        <div class="measurement-summary-label">太もも左右差</div>
+        <strong>${thighGap === "" ? "-" : `${escapeHtml(thighGap.toFixed(1))}cm`}</strong>
+        <div class="meta">左右のバランス確認用</div>
+      </article>
+      ${MEASUREMENT_METRICS.map((metric) => {
+        const latestValue = latest[metric.key];
+        const firstValue = first[metric.key];
+        const firstDelta =
+          normalizeMeasurementValue(latestValue) === "" || normalizeMeasurementValue(firstValue) === ""
+            ? ""
+            : roundMeasurementDelta(normalizeMeasurementValue(latestValue) - normalizeMeasurementValue(firstValue));
+        return `
+          <article class="measurement-summary-card">
+            <div class="measurement-summary-label">${escapeHtml(metric.label)}</div>
+            <strong>${escapeHtml(formatMeasurementValue(latestValue))}</strong>
+            <div class="meta">初回比 ${formatMeasurementDelta(firstDelta)}</div>
+            <div class="meta-inline">${formatMeasurementGapToTarget(latestValue, targets?.[metric.key])}</div>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderMeasurementLineChart(title, measurements, metrics, options = {}) {
+  const visibleMetrics = metrics.filter((metric) => appState.measurementMetricVisibility[metric.key] !== false);
+  if (!measurements.length) {
+    return `<div class="empty">まだグラフを表示できる計測記録がありません。</div>`;
+  }
+  if (!visibleMetrics.length) {
+    return `<div class="empty">表示する項目を選択してください。</div>`;
+  }
+
+  const chronological = measurements
+    .slice()
+    .sort((a, b) => new Date(a.measuredAt) - new Date(b.measuredAt));
+  const targetMap = options.targets || {};
+  const values = [];
+  chronological.forEach((measurement) => {
+    visibleMetrics.forEach((metric) => {
+      const value = normalizeMeasurementValue(measurement[metric.key]);
+      if (value !== "") values.push(Number(value));
+    });
+  });
+  visibleMetrics.forEach((metric) => {
+    const target = normalizeMeasurementValue(targetMap?.[metric.key]);
+    if (target !== "") values.push(Number(target));
+  });
+  if (!values.length) {
+    return `<div class="empty">表示できる数値がありません。</div>`;
+  }
+
+  const chartWidth = 720;
+  const chartHeight = options.compact ? 220 : 280;
+  const padding = { top: 20, right: 20, bottom: 44, left: 52 };
+  const plotWidth = chartWidth - padding.left - padding.right;
+  const plotHeight = chartHeight - padding.top - padding.bottom;
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const pad = Math.max((maxValue - minValue) * 0.15, options.pad || 1);
+  const domainMin = Math.max(0, Math.floor((minValue - pad) * 10) / 10);
+  const domainMax = Math.ceil((maxValue + pad) * 10) / 10;
+  const domainRange = domainMax - domainMin || 1;
+  const xForIndex = (index) =>
+    chronological.length === 1
+      ? padding.left + plotWidth / 2
+      : padding.left + (plotWidth * index) / (chronological.length - 1);
+  const yForValue = (value) => padding.top + ((domainMax - value) / domainRange) * plotHeight;
+
+  const grid = Array.from({ length: 5 }, (_, index) => {
+    const value = domainMin + (domainRange * index) / 4;
+    const y = yForValue(value);
+    return `
+      <g>
+        <line x1="${padding.left}" y1="${y}" x2="${chartWidth - padding.right}" y2="${y}" class="measurement-grid-line" />
+        <text x="${padding.left - 8}" y="${y + 4}" text-anchor="end" class="measurement-axis-label">
+          ${escapeHtml(options.valueFormatter ? options.valueFormatter(value) : value.toFixed(1))}
+        </text>
+      </g>
+    `;
+  }).join("");
+
+  const targetLines = visibleMetrics
+    .map((metric) => {
+      const target = normalizeMeasurementValue(targetMap?.[metric.key]);
+      if (target === "") return "";
+      const y = yForValue(target);
+      return `
+        <g>
+          <line
+            x1="${padding.left}"
+            y1="${y}"
+            x2="${chartWidth - padding.right}"
+            y2="${y}"
+            stroke="${metric.color}"
+            stroke-width="1.5"
+            stroke-dasharray="6 6"
+            opacity="0.6"
+          />
+          <text x="${chartWidth - padding.right}" y="${y - 6}" text-anchor="end" class="measurement-target-label" fill="${metric.color}">
+            ${escapeHtml(metric.label)} 目標 ${escapeHtml(target.toFixed(1))}${escapeHtml(options.unit || "")}
+          </text>
+        </g>
+      `;
+    })
+    .join("");
+
+  const series = visibleMetrics
+    .map((metric) => {
+      const points = chronological
+        .map((measurement, index) => {
+          const value = normalizeMeasurementValue(measurement[metric.key]);
+          if (value === "") return "";
+          return `${xForIndex(index)},${yForValue(value)}`;
+        })
+        .filter(Boolean);
+      if (!points.length) return "";
+      const markers = chronological
+        .map((measurement, index) => {
+          const value = normalizeMeasurementValue(measurement[metric.key]);
+          if (value === "") return "";
+          return `
+            <circle cx="${xForIndex(index)}" cy="${yForValue(value)}" r="4" fill="${metric.color}">
+              <title>${escapeHtml(metric.label)} ${escapeHtml(formatDateOnly(measurement.measuredAt))}: ${escapeHtml(options.valueFormatter ? options.valueFormatter(value) : `${Number(value).toFixed(1)}${options.unit || ""}`)}</title>
+            </circle>
+          `;
+        })
+        .join("");
+      return `
+        <g>
+          <polyline
+            fill="none"
+            stroke="${metric.color}"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            points="${points.join(" ")}"
+          />
+          ${markers}
+        </g>
+      `;
+    })
+    .join("");
+
+  const xLabels = chronological
+    .map((measurement, index) => `
+      <text x="${xForIndex(index)}" y="${chartHeight - 14}" text-anchor="middle" class="measurement-axis-label">
+        ${escapeHtml(formatDateOnly(measurement.measuredAt).slice(5))}
+      </text>
+    `)
+    .join("");
+
+  return `
+    <div class="measurement-legend">
+      ${visibleMetrics
+        .map((metric) => `
+          <span class="measurement-legend-item">
+            <span class="measurement-legend-dot" style="background:${metric.color}"></span>
+            ${escapeHtml(metric.label)}
+          </span>
+        `)
+        .join("")}
+    </div>
+    <div class="measurement-chart-shell">
+      <svg class="measurement-chart" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="${escapeHtml(title)}">
+        ${grid}
+        ${targetLines}
+        ${series}
+        ${xLabels}
+      </svg>
+    </div>
+  `;
+}
+
+function renderMeasurementHistoryList(measurements, targets) {
+  const rows = buildMeasurementHistoryRows(measurements, targets);
+  if (!rows.length) {
+    return `<div class="empty">まだ計測履歴はありません。</div>`;
+  }
+  return `
+    <div class="measurement-history-list">
+      ${rows.map((row) => `
+        <article class="measurement-history-card">
+          <div class="section-head">
+            <div>
+              <strong>${escapeHtml(formatDateOnly(row.measuredAt))}</strong>
+              <div class="meta">WHR ${escapeHtml(formatWhr(row.whr))} / 左右差 ${row.leftRightGap === "" ? "-" : `${escapeHtml(row.leftRightGap.toFixed(1))}cm`}</div>
+            </div>
+          </div>
+          <div class="measurement-metric-grid">
+            ${MEASUREMENT_METRICS.map((metric) => {
+              const metricRow = row.metrics[metric.key];
+              return `
+                <div class="measurement-metric-card">
+                  <div class="measurement-summary-label">${escapeHtml(metric.label)}</div>
+                  <strong>${escapeHtml(formatMeasurementValue(metricRow.value))}</strong>
+                  <div class="measurement-cell-sub">前回 ${formatMeasurementDelta(metricRow.previousDelta)}</div>
+                  <div class="measurement-cell-sub">初回 ${formatMeasurementDelta(metricRow.firstDelta)}</div>
+                  <div class="measurement-cell-sub">目標 ${formatMeasurementGapToTarget(metricRow.value, targets?.[metric.key])}</div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderMeasurementPhotoComparison(photoResponses) {
+  if (!photoResponses.length) {
+    return `<div class="empty">まだ写真付きの履歴はありません。</div>`;
+  }
+  const latest = photoResponses[0];
+  const first = photoResponses[photoResponses.length - 1];
+  const cards = [];
+  if (first) cards.push({ label: "初回写真", response: first });
+  if (latest && latest.id !== first?.id) cards.push({ label: "最新写真", response: latest });
+
+  return `
+    <div class="measurement-photo-compare-grid">
+      ${cards.map((item) => `
+        <article class="history-card">
+          <strong>${escapeHtml(item.label)}</strong>
+          <div class="meta">${escapeHtml(item.response.surveyTitle || "アンケート")} / ${escapeHtml(formatDate(item.response.submittedAt))}</div>
+          ${renderTicketStampList(getResponseTicketInfo(item.response))}
+          ${renderAnswerValue({ files: collectPhotoFilesFromResponse(item.response) })}
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderMeasurementPhotoHistory(photoResponses) {
+  if (!photoResponses.length) {
+    return `<div class="empty">まだ写真付きの履歴はありません。</div>`;
+  }
+  return `
+    <div class="history-group-list">
+      ${photoResponses.map((response) => `
+        <article class="history-card">
+          <strong>${escapeHtml(response.surveyTitle || "アンケート")}</strong>
+          <div class="meta">${escapeHtml(formatDate(response.submittedAt))}</div>
+          ${renderTicketStampList(getResponseTicketInfo(response))}
+          ${renderAnswerValue({ files: collectPhotoFilesFromResponse(response) })}
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderMeasurements() {
+  if (!measurementPanel) return;
+  if (!hasCustomerSession()) {
+    measurementPanel.innerHTML = `<div class="empty">先にログインしてください。</div>`;
+    return;
+  }
+  if (appState.historyLoading && !appState.measurements.length && !appState.history.length) {
+    measurementPanel.innerHTML = `<div class="empty">読み込み中です。</div>`;
+    return;
+  }
+  if (appState.historyLoadError && !appState.measurements.length && !appState.history.length) {
+    measurementPanel.innerHTML = `<div class="empty">${escapeHtml(appState.historyLoadError)}</div>`;
+    return;
+  }
+
+  const allMeasurements = getCustomerMeasurements();
+  const targets = getMeasurementTargets() || normalizeMeasurementTargets(allMeasurements[0]?.target);
+  const filteredMeasurements = filterMeasurementsByPeriod(allMeasurements, appState.selectedMeasurementPeriod);
+  const photoResponses = getMeasurementPhotoResponses();
+
+  measurementPanel.innerHTML = `
+    <div class="measurement-section">
+      ${renderMeasurementSummaryCards(allMeasurements, targets)}
+      <article class="history-card">
+        <div class="section-head">
+          <div>
+            <strong>推移グラフ</strong>
+            <div class="meta">期間を切り替えて、部位ごとの変化を確認できます。</div>
+          </div>
+          <label>
+            表示期間
+            <select id="measurementPeriodFilter">
+              ${MEASUREMENT_PERIOD_OPTIONS.map((option) => `
+                <option value="${escapeHtml(option.value)}" ${appState.selectedMeasurementPeriod === option.value ? "selected" : ""}>
+                  ${escapeHtml(option.label)}
+                </option>
+              `).join("")}
+            </select>
+          </label>
+        </div>
+        <div class="measurement-toggle-row">
+          ${MEASUREMENT_METRICS.map((metric) => `
+            <label class="measurement-toggle-chip">
+              <input
+                type="checkbox"
+                data-toggle-measurement-metric="${escapeHtml(metric.key)}"
+                ${appState.measurementMetricVisibility[metric.key] !== false ? "checked" : ""}
+              />
+              ${escapeHtml(metric.label)}
+            </label>
+          `).join("")}
+          <label class="measurement-toggle-chip">
+            <input
+              type="checkbox"
+              data-toggle-measurement-metric="whr"
+              ${appState.measurementMetricVisibility.whr !== false ? "checked" : ""}
+            />
+            WHR
+          </label>
+        </div>
+        ${renderMeasurementLineChart("部位別の推移", filteredMeasurements, MEASUREMENT_METRICS, {
+          targets,
+          unit: "cm",
+        })}
+        ${
+          appState.measurementMetricVisibility.whr !== false
+            ? renderMeasurementLineChart(
+                "WHR の推移",
+                filteredMeasurements,
+                [{ key: "whr", label: "WHR", color: "#7a5b9f", unit: "" }],
+                {
+                  compact: true,
+                  pad: 0.03,
+                  valueFormatter: (value) => Number(value).toFixed(3),
+                },
+              )
+            : ""
+        }
+      </article>
+
+      <article class="history-card">
+        <strong>計測履歴</strong>
+        <div class="meta">新しい記録が上に表示されます。前回比・初回比・目標との差を確認できます。</div>
+        ${renderMeasurementHistoryList(filteredMeasurements, targets)}
+      </article>
+
+      <article class="history-card">
+        <strong>計測写真の比較</strong>
+        <div class="meta">初回と最新の写真を並べて確認できます。</div>
+        ${renderMeasurementPhotoComparison(photoResponses)}
+      </article>
+
+      <article class="history-card">
+        <strong>計測写真の履歴</strong>
+        <div class="meta">写真付きで送信した履歴を新しい順で表示しています。</div>
+        ${renderMeasurementPhotoHistory(photoResponses)}
+      </article>
+    </div>
+  `;
+
+  measurementPanel.querySelector("#measurementPeriodFilter")?.addEventListener("change", (event) => {
+    appState.selectedMeasurementPeriod = event.currentTarget.value || "6m";
+    renderMeasurements();
+  });
+  measurementPanel.querySelectorAll("[data-toggle-measurement-metric]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      appState.measurementMetricVisibility = {
+        ...appState.measurementMetricVisibility,
+        [checkbox.dataset.toggleMeasurementMetric]: checkbox.checked,
+      };
+      renderMeasurements();
+    });
+  });
+}
+
 async function retryPendingSubmission() {
   if (!appState.pendingSubmission) return;
   try {
@@ -3219,7 +3822,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-12", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-13", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -3307,6 +3910,9 @@ document.querySelector("#refreshButton").addEventListener("click", () => {
 document.querySelector("#historyRefreshButton").addEventListener("click", () => {
   void loadHistory();
 });
+measurementRefreshButton?.addEventListener("click", () => {
+  void loadHistory();
+});
 appUpdateButton?.addEventListener("click", () => {
   void runAppUpdate();
 });
@@ -3331,5 +3937,6 @@ renderRegistrationGuide();
 renderHomeTicketStatus();
 renderSurveys();
 renderAnswerPanel();
+renderMeasurements();
 void loadSurveys();
 setPage(hasCustomerSession() ? "home" : "login");
