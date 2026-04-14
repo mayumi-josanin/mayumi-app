@@ -490,7 +490,7 @@ textarea {
   aspect-ratio: 1 / 1;
   border: none;
   border-radius: 999px;
-  background: transparent;
+  background: #fff;
   color: rgba(192, 57, 43, 0.38);
   font-size: 12px;
   font-weight: 700;
@@ -512,21 +512,13 @@ textarea {
   filter: saturate(0.88) contrast(1.02);
 }
 
-.stamp-dot::after {
-  content: "";
-  position: absolute;
-  inset-inline: 8px;
-  bottom: 7px;
-  height: 18px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(3px);
-}
-
 .stamp-dot-step,
 .stamp-dot-unit {
   position: relative;
   z-index: 1;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85),
+    0 0 8px rgba(255, 255, 255, 0.75);
 }
 
 .stamp-dot-step {
