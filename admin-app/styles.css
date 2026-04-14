@@ -438,15 +438,17 @@ textarea {
 
 .ticket-stamp-panel {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin-top: 8px;
+  justify-items: start;
 }
 
 .ticket-progress-card {
   position: relative;
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  width: min(100%, 320px);
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background:
@@ -458,8 +460,8 @@ textarea {
 .ticket-progress-card::before {
   content: "";
   position: absolute;
-  inset: 8px;
-  background-image: url("../customer-app/icons/icon-512.png?v=20260414-02");
+  inset: 6px;
+  background-image: url("../customer-app/icons/icon-512.png?v=20260414-04");
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
@@ -477,16 +479,16 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   color: var(--text-dark);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .ticket-progress {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  gap: 6px;
 }
 
 .ticket-progress[data-ticket-count="6"] {
@@ -497,13 +499,13 @@ textarea {
   position: relative;
   display: inline-grid;
   place-items: center;
-  min-height: 64px;
+  min-height: 48px;
   aspect-ratio: 1 / 1;
   border: none;
   border-radius: 999px;
   background: transparent;
   color: rgba(192, 57, 43, 0.38);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1;
   box-shadow: none;
@@ -513,12 +515,12 @@ textarea {
 .stamp-dot::before {
   content: "";
   position: absolute;
-  inset: 7px;
+  inset: 5px;
   border-radius: 999px;
-  background-image: url("../customer-app/icons/icon-512.png?v=20260414-02");
+  background-image: url("../customer-app/icons/icon-512.png?v=20260414-04");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 78%;
+  background-size: 76%;
   opacity: 0.58;
   filter: saturate(0.82) contrast(1);
 }
@@ -526,9 +528,9 @@ textarea {
 .stamp-dot::after {
   content: "";
   position: absolute;
-  inset-inline: 8px;
-  bottom: 6px;
-  height: 18px;
+  inset-inline: 6px;
+  bottom: 4px;
+  height: 14px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(3px);
@@ -542,15 +544,15 @@ textarea {
 
 .stamp-dot-step {
   align-self: end;
-  margin-top: 18px;
-  font-size: 17px;
+  margin-top: 14px;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .stamp-dot-unit {
   align-self: start;
   margin-top: -1px;
-  font-size: 10px;
+  font-size: 8px;
   letter-spacing: 0;
 }
 
@@ -565,7 +567,7 @@ textarea {
   display: grid;
   place-items: center;
   color: rgba(192, 57, 43, 0.9);
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 900;
   transform: rotate(-14deg);
 }
