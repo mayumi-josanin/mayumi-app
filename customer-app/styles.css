@@ -249,8 +249,76 @@ textarea {
   gap: 12px;
 }
 
+.bijiris-toolbar-card,
+.bijiris-list-section {
+  display: grid;
+  gap: 12px;
+}
+
+.bijiris-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.bijiris-filter-row-secondary {
+  justify-content: space-between;
+}
+
+.bijiris-filter-chip {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bijiris-filter-chip.active {
+  border-color: var(--sage);
+  background: #f5f8f1;
+  color: var(--sage-dark);
+}
+
 .bijiris-post-card {
+  gap: 10px;
+}
+
+.bijiris-post-card.is-pinned {
+  border-color: rgba(201, 95, 80, 0.3);
+  background: #fffaf8;
+}
+
+.bijiris-post-head {
+  align-items: center;
+}
+
+.bijiris-post-open {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+}
+
+.bijiris-favorite-button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.bijiris-favorite-button.active {
+  border-color: var(--sage);
+  background: #f5f8f1;
+  color: var(--sage-dark);
 }
 
 .bijiris-post-preview {
@@ -273,6 +341,17 @@ textarea {
 
 .bijiris-document-card {
   text-decoration: none;
+}
+
+.bijiris-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bijiris-detail-actions {
+  justify-content: flex-end;
 }
 
 .selection-grid {

@@ -5048,7 +5048,7 @@ function renderBijirisManager() {
               <div>${escapeHtml(post.category || "ビジリス通信")}</div>
               <div class="meta">更新: ${post.updatedAt ? escapeHtml(formatDate(post.updatedAt)) : "-"}</div>
               <div class="meta">写真 ${post.photos.length} / PDF ${post.documents.length}</div>
-              ${post.pinned ? `<span class="badge open">上部固定</span>` : ""}
+              ${post.pinned ? `<span class="badge open">重要固定</span>` : ""}
             </button>
           </article>
         `)
@@ -5090,7 +5090,7 @@ function renderBijirisManager() {
       </div>
       <label class="inline-toggle">
         <input name="pinned" type="checkbox" ${draft.pinned ? "checked" : ""} />
-        一覧の上部に固定表示
+        重要として一覧の上部に固定表示
       </label>
       <label>
         要約
@@ -5798,7 +5798,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-14", { updateViaCache: "none" })
+        .register("./sw.js?v=20260414-16", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
