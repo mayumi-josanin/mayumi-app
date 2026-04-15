@@ -1,4 +1,8 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
+const CACHE_PREFIX = "mayumi-admin-survey-";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v58";
+const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
   new: "未対応",
   checked: "確認済み",
@@ -6408,11 +6412,7 @@ async function runAppUpdate() {
     }
     if ("caches" in window) {
       const cacheKeys = await caches.keys();
-      await Promise.all(
-        cacheKeys
-          .filter((key) => key.startsWith("mayumi-admin-survey-"))
-          .map((key) => caches.delete(key)),
-      );
+      await Promise.all(cacheKeys.filter((key) => key.startsWith(CACHE_PREFIX)).map((key) => caches.delete(key)));
     }
     showToast("アプリを更新しています。");
     const url = new URL(window.location.href);
@@ -6429,11 +6429,63 @@ async function runAppUpdate() {
   }
 }
 
+async function pruneAppCaches() {
+  if (!("caches" in window)) return;
+  const cacheKeys = await caches.keys();
+  const staleKeys = cacheKeys.filter(
+    (key) => key.startsWith(CACHE_PREFIX) && key !== ACTIVE_CACHE_NAME,
+  );
+  await Promise.all(staleKeys.map((key) => caches.delete(key)));
+}
+
+async function runAutoCacheMaintenance({ force = false } = {}) {
+  try {
+    const lastRun = Number(localStorage.getItem(AUTO_CACHE_MAINTENANCE_KEY) || "0");
+    const now = Date.now();
+    if (!force && now - lastRun < AUTO_CACHE_MAINTENANCE_INTERVAL_MS) return;
+    localStorage.setItem(AUTO_CACHE_MAINTENANCE_KEY, String(now));
+
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      await registration?.update().catch(() => {});
+      registration?.waiting?.postMessage({ type: "SKIP_WAITING" });
+    }
+    await pruneAppCaches();
+  } catch (error) {
+    reportClientError("admin.autoCacheMaintenance", error);
+  }
+}
+
+function scheduleAutoCacheMaintenance(force = false) {
+  const task = () => {
+    void runAutoCacheMaintenance({ force });
+  };
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(task, { timeout: 10000 });
+    return;
+  }
+  window.setTimeout(task, 1200);
+}
+
+function setupAutoCacheMaintenance() {
+  window.addEventListener("load", () => {
+    scheduleAutoCacheMaintenance();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      scheduleAutoCacheMaintenance();
+    }
+  });
+  window.setInterval(() => {
+    scheduleAutoCacheMaintenance(true);
+  }, AUTO_CACHE_MAINTENANCE_INTERVAL_MS);
+}
+
 function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-15", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-16", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
@@ -6579,6 +6631,7 @@ document.querySelectorAll("[data-page]").forEach((button) => {
 });
 
 setupInstall();
+setupAutoCacheMaintenance();
 window.addEventListener("error", (event) => {
   reportClientError("admin.window", event.error || event.message || "window error");
 });

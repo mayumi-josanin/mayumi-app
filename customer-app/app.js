@@ -12,7 +12,11 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260415-15";
+const APP_VERSION = "20260415-16";
+const CACHE_PREFIX = "mayumi-customer-survey-";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v59";
+const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
@@ -5076,11 +5080,7 @@ async function runAppUpdate() {
     }
     if ("caches" in window) {
       const cacheKeys = await caches.keys();
-      await Promise.all(
-        cacheKeys
-          .filter((key) => key.startsWith("mayumi-customer-survey-"))
-          .map((key) => caches.delete(key)),
-      );
+      await Promise.all(cacheKeys.filter((key) => key.startsWith(CACHE_PREFIX)).map((key) => caches.delete(key)));
     }
     showToast("アプリを更新しています。");
     const url = new URL(window.location.href);
@@ -5097,11 +5097,63 @@ async function runAppUpdate() {
   }
 }
 
+async function pruneAppCaches() {
+  if (!("caches" in window)) return;
+  const cacheKeys = await caches.keys();
+  const staleKeys = cacheKeys.filter(
+    (key) => key.startsWith(CACHE_PREFIX) && key !== ACTIVE_CACHE_NAME,
+  );
+  await Promise.all(staleKeys.map((key) => caches.delete(key)));
+}
+
+async function runAutoCacheMaintenance({ force = false } = {}) {
+  try {
+    const lastRun = Number(localStorage.getItem(AUTO_CACHE_MAINTENANCE_KEY) || "0");
+    const now = Date.now();
+    if (!force && now - lastRun < AUTO_CACHE_MAINTENANCE_INTERVAL_MS) return;
+    localStorage.setItem(AUTO_CACHE_MAINTENANCE_KEY, String(now));
+
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      await registration?.update().catch(() => {});
+      registration?.waiting?.postMessage({ type: "SKIP_WAITING" });
+    }
+    await pruneAppCaches();
+  } catch (error) {
+    reportClientError("customer.autoCacheMaintenance", error);
+  }
+}
+
+function scheduleAutoCacheMaintenance(force = false) {
+  const task = () => {
+    void runAutoCacheMaintenance({ force });
+  };
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(task, { timeout: 10000 });
+    return;
+  }
+  window.setTimeout(task, 1200);
+}
+
+function setupAutoCacheMaintenance() {
+  window.addEventListener("load", () => {
+    scheduleAutoCacheMaintenance();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      scheduleAutoCacheMaintenance();
+    }
+  });
+  window.setInterval(() => {
+    scheduleAutoCacheMaintenance(true);
+  }, AUTO_CACHE_MAINTENANCE_INTERVAL_MS);
+}
+
 function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-15", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-16", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
@@ -5217,6 +5269,7 @@ appUpdateButton?.addEventListener("click", () => {
 });
 
 setupInstall();
+setupAutoCacheMaintenance();
 window.addEventListener("beforeunload", (event) => {
   const hasAnyDraft = Object.keys(appState.drafts || {}).some((surveyId) =>
     hasDraftContent(getSurveyDraft(surveyId)),
