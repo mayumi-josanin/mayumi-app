@@ -4037,6 +4037,7 @@ function filterLogs(entries, keyword) {
 function renderSettings() {
   const credentialInfo = document.querySelector("#credentialInfo");
   const storageInfo = document.querySelector("#storageInfo");
+  const pushStatusInfo = document.querySelector("#pushStatusInfo");
   const preferencesCard = document.querySelector("#preferencesCard");
   const adminUsersCard = document.querySelector("#adminUsersCard");
   const auditLogList = document.querySelector("#auditLogList");
@@ -4046,6 +4047,7 @@ function renderSettings() {
   if (!state.adminInfo) {
     credentialInfo.textContent = "認証情報を読み込み中です。";
     storageInfo.innerHTML = `<div class="empty">保存先情報を読み込み中です。</div>`;
+    if (pushStatusInfo) pushStatusInfo.innerHTML = `<div class="empty">通知設定を読み込み中です。</div>`;
     return;
   }
 
@@ -4092,6 +4094,36 @@ function renderSettings() {
       ${escapeHtml(state.adminInfo.ownerEmail || "未取得")}
     </article>
   `;
+
+  if (pushStatusInfo) {
+    const customerAppUrl = escapeHtml(state.adminInfo.customerAppUrl || "未設定");
+    const pushAppId = escapeHtml(state.adminInfo.pushAppId || "未設定");
+    const configured = state.adminInfo.pushConfigured === true;
+    pushStatusInfo.innerHTML = `
+      <article class="answer-item">
+        <strong>送信状態</strong><br />
+        <span class="badge ${configured ? "published" : "draft"}">${configured ? "送信可能" : "未設定"}</span>
+      </article>
+      <article class="answer-item">
+        <strong>OneSignal App ID</strong><br />
+        ${pushAppId}
+      </article>
+      <article class="answer-item">
+        <strong>顧客アプリURL</strong><br />
+        ${state.adminInfo.customerAppUrl
+          ? `<a href="${escapeHtml(state.adminInfo.customerAppUrl)}" target="_blank" rel="noopener">${customerAppUrl}</a>`
+          : customerAppUrl}
+      </article>
+      <article class="answer-item">
+        <strong>不足情報</strong><br />
+        ${
+          configured
+            ? "OneSignal の通知送信設定は有効です。"
+            : "Apps Script のスクリプトプロパティに ONESIGNAL_REST_API_KEY を設定してください。必要に応じて CUSTOMER_APP_URL も設定できます。"
+        }
+      </article>
+    `;
+  }
 
   if (preferencesCard) {
     const preferences = state.preferences || {
