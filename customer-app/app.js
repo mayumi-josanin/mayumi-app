@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260416-02";
+const APP_VERSION = "20260416-03";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v63";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v64";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -3571,7 +3571,7 @@ function renderConfirmPanel(survey) {
 }
 
 function renderCompletionPanel(survey) {
-  const response = appState.lastSubmittedResponse;
+  const submittedAt = appState.lastSubmittedResponse?.submittedAt;
   answerPanel.innerHTML = `
     <section class="completion-card">
       <div class="eyebrow">${appState.lastSubmissionWasEdit ? "Updated" : "Completed"}</div>
@@ -3582,13 +3582,8 @@ function renderCompletionPanel(survey) {
           : survey.completionMessage || "ご回答ありがとうございました。"
       )}</p>
       ${
-        response?.id
-          ? `<div class="receipt-box"><strong>受付番号</strong><span>${escapeHtml(response.id)}</span></div>`
-          : ""
-      }
-      ${
-        response?.submittedAt
-          ? `<div class="meta">送信日時: ${formatDate(response.submittedAt)}</div>`
+        submittedAt
+          ? `<div class="meta">送信日時: ${formatDate(submittedAt)}</div>`
           : ""
       }
       <div class="action-row">
