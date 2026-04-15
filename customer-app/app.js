@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260416-01";
+const APP_VERSION = "20260416-02";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v62";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v63";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2221,6 +2221,36 @@ function renderBijirisHomeNotice() {
   `;
 }
 
+function renderBijirisListSwitcher() {
+  const favoriteCount = sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id)).length;
+  return `
+    <div class="history-card bijiris-list-switcher">
+      <div class="section-head">
+        <div>
+          <strong>一覧</strong>
+          <div class="meta">お気に入り ${favoriteCount}件</div>
+        </div>
+      </div>
+      <div class="bijiris-filter-row">
+        <button
+          class="bijiris-filter-chip ${appState.showFavoriteBijirisOnly ? "" : "active"}"
+          type="button"
+          data-bijiris-list-mode="all"
+        >
+          投稿一覧
+        </button>
+        <button
+          class="bijiris-filter-chip ${appState.showFavoriteBijirisOnly ? "active" : ""}"
+          type="button"
+          data-bijiris-list-mode="favorites"
+        >
+          お気に入り一覧
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function renderBijirisToolbar() {
   const categories = getBijirisCategories(appState.bijirisPosts);
   const favoriteCount = sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id)).length;
@@ -2470,6 +2500,12 @@ function attachBijirisPostActions() {
       renderBijirisPosts();
     });
   });
+  bijirisPanel.querySelectorAll("[data-bijiris-list-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      appState.showFavoriteBijirisOnly = (button.dataset.bijirisListMode || "all") === "favorites";
+      renderBijirisPosts();
+    });
+  });
   bijirisPanel.querySelector("#bijirisSearchInput")?.addEventListener("input", (event) => {
     const nextQuery = normalizeText(event.currentTarget.value);
     appState.bijirisSearchQuery = nextQuery;
@@ -2522,14 +2558,15 @@ function renderBijirisPosts() {
     attachBijirisPostActions();
     return;
   }
-  appState.selectedBijirisCategory = "all";
-  appState.showFavoriteBijirisOnly = false;
-  appState.showReadLaterBijirisOnly = false;
-  appState.bijirisSearchQuery = "";
-  const visiblePosts = sortBijirisPosts(appState.bijirisPosts);
-  const emptyMessage = "まだ豆知識の投稿はありません。";
+  const visiblePosts = appState.showFavoriteBijirisOnly
+    ? sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id))
+    : sortBijirisPosts(appState.bijirisPosts);
+  const emptyMessage = appState.showFavoriteBijirisOnly
+    ? "お気に入りはまだありません。"
+    : "まだ豆知識の投稿はありません。";
   bijirisPanel.innerHTML = `
     ${appState.bijirisLoadError ? `<div class="meta">更新に失敗したため前回取得内容を表示しています。</div>` : ""}
+    ${renderBijirisListSwitcher()}
     ${visiblePosts.length ? `<div class="bijiris-panel">${visiblePosts.map(renderBijirisPostCard).join("")}</div>` : `<div class="empty">${emptyMessage}</div>`}
   `;
   attachBijirisPostActions();
