@@ -286,6 +286,10 @@ button.response-history-card {
   align-items: start;
 }
 
+.bijiris-manager-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .stack,
 .response-list,
 .customer-list,
@@ -923,6 +927,11 @@ textarea {
 
 .bijiris-template-grid {
   align-items: end;
+}
+
+.bijiris-notification-card {
+  display: grid;
+  gap: 12px;
 }
 
 .bijiris-preview-grid,

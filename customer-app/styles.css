@@ -568,6 +568,11 @@ textarea {
   background: #faf7f2;
 }
 
+.notification-status-card {
+  color: var(--text-dark);
+  line-height: 1.7;
+}
+
 .ticket-home-card {
   display: grid;
   gap: 12px;
@@ -1154,6 +1159,7 @@ legend > span:first-child {
 }
 
 .nav-button {
+  position: relative;
   display: grid;
   place-items: center;
   gap: 3px;
@@ -1164,15 +1170,39 @@ legend > span:first-child {
   color: var(--text-light);
   font-size: 12px;
   font-weight: 700;
+  overflow: visible;
 }
 
-.nav-button span {
+.nav-icon {
   font-size: 20px;
+}
+
+.nav-label {
+  font-size: 12px;
 }
 
 .nav-button.active {
   background: #eef5e8;
   color: var(--sage-dark);
+}
+
+.nav-badge {
+  position: absolute;
+  top: 4px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #c0392b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(192, 57, 43, 0.28);
 }
 
 .action-row {

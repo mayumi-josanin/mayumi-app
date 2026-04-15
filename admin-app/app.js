@@ -395,6 +395,9 @@ function normalizeBijirisPost(post) {
     createdAt: String(post?.createdAt || "").trim(),
     updatedAt: String(post?.updatedAt || "").trim(),
     publishedAt: String(post?.publishedAt || "").trim(),
+    notifyCustomers: post?.notifyCustomers === true,
+    notificationTitle: String(post?.notificationTitle || "").trim(),
+    notificationBody: String(post?.notificationBody || "").trim(),
     photos: (Array.isArray(post?.photos) ? post.photos : [])
       .map((file) => normalizeBijirisPostFile(file, "photo"))
       .filter(Boolean),
@@ -4878,6 +4881,9 @@ function createEmptyBijirisPostDraft() {
     body: "",
     status: "published",
     pinned: false,
+    notifyCustomers: false,
+    notificationTitle: "",
+    notificationBody: "",
     photos: [],
     documents: [],
   });
@@ -5021,6 +5027,9 @@ function syncBijirisDraftFromForm(form) {
     ? String(form.elements.status.value).trim()
     : "published";
   draft.pinned = Boolean(form.elements.pinned?.checked);
+  draft.notifyCustomers = Boolean(form.elements.notifyCustomers?.checked);
+  draft.notificationTitle = String(form.elements.notificationTitle?.value || "").trim();
+  draft.notificationBody = String(form.elements.notificationBody?.value || "").trim();
   return draft;
 }
 
@@ -5166,6 +5175,9 @@ async function saveBijirisPost() {
     status: draft.status,
     pinned: draft.pinned,
     publishedAt: draft.publishedAt,
+    notifyCustomers: draft.notifyCustomers === true,
+    notificationTitle: draft.notificationTitle,
+    notificationBody: draft.notificationBody,
     photos: draft.photos,
     documents: draft.documents,
   };
@@ -5266,6 +5278,7 @@ function renderBijirisManager() {
         <div class="action-row">
           <button class="secondary-button" type="button" data-bijiris-back-list>投稿一覧へ戻る</button>
           <button class="primary-button" type="button" data-bijiris-open-editor="${escapeHtml(selectedPost.id)}">編集する</button>
+          <button class="secondary-button danger-button" type="button" data-bijiris-delete-post="${escapeHtml(selectedPost.id)}">削除</button>
         </div>
       </div>
       ${renderBijirisHistoryDetail(selectedPost)}
@@ -5282,6 +5295,11 @@ function renderBijirisManager() {
       state.selectedBijirisView = "editor";
       renderBijirisManager();
       setPage("bijiris");
+    });
+    list.querySelector("[data-bijiris-delete-post]")?.addEventListener("click", () => {
+      deleteBijirisPost(selectedPost.id).catch((error) => {
+        showToast(error.message || "豆知識を削除できませんでした。");
+      });
     });
     return;
   }
@@ -5386,6 +5404,39 @@ function renderBijirisManager() {
         <input name="pinned" type="checkbox" ${draft.pinned ? "checked" : ""} />
         重要として一覧の上部に固定表示
       </label>
+      <article class="history-card bijiris-notification-card">
+        <div class="survey-editor-head">
+          <div>
+            <div class="card-title">通知設定</div>
+            <div class="meta">公開中の投稿に対して、保存時に顧客アプリへ通知を送るかを指定できます。</div>
+          </div>
+        </div>
+        <label class="inline-toggle">
+          <input name="notifyCustomers" type="checkbox" ${draft.notifyCustomers ? "checked" : ""} />
+          この保存内容を顧客アプリへ通知する
+        </label>
+        <div class="survey-question-grid">
+          <label>
+            通知タイトル
+            <input
+              name="notificationTitle"
+              type="text"
+              value="${escapeHtml(draft.notificationTitle || "")}"
+              placeholder="${escapeHtml(selectedPost ? "豆知識を更新しました" : "新しい豆知識を追加しました")}"
+            />
+          </label>
+          <label>
+            通知本文
+            <input
+              name="notificationBody"
+              type="text"
+              value="${escapeHtml(draft.notificationBody || "")}"
+              placeholder="例: 最新の豆知識を確認してください。"
+            />
+          </label>
+        </div>
+        <div class="meta">下書きやアーカイブでは通知されません。通知送信には OneSignal 設定が必要です。</div>
+      </article>
       <label>
         要約
         <textarea name="summary" placeholder="一覧に表示する短い説明">${escapeHtml(draft.summary || "")}</textarea>
@@ -6127,7 +6178,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-02", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-03", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

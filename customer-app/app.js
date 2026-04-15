@@ -4,13 +4,15 @@ const PENDING_KEY = "mayumi_survey_pending_submission";
 const TICKET_CARD_OVERRIDE_KEY = "mayumi_survey_ticket_card_overrides";
 const BIJIRIS_FAVORITES_KEY = "mayumi_bijiris_favorites";
 const BIJIRIS_READER_STATE_KEY = "mayumi_bijiris_reader_state";
+const PUSH_ENABLED_STORAGE_KEY = "mayumi_customer_push_enabled";
 const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260414-17";
+const APP_VERSION = "20260415-03";
+const DEFAULT_ONESIGNAL_APP_ID = "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -103,6 +105,22 @@ const DEFAULT_MEASUREMENT_VISIBILITY = {
   thighLeft: true,
   whr: true,
 };
+
+function parseLaunchRoute() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      page: String(params.get("page") || "").trim(),
+      postId: String(params.get("postId") || "").trim(),
+    };
+  } catch {
+    return {
+      page: "",
+      postId: "",
+    };
+  }
+}
+
 const SESSION_CONCERN_CATEGORIES = [
   {
     id: "toilet",
@@ -234,6 +252,7 @@ const appState = {
     requireConsent: true,
     consentText: "",
     version: "",
+    pushAppId: "",
   },
   selectedSurveyId: "",
   installPrompt: null,
@@ -256,6 +275,11 @@ const appState = {
   concernCategoryByQuestion: {},
   selectedMeasurementPeriod: "6m",
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
+  pushSupported: false,
+  pushEnabled: false,
+  pushBusy: false,
+  pushInitialized: false,
+  launchRoute: parseLaunchRoute(),
 };
 
 const api = window.MayumiSurveyApi;
@@ -277,6 +301,10 @@ const recoverAccountButton = document.querySelector("#recoverAccountButton");
 const bottomNav = document.querySelector("#bottomNav");
 const measurementRefreshButton = document.querySelector("#measurementRefreshButton");
 const bijirisRefreshButton = document.querySelector("#bijirisRefreshButton");
+const pushStatusText = document.querySelector("#pushStatusText");
+const pushHelpText = document.querySelector("#pushHelpText");
+const pushToggleButton = document.querySelector("#pushToggleButton");
+const bijirisNavBadge = document.querySelector("#bijirisNavBadge");
 
 function loadLocal(key, fallback) {
   try {
@@ -307,6 +335,26 @@ function cloneData(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function getConfiguredPushAppId() {
+  return String(appState.publicInfo?.pushAppId || window.MAYUMI_ONESIGNAL_APP_ID || DEFAULT_ONESIGNAL_APP_ID || "").trim();
+}
+
+function getStoredPushPreference() {
+  try {
+    return localStorage.getItem(PUSH_ENABLED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function savePushPreference(enabled) {
+  try {
+    localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, enabled ? "true" : "false");
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
 function normalizeText(value) {
   return String(value ?? "").trim();
 }
@@ -332,6 +380,10 @@ function normalizeMeasurementTargets(value) {
     thighLeft: normalizeMeasurementValue(value?.thighLeft),
   };
   return Object.values(targets).some((item) => item !== "") ? targets : null;
+}
+
+function isPushFeatureSupported() {
+  return window.isSecureContext && "Notification" in window && "serviceWorker" in navigator;
 }
 
 function normalizeCustomerProfile(value) {
@@ -550,6 +602,207 @@ function isStandaloneApp() {
 function canRegisterFromThisContext() {
   const host = window.location.hostname;
   return isStandaloneApp() || host === "localhost" || host === "127.0.0.1";
+}
+
+function getBijirisNotificationCount() {
+  if (!hasCustomerSession()) return 0;
+  return getUnreadBijirisPosts().length;
+}
+
+function updateBijirisNotificationUi() {
+  const count = getBijirisNotificationCount();
+  if (bijirisNavBadge) {
+    bijirisNavBadge.hidden = count <= 0;
+    bijirisNavBadge.textContent = count > 99 ? "99+" : String(count);
+  }
+  if ("setAppBadge" in navigator && "clearAppBadge" in navigator) {
+    if (count > 0) {
+      navigator.setAppBadge(count).catch(() => {});
+    } else {
+      navigator.clearAppBadge().catch(() => {});
+    }
+  }
+}
+
+function updatePushUi() {
+  appState.pushSupported = isPushFeatureSupported() && Boolean(getConfiguredPushAppId());
+  if (pushToggleButton) {
+    pushToggleButton.disabled = appState.pushBusy || !appState.pushSupported || !hasCustomerSession();
+    if (!hasCustomerSession()) {
+      pushToggleButton.textContent = "ログイン後に設定";
+    } else if (!appState.pushSupported) {
+      pushToggleButton.textContent = "この端末では利用できません";
+    } else if (appState.pushBusy) {
+      pushToggleButton.textContent = "設定中";
+    } else {
+      pushToggleButton.textContent = appState.pushEnabled ? "通知オン" : "通知オフ";
+    }
+  }
+  if (pushStatusText) {
+    if (!hasCustomerSession()) {
+      pushStatusText.textContent = "会員登録後に通知設定を利用できます。";
+    } else if (!appState.pushSupported) {
+      pushStatusText.textContent = "この端末または現在の表示方法では通知設定を利用できません。";
+    } else if (Notification.permission === "denied") {
+      pushStatusText.textContent = "端末側で通知が拒否されています。ブラウザまたはホーム画面アプリの通知設定を確認してください。";
+    } else {
+      pushStatusText.textContent = appState.pushEnabled
+        ? "豆知識の追加・更新をこの端末で受け取る設定です。"
+        : "通知はオフです。通知を受け取る場合はオンにしてください。";
+    }
+  }
+  if (pushHelpText) {
+    pushHelpText.textContent = appState.pushSupported
+      ? "豆知識の追加や更新を通知で受け取れます。ホーム画面に追加したアプリでの利用をおすすめします。"
+      : "通知は対応端末とホーム画面に追加したアプリでの利用が必要です。";
+  }
+}
+
+function getOneSignalInstance() {
+  return window.OneSignalRef || null;
+}
+
+let oneSignalInitPromise = null;
+
+async function loadOneSignalSdk() {
+  if (window.OneSignalRef) return window.OneSignalRef;
+  if (oneSignalInitPromise) return oneSignalInitPromise;
+  const appId = getConfiguredPushAppId();
+  if (!appId || !isPushFeatureSupported()) return null;
+
+  oneSignalInitPromise = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector('script[data-onesignal-sdk="true"]');
+    if (!existingScript) {
+      const script = document.createElement("script");
+      script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+      script.async = true;
+      script.dataset.onesignalSdk = "true";
+      script.addEventListener("error", () => reject(new Error("通知SDKを読み込めませんでした。")));
+      document.head.appendChild(script);
+    }
+
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async (OneSignal) => {
+      try {
+        window.OneSignalRef = OneSignal;
+        const appBase = new URL("./", window.location.href).pathname;
+        const workerBase = `${appBase}push/`;
+        await OneSignal.init({
+          appId,
+          serviceWorkerPath: `${workerBase}OneSignalSDKWorker.js`,
+          serviceWorkerParam: { scope: workerBase },
+          allowLocalhostAsSecureOrigin: true,
+        });
+        appState.pushInitialized = true;
+        OneSignal.Notifications?.addEventListener?.("permissionChange", () => {
+          void syncPushStateFromOneSignal();
+        });
+        OneSignal.User?.PushSubscription?.addEventListener?.("change", () => {
+          void syncPushStateFromOneSignal();
+        });
+        resolve(OneSignal);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }).catch((error) => {
+    oneSignalInitPromise = null;
+    appState.pushInitialized = false;
+    reportClientError("customer.push.sdk", error);
+    return null;
+  });
+
+  return oneSignalInitPromise;
+}
+
+async function syncPushStateFromOneSignal() {
+  const OneSignal = getOneSignalInstance() || await loadOneSignalSdk();
+  const pushSubscription = OneSignal?.User?.PushSubscription;
+  const permission = OneSignal?.Notifications?.permission;
+  const permissionGranted = permission && typeof permission.then === "function" ? await permission : permission;
+  const enabled = Boolean(permissionGranted) && Boolean(pushSubscription?.optedIn);
+  appState.pushEnabled = enabled;
+  savePushPreference(enabled);
+  updatePushUi();
+  return enabled;
+}
+
+async function initializePushNotifications() {
+  appState.pushSupported = isPushFeatureSupported() && Boolean(getConfiguredPushAppId());
+  appState.pushEnabled = getStoredPushPreference();
+  updatePushUi();
+  if (!appState.pushSupported) return;
+  await syncPushStateFromOneSignal();
+}
+
+async function togglePushNotifications() {
+  if (appState.pushBusy || !hasCustomerSession()) return;
+  if (!appState.pushSupported) {
+    showToast("この端末では通知を利用できません。");
+    return;
+  }
+  appState.pushBusy = true;
+  updatePushUi();
+  try {
+    const OneSignal = await loadOneSignalSdk();
+    if (!OneSignal) throw new Error("通知設定を初期化できませんでした。");
+    const pushSubscription = OneSignal.User?.PushSubscription;
+    if (appState.pushEnabled) {
+      if (pushSubscription?.optedIn && typeof pushSubscription.optOut === "function") {
+        await pushSubscription.optOut();
+      }
+      appState.pushEnabled = false;
+      savePushPreference(false);
+      showToast("通知をオフにしました。");
+    } else {
+      const permissionResult = await OneSignal.Notifications?.requestPermission?.();
+      const granted = permissionResult === true || Notification.permission === "granted";
+      if (!granted) {
+        throw new Error("通知の許可が必要です。");
+      }
+      if (pushSubscription && !pushSubscription.optedIn && typeof pushSubscription.optIn === "function") {
+        await pushSubscription.optIn();
+      }
+      appState.pushEnabled = true;
+      savePushPreference(true);
+      showToast("通知をオンにしました。");
+    }
+    await syncPushStateFromOneSignal();
+  } catch (error) {
+    reportClientError("customer.push.toggle", error);
+    showToast(error.message || "通知設定を更新できませんでした。");
+  } finally {
+    appState.pushBusy = false;
+    updatePushUi();
+  }
+}
+
+function clearLaunchRoute() {
+  appState.launchRoute = { page: "", postId: "" };
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("page");
+    url.searchParams.delete("postId");
+    url.searchParams.delete("notice");
+    window.history.replaceState({}, "", url.toString());
+  } catch {
+    // Ignore URL rewrite errors.
+  }
+}
+
+function applyLaunchRouteIfPossible() {
+  const targetPage = normalizeText(appState.launchRoute?.page);
+  const postId = normalizeText(appState.launchRoute?.postId);
+  if (targetPage !== "bijiris" || !hasCustomerSession()) return false;
+  if (postId) {
+    const post = appState.bijirisPosts.find((item) => item.id === postId);
+    if (!post) return false;
+    appState.selectedBijirisPostId = postId;
+    recordBijirisView(postId);
+  }
+  setPage("bijiris");
+  clearLaunchRoute();
+  return true;
 }
 
 function renderRegistrationGuide() {
@@ -1290,6 +1543,8 @@ function setPage(page) {
   if (bottomNav) {
     bottomNav.hidden = !hasCustomerSession();
   }
+  updatePushUi();
+  updateBijirisNotificationUi();
   if (page === "home") {
     renderSurveys();
   }
@@ -1315,9 +1570,11 @@ async function loadSurveys() {
       requireConsent: result.requireConsent === false ? false : true,
       consentText: result.consentText || "",
       version: result.version || APP_VERSION,
+      pushAppId: result.pushAppId || getConfiguredPushAppId(),
     };
     renderSurveys();
     renderAnswerPanel();
+    void initializePushNotifications();
   } catch (error) {
     reportClientError("customer.loadSurveys", error);
     const fallbackSurveys = getFallbackSurveys();
@@ -1325,6 +1582,7 @@ async function loadSurveys() {
       appState.surveys = fallbackSurveys;
       renderSurveys();
       renderAnswerPanel();
+      void initializePushNotifications();
       showToast("アンケート取得に失敗したため、保存済みの一覧を表示しています。");
       return;
     }
@@ -1431,6 +1689,16 @@ function createEmptyBijirisReaderState() {
   };
 }
 
+function getBijirisPostReadToken(postOrId) {
+  const post = typeof postOrId === "object"
+    ? postOrId
+    : appState.bijirisPosts.find((item) => item.id === normalizeText(postOrId));
+  const postId = normalizeText(post?.id || postOrId);
+  const version = normalizeText(post?.updatedAt || post?.publishedAt || post?.createdAt);
+  if (!postId) return "";
+  return version ? `${postId}::${version}` : postId;
+}
+
 function getBijirisReaderStateProfileKey(customer = appState.customer) {
   return getBijirisFavoriteProfileKey(customer);
 }
@@ -1465,7 +1733,9 @@ function saveBijirisReaderState(nextState) {
 }
 
 function isBijirisRead(postId) {
-  return getBijirisReaderState().readIds.includes(normalizeText(postId));
+  const token = getBijirisPostReadToken(postId);
+  if (!token) return false;
+  return getBijirisReaderState().readIds.includes(token);
 }
 
 function isBijirisReadLater(postId) {
@@ -1491,12 +1761,33 @@ function recordBijirisView(postId) {
   if (!normalizedId || !hasCustomerSession()) return;
   const nextState = getBijirisReaderState();
   const readIds = new Set(nextState.readIds);
-  readIds.add(normalizedId);
+  const readToken = getBijirisPostReadToken(normalizedId);
+  if (readToken) readIds.add(readToken);
   nextState.readIds = Array.from(readIds);
   nextState.historyIds = [normalizedId]
     .concat(nextState.historyIds.filter((value) => value !== normalizedId))
     .slice(0, BIJIRIS_HISTORY_LIMIT);
   saveBijirisReaderState(nextState);
+}
+
+function migrateBijirisReaderStateTokens() {
+  if (!hasCustomerSession() || !appState.bijirisPosts.length) return;
+  const currentState = getBijirisReaderState();
+  let changed = false;
+  const migratedReadIds = currentState.readIds
+    .map((value) => {
+      const normalized = normalizeText(value);
+      if (!normalized || normalized.includes("::")) return normalized;
+      const token = getBijirisPostReadToken(normalized);
+      if (token && token !== normalized) changed = true;
+      return token || normalized;
+    })
+    .filter(Boolean);
+  if (!changed) return;
+  saveBijirisReaderState({
+    ...currentState,
+    readIds: migratedReadIds,
+  });
 }
 
 function getBijirisRecentHistoryPosts() {
@@ -1507,7 +1798,7 @@ function getBijirisRecentHistoryPosts() {
 }
 
 function getUnreadBijirisPosts() {
-  return sortBijirisPosts(appState.bijirisPosts).filter((post) => !isBijirisRead(post.id));
+  return sortBijirisPosts(appState.bijirisPosts).filter((post) => !isBijirisRead(post));
 }
 
 function getNewUnreadBijirisPosts() {
@@ -1985,6 +2276,7 @@ function attachBijirisPostActions() {
 
 function renderBijirisPosts() {
   if (!bijirisPanel) return;
+  updateBijirisNotificationUi();
   if (!hasCustomerSession()) {
     bijirisPanel.innerHTML = `<div class="empty">先にログインしてください。</div>`;
     return;
@@ -2133,10 +2425,12 @@ async function loadBijirisPosts() {
     appState.bijirisPosts = Array.isArray(result.posts)
       ? sortBijirisPosts(result.posts.map(normalizeBijirisPost).filter((post) => post.id))
       : [];
+    migrateBijirisReaderStateTokens();
     appState.bijirisLoading = false;
     appState.bijirisLoadError = "";
     renderSurveys();
     renderBijirisPosts();
+    applyLaunchRouteIfPossible();
   } catch (error) {
     appState.bijirisLoading = false;
     appState.bijirisLoadError = error.message || "豆知識を読み込めませんでした。";
@@ -2286,6 +2580,13 @@ async function applyCustomerSession(profile, options = {}) {
   saveLocal(CUSTOMER_KEY, appState.customer);
   syncCustomerForms();
   await loadHistory();
+  await loadBijirisPosts();
+  if (applyLaunchRouteIfPossible()) {
+    renderHomeTicketStatus();
+    renderHistory();
+    showToast(recovery ? "名前一致でアカウントを復旧しました。" : "会員登録しました。");
+    return;
+  }
   setPage("home");
   renderHomeTicketStatus();
   renderHistory();
@@ -2311,6 +2612,8 @@ function selectSurvey(surveyId) {
 }
 
 function renderSurveys() {
+  updatePushUi();
+  updateBijirisNotificationUi();
   if (!appState.surveys.length) {
     surveyList.innerHTML = `${renderPendingNotice()}${renderBijirisHomeNotice()}<div class="empty">現在回答できるアンケートはありません。</div>`;
     document.querySelector("[data-open-bijiris-home]")?.addEventListener("click", () => {
@@ -4711,7 +5014,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-17", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-03", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -4806,6 +5109,9 @@ measurementRefreshButton?.addEventListener("click", () => {
 bijirisRefreshButton?.addEventListener("click", () => {
   void loadBijirisPosts();
 });
+pushToggleButton?.addEventListener("click", () => {
+  void togglePushNotifications();
+});
 appUpdateButton?.addEventListener("click", () => {
   void runAppUpdate();
 });
@@ -4828,10 +5134,12 @@ window.addEventListener("unhandledrejection", (event) => {
 syncCustomerForms();
 renderRegistrationGuide();
 renderHomeTicketStatus();
+updatePushUi();
 renderSurveys();
 renderAnswerPanel();
 renderMeasurements();
 renderBijirisPosts();
+void initializePushNotifications();
 void loadSurveys();
 void loadBijirisPosts();
 setPage(hasCustomerSession() ? "home" : "login");

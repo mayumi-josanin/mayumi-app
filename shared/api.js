@@ -579,6 +579,7 @@ window.MayumiSurveyApi = (() => {
               dataPolicyText: remoteData.dataPolicyText || "",
               requireConsent: remoteData.requireConsent === false ? false : true,
               consentText: remoteData.consentText || "",
+              pushAppId: remoteData.pushAppId || "",
               version: remoteData.version || "",
             };
           }
@@ -590,6 +591,7 @@ window.MayumiSurveyApi = (() => {
           dataPolicyText: "",
           requireConsent: true,
           consentText: "",
+          pushAppId: window.MAYUMI_ONESIGNAL_APP_ID || "",
           version: "",
         };
       }
@@ -845,7 +847,7 @@ window.MayumiSurveyApi = (() => {
           if (!matched) return undefined;
           return makeBijirisPostSignature(matched) === makeBijirisPostSignature(payload) ? matched : undefined;
         });
-        if (!post) throw new Error("ビジリス通信の保存を確認できませんでした。");
+        if (!post) throw new Error("豆知識の保存を確認できませんでした。");
         return { post };
       }
 
@@ -860,7 +862,7 @@ window.MayumiSurveyApi = (() => {
           const actualSignature = JSON.stringify(items.map(makeBijirisPostSignature).sort());
           return actualSignature === expectedSignature ? items : undefined;
         });
-        if (!restored) throw new Error("ビジリス通信の復元を確認できませんでした。");
+        if (!restored) throw new Error("豆知識の復元を確認できませんでした。");
         return { posts: restored };
       }
 
@@ -1021,7 +1023,7 @@ window.MayumiSurveyApi = (() => {
           if (!matched) return undefined;
           return makeBijirisPostSignature(matched) === makeBijirisPostSignature(payload) ? matched : undefined;
         });
-        if (!post) throw new Error("ビジリス通信の更新を確認できませんでした。");
+        if (!post) throw new Error("豆知識の更新を確認できませんでした。");
         return { post };
       }
 
@@ -1047,7 +1049,7 @@ window.MayumiSurveyApi = (() => {
         const deleted = await waitForAdminBijirisPosts(gasUrl, options.token, (posts) =>
           posts.some((item) => normalizeText(item.id) === postId) ? undefined : true,
         );
-        if (!deleted) throw new Error("ビジリス通信の削除を確認できませんでした。");
+        if (!deleted) throw new Error("豆知識の削除を確認できませんでした。");
         return { ok: true };
       }
 
