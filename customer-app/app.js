@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260415-17";
+const APP_VERSION = "20260415-18";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v60";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v61";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -725,7 +725,7 @@ function updatePushUi() {
     } else if (!appState.pushSupported) {
       pushToggleButton.textContent = "この端末では利用できません";
     } else {
-      pushToggleButton.textContent = appState.pushEnabled ? "通知オン" : "通知オフ";
+      pushToggleButton.textContent = appState.pushEnabled ? "通知オフにする" : "通知オンにする";
     }
   }
   if (pushStatusText) {
@@ -735,10 +735,6 @@ function updatePushUi() {
       pushStatusText.textContent = "この端末または現在の表示方法では通知設定を利用できません。";
     } else if (Notification.permission === "denied") {
       pushStatusText.textContent = "端末側で通知が拒否されています。ブラウザまたはホーム画面アプリの通知設定を確認してください。";
-    } else if (appState.pushBusy) {
-      pushStatusText.textContent = appState.pushEnabled
-        ? "現在の設定: 通知オンに切り替え中..."
-        : "現在の設定: 通知オフに切り替え中...";
     } else {
       pushStatusText.textContent = appState.pushEnabled ? "現在の設定: 通知オン" : "現在の設定: 通知オフ";
     }
@@ -5158,7 +5154,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-17", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-18", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
