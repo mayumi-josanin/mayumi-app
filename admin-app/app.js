@@ -326,8 +326,54 @@ function normalizeCustomerProfile(value) {
     nameKana: String(value?.nameKana || "").trim(),
     activeTicketCard: normalizeActiveTicketCard(value?.activeTicketCard),
     measurementTargets: normalizeMeasurementTargets(value?.measurementTargets),
+    pushStatus: normalizePushStatus(value?.pushStatus),
     updatedAt: String(value?.updatedAt || "").trim(),
   };
+}
+
+function normalizePushStatus(value) {
+  if (!value || typeof value !== "object") return null;
+  const hasEnabled = Object.prototype.hasOwnProperty.call(value, "enabled");
+  const hasSupported = Object.prototype.hasOwnProperty.call(value, "supported");
+  const permission = String(value?.permission || "").trim().toLowerCase();
+  const normalizedPermission = ["granted", "denied", "default", "unsupported"].includes(permission) ? permission : "";
+  if (!hasEnabled && !hasSupported && !normalizedPermission) return null;
+  return {
+    enabled: value.enabled === true,
+    supported: value.supported === true,
+    permission: normalizedPermission || (value.supported === false ? "unsupported" : ""),
+    updatedAt: String(value?.updatedAt || "").trim(),
+  };
+}
+
+function describePushStatus(pushStatus) {
+  const status = normalizePushStatus(pushStatus);
+  if (!status) {
+    return { label: "未設定", detail: "顧客側でまだ通知設定が同期されていません。", badgeClass: "draft" };
+  }
+  if (status.supported !== true) {
+    return { label: "未対応", detail: "この端末または表示方法では通知を利用できません。", badgeClass: "draft" };
+  }
+  if (status.enabled) {
+    return { label: "オン", detail: "顧客アプリで通知受信が有効です。", badgeClass: "open" };
+  }
+  if (status.permission === "denied") {
+    return { label: "拒否", detail: "端末側で通知が拒否されています。", badgeClass: "closed" };
+  }
+  return { label: "オフ", detail: "顧客アプリで通知はオフです。", badgeClass: "draft" };
+}
+
+function renderCustomerPushStatus(pushStatus) {
+  const described = describePushStatus(pushStatus);
+  const status = normalizePushStatus(pushStatus);
+  return `
+    <div class="meta">
+      通知状態:
+      <span class="badge ${described.badgeClass}">${escapeHtml(described.label)}</span>
+      ${escapeHtml(described.detail)}
+      ${status?.updatedAt ? ` / 最終更新: ${escapeHtml(formatDate(status.updatedAt))}` : ""}
+    </div>
+  `;
 }
 
 function normalizeMeasurementRecord(value) {
@@ -1267,6 +1313,7 @@ function renderCustomerSummaryCard(customerName, responses) {
     <article class="answer-item">
       <strong>${escapeHtml(getCustomerNameWithMember(customerName))}</strong>
       <div class="meta">フリガナ: ${escapeHtml(profile?.nameKana || "-")}</div>
+      ${renderCustomerPushStatus(profile?.pushStatus)}
       <div class="meta">回答数: ${responses.length}件 / アンケート種類: ${surveyCount}件</div>
       <div class="meta">最新回答: ${latestResponse ? `${escapeHtml(latestResponse.surveyTitle)} / ${formatDate(latestResponse.submittedAt)}` : "-"}</div>
       <div class="meta">最新測定: ${latestMeasurement ? `${escapeHtml(formatDateOnly(latestMeasurement.measuredAt))} / WHR ${escapeHtml(formatWhr(latestMeasurement.whr))}` : "-"}</div>
@@ -2361,6 +2408,7 @@ function renderCustomerManagement() {
                       >
                         <strong>${escapeHtml(customer.memberNumber ? `${customer.memberNumber} / ${customer.name}` : customer.name)}</strong>
                         <div>回答数: ${customer.count}件</div>
+                        ${renderCustomerPushStatus(getCustomerProfileByName(customer.name)?.pushStatus)}
                         <div class="meta">${customer.hasResponses ? `最新回答: ${formatDate(customer.latestAt)}` : "回答履歴はまだありません。"}</div>
                         ${renderTicketStampList(getCurrentTicketInfoForCustomer(customer.name))}
                       </button>
@@ -6270,7 +6318,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-04", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-06", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });

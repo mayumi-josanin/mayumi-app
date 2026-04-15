@@ -63,6 +63,24 @@ window.MayumiSurveyApi = (() => {
     return Object.values(normalized).some((value) => value !== "") ? normalized : null;
   }
 
+  function normalizePushPermission(value) {
+    const normalized = normalizeText(value).toLowerCase();
+    return ["granted", "denied", "default", "unsupported"].includes(normalized) ? normalized : "";
+  }
+
+  function normalizePushStatus(value) {
+    if (!value || typeof value !== "object") return null;
+    const hasEnabled = Object.prototype.hasOwnProperty.call(value, "enabled");
+    const hasSupported = Object.prototype.hasOwnProperty.call(value, "supported");
+    const permission = normalizePushPermission(value.permission);
+    if (!hasEnabled && !hasSupported && !permission) return null;
+    return {
+      enabled: value.enabled === true,
+      supported: value.supported === true,
+      permission: permission || (value.supported === false ? "unsupported" : ""),
+    };
+  }
+
   function sleep(ms) {
     return new Promise((resolve) => {
       setTimeout(resolve, ms);
@@ -652,6 +670,28 @@ window.MayumiSurveyApi = (() => {
         });
         if (!updated) {
           throw new Error("スタンプカード情報の保存を確認できませんでした。");
+        }
+        return { customerProfile: updated.customerProfile || null };
+      }
+
+      if (path === "/api/public/customer-profile/push" && method === "POST") {
+        const customer = options.body?.customer || {};
+        const expectedPushStatus = normalizePushStatus(options.body?.pushStatus) || {
+          enabled: false,
+          supported: false,
+          permission: "unsupported",
+        };
+        await postToGas(gasUrl, "updatePublicPushStatus", {
+          clientId: getClientId(),
+          customer,
+          pushStatus: expectedPushStatus,
+        });
+        const updated = await waitForCustomerProfile(gasUrl, customer, (profile) => {
+          const actual = normalizePushStatus(profile?.pushStatus);
+          return JSON.stringify(actual || null) === JSON.stringify(expectedPushStatus || null);
+        });
+        if (!updated) {
+          throw new Error("通知設定の保存を確認できませんでした。");
         }
         return { customerProfile: updated.customerProfile || null };
       }

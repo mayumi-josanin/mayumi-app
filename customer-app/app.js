@@ -11,7 +11,7 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260415-03";
+const APP_VERSION = "20260415-06";
 const DEFAULT_ONESIGNAL_APP_ID = "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
@@ -279,6 +279,7 @@ const appState = {
   pushEnabled: false,
   pushBusy: false,
   pushInitialized: false,
+  pushServerSignature: "",
   launchRoute: parseLaunchRoute(),
 };
 
@@ -480,7 +481,77 @@ function normalizeServerCustomerProfile(value) {
     nameKana: normalizeKana(value?.nameKana),
     activeTicketCard: normalizeServerActiveTicketCard(value?.activeTicketCard),
     measurementTargets: normalizeMeasurementTargets(value?.measurementTargets),
+    pushStatus: normalizePushStatus(value?.pushStatus),
   };
+}
+
+function normalizePushPermission(value) {
+  const normalized = normalizeText(value).toLowerCase();
+  return ["granted", "denied", "default", "unsupported"].includes(normalized) ? normalized : "";
+}
+
+function normalizePushStatus(value) {
+  if (!value || typeof value !== "object") return null;
+  const hasEnabled = Object.prototype.hasOwnProperty.call(value, "enabled");
+  const hasSupported = Object.prototype.hasOwnProperty.call(value, "supported");
+  const permission = normalizePushPermission(value.permission);
+  if (!hasEnabled && !hasSupported && !permission) return null;
+  return {
+    enabled: value.enabled === true,
+    supported: value.supported === true,
+    permission: permission || (value.supported === false ? "unsupported" : ""),
+    updatedAt: normalizeText(value.updatedAt),
+  };
+}
+
+function getCurrentPushStatusPayload(overrides = {}) {
+  const supported = overrides.supported === true
+    ? true
+    : overrides.supported === false
+      ? false
+      : appState.pushSupported === true;
+  const enabled = overrides.enabled === true;
+  const permission = normalizePushPermission(
+    overrides.permission !== undefined
+      ? overrides.permission
+      : supported
+        ? Notification.permission
+        : "unsupported",
+  ) || (supported ? "default" : "unsupported");
+  return {
+    enabled,
+    supported,
+    permission,
+  };
+}
+
+async function syncPushStatusToServer(pushStatus) {
+  if (!hasCustomerSession()) return;
+  const normalized = normalizePushStatus(pushStatus);
+  if (!normalized) return;
+  const signature = JSON.stringify({
+    name: appState.customer.name,
+    nameKana: appState.customer.nameKana,
+    enabled: normalized.enabled,
+    supported: normalized.supported,
+    permission: normalized.permission,
+  });
+  if (signature === appState.pushServerSignature) return;
+  try {
+    const result = await api.request("/api/public/customer-profile/push", {
+      method: "POST",
+      body: {
+        customer: appState.customer,
+        pushStatus: normalized,
+      },
+    });
+    appState.pushServerSignature = signature;
+    if (result?.customerProfile) {
+      syncCustomerProfileFromServer(result.customerProfile);
+    }
+  } catch (error) {
+    reportClientError("customer.push.sync", error);
+  }
 }
 
 function mergeCustomerProfile(baseProfile, serverProfile) {
@@ -724,6 +795,18 @@ async function syncPushStateFromOneSignal() {
   appState.pushEnabled = enabled;
   savePushPreference(enabled);
   updatePushUi();
+  await syncPushStatusToServer(
+    getCurrentPushStatusPayload({
+      enabled,
+      supported: appState.pushSupported,
+      permission:
+        permissionGranted === true
+          ? "granted"
+          : permissionGranted === false
+            ? Notification.permission || "default"
+            : permissionGranted || Notification.permission || "default",
+    }),
+  );
   return enabled;
 }
 
@@ -731,7 +814,10 @@ async function initializePushNotifications() {
   appState.pushSupported = isPushFeatureSupported() && Boolean(getConfiguredPushAppId());
   appState.pushEnabled = getStoredPushPreference();
   updatePushUi();
-  if (!appState.pushSupported) return;
+  if (!appState.pushSupported) {
+    await syncPushStatusToServer(getCurrentPushStatusPayload({ enabled: false, supported: false, permission: "unsupported" }));
+    return;
+  }
   await syncPushStateFromOneSignal();
 }
 
@@ -2577,10 +2663,12 @@ async function applyCustomerSession(profile, options = {}) {
   }
 
   appState.customer = nextCustomer;
+  appState.pushServerSignature = "";
   saveLocal(CUSTOMER_KEY, appState.customer);
   syncCustomerForms();
   await loadHistory();
   await loadBijirisPosts();
+  await initializePushNotifications();
   if (applyLaunchRouteIfPossible()) {
     renderHomeTicketStatus();
     renderHistory();
@@ -5014,7 +5102,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-03", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-06", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -5069,6 +5157,7 @@ customerForm.addEventListener("submit", async (event) => {
       ...profile,
       historyMatchMode: appState.customer.historyMatchMode,
     };
+    appState.pushServerSignature = "";
     saveLocal(CUSTOMER_KEY, appState.customer);
     syncCustomerForms();
     showToast("会員情報を保存しました。");
@@ -5077,6 +5166,7 @@ customerForm.addEventListener("submit", async (event) => {
       appState.historyResponseId = "";
     }
     await loadHistory();
+    await initializePushNotifications();
     renderHistory();
   } catch (error) {
     reportClientError("customer.profile.update", error);
