@@ -323,16 +323,52 @@ textarea {
   cursor: pointer;
 }
 
-.bijiris-favorite-button {
+.bijiris-action-button {
   min-height: 34px;
   padding: 0 12px;
   font-size: 12px;
 }
 
-.bijiris-favorite-button.active {
+.bijiris-action-button.active {
   border-color: var(--sage);
   background: #f5f8f1;
   color: var(--sage-dark);
+}
+
+.bijiris-star-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-dark);
+  cursor: pointer;
+}
+
+.bijiris-star-toggle.active {
+  border-color: #d39b24;
+  background: #fff7df;
+  color: #8c6312;
+}
+
+.bijiris-star-input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #d39b24;
+}
+
+.bijiris-star-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.bijiris-star-label {
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .bijiris-post-preview {

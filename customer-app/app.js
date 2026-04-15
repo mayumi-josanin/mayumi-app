@@ -11,7 +11,7 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260415-06";
+const APP_VERSION = "20260415-07";
 const DEFAULT_ONESIGNAL_APP_ID = "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
@@ -2180,6 +2180,21 @@ function renderBijirisDocumentPreview(file, index, compact = false) {
   `;
 }
 
+function renderBijirisFavoriteToggle(postId, favoriteSaved) {
+  return `
+    <label class="bijiris-star-toggle ${favoriteSaved ? "active" : ""}">
+      <input
+        class="bijiris-star-input"
+        type="checkbox"
+        data-toggle-bijiris-favorite="${escapeHtml(postId)}"
+        ${favoriteSaved ? "checked" : ""}
+      />
+      <span class="bijiris-star-icon" aria-hidden="true">⭐️</span>
+      <span class="bijiris-star-label">お気に入り</span>
+    </label>
+  `;
+}
+
 function renderBijirisPostCard(post) {
   const publishedAt = post.publishedAt || post.updatedAt || post.createdAt;
   const preview = post.summary || post.body.slice(0, 90);
@@ -2193,15 +2208,9 @@ function renderBijirisPostCard(post) {
           <div class="meta">${escapeHtml(post.category || "豆知識")} / ${escapeHtml(formatDate(publishedAt))}</div>
         </div>
         <div class="action-row">
+          ${renderBijirisFavoriteToggle(post.id, favoriteSaved)}
           <button
-            class="ghost-button bijiris-favorite-button ${favoriteSaved ? "active" : ""}"
-            type="button"
-            data-toggle-bijiris-favorite="${escapeHtml(post.id)}"
-          >
-            ${favoriteSaved ? "保存済み" : "お気に入り"}
-          </button>
-          <button
-            class="ghost-button bijiris-favorite-button ${readLaterSaved ? "active" : ""}"
+            class="ghost-button bijiris-action-button ${readLaterSaved ? "active" : ""}"
             type="button"
             data-toggle-bijiris-read-later="${escapeHtml(post.id)}"
           >
@@ -2235,15 +2244,9 @@ function renderBijirisPostDetail(post) {
       </div>
       <div class="action-row bijiris-detail-actions">
         ${renderBijirisBadges(post)}
+        ${renderBijirisFavoriteToggle(post.id, favoriteSaved)}
         <button
-          class="ghost-button bijiris-favorite-button ${favoriteSaved ? "active" : ""}"
-          type="button"
-          data-toggle-bijiris-favorite="${escapeHtml(post.id)}"
-        >
-          ${favoriteSaved ? "保存済み" : "お気に入り"}
-        </button>
-        <button
-          class="ghost-button bijiris-favorite-button ${readLaterSaved ? "active" : ""}"
+          class="ghost-button bijiris-action-button ${readLaterSaved ? "active" : ""}"
           type="button"
           data-toggle-bijiris-read-later="${escapeHtml(post.id)}"
         >
@@ -2312,10 +2315,13 @@ function renderBijirisPostDetail(post) {
 
 function attachBijirisPostActions() {
   bijirisPanel.querySelectorAll("[data-toggle-bijiris-favorite]").forEach((button) => {
-    button.addEventListener("click", (event) => {
+    button.addEventListener("change", (event) => {
       event.preventDefault();
       event.stopPropagation();
       toggleBijirisFavorite(button.dataset.toggleBijirisFavorite || "");
+    });
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
     });
   });
   bijirisPanel.querySelectorAll("[data-toggle-bijiris-read-later]").forEach((button) => {
@@ -5102,7 +5108,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-06", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-07", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
