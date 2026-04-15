@@ -293,6 +293,7 @@ textarea {
 
 .bijiris-post-card {
   gap: 10px;
+  cursor: pointer;
 }
 
 .bijiris-post-card.is-pinned {
@@ -308,19 +309,6 @@ textarea {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 8px;
-}
-
-.bijiris-post-open {
-  display: grid;
-  gap: 8px;
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
 .bijiris-action-button {

@@ -11,7 +11,7 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260415-10";
+const APP_VERSION = "20260415-11";
 const DEFAULT_ONESIGNAL_APP_ID = "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
@@ -2182,7 +2182,7 @@ function renderBijirisDocumentPreview(file, index, compact = false) {
 
 function renderBijirisFavoriteToggle(postId, favoriteSaved) {
   return `
-    <label class="bijiris-star-toggle ${favoriteSaved ? "active" : ""}">
+    <label class="bijiris-star-toggle ${favoriteSaved ? "active" : ""}" data-bijiris-action-stop>
       <input
         class="bijiris-star-input"
         type="checkbox"
@@ -2201,7 +2201,12 @@ function renderBijirisPostCard(post) {
   const favoriteSaved = isBijirisFavorite(post.id);
   const readLaterSaved = isBijirisReadLater(post.id);
   return `
-    <article class="history-card bijiris-post-card ${post.pinned ? "is-pinned" : ""}">
+    <article
+      class="history-card bijiris-post-card ${post.pinned ? "is-pinned" : ""}"
+      role="button"
+      tabindex="0"
+      data-open-bijiris-post="${escapeHtml(post.id)}"
+    >
       <div class="section-head bijiris-post-head">
         <div>
           <strong>${escapeHtml(post.title)}</strong>
@@ -2219,14 +2224,7 @@ function renderBijirisPostCard(post) {
         </div>
       </div>
       <div class="action-row">${renderBijirisBadges(post)}</div>
-      <button class="bijiris-post-open" type="button" data-open-bijiris-post="${escapeHtml(post.id)}">
-        ${preview ? `<div class="meta bijiris-post-preview">${escapeHtml(preview)}</div>` : `<div class="meta">本文は詳細で確認できます。</div>`}
-      </button>
-      ${
-        post.documents.length
-          ? `<div class="bijiris-document-preview-strip">${post.documents.slice(0, 2).map((file, index) => renderBijirisDocumentPreview(file, index, true)).join("")}</div>`
-          : ""
-      }
+      ${preview ? `<div class="meta bijiris-post-preview">${escapeHtml(preview)}</div>` : `<div class="meta">本文は詳細で確認できます。</div>`}
     </article>
   `;
 }
@@ -2313,6 +2311,11 @@ function renderBijirisPostDetail(post) {
 }
 
 function attachBijirisPostActions() {
+  bijirisPanel.querySelectorAll("[data-bijiris-action-stop]").forEach((node) => {
+    node.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+  });
   bijirisPanel.querySelectorAll("[data-toggle-bijiris-favorite]").forEach((button) => {
     button.addEventListener("change", (event) => {
       event.preventDefault();
@@ -2337,6 +2340,11 @@ function attachBijirisPostActions() {
       renderSurveys();
       renderBijirisPosts();
       window.scrollTo({ top: 0, behavior: "auto" });
+    });
+    button.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      button.click();
     });
   });
   bijirisPanel.querySelectorAll("[data-bijiris-category]").forEach((button) => {
@@ -2397,112 +2405,15 @@ function renderBijirisPosts() {
     attachBijirisPostActions();
     return;
   }
-  const visiblePosts = getFilteredBijirisPosts();
-  const hasFocusFilter = Boolean(
-    normalizeText(appState.bijirisSearchQuery) ||
-    appState.selectedBijirisCategory !== "all" ||
-    appState.showFavoriteBijirisOnly ||
-    appState.showReadLaterBijirisOnly,
-  );
-  const pinnedPosts = visiblePosts.filter((post) => post.pinned);
-  const regularPosts = visiblePosts.filter((post) => !post.pinned);
-  const recommendedPosts = hasFocusFilter ? [] : getRecommendedBijirisPosts(3);
-  const readLaterPosts = hasFocusFilter
-    ? []
-    : sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisReadLater(post.id)).slice(0, 3);
-  const recentPosts = hasFocusFilter ? [] : getBijirisRecentHistoryPosts().slice(0, 3);
-  const emptyMessage = appState.showFavoriteBijirisOnly
-    ? "お気に入りの投稿はまだありません。"
-    : appState.showReadLaterBijirisOnly
-      ? "あとで読むの投稿はまだありません。"
-    : appState.selectedBijirisCategory !== "all"
-      ? `${appState.selectedBijirisCategory} の投稿はまだありません。`
-      : normalizeText(appState.bijirisSearchQuery)
-        ? "検索条件に合う投稿はありません。"
-        : "まだ豆知識の投稿はありません。";
+  appState.selectedBijirisCategory = "all";
+  appState.showFavoriteBijirisOnly = false;
+  appState.showReadLaterBijirisOnly = false;
+  appState.bijirisSearchQuery = "";
+  const visiblePosts = sortBijirisPosts(appState.bijirisPosts);
+  const emptyMessage = "まだ豆知識の投稿はありません。";
   bijirisPanel.innerHTML = `
     ${appState.bijirisLoadError ? `<div class="meta">更新に失敗したため前回取得内容を表示しています。</div>` : ""}
-    ${getNewUnreadBijirisPosts().length ? `<article class="history-card bijiris-home-notice"><strong>新着のお知らせ</strong><div class="meta">新着 ${getNewUnreadBijirisPosts().length}件 / 未読 ${getUnreadBijirisPosts().length}件</div></article>` : ""}
-    ${renderBijirisToolbar()}
-    <div class="history-group-list">
-      ${
-        recommendedPosts.length
-          ? `
-            <section class="bijiris-list-section">
-              <div class="bijiris-list-head">
-                <strong>あなたへのおすすめ</strong>
-                <span class="meta">回答履歴に近い内容</span>
-              </div>
-              <div class="bijiris-panel">
-                ${recommendedPosts.map(renderBijirisPostCard).join("")}
-              </div>
-            </section>
-          `
-          : ""
-      }
-      ${
-        readLaterPosts.length
-          ? `
-            <section class="bijiris-list-section">
-              <div class="bijiris-list-head">
-                <strong>あとで読む</strong>
-                <span class="meta">${readLaterPosts.length}件</span>
-              </div>
-              <div class="bijiris-panel">
-                ${readLaterPosts.map(renderBijirisPostCard).join("")}
-              </div>
-            </section>
-          `
-          : ""
-      }
-      ${
-        recentPosts.length
-          ? `
-            <section class="bijiris-list-section">
-              <div class="bijiris-list-head">
-                <strong>最近見た記事</strong>
-                <span class="meta">${recentPosts.length}件</span>
-              </div>
-              <div class="bijiris-panel">
-                ${recentPosts.map(renderBijirisPostCard).join("")}
-              </div>
-            </section>
-          `
-          : ""
-      }
-      ${
-        pinnedPosts.length
-          ? `
-            <section class="bijiris-list-section">
-              <div class="bijiris-list-head">
-                <strong>重要</strong>
-                <span class="meta">上部固定の投稿</span>
-              </div>
-              <div class="bijiris-panel">
-                ${pinnedPosts.map(renderBijirisPostCard).join("")}
-              </div>
-            </section>
-          `
-          : ""
-      }
-      ${
-        regularPosts.length
-          ? `
-            <section class="bijiris-list-section">
-              <div class="bijiris-list-head">
-                <strong>${pinnedPosts.length ? "一覧" : "投稿一覧"}</strong>
-                <span class="meta">${visiblePosts.length}件</span>
-              </div>
-              <div class="bijiris-panel">
-                ${regularPosts.map(renderBijirisPostCard).join("")}
-              </div>
-            </section>
-          `
-          : visiblePosts.length
-            ? ""
-            : `<div class="empty">${emptyMessage}</div>`
-      }
-    </div>
+    ${visiblePosts.length ? `<div class="bijiris-panel">${visiblePosts.map(renderBijirisPostCard).join("")}</div>` : `<div class="empty">${emptyMessage}</div>`}
   `;
   attachBijirisPostActions();
 }
@@ -5107,7 +5018,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-10", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-11", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
