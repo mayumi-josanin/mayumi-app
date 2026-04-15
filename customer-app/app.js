@@ -12,7 +12,7 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260415-13";
+const APP_VERSION = "20260415-14";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
@@ -734,9 +734,7 @@ function updatePushUi() {
     } else if (Notification.permission === "denied") {
       pushStatusText.textContent = "端末側で通知が拒否されています。ブラウザまたはホーム画面アプリの通知設定を確認してください。";
     } else {
-      pushStatusText.textContent = appState.pushEnabled
-        ? "豆知識の追加・更新をこの端末で受け取る設定です。"
-        : "通知はオフです。通知を受け取る場合はオンにしてください。";
+      pushStatusText.textContent = appState.pushEnabled ? "現在の設定: 通知オン" : "現在の設定: 通知オフ";
     }
   }
   if (pushHelpText) {
@@ -5103,7 +5101,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-13", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-14", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
