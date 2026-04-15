@@ -800,6 +800,19 @@ window.MayumiSurveyApi = (() => {
         return { preferences };
       }
 
+      if (path === "/api/admin/push-config" && method === "PUT") {
+        await postToGas(gasUrl, "adminUpdatePushConfig", {
+          token: options.token,
+          payload: {
+            pushAppId: normalizeText(options.body?.pushAppId),
+            customerAppUrl: normalizeText(options.body?.customerAppUrl),
+            restApiKey: normalizeText(options.body?.restApiKey),
+          },
+        });
+        const info = await jsonp(gasUrl, "adminInfo", { token: options.token });
+        return { adminInfo: info };
+      }
+
       if (path === "/api/admin/users" && method === "PUT") {
         const users = Array.isArray(options.body?.adminUsers) ? options.body.adminUsers : [];
         await postToGas(gasUrl, "adminUpdateUsers", {

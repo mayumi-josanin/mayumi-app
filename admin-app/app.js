@@ -4122,7 +4122,35 @@ function renderSettings() {
             : "Apps Script のスクリプトプロパティに ONESIGNAL_REST_API_KEY を設定してください。必要に応じて CUSTOMER_APP_URL も設定できます。"
         }
       </article>
+      <form id="pushConfigForm" class="stack">
+        <div class="survey-question-grid">
+          <label>
+            OneSignal App ID
+            <input name="pushAppId" type="text" value="${pushAppId === "未設定" ? "" : pushAppId}" required />
+          </label>
+          <label>
+            顧客アプリURL
+            <input
+              name="customerAppUrl"
+              type="url"
+              value="${state.adminInfo.customerAppUrl ? escapeHtml(state.adminInfo.customerAppUrl) : ""}"
+              placeholder="https://..."
+              required
+            />
+          </label>
+        </div>
+        <label>
+          REST APIキー
+          <input name="restApiKey" type="password" autocomplete="new-password" placeholder="変更時のみ入力" />
+        </label>
+        <div class="meta">REST APIキーを空欄で保存すると、現在のキーをそのまま維持します。</div>
+        <button class="primary-button" type="submit">通知設定を保存</button>
+      </form>
     `;
+    pushStatusInfo.querySelector("#pushConfigForm")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void savePushConfig(event.currentTarget);
+    });
   }
 
   if (preferencesCard) {
@@ -6109,6 +6137,38 @@ async function savePreferences() {
     renderSettings();
   } catch (error) {
     showToast(error.message || "設定を保存できませんでした。");
+  }
+}
+
+async function savePushConfig(form) {
+  const formData = new FormData(form);
+  const button = form.querySelector('button[type="submit"]');
+  if (button) {
+    button.disabled = true;
+    button.textContent = "保存中";
+  }
+  try {
+    const result = await api.request("/api/admin/push-config", {
+      method: "PUT",
+      token: state.token,
+      body: {
+        pushAppId: String(formData.get("pushAppId") || "").trim(),
+        customerAppUrl: String(formData.get("customerAppUrl") || "").trim(),
+        restApiKey: String(formData.get("restApiKey") || "").trim(),
+      },
+    });
+    state.adminInfo = result.adminInfo || state.adminInfo;
+    state.customerProfiles = indexCustomerProfiles(state.adminInfo?.customerProfiles);
+    state.adminUsers = Array.isArray(state.adminInfo?.adminUsers) ? state.adminInfo.adminUsers : state.adminUsers;
+    renderSettings();
+    showToast("通知設定を保存しました。");
+  } catch (error) {
+    showToast(error.message || "通知設定を保存できませんでした。");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "通知設定を保存";
+    }
   }
 }
 
