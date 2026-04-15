@@ -4875,7 +4875,7 @@ function createEmptyBijirisPostDraft() {
     category: BIJIRIS_POST_CATEGORY_OPTIONS[0],
     summary: "",
     body: "",
-    status: "draft",
+    status: "published",
     pinned: false,
     photos: [],
     documents: [],
@@ -5018,7 +5018,7 @@ function syncBijirisDraftFromForm(form) {
   draft.body = String(form.elements.body?.value || "").trim();
   draft.status = ["published", "draft", "archived"].includes(String(form.elements.status?.value || "").trim())
     ? String(form.elements.status.value).trim()
-    : "draft";
+    : "published";
   draft.pinned = Boolean(form.elements.pinned?.checked);
   return draft;
 }
@@ -5287,6 +5287,7 @@ function renderBijirisManager() {
             <option value="draft" ${draft.status === "draft" ? "selected" : ""}>下書き</option>
             <option value="archived" ${draft.status === "archived" ? "selected" : ""}>アーカイブ</option>
           </select>
+          <div class="meta">顧客アプリに表示されるのは「公開」の投稿だけです。</div>
         </label>
       </div>
       <label class="inline-toggle">
@@ -5318,7 +5319,13 @@ function renderBijirisManager() {
       </div>
       ${renderBijirisAttachmentPreview(draft.documents, "pdf")}
       <div class="survey-editor-actions">
-        <button class="primary-button" type="submit">${selectedPost ? "保存" : "作成"}</button>
+        <button class="primary-button" type="submit">
+          ${draft.status === "published"
+            ? (selectedPost ? "公開内容を保存" : "作成して公開")
+            : draft.status === "draft"
+              ? (selectedPost ? "下書きを保存" : "下書きを作成")
+              : (selectedPost ? "保存" : "作成")}
+        </button>
       </div>
     </form>
     <article class="history-card bijiris-preview-wrapper">
@@ -6038,7 +6045,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260414-17", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-01", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
