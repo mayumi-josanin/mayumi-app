@@ -5,13 +5,14 @@ const TICKET_CARD_OVERRIDE_KEY = "mayumi_survey_ticket_card_overrides";
 const BIJIRIS_FAVORITES_KEY = "mayumi_bijiris_favorites";
 const BIJIRIS_READER_STATE_KEY = "mayumi_bijiris_reader_state";
 const PUSH_ENABLED_STORAGE_KEY = "mayumi_customer_push_enabled";
+const PUSH_APP_ID_STORAGE_KEY = "mayumi_customer_push_app_id";
 const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260415-12";
+const APP_VERSION = "20260415-13";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
@@ -351,6 +352,22 @@ function getStoredPushPreference() {
 function savePushPreference(enabled) {
   try {
     localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, enabled ? "true" : "false");
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+function getStoredPushAppId() {
+  try {
+    return String(localStorage.getItem(PUSH_APP_ID_STORAGE_KEY) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function saveStoredPushAppId(appId) {
+  try {
+    localStorage.setItem(PUSH_APP_ID_STORAGE_KEY, String(appId || "").trim());
   } catch {
     // Ignore storage errors.
   }
@@ -735,6 +752,63 @@ function getOneSignalInstance() {
 
 let oneSignalInitPromise = null;
 
+function getPushWorkerScopePath() {
+  try {
+    return new URL("./push/", window.location.href).pathname;
+  } catch {
+    return "/push/";
+  }
+}
+
+async function clearScopedPushRegistrations() {
+  if (!("serviceWorker" in navigator)) return false;
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  const targetScopePath = getPushWorkerScopePath();
+  let cleared = false;
+  for (const registration of registrations) {
+    let scopePath = "";
+    try {
+      scopePath = new URL(registration.scope).pathname;
+    } catch {
+      scopePath = "";
+    }
+    if (scopePath !== targetScopePath && !scopePath.endsWith(targetScopePath)) continue;
+    try {
+      const subscription = await registration.pushManager?.getSubscription?.();
+      if (subscription) {
+        await subscription.unsubscribe().catch(() => {});
+        cleared = true;
+      }
+    } catch {
+      // Ignore unsubscribe failures and continue unregister.
+    }
+    try {
+      const unregistered = await registration.unregister();
+      cleared = cleared || unregistered === true;
+    } catch {
+      // Ignore unregister failures.
+    }
+  }
+  return cleared;
+}
+
+async function migratePushAppIfNeeded() {
+  const currentAppId = getConfiguredPushAppId();
+  if (!currentAppId || !isPushFeatureSupported()) return { changed: false, desiredEnabled: getStoredPushPreference() };
+  const storedAppId = getStoredPushAppId();
+  if (storedAppId === currentAppId) return { changed: false, desiredEnabled: getStoredPushPreference() };
+  const desiredEnabled = getStoredPushPreference();
+  await clearScopedPushRegistrations();
+  window.OneSignalRef = null;
+  window.OneSignalDeferred = [];
+  oneSignalInitPromise = null;
+  appState.pushInitialized = false;
+  appState.pushEnabled = false;
+  appState.pushServerSignature = "";
+  saveStoredPushAppId(currentAppId);
+  return { changed: true, desiredEnabled };
+}
+
 async function loadOneSignalSdk() {
   if (window.OneSignalRef) return window.OneSignalRef;
   if (oneSignalInitPromise) return oneSignalInitPromise;
@@ -811,6 +885,7 @@ async function syncPushStateFromOneSignal() {
 }
 
 async function initializePushNotifications() {
+  const migration = await migratePushAppIfNeeded();
   appState.pushSupported = isPushFeatureSupported() && Boolean(getConfiguredPushAppId());
   appState.pushEnabled = getStoredPushPreference();
   updatePushUi();
@@ -818,7 +893,17 @@ async function initializePushNotifications() {
     await syncPushStatusToServer(getCurrentPushStatusPayload({ enabled: false, supported: false, permission: "unsupported" }));
     return;
   }
+  if (migration.changed && migration.desiredEnabled && Notification.permission === "granted") {
+    const OneSignal = await loadOneSignalSdk();
+    const pushSubscription = OneSignal?.User?.PushSubscription;
+    if (pushSubscription && !pushSubscription.optedIn && typeof pushSubscription.optIn === "function") {
+      await pushSubscription.optIn().catch(() => {});
+    }
+  }
   await syncPushStateFromOneSignal();
+  if (migration.changed) {
+    showToast("通知設定を更新しました。別アプリの通知は届かないよう再設定しています。");
+  }
 }
 
 async function togglePushNotifications() {
@@ -5018,7 +5103,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-12", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-13", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
