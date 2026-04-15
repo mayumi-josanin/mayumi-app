@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260416-03";
+const APP_VERSION = "20260416-04";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v64";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v65";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2223,17 +2223,18 @@ function renderBijirisHomeNotice() {
 
 function renderBijirisListSwitcher() {
   const favoriteCount = sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id)).length;
+  const readLaterCount = getBijirisReaderState().readLaterIds.length;
   return `
     <div class="history-card bijiris-list-switcher">
       <div class="section-head">
         <div>
           <strong>一覧</strong>
-          <div class="meta">お気に入り ${favoriteCount}件</div>
+          <div class="meta">お気に入り ${favoriteCount}件 / あとで読む ${readLaterCount}件</div>
         </div>
       </div>
       <div class="bijiris-filter-row">
         <button
-          class="bijiris-filter-chip ${appState.showFavoriteBijirisOnly ? "" : "active"}"
+          class="bijiris-filter-chip ${!appState.showFavoriteBijirisOnly && !appState.showReadLaterBijirisOnly ? "active" : ""}"
           type="button"
           data-bijiris-list-mode="all"
         >
@@ -2244,7 +2245,14 @@ function renderBijirisListSwitcher() {
           type="button"
           data-bijiris-list-mode="favorites"
         >
-          お気に入り一覧
+          お気に入り⭐️
+        </button>
+        <button
+          class="bijiris-filter-chip ${appState.showReadLaterBijirisOnly ? "active" : ""}"
+          type="button"
+          data-bijiris-list-mode="read-later"
+        >
+          あとで読む
         </button>
       </div>
     </div>
@@ -2502,7 +2510,9 @@ function attachBijirisPostActions() {
   });
   bijirisPanel.querySelectorAll("[data-bijiris-list-mode]").forEach((button) => {
     button.addEventListener("click", () => {
-      appState.showFavoriteBijirisOnly = (button.dataset.bijirisListMode || "all") === "favorites";
+      const mode = button.dataset.bijirisListMode || "all";
+      appState.showFavoriteBijirisOnly = mode === "favorites";
+      appState.showReadLaterBijirisOnly = mode === "read-later";
       renderBijirisPosts();
     });
   });
@@ -2558,12 +2568,17 @@ function renderBijirisPosts() {
     attachBijirisPostActions();
     return;
   }
-  const visiblePosts = appState.showFavoriteBijirisOnly
-    ? sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id))
-    : sortBijirisPosts(appState.bijirisPosts);
+  let visiblePosts = sortBijirisPosts(appState.bijirisPosts);
+  if (appState.showFavoriteBijirisOnly) {
+    visiblePosts = visiblePosts.filter((post) => isBijirisFavorite(post.id));
+  } else if (appState.showReadLaterBijirisOnly) {
+    visiblePosts = visiblePosts.filter((post) => isBijirisReadLater(post.id));
+  }
   const emptyMessage = appState.showFavoriteBijirisOnly
     ? "お気に入りはまだありません。"
-    : "まだ豆知識の投稿はありません。";
+    : appState.showReadLaterBijirisOnly
+      ? "あとで読むはまだありません。"
+      : "まだ豆知識の投稿はありません。";
   bijirisPanel.innerHTML = `
     ${appState.bijirisLoadError ? `<div class="meta">更新に失敗したため前回取得内容を表示しています。</div>` : ""}
     ${renderBijirisListSwitcher()}
@@ -5215,7 +5230,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-18", { updateViaCache: "none" })
+        .register("./sw.js?v=20260416-04", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
