@@ -240,11 +240,18 @@ const state = {
 const loginView = document.querySelector("#loginView");
 const adminView = document.querySelector("#adminView");
 const toast = document.querySelector("#toast");
+const confirmModal = document.querySelector("#confirmModal");
+const confirmDialogTitle = document.querySelector("#confirmDialogTitle");
+const confirmDialogMessage = document.querySelector("#confirmDialogMessage");
+const confirmDialogCancel = document.querySelector("#confirmDialogCancel");
+const confirmDialogConfirm = document.querySelector("#confirmDialogConfirm");
 const loginForm = document.querySelector("#loginForm");
 const credentialForm = document.querySelector("#credentialForm");
 const appUpdateButton = document.querySelector("#appUpdateButton");
 const installButton = document.querySelector("#installButton");
 const loginSubmitButton = document.querySelector("#loginSubmitButton");
+let toastTimer = 0;
+let activeConfirmResolver = null;
 
 function getVisibleSurveyIdSet() {
   return new Set(
@@ -496,10 +503,65 @@ function normalizeSurveyStatus(status) {
   return "published";
 }
 
-function showToast(message) {
+function showToast(message, options = {}) {
+  if (toastTimer) {
+    window.clearTimeout(toastTimer);
+    toastTimer = 0;
+  }
   toast.textContent = message;
+  toast.classList.toggle("busy", options.busy === true);
   toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 2600);
+  if (options.persist === true) return;
+  toastTimer = window.setTimeout(() => {
+    toast.classList.remove("show", "busy");
+    toastTimer = 0;
+  }, 2600);
+}
+
+function showBusyToast(message) {
+  showToast(message, { busy: true, persist: true });
+}
+
+function hideToast() {
+  if (toastTimer) {
+    window.clearTimeout(toastTimer);
+    toastTimer = 0;
+  }
+  toast.classList.remove("show", "busy");
+}
+
+function closeConfirmDialog(result = false) {
+  if (!confirmModal || confirmModal.hidden) return;
+  confirmModal.hidden = true;
+  const resolver = activeConfirmResolver;
+  activeConfirmResolver = null;
+  if (resolver) resolver(result);
+}
+
+function openConfirmDialog({
+  title = "確認",
+  message = "",
+  confirmLabel = "実行する",
+  cancelLabel = "キャンセル",
+  danger = false,
+} = {}) {
+  if (!confirmModal || !confirmDialogTitle || !confirmDialogMessage || !confirmDialogCancel || !confirmDialogConfirm) {
+    return Promise.resolve(window.confirm(message || title));
+  }
+  if (activeConfirmResolver) {
+    activeConfirmResolver(false);
+    activeConfirmResolver = null;
+  }
+  confirmDialogTitle.textContent = title;
+  confirmDialogMessage.textContent = message || title;
+  confirmDialogCancel.textContent = cancelLabel;
+  confirmDialogConfirm.textContent = confirmLabel;
+  confirmDialogConfirm.classList.toggle("danger-button", danger);
+  confirmModal.hidden = false;
+  return new Promise((resolve) => {
+    activeConfirmResolver = resolve;
+    window.setTimeout(() => confirmDialogConfirm.focus(), 0);
+  });
 }
 
 function reportClientError(source, error, detail = {}) {
@@ -2052,8 +2114,14 @@ async function saveMeasurement(form) {
 
 async function deleteMeasurement(measurementId) {
   if (!measurementId) return;
-  if (!confirm("この測定データを削除しますか？")) return;
+  if (!(await openConfirmDialog({
+    title: "測定データ削除",
+    message: "この測定データを削除しますか？",
+    confirmLabel: "削除する",
+    danger: true,
+  }))) return;
   try {
+    showBusyToast("測定データを削除中です。");
     await api.request(`/api/admin/measurements/${encodeURIComponent(measurementId)}`, {
       method: "DELETE",
       token: state.token,
@@ -2118,8 +2186,14 @@ async function saveCustomerProfile(form) {
 
 async function deleteCustomerProfile(customerName) {
   if (!customerName) return;
-  if (!confirm("この顧客情報と関連する回答履歴をすべて削除しますか？")) return;
+  if (!(await openConfirmDialog({
+    title: "顧客情報削除",
+    message: "この顧客情報と関連する回答履歴をすべて削除しますか？",
+    confirmLabel: "削除する",
+    danger: true,
+  }))) return;
   try {
+    showBusyToast("顧客情報を削除中です。");
     await api.request(`/api/admin/customers/${encodeURIComponent(customerName)}`, {
       method: "DELETE",
       token: state.token,
@@ -4017,9 +4091,16 @@ async function saveResponseManagement(responseId, sourceCard = null) {
 async function deleteResponse(responseId) {
   const target = state.responses.find((response) => response.id === responseId);
   if (!target) return;
-  if (!confirm(normalizeStatus(target.status) === "trash" ? "この回答を完全削除しますか？" : "この回答をゴミ箱へ移動しますか？")) return;
+  const hardDelete = normalizeStatus(target.status) === "trash";
+  if (!(await openConfirmDialog({
+    title: hardDelete ? "回答完全削除" : "回答削除",
+    message: hardDelete ? "この回答を完全削除しますか？" : "この回答をゴミ箱へ移動しますか？",
+    confirmLabel: hardDelete ? "完全削除する" : "ゴミ箱へ移動",
+    danger: true,
+  }))) return;
   try {
-    if (normalizeStatus(target.status) === "trash") {
+    showBusyToast(hardDelete ? "回答を完全削除中です。" : "回答をゴミ箱へ移動中です。");
+    if (hardDelete) {
       await api.request(`/api/admin/responses/${encodeURIComponent(responseId)}`, {
         method: "DELETE",
         token: state.token,
@@ -5274,6 +5355,12 @@ async function saveBijirisPost() {
   if (!draft.summary && !draft.body && !draft.photos.length && !draft.documents.length) {
     throw new Error("本文、要約、写真、PDF のいずれかを入力してください。");
   }
+  const isPublished = draft.status === "published";
+  showBusyToast(
+    draft.id
+      ? (isPublished ? "豆知識の公開内容を保存中です。" : "豆知識を保存中です。")
+      : (isPublished ? "豆知識を公開中です。" : "豆知識を作成中です。"),
+  );
   const payload = {
     id: draft.id,
     title: draft.title,
@@ -5306,12 +5393,24 @@ async function saveBijirisPost() {
   state.selectedBijirisView = "history";
   renderAll();
   setPage("bijiris");
-  showToast(draft.id ? "豆知識を更新しました。" : "豆知識を作成しました。");
+  showToast(
+    draft.id
+      ? (isPublished ? "豆知識の公開内容を保存しました。" : "豆知識を更新しました。")
+      : (isPublished ? "豆知識を公開しました。" : "豆知識を作成しました。"),
+  );
 }
 
 async function deleteBijirisPost(postId) {
   const targetId = String(postId || state.selectedBijirisPostId || "").trim();
   if (!targetId) return;
+  const targetPost = getBijirisPostById(targetId);
+  if (!(await openConfirmDialog({
+    title: "豆知識削除",
+    message: `「${targetPost?.title || "豆知識"}」を削除しますか？`,
+    confirmLabel: "削除する",
+    danger: true,
+  }))) return;
+  showBusyToast("豆知識を削除中です。");
   await api.request(`/api/admin/bijiris-posts/${encodeURIComponent(targetId)}`, {
     method: "DELETE",
     token: state.token,
@@ -5922,6 +6021,12 @@ function renderSurveyManager() {
 
     try {
       const payload = buildSurveyPayload(form);
+      const isPublished = normalizeSurveyStatus(payload.status) === "published";
+      showBusyToast(
+        surveyId
+          ? (isPublished ? "アンケートの公開内容を保存中です。" : "アンケートを保存中です。")
+          : (isPublished ? "アンケートを公開中です。" : "アンケートを作成中です。"),
+      );
       const result = surveyId
         ? await api.request(`/api/admin/surveys/${encodeURIComponent(surveyId)}`, {
             method: "PUT",
@@ -5940,7 +6045,11 @@ function renderSurveyManager() {
       state.selectedSurveyEditorId = survey.id;
       renderAll();
       setPage("surveys");
-      showToast(surveyId ? "アンケートを保存しました。" : "アンケートを作成しました。");
+      showToast(
+        surveyId
+          ? (isPublished ? "アンケートの公開内容を保存しました。" : "アンケートを保存しました。")
+          : (isPublished ? "アンケートを公開しました。" : "アンケートを作成しました。"),
+      );
     } catch (error) {
       showToast(error.message || "アンケートを保存できませんでした。");
     } finally {
@@ -5951,8 +6060,14 @@ function renderSurveyManager() {
 
   surveyEditorCard.querySelector("[data-delete-survey]")?.addEventListener("click", async () => {
     if (!selectedSurvey) return;
-    if (!confirm(`「${selectedSurvey.title}」を削除しますか？`)) return;
+    if (!(await openConfirmDialog({
+      title: "アンケート削除",
+      message: `「${selectedSurvey.title}」を削除しますか？`,
+      confirmLabel: "削除する",
+      danger: true,
+    }))) return;
     try {
+      showBusyToast("アンケートを削除中です。");
       await api.request(`/api/admin/surveys/${encodeURIComponent(selectedSurvey.id)}`, {
         method: "DELETE",
         token: state.token,
@@ -6318,7 +6433,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-08", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-09", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
@@ -6462,6 +6577,22 @@ window.addEventListener("unhandledrejection", (event) => {
 document.querySelector("#lightboxModal")?.addEventListener("click", (event) => {
   if (event.target.id === "lightboxModal" || event.target.closest("[data-close-lightbox]")) {
     closeLightbox();
+  }
+});
+confirmDialogCancel?.addEventListener("click", () => {
+  closeConfirmDialog(false);
+});
+confirmDialogConfirm?.addEventListener("click", () => {
+  closeConfirmDialog(true);
+});
+confirmModal?.addEventListener("click", (event) => {
+  if (event.target === confirmModal) {
+    closeConfirmDialog(false);
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && confirmModal && !confirmModal.hidden) {
+    closeConfirmDialog(false);
   }
 });
 setLoggedIn(Boolean(state.token));
