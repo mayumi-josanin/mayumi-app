@@ -12,7 +12,7 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260415-14";
+const APP_VERSION = "20260415-15";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
@@ -5101,8 +5101,19 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-14", { updateViaCache: "none" })
-        .then((registration) => registration.update().catch(() => {}))
+        .register("./sw.js?v=20260415-15", { updateViaCache: "none" })
+        .then((registration) => {
+          const activateWaiting = () => {
+            registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+          };
+          activateWaiting();
+          registration.addEventListener("updatefound", () => {
+            registration.installing?.addEventListener("statechange", () => {
+              if (registration.waiting) activateWaiting();
+            });
+          });
+          return registration.update().catch(() => {});
+        })
         .catch(() => {});
     });
   }

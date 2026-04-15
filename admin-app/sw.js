@@ -1,5 +1,5 @@
-const CACHE_NAME = "mayumi-admin-survey-v56";
-const ASSET_VERSION = "20260415-09";
+const CACHE_NAME = "mayumi-admin-survey-v57";
+const ASSET_VERSION = "20260415-15";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -12,6 +12,7 @@ const APP_ASSETS = [
   `../default-surveys.js?v=${ASSET_VERSION}`,
   `../shared/api.js?v=${ASSET_VERSION}`,
 ];
+const APP_ASSET_URLS = new Set(APP_ASSETS.map((asset) => new URL(asset, self.location.href).toString()));
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_ASSETS)));
@@ -45,14 +46,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (url.origin !== self.location.origin) return;
+  if (!APP_ASSET_URLS.has(url.toString())) return;
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return response;
-      });
+      return fetch(event.request)
+        .then((response) => {
+          if (!response || response.status !== 200 || response.type === "opaque") {
+            return response;
+          }
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request));
     }),
   );
 });

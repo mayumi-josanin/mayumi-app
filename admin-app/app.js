@@ -6433,8 +6433,19 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-09", { updateViaCache: "none" })
-        .then((registration) => registration.update().catch(() => {}))
+        .register("./sw.js?v=20260415-15", { updateViaCache: "none" })
+        .then((registration) => {
+          const activateWaiting = () => {
+            registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+          };
+          activateWaiting();
+          registration.addEventListener("updatefound", () => {
+            registration.installing?.addEventListener("statechange", () => {
+              if (registration.waiting) activateWaiting();
+            });
+          });
+          return registration.update().catch(() => {});
+        })
         .catch(() => {});
     });
   }
