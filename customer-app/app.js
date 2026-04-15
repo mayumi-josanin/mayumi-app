@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260415-18";
+const APP_VERSION = "20260416-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v61";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v62";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -282,6 +282,7 @@ const appState = {
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
   pushSupported: false,
   pushEnabled: false,
+  pushActualEnabled: false,
   pushBusy: false,
   pushInitialized: false,
   pushServerSignature: "",
@@ -719,7 +720,7 @@ function updateBijirisNotificationUi() {
 function updatePushUi() {
   appState.pushSupported = isPushFeatureSupported() && Boolean(getConfiguredPushAppId());
   if (pushToggleButton) {
-    pushToggleButton.disabled = appState.pushBusy || !appState.pushSupported || !hasCustomerSession();
+    pushToggleButton.disabled = !appState.pushSupported || !hasCustomerSession();
     if (!hasCustomerSession()) {
       pushToggleButton.textContent = "ログイン後に設定";
     } else if (!appState.pushSupported) {
@@ -804,6 +805,7 @@ async function migratePushAppIfNeeded() {
   oneSignalInitPromise = null;
   appState.pushInitialized = false;
   appState.pushEnabled = false;
+  appState.pushActualEnabled = false;
   appState.pushServerSignature = "";
   saveStoredPushAppId(currentAppId);
   return { changed: true, desiredEnabled };
@@ -860,14 +862,18 @@ async function loadOneSignalSdk() {
   return oneSignalInitPromise;
 }
 
-async function syncPushStateFromOneSignal() {
+async function syncPushStateFromOneSignal(options = {}) {
+  const updateDesired = options.updateDesired !== undefined ? options.updateDesired : !appState.pushBusy;
   const OneSignal = getOneSignalInstance() || await loadOneSignalSdk();
   const pushSubscription = OneSignal?.User?.PushSubscription;
   const permission = OneSignal?.Notifications?.permission;
   const permissionGranted = permission && typeof permission.then === "function" ? await permission : permission;
   const enabled = Boolean(permissionGranted) && Boolean(pushSubscription?.optedIn);
-  appState.pushEnabled = enabled;
-  savePushPreference(enabled);
+  appState.pushActualEnabled = enabled;
+  if (updateDesired) {
+    appState.pushEnabled = enabled;
+    savePushPreference(enabled);
+  }
   updatePushUi();
   await syncPushStatusToServer(
     getCurrentPushStatusPayload({
@@ -888,6 +894,7 @@ async function initializePushNotifications() {
   const migration = await migratePushAppIfNeeded();
   appState.pushSupported = isPushFeatureSupported() && Boolean(getConfiguredPushAppId());
   appState.pushEnabled = getStoredPushPreference();
+  appState.pushActualEnabled = appState.pushEnabled;
   updatePushUi();
   if (!appState.pushSupported) {
     await syncPushStatusToServer(getCurrentPushStatusPayload({ enabled: false, supported: false, permission: "unsupported" }));
@@ -906,49 +913,71 @@ async function initializePushNotifications() {
   }
 }
 
-async function togglePushNotifications() {
-  if (appState.pushBusy || !hasCustomerSession()) return;
-  if (!appState.pushSupported) {
-    showToast("この端末では通知を利用できません。");
-    return;
-  }
-  const previousEnabled = appState.pushEnabled;
-  const nextEnabled = !previousEnabled;
+async function flushPushToggleQueue() {
+  if (appState.pushBusy || !hasCustomerSession() || !appState.pushSupported) return;
   appState.pushBusy = true;
-  appState.pushEnabled = nextEnabled;
-  savePushPreference(nextEnabled);
-  updatePushUi();
+  const startEnabled = appState.pushActualEnabled;
+  let lastError = null;
+
   try {
     const OneSignal = await loadOneSignalSdk();
     if (!OneSignal) throw new Error("通知設定を初期化できませんでした。");
-    const pushSubscription = OneSignal.User?.PushSubscription;
-    if (!nextEnabled) {
-      if (pushSubscription?.optedIn && typeof pushSubscription.optOut === "function") {
-        await pushSubscription.optOut();
+
+    while (appState.pushActualEnabled !== appState.pushEnabled) {
+      const targetEnabled = appState.pushEnabled;
+      const pushSubscription = OneSignal.User?.PushSubscription;
+
+      if (!targetEnabled) {
+        if (pushSubscription?.optedIn && typeof pushSubscription.optOut === "function") {
+          await pushSubscription.optOut();
+        }
+      } else {
+        const permissionResult = await OneSignal.Notifications?.requestPermission?.();
+        const granted = permissionResult === true || Notification.permission === "granted";
+        if (!granted) {
+          appState.pushEnabled = false;
+          savePushPreference(false);
+          await syncPushStateFromOneSignal({ updateDesired: false });
+          throw new Error("通知の許可が必要です。");
+        }
+        if (pushSubscription && !pushSubscription.optedIn && typeof pushSubscription.optIn === "function") {
+          await pushSubscription.optIn();
+        }
       }
-      showToast("通知をオフにしました。");
-    } else {
-      const permissionResult = await OneSignal.Notifications?.requestPermission?.();
-      const granted = permissionResult === true || Notification.permission === "granted";
-      if (!granted) {
-        throw new Error("通知の許可が必要です。");
-      }
-      if (pushSubscription && !pushSubscription.optedIn && typeof pushSubscription.optIn === "function") {
-        await pushSubscription.optIn();
-      }
-      showToast("通知をオンにしました。");
+
+      await syncPushStateFromOneSignal({ updateDesired: false });
     }
-    void syncPushStateFromOneSignal();
   } catch (error) {
-    appState.pushEnabled = previousEnabled;
-    savePushPreference(previousEnabled);
+    lastError = error;
+    appState.pushEnabled = appState.pushActualEnabled;
+    savePushPreference(appState.pushEnabled);
     reportClientError("customer.push.toggle", error);
     showToast(error.message || "通知設定を更新できませんでした。");
-    void syncPushStateFromOneSignal();
   } finally {
     appState.pushBusy = false;
     updatePushUi();
   }
+
+  if (!lastError && startEnabled !== appState.pushActualEnabled) {
+    showToast(appState.pushActualEnabled ? "通知をオンにしました。" : "通知をオフにしました。");
+  }
+
+  if (appState.pushActualEnabled !== appState.pushEnabled) {
+    void flushPushToggleQueue();
+  }
+}
+
+async function togglePushNotifications() {
+  if (!hasCustomerSession()) return;
+  if (!appState.pushSupported) {
+    showToast("この端末では通知を利用できません。");
+    return;
+  }
+  const nextEnabled = !appState.pushEnabled;
+  appState.pushEnabled = nextEnabled;
+  savePushPreference(nextEnabled);
+  updatePushUi();
+  void flushPushToggleQueue();
 }
 
 function clearLaunchRoute() {
