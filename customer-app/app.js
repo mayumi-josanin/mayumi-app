@@ -11,7 +11,7 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260415-09";
+const APP_VERSION = "20260415-10";
 const DEFAULT_ONESIGNAL_APP_ID = "5f6e01a9-64ac-4cf6-9ea6-438a721d55fb";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
@@ -2273,9 +2273,8 @@ function renderBijirisPostDetail(post) {
                   const preview = getPhotoPreviewSrc(file);
                   const href = getPhotoOpenHref(file);
                   return `
-                    <a class="bijiris-photo-card" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">
+                    <a class="bijiris-photo-link" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">
                       ${preview ? `<img class="bijiris-photo-image" src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || `写真${index + 1}`)}" />` : ""}
-                      <span class="bijiris-photo-label">${escapeHtml(file.name || `写真${index + 1}`)}</span>
                     </a>
                   `;
                 })
@@ -4253,7 +4252,7 @@ function getPhotoPreviewSrc(file) {
 
 function getPhotoOpenHref(file) {
   return normalizeText(
-    file?.downloadUrl || file?.previewUrl || file?.thumbnailUrl || file?.dataUrl || file?.url || "#",
+    file?.previewUrl || file?.url || file?.downloadUrl || file?.thumbnailUrl || file?.dataUrl || "#",
   );
 }
 
@@ -5108,7 +5107,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-09", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-10", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
