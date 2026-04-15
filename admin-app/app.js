@@ -230,6 +230,7 @@ const state = {
   selectedCustomerTimelineOpen: false,
   selectedMeasurementEditId: "",
   selectedBijirisPostId: "",
+  selectedBijirisView: "list",
   bijirisEditorDraft: null,
   selectedMeasurementPeriod: "6m",
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
@@ -4066,7 +4067,7 @@ function renderSettings() {
     : escapeHtml(state.adminInfo.photoRootFolderName || "未設定");
   const bijirisFolderLink = state.adminInfo.bijirisPostsFolderUrl
     ? `<a href="${escapeHtml(state.adminInfo.bijirisPostsFolderUrl)}" target="_blank" rel="noopener">
-        ビジリス通信
+        豆知識
       </a>`
     : "未設定";
 
@@ -4080,7 +4081,7 @@ function renderSettings() {
       ${photoFolderLink}
     </article>
     <article class="answer-item">
-      <strong>ビジリス通信フォルダ</strong><br />
+      <strong>豆知識フォルダ</strong><br />
       ${bijirisFolderLink}
     </article>
     <article class="answer-item">
@@ -5182,9 +5183,10 @@ async function saveBijirisPost() {
   await loadAdminData();
   state.selectedBijirisPostId = result.post?.id || draft.id;
   state.bijirisEditorDraft = cloneBijirisPostForEditor(result.post || getBijirisPostById(state.selectedBijirisPostId));
+  state.selectedBijirisView = "history";
   renderAll();
   setPage("bijiris");
-  showToast(draft.id ? "ビジリス通信を更新しました。" : "ビジリス通信を作成しました。");
+  showToast(draft.id ? "豆知識を更新しました。" : "豆知識を作成しました。");
 }
 
 async function deleteBijirisPost(postId) {
@@ -5197,56 +5199,146 @@ async function deleteBijirisPost(postId) {
   await loadAdminData();
   state.selectedBijirisPostId = "";
   state.bijirisEditorDraft = createEmptyBijirisPostDraft();
+  state.selectedBijirisView = "list";
   renderAll();
   setPage("bijiris");
-  showToast("ビジリス通信を削除しました。");
+  showToast("豆知識を削除しました。");
+}
+
+function renderBijirisHistoryDetail(post) {
+  return `
+    <div class="survey-history-list">
+      <article class="history-card">
+        <div class="survey-manager-card-head">
+          <strong>${escapeHtml(post.title)}</strong>
+          <span class="badge ${escapeHtml(post.status)}">${escapeHtml(post.status === "published" ? "公開" : post.status === "archived" ? "アーカイブ" : "下書き")}</span>
+        </div>
+        <div>${escapeHtml(post.category || "豆知識")}</div>
+        <div class="meta">作成: ${post.createdAt ? escapeHtml(formatDate(post.createdAt)) : "-"}</div>
+        <div class="meta">更新: ${post.updatedAt ? escapeHtml(formatDate(post.updatedAt)) : "-"}</div>
+        <div class="meta">写真 ${post.photos.length} / PDF ${post.documents.length}</div>
+        <div class="action-row">
+          ${post.pinned ? `<span class="badge open">重要固定</span>` : ""}
+          ${post.status === "draft" ? `<span class="badge draft">顧客アプリにはまだ表示されません</span>` : ""}
+        </div>
+      </article>
+      ${renderAdminBijirisPreviewDetail(post)}
+    </div>
+  `;
 }
 
 function renderBijirisManager() {
   const list = document.querySelector("#bijirisPostList");
   const editorCard = document.querySelector("#bijirisEditorCard");
   const createButton = document.querySelector("#createBijirisPostButton");
-  if (!list || !editorCard || !createButton) return;
+  const listSection = document.querySelector("#bijirisListSection");
+  const editorSection = document.querySelector("#bijirisEditorSection");
+  const stageTitle = document.querySelector("#bijirisStageTitle");
+  if (!list || !editorCard || !createButton || !listSection || !editorSection || !stageTitle) return;
 
   if (state.selectedBijirisPostId && !getBijirisPostById(state.selectedBijirisPostId)) {
     state.selectedBijirisPostId = "";
     state.bijirisEditorDraft = null;
+    state.selectedBijirisView = "list";
   }
 
   const posts = sortBijirisPosts(state.bijirisPosts);
   const selectedPost = getBijirisPostById(state.selectedBijirisPostId);
+  const view = selectedPost && state.selectedBijirisView === "history"
+    ? "history"
+    : state.selectedBijirisView === "editor"
+      ? "editor"
+      : "list";
+  state.selectedBijirisView = view;
+
+  stageTitle.textContent = view === "history" ? "過去の履歴" : "投稿一覧";
+  listSection.hidden = view === "editor";
+  editorSection.hidden = view !== "editor";
+  createButton.hidden = view !== "list";
+
+  if (view === "history" && selectedPost) {
+    list.innerHTML = `
+      <div class="survey-editor-head">
+        <div>
+          <div class="card-title">過去の履歴</div>
+          <div class="meta">投稿内容の確認、編集、削除ができます。</div>
+        </div>
+        <div class="action-row">
+          <button class="secondary-button" type="button" data-bijiris-back-list>投稿一覧へ戻る</button>
+          <button class="primary-button" type="button" data-bijiris-open-editor="${escapeHtml(selectedPost.id)}">編集する</button>
+        </div>
+      </div>
+      ${renderBijirisHistoryDetail(selectedPost)}
+    `;
+    editorCard.innerHTML = "";
+    list.querySelector("[data-bijiris-back-list]")?.addEventListener("click", () => {
+      state.selectedBijirisView = "list";
+      renderBijirisManager();
+      setPage("bijiris");
+    });
+    list.querySelector("[data-bijiris-open-editor]")?.addEventListener("click", () => {
+      state.selectedBijirisPostId = selectedPost.id;
+      state.bijirisEditorDraft = cloneBijirisPostForEditor(selectedPost);
+      state.selectedBijirisView = "editor";
+      renderBijirisManager();
+      setPage("bijiris");
+    });
+    return;
+  }
+
+  if (view === "list") {
+    list.innerHTML = posts.length
+      ? posts
+          .map((post) => `
+            <article class="survey-manager-card selectable-card ${post.id === state.selectedBijirisPostId ? "active" : ""}">
+              <button class="survey-open-button" type="button" data-open-bijiris-history="${escapeHtml(post.id)}">
+                <div class="survey-manager-card-head">
+                  <strong>${escapeHtml(post.title)}</strong>
+                  <span class="badge ${escapeHtml(post.status)}">${escapeHtml(post.status === "published" ? "公開" : post.status === "archived" ? "アーカイブ" : "下書き")}</span>
+                </div>
+                <div>${escapeHtml(post.category || "豆知識")}</div>
+                <div class="meta">更新: ${post.updatedAt ? escapeHtml(formatDate(post.updatedAt)) : "-"}</div>
+                <div class="meta">写真 ${post.photos.length} / PDF ${post.documents.length}</div>
+                ${post.pinned ? `<span class="badge open">重要固定</span>` : ""}
+              </button>
+            </article>
+          `)
+          .join("")
+      : `<div class="empty">豆知識の投稿はまだありません。</div>`;
+    editorCard.innerHTML = "";
+    createButton.onclick = () => {
+      state.selectedBijirisPostId = "";
+      state.bijirisEditorDraft = createEmptyBijirisPostDraft();
+      state.selectedBijirisView = "editor";
+      renderBijirisManager();
+      setPage("bijiris");
+    };
+    list.querySelectorAll("[data-open-bijiris-history]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.selectedBijirisPostId = button.dataset.openBijirisHistory || "";
+        state.selectedBijirisView = "history";
+        renderBijirisManager();
+        setPage("bijiris");
+      });
+    });
+    return;
+  }
+
   const draft = getBijirisEditorDraft();
-
-  list.innerHTML = posts.length
-    ? posts
-        .map((post) => `
-          <article class="survey-manager-card selectable-card ${post.id === state.selectedBijirisPostId ? "active" : ""}">
-            <button class="survey-open-button" type="button" data-edit-bijiris-post="${escapeHtml(post.id)}">
-              <div class="survey-manager-card-head">
-                <strong>${escapeHtml(post.title)}</strong>
-                <span class="badge ${escapeHtml(post.status)}">${escapeHtml(post.status === "published" ? "公開" : post.status === "archived" ? "アーカイブ" : "下書き")}</span>
-              </div>
-              <div>${escapeHtml(post.category || "ビジリス通信")}</div>
-              <div class="meta">更新: ${post.updatedAt ? escapeHtml(formatDate(post.updatedAt)) : "-"}</div>
-              <div class="meta">写真 ${post.photos.length} / PDF ${post.documents.length}</div>
-              ${post.pinned ? `<span class="badge open">重要固定</span>` : ""}
-            </button>
-          </article>
-        `)
-        .join("")
-    : `<div class="empty">ビジリス通信の投稿はまだありません。</div>`;
-
   editorCard.innerHTML = `
     <div class="survey-editor-head">
       <div>
-        <div class="card-title">${selectedPost ? "ビジリス通信を編集" : "ビジリス通信を新規作成"}</div>
+        <div class="card-title">${selectedPost ? "豆知識を編集" : "豆知識を新規作成"}</div>
         <div class="meta">
           ${selectedPost
             ? `作成: ${draft.createdAt ? formatDate(draft.createdAt) : "-"} / 更新: ${draft.updatedAt ? formatDate(draft.updatedAt) : "-"}`
             : "顧客アプリに表示する内容を登録します。"}
         </div>
       </div>
-      ${selectedPost ? `<button class="secondary-button danger-button" type="button" data-delete-bijiris-post="${escapeHtml(selectedPost.id)}">削除</button>` : ""}
+      <div class="action-row">
+        <button class="secondary-button" type="button" data-bijiris-cancel-editor>${selectedPost ? "過去の履歴へ戻る" : "投稿一覧へ戻る"}</button>
+        ${selectedPost ? `<button class="secondary-button danger-button" type="button" data-delete-bijiris-post="${escapeHtml(selectedPost.id)}">削除</button>` : ""}
+      </div>
     </div>
     <div class="history-card bijiris-template-card">
       <div class="survey-editor-head">
@@ -5352,23 +5444,13 @@ function renderBijirisManager() {
     </article>
   `;
 
-  createButton.onclick = () => {
-    state.selectedBijirisPostId = "";
-    state.bijirisEditorDraft = createEmptyBijirisPostDraft();
+  const form = document.querySelector("#bijirisEditorForm");
+  document.querySelector("[data-bijiris-cancel-editor]")?.addEventListener("click", () => {
+    state.selectedBijirisView = selectedPost ? "history" : "list";
+    if (!selectedPost) state.bijirisEditorDraft = createEmptyBijirisPostDraft();
     renderBijirisManager();
     setPage("bijiris");
-  };
-
-  list.querySelectorAll("[data-edit-bijiris-post]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.selectedBijirisPostId = button.dataset.editBijirisPost || "";
-      state.bijirisEditorDraft = cloneBijirisPostForEditor(getBijirisPostById(state.selectedBijirisPostId));
-      renderBijirisManager();
-      setPage("bijiris");
-    });
   });
-
-  const form = document.querySelector("#bijirisEditorForm");
   document.querySelector("#applyBijirisTemplateButton")?.addEventListener("click", () => {
     const templateId = document.querySelector("#bijirisTemplateSelect")?.value || "";
     if (!templateId) {
@@ -5396,7 +5478,7 @@ function renderBijirisManager() {
     event.preventDefault();
     syncBijirisDraftFromForm(form);
     saveBijirisPost().catch((error) => {
-      showToast(error.message || "ビジリス通信を保存できませんでした。");
+      showToast(error.message || "豆知識を保存できませんでした。");
     });
   });
   document.querySelector("#bijirisPhotoInput")?.addEventListener("change", (event) => {
@@ -5427,7 +5509,7 @@ function renderBijirisManager() {
   });
   document.querySelector("[data-delete-bijiris-post]")?.addEventListener("click", () => {
     deleteBijirisPost(state.selectedBijirisPostId).catch((error) => {
-      showToast(error.message || "ビジリス通信を削除できませんでした。");
+      showToast(error.message || "豆知識を削除できませんでした。");
     });
   });
 }
@@ -6045,7 +6127,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-01", { updateViaCache: "none" })
+        .register("./sw.js?v=20260415-02", { updateViaCache: "none" })
         .then((registration) => registration.update().catch(() => {}))
         .catch(() => {});
     });
