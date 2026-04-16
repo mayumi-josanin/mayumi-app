@@ -4314,8 +4314,9 @@ function getOrderHistoryStatusMeta(order) {
 function buildOrderHistoryItemsHtml(order) {
   const items = Array.isArray(order && order.items) ? order.items : [];
   if (!items.length) return '<div class="order-history-item-line">商品情報はありません</div>';
+  const sourceProducts = Array.isArray(PRODUCTS) ? PRODUCTS : [];
   return items.map(function (item) {
-    const matchedProduct = productItems.find(function (product) {
+    const matchedProduct = sourceProducts.find(function (product) {
       return product.id === item.idx;
     });
     const itemName = item.name || (matchedProduct ? matchedProduct.name : '不明な商品');
