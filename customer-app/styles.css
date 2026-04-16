@@ -967,16 +967,23 @@ legend > span:first-child {
   gap: 8px;
 }
 
-.question-inline-textarea {
+.checkbox-row .question-inline-textarea {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
   gap: 6px;
+  width: 100%;
+  min-height: auto;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--warm-white);
+  box-sizing: border-box;
 }
 
-.question-inline-textarea textarea {
+.checkbox-row .question-inline-textarea textarea {
+  width: 100%;
+  min-height: 132px;
   margin-top: 0;
 }
 
