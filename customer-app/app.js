@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260416-12";
+const APP_VERSION = "20260416-13";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v73";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v74";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -280,6 +280,7 @@ const appState = {
   concernCategoryByQuestion: {},
   selectedMeasurementPeriod: "6m",
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
+  selectedMeasurementPhotoComparisonId: "",
   pushSupported: false,
   pushEnabled: false,
   pushActualEnabled: false,
@@ -5077,6 +5078,12 @@ function renderMeasurementPhotoTimeline(entries) {
   if (!entries.length) {
     return `<div class="empty">まだ表示できる計測写真はありません。</div>`;
   }
+  if (
+    appState.selectedMeasurementPhotoComparisonId &&
+    !entries.some((entry) => entry.id === appState.selectedMeasurementPhotoComparisonId)
+  ) {
+    appState.selectedMeasurementPhotoComparisonId = "";
+  }
 
   return `
     <div class="measurement-photo-entry-list">
@@ -5084,12 +5091,26 @@ function renderMeasurementPhotoTimeline(entries) {
         .map(
           (entry) => `
             <article class="measurement-photo-entry">
-              <div class="measurement-photo-entry-order">#${escapeHtml(entry.orderLabel)}</div>
-              <strong>${escapeHtml(entry.title)}</strong>
-              ${renderAnswerValue({ files: entry.group.files })}
-              <div class="meta">${escapeHtml(entry.photoLabel)}</div>
-              <div class="meta">${escapeHtml(formatDate(entry.submittedAt))}</div>
-              ${renderTicketStampList(entry.group.ticketInfo || [])}
+              <button
+                class="measurement-photo-entry-button ${entry.id === appState.selectedMeasurementPhotoComparisonId ? "is-active" : ""}"
+                type="button"
+                data-measurement-photo-entry="${escapeHtml(entry.id)}"
+              >
+                <div class="measurement-photo-entry-order">#${escapeHtml(entry.orderLabel)}</div>
+                <strong>${escapeHtml(entry.title)}</strong>
+                <div class="meta">${escapeHtml(entry.photoLabel)}</div>
+                <div class="meta">${escapeHtml(formatDate(entry.submittedAt))}</div>
+              </button>
+              ${
+                entry.id === appState.selectedMeasurementPhotoComparisonId
+                  ? `
+                    <div class="measurement-photo-entry-body">
+                      ${renderAnswerValue({ files: entry.group.files })}
+                      ${renderTicketStampList(entry.group.ticketInfo || [])}
+                    </div>
+                  `
+                  : ""
+              }
             </article>
           `,
         )
@@ -5184,7 +5205,7 @@ function renderMeasurements() {
 
       <article class="history-card">
         <strong>計測写真一覧</strong>
-        <div class="meta">アンケートでアップロードした順に、各タイトルのすぐ下で計測写真を確認できます。</div>
+        <div class="meta">アンケートでアップロードした順に並んでいます。見たい項目のボタンを押すと、すぐ下に計測写真が表示されます。</div>
         ${renderMeasurementPhotoTimeline(photoTimelineEntries)}
       </article>
     </div>
@@ -5200,6 +5221,14 @@ function renderMeasurements() {
         ...appState.measurementMetricVisibility,
         [checkbox.dataset.toggleMeasurementMetric]: checkbox.checked,
       };
+      renderMeasurements();
+    });
+  });
+  measurementPanel.querySelectorAll("[data-measurement-photo-entry]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextId = button.dataset.measurementPhotoEntry || "";
+      appState.selectedMeasurementPhotoComparisonId =
+        appState.selectedMeasurementPhotoComparisonId === nextId ? "" : nextId;
       renderMeasurements();
     });
   });
@@ -5326,7 +5355,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260416-12", { updateViaCache: "none" })
+        .register("./sw.js?v=20260416-13", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

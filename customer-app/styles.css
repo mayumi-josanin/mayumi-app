@@ -1097,8 +1097,29 @@ legend > span:first-child {
   text-align: left;
 }
 
-.measurement-photo-entry .photo-list {
+.measurement-photo-entry-button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.measurement-photo-entry-button.is-active {
+  color: var(--sage-dark);
+}
+
+.measurement-photo-entry-body {
+  display: grid;
+  gap: 8px;
   margin-top: 4px;
+}
+
+.measurement-photo-entry-body .photo-list {
+  margin-top: 0;
 }
 
 .measurement-photo-entry-order {
