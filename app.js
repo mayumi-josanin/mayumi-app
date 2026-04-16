@@ -4299,6 +4299,51 @@ function renderOrderHistoryError(message) {
       `;
 }
 
+function getOrderHistoryStatusMeta(order) {
+  const rawStatus = String(order && order.status || '').trim();
+  const isCancelled = rawStatus === 'cancelled' || rawStatus === 'キャンセル済' || rawStatus === 'キャンセル';
+  const isSyncPending = rawStatus === 'sync_pending';
+  return {
+    label: isSyncPending ? '送信待ち' : (rawStatus === 'pending' ? '受付中' : (isCancelled ? 'キャンセル済' : '完了')),
+    className: isSyncPending ? 's-pending' : (rawStatus === 'pending' ? 's-pending' : (isCancelled ? 's-cancelled' : 's-done')),
+    isCancelled: isCancelled,
+    isSyncPending: isSyncPending
+  };
+}
+
+function buildOrderHistoryItemsHtml(order) {
+  const items = Array.isArray(order && order.items) ? order.items : [];
+  if (!items.length) return '<div class="order-history-item-line">商品情報はありません</div>';
+  return items.map(function (item) {
+    const matchedProduct = productItems.find(function (product) {
+      return product.id === item.idx;
+    });
+    const itemName = item.name || (matchedProduct ? matchedProduct.name : '不明な商品');
+    return '<div class="order-history-item-line">' + escapeHtml(itemName) + ' ×' + escapeHtml(String(item.qty || 0)) + '</div>';
+  }).join('');
+}
+
+function buildOrderHistoryActionsHtml(order, statusMeta) {
+  const orderId = JSON.stringify(String(order && order.id || ''));
+  const isActionLocked = isCancelSubmitting || isReceiptSubmitting;
+  const receiptButtonLabel = isReceiptSubmitting && receiptSubmittingOrderId === order.id ? '更新中...' : '受け取りました';
+  const actions = [];
+
+  if (String(order && order.status || '') === 'pending') {
+    actions.push('<button class="btn danger order-history-action-btn" onclick=\'openCancelModal(' + orderId + ')\' ' + (isActionLocked ? 'disabled' : '') + '>キャンセルする</button>');
+  }
+  if (!order.checked && !statusMeta.isCancelled && !statusMeta.isSyncPending) {
+    actions.push('<button class="btn primary order-history-action-btn order-history-action-btn--receipt" onclick=\'confirmReceipt(' + orderId + ')\' ' + (isActionLocked ? 'disabled' : '') + '>' + escapeHtml(receiptButtonLabel) + '</button>');
+  }
+  if (order.checked) {
+    actions.push('<div class="order-history-action-note">受取完了</div>');
+  } else if (statusMeta.isSyncPending) {
+    actions.push('<div class="order-history-action-note">送信待ち</div>');
+  }
+
+  return actions.join('');
+}
+
 async function renderOrderHistory() {
   const list = document.getElementById('orderHistoryList');
   if (!_profile) { list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">プロフィールを登録すると履歴が表示されます</div>'; return; }
@@ -4306,31 +4351,50 @@ async function renderOrderHistory() {
   const previousOrders = Array.isArray(orders) ? orders.slice() : [];
   list.innerHTML = '<div style="text-align:center;padding:26px 0"><span class="loading-spinner"></span> 読み込み中...</div>';
 
-  // GASから最新の履歴を取得（同期）
-  const res = await getFromGAS('getCustomerOrders', { memberId: _profile.memberId });
-  if (res && res.status === 'ok') {
-    orders = (res.orders || []).filter(function (order) {
+  try {
+    const res = await withTimeout(getFromGAS('getCustomerOrders', { memberId: _profile.memberId }), 8000);
+    if (res && res.status === 'ok') {
+      orders = (Array.isArray(res.orders) ? res.orders : []).filter(function (order) {
+        return !shouldHideOrderFromHistory(order);
+      });
+      renderOrderHistoryUI();
+      return;
+    }
+
+    orders = previousOrders;
+    const hasCachedOrders = orders.some(function (order) {
       return !shouldHideOrderFromHistory(order);
     });
-    renderOrderHistoryUI();
-    return;
-  }
+    if (hasCachedOrders) {
+      showToast('注文履歴の更新に失敗しました');
+      renderOrderHistoryUI();
+      return;
+    }
 
-  orders = previousOrders;
-  const hasCachedOrders = orders.some(function (order) {
-    return !shouldHideOrderFromHistory(order);
-  });
-  if (hasCachedOrders) {
-    showToast('注文履歴の更新に失敗しました');
-    renderOrderHistoryUI();
-    return;
+    renderOrderHistoryError('注文履歴の取得に失敗しました。通信状況をご確認ください。');
+  } catch (error) {
+    console.error('renderOrderHistory error:', error);
+    orders = previousOrders;
+    const hasCachedOrders = orders.some(function (order) {
+      return !shouldHideOrderFromHistory(order);
+    });
+    if (hasCachedOrders) {
+      showToast('注文履歴の表示に失敗したため、保存済みデータを表示します');
+      try {
+        renderOrderHistoryUI();
+      } catch (uiError) {
+        console.error('renderOrderHistoryUI fallback error:', uiError);
+        renderOrderHistoryError('注文履歴の表示に失敗しました。再読み込みしてください。');
+      }
+      return;
+    }
+    renderOrderHistoryError('注文履歴の表示に失敗しました。再読み込みしてください。');
   }
-
-  renderOrderHistoryError('注文履歴の取得に失敗しました。通信状況をご確認ください。');
 }
 
 function renderOrderHistoryUI() {
   const list = document.getElementById('orderHistoryList');
+  if (!list) return;
   if (!_profile) {
     list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">プロフィールを登録すると履歴が表示されます</div>';
     return;
@@ -4343,42 +4407,44 @@ function renderOrderHistoryUI() {
     list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">注文履歴はありません</div>';
     return;
   }
-  list.innerHTML = '';
-  visibleOrders.forEach(o => {
-    const isCancelled = o.status === 'cancelled' || o.status === 'キャンセル済' || o.status === 'キャンセル';
-    const isActionLocked = isCancelSubmitting || isReceiptSubmitting;
-    const receiptButtonLabel = isReceiptSubmitting && receiptSubmittingOrderId === o.id ? '更新中...' : '受け取りました';
-    const isSyncPending = o.status === 'sync_pending';
-    const sl = isSyncPending ? '送信待ち' : (o.status === 'pending' ? '受付中' : (isCancelled ? 'キャンセル済' : '完了'));
-    const sc = isSyncPending ? 's-pending' : (o.status === 'pending' ? 's-pending' : (isCancelled ? 's-cancelled' : 's-done'));
+  const rowsHtml = visibleOrders.map(function (order) {
+    const statusMeta = getOrderHistoryStatusMeta(order);
+    const orderDate = formatCustomerDateYmdHm(order.time) || formatCustomerDateYmd(order.time) || '---';
+    const paymentLabel = String(order.payment || '').trim() || '---';
+    return `
+      <tr>
+        <td class="order-history-date-cell">${escapeHtml(orderDate)}</td>
+        <td><span class="status-chip ${statusMeta.className}">${escapeHtml(statusMeta.label)}</span></td>
+        <td class="order-history-items-cell">${buildOrderHistoryItemsHtml(order)}</td>
+        <td class="order-history-payment-cell">${escapeHtml(paymentLabel)}</td>
+        <td class="order-history-total-cell">¥${Number(order.total || 0).toLocaleString()}</td>
+        <td class="order-history-actions-cell">
+          <div class="order-history-actions">${buildOrderHistoryActionsHtml(order, statusMeta)}</div>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
-    const names = o.items.map(c => {
-      const itemName = c.name || (productItems.find(p => p.id === c.idx) ? productItems.find(p => p.id === c.idx).name : '不明な商品');
-      return itemName + ' ×' + c.qty;
-    }).join('、');
-
-    const d = document.createElement('div');
-    d.className = 'order-history-item';
-    d.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div>
-              <span class="status-chip ${sc}">${sl}</span>
-              <span style="font-size:10px;color:var(--text-light);margin-left:8px">${formatCustomerDateYmd(o.time)}</span>
-            </div>
-          </div>
-          <div style="font-size:12px;color:var(--text-dark);margin:8px 0;line-height:1.5">${names}</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px">
-            <span style="font-size:11px;color:var(--text-light)">${o.payment}</span>
-            <span style="font-size:14px;font-weight:700;color:var(--brown)">¥${Number(o.total).toLocaleString()}</span>
-          </div>
-          <div style="margin-top:8px; display:flex; gap:8px;">
-            ${o.status === 'pending' ? `<button class="btn danger" style="flex:1;padding:8px" onclick="openCancelModal('${o.id}')" ${isActionLocked ? 'disabled' : ''}>キャンセルする</button>` : ''}
-            ${(!o.checked && !isCancelled && !isSyncPending) ? `<button class="btn primary" style="flex:1;padding:8px;background:var(--sage)" onclick="confirmReceipt('${o.id}')" ${isActionLocked ? 'disabled' : ''}>${receiptButtonLabel}</button>` : ''}
-            ${(o.checked) ? `<div style="flex:1;padding:8px;background:#f0f0f0;color:#888;text-align:center;border-radius:8px;font-size:12px;font-weight:bold;">受取完了</div>` : ''}
-          </div>
-        `;
-    list.appendChild(d);
-  });
+  list.innerHTML = `
+    <div class="order-history-table-wrap">
+      <div class="order-history-table-meta">注文履歴 ${visibleOrders.length}件</div>
+      <div class="order-history-table-scroll">
+        <table class="order-history-table">
+          <thead>
+            <tr>
+              <th>注文日</th>
+              <th>状態</th>
+              <th>商品</th>
+              <th>支払</th>
+              <th>合計</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 async function confirmReceipt(orderId) {
