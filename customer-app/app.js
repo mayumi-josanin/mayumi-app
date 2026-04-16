@@ -4769,7 +4769,7 @@ function getMeasurementPhotoGroupKind(answer) {
 function normalizeMeasurementPhotoStageLabel(label) {
   const normalized = normalizeText(label);
   if (!normalized) return "計測写真";
-  if (normalized.includes("モニター")) return "初回写真(モニター終了時)";
+  if (normalized.includes("モニター")) return "モニター時写真";
   if (normalized.includes("回数券終了")) return "回数券終了時";
   const measuredMatch = normalized.match(/計測写真[（(]?(.+?)[）)]?$/);
   if (measuredMatch?.[1]) {
@@ -4807,7 +4807,7 @@ function buildMeasurementPhotoGroups() {
       const ticketSheetLabel = normalizeText(ticketMap.get("何枚目") || "");
       let stageLabel = "";
       if (kind === "monitor") {
-        stageLabel = "初回写真(モニター終了時)";
+        stageLabel = "モニター時写真";
       } else if (ticketSheetLabel) {
         stageLabel = `回数券${ticketSheetLabel}終了時`;
       } else if (sessionType === "トライアル") {
@@ -4844,24 +4844,22 @@ function getMeasurementPhotoCurrentLabel(group) {
   return count > 0 ? `計測写真${count}枚` : "計測写真";
 }
 
-function buildMeasurementPhotoComparisonEntries(photoGroups) {
-  const entries = [];
-  let previousGroup = null;
-  photoGroups.forEach((group) => {
-    if (group.kind === "monitor") {
-      previousGroup = group;
-      return;
-    }
-    entries.push({
-      id: previousGroup ? `${previousGroup.id}->${group.id}` : group.id,
-      reference: previousGroup,
-      current: group,
+function buildMeasurementPhotoTimelineEntries(photoGroups) {
+  return photoGroups
+    .slice()
+    .sort((a, b) => {
+      const submittedDiff = new Date(a.submittedAt) - new Date(b.submittedAt);
+      if (submittedDiff !== 0) return submittedDiff;
+      return normalizeText(a.id).localeCompare(normalizeText(b.id), "ja");
+    })
+    .map((group, index) => ({
+      id: group.id,
+      group,
+      orderLabel: `${index + 1}`,
       submittedAt: group.submittedAt,
-      title: `${(previousGroup?.stageLabel || group.stageLabel)} → ${getMeasurementPhotoCurrentLabel(group)}`,
-    });
-    previousGroup = group;
-  });
-  return entries.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+      title: group.stageLabel,
+      photoLabel: getMeasurementPhotoCurrentLabel(group),
+    }));
 }
 
 function renderMeasurementPhotoGroupCard(group, title) {
@@ -5093,15 +5091,18 @@ function renderMeasurementHistoryList(measurements) {
   `;
 }
 
-function renderMeasurementPhotoComparison(entries) {
+function renderMeasurementPhotoTimeline(entries) {
   if (!entries.length) {
-    return `<div class="empty">まだ比較できる計測写真はありません。</div>`;
+    return `<div class="empty">まだ表示できる計測写真はありません。</div>`;
   }
-  if (!entries.some((entry) => entry.id === appState.selectedMeasurementPhotoComparisonId)) {
-    appState.selectedMeasurementPhotoComparisonId = entries[0].id;
+  if (
+    appState.selectedMeasurementPhotoComparisonId &&
+    !entries.some((entry) => entry.id === appState.selectedMeasurementPhotoComparisonId)
+  ) {
+    appState.selectedMeasurementPhotoComparisonId = "";
   }
   const selectedEntry =
-    entries.find((entry) => entry.id === appState.selectedMeasurementPhotoComparisonId) || entries[0];
+    entries.find((entry) => entry.id === appState.selectedMeasurementPhotoComparisonId) || null;
 
   return `
     <div class="measurement-photo-entry-list">
@@ -5109,25 +5110,29 @@ function renderMeasurementPhotoComparison(entries) {
         .map(
           (entry) => `
             <button
-              class="measurement-photo-entry ${entry.id === selectedEntry.id ? "is-active" : ""}"
+              class="measurement-photo-entry ${entry.id === selectedEntry?.id ? "is-active" : ""}"
               type="button"
               data-measurement-photo-entry="${escapeHtml(entry.id)}"
             >
+              <div class="measurement-photo-entry-order">#${escapeHtml(entry.orderLabel)}</div>
               <strong>${escapeHtml(entry.title)}</strong>
+              <div class="meta">${escapeHtml(entry.photoLabel)}</div>
               <div class="meta">${escapeHtml(formatDate(entry.submittedAt))}</div>
             </button>
           `,
         )
         .join("")}
     </div>
-    <div class="measurement-photo-compare-grid">
-      ${
-        selectedEntry.reference
-          ? renderMeasurementPhotoGroupCard(selectedEntry.reference, selectedEntry.reference.stageLabel)
-          : ""
-      }
-      ${renderMeasurementPhotoGroupCard(selectedEntry.current, getMeasurementPhotoCurrentLabel(selectedEntry.current))}
-    </div>
+    ${
+      selectedEntry
+        ? `<div class="measurement-photo-detail">
+            ${renderMeasurementPhotoGroupCard(
+              selectedEntry.group,
+              `${selectedEntry.group.stageLabel}の${getMeasurementPhotoCurrentLabel(selectedEntry.group)}`,
+            )}
+          </div>`
+        : `<div class="empty">上の一覧から見たい計測写真を選択してください。</div>`
+    }
   `;
 }
 
@@ -5148,7 +5153,7 @@ function renderMeasurements() {
 
   const allMeasurements = getCustomerMeasurements();
   const filteredMeasurements = filterMeasurementsByPeriod(allMeasurements, appState.selectedMeasurementPeriod);
-  const photoComparisonEntries = buildMeasurementPhotoComparisonEntries(buildMeasurementPhotoGroups());
+  const photoTimelineEntries = buildMeasurementPhotoTimelineEntries(buildMeasurementPhotoGroups());
 
   measurementPanel.innerHTML = `
     <div class="measurement-section">
@@ -5216,9 +5221,9 @@ function renderMeasurements() {
       </article>
 
       <article class="history-card">
-        <strong>計測写真の比較</strong>
-        <div class="meta">一覧から選ぶと、初回写真や前回の計測写真と計測写真2枚を見比べられます。</div>
-        ${renderMeasurementPhotoComparison(photoComparisonEntries)}
+        <strong>計測写真一覧</strong>
+        <div class="meta">アンケートでアップロードした計測写真を、モニター時・回数券終了時・トライアル回ごとの時系列一覧から選んで確認できます。</div>
+        ${renderMeasurementPhotoTimeline(photoTimelineEntries)}
       </article>
     </div>
   `;
