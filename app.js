@@ -4324,6 +4324,19 @@ function buildOrderHistoryItemsHtml(order) {
   }).join('');
 }
 
+function buildOrderHistoryItemsSummaryText(order) {
+  const items = Array.isArray(order && order.items) ? order.items : [];
+  if (!items.length) return '商品情報はありません';
+  const sourceProducts = Array.isArray(PRODUCTS) ? PRODUCTS : [];
+  return items.map(function (item) {
+    const matchedProduct = sourceProducts.find(function (product) {
+      return product.id === item.idx;
+    });
+    const itemName = item.name || (matchedProduct ? matchedProduct.name : '不明な商品');
+    return itemName + ' ×' + String(item.qty || 0);
+  }).join('、');
+}
+
 function buildOrderHistoryActionsHtml(order, statusMeta) {
   const orderId = JSON.stringify(String(order && order.id || ''));
   const isActionLocked = isCancelSubmitting || isReceiptSubmitting;
@@ -4408,44 +4421,36 @@ function renderOrderHistoryUI() {
     list.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">注文履歴はありません</div>';
     return;
   }
-  const rowsHtml = visibleOrders.map(function (order) {
+  list.innerHTML = '';
+  visibleOrders.forEach(function (order) {
     const statusMeta = getOrderHistoryStatusMeta(order);
-    const orderDate = formatCustomerDateYmdHm(order.time) || formatCustomerDateYmd(order.time) || '---';
+    const orderDate = formatCustomerDateYmd(order.time) || '---';
     const paymentLabel = String(order.payment || '').trim() || '---';
-    return `
-      <tr>
-        <td class="order-history-date-cell">${escapeHtml(orderDate)}</td>
-        <td><span class="status-chip ${statusMeta.className}">${escapeHtml(statusMeta.label)}</span></td>
-        <td class="order-history-items-cell">${buildOrderHistoryItemsHtml(order)}</td>
-        <td class="order-history-payment-cell">${escapeHtml(paymentLabel)}</td>
-        <td class="order-history-total-cell">¥${Number(order.total || 0).toLocaleString()}</td>
-        <td class="order-history-actions-cell">
-          <div class="order-history-actions">${buildOrderHistoryActionsHtml(order, statusMeta)}</div>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  list.innerHTML = `
-    <div class="order-history-table-wrap">
-      <div class="order-history-table-meta">注文履歴 ${visibleOrders.length}件</div>
-      <div class="order-history-table-scroll">
-        <table class="order-history-table">
-          <thead>
-            <tr>
-              <th>注文日</th>
-              <th>状態</th>
-              <th>商品</th>
-              <th>支払</th>
-              <th>合計</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
+    const isActionLocked = isCancelSubmitting || isReceiptSubmitting;
+    const receiptButtonLabel = isReceiptSubmitting && receiptSubmittingOrderId === order.id ? '更新中...' : '受け取りました';
+    const itemsSummary = buildOrderHistoryItemsSummaryText(order);
+    const card = document.createElement('div');
+    card.className = 'order-history-item';
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <span class="status-chip ${statusMeta.className}">${escapeHtml(statusMeta.label)}</span>
+          <span style="font-size:10px;color:var(--text-light);margin-left:8px">${escapeHtml(orderDate)}</span>
+        </div>
       </div>
-    </div>
-  `;
+      <div style="font-size:12px;color:var(--text-dark);margin:8px 0;line-height:1.5">${escapeHtml(itemsSummary)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px">
+        <span style="font-size:11px;color:var(--text-light)">${escapeHtml(paymentLabel)}</span>
+        <span style="font-size:14px;font-weight:700;color:var(--brown)">¥${Number(order.total || 0).toLocaleString()}</span>
+      </div>
+      <div style="margin-top:8px; display:flex; gap:8px;">
+        ${String(order.status || '') === 'pending' ? `<button class="btn danger" style="flex:1;padding:8px" onclick="openCancelModal('${escapeHtml(String(order.id || ''))}')" ${isActionLocked ? 'disabled' : ''}>キャンセルする</button>` : ''}
+        ${(!order.checked && !statusMeta.isCancelled && !statusMeta.isSyncPending) ? `<button class="btn primary" style="flex:1;padding:8px;background:var(--sage)" onclick="confirmReceipt('${escapeHtml(String(order.id || ''))}')" ${isActionLocked ? 'disabled' : ''}>${escapeHtml(receiptButtonLabel)}</button>` : ''}
+        ${order.checked ? `<div style="flex:1;padding:8px;background:#f0f0f0;color:#888;text-align:center;border-radius:8px;font-size:12px;font-weight:bold;">受取完了</div>` : ''}
+      </div>
+    `;
+    list.appendChild(card);
+  });
 }
 
 async function confirmReceipt(orderId) {
