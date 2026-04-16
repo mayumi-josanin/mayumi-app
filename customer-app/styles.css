@@ -861,6 +861,13 @@ fieldset {
   min-width: 0;
 }
 
+fieldset.question-block {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
 legend {
   display: block;
   width: 100%;
