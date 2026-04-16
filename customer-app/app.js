@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260416-16";
+const APP_VERSION = "20260416-17";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v77";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v78";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2381,7 +2381,6 @@ function renderBijirisPostCard(post) {
         <div>
           <div class="bijiris-post-title-row">
             <strong>${escapeHtml(post.title)}</strong>
-            ${unread ? '<span class="bijiris-unread-label" aria-label="未読">未読</span>' : ""}
           </div>
           <div class="meta">${escapeHtml(post.category || "豆知識")} / ${escapeHtml(formatDate(publishedAt))}</div>
         </div>
@@ -2394,6 +2393,7 @@ function renderBijirisPostCard(post) {
           >
             ${readLaterSaved ? "あとで読む済み" : "あとで読む"}
           </button>
+          ${unread ? '<span class="bijiris-unread-label" aria-label="未読">未読</span>' : ""}
         </div>
       </div>
       <div class="action-row">${renderBijirisBadges(post)}</div>
@@ -5358,7 +5358,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260416-16", { updateViaCache: "none" })
+        .register("./sw.js?v=20260416-17", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
