@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260416-10";
+const APP_VERSION = "20260416-11";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v71";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v72";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -4782,17 +4782,19 @@ function normalizeMeasurementPhotoStageLabel(label) {
 
 function buildMeasurementPhotoGroups() {
   const responses = getVisibleHistoryResponses()
-    .slice()
+    .map((response, originalIndex) => ({ response, originalIndex }))
     .sort((a, b) => {
-      const submittedDiff = new Date(a.submittedAt) - new Date(b.submittedAt);
+      const submittedDiff = new Date(a.response?.submittedAt) - new Date(b.response?.submittedAt);
       if (submittedDiff !== 0) return submittedDiff;
-      return normalizeText(a.id).localeCompare(normalizeText(b.id), "ja");
+      const createdDiff = new Date(a.response?.createdAt || 0) - new Date(b.response?.createdAt || 0);
+      if (createdDiff !== 0) return createdDiff;
+      return a.originalIndex - b.originalIndex;
     });
   const groups = [];
   let trialCount = 0;
   let singleCount = 0;
 
-  responses.forEach((response, responseIndex) => {
+  responses.forEach(({ response }, responseIndex) => {
     const answerMap = new Map((response.answers || []).map((answer) => [normalizeText(answer.questionId), answer]));
     const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
     const sessionType = normalizeText(answerMap.get(SESSION_TYPE_QUESTION_ID)?.value);
@@ -4845,21 +4847,14 @@ function getMeasurementPhotoCurrentLabel(group) {
 }
 
 function buildMeasurementPhotoTimelineEntries(photoGroups) {
-  return photoGroups
-    .slice()
-    .sort((a, b) => {
-      const submittedDiff = new Date(a.submittedAt) - new Date(b.submittedAt);
-      if (submittedDiff !== 0) return submittedDiff;
-      return normalizeText(a.id).localeCompare(normalizeText(b.id), "ja");
-    })
-    .map((group, index) => ({
-      id: group.id,
-      group,
-      orderLabel: `${index + 1}`,
-      submittedAt: group.submittedAt,
-      title: group.stageLabel,
-      photoLabel: getMeasurementPhotoCurrentLabel(group),
-    }));
+  return photoGroups.map((group, index) => ({
+    id: group.id,
+    group,
+    orderLabel: `${index + 1}`,
+    submittedAt: group.submittedAt,
+    title: group.stageLabel,
+    photoLabel: getMeasurementPhotoCurrentLabel(group),
+  }));
 }
 
 function renderMeasurementPhotoGroupCard(group, title) {
@@ -5222,7 +5217,7 @@ function renderMeasurements() {
 
       <article class="history-card">
         <strong>計測写真一覧</strong>
-        <div class="meta">アンケートでアップロードした計測写真を、モニター時・回数券終了時・トライアル回ごとの時系列一覧から選んで確認できます。</div>
+        <div class="meta">アンケートでアップロードした順に、計測写真を一覧から選んで確認できます。</div>
         ${renderMeasurementPhotoTimeline(photoTimelineEntries)}
       </article>
     </div>
@@ -5370,7 +5365,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260416-10", { updateViaCache: "none" })
+        .register("./sw.js?v=20260416-11", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
