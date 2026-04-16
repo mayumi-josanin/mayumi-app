@@ -312,7 +312,13 @@ textarea {
 }
 
 .bijiris-unread-label {
-  color: #c5483b;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #fbe3df;
+  color: #a63e32;
   font-size: 12px;
   font-weight: 800;
   line-height: 1;
