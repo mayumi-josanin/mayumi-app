@@ -3361,7 +3361,7 @@ function renderQuestion(question, index, surveyId) {
 
   if (question.type === "rating") {
     return `
-      <fieldset class="question-block" data-question-wrap="${question.id}">
+      <div class="question-block" data-question-wrap="${question.id}" role="group">
         <div class="question-legend">${label}</div>
         <div class="rating-row">
           ${[1, 2, 3, 4, 5]
@@ -3375,13 +3375,13 @@ function renderQuestion(question, index, surveyId) {
             )
             .join("")}
         </div>
-      </fieldset>
+      </div>
     `;
   }
 
   if (question.type === "choice") {
     return `
-      <fieldset class="question-block" data-question-wrap="${question.id}">
+      <div class="question-block" data-question-wrap="${question.id}" role="group">
         <div class="question-legend">${label}</div>
         <div class="choice-row">
           ${question.options
@@ -3395,7 +3395,7 @@ function renderQuestion(question, index, surveyId) {
             )
             .join("")}
         </div>
-      </fieldset>
+      </div>
     `;
   }
 
@@ -3404,7 +3404,7 @@ function renderQuestion(question, index, surveyId) {
     if (question.id === SESSION_CONCERN_QUESTION_ID) {
       const activeCategoryId = getConcernActiveCategory(surveyId, question.id, selectedCheckboxValues);
       return `
-        <fieldset class="question-block" data-question-wrap="${question.id}">
+        <div class="question-block" data-question-wrap="${question.id}" role="group">
           <div class="question-legend">${label}</div>
           <div class="question-caption">気になるカテゴリを選んでから、該当する詳細項目にチェックしてください。</div>
           <div class="concern-category-list">
@@ -3464,11 +3464,11 @@ function renderQuestion(question, index, surveyId) {
             </div>
           </div>
           ${activeCategoryId ? "" : `<div class="empty">カテゴリを選択すると詳細項目を表示します。</div>`}
-        </fieldset>
+        </div>
       `;
     }
     return `
-      <fieldset class="question-block" data-question-wrap="${question.id}">
+      <div class="question-block" data-question-wrap="${question.id}" role="group">
         <div class="question-legend">${label}</div>
         <div class="checkbox-row">
           ${question.options
@@ -3498,7 +3498,7 @@ function renderQuestion(question, index, surveyId) {
             )
             .join("")}
         </div>
-      </fieldset>
+      </div>
     `;
   }
 
