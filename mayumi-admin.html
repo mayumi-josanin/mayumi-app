@@ -1124,6 +1124,7 @@
             <thead>
               <tr>
                 <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('BLOG', this)"></th>
+                <th style="width:64px;">アイコン</th>
                 <th>日付</th>
                 <th>カテゴリ</th>
                 <th>分類</th>
@@ -1134,7 +1135,7 @@
             </thead>
             <tbody id="blogsDraftsList">
               <tr>
-                <td colspan="7" style="text-align:center;">読み込み中...</td>
+                <td colspan="8" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -1160,6 +1161,7 @@
             <thead>
               <tr>
                 <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('BLOG', this)"></th>
+                <th style="width:64px;">アイコン</th>
                 <th>日付</th>
                 <th>カテゴリ</th>
                 <th>分類</th>
@@ -1170,7 +1172,7 @@
             </thead>
             <tbody id="blogsList">
               <tr>
-                <td colspan="7" style="text-align:center;">読み込み中...</td>
+                <td colspan="8" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -9554,6 +9556,7 @@
         allBlogs.forEach(b => {
           const catObj = allCategories.find(c => c.name === b.category) || {};
           const type = catObj.type || (b.category === 'お知らせ' ? 'お知らせ' : 'ブログ');
+          const iconHtml = buildAdminBlogIconHtml(b);
 
           if (filterCategory && b.category !== filterCategory) return;
           if (filterType && type !== filterType) return;
@@ -9561,6 +9564,7 @@
           const rowHtml = `
             <tr>
               <td><input type="checkbox" class="blog-sel" data-idx="${b.rowIdx}"></td>
+              <td style="text-align:center;">${iconHtml}</td>
               <td>${b.date}</td>
               <td><span class="badge" style="background:#f0f0f0;">${b.category}</span></td>
               <td><span class="badge ${type === 'お知らせ' ? 'danger' : 'success'}" style="font-size:10px;">${type}</span></td>
@@ -9590,12 +9594,27 @@
           }
         });
 
-        if (!hasDrafts && tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center;">下書き保存はありません</td></tr>';
-        if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center;">投稿済み記事はありません</td></tr>';
+        if (!hasDrafts && tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="8" style="text-align:center;">下書き保存はありません</td></tr>';
+        if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="8" style="text-align:center;">投稿済み記事はありません</td></tr>';
       } else {
-        tbodyPub.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">ブログデータの取得に失敗しました</td></tr>';
-        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">ブログデータの取得に失敗しました</td></tr>';
+        tbodyPub.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">ブログデータの取得に失敗しました</td></tr>';
+        if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">ブログデータの取得に失敗しました</td></tr>';
       }
+    }
+
+    function getAdminBlogPreviewImageUrl(blog) {
+      const iconValue = String(blog && blog.icon || '').trim();
+      if (/^(https?:\/\/|data:image\/)/i.test(iconValue)) return iconValue;
+      const imageUrls = normalizeAdminImageUrls(blog && (blog.imageUrls || blog.imageUrl || ''));
+      return imageUrls.length ? imageUrls[0] : '';
+    }
+
+    function buildAdminBlogIconHtml(blog) {
+      const previewImageUrl = getAdminBlogPreviewImageUrl(blog);
+      if (previewImageUrl) {
+        return `<img src="${escapeHtml(previewImageUrl)}" alt="${escapeHtml(blog && blog.title || 'news icon')}" style="width:40px; height:40px; object-fit:cover; border-radius:4px;">`;
+      }
+      return `<span style="font-size:20px;">${escapeHtml(blog && blog.icon || '📢')}</span>`;
     }
 
     async function updateBlogStatus(rowIdx, status) {
