@@ -873,11 +873,20 @@ legend {
 
 .question-block > span:first-child,
 .question-label > span:first-child,
+.question-legend > span:first-child,
 legend > span:first-child {
   color: var(--text-dark);
   font-size: 15px;
   font-weight: 700;
   line-height: 1.7;
+}
+
+.question-legend {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 10px;
 }
 
 .question-title-row {

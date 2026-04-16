@@ -3362,7 +3362,7 @@ function renderQuestion(question, index, surveyId) {
   if (question.type === "rating") {
     return `
       <fieldset class="question-block" data-question-wrap="${question.id}">
-        <legend>${label}</legend>
+        <div class="question-legend">${label}</div>
         <div class="rating-row">
           ${[1, 2, 3, 4, 5]
             .map(
@@ -3382,7 +3382,7 @@ function renderQuestion(question, index, surveyId) {
   if (question.type === "choice") {
     return `
       <fieldset class="question-block" data-question-wrap="${question.id}">
-        <legend>${label}</legend>
+        <div class="question-legend">${label}</div>
         <div class="choice-row">
           ${question.options
             .map(
@@ -3405,7 +3405,7 @@ function renderQuestion(question, index, surveyId) {
       const activeCategoryId = getConcernActiveCategory(surveyId, question.id, selectedCheckboxValues);
       return `
         <fieldset class="question-block" data-question-wrap="${question.id}">
-          <legend>${label}</legend>
+          <div class="question-legend">${label}</div>
           <div class="question-caption">気になるカテゴリを選んでから、該当する詳細項目にチェックしてください。</div>
           <div class="concern-category-list">
             ${SESSION_CONCERN_CATEGORIES.map((category) => {
@@ -3469,7 +3469,7 @@ function renderQuestion(question, index, surveyId) {
     }
     return `
       <fieldset class="question-block" data-question-wrap="${question.id}">
-        <legend>${label}</legend>
+        <div class="question-legend">${label}</div>
         <div class="checkbox-row">
           ${question.options
             .map(
