@@ -1079,6 +1079,30 @@ legend > span:first-child {
   gap: 10px;
 }
 
+.measurement-photo-entry-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.measurement-photo-entry {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-dark);
+  text-align: left;
+}
+
+.measurement-photo-entry.is-active {
+  border-color: var(--sage);
+  box-shadow: 0 0 0 1px rgba(138, 158, 126, 0.28);
+  background: rgba(138, 158, 126, 0.08);
+}
+
 .measurement-summary-card,
 .measurement-metric-card {
   display: grid;
@@ -1194,13 +1218,13 @@ legend > span:first-child {
 
 .measurement-history-table {
   width: 100%;
-  min-width: 980px;
+  min-width: 920px;
   border-collapse: collapse;
 }
 
 .measurement-history-table th,
 .measurement-history-table td {
-  padding: 12px 10px;
+  padding: 12px 8px;
   border-bottom: 1px solid rgba(122, 92, 62, 0.12);
   vertical-align: top;
   text-align: left;
@@ -1224,6 +1248,9 @@ legend > span:first-child {
 .measurement-history-table td:first-child {
   position: sticky;
   left: 0;
+  width: 98px;
+  min-width: 98px;
+  padding-right: 4px;
   background: #fff;
   z-index: 1;
 }
@@ -1234,7 +1261,8 @@ legend > span:first-child {
 }
 
 .measurement-date-cell {
-  min-width: 132px;
+  min-width: 98px;
+  white-space: nowrap;
 }
 
 .measurement-table-main {

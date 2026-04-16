@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v59";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v61";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -14,6 +14,23 @@ const TICKET_INFO_QUESTION_IDS = {
   sheet: ["q_bijiris_session_ticket_sheet", "q_ticket_end_ticket_sheet"],
   round: ["q_bijiris_session_ticket_round", "q_ticket_end_ticket_round"],
 };
+const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
+const MEASUREMENT_MONITOR_PHOTO_QUESTION_IDS = [
+  "q_bijiris_session_monitor_photos_6",
+  "q_bijiris_session_monitor_photos_10",
+  "q_bijiris_session_monitor_photos",
+];
+const MEASUREMENT_CURRENT_PHOTO_QUESTION_IDS = [
+  "q_bijiris_session_ticket_end_photos_6",
+  "q_bijiris_session_ticket_end_photos_10",
+  "q_bijiris_session_ticket_end_photos",
+  "q_ticket_end_photo_last",
+];
+const MEASUREMENT_PHOTO_QUESTION_IDS = [
+  ...MEASUREMENT_MONITOR_PHOTO_QUESTION_IDS,
+  ...MEASUREMENT_CURRENT_PHOTO_QUESTION_IDS,
+  "q_bijiris_session_ticket_photos",
+];
 const SESSION_CONCERN_QUESTION_ID = "q_bijiris_session_concern";
 const SESSION_CONCERN_CATEGORIES = [
   {
@@ -249,6 +266,10 @@ const confirmDialogTitle = document.querySelector("#confirmDialogTitle");
 const confirmDialogMessage = document.querySelector("#confirmDialogMessage");
 const confirmDialogCancel = document.querySelector("#confirmDialogCancel");
 const confirmDialogConfirm = document.querySelector("#confirmDialogConfirm");
+const measurementPhotoModal = document.querySelector("#measurementPhotoModal");
+const measurementPhotoDialogTitle = document.querySelector("#measurementPhotoDialogTitle");
+const measurementPhotoDialogMeta = document.querySelector("#measurementPhotoDialogMeta");
+const measurementPhotoDialogBody = document.querySelector("#measurementPhotoDialogBody");
 const loginForm = document.querySelector("#loginForm");
 const credentialForm = document.querySelector("#credentialForm");
 const appUpdateButton = document.querySelector("#appUpdateButton");
@@ -1590,6 +1611,268 @@ function buildMeasurementHistoryRows(measurements) {
   return measurements.map((measurement) => rowsById.get(measurement.id)).filter(Boolean);
 }
 
+function getMeasurementPhotoDateKey(value) {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return String(value || "").trim().slice(0, 10);
+  }
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+}
+
+function isMeasurementPhotoAnswer(answer) {
+  const questionId = String(answer?.questionId || "").trim();
+  const label = String(answer?.label || "").trim();
+  const files = getPhotoFilesFromAnswer(answer);
+  if (!files.length) return false;
+  if (MEASUREMENT_PHOTO_QUESTION_IDS.includes(questionId)) return true;
+  return /(モニター時の写真|回数券終了時の写真|計測写真)/.test(label);
+}
+
+function isMonitorMeasurementPhotoAnswer(answer) {
+  const questionId = String(answer?.questionId || "").trim();
+  const label = String(answer?.label || "").trim();
+  return MEASUREMENT_MONITOR_PHOTO_QUESTION_IDS.includes(questionId) || label.includes("モニター");
+}
+
+function getResponseSessionType(response) {
+  const answerMap = new Map((response?.answers || []).map((answer) => [answer.questionId, answer]));
+  return getAnswerValueFromQuestionIds(answerMap, [SESSION_TYPE_QUESTION_ID]);
+}
+
+function getResponseTicketPlan(response) {
+  return getResponseTicketInfo(response).find((item) => item.label === "回数券")?.value || "";
+}
+
+function buildMeasurementPhotoStagesFromResponse(response) {
+  const survey = findSurveyById(response?.surveyId);
+  const sessionType = getResponseSessionType(response);
+  return getDisplayAnswers(response, survey)
+    .map((answer) => ({
+      ...answer,
+      files: getPhotoFilesFromAnswer(answer),
+    }))
+    .filter(isMeasurementPhotoAnswer)
+    .map((answer) => {
+      const questionId = String(answer.questionId || "").trim();
+      const label = String(answer.label || "").trim();
+      let kind = "other";
+      let buttonLabel = "計測写真";
+      if (isMonitorMeasurementPhotoAnswer(answer)) {
+        kind = "monitor";
+        buttonLabel = "モニター時写真";
+      } else if (
+        MEASUREMENT_CURRENT_PHOTO_QUESTION_IDS.includes(questionId) ||
+        questionId.includes("ticket_end_photos") ||
+        label.includes("回数券終了時") ||
+        label.includes("計測写真")
+      ) {
+        kind = "ticket_end";
+        buttonLabel = "回数券終了";
+      } else if (sessionType === "トライアル") {
+        kind = "trial";
+        buttonLabel = "トライアル";
+      }
+      if (kind === "ticket_end" && sessionType === "トライアル") {
+        kind = "trial";
+        buttonLabel = "トライアル";
+      }
+      return {
+        id: `${response.id}:${questionId || label || buttonLabel}`,
+        response,
+        answer,
+        files: answer.files,
+        kind,
+        buttonLabel,
+      };
+    });
+}
+
+function getMeasurementPhotoPrimaryResponseCandidate(measurement, responseCandidates) {
+  const measuredAtKey = getMeasurementPhotoDateKey(measurement?.measuredAt);
+  const measurementTime = new Date(measurement?.measuredAt).getTime();
+  return responseCandidates
+    .slice()
+    .sort((a, b) => {
+      const aExact = getMeasurementPhotoDateKey(a.response.submittedAt) === measuredAtKey ? 0 : 1;
+      const bExact = getMeasurementPhotoDateKey(b.response.submittedAt) === measuredAtKey ? 0 : 1;
+      if (aExact !== bExact) return aExact - bExact;
+      const aHasCurrent = a.stages.some((stage) => stage.kind !== "monitor") ? 0 : 1;
+      const bHasCurrent = b.stages.some((stage) => stage.kind !== "monitor") ? 0 : 1;
+      if (aHasCurrent !== bHasCurrent) return aHasCurrent - bHasCurrent;
+      const aDistance = Number.isFinite(measurementTime)
+        ? Math.abs(new Date(a.response.submittedAt).getTime() - measurementTime)
+        : Number.MAX_SAFE_INTEGER;
+      const bDistance = Number.isFinite(measurementTime)
+        ? Math.abs(new Date(b.response.submittedAt).getTime() - measurementTime)
+        : Number.MAX_SAFE_INTEGER;
+      if (aDistance !== bDistance) return aDistance - bDistance;
+      return new Date(b.response.submittedAt) - new Date(a.response.submittedAt);
+    })[0] || null;
+}
+
+function getMeasurementPhotoMonitorStage(responseCandidates, primaryCandidate) {
+  const directMonitor = primaryCandidate?.stages.find((stage) => stage.kind === "monitor");
+  if (directMonitor) return directMonitor;
+
+  const primaryTime = new Date(primaryCandidate?.response?.submittedAt || 0).getTime();
+  const primaryPlan = getResponseTicketPlan(primaryCandidate?.response);
+  return responseCandidates
+    .flatMap((candidate) => candidate.stages.filter((stage) => stage.kind === "monitor"))
+    .sort((a, b) => {
+      const aPlan = primaryPlan && getResponseTicketPlan(a.response) === primaryPlan ? 0 : 1;
+      const bPlan = primaryPlan && getResponseTicketPlan(b.response) === primaryPlan ? 0 : 1;
+      if (aPlan !== bPlan) return aPlan - bPlan;
+      const aTime = new Date(a.response.submittedAt).getTime();
+      const bTime = new Date(b.response.submittedAt).getTime();
+      const aAfter = aTime > primaryTime ? 1 : 0;
+      const bAfter = bTime > primaryTime ? 1 : 0;
+      if (aAfter !== bAfter) return aAfter - bAfter;
+      const aDistance = Math.abs(primaryTime - aTime);
+      const bDistance = Math.abs(primaryTime - bTime);
+      if (aDistance !== bDistance) return aDistance - bDistance;
+      return bTime - aTime;
+    })[0] || null;
+}
+
+function getMeasurementPhotoCurrentStage(primaryCandidate) {
+  if (!primaryCandidate) return null;
+  const nonMonitorStages = primaryCandidate.stages.filter((stage) => stage.kind !== "monitor");
+  return nonMonitorStages
+    .slice()
+    .sort((a, b) => {
+      const order = { ticket_end: 0, trial: 1, other: 2 };
+      const aRank = Object.prototype.hasOwnProperty.call(order, a.kind) ? order[a.kind] : 99;
+      const bRank = Object.prototype.hasOwnProperty.call(order, b.kind) ? order[b.kind] : 99;
+      return aRank - bRank;
+    })[0] || null;
+}
+
+function getMeasurementPhotoBundleForMeasurement(measurement) {
+  const customerName = String(measurement?.customerName || "").trim();
+  if (!customerName) return null;
+
+  const responseCandidates = getActiveCustomerResponses(customerName)
+    .map((response) => ({
+      response,
+      stages: buildMeasurementPhotoStagesFromResponse(response),
+    }))
+    .filter((candidate) => candidate.stages.length);
+
+  if (!responseCandidates.length) return null;
+
+  const primaryCandidate = getMeasurementPhotoPrimaryResponseCandidate(measurement, responseCandidates);
+  const monitorStage = getMeasurementPhotoMonitorStage(responseCandidates, primaryCandidate);
+  const currentStage = getMeasurementPhotoCurrentStage(primaryCandidate);
+  const stages = [monitorStage, currentStage]
+    .filter(Boolean)
+    .filter((stage, index, list) => list.findIndex((item) => item.id === stage.id) === index);
+
+  if (!stages.length) return null;
+
+  return {
+    measurement,
+    stages,
+  };
+}
+
+function renderMeasurementPhotoCell(measurement) {
+  const bundle = getMeasurementPhotoBundleForMeasurement(measurement);
+  const hasPhotos = bundle?.stages?.length > 0;
+  return `
+    <div class="measurement-photo-cell">
+      <button
+        class="secondary-button"
+        type="button"
+        data-open-measurement-photo="${escapeHtml(measurement.id)}"
+        ${hasPhotos ? "" : "disabled"}
+      >
+        計測写真
+      </button>
+      <div class="measurement-photo-label">${hasPhotos ? `${bundle.stages.length}種類` : "写真なし"}</div>
+    </div>
+  `;
+}
+
+function renderMeasurementPhotoStageGallery(stage) {
+  return `
+    <div class="measurement-photo-modal-grid">
+      ${stage.files
+        .map((file, index) => {
+          const preview = getPhotoPreviewSrc(file);
+          const title = file.name || `計測写真${index + 1}`;
+          return `
+            <button
+              class="measurement-photo-modal-card lightbox-trigger"
+              type="button"
+              data-lightbox-src="${escapeHtml(getPhotoLightboxSrc(file))}"
+              data-lightbox-title="${escapeHtml(title)}"
+            >
+              ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(title)}" />` : `<div class="empty">画像を表示できません。</div>`}
+              <span>${escapeHtml(title)}</span>
+            </button>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderMeasurementPhotoModalView(bundle, selectedStageId = "") {
+  if (!measurementPhotoDialogMeta || !measurementPhotoDialogBody) return;
+  const selectedStage = bundle.stages.find((stage) => stage.id === selectedStageId) || null;
+  measurementPhotoDialogMeta.textContent = selectedStage
+    ? `${formatDateOnly(bundle.measurement.measuredAt)} / ${selectedStage.buttonLabel} / ${selectedStage.files.length}枚`
+    : `${formatDateOnly(bundle.measurement.measuredAt)} / 表示する写真を選択してください。`;
+  measurementPhotoDialogBody.innerHTML = `
+    <div class="measurement-photo-stage-list">
+      ${bundle.stages
+        .map(
+          (stage) => `
+            <button
+              class="secondary-button measurement-photo-stage-button ${selectedStage?.id === stage.id ? "is-active" : ""}"
+              type="button"
+              data-measurement-photo-stage="${escapeHtml(stage.id)}"
+            >
+              ${escapeHtml(stage.buttonLabel)}
+            </button>
+          `,
+        )
+        .join("")}
+    </div>
+    ${selectedStage ? renderMeasurementPhotoStageGallery(selectedStage) : '<div class="empty">写真ボタンを選択してください。</div>'}
+  `;
+  measurementPhotoDialogBody.querySelectorAll("[data-measurement-photo-stage]").forEach((button) => {
+    button.addEventListener("click", () => {
+      renderMeasurementPhotoModalView(bundle, button.dataset.measurementPhotoStage || "");
+    });
+  });
+  attachLightboxHandlers(measurementPhotoDialogBody);
+}
+
+function openMeasurementPhotoModal(measurementId) {
+  const measurement = state.measurements.find((item) => item.id === measurementId);
+  const bundle = measurement ? getMeasurementPhotoBundleForMeasurement(measurement) : null;
+  if (!measurement || !measurementPhotoModal || !measurementPhotoDialogTitle || !measurementPhotoDialogMeta || !measurementPhotoDialogBody) {
+    return;
+  }
+
+  if (!bundle?.stages?.length) {
+    showToast("表示できる計測写真はありません。");
+    return;
+  }
+
+  measurementPhotoDialogTitle.textContent = `${measurement.customerName || "顧客"} / 計測写真`;
+  measurementPhotoModal.hidden = false;
+  renderMeasurementPhotoModalView(bundle);
+}
+
+function closeMeasurementPhotoModal() {
+  if (!measurementPhotoModal || !measurementPhotoDialogBody) return;
+  measurementPhotoModal.hidden = true;
+  measurementPhotoDialogBody.innerHTML = "";
+}
+
 function renderMeasurementSummaryCards(measurements) {
   const latest = measurements[0] || null;
   const first = measurements[measurements.length - 1] || null;
@@ -1847,6 +2130,7 @@ function renderMeasurementHistoryTable(measurements) {
               <th>WHR</th>
               <th>左右差</th>
               <th>メモ</th>
+              <th>計測写真</th>
               <th></th>
             </tr>
           </thead>
@@ -1870,6 +2154,7 @@ function renderMeasurementHistoryTable(measurements) {
                   <td>${escapeHtml(formatWhr(row.whr))}</td>
                   <td>${row.leftRightGap === "" ? "-" : `${escapeHtml(row.leftRightGap.toFixed(1))}cm`}</td>
                   <td class="measurement-memo-cell">${escapeHtml(row.memo || "-")}</td>
+                  <td class="measurement-photo-table-cell">${renderMeasurementPhotoCell(row)}</td>
                   <td>
                     <div class="measurement-row-actions">
                       <button class="secondary-button" type="button" data-edit-measurement="${escapeHtml(row.id)}">編集</button>
@@ -2646,6 +2931,12 @@ function renderCustomerManagement() {
   stage.querySelectorAll("[data-delete-measurement]").forEach((button) => {
     button.addEventListener("click", () => {
       void deleteMeasurement(button.dataset.deleteMeasurement || "");
+    });
+  });
+
+  stage.querySelectorAll("[data-open-measurement-photo]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openMeasurementPhotoModal(button.dataset.openMeasurementPhoto || "");
     });
   });
 
@@ -6403,7 +6694,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260416-06", { updateViaCache: "none" })
+        .register("./sw.js?v=20260416-08", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
@@ -6561,6 +6852,11 @@ document.querySelector("#lightboxModal")?.addEventListener("click", (event) => {
     closeLightbox();
   }
 });
+measurementPhotoModal?.addEventListener("click", (event) => {
+  if (event.target === measurementPhotoModal || event.target.closest("[data-close-measurement-photo]")) {
+    closeMeasurementPhotoModal();
+  }
+});
 confirmDialogCancel?.addEventListener("click", () => {
   closeConfirmDialog(false);
 });
@@ -6573,6 +6869,10 @@ confirmModal?.addEventListener("click", (event) => {
   }
 });
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && measurementPhotoModal && !measurementPhotoModal.hidden) {
+    closeMeasurementPhotoModal();
+    return;
+  }
   if (event.key === "Escape" && confirmModal && !confirmModal.hidden) {
     closeConfirmDialog(false);
   }

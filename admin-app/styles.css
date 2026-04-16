@@ -1471,7 +1471,7 @@ textarea {
 
 .measurement-table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1280px;
   border-collapse: collapse;
 }
 
@@ -1508,6 +1508,74 @@ textarea {
   color: var(--text-mid);
   line-height: 1.7;
   white-space: pre-wrap;
+}
+
+.measurement-photo-table-cell {
+  min-width: 210px;
+}
+
+.measurement-photo-cell {
+  display: inline-grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.measurement-photo-label {
+  color: var(--text-mid);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.measurement-photo-dialog {
+  display: grid;
+  gap: 14px;
+  width: min(760px, 100%);
+  max-height: min(88vh, 920px);
+  padding: 18px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(60, 40, 20, 0.18);
+}
+
+.measurement-photo-dialog-body {
+  display: grid;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.measurement-photo-stage-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.measurement-photo-stage-button.is-active {
+  border-color: var(--sage);
+  background: rgba(138, 158, 126, 0.12);
+}
+
+.measurement-photo-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.measurement-photo-modal-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+}
+
+.measurement-photo-modal-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
 }
 
 .measurement-row-actions {

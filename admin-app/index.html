@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260416-06" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260416-06" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260416-06" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260416-06" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260416-08" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260416-08" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260416-08" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260416-08" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -379,9 +379,22 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260416-06"></script>
-    <script src="../shared/gas-config.js?v=20260416-06"></script>
-    <script src="../shared/api.js?v=20260416-06"></script>
-    <script src="./app.js?v=20260416-06"></script>
+    <div id="measurementPhotoModal" class="confirm-modal" hidden>
+      <div class="measurement-photo-dialog" role="dialog" aria-modal="true" aria-labelledby="measurementPhotoDialogTitle">
+        <div class="stage-head">
+          <div>
+            <div id="measurementPhotoDialogTitle" class="card-title">計測写真</div>
+            <div id="measurementPhotoDialogMeta" class="meta"></div>
+          </div>
+          <button class="secondary-button" type="button" data-close-measurement-photo>閉じる</button>
+        </div>
+        <div id="measurementPhotoDialogBody" class="measurement-photo-dialog-body"></div>
+      </div>
+    </div>
+
+    <script src="../default-surveys.js?v=20260416-08"></script>
+    <script src="../shared/gas-config.js?v=20260416-08"></script>
+    <script src="../shared/api.js?v=20260416-08"></script>
+    <script src="./app.js?v=20260416-08"></script>
   </body>
 </html>

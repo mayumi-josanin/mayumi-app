@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260416-07";
+const APP_VERSION = "20260416-08";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v68";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v69";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -280,6 +280,7 @@ const appState = {
   concernCategoryByQuestion: {},
   selectedMeasurementPeriod: "6m",
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
+  selectedMeasurementPhotoComparisonId: "",
   pushSupported: false,
   pushEnabled: false,
   pushActualEnabled: false,
@@ -4726,27 +4727,153 @@ function buildMeasurementHistoryRows(measurements) {
   return measurements.map((measurement) => rowsById.get(measurement.id)).filter(Boolean);
 }
 
-function collectPhotoFilesFromResponse(response) {
-  const answerFiles = (response?.answers || []).flatMap((answer) =>
-    Array.isArray(answer?.files) ? answer.files : [],
-  );
-  const responseFiles = Array.isArray(response?.files) ? response.files : [];
-  const files = answerFiles.concat(responseFiles);
-  const seen = new Set();
-  return files.filter((file, index) => {
-    const key = normalizeText(
-      file?.fileId || file?.downloadUrl || file?.previewUrl || file?.thumbnailUrl || file?.url || file?.name || `photo_${index}`,
-    );
-    if (seen.has(key)) return false;
-    seen.add(key);
+function isMeasurementPhotoAnswer(answer, response) {
+  const questionId = normalizeText(answer?.questionId);
+  const label = normalizeText(answer?.label);
+  if (!Array.isArray(answer?.files) || !answer.files.length) return false;
+  if (
+    SESSION_MONITOR_PHOTOS_QUESTION_IDS.includes(questionId) ||
+    SESSION_TICKET_END_PHOTOS_QUESTION_IDS.includes(questionId)
+  ) {
     return true;
-  });
+  }
+  if (
+    [
+      LEGACY_SESSION_MONITOR_PHOTOS_QUESTION_ID,
+      LEGACY_SESSION_TICKET_END_PHOTOS_QUESTION_ID,
+      "q_bijiris_session_ticket_photos",
+      "q_ticket_end_photo_last",
+    ].includes(questionId)
+  ) {
+    return true;
+  }
+  if (response?.surveyId === TICKET_END_SURVEY_ID && questionId === "q_ticket_end_photo_last") {
+    return true;
+  }
+  return /(モニター|計測写真|回数券終了時)/.test(label);
 }
 
-function getMeasurementPhotoResponses() {
-  return getVisibleHistoryResponses()
-    .filter((response) => collectPhotoFilesFromResponse(response).length)
-    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+function getMeasurementPhotoGroupKind(answer) {
+  const questionId = normalizeText(answer?.questionId);
+  const label = normalizeText(answer?.label);
+  if (
+    SESSION_MONITOR_PHOTOS_QUESTION_IDS.includes(questionId) ||
+    questionId === LEGACY_SESSION_MONITOR_PHOTOS_QUESTION_ID ||
+    label.includes("モニター")
+  ) {
+    return "monitor";
+  }
+  return "measurement";
+}
+
+function normalizeMeasurementPhotoStageLabel(label) {
+  const normalized = normalizeText(label);
+  if (!normalized) return "計測写真";
+  if (normalized.includes("モニター")) return "初回写真(モニター終了時)";
+  if (normalized.includes("回数券終了")) return "回数券終了時";
+  const measuredMatch = normalized.match(/計測写真[（(]?(.+?)[）)]?$/);
+  if (measuredMatch?.[1]) {
+    const detail = measuredMatch[1].replace(/^[（(]|[）)]$/g, "").trim();
+    return detail ? `計測写真(${detail})` : normalized;
+  }
+  const stripped = normalized.replace(/写真\s*\d*枚?/g, "").replace(/\s+/g, " ").trim();
+  return stripped || normalized;
+}
+
+function buildMeasurementPhotoGroups() {
+  const responses = getVisibleHistoryResponses()
+    .slice()
+    .sort((a, b) => {
+      const submittedDiff = new Date(a.submittedAt) - new Date(b.submittedAt);
+      if (submittedDiff !== 0) return submittedDiff;
+      return normalizeText(a.id).localeCompare(normalizeText(b.id), "ja");
+    });
+  const groups = [];
+  let trialCount = 0;
+  let singleCount = 0;
+
+  responses.forEach((response, responseIndex) => {
+    const answerMap = new Map((response.answers || []).map((answer) => [normalizeText(answer.questionId), answer]));
+    const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
+    const sessionType = normalizeText(answerMap.get(SESSION_TYPE_QUESTION_ID)?.value);
+
+    (response.answers || []).forEach((answer, answerIndex) => {
+      if (!isMeasurementPhotoAnswer(answer, response)) return;
+      const files = Array.isArray(answer.files) ? answer.files.filter(Boolean) : [];
+      if (!files.length) return;
+
+      const questionId = normalizeText(answer.questionId);
+      const kind = getMeasurementPhotoGroupKind(answer);
+      const ticketSheetLabel = normalizeText(ticketMap.get("何枚目") || "");
+      let stageLabel = "";
+      if (kind === "monitor") {
+        stageLabel = "初回写真(モニター終了時)";
+      } else if (ticketSheetLabel) {
+        stageLabel = `回数券${ticketSheetLabel}終了時`;
+      } else if (sessionType === "トライアル") {
+        trialCount += 1;
+        stageLabel = `トライアル${trialCount}回目`;
+      } else if (sessionType === "単発") {
+        singleCount += 1;
+        stageLabel = `単発${singleCount}回目`;
+      } else if (sessionType === "初回お試し") {
+        stageLabel = "初回お試し";
+      } else {
+        stageLabel = normalizeMeasurementPhotoStageLabel(answer.label);
+      }
+
+      groups.push({
+        id: `${normalizeText(response.id) || `response_${responseIndex}`}:${questionId || `photo_${answerIndex}`}`,
+        response,
+        questionId,
+        label: normalizeText(answer.label) || "写真",
+        files,
+        kind,
+        stageLabel,
+        submittedAt: normalizeText(response.submittedAt),
+        ticketInfo: getResponseTicketInfo(response),
+      });
+    });
+  });
+
+  return groups;
+}
+
+function getMeasurementPhotoCurrentLabel(group) {
+  const count = Array.isArray(group?.files) ? group.files.length : 0;
+  return count > 0 ? `計測写真${count}枚` : "計測写真";
+}
+
+function buildMeasurementPhotoComparisonEntries(photoGroups) {
+  const entries = [];
+  let previousGroup = null;
+  photoGroups.forEach((group) => {
+    if (group.kind === "monitor") {
+      previousGroup = group;
+      return;
+    }
+    entries.push({
+      id: previousGroup ? `${previousGroup.id}->${group.id}` : group.id,
+      reference: previousGroup,
+      current: group,
+      submittedAt: group.submittedAt,
+      title: `${(previousGroup?.stageLabel || group.stageLabel)} → ${getMeasurementPhotoCurrentLabel(group)}`,
+    });
+    previousGroup = group;
+  });
+  return entries.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+}
+
+function renderMeasurementPhotoGroupCard(group, title) {
+  if (!group) return "";
+  return `
+    <article class="history-card">
+      <strong>${escapeHtml(title)}</strong>
+      <div class="meta">${escapeHtml(formatDate(group.submittedAt))}</div>
+      ${renderTicketStampList(group.ticketInfo || [])}
+      ${renderAnswerValue({ files: group.files })}
+    </article>
+  `;
 }
 
 function renderMeasurementSummaryCards(measurements) {
@@ -4966,44 +5093,40 @@ function renderMeasurementHistoryList(measurements) {
   `;
 }
 
-function renderMeasurementPhotoComparison(photoResponses) {
-  if (!photoResponses.length) {
-    return `<div class="empty">まだ写真付きの履歴はありません。</div>`;
+function renderMeasurementPhotoComparison(entries) {
+  if (!entries.length) {
+    return `<div class="empty">まだ比較できる計測写真はありません。</div>`;
   }
-  const latest = photoResponses[0];
-  const first = photoResponses[photoResponses.length - 1];
-  const cards = [];
-  if (first) cards.push({ label: "初回写真", response: first });
-  if (latest && latest.id !== first?.id) cards.push({ label: "最新写真", response: latest });
+  if (!entries.some((entry) => entry.id === appState.selectedMeasurementPhotoComparisonId)) {
+    appState.selectedMeasurementPhotoComparisonId = entries[0].id;
+  }
+  const selectedEntry =
+    entries.find((entry) => entry.id === appState.selectedMeasurementPhotoComparisonId) || entries[0];
 
   return `
-    <div class="measurement-photo-compare-grid">
-      ${cards.map((item) => `
-        <article class="history-card">
-          <strong>${escapeHtml(item.label)}</strong>
-          <div class="meta">${escapeHtml(item.response.surveyTitle || "アンケート")} / ${escapeHtml(formatDate(item.response.submittedAt))}</div>
-          ${renderTicketStampList(getResponseTicketInfo(item.response))}
-          ${renderAnswerValue({ files: collectPhotoFilesFromResponse(item.response) })}
-        </article>
-      `).join("")}
+    <div class="measurement-photo-entry-list">
+      ${entries
+        .map(
+          (entry) => `
+            <button
+              class="measurement-photo-entry ${entry.id === selectedEntry.id ? "is-active" : ""}"
+              type="button"
+              data-measurement-photo-entry="${escapeHtml(entry.id)}"
+            >
+              <strong>${escapeHtml(entry.title)}</strong>
+              <div class="meta">${escapeHtml(formatDate(entry.submittedAt))}</div>
+            </button>
+          `,
+        )
+        .join("")}
     </div>
-  `;
-}
-
-function renderMeasurementPhotoHistory(photoResponses) {
-  if (!photoResponses.length) {
-    return `<div class="empty">まだ写真付きの履歴はありません。</div>`;
-  }
-  return `
-    <div class="history-group-list">
-      ${photoResponses.map((response) => `
-        <article class="history-card">
-          <strong>${escapeHtml(response.surveyTitle || "アンケート")}</strong>
-          <div class="meta">${escapeHtml(formatDate(response.submittedAt))}</div>
-          ${renderTicketStampList(getResponseTicketInfo(response))}
-          ${renderAnswerValue({ files: collectPhotoFilesFromResponse(response) })}
-        </article>
-      `).join("")}
+    <div class="measurement-photo-compare-grid">
+      ${
+        selectedEntry.reference
+          ? renderMeasurementPhotoGroupCard(selectedEntry.reference, selectedEntry.reference.stageLabel)
+          : ""
+      }
+      ${renderMeasurementPhotoGroupCard(selectedEntry.current, getMeasurementPhotoCurrentLabel(selectedEntry.current))}
     </div>
   `;
 }
@@ -5025,7 +5148,7 @@ function renderMeasurements() {
 
   const allMeasurements = getCustomerMeasurements();
   const filteredMeasurements = filterMeasurementsByPeriod(allMeasurements, appState.selectedMeasurementPeriod);
-  const photoResponses = getMeasurementPhotoResponses();
+  const photoComparisonEntries = buildMeasurementPhotoComparisonEntries(buildMeasurementPhotoGroups());
 
   measurementPanel.innerHTML = `
     <div class="measurement-section">
@@ -5094,14 +5217,8 @@ function renderMeasurements() {
 
       <article class="history-card">
         <strong>計測写真の比較</strong>
-        <div class="meta">初回と最新の写真を並べて確認できます。</div>
-        ${renderMeasurementPhotoComparison(photoResponses)}
-      </article>
-
-      <article class="history-card">
-        <strong>計測写真の履歴</strong>
-        <div class="meta">写真付きで送信した履歴を新しい順で表示しています。</div>
-        ${renderMeasurementPhotoHistory(photoResponses)}
+        <div class="meta">一覧から選ぶと、初回写真や前回の計測写真と計測写真2枚を見比べられます。</div>
+        ${renderMeasurementPhotoComparison(photoComparisonEntries)}
       </article>
     </div>
   `;
@@ -5116,6 +5233,12 @@ function renderMeasurements() {
         ...appState.measurementMetricVisibility,
         [checkbox.dataset.toggleMeasurementMetric]: checkbox.checked,
       };
+      renderMeasurements();
+    });
+  });
+  measurementPanel.querySelectorAll("[data-measurement-photo-entry]").forEach((button) => {
+    button.addEventListener("click", () => {
+      appState.selectedMeasurementPhotoComparisonId = button.dataset.measurementPhotoEntry || "";
       renderMeasurements();
     });
   });
