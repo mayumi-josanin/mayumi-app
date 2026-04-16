@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v61";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v62";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -399,7 +399,7 @@ function renderCustomerPushStatus(pushStatus) {
   const described = describePushStatus(pushStatus);
   const status = normalizePushStatus(pushStatus);
   return `
-    <div class="meta">
+    <div class="meta customer-summary-item">
       通知状態:
       <span class="badge ${described.badgeClass}">${escapeHtml(described.label)}</span>
       ${escapeHtml(described.detail)}
@@ -1415,13 +1415,15 @@ function renderCustomerSummaryCard(customerName, responses) {
   const surveyCount = new Set(responses.map((response) => response.surveyId || response.surveyTitle || response.id)).size;
   const profile = getCustomerProfileByName(customerName);
   return `
-    <article class="answer-item">
+    <article class="answer-item customer-summary-card">
       <strong>${escapeHtml(getCustomerNameWithMember(customerName))}</strong>
-      <div class="meta">フリガナ: ${escapeHtml(profile?.nameKana || "-")}</div>
-      ${renderCustomerPushStatus(profile?.pushStatus)}
-      <div class="meta">回答数: ${responses.length}件 / アンケート種類: ${surveyCount}件</div>
-      <div class="meta">最新回答: ${latestResponse ? `${escapeHtml(latestResponse.surveyTitle)} / ${formatDate(latestResponse.submittedAt)}` : "-"}</div>
-      <div class="meta">最新測定: ${latestMeasurement ? `${escapeHtml(formatDateOnly(latestMeasurement.measuredAt))} / WHR ${escapeHtml(formatWhr(latestMeasurement.whr))}` : "-"}</div>
+      <div class="customer-summary-grid">
+        <div class="meta customer-summary-item">フリガナ: ${escapeHtml(profile?.nameKana || "-")}</div>
+        ${renderCustomerPushStatus(profile?.pushStatus)}
+        <div class="meta customer-summary-item">回答数: ${responses.length}件 / アンケート種類: ${surveyCount}件</div>
+        <div class="meta customer-summary-item">最新回答: ${latestResponse ? `${escapeHtml(latestResponse.surveyTitle)} / ${formatDate(latestResponse.submittedAt)}` : "-"}</div>
+        <div class="meta customer-summary-item customer-summary-item-wide">最新測定: ${latestMeasurement ? `${escapeHtml(formatDateOnly(latestMeasurement.measuredAt))} / WHR ${escapeHtml(formatWhr(latestMeasurement.whr))}` : "-"}</div>
+      </div>
       ${
         ticketInfo.length
           ? renderTicketStampPanel(ticketInfo)
@@ -6694,7 +6696,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260416-08", { updateViaCache: "none" })
+        .register("./sw.js?v=20260416-09", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
