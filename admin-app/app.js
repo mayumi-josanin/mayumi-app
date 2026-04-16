@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v58";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v59";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -1501,17 +1501,6 @@ function formatMeasurementDelta(value, unit = "cm") {
   return `<span class="delta-badge ${className}">${escapeHtml(text)}</span>`;
 }
 
-function formatMeasurementGapToTarget(value, target) {
-  const normalizedValue = normalizeMeasurementValue(value);
-  const normalizedTarget = normalizeMeasurementValue(target);
-  if (normalizedValue === "" || normalizedTarget === "") return '<span class="delta-badge neutral">未設定</span>';
-  const diff = roundMeasurementDelta(normalizedValue - normalizedTarget);
-  if (diff <= 0) {
-    return `<span class="delta-badge achieved">達成</span>`;
-  }
-  return `<span class="delta-badge remaining">残り${escapeHtml(diff.toFixed(1))}cm</span>`;
-}
-
 function formatWhr(value) {
   if (value === "" || value === null || value === undefined || !Number.isFinite(Number(value))) return "-";
   return Number(value).toFixed(3);
@@ -1533,10 +1522,6 @@ function getCustomerMeasurements(customerName) {
     });
 }
 
-function getMeasurementTargetsForCustomer(customerName) {
-  return getCustomerProfileByName(customerName)?.measurementTargets || null;
-}
-
 function filterMeasurementsByPeriod(measurements, period) {
   if (!Array.isArray(measurements) || !measurements.length || period === "all") return measurements.slice();
   const latest = measurements
@@ -1551,7 +1536,7 @@ function filterMeasurementsByPeriod(measurements, period) {
   return measurements.filter((measurement) => new Date(measurement.measuredAt) >= threshold);
 }
 
-function buildMeasurementHistoryRows(measurements, targets) {
+function buildMeasurementHistoryRows(measurements) {
   const chronological = measurements
     .slice()
     .sort((a, b) => {
@@ -1568,13 +1553,11 @@ function buildMeasurementHistoryRows(measurements, targets) {
       const value = normalizeMeasurementValue(measurement[metric.key]);
       const previousValue = normalizeMeasurementValue(previous?.[metric.key]);
       const firstValue = normalizeMeasurementValue(first?.[metric.key]);
-      const targetValue = normalizeMeasurementValue(targets?.[metric.key]);
       metrics[metric.key] = {
         value,
         previousDelta:
           value === "" || previousValue === "" ? "" : roundMeasurementDelta(value - previousValue),
         firstDelta: value === "" || firstValue === "" ? "" : roundMeasurementDelta(value - firstValue),
-        targetGap: value === "" || targetValue === "" ? "" : roundMeasurementDelta(value - targetValue),
       };
     });
     const thighRight = normalizeMeasurementValue(measurement.thighRight);
@@ -1589,7 +1572,7 @@ function buildMeasurementHistoryRows(measurements, targets) {
   return measurements.map((measurement) => rowsById.get(measurement.id)).filter(Boolean);
 }
 
-function renderMeasurementSummaryCards(measurements, targets) {
+function renderMeasurementSummaryCards(measurements) {
   const latest = measurements[0] || null;
   const first = measurements[measurements.length - 1] || null;
   const thighGap =
@@ -1615,7 +1598,6 @@ function renderMeasurementSummaryCards(measurements, targets) {
       </article>
       ${MEASUREMENT_METRICS.map((metric) => {
         const value = latest?.[metric.key];
-        const target = targets?.[metric.key];
         const firstValue = first?.[metric.key];
         const firstDelta =
           normalizeMeasurementValue(value) === "" || normalizeMeasurementValue(firstValue) === ""
@@ -1626,42 +1608,10 @@ function renderMeasurementSummaryCards(measurements, targets) {
             <div class="measurement-summary-label">${escapeHtml(metric.label)}</div>
             <strong>${escapeHtml(formatMeasurementValue(value))}</strong>
             <div class="meta">初回比 ${formatMeasurementDelta(firstDelta)}</div>
-            <div class="meta-inline">${formatMeasurementGapToTarget(value, target)}</div>
           </article>
         `;
       }).join("")}
     </div>
-  `;
-}
-
-function renderMeasurementTargetsForm(customerName) {
-  const targets = getMeasurementTargetsForCustomer(customerName) || {};
-  return `
-    <article class="answer-item">
-      <strong>目標値</strong>
-      <div class="meta">各部位の目標数値を設定すると、グラフに目標ラインを表示します。</div>
-      <form id="measurementTargetForm" class="stack" data-customer-name="${escapeHtml(customerName)}">
-        <div class="measurement-target-grid">
-          ${MEASUREMENT_METRICS.map((metric) => `
-            <label>
-              ${escapeHtml(metric.label)}
-              <input
-                name="target_${escapeHtml(metric.key)}"
-                type="number"
-                step="0.1"
-                min="0"
-                inputmode="decimal"
-                value="${targets?.[metric.key] === "" || targets?.[metric.key] === undefined ? "" : escapeHtml(String(targets[metric.key]))}"
-                placeholder="目標 cm"
-              />
-            </label>
-          `).join("")}
-        </div>
-        <div class="action-row">
-          <button class="secondary-button" type="submit">目標値を保存</button>
-        </div>
-      </form>
-    </article>
   `;
 }
 
@@ -1735,17 +1685,12 @@ function renderMeasurementLineChart(title, measurements, metrics, options = {}) 
   const chronological = measurements
     .slice()
     .sort((a, b) => new Date(a.measuredAt) - new Date(b.measuredAt));
-  const targetMap = options.targets || {};
   const values = [];
   chronological.forEach((measurement) => {
     visibleMetrics.forEach((metric) => {
       const value = normalizeMeasurementValue(measurement[metric.key]);
       if (value !== "") values.push(Number(value));
     });
-  });
-  visibleMetrics.forEach((metric) => {
-    const target = normalizeMeasurementValue(targetMap?.[metric.key]);
-    if (target !== "") values.push(Number(target));
   });
   if (!values.length) {
     return `
@@ -1786,31 +1731,6 @@ function renderMeasurementLineChart(title, measurements, metrics, options = {}) 
       </g>
     `;
   }).join("");
-
-  const targetLines = visibleMetrics
-    .map((metric) => {
-      const target = normalizeMeasurementValue(targetMap?.[metric.key]);
-      if (target === "") return "";
-      const y = yForValue(target);
-      return `
-        <g>
-          <line
-            x1="${padding.left}"
-            y1="${y}"
-            x2="${chartWidth - padding.right}"
-            y2="${y}"
-            stroke="${metric.color}"
-            stroke-width="1.5"
-            stroke-dasharray="6 6"
-            opacity="0.6"
-          />
-          <text x="${chartWidth - padding.right}" y="${y - 6}" text-anchor="end" class="measurement-target-label" fill="${metric.color}">
-            ${escapeHtml(metric.label)} 目標 ${escapeHtml(target.toFixed(1))}${escapeHtml(options.unit || "")}
-          </text>
-        </g>
-      `;
-    })
-    .join("");
 
   const series = visibleMetrics
     .map((metric) => {
@@ -1878,7 +1798,6 @@ function renderMeasurementLineChart(title, measurements, metrics, options = {}) 
       <div class="measurement-chart-shell">
         <svg class="measurement-chart" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="${escapeHtml(title)}">
           ${grid}
-          ${targetLines}
           ${series}
           ${xLabels}
         </svg>
@@ -1887,8 +1806,8 @@ function renderMeasurementLineChart(title, measurements, metrics, options = {}) 
   `;
 }
 
-function renderMeasurementHistoryTable(measurements, targets) {
-  const rows = buildMeasurementHistoryRows(measurements, targets);
+function renderMeasurementHistoryTable(measurements) {
+  const rows = buildMeasurementHistoryRows(measurements);
   if (!rows.length) {
     return `
       <article class="answer-item">
@@ -1900,7 +1819,7 @@ function renderMeasurementHistoryTable(measurements, targets) {
   return `
     <article class="answer-item">
       <strong>測定履歴</strong>
-      <div class="meta">新しい測定が上に表示されます。前回比・初回比・目標との差を自動計算しています。</div>
+      <div class="meta">新しい測定が上に表示されます。前回比と初回比を自動計算しています。</div>
       <div class="measurement-table-wrap">
         <table class="measurement-table">
           <thead>
@@ -1927,7 +1846,6 @@ function renderMeasurementHistoryTable(measurements, targets) {
                         <div class="measurement-cell-main">${escapeHtml(formatMeasurementValue(metricRow.value))}</div>
                         <div class="measurement-cell-sub">前回 ${formatMeasurementDelta(metricRow.previousDelta)}</div>
                         <div class="measurement-cell-sub">初回 ${formatMeasurementDelta(metricRow.firstDelta)}</div>
-                        <div class="measurement-cell-sub">目標 ${formatMeasurementGapToTarget(metricRow.value, targets?.[metric.key])}</div>
                       </td>
                     `;
                   }).join("")}
@@ -1953,11 +1871,9 @@ function renderMeasurementHistoryTable(measurements, targets) {
 function renderMeasurementSection(customerName) {
   const allMeasurements = getCustomerMeasurements(customerName);
   const filteredMeasurements = filterMeasurementsByPeriod(allMeasurements, state.selectedMeasurementPeriod);
-  const targets = getMeasurementTargetsForCustomer(customerName);
   return `
     <section class="measurement-section">
-      ${renderMeasurementSummaryCards(allMeasurements, targets)}
-      ${renderMeasurementTargetsForm(customerName)}
+      ${renderMeasurementSummaryCards(allMeasurements)}
       ${renderMeasurementForm(customerName)}
       <article class="answer-item">
         <div class="stage-head">
@@ -1998,7 +1914,6 @@ function renderMeasurementSection(customerName) {
         </div>
       </article>
       ${renderMeasurementLineChart("部位別の推移", filteredMeasurements, MEASUREMENT_METRICS, {
-        targets,
         unit: "cm",
       })}
       ${
@@ -2015,50 +1930,9 @@ function renderMeasurementSection(customerName) {
             )
           : ""
       }
-      ${renderMeasurementHistoryTable(filteredMeasurements, targets)}
+      ${renderMeasurementHistoryTable(filteredMeasurements)}
     </section>
   `;
-}
-
-async function saveCustomerMeasurementTargets(form) {
-  const customerName = String(form.dataset.customerName || "").trim();
-  if (!customerName) return;
-  const currentDraft = getCurrentTicketDraft(customerName);
-  const formData = new FormData(form);
-  const measurementTargets = MEASUREMENT_METRICS.reduce((accumulator, metric) => {
-    accumulator[metric.key] = String(formData.get(`target_${metric.key}`) || "").trim();
-    return accumulator;
-  }, {});
-  const submitButton = form.querySelector('button[type="submit"]');
-  if (submitButton) {
-    submitButton.disabled = true;
-    submitButton.textContent = "保存中";
-  }
-  try {
-    await api.request(`/api/admin/customers/${encodeURIComponent(customerName)}`, {
-      method: "PUT",
-      token: state.token,
-      body: {
-        name: customerName,
-        memberNumber: currentDraft.memberNumber,
-        ticketPlan: currentDraft.ticketPlan,
-        ticketSheet: currentDraft.ticketSheet,
-        ticketRound: currentDraft.ticketRound,
-        measurementTargets,
-      },
-    });
-    await loadAdminData();
-    state.selectedCustomerViewName = customerName;
-    setPage("customers");
-    showToast("目標値を保存しました。");
-  } catch (error) {
-    showToast(error.message || "目標値を保存できませんでした。");
-  } finally {
-    if (submitButton) {
-      submitButton.disabled = false;
-      submitButton.textContent = "目標値を保存";
-    }
-  }
 }
 
 async function saveMeasurement(form) {
@@ -2720,11 +2594,6 @@ function renderCustomerManagement() {
     button.addEventListener("click", () => {
       void deleteCustomerProfile(button.dataset.deleteCustomer || button.dataset.deleteCustomerCard || "");
     });
-  });
-
-  stage.querySelector("#measurementTargetForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    void saveCustomerMeasurementTargets(event.currentTarget);
   });
 
   stage.querySelector("#measurementForm")?.addEventListener("submit", (event) => {
@@ -6243,7 +6112,6 @@ async function restoreBackup(file) {
           ticketPlan: String(ticketCard?.plan || "").trim(),
           ticketSheet: ticketCard?.sheetNumber ? `${ticketCard.sheetNumber}枚目` : "",
           ticketRound: ticketCard?.round ? `${ticketCard.round}回目` : "",
-          measurementTargets: profile?.measurementTargets || {},
         },
       });
     }
@@ -6485,7 +6353,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260415-16", { updateViaCache: "none" })
+        .register("./sw.js?v=20260416-06", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
