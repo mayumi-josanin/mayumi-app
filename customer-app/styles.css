@@ -981,10 +981,19 @@ legend > span:first-child {
   box-sizing: border-box;
 }
 
+.question-inline-textarea-label {
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
 .checkbox-row .question-inline-textarea textarea {
+  display: block;
   width: 100%;
   min-height: 132px;
   margin-top: 0;
+  box-sizing: border-box;
 }
 
 .question-caption {
