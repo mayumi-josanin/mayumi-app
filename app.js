@@ -3121,7 +3121,7 @@ function renderBlogList(containerId, limit, filterType = null, filterCategory = 
       }
     }
 
-    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${escapeHtml(item.icon || '📢')}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${escapeHtml(displayDate)}</span><span class="blog-cat">${escapeHtml(item.category || '')}</span>${buildUnreadBadgeHtml('blog', item)}</div><div class="blog-title">${escapeHtml(item.title || '')}</div>${bodyHtml}</div></div>`;
+    div.innerHTML = `<div class="blog-inner"><div class="blog-icon">${buildNoticeFeedIconHtml(item)}</div><div style="flex:1"><div class="blog-meta"><span class="blog-date">${escapeHtml(displayDate)}</span><span class="blog-cat">${escapeHtml(item.category || '')}</span>${buildUnreadBadgeHtml('blog', item)}</div><div class="blog-title">${escapeHtml(item.title || '')}</div>${bodyHtml}</div></div>`;
     div.onclick = () => openBlogDetail(item);
     el.appendChild(div);
   });
