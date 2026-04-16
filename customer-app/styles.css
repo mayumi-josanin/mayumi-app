@@ -862,6 +862,8 @@ fieldset {
 }
 
 legend {
+  display: block;
+  width: 100%;
   margin-bottom: 10px;
   color: var(--text-mid);
   font-weight: 700;
@@ -879,16 +881,15 @@ legend > span:first-child {
 }
 
 .question-title-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
   width: 100%;
   min-width: 0;
 }
 
 .question-title-text {
-  flex: 1 1 220px;
+  width: 100%;
   min-width: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -945,6 +946,11 @@ legend > span:first-child {
   line-height: 1.6;
 }
 
+.checkbox-option-card {
+  display: grid;
+  gap: 8px;
+}
+
 .question-inline-textarea {
   display: grid;
   gap: 6px;
@@ -952,6 +958,10 @@ legend > span:first-child {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--warm-white);
+}
+
+.question-inline-textarea textarea {
+  margin-top: 0;
 }
 
 .question-caption {

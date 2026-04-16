@@ -3443,24 +3443,26 @@ function renderQuestion(question, index, surveyId) {
             }).join("")}
           </div>
           <div class="checkbox-row concern-option-list">
-            <label>
-              <input
-                type="checkbox"
-                name="${name}"
-                value="${escapeHtml(SESSION_CONCERN_OTHER_OPTION)}"
-                data-question-id="${question.id}"
-                ${selected.has(SESSION_CONCERN_OTHER_OPTION) ? "checked" : ""}
-              />
-              <span class="option-text">${escapeHtml(SESSION_CONCERN_OTHER_OPTION)}</span>
-            </label>
+            <div class="checkbox-option-card">
+              <label>
+                <input
+                  type="checkbox"
+                  name="${name}"
+                  value="${escapeHtml(SESSION_CONCERN_OTHER_OPTION)}"
+                  data-question-id="${question.id}"
+                  ${selected.has(SESSION_CONCERN_OTHER_OPTION) ? "checked" : ""}
+                />
+                <span class="option-text">${escapeHtml(SESSION_CONCERN_OTHER_OPTION)}</span>
+              </label>
+              ${selected.has(SESSION_CONCERN_OTHER_OPTION)
+                ? renderInlineOtherTextarea(
+                    SESSION_CONCERN_OTHER_QUESTION_ID,
+                    surveyId,
+                    "その他（長文）の内容を入力してください",
+                  )
+                : ""}
+            </div>
           </div>
-          ${selected.has(SESSION_CONCERN_OTHER_OPTION)
-            ? renderInlineOtherTextarea(
-                SESSION_CONCERN_OTHER_QUESTION_ID,
-                surveyId,
-                "その他（長文）の内容を入力してください",
-              )
-            : ""}
           ${activeCategoryId ? "" : `<div class="empty">カテゴリを選択すると詳細項目を表示します。</div>`}
         </fieldset>
       `;
@@ -3471,22 +3473,31 @@ function renderQuestion(question, index, surveyId) {
         <div class="checkbox-row">
           ${question.options
             .map(
-              (option) => `
-                <label>
-                  <input type="checkbox" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${selected.has(option) ? "checked" : ""} />
-                  <span class="option-text">${escapeHtml(option)}</span>
-                </label>
-              `,
+              (option) => option === "その他（自由記述）"
+                ? `
+                    <div class="checkbox-option-card">
+                      <label>
+                        <input type="checkbox" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${selected.has(option) ? "checked" : ""} />
+                        <span class="option-text">${escapeHtml(option)}</span>
+                      </label>
+                      ${selected.has(option)
+                        ? renderInlineOtherTextarea(
+                            SESSION_LIFE_CHANGES_OTHER_QUESTION_ID,
+                            surveyId,
+                            "その他（自由記述）の内容を入力してください",
+                          )
+                        : ""}
+                    </div>
+                  `
+                : `
+                    <label>
+                      <input type="checkbox" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${selected.has(option) ? "checked" : ""} />
+                      <span class="option-text">${escapeHtml(option)}</span>
+                    </label>
+                  `,
             )
             .join("")}
         </div>
-        ${question.id === SESSION_LIFE_CHANGES_QUESTION_ID && selected.has("その他（自由記述）")
-          ? renderInlineOtherTextarea(
-              SESSION_LIFE_CHANGES_OTHER_QUESTION_ID,
-              surveyId,
-              "その他（自由記述）の内容を入力してください",
-            )
-          : ""}
       </fieldset>
     `;
   }
