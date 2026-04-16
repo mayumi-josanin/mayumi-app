@@ -482,13 +482,14 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
 }
 
 .ticket-stamp-panel {
   display: grid;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 12px;
   margin-top: 8px;
+  align-items: start;
 }
 
 .ticket-progress-card {
@@ -1665,6 +1666,7 @@ textarea {
   .management-grid,
   .survey-question-grid,
   .bijiris-preview-grid,
+  .ticket-stamp-panel,
   .condition-row,
   .monthly-bar-row {
     grid-template-columns: 1fr;
