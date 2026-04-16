@@ -3276,7 +3276,7 @@ function renderPushNotices() {
     card.className = 'blog-card';
     card.innerHTML = `
       <div class="blog-inner">
-        <div class="blog-icon">${escapeHtml(item.icon || '📢')}</div>
+        <div class="blog-icon">${buildNoticeFeedIconHtml(item)}</div>
         <div style="flex:1">
           <div class="blog-meta">
             <span class="blog-cat">${escapeHtml(item.category)}</span>
@@ -3291,6 +3291,15 @@ function renderPushNotices() {
     card.onclick = function () { openNoticeFeedItem(item); };
     container.appendChild(card);
   });
+}
+
+function buildNoticeFeedIconHtml(item) {
+  const imageCandidates = normalizeManagedImageList(item && (item.imageUrls || item.image || item.imageUrl || item.icon));
+  const imageUrl = imageCandidates.length ? getContentDisplayImageUrl(imageCandidates[0]) : '';
+  if (imageUrl) {
+    return `<img src="${escapeHtml(imageUrl)}" class="blog-icon-image" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
+  }
+  return `<span class="blog-icon-emoji">${escapeHtml(item && item.icon || '📢')}</span>`;
 }
 
 function openNoticeFeedItem(item) {
