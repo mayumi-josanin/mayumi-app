@@ -417,6 +417,16 @@ textarea {
   color: #666;
 }
 
+.badge.required {
+  background: #fbe7d8;
+  color: #8c4c1f;
+}
+
+.badge.optional {
+  background: #f3efe9;
+  color: var(--text-mid);
+}
+
 .answer-list {
   display: grid;
   gap: 8px;
@@ -429,6 +439,14 @@ textarea {
   background: var(--cream);
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.question-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .ticket-info-panel {

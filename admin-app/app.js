@@ -801,6 +801,24 @@ function getCheckboxAnswerValues(answer) {
     .filter(Boolean);
 }
 
+function getQuestionRequirementMeta(question) {
+  const required = question?.required !== false;
+  return {
+    label: required ? "必須" : "任意",
+    badgeClass: required ? "required" : "optional",
+  };
+}
+
+function renderQuestionHeading(question, fallbackLabel = "") {
+  const requirement = getQuestionRequirementMeta(question);
+  return `
+    <div class="question-title-row">
+      <strong>${escapeHtml(question?.label || fallbackLabel || "質問")}</strong>
+      <span class="badge ${requirement.badgeClass}">${requirement.label}</span>
+    </div>
+  `;
+}
+
 function getConcernAnalyticsRows(answerMapList) {
   const selectedOptionsByResponse = answerMapList.map((answerMap) => {
     const answer = answerMap.get(SESSION_CONCERN_QUESTION_ID);
@@ -2112,10 +2130,16 @@ function renderReadOnlyResponseCard(response) {
             };
             return question.type !== "photo";
           })
-          .map(
-            (answer) => `
+          .map((answer) => {
+            const question = survey?.questions.find((item) => item.id === answer.questionId) || {
+              id: answer.questionId,
+              label: answer.label,
+              type: answer.type,
+              options: [],
+            };
+            return `
               <div class="answer-item">
-                <strong>${escapeHtml(answer.label)}</strong><br />
+                ${renderQuestionHeading(question, answer.label)}
                 ${answer.questionId === SESSION_CONCERN_QUESTION_ID
                   ? `
                     <div class="concern-answer-groups">
@@ -2137,8 +2161,8 @@ function renderReadOnlyResponseCard(response) {
                   `
                   : renderAnswerValue(answer)}
               </div>
-            `,
-          )
+            `;
+          })
           .join("")}
       </div>
     </article>
@@ -2189,10 +2213,16 @@ function renderCustomerTimeline(responseList) {
                       };
                       return question.type !== "photo";
                     })
-                    .map(
-                      (answer) => `
+                    .map((answer) => {
+                      const question = survey?.questions.find((item) => item.id === answer.questionId) || {
+                        id: answer.questionId,
+                        label: answer.label,
+                        type: answer.type,
+                        options: [],
+                      };
+                      return `
                         <div class="answer-item">
-                          <strong>${escapeHtml(answer.label)}</strong><br />
+                          ${renderQuestionHeading(question, answer.label)}
                           ${answer.questionId === SESSION_CONCERN_QUESTION_ID
                             ? `
                               <div class="concern-answer-groups">
@@ -2212,8 +2242,8 @@ function renderCustomerTimeline(responseList) {
                             `
                             : renderAnswerValue(answer)}
                         </div>
-                      `,
-                    )
+                      `;
+                    })
                     .join("")}
                 </div>
               </div>
@@ -3414,7 +3444,7 @@ function renderComparisonSection(response) {
       if (currentValue === lastValue) return "";
       return `
         <div class="comparison-row">
-          <strong>${escapeHtml(question.label)}</strong>
+          ${renderQuestionHeading(question)}
           <div class="meta">前回: ${escapeHtml(lastValue)}</div>
           <div>今回: ${escapeHtml(currentValue)}</div>
         </div>
@@ -3876,7 +3906,7 @@ function renderResponseCard(response) {
             };
             return `
               <div class="answer-item">
-                <strong>${escapeHtml(answer.label)}</strong><br />
+                ${renderQuestionHeading(question, answer.label)}
                 ${renderEditableAnswerField(question, answer)}
               </div>
             `;
