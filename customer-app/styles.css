@@ -872,12 +872,36 @@ legend {
 .question-block > span:first-child,
 .question-label > span:first-child,
 legend > span:first-child {
-  display: block;
   color: var(--text-dark);
   font-size: 15px;
   font-weight: 700;
   line-height: 1.7;
+}
+
+.question-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.question-title-text {
+  flex: 1 1 220px;
+  min-width: 0;
   overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.badge.required {
+  background: #fbe7d8;
+  color: #8c4c1f;
+}
+
+.badge.optional {
+  background: #f3efe9;
+  color: var(--text-mid);
 }
 
 .checkbox-row,
@@ -919,6 +943,15 @@ legend > span:first-child {
   font-size: 12px;
   font-weight: 400;
   line-height: 1.6;
+}
+
+.question-inline-textarea {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--warm-white);
 }
 
 .question-caption {

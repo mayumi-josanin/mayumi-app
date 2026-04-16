@@ -449,6 +449,12 @@ textarea {
   margin-bottom: 4px;
 }
 
+.question-title-row strong {
+  flex: 1 1 240px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .ticket-info-panel {
   gap: 10px;
 }
@@ -1012,6 +1018,14 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.survey-question-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .survey-question-grid {

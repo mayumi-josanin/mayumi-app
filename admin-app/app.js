@@ -4668,11 +4668,15 @@ function renderSurveyQuestionEditor(question, index, allQuestions) {
     ? allQuestions.slice(0, index).map(normalizeQuestionForEditor).filter((item) => item?.id || item?.label)
     : [];
   const visibilityConditions = getQuestionVisibilityConditions(normalizedQuestion);
+  const requirement = getQuestionRequirementMeta(normalizedQuestion);
 
   return `
     <article class="survey-question-card" data-question-block data-question-id="${escapeHtml(normalizedQuestion.id || "")}">
       <div class="survey-question-head">
-        <strong data-question-number>質問 ${index + 1}</strong>
+        <div class="survey-question-title">
+          <strong data-question-number>質問 ${index + 1}</strong>
+          <span class="badge ${requirement.badgeClass}" data-question-required-badge>${requirement.label}</span>
+        </div>
         <button class="secondary-button" type="button" data-remove-question>削除</button>
       </div>
       <div class="question-conditions">
@@ -4714,6 +4718,16 @@ function renderSurveyQuestionEditor(question, index, allQuestions) {
       </div>
     </article>
   `;
+}
+
+function syncQuestionRequiredBadge(block) {
+  if (!block) return;
+  const badge = block.querySelector("[data-question-required-badge]");
+  const checkbox = block.querySelector("[data-question-required]");
+  if (!badge || !checkbox) return;
+  const requirement = getQuestionRequirementMeta({ required: checkbox.checked });
+  badge.className = `badge ${requirement.badgeClass}`;
+  badge.textContent = requirement.label;
 }
 
 function syncSurveyQuestionNumbers(container) {
@@ -5892,6 +5906,12 @@ function renderSurveyManager() {
       const block = typeSelect.closest("[data-question-block]");
       if (block) refreshQuestionOptionsEditor(block);
       refreshVisibilityConditionEditors(questionsContainer);
+      return;
+    }
+
+    const requiredToggle = event.target.closest("[data-question-required]");
+    if (requiredToggle) {
+      syncQuestionRequiredBadge(requiredToggle.closest("[data-question-block]"));
       return;
     }
 

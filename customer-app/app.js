@@ -1603,6 +1603,29 @@ function setConcernActiveCategory(surveyId, questionId, categoryId) {
   appState.concernCategoryByQuestion[key] = categoryId;
 }
 
+function isInlineManagedTextareaQuestion(question) {
+  return question?.id === SESSION_CONCERN_OTHER_QUESTION_ID || question?.id === SESSION_LIFE_CHANGES_OTHER_QUESTION_ID;
+}
+
+function renderQuestionLabel(question, index, surveyId) {
+  const required = isQuestionRequired(question, surveyId);
+  return `
+    <span class="question-title-row">
+      <span class="question-title-text">${index + 1}. ${escapeHtml(getQuestionLabel(question, surveyId))}</span>
+      <span class="badge ${required ? "required" : "optional"}">${required ? "必須" : "任意"}</span>
+    </span>
+  `;
+}
+
+function renderInlineOtherTextarea(questionId, surveyId, label) {
+  return `
+    <label class="question-inline-textarea">
+      <span class="meta">${escapeHtml(label)}</span>
+      <textarea data-question-id="${questionId}">${escapeHtml(getDraftValue(surveyId, questionId) || "")}</textarea>
+    </label>
+  `;
+}
+
 function getSurveyAvailability(survey) {
   const nowTime = Date.now();
   const nearDeadlineMs = 3 * 24 * 60 * 60 * 1000;
@@ -3324,12 +3347,8 @@ function renderTicketStepRound(survey, surveyId) {
 function renderQuestion(question, index, surveyId) {
   const draft = getSurveyDraft(surveyId);
   const name = `question-${question.id}`;
-  const required = isQuestionRequired(question, surveyId);
   const selectedCheckboxValues = Array.isArray(draft.values[question.id]) ? draft.values[question.id] : [];
-  const label = `
-    <span>${index + 1}. ${escapeHtml(getQuestionLabel(question, surveyId))}</span>
-    ${required ? "" : `<span class="meta">任意</span>`}
-  `;
+  const label = renderQuestionLabel(question, index, surveyId);
 
   if (question.type === "textarea") {
     return `
@@ -3435,6 +3454,13 @@ function renderQuestion(question, index, surveyId) {
               <span class="option-text">${escapeHtml(SESSION_CONCERN_OTHER_OPTION)}</span>
             </label>
           </div>
+          ${selected.has(SESSION_CONCERN_OTHER_OPTION)
+            ? renderInlineOtherTextarea(
+                SESSION_CONCERN_OTHER_QUESTION_ID,
+                surveyId,
+                "その他（長文）の内容を入力してください",
+              )
+            : ""}
           ${activeCategoryId ? "" : `<div class="empty">カテゴリを選択すると詳細項目を表示します。</div>`}
         </fieldset>
       `;
@@ -3454,6 +3480,13 @@ function renderQuestion(question, index, surveyId) {
             )
             .join("")}
         </div>
+        ${question.id === SESSION_LIFE_CHANGES_QUESTION_ID && selected.has("その他（自由記述）")
+          ? renderInlineOtherTextarea(
+              SESSION_LIFE_CHANGES_OTHER_QUESTION_ID,
+              surveyId,
+              "その他（自由記述）の内容を入力してください",
+            )
+          : ""}
       </fieldset>
     `;
   }
@@ -3619,6 +3652,7 @@ function renderFormPanel(survey) {
   const draft = getSurveyDraft(surveyId);
   const availability = getSurveyAvailability(survey);
   const visibleQuestions = getVisibleQuestions(survey, draft);
+  const renderableQuestions = visibleQuestions.filter((question) => !isInlineManagedTextareaQuestion(question));
   const progress = getProgress(survey, draft);
 
   answerPanel.innerHTML = `
@@ -3685,7 +3719,7 @@ function renderFormPanel(survey) {
         : ""
     }
     <form id="answerForm" class="question-list">
-      ${visibleQuestions.map((question, index) => renderQuestion(question, index, surveyId)).join("")}
+      ${renderableQuestions.map((question, index) => renderQuestion(question, index, surveyId)).join("")}
       ${
         appState.publicInfo.requireConsent
           ? `
@@ -3705,7 +3739,7 @@ function renderFormPanel(survey) {
           : ""
       }
       ${
-        visibleQuestions.length
+        renderableQuestions.length
           ? `<button class="primary-button" type="submit">${appState.editingResponseId ? "確認へ進む" : "内容を確認する"}</button>`
           : `<div class="empty">表示できる質問がありません。</div>`
       }
