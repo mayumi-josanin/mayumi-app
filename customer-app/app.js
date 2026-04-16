@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260416-11";
+const APP_VERSION = "20260416-12";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v72";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v73";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -280,7 +280,6 @@ const appState = {
   concernCategoryByQuestion: {},
   selectedMeasurementPeriod: "6m",
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
-  selectedMeasurementPhotoComparisonId: "",
   pushSupported: false,
   pushEnabled: false,
   pushActualEnabled: false,
@@ -4857,18 +4856,6 @@ function buildMeasurementPhotoTimelineEntries(photoGroups) {
   }));
 }
 
-function renderMeasurementPhotoGroupCard(group, title) {
-  if (!group) return "";
-  return `
-    <article class="history-card">
-      <strong>${escapeHtml(title)}</strong>
-      <div class="meta">${escapeHtml(formatDate(group.submittedAt))}</div>
-      ${renderTicketStampList(group.ticketInfo || [])}
-      ${renderAnswerValue({ files: group.files })}
-    </article>
-  `;
-}
-
 function renderMeasurementSummaryCards(measurements) {
   if (!measurements.length) {
     return `<div class="empty">まだ計測記録はありません。</div>`;
@@ -5090,44 +5077,24 @@ function renderMeasurementPhotoTimeline(entries) {
   if (!entries.length) {
     return `<div class="empty">まだ表示できる計測写真はありません。</div>`;
   }
-  if (
-    appState.selectedMeasurementPhotoComparisonId &&
-    !entries.some((entry) => entry.id === appState.selectedMeasurementPhotoComparisonId)
-  ) {
-    appState.selectedMeasurementPhotoComparisonId = "";
-  }
-  const selectedEntry =
-    entries.find((entry) => entry.id === appState.selectedMeasurementPhotoComparisonId) || null;
 
   return `
     <div class="measurement-photo-entry-list">
       ${entries
         .map(
           (entry) => `
-            <button
-              class="measurement-photo-entry ${entry.id === selectedEntry?.id ? "is-active" : ""}"
-              type="button"
-              data-measurement-photo-entry="${escapeHtml(entry.id)}"
-            >
+            <article class="measurement-photo-entry">
               <div class="measurement-photo-entry-order">#${escapeHtml(entry.orderLabel)}</div>
               <strong>${escapeHtml(entry.title)}</strong>
+              ${renderAnswerValue({ files: entry.group.files })}
               <div class="meta">${escapeHtml(entry.photoLabel)}</div>
               <div class="meta">${escapeHtml(formatDate(entry.submittedAt))}</div>
-            </button>
+              ${renderTicketStampList(entry.group.ticketInfo || [])}
+            </article>
           `,
         )
         .join("")}
     </div>
-    ${
-      selectedEntry
-        ? `<div class="measurement-photo-detail">
-            ${renderMeasurementPhotoGroupCard(
-              selectedEntry.group,
-              `${selectedEntry.group.stageLabel}の${getMeasurementPhotoCurrentLabel(selectedEntry.group)}`,
-            )}
-          </div>`
-        : `<div class="empty">上の一覧から見たい計測写真を選択してください。</div>`
-    }
   `;
 }
 
@@ -5217,7 +5184,7 @@ function renderMeasurements() {
 
       <article class="history-card">
         <strong>計測写真一覧</strong>
-        <div class="meta">アンケートでアップロードした順に、計測写真を一覧から選んで確認できます。</div>
+        <div class="meta">アンケートでアップロードした順に、各タイトルのすぐ下で計測写真を確認できます。</div>
         ${renderMeasurementPhotoTimeline(photoTimelineEntries)}
       </article>
     </div>
@@ -5233,12 +5200,6 @@ function renderMeasurements() {
         ...appState.measurementMetricVisibility,
         [checkbox.dataset.toggleMeasurementMetric]: checkbox.checked,
       };
-      renderMeasurements();
-    });
-  });
-  measurementPanel.querySelectorAll("[data-measurement-photo-entry]").forEach((button) => {
-    button.addEventListener("click", () => {
-      appState.selectedMeasurementPhotoComparisonId = button.dataset.measurementPhotoEntry || "";
       renderMeasurements();
     });
   });
@@ -5365,7 +5326,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260416-11", { updateViaCache: "none" })
+        .register("./sw.js?v=20260416-12", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
