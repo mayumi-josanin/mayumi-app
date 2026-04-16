@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260416-04";
+const APP_VERSION = "20260416-05";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v65";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v66";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -4923,31 +4923,49 @@ function renderMeasurementHistoryList(measurements, targets) {
     return `<div class="empty">まだ計測履歴はありません。</div>`;
   }
   return `
-    <div class="measurement-history-list">
-      ${rows.map((row) => `
-        <article class="measurement-history-card">
-          <div class="section-head">
-            <div>
-              <strong>${escapeHtml(formatDateOnly(row.measuredAt))}</strong>
-              <div class="meta">WHR ${escapeHtml(formatWhr(row.whr))} / 左右差 ${row.leftRightGap === "" ? "-" : `${escapeHtml(row.leftRightGap.toFixed(1))}cm`}</div>
-            </div>
-          </div>
-          <div class="measurement-metric-grid">
-            ${MEASUREMENT_METRICS.map((metric) => {
-              const metricRow = row.metrics[metric.key];
-              return `
-                <div class="measurement-metric-card">
-                  <div class="measurement-summary-label">${escapeHtml(metric.label)}</div>
-                  <strong>${escapeHtml(formatMeasurementValue(metricRow.value))}</strong>
-                  <div class="measurement-cell-sub">前回 ${formatMeasurementDelta(metricRow.previousDelta)}</div>
-                  <div class="measurement-cell-sub">初回 ${formatMeasurementDelta(metricRow.firstDelta)}</div>
-                  <div class="measurement-cell-sub">目標 ${formatMeasurementGapToTarget(metricRow.value, targets?.[metric.key])}</div>
-                </div>
-              `;
-            }).join("")}
-          </div>
-        </article>
-      `).join("")}
+    <div class="measurement-history-table-wrap">
+      <table class="measurement-history-table">
+        <thead>
+          <tr>
+            <th>測定日</th>
+            <th>WHR</th>
+            <th>左右差</th>
+            ${MEASUREMENT_METRICS.map((metric) => `<th>${escapeHtml(metric.label)}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map((row) => `
+              <tr>
+                <td class="measurement-date-cell">
+                  <strong>${escapeHtml(formatDateOnly(row.measuredAt))}</strong>
+                </td>
+                <td>
+                  <div class="measurement-table-main">${escapeHtml(formatWhr(row.whr))}</div>
+                </td>
+                <td>
+                  <div class="measurement-table-main">
+                    ${row.leftRightGap === "" ? "-" : `${escapeHtml(row.leftRightGap.toFixed(1))}cm`}
+                  </div>
+                </td>
+                ${MEASUREMENT_METRICS.map((metric) => {
+                  const metricRow = row.metrics[metric.key];
+                  return `
+                    <td>
+                      <div class="measurement-table-main">
+                        ${escapeHtml(formatMeasurementValue(metricRow.value))}
+                      </div>
+                      <div class="measurement-table-sub">前回 ${formatMeasurementDelta(metricRow.previousDelta)}</div>
+                      <div class="measurement-table-sub">初回 ${formatMeasurementDelta(metricRow.firstDelta)}</div>
+                      <div class="measurement-table-sub">目標 ${formatMeasurementGapToTarget(metricRow.value, targets?.[metric.key])}</div>
+                    </td>
+                  `;
+                }).join("")}
+              </tr>
+            `)
+            .join("")}
+        </tbody>
+      </table>
     </div>
   `;
 }
@@ -5076,7 +5094,7 @@ function renderMeasurements() {
 
       <article class="history-card">
         <strong>計測履歴</strong>
-        <div class="meta">新しい記録が上に表示されます。前回比・初回比・目標との差を確認できます。</div>
+        <div class="meta">新しい記録が上に表示されます。表一覧で前回比・初回比・目標との差を確認できます。</div>
         ${renderMeasurementHistoryList(filteredMeasurements, targets)}
       </article>
 
@@ -5230,7 +5248,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260416-04", { updateViaCache: "none" })
+        .register("./sw.js?v=20260416-05", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
