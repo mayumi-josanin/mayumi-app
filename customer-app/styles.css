@@ -311,12 +311,11 @@ textarea {
   gap: 8px;
 }
 
-.bijiris-unread-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: #d45d4d;
-  box-shadow: 0 0 0 3px rgba(212, 93, 77, 0.14);
+.bijiris-unread-label {
+  color: #c5483b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
   flex: 0 0 auto;
 }
 
