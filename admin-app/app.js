@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v73";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v74";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -392,6 +392,225 @@ function normalizeBijirisCategoryConfig(rawConfig) {
 
 function getBijirisCategoryConfig(preferences = state.preferences) {
   return normalizeBijirisCategoryConfig(preferences?.bijirisCategoryConfig);
+}
+
+function renderBijirisGeneralCategorySettingRow(value = "") {
+  return `
+    <div class="bijiris-settings-input-row" data-bijiris-general-item>
+      <input
+        type="text"
+        value="${escapeHtml(normalizeLabel(value))}"
+        placeholder="通常カテゴリ名"
+        data-bijiris-general-value
+      />
+      <button class="secondary-button danger-button" type="button" data-remove-bijiris-general-category>削除</button>
+    </div>
+  `;
+}
+
+function renderBijirisConcernSettingRow(value = "") {
+  return `
+    <div class="bijiris-settings-input-row" data-bijiris-concern-item>
+      <input
+        type="text"
+        value="${escapeHtml(normalizeLabel(value))}"
+        placeholder="個別お悩み名"
+        data-bijiris-concern-value
+      />
+      <button class="secondary-button danger-button" type="button" data-remove-bijiris-concern>削除</button>
+    </div>
+  `;
+}
+
+function renderBijirisConcernGroupSettingCard(group = {}) {
+  const concerns = Array.isArray(group?.concerns) && group.concerns.length
+    ? group.concerns
+    : [{ label: "" }];
+  return `
+    <article class="history-card bijiris-settings-group-card" data-bijiris-group-item>
+      <div class="survey-manager-card-head">
+        <strong>大分類</strong>
+        <button class="secondary-button danger-button" type="button" data-remove-bijiris-group>大分類を削除</button>
+      </div>
+      <label>
+        大分類名
+        <input type="text" value="${escapeHtml(normalizeLabel(group?.label))}" placeholder="大分類名" data-bijiris-group-label />
+      </label>
+      <div class="stack" data-bijiris-concern-list>
+        ${concerns.map((concern) => renderBijirisConcernSettingRow(concern?.label)).join("")}
+      </div>
+      <button class="secondary-button" type="button" data-add-bijiris-concern>個別お悩みを追加</button>
+    </article>
+  `;
+}
+
+function renderBijirisConcernAudienceSettingCard(audience = {}) {
+  const groups = Array.isArray(audience?.groups) && audience.groups.length
+    ? audience.groups
+    : [{ label: "", concerns: [{ label: "" }] }];
+  return `
+    <article class="history-card bijiris-settings-audience-card" data-bijiris-audience-item>
+      <div class="survey-manager-card-head">
+        <strong>対象</strong>
+        <button class="secondary-button danger-button" type="button" data-remove-bijiris-audience>対象を削除</button>
+      </div>
+      <label>
+        対象名
+        <input type="text" value="${escapeHtml(normalizeLabel(audience?.label))}" placeholder="対象名" data-bijiris-audience-label />
+      </label>
+      <div class="stack" data-bijiris-group-list>
+        ${groups.map((group) => renderBijirisConcernGroupSettingCard(group)).join("")}
+      </div>
+      <button class="secondary-button" type="button" data-add-bijiris-group>大分類を追加</button>
+    </article>
+  `;
+}
+
+function renderBijirisCategorySettingsEditor(config) {
+  const normalizedConfig = normalizeBijirisCategoryConfig(config);
+  const audiences = Array.isArray(normalizedConfig.concernTree) && normalizedConfig.concernTree.length
+    ? normalizedConfig.concernTree
+    : [{ label: "", groups: [{ label: "", concerns: [{ label: "" }] }] }];
+  return `
+    <article class="history-card bijiris-settings-category-card" data-bijiris-category-settings>
+      <div class="survey-editor-head">
+        <div>
+          <strong>豆知識カテゴリ設定</strong>
+          <div class="meta">管理者がカテゴリを追加・削除できます。保存すると豆知識作成時のカテゴリ選択へ反映されます。</div>
+        </div>
+      </div>
+      <section class="stack">
+        <div class="card-title">通常カテゴリ</div>
+        <div class="stack" data-bijiris-general-list>
+          ${normalizedConfig.generalCategories.map((category) => renderBijirisGeneralCategorySettingRow(category)).join("")}
+        </div>
+        <button class="secondary-button" type="button" data-add-bijiris-general-category>通常カテゴリを追加</button>
+      </section>
+      <section class="stack">
+        <label>
+          お悩みカテゴリのルート名
+          <input name="bijirisConcernRootLabel" type="text" value="${escapeHtml(normalizedConfig.concernRootLabel)}" />
+        </label>
+        <div class="card-title">お悩みカテゴリ階層</div>
+        <div class="stack" data-bijiris-audience-list>
+          ${audiences.map((audience) => renderBijirisConcernAudienceSettingCard(audience)).join("")}
+        </div>
+        <button class="secondary-button" type="button" data-add-bijiris-audience>対象を追加</button>
+      </section>
+    </article>
+  `;
+}
+
+function setupBijirisCategorySettingsEditor(form) {
+  if (!form) return;
+  form.addEventListener("click", (event) => {
+    const generalList = form.querySelector("[data-bijiris-general-list]");
+    const audienceList = form.querySelector("[data-bijiris-audience-list]");
+    const target = event.target.closest("button");
+    if (!target) return;
+
+    if (target.matches("[data-add-bijiris-general-category]")) {
+      generalList?.insertAdjacentHTML("beforeend", renderBijirisGeneralCategorySettingRow(""));
+      return;
+    }
+
+    if (target.matches("[data-remove-bijiris-general-category]")) {
+      const items = form.querySelectorAll("[data-bijiris-general-item]");
+      if (items.length <= 1) {
+        showToast("通常カテゴリは1件以上必要です。");
+        return;
+      }
+      target.closest("[data-bijiris-general-item]")?.remove();
+      return;
+    }
+
+    if (target.matches("[data-add-bijiris-audience]")) {
+      audienceList?.insertAdjacentHTML("beforeend", renderBijirisConcernAudienceSettingCard({ label: "", groups: [{ label: "", concerns: [{ label: "" }] }] }));
+      return;
+    }
+
+    if (target.matches("[data-remove-bijiris-audience]")) {
+      const audienceItem = target.closest("[data-bijiris-audience-item]");
+      const totalConcerns = form.querySelectorAll("[data-bijiris-concern-item]").length;
+      const audienceConcerns = audienceItem?.querySelectorAll("[data-bijiris-concern-item]").length || 0;
+      if (totalConcerns <= audienceConcerns) {
+        showToast("お悩みカテゴリは1件以上必要です。");
+        return;
+      }
+      audienceItem?.remove();
+      return;
+    }
+
+    if (target.matches("[data-add-bijiris-group]")) {
+      target.closest("[data-bijiris-audience-item]")?.querySelector("[data-bijiris-group-list]")?.insertAdjacentHTML(
+        "beforeend",
+        renderBijirisConcernGroupSettingCard({ label: "", concerns: [{ label: "" }] }),
+      );
+      return;
+    }
+
+    if (target.matches("[data-remove-bijiris-group]")) {
+      const groupItem = target.closest("[data-bijiris-group-item]");
+      const totalConcerns = form.querySelectorAll("[data-bijiris-concern-item]").length;
+      const groupConcerns = groupItem?.querySelectorAll("[data-bijiris-concern-item]").length || 0;
+      if (totalConcerns <= groupConcerns) {
+        showToast("お悩みカテゴリは1件以上必要です。");
+        return;
+      }
+      groupItem?.remove();
+      return;
+    }
+
+    if (target.matches("[data-add-bijiris-concern]")) {
+      target.closest("[data-bijiris-group-item]")?.querySelector("[data-bijiris-concern-list]")?.insertAdjacentHTML(
+        "beforeend",
+        renderBijirisConcernSettingRow(""),
+      );
+      return;
+    }
+
+    if (target.matches("[data-remove-bijiris-concern]")) {
+      const items = form.querySelectorAll("[data-bijiris-concern-item]");
+      if (items.length <= 1) {
+        showToast("お悩みカテゴリは1件以上必要です。");
+        return;
+      }
+      target.closest("[data-bijiris-concern-item]")?.remove();
+    }
+  });
+}
+
+function collectBijirisCategoryConfigFromForm(form) {
+  const generalCategories = Array.from(form.querySelectorAll("[data-bijiris-general-value]"))
+    .map((input) => normalizeLabel(input.value))
+    .filter(Boolean);
+  const concernRootLabel = normalizeLabel(form.elements.bijirisConcernRootLabel?.value);
+  const concernPaths = Array.from(form.querySelectorAll("[data-bijiris-audience-item]"))
+    .flatMap((audienceItem) => {
+      const audienceLabel = normalizeLabel(audienceItem.querySelector("[data-bijiris-audience-label]")?.value);
+      return Array.from(audienceItem.querySelectorAll("[data-bijiris-group-item]")).flatMap((groupItem) => {
+        const groupLabel = normalizeLabel(groupItem.querySelector("[data-bijiris-group-label]")?.value);
+        return Array.from(groupItem.querySelectorAll("[data-bijiris-concern-value]"))
+          .map((input) => normalizeLabel(input.value))
+          .filter(Boolean)
+          .map((concernLabel) => [audienceLabel, groupLabel, concernLabel].filter(Boolean).join(" > "));
+      });
+    })
+    .filter((value) => value.split(/\s*>\s*/).filter(Boolean).length >= 3);
+  if (!generalCategories.length) {
+    throw new Error("通常カテゴリを1件以上入力してください。");
+  }
+  if (!concernRootLabel) {
+    throw new Error("お悩みカテゴリのルート名を入力してください。");
+  }
+  if (!concernPaths.length) {
+    throw new Error("お悩みカテゴリを1件以上入力してください。");
+  }
+  return {
+    generalCategories,
+    concernRootLabel,
+    concernPaths,
+  };
 }
 const BIJIRIS_POST_TEMPLATES = [
   {
@@ -5132,25 +5351,11 @@ function renderSettings() {
           復旧手順メモ
           <textarea name="recoveryMemo">${escapeHtml(preferences.recoveryMemo || "")}</textarea>
         </label>
-        <article class="history-card">
-          <strong>豆知識カテゴリ設定</strong>
-          <div class="meta">通常カテゴリは1行に1項目、${escapeHtml(bijirisCategoryConfig.concernRootLabel)} は 1行に「対象 &gt; 大分類 &gt; 個別お悩み」で入力します。</div>
-          <label>
-            通常カテゴリ
-            <textarea name="bijirisGeneralCategories" rows="6">${escapeHtml(bijirisCategoryConfig.generalCategories.join("\n"))}</textarea>
-          </label>
-          <label>
-            お悩みカテゴリのルート名
-            <input name="bijirisConcernRootLabel" type="text" value="${escapeHtml(bijirisCategoryConfig.concernRootLabel)}" />
-          </label>
-          <label>
-            お悩みカテゴリ階層
-            <textarea name="bijirisConcernPaths" rows="12">${escapeHtml(bijirisCategoryConfig.concernPaths.join("\n"))}</textarea>
-          </label>
-        </article>
+        ${renderBijirisCategorySettingsEditor(bijirisCategoryConfig)}
         <button class="primary-button" type="submit">設定を保存</button>
       </form>
     `;
+    setupBijirisCategorySettingsEditor(preferencesCard.querySelector("form"));
     preferencesCard.querySelector("form")?.addEventListener("submit", (event) => {
       event.preventDefault();
       void savePreferences();
@@ -5893,10 +6098,11 @@ function getBijirisSubmitButtonLabel(draft, selectedPost, isEditingPublishedPost
 }
 
 function createEmptyBijirisPostDraft() {
+  const config = getBijirisCategoryConfig();
   return normalizeBijirisPost({
     id: "",
     title: "",
-    category: BIJIRIS_POST_CATEGORY_OPTIONS[0],
+    category: config.generalCategories[0] || BIJIRIS_POST_CATEGORY_OPTIONS[0],
     summary: "",
     body: "",
     status: "published",
@@ -6530,10 +6736,11 @@ function renderBijirisManager() {
   const list = document.querySelector("#bijirisPostList");
   const editorCard = document.querySelector("#bijirisEditorCard");
   const createButton = document.querySelector("#createBijirisPostButton");
+  const categorySettingsButton = document.querySelector("#openBijirisCategorySettingsButton");
   const listSection = document.querySelector("#bijirisListSection");
   const editorSection = document.querySelector("#bijirisEditorSection");
   const stageTitle = document.querySelector("#bijirisStageTitle");
-  if (!list || !editorCard || !createButton || !listSection || !editorSection || !stageTitle) return;
+  if (!list || !editorCard || !createButton || !categorySettingsButton || !listSection || !editorSection || !stageTitle) return;
 
   if (state.selectedBijirisPostId && !getBijirisPostById(state.selectedBijirisPostId)) {
     state.selectedBijirisPostId = "";
@@ -6554,6 +6761,7 @@ function renderBijirisManager() {
   listSection.hidden = view === "editor";
   editorSection.hidden = view !== "editor";
   createButton.hidden = view !== "list";
+  categorySettingsButton.hidden = view !== "list";
 
   if (view === "history" && selectedPost) {
     list.innerHTML = `
@@ -6615,6 +6823,12 @@ function renderBijirisManager() {
       state.selectedBijirisView = "editor";
       renderBijirisManager();
       setPage("bijiris");
+    };
+    categorySettingsButton.onclick = () => {
+      setPage("settings");
+      window.setTimeout(() => {
+        document.querySelector("#preferencesCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
     };
     list.querySelectorAll("[data-open-bijiris-history]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -7392,31 +7606,22 @@ async function savePreferences() {
   const form = document.querySelector("#preferencesForm");
   if (!form) return;
   const formData = new FormData(form);
-  const splitLines = (value) =>
-    String(value || "")
-      .split(/\r?\n/)
-      .map((line) => String(line || "").trim())
-      .filter(Boolean);
-  const payload = {
-    notificationEnabled: formData.get("notificationEnabled") === "on",
-    notificationEmail: String(formData.get("notificationEmail") || "").trim(),
-    notificationSubject: String(formData.get("notificationSubject") || "").trim(),
-    notificationBody: String(formData.get("notificationBody") || "").trim(),
-    dataPolicyText: String(formData.get("dataPolicyText") || "").trim(),
-    requireConsent: formData.get("requireConsent") === "on",
-    consentText: String(formData.get("consentText") || "").trim(),
-    autoBackupEnabled: formData.get("autoBackupEnabled") === "on",
-    backupHour: Number(formData.get("backupHour") || 0),
-    retentionDays: Number(formData.get("retentionDays") || 0),
-    recoveryMemo: String(formData.get("recoveryMemo") || "").trim(),
-    twoFactorEnabled: false,
-    bijirisCategoryConfig: {
-      generalCategories: splitLines(formData.get("bijirisGeneralCategories")),
-      concernRootLabel: String(formData.get("bijirisConcernRootLabel") || "").trim(),
-      concernPaths: splitLines(formData.get("bijirisConcernPaths")),
-    },
-  };
   try {
+    const payload = {
+      notificationEnabled: formData.get("notificationEnabled") === "on",
+      notificationEmail: String(formData.get("notificationEmail") || "").trim(),
+      notificationSubject: String(formData.get("notificationSubject") || "").trim(),
+      notificationBody: String(formData.get("notificationBody") || "").trim(),
+      dataPolicyText: String(formData.get("dataPolicyText") || "").trim(),
+      requireConsent: formData.get("requireConsent") === "on",
+      consentText: String(formData.get("consentText") || "").trim(),
+      autoBackupEnabled: formData.get("autoBackupEnabled") === "on",
+      backupHour: Number(formData.get("backupHour") || 0),
+      retentionDays: Number(formData.get("retentionDays") || 0),
+      recoveryMemo: String(formData.get("recoveryMemo") || "").trim(),
+      twoFactorEnabled: false,
+      bijirisCategoryConfig: collectBijirisCategoryConfigFromForm(form),
+    };
     const result = await api.request("/api/admin/preferences", {
       method: "PUT",
       token: state.token,
@@ -7608,7 +7813,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-15", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-16", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
