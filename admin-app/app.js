@@ -6384,6 +6384,11 @@ function renderBijirisManager() {
                 <div class="meta">写真 ${post.photos.length} / PDF ${post.documents.length}</div>
                 ${post.pinned ? `<span class="badge open">重要固定</span>` : ""}
               </button>
+              ${
+                post.documents.length
+                  ? `<div class="bijiris-preview-document-grid compact">${post.documents.slice(0, 2).map((file, index) => renderAdminBijirisDocumentPreview(file, index, true)).join("")}</div>`
+                  : ""
+              }
             </article>
           `)
           .join("")

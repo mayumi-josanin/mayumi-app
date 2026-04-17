@@ -1878,7 +1878,7 @@ function setPage(page) {
   }
   if (page === "bijiris") {
     renderBijirisPosts();
-    if (!appState.bijirisPosts.length && !appState.bijirisLoading) {
+    if (!appState.bijirisLoading) {
       void loadBijirisPosts();
     }
   }
@@ -5729,6 +5729,9 @@ function setupAutoCacheMaintenance() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       scheduleAutoCacheMaintenance();
+      if (hasCustomerSession() && !appState.bijirisLoading) {
+        void loadBijirisPosts();
+      }
     }
   });
   window.setInterval(() => {
