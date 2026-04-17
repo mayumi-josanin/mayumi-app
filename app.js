@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.14.64';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.17.65';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -4624,6 +4624,8 @@ function switchPage(name) {
 const PUSH_ENABLED_STORAGE_KEY = 'push_enabled';
 const NATIVE_PUSH_PLAYER_ID_STORAGE_KEY = 'mayumi_native_push_player_id';
 const NATIVE_PUSH_TOKEN_STORAGE_KEY = 'mayumi_native_push_token';
+const ONE_SIGNAL_APP_SCOPE_KEY = 'app_scope';
+const ONE_SIGNAL_APP_SCOPE_VALUE = 'mayumi_josanin_app';
 
 function getStoredPushPreference() {
   return localStorage.getItem(PUSH_ENABLED_STORAGE_KEY);
@@ -4681,11 +4683,21 @@ function getOneSignalSubscriptionValue(oneSignal) {
   return sub.id || sub.token || true;
 }
 
+async function ensureOneSignalAppScope(oneSignal) {
+  if (!oneSignal || !oneSignal.User || typeof oneSignal.User.addTag !== 'function') return;
+  try {
+    await oneSignal.User.addTag(ONE_SIGNAL_APP_SCOPE_KEY, ONE_SIGNAL_APP_SCOPE_VALUE);
+  } catch (e) {
+    console.error('OneSignal app scope tag error:', e);
+  }
+}
+
 async function syncWebPushState(options) {
   const opts = options || {};
   const OS = opts.oneSignal || window.OneSignalRef;
   const sub = getOneSignalPushSubscription(OS);
   if (!OS || !OS.Notifications || !sub) return false;
+  await ensureOneSignalAppScope(OS);
 
   const permissionGranted = await getOneSignalPermissionState(OS);
   if (!permissionGranted) {
@@ -8207,6 +8219,9 @@ async function initApp() {
             device_type: 0, // iOS
             identifier: token.value,
             language: 'ja',
+            tags: {
+              [ONE_SIGNAL_APP_SCOPE_KEY]: ONE_SIGNAL_APP_SCOPE_VALUE
+            },
             test_type: 1 // Sandbox (Xcodeからのデバッグ実行時に必要)
           };
           console.log('OneSignal Registering Payload (v2-debug):', JSON.stringify(payload));
@@ -8487,6 +8502,7 @@ if ('serviceWorker' in navigator) {
         allowLocalhostAsSecureOrigin: true,
       }).then(() => {
         console.log('OneSignal: Init Success!');
+        return ensureOneSignalAppScope(OneSignal);
       }).catch(e => {
         console.error('OneSignal: Init Error:', e);
       }).finally(() => {
