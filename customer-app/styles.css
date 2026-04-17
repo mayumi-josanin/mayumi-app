@@ -313,6 +313,49 @@ textarea {
   color: var(--sage-dark);
 }
 
+.bijiris-concern-card {
+  gap: 14px;
+}
+
+.bijiris-concern-group-list {
+  display: grid;
+  gap: 12px;
+}
+
+.bijiris-concern-group {
+  display: grid;
+  gap: 8px;
+}
+
+.bijiris-concern-group-title {
+  color: var(--text-mid);
+  font-size: 13px;
+}
+
+.bijiris-concern-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bijiris-concern-chip {
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid rgba(138, 158, 126, 0.18);
+  border-radius: 10px;
+  background: #fffaf6;
+  color: var(--text-dark);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.bijiris-concern-chip.active {
+  border-color: var(--sage);
+  background: #f5f8f1;
+  color: var(--sage-dark);
+}
+
 .bijiris-post-card {
   gap: 10px;
   cursor: pointer;

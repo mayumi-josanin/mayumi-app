@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260417-02";
+const APP_VERSION = "20260417-04";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v79";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v80";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -110,6 +110,112 @@ const DEFAULT_MEASUREMENT_VISIBILITY = {
   thighLeft: true,
   whr: true,
 };
+const BIJIRIS_CONCERN_GUIDES = [
+  {
+    id: "female",
+    label: "女性",
+    groups: [
+      {
+        id: "female-pelvic-floor",
+        label: "産後女性を含む骨盤底筋まわりのお悩み",
+        concerns: [
+          { id: "female-01", label: "産後の骨盤底筋のゆるみ感が気になる", terms: ["産後", "骨盤底筋", "ゆるみ"] },
+          { id: "female-02", label: "くしゃみ、咳、大笑いでヒヤッとする", terms: ["くしゃみ", "咳", "尿もれ"] },
+          { id: "female-03", label: "骨盤まわりを土台からケアしたい", terms: ["骨盤", "土台", "ケア"] },
+        ],
+      },
+      {
+        id: "female-toilet",
+        label: "トイレまわりのお悩み",
+        concerns: [
+          { id: "female-04", label: "尿漏れが気になる", terms: ["尿もれ", "トイレ"] },
+          { id: "female-05", label: "頻尿が気になる", terms: ["頻尿", "尿意"] },
+          { id: "female-06", label: "急な尿意が気になる", terms: ["急な尿意", "尿意", "トイレ"] },
+          { id: "female-07", label: "便秘がち", terms: ["便秘", "便通", "お腹"] },
+          { id: "female-08", label: "お通じのリズムが気になる", terms: ["お通じ", "便通", "排便"] },
+        ],
+      },
+      {
+        id: "female-body-shape",
+        label: "体型・見た目のお悩み",
+        concerns: [
+          { id: "female-09", label: "産後のぽっこりお腹が気になる", terms: ["産後", "ぽっこり", "お腹"] },
+          { id: "female-10", label: "年齢とともに体型の変化が気になる", terms: ["年齢", "体型", "変化"] },
+          { id: "female-11", label: "下半身太りが気になる", terms: ["下半身", "太もも", "ヒップ"] },
+          { id: "female-12", label: "ヒップの下垂が気になる", terms: ["ヒップ", "下垂", "ヒップアップ"] },
+        ],
+      },
+      {
+        id: "female-posture",
+        label: "姿勢・日常動作のお悩み",
+        concerns: [
+          { id: "female-13", label: "産後に姿勢が崩れやすくなった", terms: ["産後", "姿勢", "猫背"] },
+          { id: "female-14", label: "抱っこや家事で下腹や骨盤まわりが気になる", terms: ["抱っこ", "家事", "骨盤"] },
+          { id: "female-15", label: "姿勢を整えたい", terms: ["姿勢", "立ち方", "歩き方"] },
+        ],
+      },
+      {
+        id: "female-delicate",
+        label: "デリケートゾーンまわりのお悩み",
+        concerns: [
+          { id: "female-16", label: "デリケートゾーンのケアを意識したい", terms: ["デリケート", "ケア", "骨盤底筋"] },
+          { id: "female-17", label: "膣トレを始めてみたい", terms: ["膣トレ", "骨盤底筋", "インナー"] },
+        ],
+      },
+      {
+        id: "female-circulation",
+        label: "冷え・巡りのお悩み",
+        concerns: [
+          { id: "female-18", label: "冷えやすさが気になる", terms: ["冷え", "巡り", "むくみ"] },
+        ],
+      },
+    ],
+  },
+  {
+    id: "male",
+    label: "男性",
+    groups: [
+      {
+        id: "male-toilet",
+        label: "トイレまわりのお悩み",
+        concerns: [
+          { id: "male-01", label: "頻尿が気になる", terms: ["頻尿", "トイレ", "尿意"] },
+          { id: "male-02", label: "ちょい漏れが気になる", terms: ["ちょい漏れ", "尿もれ", "排尿"] },
+          { id: "male-03", label: "急な尿意で不安がある", terms: ["急な尿意", "尿意", "トイレ"] },
+          { id: "male-04", label: "トイレ悩みをケアしたい", terms: ["トイレ", "ケア", "骨盤底筋"] },
+        ],
+      },
+      {
+        id: "male-delicate",
+        label: "デリケートなお悩み",
+        concerns: [
+          { id: "male-05", label: "EDケアを意識したい", terms: ["ED", "デリケート", "骨盤底筋"] },
+          { id: "male-06", label: "デリケートなお悩みを人知れずケアしたい", terms: ["デリケート", "人知れず", "ケア"] },
+        ],
+      },
+      {
+        id: "male-posture",
+        label: "姿勢・骨盤まわりのお悩み",
+        concerns: [
+          { id: "male-07", label: "長時間の座り仕事で骨盤まわりが気になる", terms: ["座り仕事", "骨盤", "姿勢"] },
+          { id: "male-08", label: "猫背や前かがみ姿勢が気になる", terms: ["猫背", "前かがみ", "姿勢"] },
+          { id: "male-09", label: "腰まわりの違和感が気になる", terms: ["腰", "骨盤", "違和感"] },
+        ],
+      },
+      {
+        id: "male-lower-body",
+        label: "下半身・体型のお悩み",
+        concerns: [
+          { id: "male-10", label: "下半身の筋力低下が気になる", terms: ["下半身", "筋力", "太もも"] },
+          { id: "male-11", label: "ヒップラインの崩れが気になる", terms: ["ヒップ", "ライン", "お尻"] },
+          { id: "male-12", label: "むくみや冷えが気になる", terms: ["むくみ", "冷え", "巡り"] },
+          { id: "male-13", label: "運動不足が気になる", terms: ["運動不足", "下半身", "体幹"] },
+          { id: "male-14", label: "筋トレが続かない", terms: ["筋トレ", "ホームケア", "セルフケア"] },
+        ],
+      },
+    ],
+  },
+];
 
 function parseLaunchRoute() {
   try {
@@ -272,9 +378,12 @@ const appState = {
   historyLoadError: "",
   selectedBijirisPostId: "",
   selectedBijirisCategory: "all",
+  selectedBijirisConcernAudience: BIJIRIS_CONCERN_GUIDES[0].id,
+  selectedBijirisConcernId: "",
   bijirisSearchQuery: "",
   showFavoriteBijirisOnly: false,
   showReadLaterBijirisOnly: false,
+  showUnreadBijirisOnly: false,
   bijirisLoading: false,
   bijirisLoadError: "",
   concernCategoryByQuestion: {},
@@ -2029,6 +2138,73 @@ function getUnreadBijirisCountByCategory(category) {
   return getUnreadBijirisPosts().filter((post) => normalizeText(post.category) === normalized).length;
 }
 
+function getBijirisConcernAudience(audienceId = appState.selectedBijirisConcernAudience) {
+  return BIJIRIS_CONCERN_GUIDES.find((audience) => audience.id === audienceId) || BIJIRIS_CONCERN_GUIDES[0];
+}
+
+function getSelectedBijirisConcern() {
+  const audience = getBijirisConcernAudience();
+  return audience.groups
+    .flatMap((group) => group.concerns)
+    .find((concern) => concern.id === appState.selectedBijirisConcernId) || null;
+}
+
+function doesBijirisPostMatchConcern(post, concern) {
+  if (!concern) return true;
+  const source = getBijirisSearchSource(post);
+  return concern.terms.some((term) => source.includes(normalizeText(term).toLocaleLowerCase()));
+}
+
+function getBijirisListMode() {
+  if (appState.showUnreadBijirisOnly) return "unread";
+  if (appState.showFavoriteBijirisOnly) return "favorites";
+  if (appState.showReadLaterBijirisOnly) return "read-later";
+  return "all";
+}
+
+function setBijirisListMode(mode) {
+  appState.showUnreadBijirisOnly = mode === "unread";
+  appState.showFavoriteBijirisOnly = mode === "favorites";
+  appState.showReadLaterBijirisOnly = mode === "read-later";
+}
+
+function setBijirisConcernAudience(audienceId) {
+  const audience = getBijirisConcernAudience(audienceId);
+  appState.selectedBijirisConcernAudience = audience.id;
+  const concernExists = audience.groups.some((group) =>
+    group.concerns.some((concern) => concern.id === appState.selectedBijirisConcernId),
+  );
+  if (!concernExists) {
+    appState.selectedBijirisConcernId = "";
+  }
+}
+
+function getBijirisEmptyMessage() {
+  const selectedConcern = getSelectedBijirisConcern();
+  if (appState.showFavoriteBijirisOnly) {
+    return "お気に入りはまだありません。";
+  }
+  if (appState.showReadLaterBijirisOnly) {
+    return "あとで読むはまだありません。";
+  }
+  if (appState.showUnreadBijirisOnly && selectedConcern) {
+    return `${selectedConcern.label} に合う未読の豆知識はまだありません。`;
+  }
+  if (appState.showUnreadBijirisOnly) {
+    return "未読の豆知識はありません。";
+  }
+  if (selectedConcern) {
+    return `${selectedConcern.label} に合う豆知識はまだありません。`;
+  }
+  if (normalizeText(appState.bijirisSearchQuery)) {
+    return "検索条件に合う豆知識はありません。";
+  }
+  if (appState.selectedBijirisCategory !== "all") {
+    return `${appState.selectedBijirisCategory} の豆知識はまだありません。`;
+  }
+  return "まだ豆知識の投稿はありません。";
+}
+
 function getBijirisSearchSource(post) {
   return [
     post?.title,
@@ -2188,12 +2364,23 @@ function getFilteredBijirisPosts() {
     appState.selectedBijirisCategory = "all";
   }
   let posts = sortBijirisPosts(appState.bijirisPosts);
+  const selectedConcern = getSelectedBijirisConcern();
+  if (selectedConcern) {
+    posts = posts.filter((post) => doesBijirisPostMatchConcern(post, selectedConcern));
+  }
   const searchQuery = normalizeText(appState.bijirisSearchQuery).toLocaleLowerCase();
   if (searchQuery) {
-    posts = posts.filter((post) => getBijirisSearchSource(post).includes(searchQuery));
+    const searchTerms = searchQuery.split(/\s+/).filter(Boolean);
+    posts = posts.filter((post) => {
+      const source = getBijirisSearchSource(post);
+      return searchTerms.every((term) => source.includes(term));
+    });
   }
   if (appState.selectedBijirisCategory !== "all") {
     posts = posts.filter((post) => normalizeText(post.category) === appState.selectedBijirisCategory);
+  }
+  if (appState.showUnreadBijirisOnly) {
+    posts = posts.filter((post) => !isBijirisRead(post.id));
   }
   if (appState.showFavoriteBijirisOnly) {
     const favoriteIds = getBijirisFavoriteIds();
@@ -2242,38 +2429,107 @@ function renderBijirisHomeNotice() {
 }
 
 function renderBijirisListSwitcher() {
+  const currentMode = getBijirisListMode();
   const favoriteCount = sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id)).length;
+  const unreadCount = getUnreadBijirisPosts().length;
   const readLaterCount = getBijirisReaderState().readLaterIds.length;
   return `
     <div class="history-card bijiris-list-switcher">
       <div class="section-head">
         <div>
           <strong>一覧</strong>
-          <div class="meta">お気に入り ${favoriteCount}件 / あとで読む ${readLaterCount}件</div>
+          <div class="meta">未読 ${unreadCount}件 / お気に入り ${favoriteCount}件 / あとで読む ${readLaterCount}件</div>
         </div>
       </div>
       <div class="bijiris-filter-row">
         <button
-          class="bijiris-filter-chip ${!appState.showFavoriteBijirisOnly && !appState.showReadLaterBijirisOnly ? "active" : ""}"
+          class="bijiris-filter-chip ${currentMode === "all" ? "active" : ""}"
           type="button"
           data-bijiris-list-mode="all"
         >
           投稿一覧
         </button>
         <button
-          class="bijiris-filter-chip ${appState.showFavoriteBijirisOnly ? "active" : ""}"
+          class="bijiris-filter-chip ${currentMode === "unread" ? "active" : ""}"
+          type="button"
+          data-bijiris-list-mode="unread"
+        >
+          未読のみ
+        </button>
+        <button
+          class="bijiris-filter-chip ${currentMode === "favorites" ? "active" : ""}"
           type="button"
           data-bijiris-list-mode="favorites"
         >
           お気に入り⭐️
         </button>
         <button
-          class="bijiris-filter-chip ${appState.showReadLaterBijirisOnly ? "active" : ""}"
+          class="bijiris-filter-chip ${currentMode === "read-later" ? "active" : ""}"
           type="button"
           data-bijiris-list-mode="read-later"
         >
           あとで読む
         </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderBijirisConcernNavigator() {
+  const audience = getBijirisConcernAudience();
+  const selectedConcern = getSelectedBijirisConcern();
+  return `
+    <div class="history-card bijiris-concern-card">
+      <div class="section-head">
+        <div>
+          <strong>お悩みから探す</strong>
+          <div class="meta">
+            ${
+              selectedConcern
+                ? `${escapeHtml(audience.label)} / ${escapeHtml(selectedConcern.label)} を表示中`
+                : "女性 / 男性フォルダの順で、悩みごとに豆知識を絞り込めます。"
+            }
+          </div>
+        </div>
+        ${
+          appState.selectedBijirisConcernId
+            ? '<button class="ghost-button" type="button" data-clear-bijiris-concern>条件をクリア</button>'
+            : ""
+        }
+      </div>
+      <div class="bijiris-filter-row">
+        ${BIJIRIS_CONCERN_GUIDES.map((item) => `
+          <button
+            class="bijiris-filter-chip ${audience.id === item.id ? "active" : ""}"
+            type="button"
+            data-bijiris-concern-audience="${escapeHtml(item.id)}"
+          >
+            ${escapeHtml(item.label)}
+          </button>
+        `).join("")}
+      </div>
+      <div class="bijiris-concern-group-list">
+        ${audience.groups
+          .map((group) => `
+            <div class="bijiris-concern-group">
+              <strong class="bijiris-concern-group-title">${escapeHtml(group.label)}</strong>
+              <div class="bijiris-concern-chip-list">
+                ${group.concerns
+                  .map((concern) => `
+                    <button
+                      class="bijiris-concern-chip ${appState.selectedBijirisConcernId === concern.id ? "active" : ""}"
+                      type="button"
+                      data-bijiris-concern="${escapeHtml(concern.id)}"
+                      data-bijiris-concern-audience="${escapeHtml(audience.id)}"
+                    >
+                      ${escapeHtml(concern.label)}
+                    </button>
+                  `)
+                  .join("")}
+              </div>
+            </div>
+          `)
+          .join("")}
       </div>
     </div>
   `;
@@ -2285,6 +2541,7 @@ function renderBijirisToolbar() {
   const readerState = getBijirisReaderState();
   const unreadCount = getUnreadBijirisPosts().length;
   const newUnreadCount = getNewUnreadBijirisPosts().length;
+  const currentMode = getBijirisListMode();
   return `
     <div class="history-card bijiris-toolbar-card">
       <div class="section-head bijiris-toolbar-head">
@@ -2321,11 +2578,14 @@ function renderBijirisToolbar() {
           .join("")}
       </div>
       <div class="bijiris-filter-row bijiris-filter-row-secondary">
-        <button class="bijiris-filter-chip ${appState.showFavoriteBijirisOnly ? "active" : ""}" type="button" data-bijiris-favorite-filter>
-          ${appState.showFavoriteBijirisOnly ? "お気に入りのみ表示中" : "お気に入りのみ"}
+        <button class="bijiris-filter-chip ${currentMode === "unread" ? "active" : ""}" type="button" data-bijiris-unread-filter>
+          ${currentMode === "unread" ? "未読のみ表示中" : "未読のみ"}
         </button>
-        <button class="bijiris-filter-chip ${appState.showReadLaterBijirisOnly ? "active" : ""}" type="button" data-bijiris-read-later-filter>
-          ${appState.showReadLaterBijirisOnly ? "あとで読むのみ表示中" : "あとで読むのみ"}
+        <button class="bijiris-filter-chip ${currentMode === "favorites" ? "active" : ""}" type="button" data-bijiris-favorite-filter>
+          ${currentMode === "favorites" ? "お気に入りのみ表示中" : "お気に入りのみ"}
+        </button>
+        <button class="bijiris-filter-chip ${currentMode === "read-later" ? "active" : ""}" type="button" data-bijiris-read-later-filter>
+          ${currentMode === "read-later" ? "あとで読むのみ表示中" : "あとで読むのみ"}
         </button>
         <span class="meta">お気に入り ${favoriteCount}件 / あとで読む ${readerState.readLaterIds.length}件</span>
       </div>
@@ -2539,8 +2799,7 @@ function attachBijirisPostActions() {
   bijirisPanel.querySelectorAll("[data-bijiris-list-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       const mode = button.dataset.bijirisListMode || "all";
-      appState.showFavoriteBijirisOnly = mode === "favorites";
-      appState.showReadLaterBijirisOnly = mode === "read-later";
+      setBijirisListMode(mode);
       renderBijirisPosts();
     });
   });
@@ -2554,12 +2813,37 @@ function attachBijirisPostActions() {
       input.setSelectionRange(nextQuery.length, nextQuery.length);
     }
   });
+  bijirisPanel.querySelectorAll("[data-bijiris-concern-audience]:not([data-bijiris-concern])").forEach((button) => {
+    button.addEventListener("click", () => {
+      setBijirisConcernAudience(button.dataset.bijirisConcernAudience || BIJIRIS_CONCERN_GUIDES[0].id);
+      renderBijirisPosts();
+    });
+  });
+  bijirisPanel.querySelectorAll("[data-bijiris-concern]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const audienceId = button.dataset.bijirisConcernAudience || appState.selectedBijirisConcernAudience;
+      const concernId = button.dataset.bijirisConcern || "";
+      setBijirisConcernAudience(audienceId);
+      appState.selectedBijirisConcernId = appState.selectedBijirisConcernId === concernId ? "" : concernId;
+      appState.selectedBijirisCategory = "all";
+      appState.bijirisSearchQuery = "";
+      renderBijirisPosts();
+    });
+  });
+  bijirisPanel.querySelector("[data-clear-bijiris-concern]")?.addEventListener("click", () => {
+    appState.selectedBijirisConcernId = "";
+    renderBijirisPosts();
+  });
+  bijirisPanel.querySelector("[data-bijiris-unread-filter]")?.addEventListener("click", () => {
+    setBijirisListMode(getBijirisListMode() === "unread" ? "all" : "unread");
+    renderBijirisPosts();
+  });
   bijirisPanel.querySelector("[data-bijiris-favorite-filter]")?.addEventListener("click", () => {
-    appState.showFavoriteBijirisOnly = !appState.showFavoriteBijirisOnly;
+    setBijirisListMode(getBijirisListMode() === "favorites" ? "all" : "favorites");
     renderBijirisPosts();
   });
   bijirisPanel.querySelector("[data-bijiris-read-later-filter]")?.addEventListener("click", () => {
-    appState.showReadLaterBijirisOnly = !appState.showReadLaterBijirisOnly;
+    setBijirisListMode(getBijirisListMode() === "read-later" ? "all" : "read-later");
     renderBijirisPosts();
   });
 }
@@ -2596,20 +2880,13 @@ function renderBijirisPosts() {
     attachBijirisPostActions();
     return;
   }
-  let visiblePosts = sortBijirisPosts(appState.bijirisPosts);
-  if (appState.showFavoriteBijirisOnly) {
-    visiblePosts = visiblePosts.filter((post) => isBijirisFavorite(post.id));
-  } else if (appState.showReadLaterBijirisOnly) {
-    visiblePosts = visiblePosts.filter((post) => isBijirisReadLater(post.id));
-  }
-  const emptyMessage = appState.showFavoriteBijirisOnly
-    ? "お気に入りはまだありません。"
-    : appState.showReadLaterBijirisOnly
-      ? "あとで読むはまだありません。"
-      : "まだ豆知識の投稿はありません。";
+  const visiblePosts = getFilteredBijirisPosts();
+  const emptyMessage = getBijirisEmptyMessage();
   bijirisPanel.innerHTML = `
     ${appState.bijirisLoadError ? `<div class="meta">更新に失敗したため前回取得内容を表示しています。</div>` : ""}
     ${renderBijirisListSwitcher()}
+    ${renderBijirisConcernNavigator()}
+    ${renderBijirisToolbar()}
     ${visiblePosts.length ? `<div class="bijiris-panel">${visiblePosts.map(renderBijirisPostCard).join("")}</div>` : `<div class="empty">${emptyMessage}</div>`}
   `;
   attachBijirisPostActions();
@@ -5392,7 +5669,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-02", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-04", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
