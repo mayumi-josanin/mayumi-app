@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v69";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v70";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -1424,7 +1424,9 @@ function createPdfThumbnailDataUrl(fileName) {
 }
 
 function getBijirisDocumentThumbnailSrc(file) {
-  return String(file?.thumbnailUrl || "").trim() || createPdfThumbnailDataUrl(file?.name);
+  const thumbnailFileId = String(file?.thumbnailFileId || "").trim();
+  const fallbackFileId = thumbnailFileId || extractDriveFileId(file?.thumbnailUrl || file?.previewUrl || file?.url || "");
+  return buildDriveThumbnailUrl(fallbackFileId) || String(file?.thumbnailUrl || "").trim() || createPdfThumbnailDataUrl(file?.name);
 }
 
 function getPhotoFilesFromAnswer(answer) {
@@ -7434,7 +7436,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-10", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-11", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

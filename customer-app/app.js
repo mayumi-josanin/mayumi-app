@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260417-09";
+const APP_VERSION = "20260417-11";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v84";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v85";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1929,6 +1929,7 @@ function normalizeBijirisContentFile(file, kind = "photo") {
     previewUrl: normalizeText(file?.previewUrl),
     downloadUrl: normalizeText(file?.downloadUrl),
     thumbnailUrl: normalizeText(file?.thumbnailUrl),
+    thumbnailFileId: normalizeText(file?.thumbnailFileId),
   };
 }
 
@@ -2408,12 +2409,25 @@ function createPdfThumbnailDataUrl(fileName) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+function extractDriveFileId(url) {
+  const value = normalizeText(url);
+  const match = value.match(/\/d\/([^/]+)/) || value.match(/[?&]id=([^&]+)/);
+  return match ? match[1] : "";
+}
+
+function buildDriveThumbnailUrl(fileId) {
+  return fileId ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w1200` : "";
+}
+
 function getBijirisDocumentDisplayTitle(file, index = 0) {
   return normalizeText(file?.title || String(file?.name || "").replace(/\.pdf$/i, "") || `資料${index + 1}`);
 }
 
 function getBijirisDocumentThumbnailSrc(file) {
-  return normalizeText(file?.thumbnailUrl) || createPdfThumbnailDataUrl(getBijirisDocumentDisplayTitle(file));
+  const thumbnailFileId =
+    normalizeText(file?.thumbnailFileId) ||
+    extractDriveFileId(file?.thumbnailUrl || file?.previewUrl || file?.url || "");
+  return buildDriveThumbnailUrl(thumbnailFileId) || normalizeText(file?.thumbnailUrl) || createPdfThumbnailDataUrl(getBijirisDocumentDisplayTitle(file));
 }
 
 function sortBijirisPosts(posts) {
