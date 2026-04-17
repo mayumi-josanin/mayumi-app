@@ -301,6 +301,23 @@ window.MayumiSurveyApi = (() => {
     });
   }
 
+  function hasBijirisPostCoreUpdate(saved, expected) {
+    if (!saved) return false;
+    const expectedPhotoCount = Array.isArray(expected?.photos) ? expected.photos.length : 0;
+    const expectedDocumentCount = Array.isArray(expected?.documents) ? expected.documents.length : 0;
+    return (
+      normalizeText(saved?.id) === normalizeText(expected?.id) &&
+      normalizeText(saved?.title) === normalizeText(expected?.title) &&
+      normalizeText(saved?.category) === normalizeText(expected?.category) &&
+      normalizeText(saved?.summary) === normalizeText(expected?.summary) &&
+      normalizeText(saved?.body) === normalizeText(expected?.body) &&
+      (normalizeText(saved?.status) || "draft") === (normalizeText(expected?.status) || "draft") &&
+      (saved?.pinned === true) === (expected?.pinned === true) &&
+      (Array.isArray(saved?.photos) ? saved.photos.length : 0) === expectedPhotoCount &&
+      (Array.isArray(saved?.documents) ? saved.documents.length : 0) === expectedDocumentCount
+    );
+  }
+
   function buildLocalResponse(payload, responseId) {
     const surveys = getDefaultSurveys();
     const survey = surveys.find((item) => item.id === payload.surveyId && item.status === "published");
@@ -1099,9 +1116,8 @@ window.MayumiSurveyApi = (() => {
         const post = await waitForAdminBijirisPosts(gasUrl, options.token, (posts) => {
           const matched = posts.find((item) => normalizeText(item.id) === postId);
           if (!matched) return undefined;
-          return makeBijirisPostUpdateSignature(matched) === makeBijirisPostUpdateSignature(payload)
-            ? matched
-            : undefined;
+          const updatedAtChanged = normalizeText(matched.updatedAt) !== normalizeText(payload.updatedAt);
+          return hasBijirisPostCoreUpdate(matched, payload) && updatedAtChanged ? matched : undefined;
         });
         if (!post) throw new Error("豆知識の更新を確認できませんでした。");
         return { post };

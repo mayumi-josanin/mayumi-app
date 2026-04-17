@@ -6223,6 +6223,7 @@ async function saveBijirisPost() {
     body: draft.body,
     status: effectiveStatus,
     pinned: draft.pinned,
+    updatedAt: draft.updatedAt,
     publishedAt: effectivePublishedAt,
     notifyCustomers: draft.notifyCustomers === true,
     notificationTitle: draft.notificationTitle,
