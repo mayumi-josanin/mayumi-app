@@ -224,6 +224,15 @@ window.MayumiSurveyApi = (() => {
   }
 
   function makePreferencesSignature(preferences) {
+    const normalizeBijirisCategoryConfigForSignature = (config) => ({
+      generalCategories: Array.isArray(config?.generalCategories)
+        ? config.generalCategories.map(normalizeText).filter(Boolean)
+        : [],
+      concernRootLabel: normalizeText(config?.concernRootLabel),
+      concernPaths: Array.isArray(config?.concernPaths)
+        ? config.concernPaths.map(normalizeText).filter(Boolean)
+        : [],
+    });
     return JSON.stringify({
       notificationEnabled: preferences?.notificationEnabled === false ? false : true,
       notificationEmail: normalizeEmail(preferences?.notificationEmail),
@@ -237,6 +246,7 @@ window.MayumiSurveyApi = (() => {
       retentionDays: Number(preferences?.retentionDays || 0),
       recoveryMemo: normalizeText(preferences?.recoveryMemo),
       twoFactorEnabled: preferences?.twoFactorEnabled === false ? false : true,
+      bijirisCategoryConfig: normalizeBijirisCategoryConfigForSignature(preferences?.bijirisCategoryConfig),
     });
   }
 

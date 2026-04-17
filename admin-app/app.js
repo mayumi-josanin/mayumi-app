@@ -287,6 +287,112 @@ const BIJIRIS_CONCERN_CATEGORY_TREE = [
     ],
   },
 ];
+
+function buildBijirisConcernPathsFromTree(tree) {
+  return (Array.isArray(tree) ? tree : []).flatMap((audience) =>
+    (Array.isArray(audience?.groups) ? audience.groups : []).flatMap((group) =>
+      (Array.isArray(group?.concerns) ? group.concerns : []).map((concern) =>
+        [audience?.label, group?.label, concern?.label]
+          .map((value) => normalizeLabel(value))
+          .filter(Boolean)
+          .join(" > "),
+      ),
+    ),
+  );
+}
+
+function getDefaultBijirisCategoryConfig() {
+  return {
+    generalCategories: BIJIRIS_POST_CATEGORY_OPTIONS.slice(),
+    concernRootLabel: BIJIRIS_CONCERN_CATEGORY_ROOT_LABEL,
+    concernPaths: buildBijirisConcernPathsFromTree(BIJIRIS_CONCERN_CATEGORY_TREE),
+  };
+}
+
+function buildBijirisConcernTreeFromPaths(paths, rootLabel) {
+  const audienceMap = new Map();
+  const tree = [];
+  (Array.isArray(paths) ? paths : []).forEach((line) => {
+    let parts = String(line || "")
+      .split(/\s*>\s*/)
+      .map((value) => normalizeLabel(value))
+      .filter(Boolean);
+    if (parts[0] === rootLabel) parts = parts.slice(1);
+    if (parts.length < 3) return;
+    const audienceLabel = parts[0];
+    const groupLabel = parts[1];
+    const concernLabel = parts.slice(2).join(" > ");
+    if (!concernLabel) return;
+
+    let audience = audienceMap.get(audienceLabel);
+    if (!audience) {
+      audience = {
+        id: `audience_${tree.length + 1}`,
+        label: audienceLabel,
+        groups: [],
+        _groupMap: new Map(),
+      };
+      audienceMap.set(audienceLabel, audience);
+      tree.push(audience);
+    }
+
+    let group = audience._groupMap.get(groupLabel);
+    if (!group) {
+      group = {
+        id: `group_${audience.groups.length + 1}`,
+        label: groupLabel,
+        concerns: [],
+        _concernSet: new Set(),
+      };
+      audience._groupMap.set(groupLabel, group);
+      audience.groups.push(group);
+    }
+
+    if (group._concernSet.has(concernLabel)) return;
+    group._concernSet.add(concernLabel);
+    group.concerns.push({
+      id: `concern_${group.concerns.length + 1}`,
+      label: concernLabel,
+    });
+  });
+
+  return tree.map((audience) => ({
+    id: audience.id,
+    label: audience.label,
+    groups: audience.groups.map((group) => ({
+      id: group.id,
+      label: group.label,
+      concerns: group.concerns.map((concern) => ({
+        id: concern.id,
+        label: concern.label,
+      })),
+    })),
+  }));
+}
+
+function normalizeBijirisCategoryConfig(rawConfig) {
+  const defaults = getDefaultBijirisCategoryConfig();
+  const generalCategories = Array.isArray(rawConfig?.generalCategories)
+    ? rawConfig.generalCategories.map((value) => normalizeLabel(value)).filter(Boolean)
+    : defaults.generalCategories.slice();
+  const concernRootLabel = normalizeLabel(rawConfig?.concernRootLabel) || defaults.concernRootLabel;
+  const concernPaths = Array.isArray(rawConfig?.concernPaths)
+    ? rawConfig.concernPaths.map((value) => normalizeLabel(value)).filter(Boolean)
+    : defaults.concernPaths.slice();
+  const normalized = {
+    generalCategories: generalCategories.length ? generalCategories : defaults.generalCategories.slice(),
+    concernRootLabel,
+    concernPaths: concernPaths.length ? concernPaths : defaults.concernPaths.slice(),
+  };
+  return {
+    ...normalized,
+    concernTree: buildBijirisConcernTreeFromPaths(normalized.concernPaths, normalized.concernRootLabel),
+  };
+}
+
+function getBijirisCategoryConfig(preferences = state.preferences) {
+  return normalizeBijirisCategoryConfig(preferences?.bijirisCategoryConfig);
+}
 const BIJIRIS_POST_TEMPLATES = [
   {
     id: "selfcare_breathing",
@@ -431,8 +537,8 @@ function normalizeLabel(value) {
   return String(value ?? "").trim();
 }
 
-function getDefaultBijirisConcernCategoryState() {
-  const audience = BIJIRIS_CONCERN_CATEGORY_TREE[0];
+function getDefaultBijirisConcernCategoryState(config = getBijirisCategoryConfig()) {
+  const audience = config.concernTree[0];
   const group = audience?.groups?.[0];
   const concern = group?.concerns?.[0];
   return {
@@ -442,22 +548,22 @@ function getDefaultBijirisConcernCategoryState() {
   };
 }
 
-function getBijirisConcernAudienceById(audienceId) {
-  return BIJIRIS_CONCERN_CATEGORY_TREE.find((audience) => audience.id === normalizeLabel(audienceId)) || null;
+function getBijirisConcernAudienceById(audienceId, config = getBijirisCategoryConfig()) {
+  return config.concernTree.find((audience) => audience.id === normalizeLabel(audienceId)) || null;
 }
 
-function getBijirisConcernGroupById(audienceId, groupId) {
-  return getBijirisConcernAudienceById(audienceId)?.groups.find((group) => group.id === normalizeLabel(groupId)) || null;
+function getBijirisConcernGroupById(audienceId, groupId, config = getBijirisCategoryConfig()) {
+  return getBijirisConcernAudienceById(audienceId, config)?.groups.find((group) => group.id === normalizeLabel(groupId)) || null;
 }
 
-function getBijirisConcernById(audienceId, groupId, concernId) {
-  return getBijirisConcernGroupById(audienceId, groupId)?.concerns.find((concern) => concern.id === normalizeLabel(concernId)) || null;
+function getBijirisConcernById(audienceId, groupId, concernId, config = getBijirisCategoryConfig()) {
+  return getBijirisConcernGroupById(audienceId, groupId, config)?.concerns.find((concern) => concern.id === normalizeLabel(concernId)) || null;
 }
 
-function resolveBijirisConcernCategoryState(rawState = {}) {
-  const fallback = getDefaultBijirisConcernCategoryState();
+function resolveBijirisConcernCategoryState(rawState = {}, config = getBijirisCategoryConfig()) {
+  const fallback = getDefaultBijirisConcernCategoryState(config);
   const audience =
-    getBijirisConcernAudienceById(rawState.concernAudienceId) || getBijirisConcernAudienceById(fallback.concernAudienceId);
+    getBijirisConcernAudienceById(rawState.concernAudienceId, config) || getBijirisConcernAudienceById(fallback.concernAudienceId, config);
   const group =
     audience?.groups.find((item) => item.id === normalizeLabel(rawState.concernGroupId)) ||
     audience?.groups?.[0] ||
@@ -473,26 +579,26 @@ function resolveBijirisConcernCategoryState(rawState = {}) {
   };
 }
 
-function buildBijirisConcernCategoryLabel(rawState = {}) {
-  const resolved = resolveBijirisConcernCategoryState(rawState);
-  const audience = getBijirisConcernAudienceById(resolved.concernAudienceId);
-  const group = getBijirisConcernGroupById(resolved.concernAudienceId, resolved.concernGroupId);
-  const concern = getBijirisConcernById(resolved.concernAudienceId, resolved.concernGroupId, resolved.concernId);
+function buildBijirisConcernCategoryLabel(rawState = {}, config = getBijirisCategoryConfig()) {
+  const resolved = resolveBijirisConcernCategoryState(rawState, config);
+  const audience = getBijirisConcernAudienceById(resolved.concernAudienceId, config);
+  const group = getBijirisConcernGroupById(resolved.concernAudienceId, resolved.concernGroupId, config);
+  const concern = getBijirisConcernById(resolved.concernAudienceId, resolved.concernGroupId, resolved.concernId, config);
   if (!audience || !group || !concern) return "";
   return [
-    BIJIRIS_CONCERN_CATEGORY_ROOT_LABEL,
+    config.concernRootLabel,
     audience.label,
     group.label,
     concern.label,
   ].join(" > ");
 }
 
-function findBijirisConcernCategoryState(category) {
+function findBijirisConcernCategoryState(category, config = getBijirisCategoryConfig()) {
   const normalizedCategory = normalizeLabel(category);
   if (!normalizedCategory) return null;
   const pathParts = normalizedCategory.split(/\s*>\s*/).map((part) => normalizeLabel(part)).filter(Boolean);
-  if (pathParts.length >= 4 && pathParts[0] === BIJIRIS_CONCERN_CATEGORY_ROOT_LABEL) {
-    const audience = BIJIRIS_CONCERN_CATEGORY_TREE.find((item) => item.label === pathParts[1]);
+  if (pathParts.length >= 4 && pathParts[0] === config.concernRootLabel) {
+    const audience = config.concernTree.find((item) => item.label === pathParts[1]);
     const group = audience?.groups.find((item) => item.label === pathParts[2]);
     const concern = group?.concerns.find((item) => item.label === pathParts[3]);
     if (audience && group && concern) {
@@ -503,14 +609,14 @@ function findBijirisConcernCategoryState(category) {
       };
     }
   }
-  for (const audience of BIJIRIS_CONCERN_CATEGORY_TREE) {
+  for (const audience of config.concernTree) {
     for (const group of audience.groups) {
       for (const concern of group.concerns) {
         const fullLabel = buildBijirisConcernCategoryLabel({
           concernAudienceId: audience.id,
           concernGroupId: group.id,
           concernId: concern.id,
-        });
+        }, config);
         if (normalizedCategory === fullLabel || normalizedCategory === concern.label) {
           return {
             concernAudienceId: audience.id,
@@ -525,17 +631,18 @@ function findBijirisConcernCategoryState(category) {
 }
 
 function getBijirisCategoryEditorState(category) {
+  const config = getBijirisCategoryConfig();
   const normalizedCategory = normalizeLabel(category);
-  const fallbackConcern = getDefaultBijirisConcernCategoryState();
+  const fallbackConcern = getDefaultBijirisConcernCategoryState(config);
   if (!normalizedCategory) {
     return {
       mode: "general",
-      generalCategory: BIJIRIS_POST_CATEGORY_OPTIONS[0],
+      generalCategory: config.generalCategories[0],
       customCategory: "",
       ...fallbackConcern,
     };
   }
-  if (BIJIRIS_POST_CATEGORY_OPTIONS.includes(normalizedCategory)) {
+  if (config.generalCategories.includes(normalizedCategory)) {
     return {
       mode: "general",
       generalCategory: normalizedCategory,
@@ -543,37 +650,38 @@ function getBijirisCategoryEditorState(category) {
       ...fallbackConcern,
     };
   }
-  const concernState = findBijirisConcernCategoryState(normalizedCategory);
+  const concernState = findBijirisConcernCategoryState(normalizedCategory, config);
   if (concernState) {
     return {
       mode: "concern",
-      generalCategory: BIJIRIS_POST_CATEGORY_OPTIONS[0],
+      generalCategory: config.generalCategories[0],
       customCategory: "",
-      ...resolveBijirisConcernCategoryState(concernState),
+      ...resolveBijirisConcernCategoryState(concernState, config),
     };
   }
   return {
     mode: "custom",
-    generalCategory: BIJIRIS_POST_CATEGORY_OPTIONS[0],
+    generalCategory: config.generalCategories[0],
     customCategory: normalizedCategory,
     ...fallbackConcern,
   };
 }
 
 function resolveBijirisCategoryFromForm(form) {
+  const config = getBijirisCategoryConfig();
   const mode = normalizeLabel(form?.elements.categoryMode?.value) || "general";
   if (mode === "concern") {
     return buildBijirisConcernCategoryLabel({
       concernAudienceId: form?.elements.categoryConcernAudience?.value,
       concernGroupId: form?.elements.categoryConcernGroup?.value,
       concernId: form?.elements.categoryConcern?.value,
-    });
+    }, config);
   }
   if (mode === "custom") {
     return normalizeLabel(form?.elements.categoryCustom?.value);
   }
   const generalCategory = normalizeLabel(form?.elements.categoryGeneral?.value);
-  return generalCategory || BIJIRIS_POST_CATEGORY_OPTIONS[0];
+  return generalCategory || config.generalCategories[0];
 }
 
 function parseTicketLabelNumber(value) {
@@ -4973,7 +5081,9 @@ function renderSettings() {
       backupHour: 3,
       retentionDays: 365,
       recoveryMemo: "",
+      bijirisCategoryConfig: getDefaultBijirisCategoryConfig(),
     };
+    const bijirisCategoryConfig = normalizeBijirisCategoryConfig(preferences.bijirisCategoryConfig);
     preferencesCard.innerHTML = `
       <form id="preferencesForm" class="stack">
         <label class="inline-toggle">
@@ -5022,6 +5132,22 @@ function renderSettings() {
           復旧手順メモ
           <textarea name="recoveryMemo">${escapeHtml(preferences.recoveryMemo || "")}</textarea>
         </label>
+        <article class="history-card">
+          <strong>豆知識カテゴリ設定</strong>
+          <div class="meta">通常カテゴリは1行に1項目、${escapeHtml(bijirisCategoryConfig.concernRootLabel)} は 1行に「対象 &gt; 大分類 &gt; 個別お悩み」で入力します。</div>
+          <label>
+            通常カテゴリ
+            <textarea name="bijirisGeneralCategories" rows="6">${escapeHtml(bijirisCategoryConfig.generalCategories.join("\n"))}</textarea>
+          </label>
+          <label>
+            お悩みカテゴリのルート名
+            <input name="bijirisConcernRootLabel" type="text" value="${escapeHtml(bijirisCategoryConfig.concernRootLabel)}" />
+          </label>
+          <label>
+            お悩みカテゴリ階層
+            <textarea name="bijirisConcernPaths" rows="12">${escapeHtml(bijirisCategoryConfig.concernPaths.join("\n"))}</textarea>
+          </label>
+        </article>
         <button class="primary-button" type="submit">設定を保存</button>
       </form>
     `;
@@ -5814,15 +5940,16 @@ function applyBijirisTemplate(templateId) {
 }
 
 function renderBijirisCategoryEditor(category) {
+  const config = getBijirisCategoryConfig();
   const editorState = getBijirisCategoryEditorState(category);
-  const concernState = resolveBijirisConcernCategoryState(editorState);
-  const audience = getBijirisConcernAudienceById(concernState.concernAudienceId);
+  const concernState = resolveBijirisConcernCategoryState(editorState, config);
+  const audience = getBijirisConcernAudienceById(concernState.concernAudienceId, config);
   const groups = Array.isArray(audience?.groups) ? audience.groups : [];
-  const concerns = Array.isArray(getBijirisConcernGroupById(concernState.concernAudienceId, concernState.concernGroupId)?.concerns)
-    ? getBijirisConcernGroupById(concernState.concernAudienceId, concernState.concernGroupId).concerns
+  const concerns = Array.isArray(getBijirisConcernGroupById(concernState.concernAudienceId, concernState.concernGroupId, config)?.concerns)
+    ? getBijirisConcernGroupById(concernState.concernAudienceId, concernState.concernGroupId, config).concerns
     : [];
   const resolvedCategory = editorState.mode === "concern"
-    ? buildBijirisConcernCategoryLabel(concernState)
+    ? buildBijirisConcernCategoryLabel(concernState, config)
     : editorState.mode === "custom"
       ? editorState.customCategory
       : editorState.generalCategory;
@@ -5831,7 +5958,7 @@ function renderBijirisCategoryEditor(category) {
       <div class="survey-editor-head">
         <div>
           <div class="card-title">カテゴリ</div>
-          <div class="meta">通常カテゴリ / お悩みカテゴリ / 自由入力から選べます。</div>
+          <div class="meta">通常カテゴリ / ${escapeHtml(config.concernRootLabel)} / 自由入力から選べます。</div>
         </div>
       </div>
       <div class="bijiris-category-grid">
@@ -5849,7 +5976,7 @@ function renderBijirisCategoryEditor(category) {
               <label>
                 通常カテゴリ
                 <select name="categoryGeneral" data-bijiris-category-control>
-                  ${BIJIRIS_POST_CATEGORY_OPTIONS.map((option) => `
+                  ${config.generalCategories.map((option) => `
                     <option value="${escapeHtml(option)}" ${editorState.generalCategory === option ? "selected" : ""}>${escapeHtml(option)}</option>
                   `).join("")}
                 </select>
@@ -5863,7 +5990,7 @@ function renderBijirisCategoryEditor(category) {
               <label>
                 対象
                 <select name="categoryConcernAudience" data-bijiris-category-control>
-                  ${BIJIRIS_CONCERN_CATEGORY_TREE.map((option) => `
+                  ${config.concernTree.map((option) => `
                     <option value="${escapeHtml(option.id)}" ${concernState.concernAudienceId === option.id ? "selected" : ""}>${escapeHtml(option.label)}</option>
                   `).join("")}
                 </select>
@@ -7271,6 +7398,11 @@ async function savePreferences() {
   const form = document.querySelector("#preferencesForm");
   if (!form) return;
   const formData = new FormData(form);
+  const splitLines = (value) =>
+    String(value || "")
+      .split(/\r?\n/)
+      .map((line) => String(line || "").trim())
+      .filter(Boolean);
   const payload = {
     notificationEnabled: formData.get("notificationEnabled") === "on",
     notificationEmail: String(formData.get("notificationEmail") || "").trim(),
@@ -7284,6 +7416,11 @@ async function savePreferences() {
     retentionDays: Number(formData.get("retentionDays") || 0),
     recoveryMemo: String(formData.get("recoveryMemo") || "").trim(),
     twoFactorEnabled: false,
+    bijirisCategoryConfig: {
+      generalCategories: splitLines(formData.get("bijirisGeneralCategories")),
+      concernRootLabel: String(formData.get("bijirisConcernRootLabel") || "").trim(),
+      concernPaths: splitLines(formData.get("bijirisConcernPaths")),
+    },
   };
   try {
     const result = await api.request("/api/admin/preferences", {
@@ -7293,7 +7430,7 @@ async function savePreferences() {
     });
     state.preferences = result.preferences || payload;
     showToast("設定を保存しました。");
-    renderSettings();
+    renderAll();
   } catch (error) {
     showToast(error.message || "設定を保存できませんでした。");
   }

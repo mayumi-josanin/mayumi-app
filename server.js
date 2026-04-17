@@ -24,6 +24,48 @@ const BODY_LIMIT_BYTES = 12 * 1024 * 1024;
 const PHOTO_FILE_LIMIT = 6;
 const PHOTO_DATA_URL_LIMIT_BYTES = 2.5 * 1024 * 1024;
 const QUESTION_TYPES = ["text", "textarea", "rating", "choice", "checkbox", "photo"];
+const DEFAULT_BIJIRIS_GENERAL_CATEGORIES = [
+  "豆知識",
+  "アドバイス",
+  "セルフケア",
+  "お知らせ",
+  "よくある質問",
+];
+const DEFAULT_BIJIRIS_CONCERN_ROOT_LABEL = "お悩み";
+const DEFAULT_BIJIRIS_CONCERN_PATHS = [
+  "女性 > 産後女性を含む骨盤底筋まわりのお悩み > 産後の骨盤底筋のゆるみ感が気になる",
+  "女性 > 産後女性を含む骨盤底筋まわりのお悩み > くしゃみ、咳、大笑いでヒヤッとする",
+  "女性 > 産後女性を含む骨盤底筋まわりのお悩み > 骨盤まわりを土台からケアしたい",
+  "女性 > トイレまわりのお悩み > 尿漏れが気になる",
+  "女性 > トイレまわりのお悩み > 頻尿が気になる",
+  "女性 > トイレまわりのお悩み > 急な尿意が気になる",
+  "女性 > トイレまわりのお悩み > 便秘がち",
+  "女性 > トイレまわりのお悩み > お通じのリズムが気になる",
+  "女性 > 体型・見た目のお悩み > 産後のぽっこりお腹が気になる",
+  "女性 > 体型・見た目のお悩み > 年齢とともに体型の変化が気になる",
+  "女性 > 体型・見た目のお悩み > 下半身太りが気になる",
+  "女性 > 体型・見た目のお悩み > ヒップの下垂が気になる",
+  "女性 > 姿勢・日常動作のお悩み > 産後に姿勢が崩れやすくなった",
+  "女性 > 姿勢・日常動作のお悩み > 抱っこや家事で下腹や骨盤まわりが気になる",
+  "女性 > 姿勢・日常動作のお悩み > 姿勢を整えたい",
+  "女性 > デリケートゾーンまわりのお悩み > デリケートゾーンのケアを意識したい",
+  "女性 > デリケートゾーンまわりのお悩み > 膣トレを始めてみたい",
+  "女性 > 冷え・巡りのお悩み > 冷えやすさが気になる",
+  "男性 > トイレまわりのお悩み > 頻尿が気になる",
+  "男性 > トイレまわりのお悩み > ちょい漏れが気になる",
+  "男性 > トイレまわりのお悩み > 急な尿意で不安がある",
+  "男性 > トイレまわりのお悩み > トイレ悩みをケアしたい",
+  "男性 > デリケートなお悩み > EDケアを意識したい",
+  "男性 > デリケートなお悩み > デリケートなお悩みを人知れずケアしたい",
+  "男性 > 姿勢・骨盤まわりのお悩み > 長時間の座り仕事で骨盤まわりが気になる",
+  "男性 > 姿勢・骨盤まわりのお悩み > 猫背や前かがみ姿勢が気になる",
+  "男性 > 姿勢・骨盤まわりのお悩み > 腰まわりの違和感が気になる",
+  "男性 > 下半身・体型のお悩み > 下半身の筋力低下が気になる",
+  "男性 > 下半身・体型のお悩み > ヒップラインの崩れが気になる",
+  "男性 > 下半身・体型のお悩み > むくみや冷えが気になる",
+  "男性 > 下半身・体型のお悩み > 運動不足が気になる",
+  "男性 > 下半身・体型のお悩み > 筋トレが続かない",
+];
 
 let writeQueue = Promise.resolve();
 
@@ -111,6 +153,7 @@ function seedDb() {
     responses: [],
     measurements: [],
     bijirisPosts: [],
+    preferences: {},
     settings: {
       adminUsername: ADMIN_USERNAME,
       adminPassword: ADMIN_PASSWORD,
@@ -233,6 +276,58 @@ function normalizeText(value) {
 
 function normalizeEmail(value) {
   return normalizeText(value).toLowerCase();
+}
+
+function normalizeTextList(values, fallback = []) {
+  const list = Array.isArray(values)
+    ? values.map((value) => normalizeText(value)).filter(Boolean)
+    : [];
+  return list.length ? list : fallback.slice();
+}
+
+function getDefaultPreferences() {
+  return {
+    notificationEnabled: true,
+    notificationEmail: "",
+    notificationSubject: "",
+    notificationBody: "",
+    dataPolicyText: "",
+    requireConsent: true,
+    consentText: "",
+    autoBackupEnabled: true,
+    backupHour: 3,
+    retentionDays: 365,
+    recoveryMemo: "",
+    twoFactorEnabled: false,
+    bijirisCategoryConfig: {
+      generalCategories: DEFAULT_BIJIRIS_GENERAL_CATEGORIES.slice(),
+      concernRootLabel: DEFAULT_BIJIRIS_CONCERN_ROOT_LABEL,
+      concernPaths: DEFAULT_BIJIRIS_CONCERN_PATHS.slice(),
+    },
+  };
+}
+
+function normalizePreferences(value) {
+  const defaults = getDefaultPreferences();
+  return {
+    notificationEnabled: value?.notificationEnabled === false ? false : true,
+    notificationEmail: normalizeEmail(value?.notificationEmail),
+    notificationSubject: normalizeText(value?.notificationSubject),
+    notificationBody: normalizeText(value?.notificationBody),
+    dataPolicyText: normalizeText(value?.dataPolicyText),
+    requireConsent: value?.requireConsent === false ? false : true,
+    consentText: normalizeText(value?.consentText),
+    autoBackupEnabled: value?.autoBackupEnabled === false ? false : true,
+    backupHour: Number(value?.backupHour || defaults.backupHour),
+    retentionDays: Number(value?.retentionDays || defaults.retentionDays),
+    recoveryMemo: normalizeText(value?.recoveryMemo),
+    twoFactorEnabled: false,
+    bijirisCategoryConfig: {
+      generalCategories: normalizeTextList(value?.bijirisCategoryConfig?.generalCategories, defaults.bijirisCategoryConfig.generalCategories),
+      concernRootLabel: normalizeText(value?.bijirisCategoryConfig?.concernRootLabel) || defaults.bijirisCategoryConfig.concernRootLabel,
+      concernPaths: normalizeTextList(value?.bijirisCategoryConfig?.concernPaths, defaults.bijirisCategoryConfig.concernPaths),
+    },
+  };
 }
 
 function normalizeResponseStatus(status) {
@@ -751,6 +846,22 @@ async function handleApi(req, res, pathname, searchParams) {
     if (req.method === "GET" && pathname === "/api/admin/info") {
       const db = await readDb();
       sendJson(res, 200, buildAdminInfo(db));
+      return;
+    }
+
+    if (req.method === "GET" && pathname === "/api/admin/preferences") {
+      const db = await readDb();
+      sendJson(res, 200, { preferences: normalizePreferences(db.preferences) });
+      return;
+    }
+
+    if (req.method === "PUT" && pathname === "/api/admin/preferences") {
+      const payload = await readBody(req);
+      const result = await updateDb((db) => {
+        db.preferences = normalizePreferences(payload);
+        return { preferences: db.preferences };
+      });
+      sendJson(res, 200, result);
       return;
     }
 
