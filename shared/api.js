@@ -571,6 +571,22 @@ window.MayumiSurveyApi = (() => {
     });
   }
 
+  async function waitForCreatedAdminBijirisPost(gasUrl, token, postId, expected) {
+    const strictMatch = await waitForAdminBijirisPosts(gasUrl, token, (posts) => {
+      const matched = posts.find((item) => normalizeText(item.id) === normalizeText(postId));
+      if (!matched) return undefined;
+      return makeBijirisPostSignature(matched) === makeBijirisPostSignature(expected)
+        ? matched
+        : undefined;
+    });
+    if (strictMatch) return strictMatch;
+    return waitForAdminBijirisPosts(gasUrl, token, (posts) => {
+      const matched = posts.find((item) => normalizeText(item.id) === normalizeText(postId));
+      if (!matched) return undefined;
+      return hasBijirisPostCoreUpdate(matched, expected) ? matched : undefined;
+    });
+  }
+
   async function waitForAdminCustomerUpdate(gasUrl, token, currentName, nextName, expected = {}) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
@@ -955,11 +971,7 @@ window.MayumiSurveyApi = (() => {
           token: options.token,
           payload,
         });
-        const post = await waitForAdminBijirisPosts(gasUrl, options.token, (posts) => {
-          const matched = posts.find((item) => normalizeText(item.id) === payload.id);
-          if (!matched) return undefined;
-          return makeBijirisPostSignature(matched) === makeBijirisPostSignature(payload) ? matched : undefined;
-        });
+        const post = await waitForCreatedAdminBijirisPost(gasUrl, options.token, payload.id, payload);
         if (!post) throw new Error("豆知識の保存を確認できませんでした。");
         return { post };
       }
