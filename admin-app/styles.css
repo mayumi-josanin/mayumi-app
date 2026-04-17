@@ -962,6 +962,7 @@ textarea {
 }
 
 .bijiris-template-card,
+.bijiris-category-card,
 .bijiris-preview-wrapper,
 .bijiris-preview-column {
   display: grid;
@@ -975,6 +976,25 @@ textarea {
 .bijiris-notification-card {
   display: grid;
   gap: 12px;
+}
+
+.bijiris-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bijiris-category-grid-span {
+  grid-column: 1 / -1;
+}
+
+.bijiris-category-preview {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
 }
 
 .bijiris-preview-grid,
@@ -1665,6 +1685,7 @@ textarea {
   .measurement-target-grid,
   .management-grid,
   .survey-question-grid,
+  .bijiris-category-grid,
   .bijiris-preview-grid,
   .ticket-stamp-panel,
   .condition-row,

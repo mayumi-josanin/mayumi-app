@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v64";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v65";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -175,6 +175,118 @@ const BIJIRIS_POST_CATEGORY_OPTIONS = [
   "お知らせ",
   "よくある質問",
 ];
+const BIJIRIS_CATEGORY_MODE_OPTIONS = [
+  { value: "general", label: "通常カテゴリ" },
+  { value: "concern", label: "お悩みカテゴリ" },
+  { value: "custom", label: "自由入力" },
+];
+const BIJIRIS_CONCERN_CATEGORY_ROOT_LABEL = "お悩み";
+const BIJIRIS_CONCERN_CATEGORY_TREE = [
+  {
+    id: "female",
+    label: "女性",
+    groups: [
+      {
+        id: "female-pelvic-floor",
+        label: "産後女性を含む骨盤底筋まわりのお悩み",
+        concerns: [
+          { id: "female-01", label: "産後の骨盤底筋のゆるみ感が気になる" },
+          { id: "female-02", label: "くしゃみ、咳、大笑いでヒヤッとする" },
+          { id: "female-03", label: "骨盤まわりを土台からケアしたい" },
+        ],
+      },
+      {
+        id: "female-toilet",
+        label: "トイレまわりのお悩み",
+        concerns: [
+          { id: "female-04", label: "尿漏れが気になる" },
+          { id: "female-05", label: "頻尿が気になる" },
+          { id: "female-06", label: "急な尿意が気になる" },
+          { id: "female-07", label: "便秘がち" },
+          { id: "female-08", label: "お通じのリズムが気になる" },
+        ],
+      },
+      {
+        id: "female-body-shape",
+        label: "体型・見た目のお悩み",
+        concerns: [
+          { id: "female-09", label: "産後のぽっこりお腹が気になる" },
+          { id: "female-10", label: "年齢とともに体型の変化が気になる" },
+          { id: "female-11", label: "下半身太りが気になる" },
+          { id: "female-12", label: "ヒップの下垂が気になる" },
+        ],
+      },
+      {
+        id: "female-posture",
+        label: "姿勢・日常動作のお悩み",
+        concerns: [
+          { id: "female-13", label: "産後に姿勢が崩れやすくなった" },
+          { id: "female-14", label: "抱っこや家事で下腹や骨盤まわりが気になる" },
+          { id: "female-15", label: "姿勢を整えたい" },
+        ],
+      },
+      {
+        id: "female-delicate",
+        label: "デリケートゾーンまわりのお悩み",
+        concerns: [
+          { id: "female-16", label: "デリケートゾーンのケアを意識したい" },
+          { id: "female-17", label: "膣トレを始めてみたい" },
+        ],
+      },
+      {
+        id: "female-circulation",
+        label: "冷え・巡りのお悩み",
+        concerns: [
+          { id: "female-18", label: "冷えやすさが気になる" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "male",
+    label: "男性",
+    groups: [
+      {
+        id: "male-toilet",
+        label: "トイレまわりのお悩み",
+        concerns: [
+          { id: "male-01", label: "頻尿が気になる" },
+          { id: "male-02", label: "ちょい漏れが気になる" },
+          { id: "male-03", label: "急な尿意で不安がある" },
+          { id: "male-04", label: "トイレ悩みをケアしたい" },
+        ],
+      },
+      {
+        id: "male-delicate",
+        label: "デリケートなお悩み",
+        concerns: [
+          { id: "male-05", label: "EDケアを意識したい" },
+          { id: "male-06", label: "デリケートなお悩みを人知れずケアしたい" },
+        ],
+      },
+      {
+        id: "male-posture",
+        label: "姿勢・骨盤まわりのお悩み",
+        concerns: [
+          { id: "male-07", label: "長時間の座り仕事で骨盤まわりが気になる" },
+          { id: "male-08", label: "猫背や前かがみ姿勢が気になる" },
+          { id: "male-09", label: "腰まわりの違和感が気になる" },
+        ],
+      },
+      {
+        id: "male-lower-body",
+        label: "下半身・体型のお悩み",
+        concerns: [
+          { id: "male-10", label: "下半身の筋力低下が気になる" },
+          { id: "male-11", label: "ヒップラインの崩れが気になる" },
+          { id: "male-12", label: "むくみや冷えが気になる" },
+          { id: "male-13", label: "運動不足が気になる" },
+          { id: "male-14", label: "筋トレが続かない" },
+        ],
+      },
+    ],
+  },
+];
 const BIJIRIS_POST_TEMPLATES = [
   {
     id: "selfcare_breathing",
@@ -312,6 +424,155 @@ function formatDateOnly(value) {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(value));
+}
+
+function normalizeLabel(value) {
+  return String(value ?? "").trim();
+}
+
+function getDefaultBijirisConcernCategoryState() {
+  const audience = BIJIRIS_CONCERN_CATEGORY_TREE[0];
+  const group = audience?.groups?.[0];
+  const concern = group?.concerns?.[0];
+  return {
+    concernAudienceId: normalizeLabel(audience?.id),
+    concernGroupId: normalizeLabel(group?.id),
+    concernId: normalizeLabel(concern?.id),
+  };
+}
+
+function getBijirisConcernAudienceById(audienceId) {
+  return BIJIRIS_CONCERN_CATEGORY_TREE.find((audience) => audience.id === normalizeLabel(audienceId)) || null;
+}
+
+function getBijirisConcernGroupById(audienceId, groupId) {
+  return getBijirisConcernAudienceById(audienceId)?.groups.find((group) => group.id === normalizeLabel(groupId)) || null;
+}
+
+function getBijirisConcernById(audienceId, groupId, concernId) {
+  return getBijirisConcernGroupById(audienceId, groupId)?.concerns.find((concern) => concern.id === normalizeLabel(concernId)) || null;
+}
+
+function resolveBijirisConcernCategoryState(rawState = {}) {
+  const fallback = getDefaultBijirisConcernCategoryState();
+  const audience =
+    getBijirisConcernAudienceById(rawState.concernAudienceId) || getBijirisConcernAudienceById(fallback.concernAudienceId);
+  const group =
+    audience?.groups.find((item) => item.id === normalizeLabel(rawState.concernGroupId)) ||
+    audience?.groups?.[0] ||
+    null;
+  const concern =
+    group?.concerns.find((item) => item.id === normalizeLabel(rawState.concernId)) ||
+    group?.concerns?.[0] ||
+    null;
+  return {
+    concernAudienceId: normalizeLabel(audience?.id),
+    concernGroupId: normalizeLabel(group?.id),
+    concernId: normalizeLabel(concern?.id),
+  };
+}
+
+function buildBijirisConcernCategoryLabel(rawState = {}) {
+  const resolved = resolveBijirisConcernCategoryState(rawState);
+  const audience = getBijirisConcernAudienceById(resolved.concernAudienceId);
+  const group = getBijirisConcernGroupById(resolved.concernAudienceId, resolved.concernGroupId);
+  const concern = getBijirisConcernById(resolved.concernAudienceId, resolved.concernGroupId, resolved.concernId);
+  if (!audience || !group || !concern) return "";
+  return [
+    BIJIRIS_CONCERN_CATEGORY_ROOT_LABEL,
+    audience.label,
+    group.label,
+    concern.label,
+  ].join(" > ");
+}
+
+function findBijirisConcernCategoryState(category) {
+  const normalizedCategory = normalizeLabel(category);
+  if (!normalizedCategory) return null;
+  const pathParts = normalizedCategory.split(/\s*>\s*/).map((part) => normalizeLabel(part)).filter(Boolean);
+  if (pathParts.length >= 4 && pathParts[0] === BIJIRIS_CONCERN_CATEGORY_ROOT_LABEL) {
+    const audience = BIJIRIS_CONCERN_CATEGORY_TREE.find((item) => item.label === pathParts[1]);
+    const group = audience?.groups.find((item) => item.label === pathParts[2]);
+    const concern = group?.concerns.find((item) => item.label === pathParts[3]);
+    if (audience && group && concern) {
+      return {
+        concernAudienceId: audience.id,
+        concernGroupId: group.id,
+        concernId: concern.id,
+      };
+    }
+  }
+  for (const audience of BIJIRIS_CONCERN_CATEGORY_TREE) {
+    for (const group of audience.groups) {
+      for (const concern of group.concerns) {
+        const fullLabel = buildBijirisConcernCategoryLabel({
+          concernAudienceId: audience.id,
+          concernGroupId: group.id,
+          concernId: concern.id,
+        });
+        if (normalizedCategory === fullLabel || normalizedCategory === concern.label) {
+          return {
+            concernAudienceId: audience.id,
+            concernGroupId: group.id,
+            concernId: concern.id,
+          };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function getBijirisCategoryEditorState(category) {
+  const normalizedCategory = normalizeLabel(category);
+  const fallbackConcern = getDefaultBijirisConcernCategoryState();
+  if (!normalizedCategory) {
+    return {
+      mode: "general",
+      generalCategory: BIJIRIS_POST_CATEGORY_OPTIONS[0],
+      customCategory: "",
+      ...fallbackConcern,
+    };
+  }
+  if (BIJIRIS_POST_CATEGORY_OPTIONS.includes(normalizedCategory)) {
+    return {
+      mode: "general",
+      generalCategory: normalizedCategory,
+      customCategory: "",
+      ...fallbackConcern,
+    };
+  }
+  const concernState = findBijirisConcernCategoryState(normalizedCategory);
+  if (concernState) {
+    return {
+      mode: "concern",
+      generalCategory: BIJIRIS_POST_CATEGORY_OPTIONS[0],
+      customCategory: "",
+      ...resolveBijirisConcernCategoryState(concernState),
+    };
+  }
+  return {
+    mode: "custom",
+    generalCategory: BIJIRIS_POST_CATEGORY_OPTIONS[0],
+    customCategory: normalizedCategory,
+    ...fallbackConcern,
+  };
+}
+
+function resolveBijirisCategoryFromForm(form) {
+  const mode = normalizeLabel(form?.elements.categoryMode?.value) || "general";
+  if (mode === "concern") {
+    return buildBijirisConcernCategoryLabel({
+      concernAudienceId: form?.elements.categoryConcernAudience?.value,
+      concernGroupId: form?.elements.categoryConcernGroup?.value,
+      concernId: form?.elements.categoryConcern?.value,
+    });
+  }
+  if (mode === "custom") {
+    return normalizeLabel(form?.elements.categoryCustom?.value);
+  }
+  const generalCategory = normalizeLabel(form?.elements.categoryGeneral?.value);
+  return generalCategory || BIJIRIS_POST_CATEGORY_OPTIONS[0];
 }
 
 function parseTicketLabelNumber(value) {
@@ -5484,6 +5745,105 @@ function applyBijirisTemplate(templateId) {
   state.bijirisEditorDraft = draft;
 }
 
+function renderBijirisCategoryEditor(category) {
+  const editorState = getBijirisCategoryEditorState(category);
+  const concernState = resolveBijirisConcernCategoryState(editorState);
+  const audience = getBijirisConcernAudienceById(concernState.concernAudienceId);
+  const groups = Array.isArray(audience?.groups) ? audience.groups : [];
+  const concerns = Array.isArray(getBijirisConcernGroupById(concernState.concernAudienceId, concernState.concernGroupId)?.concerns)
+    ? getBijirisConcernGroupById(concernState.concernAudienceId, concernState.concernGroupId).concerns
+    : [];
+  const resolvedCategory = editorState.mode === "concern"
+    ? buildBijirisConcernCategoryLabel(concernState)
+    : editorState.mode === "custom"
+      ? editorState.customCategory
+      : editorState.generalCategory;
+  return `
+    <article class="history-card bijiris-category-card">
+      <div class="survey-editor-head">
+        <div>
+          <div class="card-title">カテゴリ</div>
+          <div class="meta">通常カテゴリ / お悩みカテゴリ / 自由入力から選べます。</div>
+        </div>
+      </div>
+      <div class="bijiris-category-grid">
+        <label>
+          分類方法
+          <select name="categoryMode" data-bijiris-category-control>
+            ${BIJIRIS_CATEGORY_MODE_OPTIONS.map((option) => `
+              <option value="${escapeHtml(option.value)}" ${editorState.mode === option.value ? "selected" : ""}>${escapeHtml(option.label)}</option>
+            `).join("")}
+          </select>
+        </label>
+        ${
+          editorState.mode === "general"
+            ? `
+              <label>
+                通常カテゴリ
+                <select name="categoryGeneral" data-bijiris-category-control>
+                  ${BIJIRIS_POST_CATEGORY_OPTIONS.map((option) => `
+                    <option value="${escapeHtml(option)}" ${editorState.generalCategory === option ? "selected" : ""}>${escapeHtml(option)}</option>
+                  `).join("")}
+                </select>
+              </label>
+            `
+            : ""
+        }
+        ${
+          editorState.mode === "concern"
+            ? `
+              <label>
+                対象
+                <select name="categoryConcernAudience" data-bijiris-category-control>
+                  ${BIJIRIS_CONCERN_CATEGORY_TREE.map((option) => `
+                    <option value="${escapeHtml(option.id)}" ${concernState.concernAudienceId === option.id ? "selected" : ""}>${escapeHtml(option.label)}</option>
+                  `).join("")}
+                </select>
+              </label>
+              <label>
+                大分類
+                <select name="categoryConcernGroup" data-bijiris-category-control>
+                  ${groups.map((option) => `
+                    <option value="${escapeHtml(option.id)}" ${concernState.concernGroupId === option.id ? "selected" : ""}>${escapeHtml(option.label)}</option>
+                  `).join("")}
+                </select>
+              </label>
+              <label class="bijiris-category-grid-span">
+                個別お悩み
+                <select name="categoryConcern" data-bijiris-category-control>
+                  ${concerns.map((option) => `
+                    <option value="${escapeHtml(option.id)}" ${concernState.concernId === option.id ? "selected" : ""}>${escapeHtml(option.label)}</option>
+                  `).join("")}
+                </select>
+              </label>
+            `
+            : ""
+        }
+        ${
+          editorState.mode === "custom"
+            ? `
+              <label class="bijiris-category-grid-span">
+                カスタムカテゴリ
+                <input
+                  name="categoryCustom"
+                  type="text"
+                  value="${escapeHtml(editorState.customCategory)}"
+                  placeholder="例: キャンペーン / 期間限定"
+                  data-bijiris-category-custom
+                />
+              </label>
+            `
+            : ""
+        }
+      </div>
+      <div class="bijiris-category-preview">
+        <strong>保存されるカテゴリ</strong>
+        <div class="meta">${escapeHtml(resolvedCategory || "未設定")}</div>
+      </div>
+    </article>
+  `;
+}
+
 function renderAdminBijirisDocumentPreview(file, index, compact = false) {
   const href = String(file?.downloadUrl || file?.previewUrl || file?.url || "#").trim();
   return `
@@ -5585,7 +5945,7 @@ function syncBijirisDraftFromForm(form) {
   if (!form) return getBijirisEditorDraft();
   const draft = getBijirisEditorDraft();
   draft.title = String(form.elements.title?.value || "").trim();
-  draft.category = String(form.elements.category?.value || "").trim();
+  draft.category = resolveBijirisCategoryFromForm(form);
   draft.summary = String(form.elements.summary?.value || "").trim();
   draft.body = String(form.elements.body?.value || "").trim();
   draft.status = ["published", "draft", "archived"].includes(String(form.elements.status?.value || "").trim())
@@ -5728,6 +6088,7 @@ async function handleBijirisDocumentInput(input) {
 async function saveBijirisPost() {
   const draft = normalizeBijirisPost(getBijirisEditorDraft());
   if (!draft.title) throw new Error("タイトルを入力してください。");
+  if (!draft.category) throw new Error("カテゴリを選択してください。");
   if (!draft.summary && !draft.body && !draft.photos.length && !draft.documents.length) {
     throw new Error("本文、要約、写真、PDF のいずれかを入力してください。");
   }
@@ -5966,13 +6327,8 @@ function renderBijirisManager() {
         タイトル
         <input name="title" type="text" value="${escapeHtml(draft.title || "")}" required />
       </label>
+      ${renderBijirisCategoryEditor(draft.category)}
       <div class="survey-question-grid">
-        <label>
-          カテゴリ
-          <select name="category">
-            ${BIJIRIS_POST_CATEGORY_OPTIONS.map((option) => `<option value="${escapeHtml(option)}" ${draft.category === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
-          </select>
-        </label>
         <label>
           公開状態
           <select name="status">
@@ -6107,6 +6463,13 @@ function renderBijirisManager() {
   form?.addEventListener("change", () => {
     syncBijirisDraftFromForm(form);
     refreshBijirisPreview();
+  });
+  document.querySelectorAll("[data-bijiris-category-control]").forEach((control) => {
+    control.addEventListener("change", () => {
+      syncBijirisDraftFromForm(form);
+      renderBijirisManager();
+      setPage("bijiris");
+    });
   });
   form?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -6862,7 +7225,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-03", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-05", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
