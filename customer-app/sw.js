@@ -1,5 +1,5 @@
-const CACHE_NAME = "mayumi-customer-survey-v82";
-const ASSET_VERSION = "20260417-07";
+const CACHE_NAME = "mayumi-customer-survey-v83";
+const ASSET_VERSION = "20260417-08";
 const APP_ASSETS = [
   "./",
   "./index.html",
