@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260416-17";
+const APP_VERSION = "20260417-02";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v78";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v79";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2023,6 +2023,12 @@ function getNewUnreadBijirisPosts() {
   return getUnreadBijirisPosts().filter((post) => isBijirisPostNew(post));
 }
 
+function getUnreadBijirisCountByCategory(category) {
+  const normalized = normalizeText(category);
+  if (!normalized) return 0;
+  return getUnreadBijirisPosts().filter((post) => normalizeText(post.category) === normalized).length;
+}
+
 function getBijirisSearchSource(post) {
   return [
     post?.title,
@@ -2297,7 +2303,10 @@ function renderBijirisToolbar() {
         />
       </label>
       <div class="bijiris-filter-row">
-        <button class="bijiris-filter-chip ${appState.selectedBijirisCategory === "all" ? "active" : ""}" type="button" data-bijiris-category="all">すべて</button>
+        <button class="bijiris-filter-chip ${appState.selectedBijirisCategory === "all" ? "active" : ""}" type="button" data-bijiris-category="all">
+          <span>すべて</span>
+          <span class="bijiris-filter-count">${escapeHtml(String(unreadCount))}</span>
+        </button>
         ${categories
           .map((category) => `
             <button
@@ -2305,7 +2314,8 @@ function renderBijirisToolbar() {
               type="button"
               data-bijiris-category="${escapeHtml(category)}"
             >
-              ${escapeHtml(category)}
+              <span>${escapeHtml(category)}</span>
+              <span class="bijiris-filter-count">${escapeHtml(String(getUnreadBijirisCountByCategory(category)))}</span>
             </button>
           `)
           .join("")}
@@ -4190,6 +4200,30 @@ function renderAnswerValue(answer) {
   return escapeHtml(answer.value || "未回答");
 }
 
+function renderMeasurementPhotoSwipe(files) {
+  if (!Array.isArray(files) || !files.length) return "";
+  return `
+    ${files.length > 1 ? '<div class="meta">左右にスワイプして計測写真を確認できます。</div>' : ""}
+    <div class="measurement-photo-swipe-shell" aria-label="計測写真一覧">
+      <div class="measurement-photo-swipe-track">
+        ${files
+          .map((file, index) => {
+            const href = getPhotoOpenHref(file);
+            const preview = getPhotoPreviewSrc(file);
+            return `
+              <a class="photo-thumb measurement-photo-swipe-slide" href="${escapeHtml(href)}" target="_blank" rel="noopener">
+                ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || `photo-${index + 1}`)}" />` : ""}
+                <span>${escapeHtml(file.name || `写真${index + 1}`)}</span>
+                ${formatPhotoCapturedAt(file.capturedAt) ? `<span class="meta">撮影日: ${escapeHtml(formatPhotoCapturedAt(file.capturedAt))}</span>` : ""}
+              </a>
+            `;
+          })
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderTicketStampList(ticketInfo) {
   if (!ticketInfo.length) return "";
   return `
@@ -5108,7 +5142,7 @@ function renderMeasurementPhotoTimeline(entries) {
                 entry.id === appState.selectedMeasurementPhotoComparisonId
                   ? `
                     <div class="measurement-photo-entry-body">
-                      ${renderAnswerValue({ files: entry.group.files })}
+                      ${renderMeasurementPhotoSwipe(entry.group.files)}
                       ${renderTicketStampList(entry.group.ticketInfo || [])}
                     </div>
                   `
@@ -5358,7 +5392,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260416-17", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-02", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v63";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v64";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -1542,6 +1542,15 @@ function formatMeasurementDelta(value, unit = "cm") {
   return `<span class="delta-badge ${className}">${escapeHtml(text)}</span>`;
 }
 
+function formatMeasurementDeltaText(value, unit = "cm") {
+  if (value === "" || value === null || value === undefined || !Number.isFinite(Number(value))) {
+    return "-";
+  }
+  const normalized = roundMeasurementDelta(value);
+  if (normalized === 0) return `0.0${unit}`;
+  return `${normalized > 0 ? "+" : ""}${normalized.toFixed(1)}${unit}`;
+}
+
 function formatWhr(value) {
   if (value === "" || value === null || value === undefined || !Number.isFinite(Number(value))) return "-";
   return Number(value).toFixed(3);
@@ -1611,6 +1620,10 @@ function buildMeasurementHistoryRows(measurements) {
     });
   });
   return measurements.map((measurement) => rowsById.get(measurement.id)).filter(Boolean);
+}
+
+function getMeasurementPeriodLabel(period) {
+  return MEASUREMENT_PERIOD_OPTIONS.find((option) => option.value === period)?.label || "全期間";
 }
 
 function getMeasurementPhotoDateKey(value) {
@@ -1776,6 +1789,12 @@ function getMeasurementPhotoBundleForMeasurement(measurement) {
     measurement,
     stages,
   };
+}
+
+function getMeasurementPhotoFileCount(measurement) {
+  const bundle = getMeasurementPhotoBundleForMeasurement(measurement);
+  if (!bundle?.stages?.length) return 0;
+  return bundle.stages.reduce((count, stage) => count + (Array.isArray(stage.files) ? stage.files.length : 0), 0);
 }
 
 function renderMeasurementPhotoCell(measurement) {
@@ -2121,8 +2140,16 @@ function renderMeasurementHistoryTable(measurements) {
   }
   return `
     <article class="answer-item">
-      <strong>測定履歴</strong>
-      <div class="meta">新しい測定が上に表示されます。前回比と初回比を自動計算しています。</div>
+      <div class="stage-head">
+        <div>
+          <strong>測定履歴</strong>
+          <div class="meta">新しい測定が上に表示されます。前回比と初回比を自動計算しています。</div>
+        </div>
+        <div class="action-row">
+          <button class="secondary-button" type="button" data-export-measurements-csv>CSV出力</button>
+          <button class="secondary-button" type="button" data-export-measurements-pdf>PDF出力</button>
+        </div>
+      </div>
       <div class="measurement-table-wrap">
         <table class="measurement-table">
           <thead>
@@ -2238,6 +2265,133 @@ function renderMeasurementSection(customerName) {
       ${renderMeasurementHistoryTable(filteredMeasurements)}
     </section>
   `;
+}
+
+function getFilteredCustomerMeasurements(customerName) {
+  return filterMeasurementsByPeriod(getCustomerMeasurements(customerName), state.selectedMeasurementPeriod);
+}
+
+function exportCustomerMeasurementsCsv(customerName) {
+  const rows = buildMeasurementHistoryRows(getFilteredCustomerMeasurements(customerName));
+  if (!rows.length) {
+    showToast("出力対象の測定履歴がありません。");
+    return;
+  }
+  const header = ["測定日"];
+  MEASUREMENT_METRICS.forEach((metric) => {
+    header.push(metric.label, `${metric.label} 前回比`, `${metric.label} 初回比`);
+  });
+  header.push("WHR", "左右差", "メモ", "計測写真枚数");
+  const csvRows = [
+    header,
+    ...rows.map((row) => {
+      const line = [formatDateOnly(row.measuredAt)];
+      MEASUREMENT_METRICS.forEach((metric) => {
+        const metricRow = row.metrics[metric.key];
+        line.push(
+          formatMeasurementValue(metricRow.value),
+          formatMeasurementDeltaText(metricRow.previousDelta),
+          formatMeasurementDeltaText(metricRow.firstDelta),
+        );
+      });
+      line.push(
+        formatWhr(row.whr),
+        row.leftRightGap === "" ? "-" : `${row.leftRightGap.toFixed(1)}cm`,
+        row.memo || "",
+        String(getMeasurementPhotoFileCount(row)),
+      );
+      return line;
+    }),
+  ];
+  const csv = csvRows
+    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${sanitizeDownloadNamePart(customerName, "customer")}-measurements-${Date.now()}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportCustomerMeasurementsPdf(customerName) {
+  const rows = buildMeasurementHistoryRows(getFilteredCustomerMeasurements(customerName));
+  if (!rows.length) {
+    showToast("出力対象の測定履歴がありません。");
+    return;
+  }
+  const printWindow = window.open("", "_blank", "noopener,noreferrer");
+  if (!printWindow) {
+    showToast("PDF出力画面を開けませんでした。");
+    return;
+  }
+  const headerCells = [
+    "<th>測定日</th>",
+    ...MEASUREMENT_METRICS.map((metric) => `<th>${escapeHtml(metric.label)}</th>`),
+    "<th>WHR</th>",
+    "<th>左右差</th>",
+    "<th>メモ</th>",
+    "<th>計測写真</th>",
+  ].join("");
+  const bodyRows = rows
+    .map((row) => {
+      const metricCells = MEASUREMENT_METRICS.map((metric) => {
+        const metricRow = row.metrics[metric.key];
+        return `
+          <td>
+            <div>${escapeHtml(formatMeasurementValue(metricRow.value))}</div>
+            <div class="sub">前回 ${escapeHtml(formatMeasurementDeltaText(metricRow.previousDelta))}</div>
+            <div class="sub">初回 ${escapeHtml(formatMeasurementDeltaText(metricRow.firstDelta))}</div>
+          </td>
+        `;
+      }).join("");
+      return `
+        <tr>
+          <td>${escapeHtml(formatDateOnly(row.measuredAt))}</td>
+          ${metricCells}
+          <td>${escapeHtml(formatWhr(row.whr))}</td>
+          <td>${row.leftRightGap === "" ? "-" : `${escapeHtml(row.leftRightGap.toFixed(1))}cm`}</td>
+          <td>${escapeHtml(row.memo || "-")}</td>
+          <td>${escapeHtml(String(getMeasurementPhotoFileCount(row)))}枚</td>
+        </tr>
+      `;
+    })
+    .join("");
+  printWindow.document.write(`
+    <!doctype html>
+    <html lang="ja">
+      <head>
+        <meta charset="UTF-8" />
+        <title>測定履歴 PDF</title>
+        <style>
+          body { font-family: sans-serif; padding: 24px; color: #222; }
+          h1 { font-size: 22px; margin-bottom: 8px; }
+          .meta { color: #666; margin-bottom: 8px; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+          th, td { border: 1px solid #ddd; padding: 8px; vertical-align: top; font-size: 12px; text-align: left; word-break: break-word; }
+          th { background: #f8f5ef; }
+          .sub { color: #666; font-size: 11px; margin-top: 2px; }
+        </style>
+      </head>
+      <body>
+        <h1>測定履歴</h1>
+        <div class="meta">顧客: ${escapeHtml(getCustomerNameWithMember(customerName))}</div>
+        <div class="meta">表示期間: ${escapeHtml(getMeasurementPeriodLabel(state.selectedMeasurementPeriod))} / 件数: ${rows.length}件</div>
+        <table>
+          <thead>
+            <tr>${headerCells}</tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
 }
 
 async function saveMeasurement(form) {
@@ -2934,6 +3088,18 @@ function renderCustomerManagement() {
     button.addEventListener("click", () => {
       void deleteMeasurement(button.dataset.deleteMeasurement || "");
     });
+  });
+
+  stage.querySelector("[data-export-measurements-csv]")?.addEventListener("click", () => {
+    if (selectedCustomer?.name) {
+      exportCustomerMeasurementsCsv(selectedCustomer.name);
+    }
+  });
+
+  stage.querySelector("[data-export-measurements-pdf]")?.addEventListener("click", () => {
+    if (selectedCustomer?.name) {
+      exportCustomerMeasurementsPdf(selectedCustomer.name);
+    }
   });
 
   stage.querySelectorAll("[data-open-measurement-photo]").forEach((button) => {
@@ -6696,7 +6862,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-01", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-03", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
