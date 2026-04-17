@@ -12,12 +12,14 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260417-11";
+const APP_VERSION = "20260417-12";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v85";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v86";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
+const ONE_SIGNAL_APP_SCOPE_KEY = "app_scope";
+const ONE_SIGNAL_APP_SCOPE_VALUE = "mayumi_bijiris";
 const SESSION_SURVEY_ID = "survey_bijiris_session";
 const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
@@ -455,6 +457,15 @@ function cloneData(value) {
 
 function getConfiguredPushAppId() {
   return String(appState.publicInfo?.pushAppId || window.MAYUMI_ONESIGNAL_APP_ID || DEFAULT_ONESIGNAL_APP_ID || "").trim();
+}
+
+async function ensureOneSignalAppScope(oneSignal) {
+  if (!oneSignal?.User?.addTag) return;
+  try {
+    await oneSignal.User.addTag(ONE_SIGNAL_APP_SCOPE_KEY, ONE_SIGNAL_APP_SCOPE_VALUE);
+  } catch (error) {
+    reportClientError("customer.push.scopeTag", error);
+  }
 }
 
 function getStoredPushPreference() {
@@ -951,6 +962,7 @@ async function loadOneSignalSdk() {
           serviceWorkerParam: { scope: workerBase },
           allowLocalhostAsSecureOrigin: true,
         });
+        await ensureOneSignalAppScope(OneSignal);
         appState.pushInitialized = true;
         OneSignal.Notifications?.addEventListener?.("permissionChange", () => {
           void syncPushStateFromOneSignal();
@@ -976,6 +988,7 @@ async function loadOneSignalSdk() {
 async function syncPushStateFromOneSignal(options = {}) {
   const updateDesired = options.updateDesired !== undefined ? options.updateDesired : !appState.pushBusy;
   const OneSignal = getOneSignalInstance() || await loadOneSignalSdk();
+  await ensureOneSignalAppScope(OneSignal);
   const pushSubscription = OneSignal?.User?.PushSubscription;
   const permission = OneSignal?.Notifications?.permission;
   const permissionGranted = permission && typeof permission.then === "function" ? await permission : permission;
@@ -5757,7 +5770,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-08", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-12", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
