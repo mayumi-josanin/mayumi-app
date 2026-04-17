@@ -1287,14 +1287,13 @@ function buildOneSignalPayload_(record) {
   const subscriptionIds = targetUsers
     .map(function (user) { return String(user && (user.subscription || user.subscriptionId) || '').trim(); })
     .filter(Boolean);
-  if (subscriptionIds.length) {
+  const targetDetail = String(record && record.targetDetail || '').trim();
+  const useDirectSubscriptionTarget = subscriptionIds.length > 0 && (
+    (record.targetStatus && record.targetStatus !== 'all') ||
+    /^テスト送信:/.test(targetDetail)
+  );
+  if (useDirectSubscriptionTarget) {
     payload.include_subscription_ids = subscriptionIds;
-  } else if (record.targetStatus && record.targetStatus !== 'all') {
-    payload.filters = [
-      { field: 'tag', key: ONE_SIGNAL_APP_SCOPE_KEY, relation: '=', value: ONE_SIGNAL_APP_SCOPE_VALUE },
-      { operator: 'AND' },
-      { field: 'tag', key: 'status', relation: '=', value: record.targetStatus }
-    ];
   } else {
     payload.filters = [
       { field: 'tag', key: ONE_SIGNAL_APP_SCOPE_KEY, relation: '=', value: ONE_SIGNAL_APP_SCOPE_VALUE }
