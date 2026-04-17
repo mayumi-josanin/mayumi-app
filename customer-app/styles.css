@@ -605,6 +605,11 @@ textarea {
   width: 100%;
 }
 
+.bijiris-category-select-stack {
+  display: grid;
+  gap: 10px;
+}
+
 .selection-grid {
   display: grid;
   gap: 10px;

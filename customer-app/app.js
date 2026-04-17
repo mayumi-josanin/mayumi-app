@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260417-16";
+const APP_VERSION = "20260417-17";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v90";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v91";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2275,37 +2275,7 @@ function getBijirisCategoryChildren(path = appState.selectedBijirisCategoryPath)
       if (!isBijirisRead(post.id)) current.unreadCount += 1;
       children.set(nextSegment, current);
     });
-  return Array.from(children.values());
-}
-
-function compareBijirisCategorySegments(aSegments, bSegments) {
-  const length = Math.min(aSegments.length, bSegments.length);
-  for (let index = 0; index < length; index += 1) {
-    const compared = aSegments[index].localeCompare(bSegments[index], "ja");
-    if (compared !== 0) return compared;
-  }
-  return aSegments.length - bSegments.length;
-}
-
-function getBijirisCategoryOptions() {
-  const posts = getBijirisBaseFilteredPosts();
-  const options = new Map();
-  posts.forEach((post) => {
-    const segments = splitBijirisCategoryPath(post?.category);
-    const path = [];
-    segments.forEach((segment) => {
-      path.push(segment);
-      const key = path.join(" > ");
-      const current = options.get(key) || {
-        value: key,
-        path: [...path],
-        count: 0,
-      };
-      current.count += 1;
-      options.set(key, current);
-    });
-  });
-  return Array.from(options.values()).sort((a, b) => compareBijirisCategorySegments(a.path, b.path));
+  return Array.from(children.values()).sort((a, b) => a.label.localeCompare(b.label, "ja"));
 }
 
 function getCurrentBijirisCategoryLabel() {
@@ -2593,12 +2563,37 @@ function renderBijirisListSwitcher() {
 function renderBijirisDiscoverPanel() {
   const currentPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath);
   const scopedPosts = getCurrentBijirisCategoryPosts();
-  const categoryOptions = getBijirisCategoryOptions();
   const favoriteCount = sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id)).length;
   const readerState = getBijirisReaderState();
   const unreadCount = getUnreadBijirisPosts().length;
   const newUnreadCount = getNewUnreadBijirisPosts().length;
   const currentMode = getBijirisListMode();
+  const categorySelects = [];
+  let selectPath = [];
+  let level = 0;
+  while (true) {
+    const options = getBijirisCategoryChildren(selectPath);
+    if (!options.length && level > 0) break;
+    const selectedValue = currentPath[level] || "";
+    categorySelects.push(`
+      <label>
+        ${level === 0 ? "カテゴリ" : `詳細カテゴリ ${level}`}
+        <select data-bijiris-category-level="${level}">
+          <option value="">${level === 0 ? "すべてのカテゴリ" : "ここで絞り込みを止める"}</option>
+          ${options
+            .map((option) => `
+              <option value="${escapeHtml(option.label)}" ${option.label === selectedValue ? "selected" : ""}>
+                ${escapeHtml(option.label)} (${option.totalCount})
+              </option>
+            `)
+            .join("")}
+        </select>
+      </label>
+    `);
+    if (!selectedValue) break;
+    selectPath = selectPath.concat(selectedValue);
+    level += 1;
+  }
   return `
     <div class="history-card bijiris-discover-card">
       <div class="section-head bijiris-toolbar-head">
@@ -2622,19 +2617,9 @@ function renderBijirisDiscoverPanel() {
           value="${escapeHtml(appState.bijirisSearchQuery)}"
         />
       </label>
-      <label>
-        カテゴリ
-        <select id="bijirisCategorySelect" data-bijiris-category-select>
-          <option value="">すべてのカテゴリ</option>
-          ${categoryOptions
-            .map((option) => `
-              <option value="${escapeHtml(option.value)}" ${option.value === currentPath.join(" > ") ? "selected" : ""}>
-                ${escapeHtml(option.value)} (${option.count})
-              </option>
-            `)
-            .join("")}
-        </select>
-      </label>
+      <div class="bijiris-category-select-stack">
+        ${categorySelects.join("")}
+      </div>
       <div class="meta">
         ${
           currentPath.length
@@ -2925,12 +2910,15 @@ function attachBijirisPostActions() {
       button.click();
     });
   });
-  bijirisPanel.querySelector("[data-bijiris-category-select]")?.addEventListener("change", (event) => {
-    const value = normalizeText(event.currentTarget?.value);
-    appState.selectedBijirisCategoryPath = value
-      ? value.split(/\s*>\s*/).map((segment) => normalizeText(segment)).filter(Boolean)
-      : [];
-    renderBijirisPosts();
+  bijirisPanel.querySelectorAll("[data-bijiris-category-level]").forEach((select) => {
+    select.addEventListener("change", (event) => {
+      const level = Number(event.currentTarget?.dataset?.bijirisCategoryLevel);
+      if (!Number.isInteger(level) || level < 0) return;
+      const prefix = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).slice(0, level);
+      const value = normalizeText(event.currentTarget?.value);
+      appState.selectedBijirisCategoryPath = value ? prefix.concat(value) : prefix;
+      renderBijirisPosts();
+    });
   });
   bijirisPanel.querySelectorAll("[data-bijiris-list-mode]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -5787,7 +5775,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-16", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-17", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
