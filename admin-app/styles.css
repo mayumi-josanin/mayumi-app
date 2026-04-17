@@ -1040,6 +1040,34 @@ textarea {
   text-decoration: underline;
 }
 
+.bijiris-list-card {
+  padding: 14px 16px;
+}
+
+.bijiris-list-open-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bijiris-list-open-button strong {
+  display: block;
+  color: var(--text-dark);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.bijiris-list-open-button:hover strong,
+.bijiris-list-open-button:focus-visible strong {
+  color: var(--sage-dark);
+}
+
 .survey-editor-preview-text {
   color: var(--text-dark);
   line-height: 1.8;

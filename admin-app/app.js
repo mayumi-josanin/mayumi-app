@@ -6595,21 +6595,15 @@ function renderBijirisManager() {
     list.innerHTML = posts.length
       ? posts
           .map((post) => `
-            <article class="survey-manager-card selectable-card ${post.id === state.selectedBijirisPostId ? "active" : ""}">
-              <div class="survey-manager-card-head">
-                <button class="bijiris-title-open-button" type="button" data-open-bijiris-history="${escapeHtml(post.id)}">
-                  <strong>${escapeHtml(post.title)}</strong>
-                </button>
-                <span class="badge ${escapeHtml(post.status)}">${escapeHtml(post.status === "published" ? "公開" : post.status === "archived" ? "アーカイブ" : "下書き")}</span>
-              </div>
-              <div>${escapeHtml(post.category || "豆知識")}</div>
-              <div class="meta">更新: ${post.updatedAt ? escapeHtml(formatDate(post.updatedAt)) : "-"}</div>
-              <div class="meta">写真 ${post.photos.length} / PDF ${post.documents.length}</div>
-              ${renderAdminBijirisListMediaStrip(post, true)}
-              <div class="action-row">
-                ${post.pinned ? `<span class="badge open">重要固定</span>` : ""}
-                <span class="meta">タイトルをタップすると詳細を表示できます。</span>
-              </div>
+            <article class="survey-manager-card selectable-card bijiris-list-card ${post.id === state.selectedBijirisPostId ? "active" : ""}">
+              <button
+                class="bijiris-list-open-button"
+                type="button"
+                data-open-bijiris-history="${escapeHtml(post.id)}"
+                aria-label="${escapeHtml(post.title || "タイトル未入力")}"
+              >
+                <strong>${escapeHtml(post.title || "タイトル未入力")}</strong>
+              </button>
             </article>
           `)
           .join("")
