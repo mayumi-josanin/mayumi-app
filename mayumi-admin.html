@@ -6650,16 +6650,17 @@
 
     function collectPushNoticePayload() {
       const audience = buildSelectedPushAudience();
+      const includeDirectTargetUsers = audience.mode !== 'all';
       return {
         title: document.getElementById('pushTitle').value.trim(),
         body: document.getElementById('pushBody').value.trim(),
         targetStatus: audience.mode,
         targetDetail: audience.label,
-        targetUsers: audience.users.map(user => ({
+        targetUsers: includeDirectTargetUsers ? audience.users.map(user => ({
           memberId: user.memberId,
           name: user.name,
           subscription: user.subscription
-        })),
+        })) : [],
         recipientCount: audience.users.length,
         targetPage: document.getElementById('pushTargetPage').value,
         scheduledAt: document.getElementById('pushScheduledAt').value || ''
