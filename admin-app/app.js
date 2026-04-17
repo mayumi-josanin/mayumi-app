@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v68";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v69";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -365,6 +365,7 @@ const state = {
   selectedBijirisPostId: "",
   selectedBijirisView: "list",
   bijirisEditorDraft: null,
+  bijirisPendingTaskCount: 0,
   selectedMeasurementPeriod: "6m",
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
   installPrompt: null,
@@ -822,6 +823,42 @@ function hideToast() {
     toastTimer = 0;
   }
   toast.classList.remove("show", "busy");
+}
+
+function hasPendingBijirisTasks() {
+  return state.bijirisPendingTaskCount > 0;
+}
+
+function updateBijirisSubmitButtonState() {
+  const button = document.querySelector("#bijirisSubmitButton");
+  if (!button) return;
+  const pending = hasPendingBijirisTasks();
+  const idleLabel = button.dataset.idleLabel || button.textContent;
+  button.dataset.idleLabel = idleLabel;
+  button.disabled = pending;
+  button.textContent = pending ? "画像を準備中…" : idleLabel;
+}
+
+async function runBijirisPendingTask(task, fallbackMessage) {
+  state.bijirisPendingTaskCount += 1;
+  updateBijirisSubmitButtonState();
+  try {
+    return await task;
+  } catch (error) {
+    showToast(error.message || fallbackMessage);
+    return null;
+  } finally {
+    state.bijirisPendingTaskCount = Math.max(0, state.bijirisPendingTaskCount - 1);
+    updateBijirisSubmitButtonState();
+  }
+}
+
+async function waitForBijirisPendingTasks() {
+  if (!hasPendingBijirisTasks()) return;
+  showBusyToast("表紙画像を準備中です。完了までお待ちください。");
+  while (hasPendingBijirisTasks()) {
+    await new Promise((resolve) => window.setTimeout(resolve, 120));
+  }
 }
 
 function closeConfirmDialog(result = false) {
@@ -5714,6 +5751,19 @@ function sortBijirisPosts(posts) {
   });
 }
 
+function getBijirisSubmitButtonLabel(draft, selectedPost, isEditingPublishedPost) {
+  if (draft.status === "published") {
+    if (selectedPost) {
+      return isEditingPublishedPost ? "保存して顧客アプリへ反映" : "公開内容を保存";
+    }
+    return "作成して公開";
+  }
+  if (draft.status === "draft") {
+    return selectedPost ? "下書きを保存" : "下書きを作成";
+  }
+  return selectedPost ? "保存" : "作成";
+}
+
 function createEmptyBijirisPostDraft() {
   return normalizeBijirisPost({
     id: "",
@@ -6538,14 +6588,14 @@ function renderBijirisManager() {
       </div>
       ${renderBijirisAttachmentPreview(draft.documents, "pdf")}
       <div class="survey-editor-actions">
-        <button class="primary-button" type="submit">
-          ${draft.status === "published"
-            ? (selectedPost
-                ? (isEditingPublishedPost ? "保存して顧客アプリへ反映" : "公開内容を保存")
-                : "作成して公開")
-            : draft.status === "draft"
-              ? (selectedPost ? "下書きを保存" : "下書きを作成")
-              : (selectedPost ? "保存" : "作成")}
+        <button
+          id="bijirisSubmitButton"
+          class="primary-button"
+          type="submit"
+          data-idle-label="${escapeHtml(getBijirisSubmitButtonLabel(draft, selectedPost, isEditingPublishedPost))}"
+          ${hasPendingBijirisTasks() ? "disabled" : ""}
+        >
+          ${escapeHtml(hasPendingBijirisTasks() ? "画像を準備中…" : getBijirisSubmitButtonLabel(draft, selectedPost, isEditingPublishedPost))}
         </button>
       </div>
     </form>
@@ -6612,26 +6662,33 @@ function renderBijirisManager() {
   });
   form?.addEventListener("submit", (event) => {
     event.preventDefault();
-    syncBijirisDraftFromForm(form);
-    saveBijirisPost().catch((error) => {
-      showToast(error.message || "豆知識を保存できませんでした。");
-    });
+    waitForBijirisPendingTasks()
+      .then(() => {
+        syncBijirisDraftFromForm(form);
+        return saveBijirisPost();
+      })
+      .catch((error) => {
+        showToast(error.message || "豆知識を保存できませんでした。");
+      });
   });
   document.querySelector("#bijirisPhotoInput")?.addEventListener("change", (event) => {
-    handleBijirisImageInput(event.currentTarget).catch((error) => {
-      showToast(error.message || "写真を追加できませんでした。");
-    });
+    void runBijirisPendingTask(
+      handleBijirisImageInput(event.currentTarget),
+      "写真を追加できませんでした。",
+    );
   });
   document.querySelector("#bijirisDocumentInput")?.addEventListener("change", (event) => {
-    handleBijirisDocumentInput(event.currentTarget).catch((error) => {
-      showToast(error.message || "PDF を追加できませんでした。");
-    });
+    void runBijirisPendingTask(
+      handleBijirisDocumentInput(event.currentTarget),
+      "PDF を追加できませんでした。",
+    );
   });
   document.querySelectorAll("[data-bijiris-document-cover-input]").forEach((input) => {
     input.addEventListener("change", (event) => {
-      handleBijirisDocumentCoverInput(event.currentTarget, input.dataset.bijirisDocumentCoverInput).catch((error) => {
-        showToast(error.message || "表紙画像を追加できませんでした。");
-      });
+      void runBijirisPendingTask(
+        handleBijirisDocumentCoverInput(event.currentTarget, input.dataset.bijirisDocumentCoverInput),
+        "表紙画像を追加できませんでした。",
+      );
     });
   });
   document.querySelectorAll("[data-remove-bijiris-photo]").forEach((button) => {
@@ -6660,6 +6717,7 @@ function renderBijirisManager() {
       showToast(error.message || "豆知識を削除できませんでした。");
     });
   });
+  updateBijirisSubmitButtonState();
 }
 
 function renderSurveyManager() {
@@ -7376,7 +7434,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-09", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-10", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
