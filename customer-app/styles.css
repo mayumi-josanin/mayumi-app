@@ -396,13 +396,18 @@ textarea {
 }
 
 .bijiris-post-head {
-  align-items: center;
+  align-items: flex-start;
 }
 
 .bijiris-post-title-row {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.bijiris-post-status-row,
+.bijiris-post-actions {
+  justify-content: flex-end;
 }
 
 .bijiris-unread-label {

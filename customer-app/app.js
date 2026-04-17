@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260417-12";
+const APP_VERSION = "20260417-13";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v86";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v87";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2482,8 +2482,8 @@ function renderBijirisBadges(post) {
   return `
     ${post.pinned ? `<span class="badge closed">重要</span>` : ""}
     ${isBijirisPostNew(post) ? `<span class="badge warn">新着</span>` : ""}
-    ${post.photos.length ? `<span class="badge draft">写真 ${post.photos.length}</span>` : ""}
-    ${post.documents.length ? `<span class="badge">PDF ${post.documents.length}</span>` : ""}
+    ${post.photos.length ? `<span class="badge draft">写真${post.photos.length}</span>` : ""}
+    ${post.documents.length ? `<span class="badge">PDF${post.documents.length}</span>` : ""}
   `;
 }
 
@@ -2751,7 +2751,12 @@ function renderBijirisPostCard(post) {
           </div>
           <div class="meta">${escapeHtml(post.category || "豆知識")} / ${escapeHtml(formatDate(publishedAt))}</div>
         </div>
-        <div class="action-row">
+        <div class="action-row bijiris-post-status-row">
+          ${renderBijirisBadges(post)}
+          ${unread ? '<span class="bijiris-unread-label" aria-label="未読">未読</span>' : ""}
+        </div>
+      </div>
+      <div class="action-row bijiris-post-actions">
           ${renderBijirisFavoriteToggle(post.id, favoriteSaved)}
           <button
             class="ghost-button bijiris-action-button ${readLaterSaved ? "active" : ""}"
@@ -2760,10 +2765,7 @@ function renderBijirisPostCard(post) {
           >
             ${readLaterSaved ? "あとで読む済み" : "あとで読む"}
           </button>
-          ${unread ? '<span class="bijiris-unread-label" aria-label="未読">未読</span>' : ""}
         </div>
-      </div>
-      <div class="action-row">${renderBijirisBadges(post)}</div>
       ${documentPreviewStrip}
       ${preview ? `<div class="meta bijiris-post-preview">${escapeHtml(preview)}</div>` : `<div class="meta">本文は詳細で確認できます。</div>`}
     </article>
@@ -5770,7 +5772,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-12", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-13", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

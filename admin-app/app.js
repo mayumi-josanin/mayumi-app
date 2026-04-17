@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v70";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v71";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -6381,7 +6381,7 @@ function renderBijirisManager() {
       : "list";
   state.selectedBijirisView = view;
 
-  stageTitle.textContent = view === "history" ? "過去の履歴" : "投稿一覧";
+  stageTitle.textContent = view === "history" ? "投稿詳細" : "投稿一覧";
   listSection.hidden = view === "editor";
   editorSection.hidden = view !== "editor";
   createButton.hidden = view !== "list";
@@ -6390,7 +6390,7 @@ function renderBijirisManager() {
     list.innerHTML = `
       <div class="survey-editor-head">
         <div>
-          <div class="card-title">過去の履歴</div>
+          <div class="card-title">投稿詳細</div>
           <div class="meta">投稿内容の確認、編集、削除ができます。</div>
         </div>
         <div class="action-row">
@@ -6437,11 +6437,6 @@ function renderBijirisManager() {
                 <div class="meta">写真 ${post.photos.length} / PDF ${post.documents.length}</div>
                 ${post.pinned ? `<span class="badge open">重要固定</span>` : ""}
               </button>
-              ${
-                post.documents.length
-                  ? `<div class="bijiris-preview-document-grid compact">${post.documents.slice(0, 2).map((file, index) => renderAdminBijirisDocumentPreview(file, index, true)).join("")}</div>`
-                  : ""
-              }
             </article>
           `)
           .join("")
@@ -7436,7 +7431,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-11", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-12", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
