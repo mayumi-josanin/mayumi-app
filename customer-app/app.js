@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260417-15";
+const APP_VERSION = "20260417-16";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v89";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v90";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2278,6 +2278,36 @@ function getBijirisCategoryChildren(path = appState.selectedBijirisCategoryPath)
   return Array.from(children.values());
 }
 
+function compareBijirisCategorySegments(aSegments, bSegments) {
+  const length = Math.min(aSegments.length, bSegments.length);
+  for (let index = 0; index < length; index += 1) {
+    const compared = aSegments[index].localeCompare(bSegments[index], "ja");
+    if (compared !== 0) return compared;
+  }
+  return aSegments.length - bSegments.length;
+}
+
+function getBijirisCategoryOptions() {
+  const posts = getBijirisBaseFilteredPosts();
+  const options = new Map();
+  posts.forEach((post) => {
+    const segments = splitBijirisCategoryPath(post?.category);
+    const path = [];
+    segments.forEach((segment) => {
+      path.push(segment);
+      const key = path.join(" > ");
+      const current = options.get(key) || {
+        value: key,
+        path: [...path],
+        count: 0,
+      };
+      current.count += 1;
+      options.set(key, current);
+    });
+  });
+  return Array.from(options.values()).sort((a, b) => compareBijirisCategorySegments(a.path, b.path));
+}
+
 function getCurrentBijirisCategoryLabel() {
   const path = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath);
   return path.length ? path.join(" / ") : "カテゴリ一覧";
@@ -2562,8 +2592,8 @@ function renderBijirisListSwitcher() {
 
 function renderBijirisDiscoverPanel() {
   const currentPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath);
-  const childNodes = getBijirisCategoryChildren(currentPath);
   const scopedPosts = getCurrentBijirisCategoryPosts();
+  const categoryOptions = getBijirisCategoryOptions();
   const favoriteCount = sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id)).length;
   const readerState = getBijirisReaderState();
   const unreadCount = getUnreadBijirisPosts().length;
@@ -2577,16 +2607,11 @@ function renderBijirisDiscoverPanel() {
           <div class="meta">
             ${
               currentPath.length
-                ? `新着 ${newUnreadCount}件 / 未読 ${unreadCount}件 / ${escapeHtml(getCurrentBijirisCategoryLabel())} を表示中`
-                : `新着 ${newUnreadCount}件 / 未読 ${unreadCount}件 / カテゴリを順にたどって探せます。`
+                ? `新着 ${newUnreadCount}件 / 未読 ${unreadCount}件 / 絞り込み中`
+                : `新着 ${newUnreadCount}件 / 未読 ${unreadCount}件 / カテゴリやキーワードで探せます。`
             }
           </div>
         </div>
-        ${
-          currentPath.length
-            ? '<button class="ghost-button" type="button" data-bijiris-category-root>カテゴリ一覧へ</button>'
-            : ""
-        }
       </div>
       <label>
         キーワード検索
@@ -2597,43 +2622,26 @@ function renderBijirisDiscoverPanel() {
           value="${escapeHtml(appState.bijirisSearchQuery)}"
         />
       </label>
-      <div class="meta">現在のカテゴリ: ${escapeHtml(getCurrentBijirisCategoryLabel())}</div>
-      <div class="bijiris-breadcrumb-row">
-        <button class="bijiris-filter-chip ${currentPath.length ? "" : "active"}" type="button" data-bijiris-category-root>
-          カテゴリ一覧
-        </button>
-        ${currentPath
-          .map((segment, index) => `
-            <button
-              class="bijiris-filter-chip ${index === currentPath.length - 1 ? "active" : ""}"
-              type="button"
-              data-bijiris-category-crumb="${escapeHtml(String(index))}"
-            >
-              ${escapeHtml(segment)}
-            </button>
-          `)
-          .join("")}
+      <label>
+        カテゴリ
+        <select id="bijirisCategorySelect" data-bijiris-category-select>
+          <option value="">すべてのカテゴリ</option>
+          ${categoryOptions
+            .map((option) => `
+              <option value="${escapeHtml(option.value)}" ${option.value === currentPath.join(" > ") ? "selected" : ""}>
+                ${escapeHtml(option.value)} (${option.count})
+              </option>
+            `)
+            .join("")}
+        </select>
+      </label>
+      <div class="meta">
+        ${
+          currentPath.length
+            ? `選択中: ${escapeHtml(currentPath.join(" > "))} / 投稿 ${scopedPosts.length}件`
+            : `カテゴリ未選択 / 投稿 ${scopedPosts.length}件`
+        }
       </div>
-      ${
-        currentPath.length
-          ? '<div class="action-row"><button class="ghost-button" type="button" data-bijiris-category-back>ひとつ戻る</button></div>'
-          : ""
-      }
-      <div class="bijiris-category-node-grid">
-        ${childNodes
-          .map((node) => `
-            <button class="history-card bijiris-category-node" type="button" data-bijiris-category-step="${escapeHtml(node.label)}">
-              <strong>${escapeHtml(node.label)}</strong>
-              <div class="meta">投稿 ${node.totalCount}件 / 未読 ${node.unreadCount}件</div>
-            </button>
-          `)
-          .join("")}
-      </div>
-      ${
-        childNodes.length
-          ? ""
-          : `<div class="meta">このカテゴリの投稿 ${scopedPosts.length}件</div>`
-      }
       <div class="bijiris-filter-row bijiris-filter-row-secondary">
         <button class="bijiris-filter-chip ${currentMode === "unread" ? "active" : ""}" type="button" data-bijiris-unread-filter>
           ${currentMode === "unread" ? "未読のみ表示中" : "未読のみ"}
@@ -2759,7 +2767,6 @@ function renderBijirisFavoriteToggle(postId, favoriteSaved) {
 }
 
 function renderBijirisPostCard(post) {
-  const publishedAt = post.publishedAt || post.updatedAt || post.createdAt;
   const preview = post.summary || post.body.slice(0, 90);
   const favoriteSaved = isBijirisFavorite(post.id);
   const readLaterSaved = isBijirisReadLater(post.id);
@@ -2774,7 +2781,6 @@ function renderBijirisPostCard(post) {
               <strong>${escapeHtml(post.title)}</strong>
             </button>
           </div>
-          <div class="meta">${escapeHtml(post.category || "豆知識")} / ${escapeHtml(formatDate(publishedAt))}</div>
         </div>
         <div class="action-row bijiris-post-status-row">
           ${renderBijirisBadges(post)}
@@ -2804,7 +2810,6 @@ function renderBijirisPostCard(post) {
 }
 
 function renderBijirisPostDetail(post) {
-  const publishedAt = post.publishedAt || post.updatedAt || post.createdAt;
   const favoriteSaved = isBijirisFavorite(post.id);
   const readLaterSaved = isBijirisReadLater(post.id);
   const relatedPosts = getRelatedBijirisPosts(post, 3);
@@ -2812,7 +2817,6 @@ function renderBijirisPostDetail(post) {
     <div class="section-head">
       <div>
         <strong>${escapeHtml(post.title)}</strong>
-        <div class="meta">${escapeHtml(post.category || "豆知識")} / ${escapeHtml(formatDate(publishedAt))}</div>
       </div>
       <div class="action-row bijiris-detail-actions">
         ${renderBijirisBadges(post)}
@@ -2921,31 +2925,12 @@ function attachBijirisPostActions() {
       button.click();
     });
   });
-  bijirisPanel.querySelectorAll("[data-bijiris-category-step]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const nextSegment = normalizeText(button.dataset.bijirisCategoryStep);
-      if (!nextSegment) return;
-      appState.selectedBijirisCategoryPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).concat(nextSegment);
-      renderBijirisPosts();
-    });
-  });
-  bijirisPanel.querySelector("[data-bijiris-category-back]")?.addEventListener("click", () => {
-    appState.selectedBijirisCategoryPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).slice(0, -1);
+  bijirisPanel.querySelector("[data-bijiris-category-select]")?.addEventListener("change", (event) => {
+    const value = normalizeText(event.currentTarget?.value);
+    appState.selectedBijirisCategoryPath = value
+      ? value.split(/\s*>\s*/).map((segment) => normalizeText(segment)).filter(Boolean)
+      : [];
     renderBijirisPosts();
-  });
-  bijirisPanel.querySelectorAll("[data-bijiris-category-crumb]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const index = Number(button.dataset.bijirisCategoryCrumb);
-      if (!Number.isFinite(index)) return;
-      appState.selectedBijirisCategoryPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).slice(0, index + 1);
-      renderBijirisPosts();
-    });
-  });
-  bijirisPanel.querySelectorAll("[data-bijiris-category-root]").forEach((button) => {
-    button.addEventListener("click", () => {
-      appState.selectedBijirisCategoryPath = [];
-      renderBijirisPosts();
-    });
   });
   bijirisPanel.querySelectorAll("[data-bijiris-list-mode]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -5802,7 +5787,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-15", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-16", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

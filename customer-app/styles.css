@@ -601,6 +601,10 @@ textarea {
   background: #fff;
 }
 
+.bijiris-discover-card select {
+  width: 100%;
+}
+
 .selection-grid {
   display: grid;
   gap: 10px;
