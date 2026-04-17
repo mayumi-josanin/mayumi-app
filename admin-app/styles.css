@@ -1022,6 +1022,24 @@ textarea {
   gap: 10px;
 }
 
+.bijiris-title-open-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bijiris-title-open-button:hover strong,
+.bijiris-title-open-button:focus-visible strong {
+  text-decoration: underline;
+}
+
 .survey-editor-preview-text {
   color: var(--text-dark);
   line-height: 1.8;
@@ -1033,6 +1051,29 @@ textarea {
 
 .bijiris-preview-document.compact {
   padding: 10px;
+}
+
+.bijiris-preview-photo {
+  display: grid;
+  gap: 8px;
+}
+
+.bijiris-preview-photo.compact {
+  padding: 10px;
+}
+
+.bijiris-preview-photo img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.bijiris-preview-media-copy {
+  display: grid;
+  gap: 4px;
 }
 
 .bijiris-preview-document-thumb {

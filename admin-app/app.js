@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v71";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v72";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -5924,9 +5924,56 @@ function renderAdminBijirisDocumentPreview(file, index, compact = false) {
   `;
 }
 
+function renderAdminBijirisStaticDocumentPreview(file, index, compact = false) {
+  const title = getBijirisDocumentDisplayTitle(file, index);
+  return `
+    <article class="history-card bijiris-preview-document ${compact ? "compact" : ""}">
+      <img class="bijiris-preview-document-thumb" src="${escapeHtml(getBijirisDocumentThumbnailSrc(file))}" alt="${escapeHtml(title)}" />
+      <div class="bijiris-preview-media-copy">
+        <span class="badge">PDF</span>
+        <strong>${escapeHtml(title)}</strong>
+        <div class="meta">${escapeHtml(file?.name || `document_${index + 1}.pdf`)}</div>
+      </div>
+    </article>
+  `;
+}
+
+function renderAdminBijirisStaticPhotoPreview(file, index, compact = false) {
+  const preview = getPhotoPreviewSrc(file);
+  const title = escapeHtml(file?.name || `写真${index + 1}`);
+  return `
+    <article class="history-card bijiris-preview-photo ${compact ? "compact" : ""}">
+      ${preview ? `<img src="${escapeHtml(preview)}" alt="${title}" />` : ""}
+      <div class="bijiris-preview-media-copy">
+        <span class="badge draft">写真</span>
+        <strong>${title}</strong>
+      </div>
+    </article>
+  `;
+}
+
+function renderAdminBijirisListMediaStrip(post, compact = false) {
+  const items = [];
+  if (post.photos.length) {
+    items.push(renderAdminBijirisStaticPhotoPreview(post.photos[0], 0, compact));
+  }
+  if (post.documents.length) {
+    items.push(renderAdminBijirisStaticDocumentPreview(post.documents[0], 0, compact));
+  }
+  if (items.length < 2 && post.photos.length > 1) {
+    items.push(renderAdminBijirisStaticPhotoPreview(post.photos[1], 1, compact));
+  }
+  if (items.length < 2 && post.documents.length > 1) {
+    items.push(renderAdminBijirisStaticDocumentPreview(post.documents[1], 1, compact));
+  }
+  if (!items.length) return "";
+  return `<div class="bijiris-preview-document-grid ${compact ? "compact" : ""}">${items.join("")}</div>`;
+}
+
 function renderAdminBijirisPreviewCard(post) {
   const publishedAt = post.publishedAt || post.updatedAt || post.createdAt || new Date().toISOString();
   const preview = post.summary || post.body.slice(0, 90);
+  const mediaPreview = renderAdminBijirisListMediaStrip(post, true);
   return `
     <article class="history-card bijiris-preview-card">
       <div class="section-head">
@@ -5941,12 +5988,7 @@ function renderAdminBijirisPreviewCard(post) {
           ${post.photos.length ? `<span class="badge draft">写真 ${post.photos.length}</span>` : ""}
         </div>
       </div>
-      ${preview ? `<div class="meta">${escapeHtml(preview)}</div>` : `<div class="meta">概要または本文が入ると一覧に表示されます。</div>`}
-      ${
-        post.documents.length
-          ? `<div class="bijiris-preview-document-grid compact">${post.documents.slice(0, 2).map((file, index) => renderAdminBijirisDocumentPreview(file, index, true)).join("")}</div>`
-          : ""
-      }
+      ${mediaPreview || (preview ? `<div class="meta">${escapeHtml(preview)}</div>` : `<div class="meta">写真またはPDFを追加すると一覧に表示されます。</div>`)}
     </article>
   `;
 }
@@ -6427,16 +6469,20 @@ function renderBijirisManager() {
       ? posts
           .map((post) => `
             <article class="survey-manager-card selectable-card ${post.id === state.selectedBijirisPostId ? "active" : ""}">
-              <button class="survey-open-button" type="button" data-open-bijiris-history="${escapeHtml(post.id)}">
-                <div class="survey-manager-card-head">
+              <div class="survey-manager-card-head">
+                <button class="bijiris-title-open-button" type="button" data-open-bijiris-history="${escapeHtml(post.id)}">
                   <strong>${escapeHtml(post.title)}</strong>
-                  <span class="badge ${escapeHtml(post.status)}">${escapeHtml(post.status === "published" ? "公開" : post.status === "archived" ? "アーカイブ" : "下書き")}</span>
-                </div>
-                <div>${escapeHtml(post.category || "豆知識")}</div>
-                <div class="meta">更新: ${post.updatedAt ? escapeHtml(formatDate(post.updatedAt)) : "-"}</div>
-                <div class="meta">写真 ${post.photos.length} / PDF ${post.documents.length}</div>
+                </button>
+                <span class="badge ${escapeHtml(post.status)}">${escapeHtml(post.status === "published" ? "公開" : post.status === "archived" ? "アーカイブ" : "下書き")}</span>
+              </div>
+              <div>${escapeHtml(post.category || "豆知識")}</div>
+              <div class="meta">更新: ${post.updatedAt ? escapeHtml(formatDate(post.updatedAt)) : "-"}</div>
+              <div class="meta">写真 ${post.photos.length} / PDF ${post.documents.length}</div>
+              ${renderAdminBijirisListMediaStrip(post, true)}
+              <div class="action-row">
                 ${post.pinned ? `<span class="badge open">重要固定</span>` : ""}
-              </button>
+                <span class="meta">タイトルをタップすると詳細を表示できます。</span>
+              </div>
             </article>
           `)
           .join("")
@@ -7431,7 +7477,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-12", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-13", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

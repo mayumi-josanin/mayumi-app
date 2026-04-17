@@ -387,7 +387,7 @@ textarea {
 
 .bijiris-post-card {
   gap: 10px;
-  cursor: pointer;
+  cursor: default;
 }
 
 .bijiris-post-card.is-pinned {
@@ -403,6 +403,24 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.bijiris-post-title-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bijiris-post-title-button:hover strong,
+.bijiris-post-title-button:focus-visible strong {
+  text-decoration: underline;
 }
 
 .bijiris-post-status-row,
@@ -428,6 +446,32 @@ textarea {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 8px;
+}
+
+.bijiris-media-preview-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.bijiris-media-preview-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.bijiris-media-preview-thumb {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid rgba(136, 112, 96, 0.16);
+  background: #fff;
+}
+
+.bijiris-media-preview-copy {
+  display: grid;
+  gap: 4px;
 }
 
 .bijiris-action-button {
@@ -549,10 +593,12 @@ textarea {
 
 .bijiris-photo-image {
   width: 100%;
-  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: contain;
   border-radius: 8px;
   display: block;
-  background: transparent;
+  border: 1px solid rgba(136, 112, 96, 0.16);
+  background: #fff;
 }
 
 .selection-grid {

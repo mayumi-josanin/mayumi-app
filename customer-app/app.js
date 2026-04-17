@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260417-13";
+const APP_VERSION = "20260417-15";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v87";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v89";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2560,20 +2560,25 @@ function renderBijirisListSwitcher() {
   `;
 }
 
-function renderBijirisCategoryNavigator() {
+function renderBijirisDiscoverPanel() {
   const currentPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath);
   const childNodes = getBijirisCategoryChildren(currentPath);
   const scopedPosts = getCurrentBijirisCategoryPosts();
+  const favoriteCount = sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id)).length;
+  const readerState = getBijirisReaderState();
+  const unreadCount = getUnreadBijirisPosts().length;
+  const newUnreadCount = getNewUnreadBijirisPosts().length;
+  const currentMode = getBijirisListMode();
   return `
-    <div class="history-card bijiris-category-card">
-      <div class="section-head">
+    <div class="history-card bijiris-discover-card">
+      <div class="section-head bijiris-toolbar-head">
         <div>
-          <strong>カテゴリから探す</strong>
+          <strong>探す</strong>
           <div class="meta">
             ${
               currentPath.length
-                ? `${escapeHtml(getCurrentBijirisCategoryLabel())} を表示中`
-                : "カテゴリを順にたどって豆知識を探せます。"
+                ? `新着 ${newUnreadCount}件 / 未読 ${unreadCount}件 / ${escapeHtml(getCurrentBijirisCategoryLabel())} を表示中`
+                : `新着 ${newUnreadCount}件 / 未読 ${unreadCount}件 / カテゴリを順にたどって探せます。`
             }
           </div>
         </div>
@@ -2583,6 +2588,16 @@ function renderBijirisCategoryNavigator() {
             : ""
         }
       </div>
+      <label>
+        キーワード検索
+        <input
+          id="bijirisSearchInput"
+          type="search"
+          placeholder="例: 尿もれ / 骨盤底筋 / 産後 / 姿勢"
+          value="${escapeHtml(appState.bijirisSearchQuery)}"
+        />
+      </label>
+      <div class="meta">現在のカテゴリ: ${escapeHtml(getCurrentBijirisCategoryLabel())}</div>
       <div class="bijiris-breadcrumb-row">
         <button class="bijiris-filter-chip ${currentPath.length ? "" : "active"}" type="button" data-bijiris-category-root>
           カテゴリ一覧
@@ -2619,34 +2634,6 @@ function renderBijirisCategoryNavigator() {
           ? ""
           : `<div class="meta">このカテゴリの投稿 ${scopedPosts.length}件</div>`
       }
-    </div>
-  `;
-}
-
-function renderBijirisToolbar() {
-  const favoriteCount = sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id)).length;
-  const readerState = getBijirisReaderState();
-  const unreadCount = getUnreadBijirisPosts().length;
-  const newUnreadCount = getNewUnreadBijirisPosts().length;
-  const currentMode = getBijirisListMode();
-  return `
-    <div class="history-card bijiris-toolbar-card">
-      <div class="section-head bijiris-toolbar-head">
-        <div>
-          <strong>探す</strong>
-          <div class="meta">新着 ${newUnreadCount}件 / 未読 ${unreadCount}件 / あとで読む ${readerState.readLaterIds.length}件</div>
-        </div>
-      </div>
-      <label>
-        キーワード検索
-        <input
-          id="bijirisSearchInput"
-          type="search"
-          placeholder="例: 尿もれ / 骨盤底筋 / 産後 / 姿勢"
-          value="${escapeHtml(appState.bijirisSearchQuery)}"
-        />
-      </label>
-      <div class="meta">現在のカテゴリ: ${escapeHtml(getCurrentBijirisCategoryLabel())}</div>
       <div class="bijiris-filter-row bijiris-filter-row-secondary">
         <button class="bijiris-filter-chip ${currentMode === "unread" ? "active" : ""}" type="button" data-bijiris-unread-filter>
           ${currentMode === "unread" ? "未読のみ表示中" : "未読のみ"}
@@ -2709,6 +2696,53 @@ function renderBijirisDocumentPreviewLink(file, index, compact = false) {
   `;
 }
 
+function renderBijirisListDocumentPreview(file, index, compact = false) {
+  const title = getBijirisDocumentDisplayTitle(file, index);
+  const fileName = normalizeText(file?.name || `document_${index + 1}.pdf`);
+  return `
+    <article class="history-card bijiris-media-preview-card bijiris-document-card ${compact ? "compact" : ""}">
+      <img class="bijiris-document-thumb" src="${escapeHtml(getBijirisDocumentThumbnailSrc(file))}" alt="${escapeHtml(title)}" />
+      <div class="bijiris-media-preview-copy">
+        <span class="badge">PDF</span>
+        <strong>${escapeHtml(title)}</strong>
+        <div class="meta">${escapeHtml(fileName)}</div>
+      </div>
+    </article>
+  `;
+}
+
+function renderBijirisListPhotoPreview(file, index, compact = false) {
+  const title = normalizeText(file?.name || `写真${index + 1}`);
+  const preview = getPhotoPreviewSrc(file);
+  return `
+    <article class="history-card bijiris-media-preview-card ${compact ? "compact" : ""}">
+      ${preview ? `<img class="bijiris-media-preview-thumb" src="${escapeHtml(preview)}" alt="${escapeHtml(title)}" />` : ""}
+      <div class="bijiris-media-preview-copy">
+        <span class="badge draft">写真</span>
+        <strong>${escapeHtml(title)}</strong>
+      </div>
+    </article>
+  `;
+}
+
+function renderBijirisPostMediaStrip(post) {
+  const items = [];
+  if (post.photos.length) {
+    items.push(renderBijirisListPhotoPreview(post.photos[0], 0, true));
+  }
+  if (post.documents.length) {
+    items.push(renderBijirisListDocumentPreview(post.documents[0], 0, true));
+  }
+  if (items.length < 2 && post.photos.length > 1) {
+    items.push(renderBijirisListPhotoPreview(post.photos[1], 1, true));
+  }
+  if (items.length < 2 && post.documents.length > 1) {
+    items.push(renderBijirisListDocumentPreview(post.documents[1], 1, true));
+  }
+  if (!items.length) return "";
+  return `<div class="bijiris-media-preview-strip">${items.join("")}</div>`;
+}
+
 function renderBijirisFavoriteToggle(postId, favoriteSaved) {
   return `
     <label class="bijiris-star-toggle ${favoriteSaved ? "active" : ""}" data-bijiris-action-stop>
@@ -2730,24 +2764,15 @@ function renderBijirisPostCard(post) {
   const favoriteSaved = isBijirisFavorite(post.id);
   const readLaterSaved = isBijirisReadLater(post.id);
   const unread = !isBijirisRead(post.id);
-  const documentPreviewStrip = post.documents.length
-    ? `
-      <div class="bijiris-document-preview-strip">
-        ${post.documents.slice(0, 2).map((file, index) => renderBijirisDocumentPreviewLink(file, index, true)).join("")}
-      </div>
-    `
-    : "";
+  const mediaPreviewStrip = renderBijirisPostMediaStrip(post);
   return `
-    <article
-      class="history-card bijiris-post-card ${post.pinned ? "is-pinned" : ""}"
-      role="button"
-      tabindex="0"
-      data-open-bijiris-post="${escapeHtml(post.id)}"
-    >
+    <article class="history-card bijiris-post-card ${post.pinned ? "is-pinned" : ""}">
       <div class="section-head bijiris-post-head">
         <div>
           <div class="bijiris-post-title-row">
-            <strong>${escapeHtml(post.title)}</strong>
+            <button class="bijiris-post-title-button" type="button" data-open-bijiris-post="${escapeHtml(post.id)}">
+              <strong>${escapeHtml(post.title)}</strong>
+            </button>
           </div>
           <div class="meta">${escapeHtml(post.category || "豆知識")} / ${escapeHtml(formatDate(publishedAt))}</div>
         </div>
@@ -2766,8 +2791,14 @@ function renderBijirisPostCard(post) {
             ${readLaterSaved ? "あとで読む済み" : "あとで読む"}
           </button>
         </div>
-      ${documentPreviewStrip}
-      ${preview ? `<div class="meta bijiris-post-preview">${escapeHtml(preview)}</div>` : `<div class="meta">本文は詳細で確認できます。</div>`}
+      ${mediaPreviewStrip}
+      ${
+        mediaPreviewStrip
+          ? `<div class="meta bijiris-post-preview">タイトルをタップすると、本文・写真・PDFの詳細を表示できます。</div>`
+          : preview
+            ? `<div class="meta bijiris-post-preview">${escapeHtml(preview)}</div>`
+            : `<div class="meta bijiris-post-preview">タイトルをタップすると詳細を表示できます。</div>`
+      }
     </article>
   `;
 }
@@ -2985,8 +3016,7 @@ function renderBijirisPosts() {
   bijirisPanel.innerHTML = `
     ${appState.bijirisLoadError ? `<div class="meta">更新に失敗したため前回取得内容を表示しています。</div>` : ""}
     ${renderBijirisListSwitcher()}
-    ${renderBijirisCategoryNavigator()}
-    ${renderBijirisToolbar()}
+    ${renderBijirisDiscoverPanel()}
     ${visiblePosts.length ? `<div class="bijiris-panel">${visiblePosts.map(renderBijirisPostCard).join("")}</div>` : childNodes.length ? "" : `<div class="empty">${emptyMessage}</div>`}
   `;
   attachBijirisPostActions();
@@ -5772,7 +5802,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-13", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-15", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
