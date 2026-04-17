@@ -553,6 +553,24 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
+  async function waitForUpdatedAdminBijirisPost(gasUrl, token, postId, expected) {
+    const previousUpdatedAt = normalizeText(expected?.updatedAt);
+    const strictMatch = await waitForAdminBijirisPosts(gasUrl, token, (posts) => {
+      const matched = posts.find((item) => normalizeText(item.id) === normalizeText(postId));
+      if (!matched) return undefined;
+      const updatedAtChanged =
+        !previousUpdatedAt || normalizeText(matched.updatedAt) !== previousUpdatedAt;
+      return hasBijirisPostCoreUpdate(matched, expected) && updatedAtChanged ? matched : undefined;
+    });
+    if (strictMatch) return strictMatch;
+    return waitForAdminBijirisPosts(gasUrl, token, (posts) => {
+      const matched = posts.find((item) => normalizeText(item.id) === normalizeText(postId));
+      if (!matched) return undefined;
+      if (!previousUpdatedAt) return matched;
+      return normalizeText(matched.updatedAt) !== previousUpdatedAt ? matched : undefined;
+    });
+  }
+
   async function waitForAdminCustomerUpdate(gasUrl, token, currentName, nextName, expected = {}) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
@@ -1113,12 +1131,7 @@ window.MayumiSurveyApi = (() => {
           postId,
           payload,
         });
-        const post = await waitForAdminBijirisPosts(gasUrl, options.token, (posts) => {
-          const matched = posts.find((item) => normalizeText(item.id) === postId);
-          if (!matched) return undefined;
-          const updatedAtChanged = normalizeText(matched.updatedAt) !== normalizeText(payload.updatedAt);
-          return hasBijirisPostCoreUpdate(matched, payload) && updatedAtChanged ? matched : undefined;
-        });
+        const post = await waitForUpdatedAdminBijirisPost(gasUrl, options.token, postId, payload);
         if (!post) throw new Error("豆知識の更新を確認できませんでした。");
         return { post };
       }
