@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v75";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v76";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -678,7 +678,6 @@ const state = {
   selectedSurveyEditorId: "",
   selectedAnalyticsSurveyId: "",
   selectedResponseSurveyId: "",
-  selectedCustomerName: "",
   selectedResponseId: "",
   selectedResponseIds: [],
   selectedCustomerViewName: "",
@@ -3813,109 +3812,6 @@ function renderCustomerManagement() {
   attachLightboxHandlers(stage);
 }
 
-function renderCurrentCustomerInfo() {
-  const container = document.querySelector("#respondentInfoSection");
-  if (!container) return;
-  const response = state.responses.find((item) => item.id === state.selectedResponseId);
-  if (!response) {
-    container.innerHTML = `<div class="empty">回答詳細を開くと、回答者の現在の回数券情報を表示します。</div>`;
-    return;
-  }
-  const customerResponses = state.responses.filter(
-    (item) => item.customerName === response.customerName && normalizeStatus(item.status) !== "trash",
-  );
-  const ticketInfo = getCurrentTicketInfoForCustomer(response.customerName);
-  const memoRecord = getCustomerMemoRecord(response.customerName);
-  container.innerHTML = `
-    <article class="answer-item">
-      <strong>${escapeHtml(getCustomerNameWithMember(response.customerName))}</strong>
-      <div class="meta">フリガナ: ${escapeHtml(getCustomerProfileByName(response.customerName)?.nameKana || "-")}</div>
-      <div class="meta">最新表示中の回答: ${escapeHtml(response.surveyTitle)} / ${formatDate(response.submittedAt)}</div>
-      <div class="meta">回答数: ${customerResponses.length}件</div>
-      ${
-        ticketInfo.length
-          ? `
-            ${renderTicketStampPanel(ticketInfo)}
-          `
-          : `<div class="meta">現在の回数券情報はありません。</div>`
-      }
-    </article>
-    <article class="answer-item">
-      <strong>お客様メモ</strong>
-      <textarea id="customerMemoInput" placeholder="自由にメモを残せます。">${escapeHtml(memoRecord.latestMemo)}</textarea>
-      <div class="action-row">
-        <button class="secondary-button" type="button" id="saveCustomerMemoButton">メモ保存</button>
-        <button class="secondary-button" type="button" id="downloadCustomerPhotosButton">写真一括保存</button>
-      </div>
-    </article>
-    <article class="answer-item">
-      <strong>メモ履歴</strong>
-      ${renderMemoTimeline(response.customerName)}
-    </article>
-  `;
-  container.querySelector("#saveCustomerMemoButton")?.addEventListener("click", () => {
-    void saveCustomerMemo(response.customerName);
-  });
-  container.querySelector("#downloadCustomerPhotosButton")?.addEventListener("click", () => {
-    void downloadFiles(
-      collectPhotosFromResponses(customerResponses),
-      response.customerName || "customer",
-    );
-  });
-}
-
-function renderAllResponsesBySurveySection() {
-  const container = document.querySelector("#allResponsesBySurveySection");
-  if (!container) return;
-  const groups = groupResponsesBySurvey(
-    state.responses.filter((response) => normalizeStatus(response.status) !== "trash"),
-  );
-  if (!groups.length) {
-    container.innerHTML = `<div class="empty">まだ回答履歴はありません。</div>`;
-    return;
-  }
-  container.innerHTML = groups
-    .map(
-      (group) => `
-        <article class="answer-item">
-          <strong>${escapeHtml(group.surveyTitle)}</strong>
-          <div class="meta">回答数: ${group.count}件 / 最新: ${formatDate(group.latestAt)}</div>
-          <div class="survey-history-list">
-            ${group.responses
-              .slice()
-              .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
-              .map(
-                (response) => `
-                  <button
-                    class="survey-history-row"
-                    type="button"
-                    data-survey-history-open="${escapeHtml(response.id)}"
-                    data-survey-history-survey="${escapeHtml(group.surveyId)}"
-                  >
-                    <strong>${escapeHtml(getCustomerNameWithMember(response.customerName))}</strong>
-                    <div class="meta">${formatDate(response.submittedAt)}</div>
-                    ${renderTicketStampList(getResponseTicketInfo(response))}
-                    ${renderResponsePhotoPreview(response, 2)}
-                  </button>
-                `,
-              )
-              .join("")}
-          </div>
-        </article>
-      `,
-    )
-    .join("");
-
-  container.querySelectorAll("[data-survey-history-open]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.selectedResponseSurveyId = button.dataset.surveyHistorySurvey || "";
-      state.selectedResponseId = button.dataset.surveyHistoryOpen || "";
-      setPage("responses");
-      renderResponses();
-    });
-  });
-}
-
 function findSurveyById(surveyId) {
   return state.surveys.find((survey) => survey.id === surveyId);
 }
@@ -4765,8 +4661,6 @@ function renderResponses() {
 
   const selectedResponse =
     surveyResponses.find((response) => response.id === state.selectedResponseId) || null;
-  state.selectedCustomerName = selectedResponse?.customerName || "";
-
   if (!selectedGroup) {
     stage.innerHTML = `
       <div class="stage-head">
@@ -4966,8 +4860,6 @@ function renderResponses() {
     });
   });
 
-  renderCurrentCustomerInfo();
-  renderAllResponsesBySurveySection();
   attachLightboxHandlers(stage);
 }
 
@@ -7759,7 +7651,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-17", { updateViaCache: "none" })
+        .register("./sw.js?v=20260418-18", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
