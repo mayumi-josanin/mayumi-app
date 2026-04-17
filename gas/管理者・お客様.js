@@ -19,6 +19,8 @@ const CONFIG = {
   GOOGLE_CLIENT_ID: '__SET_IN_APPS_SCRIPT__',
   GOOGLE_CLIENT_SECRET: '__SET_IN_APPS_SCRIPT__',
 };
+const ONE_SIGNAL_APP_SCOPE_KEY = 'app_scope';
+const ONE_SIGNAL_APP_SCOPE_VALUE = 'mayumi_josanin_app';
 // ★★★★★★★★★★★★★★★★★★★★
 
 const SHEETS = {
@@ -1289,10 +1291,14 @@ function buildOneSignalPayload_(record) {
     payload.include_subscription_ids = subscriptionIds;
   } else if (record.targetStatus && record.targetStatus !== 'all') {
     payload.filters = [
+      { field: 'tag', key: ONE_SIGNAL_APP_SCOPE_KEY, relation: '=', value: ONE_SIGNAL_APP_SCOPE_VALUE },
+      { operator: 'AND' },
       { field: 'tag', key: 'status', relation: '=', value: record.targetStatus }
     ];
   } else {
-    payload.included_segments = ['All'];
+    payload.filters = [
+      { field: 'tag', key: ONE_SIGNAL_APP_SCOPE_KEY, relation: '=', value: ONE_SIGNAL_APP_SCOPE_VALUE }
+    ];
   }
   return payload;
 }
