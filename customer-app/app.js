@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260417-04";
+const APP_VERSION = "20260417-06";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v80";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v81";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -378,6 +378,7 @@ const appState = {
   historyLoadError: "",
   selectedBijirisPostId: "",
   selectedBijirisCategory: "all",
+  selectedBijirisCategoryPath: [],
   selectedBijirisConcernAudience: BIJIRIS_CONCERN_GUIDES[0].id,
   selectedBijirisConcernId: "",
   bijirisSearchQuery: "",
@@ -2179,28 +2180,111 @@ function setBijirisConcernAudience(audienceId) {
   }
 }
 
+function normalizeBijirisCategoryPath(path) {
+  return (Array.isArray(path) ? path : [])
+    .map((segment) => normalizeText(segment))
+    .filter(Boolean);
+}
+
+function splitBijirisCategoryPath(category) {
+  const normalized = normalizeText(category);
+  if (!normalized) return ["豆知識"];
+  const segments = normalized
+    .split(/\s*>\s*/)
+    .map((segment) => normalizeText(segment))
+    .filter(Boolean);
+  return segments.length ? segments : ["豆知識"];
+}
+
+function doesBijirisPostMatchCategoryPath(post, path = appState.selectedBijirisCategoryPath) {
+  const targetPath = normalizeBijirisCategoryPath(path);
+  if (!targetPath.length) return true;
+  const postPath = splitBijirisCategoryPath(post?.category);
+  return targetPath.every((segment, index) => postPath[index] === segment);
+}
+
+function getBijirisBaseFilteredPosts() {
+  let posts = sortBijirisPosts(appState.bijirisPosts);
+  const searchQuery = normalizeText(appState.bijirisSearchQuery).toLocaleLowerCase();
+  if (searchQuery) {
+    const searchTerms = searchQuery.split(/\s+/).filter(Boolean);
+    posts = posts.filter((post) => {
+      const source = getBijirisSearchSource(post);
+      return searchTerms.every((term) => source.includes(term));
+    });
+  }
+  if (appState.showUnreadBijirisOnly) {
+    posts = posts.filter((post) => !isBijirisRead(post.id));
+  }
+  if (appState.showFavoriteBijirisOnly) {
+    const favoriteIds = getBijirisFavoriteIds();
+    posts = posts.filter((post) => favoriteIds.has(post.id));
+  }
+  if (appState.showReadLaterBijirisOnly) {
+    const readLaterIds = new Set(getBijirisReaderState().readLaterIds);
+    posts = posts.filter((post) => readLaterIds.has(post.id));
+  }
+  return posts;
+}
+
+function syncSelectedBijirisCategoryPath() {
+  let nextPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath);
+  const posts = getBijirisBaseFilteredPosts();
+  while (nextPath.length && !posts.some((post) => doesBijirisPostMatchCategoryPath(post, nextPath))) {
+    nextPath = nextPath.slice(0, -1);
+  }
+  appState.selectedBijirisCategoryPath = nextPath;
+}
+
+function getCurrentBijirisCategoryPosts() {
+  syncSelectedBijirisCategoryPath();
+  return getBijirisBaseFilteredPosts().filter((post) => doesBijirisPostMatchCategoryPath(post));
+}
+
+function getBijirisCategoryChildren(path = appState.selectedBijirisCategoryPath) {
+  const targetPath = normalizeBijirisCategoryPath(path);
+  const children = new Map();
+  getBijirisBaseFilteredPosts()
+    .filter((post) => doesBijirisPostMatchCategoryPath(post, targetPath))
+    .forEach((post) => {
+      const segments = splitBijirisCategoryPath(post?.category);
+      const nextSegment = segments[targetPath.length];
+      if (!nextSegment) return;
+      const current = children.get(nextSegment) || {
+        label: nextSegment,
+        path: targetPath.concat(nextSegment),
+        totalCount: 0,
+        unreadCount: 0,
+      };
+      current.totalCount += 1;
+      if (!isBijirisRead(post.id)) current.unreadCount += 1;
+      children.set(nextSegment, current);
+    });
+  return Array.from(children.values());
+}
+
+function getCurrentBijirisCategoryLabel() {
+  const path = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath);
+  return path.length ? path.join(" / ") : "カテゴリ一覧";
+}
+
 function getBijirisEmptyMessage() {
-  const selectedConcern = getSelectedBijirisConcern();
   if (appState.showFavoriteBijirisOnly) {
     return "お気に入りはまだありません。";
   }
   if (appState.showReadLaterBijirisOnly) {
     return "あとで読むはまだありません。";
   }
-  if (appState.showUnreadBijirisOnly && selectedConcern) {
-    return `${selectedConcern.label} に合う未読の豆知識はまだありません。`;
-  }
   if (appState.showUnreadBijirisOnly) {
-    return "未読の豆知識はありません。";
-  }
-  if (selectedConcern) {
-    return `${selectedConcern.label} に合う豆知識はまだありません。`;
+    return normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).length
+      ? `${getCurrentBijirisCategoryLabel()} に未読の豆知識はありません。`
+      : "未読の豆知識はありません。";
   }
   if (normalizeText(appState.bijirisSearchQuery)) {
     return "検索条件に合う豆知識はありません。";
   }
-  if (appState.selectedBijirisCategory !== "all") {
-    return `${appState.selectedBijirisCategory} の豆知識はまだありません。`;
+  if (normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).length) {
+    return `${getCurrentBijirisCategoryLabel()} の豆知識はまだありません。`;
   }
   return "まだ豆知識の投稿はありません。";
 }
@@ -2359,38 +2443,8 @@ function getBijirisCategories(posts) {
 }
 
 function getFilteredBijirisPosts() {
-  const categories = getBijirisCategories(appState.bijirisPosts);
-  if (appState.selectedBijirisCategory !== "all" && !categories.includes(appState.selectedBijirisCategory)) {
-    appState.selectedBijirisCategory = "all";
-  }
-  let posts = sortBijirisPosts(appState.bijirisPosts);
-  const selectedConcern = getSelectedBijirisConcern();
-  if (selectedConcern) {
-    posts = posts.filter((post) => doesBijirisPostMatchConcern(post, selectedConcern));
-  }
-  const searchQuery = normalizeText(appState.bijirisSearchQuery).toLocaleLowerCase();
-  if (searchQuery) {
-    const searchTerms = searchQuery.split(/\s+/).filter(Boolean);
-    posts = posts.filter((post) => {
-      const source = getBijirisSearchSource(post);
-      return searchTerms.every((term) => source.includes(term));
-    });
-  }
-  if (appState.selectedBijirisCategory !== "all") {
-    posts = posts.filter((post) => normalizeText(post.category) === appState.selectedBijirisCategory);
-  }
-  if (appState.showUnreadBijirisOnly) {
-    posts = posts.filter((post) => !isBijirisRead(post.id));
-  }
-  if (appState.showFavoriteBijirisOnly) {
-    const favoriteIds = getBijirisFavoriteIds();
-    posts = posts.filter((post) => favoriteIds.has(post.id));
-  }
-  if (appState.showReadLaterBijirisOnly) {
-    const readLaterIds = new Set(getBijirisReaderState().readLaterIds);
-    posts = posts.filter((post) => readLaterIds.has(post.id));
-  }
-  return posts;
+  const currentDepth = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).length;
+  return getCurrentBijirisCategoryPosts().filter((post) => splitBijirisCategoryPath(post?.category).length === currentDepth);
 }
 
 function renderBijirisBadges(post) {
@@ -2437,7 +2491,7 @@ function renderBijirisListSwitcher() {
     <div class="history-card bijiris-list-switcher">
       <div class="section-head">
         <div>
-          <strong>一覧</strong>
+          <strong>表示条件</strong>
           <div class="meta">未読 ${unreadCount}件 / お気に入り ${favoriteCount}件 / あとで読む ${readLaterCount}件</div>
         </div>
       </div>
@@ -2447,7 +2501,7 @@ function renderBijirisListSwitcher() {
           type="button"
           data-bijiris-list-mode="all"
         >
-          投稿一覧
+          すべて
         </button>
         <button
           class="bijiris-filter-chip ${currentMode === "unread" ? "active" : ""}"
@@ -2475,68 +2529,70 @@ function renderBijirisListSwitcher() {
   `;
 }
 
-function renderBijirisConcernNavigator() {
-  const audience = getBijirisConcernAudience();
-  const selectedConcern = getSelectedBijirisConcern();
+function renderBijirisCategoryNavigator() {
+  const currentPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath);
+  const childNodes = getBijirisCategoryChildren(currentPath);
+  const scopedPosts = getCurrentBijirisCategoryPosts();
   return `
-    <div class="history-card bijiris-concern-card">
+    <div class="history-card bijiris-category-card">
       <div class="section-head">
         <div>
-          <strong>お悩みから探す</strong>
+          <strong>カテゴリから探す</strong>
           <div class="meta">
             ${
-              selectedConcern
-                ? `${escapeHtml(audience.label)} / ${escapeHtml(selectedConcern.label)} を表示中`
-                : "女性 / 男性フォルダの順で、悩みごとに豆知識を絞り込めます。"
+              currentPath.length
+                ? `${escapeHtml(getCurrentBijirisCategoryLabel())} を表示中`
+                : "カテゴリを順にたどって豆知識を探せます。"
             }
           </div>
         </div>
         ${
-          appState.selectedBijirisConcernId
-            ? '<button class="ghost-button" type="button" data-clear-bijiris-concern>条件をクリア</button>'
+          currentPath.length
+            ? '<button class="ghost-button" type="button" data-bijiris-category-root>カテゴリ一覧へ</button>'
             : ""
         }
       </div>
-      <div class="bijiris-filter-row">
-        ${BIJIRIS_CONCERN_GUIDES.map((item) => `
-          <button
-            class="bijiris-filter-chip ${audience.id === item.id ? "active" : ""}"
-            type="button"
-            data-bijiris-concern-audience="${escapeHtml(item.id)}"
-          >
-            ${escapeHtml(item.label)}
-          </button>
-        `).join("")}
-      </div>
-      <div class="bijiris-concern-group-list">
-        ${audience.groups
-          .map((group) => `
-            <div class="bijiris-concern-group">
-              <strong class="bijiris-concern-group-title">${escapeHtml(group.label)}</strong>
-              <div class="bijiris-concern-chip-list">
-                ${group.concerns
-                  .map((concern) => `
-                    <button
-                      class="bijiris-concern-chip ${appState.selectedBijirisConcernId === concern.id ? "active" : ""}"
-                      type="button"
-                      data-bijiris-concern="${escapeHtml(concern.id)}"
-                      data-bijiris-concern-audience="${escapeHtml(audience.id)}"
-                    >
-                      ${escapeHtml(concern.label)}
-                    </button>
-                  `)
-                  .join("")}
-              </div>
-            </div>
+      <div class="bijiris-breadcrumb-row">
+        <button class="bijiris-filter-chip ${currentPath.length ? "" : "active"}" type="button" data-bijiris-category-root>
+          カテゴリ一覧
+        </button>
+        ${currentPath
+          .map((segment, index) => `
+            <button
+              class="bijiris-filter-chip ${index === currentPath.length - 1 ? "active" : ""}"
+              type="button"
+              data-bijiris-category-crumb="${escapeHtml(String(index))}"
+            >
+              ${escapeHtml(segment)}
+            </button>
           `)
           .join("")}
       </div>
+      ${
+        currentPath.length
+          ? '<div class="action-row"><button class="ghost-button" type="button" data-bijiris-category-back>ひとつ戻る</button></div>'
+          : ""
+      }
+      <div class="bijiris-category-node-grid">
+        ${childNodes
+          .map((node) => `
+            <button class="history-card bijiris-category-node" type="button" data-bijiris-category-step="${escapeHtml(node.label)}">
+              <strong>${escapeHtml(node.label)}</strong>
+              <div class="meta">投稿 ${node.totalCount}件 / 未読 ${node.unreadCount}件</div>
+            </button>
+          `)
+          .join("")}
+      </div>
+      ${
+        childNodes.length
+          ? ""
+          : `<div class="meta">このカテゴリの投稿 ${scopedPosts.length}件</div>`
+      }
     </div>
   `;
 }
 
 function renderBijirisToolbar() {
-  const categories = getBijirisCategories(appState.bijirisPosts);
   const favoriteCount = sortBijirisPosts(appState.bijirisPosts).filter((post) => isBijirisFavorite(post.id)).length;
   const readerState = getBijirisReaderState();
   const unreadCount = getUnreadBijirisPosts().length;
@@ -2559,24 +2615,7 @@ function renderBijirisToolbar() {
           value="${escapeHtml(appState.bijirisSearchQuery)}"
         />
       </label>
-      <div class="bijiris-filter-row">
-        <button class="bijiris-filter-chip ${appState.selectedBijirisCategory === "all" ? "active" : ""}" type="button" data-bijiris-category="all">
-          <span>すべて</span>
-          <span class="bijiris-filter-count">${escapeHtml(String(unreadCount))}</span>
-        </button>
-        ${categories
-          .map((category) => `
-            <button
-              class="bijiris-filter-chip ${appState.selectedBijirisCategory === category ? "active" : ""}"
-              type="button"
-              data-bijiris-category="${escapeHtml(category)}"
-            >
-              <span>${escapeHtml(category)}</span>
-              <span class="bijiris-filter-count">${escapeHtml(String(getUnreadBijirisCountByCategory(category)))}</span>
-            </button>
-          `)
-          .join("")}
-      </div>
+      <div class="meta">現在のカテゴリ: ${escapeHtml(getCurrentBijirisCategoryLabel())}</div>
       <div class="bijiris-filter-row bijiris-filter-row-secondary">
         <button class="bijiris-filter-chip ${currentMode === "unread" ? "active" : ""}" type="button" data-bijiris-unread-filter>
           ${currentMode === "unread" ? "未読のみ表示中" : "未読のみ"}
@@ -2790,9 +2829,29 @@ function attachBijirisPostActions() {
       button.click();
     });
   });
-  bijirisPanel.querySelectorAll("[data-bijiris-category]").forEach((button) => {
+  bijirisPanel.querySelectorAll("[data-bijiris-category-step]").forEach((button) => {
     button.addEventListener("click", () => {
-      appState.selectedBijirisCategory = button.dataset.bijirisCategory || "all";
+      const nextSegment = normalizeText(button.dataset.bijirisCategoryStep);
+      if (!nextSegment) return;
+      appState.selectedBijirisCategoryPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).concat(nextSegment);
+      renderBijirisPosts();
+    });
+  });
+  bijirisPanel.querySelector("[data-bijiris-category-back]")?.addEventListener("click", () => {
+    appState.selectedBijirisCategoryPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).slice(0, -1);
+    renderBijirisPosts();
+  });
+  bijirisPanel.querySelectorAll("[data-bijiris-category-crumb]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.bijirisCategoryCrumb);
+      if (!Number.isFinite(index)) return;
+      appState.selectedBijirisCategoryPath = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).slice(0, index + 1);
+      renderBijirisPosts();
+    });
+  });
+  bijirisPanel.querySelectorAll("[data-bijiris-category-root]").forEach((button) => {
+    button.addEventListener("click", () => {
+      appState.selectedBijirisCategoryPath = [];
       renderBijirisPosts();
     });
   });
@@ -2812,27 +2871,6 @@ function attachBijirisPostActions() {
     if (typeof input?.setSelectionRange === "function") {
       input.setSelectionRange(nextQuery.length, nextQuery.length);
     }
-  });
-  bijirisPanel.querySelectorAll("[data-bijiris-concern-audience]:not([data-bijiris-concern])").forEach((button) => {
-    button.addEventListener("click", () => {
-      setBijirisConcernAudience(button.dataset.bijirisConcernAudience || BIJIRIS_CONCERN_GUIDES[0].id);
-      renderBijirisPosts();
-    });
-  });
-  bijirisPanel.querySelectorAll("[data-bijiris-concern]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const audienceId = button.dataset.bijirisConcernAudience || appState.selectedBijirisConcernAudience;
-      const concernId = button.dataset.bijirisConcern || "";
-      setBijirisConcernAudience(audienceId);
-      appState.selectedBijirisConcernId = appState.selectedBijirisConcernId === concernId ? "" : concernId;
-      appState.selectedBijirisCategory = "all";
-      appState.bijirisSearchQuery = "";
-      renderBijirisPosts();
-    });
-  });
-  bijirisPanel.querySelector("[data-clear-bijiris-concern]")?.addEventListener("click", () => {
-    appState.selectedBijirisConcernId = "";
-    renderBijirisPosts();
   });
   bijirisPanel.querySelector("[data-bijiris-unread-filter]")?.addEventListener("click", () => {
     setBijirisListMode(getBijirisListMode() === "unread" ? "all" : "unread");
@@ -2881,13 +2919,14 @@ function renderBijirisPosts() {
     return;
   }
   const visiblePosts = getFilteredBijirisPosts();
+  const childNodes = getBijirisCategoryChildren();
   const emptyMessage = getBijirisEmptyMessage();
   bijirisPanel.innerHTML = `
     ${appState.bijirisLoadError ? `<div class="meta">更新に失敗したため前回取得内容を表示しています。</div>` : ""}
     ${renderBijirisListSwitcher()}
-    ${renderBijirisConcernNavigator()}
+    ${renderBijirisCategoryNavigator()}
     ${renderBijirisToolbar()}
-    ${visiblePosts.length ? `<div class="bijiris-panel">${visiblePosts.map(renderBijirisPostCard).join("")}</div>` : `<div class="empty">${emptyMessage}</div>`}
+    ${visiblePosts.length ? `<div class="bijiris-panel">${visiblePosts.map(renderBijirisPostCard).join("")}</div>` : childNodes.length ? "" : `<div class="empty">${emptyMessage}</div>`}
   `;
   attachBijirisPostActions();
 }
@@ -5669,7 +5708,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-04", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-06", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

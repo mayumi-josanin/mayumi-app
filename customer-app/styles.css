@@ -317,6 +317,35 @@ textarea {
   gap: 14px;
 }
 
+.bijiris-category-card {
+  gap: 14px;
+}
+
+.bijiris-breadcrumb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.bijiris-category-node-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.bijiris-category-node {
+  gap: 8px;
+  border-color: rgba(138, 158, 126, 0.18);
+  background: #fffdfa;
+  cursor: pointer;
+  text-align: left;
+}
+
+.bijiris-category-node strong {
+  color: var(--text-dark);
+  font-size: 15px;
+}
+
 .bijiris-concern-group-list {
   display: grid;
   gap: 12px;
