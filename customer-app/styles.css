@@ -496,6 +496,11 @@ textarea {
   gap: 8px;
 }
 
+.bijiris-document-preview-link {
+  color: inherit;
+  text-decoration: none;
+}
+
 .bijiris-document-card.compact {
   gap: 6px;
   padding: 10px;

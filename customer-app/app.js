@@ -2663,6 +2663,25 @@ function renderBijirisDocumentPreview(file, index, compact = false) {
   `;
 }
 
+function renderBijirisDocumentPreviewLink(file, index, compact = false) {
+  const href = normalizeText(file?.previewUrl || file?.url || file?.downloadUrl || "#");
+  const title = getBijirisDocumentDisplayTitle(file, index);
+  const fileName = normalizeText(file?.name || `document_${index + 1}.pdf`);
+  return `
+    <a
+      class="history-card bijiris-document-card bijiris-document-preview-link ${compact ? "compact" : ""}"
+      href="${escapeHtml(href)}"
+      target="_blank"
+      rel="noreferrer"
+      data-bijiris-action-stop
+    >
+      <img class="bijiris-document-thumb" src="${escapeHtml(getBijirisDocumentThumbnailSrc(file))}" alt="${escapeHtml(title)}" />
+      <strong>${escapeHtml(title)}</strong>
+      <div class="meta">${escapeHtml(fileName)}</div>
+    </a>
+  `;
+}
+
 function renderBijirisFavoriteToggle(postId, favoriteSaved) {
   return `
     <label class="bijiris-star-toggle ${favoriteSaved ? "active" : ""}" data-bijiris-action-stop>
@@ -2684,6 +2703,13 @@ function renderBijirisPostCard(post) {
   const favoriteSaved = isBijirisFavorite(post.id);
   const readLaterSaved = isBijirisReadLater(post.id);
   const unread = !isBijirisRead(post.id);
+  const documentPreviewStrip = post.documents.length
+    ? `
+      <div class="bijiris-document-preview-strip">
+        ${post.documents.slice(0, 2).map((file, index) => renderBijirisDocumentPreviewLink(file, index, true)).join("")}
+      </div>
+    `
+    : "";
   return `
     <article
       class="history-card bijiris-post-card ${post.pinned ? "is-pinned" : ""}"
@@ -2711,6 +2737,7 @@ function renderBijirisPostCard(post) {
         </div>
       </div>
       <div class="action-row">${renderBijirisBadges(post)}</div>
+      ${documentPreviewStrip}
       ${preview ? `<div class="meta bijiris-post-preview">${escapeHtml(preview)}</div>` : `<div class="meta">本文は詳細で確認できます。</div>`}
     </article>
   `;
