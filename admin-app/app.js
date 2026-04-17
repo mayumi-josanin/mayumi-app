@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v74";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v75";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -673,7 +673,6 @@ const state = {
   adminInfo: null,
   customerProfiles: {},
   preferences: null,
-  logs: { auditLogs: [], errorLogs: [] },
   customerMemos: {},
   adminUsers: [],
   selectedSurveyEditorId: "",
@@ -1276,7 +1275,6 @@ async function loadAdminData() {
     measurementsResult,
     bijirisPostsResult,
     preferencesResult,
-    logsResult,
     customerMemosResult,
   ] = await Promise.all([
     api.request("/api/admin/info", { token: state.token }),
@@ -1285,7 +1283,6 @@ async function loadAdminData() {
     api.request("/api/admin/measurements", { token: state.token }),
     api.request("/api/admin/bijiris-posts", { token: state.token }),
     api.request("/api/admin/preferences", { token: state.token }),
-    api.request("/api/admin/logs", { token: state.token }),
     api.request("/api/admin/customer-memos", { token: state.token }),
   ]);
   state.adminInfo = adminInfoResult || null;
@@ -1310,7 +1307,6 @@ async function loadAdminData() {
     ? bijirisPostsResult.posts.map(normalizeBijirisPost).filter((post) => post.id)
     : [];
   state.preferences = preferencesResult?.preferences || null;
-  state.logs = logsResult || { auditLogs: [], errorLogs: [] };
   state.customerMemos = customerMemosResult?.memos || {};
   state.adminUsers = Array.isArray(state.adminInfo?.adminUsers) ? state.adminInfo.adminUsers : [];
   if (!state.selectedAnalyticsSurveyId && state.surveys[0]) {
@@ -5160,22 +5156,12 @@ function groupByCustomerFrom(responses) {
   return Array.from(map.values()).sort((a, b) => new Date(b.latestAt) - new Date(a.latestAt));
 }
 
-function filterLogs(entries, keyword) {
-  const q = String(keyword || "").trim().toLowerCase();
-  if (!q) return entries;
-  return entries.filter((entry) =>
-    JSON.stringify(entry || {}).toLowerCase().includes(q),
-  );
-}
-
 function renderSettings() {
   const credentialInfo = document.querySelector("#credentialInfo");
   const storageInfo = document.querySelector("#storageInfo");
   const pushStatusInfo = document.querySelector("#pushStatusInfo");
   const preferencesCard = document.querySelector("#preferencesCard");
   const adminUsersCard = document.querySelector("#adminUsersCard");
-  const auditLogList = document.querySelector("#auditLogList");
-  const errorLogList = document.querySelector("#errorLogList");
   const versionInfo = document.querySelector("#versionInfo");
   const backupMetaInfo = document.querySelector("#backupMetaInfo");
   if (!state.adminInfo) {
@@ -5453,46 +5439,6 @@ function renderSettings() {
       event.preventDefault();
       void saveAdminUsers(event.currentTarget);
     });
-  }
-
-  if (auditLogList) {
-    const auditLogs = filterLogs(
-      Array.isArray(state.logs?.auditLogs) ? state.logs.auditLogs : [],
-      document.querySelector("#auditLogFilter")?.value,
-    );
-    auditLogList.innerHTML = auditLogs.length
-      ? auditLogs
-          .map(
-            (entry) => `
-              <article class="answer-item">
-                <strong>${escapeHtml(entry.type || "audit")}</strong>
-                <div class="meta">${formatDate(entry.at)}</div>
-                <div class="meta">${escapeHtml(JSON.stringify(entry.detail || {}))}</div>
-              </article>
-            `,
-          )
-          .join("")
-      : `<div class="empty">監査ログはまだありません。</div>`;
-  }
-
-  if (errorLogList) {
-    const errorLogs = filterLogs(
-      Array.isArray(state.logs?.errorLogs) ? state.logs.errorLogs : [],
-      document.querySelector("#errorLogFilter")?.value,
-    );
-    errorLogList.innerHTML = errorLogs.length
-      ? errorLogs
-          .map(
-            (entry) => `
-              <article class="answer-item">
-                <strong>${escapeHtml(entry.source || "error")}</strong>
-                <div class="meta">${formatDate(entry.at)}</div>
-                <div>${escapeHtml(entry.message || "")}</div>
-              </article>
-            `,
-          )
-          .join("")
-      : `<div class="empty">エラーログはまだありません。</div>`;
   }
 
   if (versionInfo) {
@@ -7813,7 +7759,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-16", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-17", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
@@ -7950,10 +7896,6 @@ document.querySelector("#onlyUnreadButton")?.addEventListener("click", () => {
   setPage("responses");
   renderResponses();
 });
-["auditLogFilter", "errorLogFilter"].forEach((id) => {
-  document.querySelector(`#${id}`)?.addEventListener("input", renderSettings);
-});
-
 document.querySelectorAll("[data-page]").forEach((button) => {
   button.addEventListener("click", () => setPage(button.dataset.page));
 });
