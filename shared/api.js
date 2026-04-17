@@ -257,6 +257,8 @@ window.MayumiSurveyApi = (() => {
     return JSON.stringify({
       kind: normalizeText(file?.kind || kind),
       name: normalizeText(file?.name),
+      title: normalizeText(file?.title),
+      hasThumbnail: Boolean(normalizeText(file?.thumbnailUrl || file?.thumbnailDataUrl || file?.thumbnailFileId)),
       type: normalizeText(file?.type || file?.mimeType),
     });
   }

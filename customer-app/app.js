@@ -12,9 +12,9 @@ const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260417-06";
+const APP_VERSION = "20260417-07";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v81";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v82";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1922,6 +1922,7 @@ function normalizeBijirisContentFile(file, kind = "photo") {
   return {
     kind: normalizeText(file?.kind || kind) || kind,
     name: normalizeText(file?.name) || (kind === "pdf" ? "資料" : "写真"),
+    title: normalizeText(file?.title),
     type: normalizeText(file?.type || file?.mimeType),
     fileId: normalizeText(file?.fileId),
     url: normalizeText(file?.url),
@@ -2393,7 +2394,7 @@ function getRelatedBijirisPosts(post, limit = 3) {
 }
 
 function createPdfThumbnailDataUrl(fileName) {
-  const label = normalizeText(fileName || "PDF").slice(0, 24);
+  const label = normalizeText(fileName || "PDF").replace(/\.pdf$/i, "").slice(0, 24);
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="360" height="240" viewBox="0 0 360 240">
       <rect width="360" height="240" rx="18" fill="#fbf7f2"/>
@@ -2407,8 +2408,12 @@ function createPdfThumbnailDataUrl(fileName) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+function getBijirisDocumentDisplayTitle(file, index = 0) {
+  return normalizeText(file?.title || String(file?.name || "").replace(/\.pdf$/i, "") || `資料${index + 1}`);
+}
+
 function getBijirisDocumentThumbnailSrc(file) {
-  return normalizeText(file?.thumbnailUrl) || createPdfThumbnailDataUrl(file?.name);
+  return normalizeText(file?.thumbnailUrl) || createPdfThumbnailDataUrl(getBijirisDocumentDisplayTitle(file));
 }
 
 function sortBijirisPosts(posts) {
@@ -2443,8 +2448,7 @@ function getBijirisCategories(posts) {
 }
 
 function getFilteredBijirisPosts() {
-  const currentDepth = normalizeBijirisCategoryPath(appState.selectedBijirisCategoryPath).length;
-  return getCurrentBijirisCategoryPosts().filter((post) => splitBijirisCategoryPath(post?.category).length === currentDepth);
+  return getCurrentBijirisCategoryPosts();
 }
 
 function renderBijirisBadges(post) {
@@ -2642,19 +2646,20 @@ function renderMultilineText(text) {
 }
 
 function renderBijirisDocumentPreview(file, index, compact = false) {
-  const href = getPhotoOpenHref(file);
+  const openHref = normalizeText(file?.previewUrl || file?.url || file?.downloadUrl || "#");
+  const downloadHref = normalizeText(file?.downloadUrl || file?.url || file?.previewUrl || "#");
   const thumbnail = getBijirisDocumentThumbnailSrc(file);
+  const title = getBijirisDocumentDisplayTitle(file, index);
   return `
-    <a
-      class="history-card bijiris-document-card ${compact ? "compact" : ""}"
-      href="${escapeHtml(href)}"
-      target="_blank"
-      rel="noreferrer"
-    >
-      <img class="bijiris-document-thumb" src="${escapeHtml(thumbnail)}" alt="${escapeHtml(file.name || `資料${index + 1}`)}" />
-      <strong>${escapeHtml(file.name || `資料${index + 1}`)}</strong>
-      <div class="meta">PDFを開く</div>
-    </a>
+    <article class="history-card bijiris-document-card ${compact ? "compact" : ""}">
+      <img class="bijiris-document-thumb" src="${escapeHtml(thumbnail)}" alt="${escapeHtml(title)}" />
+      <strong>${escapeHtml(title)}</strong>
+      <div class="meta">${escapeHtml(file.name || `document_${index + 1}.pdf`)}</div>
+      <div class="action-row">
+        <a class="ghost-button bijiris-document-action" href="${escapeHtml(openHref)}" target="_blank" rel="noreferrer">PDFを開く</a>
+        <a class="ghost-button bijiris-document-action" href="${escapeHtml(downloadHref)}" target="_blank" rel="noreferrer">ダウンロード</a>
+      </div>
+    </article>
   `;
 }
 
@@ -5708,7 +5713,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-06", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-07", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

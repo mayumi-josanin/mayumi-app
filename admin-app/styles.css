@@ -1141,6 +1141,26 @@ textarea {
   gap: 8px;
 }
 
+.bijiris-document-editor-list {
+  display: grid;
+  gap: 12px;
+}
+
+.bijiris-document-editor-card {
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: start;
+}
+
+.bijiris-document-editor-thumb-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.bijiris-document-editor-body {
+  display: grid;
+  gap: 10px;
+}
+
 .history-photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -1687,6 +1707,7 @@ textarea {
   .survey-question-grid,
   .bijiris-category-grid,
   .bijiris-preview-grid,
+  .bijiris-document-editor-card,
   .ticket-stamp-panel,
   .condition-row,
   .monthly-bar-row {

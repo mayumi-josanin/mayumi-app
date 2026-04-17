@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v65";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v66";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -703,20 +703,28 @@ function normalizeBijirisPostFile(file, kind = "photo") {
   const previewUrl = String(file.previewUrl || "").trim();
   const downloadUrl = String(file.downloadUrl || "").trim();
   const thumbnailUrl = String(file.thumbnailUrl || "").trim();
+  const thumbnailFileId = String(file.thumbnailFileId || "").trim();
   const dataUrl = typeof file.dataUrl === "string" ? file.dataUrl : "";
   const base64Data = typeof file.base64Data === "string" ? file.base64Data : "";
+  const thumbnailDataUrl = typeof file.thumbnailDataUrl === "string" ? file.thumbnailDataUrl : "";
+  const thumbnailRemoved = file?.thumbnailRemoved === true;
+  const title = String(file.title || "").trim();
   if (!name && !fileId && !url && !previewUrl && !downloadUrl && !dataUrl && !base64Data) return null;
   return {
     kind: normalizedKind,
     name: name || (normalizedKind === "pdf" ? "資料" : "写真"),
+    title: title || (normalizedKind === "pdf" ? String((name || "資料").replace(/\.pdf$/i, "")).trim() : ""),
     type: String(file.type || file.mimeType || "").trim(),
     fileId,
     url,
     previewUrl,
     downloadUrl,
     thumbnailUrl,
+    thumbnailFileId,
     dataUrl,
     base64Data,
+    thumbnailDataUrl,
+    thumbnailRemoved,
   };
 }
 
@@ -1355,8 +1363,16 @@ function getPhotoLightboxSrc(file) {
   return String(file?.previewUrl || file?.thumbnailUrl || file?.dataUrl || file?.url || "").trim();
 }
 
+function stripPdfExtension(fileName) {
+  return String(fileName || "").trim().replace(/\.pdf$/i, "");
+}
+
+function getBijirisDocumentDisplayTitle(file, index = 0) {
+  return String(file?.title || stripPdfExtension(file?.name) || `資料${index + 1}`).trim();
+}
+
 function createPdfThumbnailDataUrl(fileName) {
-  const label = String(fileName || "PDF").trim().slice(0, 24);
+  const label = getBijirisDocumentDisplayTitle({ title: fileName, name: fileName }).slice(0, 24) || "PDF";
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="360" height="240" viewBox="0 0 360 240">
       <rect width="360" height="240" rx="18" fill="#fbf7f2"/>
@@ -5846,11 +5862,12 @@ function renderBijirisCategoryEditor(category) {
 
 function renderAdminBijirisDocumentPreview(file, index, compact = false) {
   const href = String(file?.downloadUrl || file?.previewUrl || file?.url || "#").trim();
+  const title = getBijirisDocumentDisplayTitle(file, index);
   return `
     <a class="history-card bijiris-preview-document ${compact ? "compact" : ""}" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">
-      <img class="bijiris-preview-document-thumb" src="${escapeHtml(getBijirisDocumentThumbnailSrc(file))}" alt="${escapeHtml(file?.name || `資料${index + 1}`)}" />
-      <strong>${escapeHtml(file?.name || `資料${index + 1}`)}</strong>
-      <div class="meta">PDFを開く</div>
+      <img class="bijiris-preview-document-thumb" src="${escapeHtml(getBijirisDocumentThumbnailSrc(file))}" alt="${escapeHtml(title)}" />
+      <strong>${escapeHtml(title)}</strong>
+      <div class="meta">${escapeHtml(file?.name || `document_${index + 1}.pdf`)}</div>
     </a>
   `;
 }
@@ -5941,6 +5958,16 @@ function refreshBijirisPreview() {
   }
 }
 
+function syncBijirisDocumentMetaFromForm(form, draft) {
+  if (!form || !draft) return;
+  const titleInputs = Array.from(form.querySelectorAll("[data-bijiris-document-title]"));
+  titleInputs.forEach((input) => {
+    const index = Number(input.dataset.bijirisDocumentTitle);
+    if (!Number.isInteger(index) || !draft.documents[index]) return;
+    draft.documents[index].title = String(input.value || "").trim() || stripPdfExtension(draft.documents[index].name);
+  });
+}
+
 function syncBijirisDraftFromForm(form) {
   if (!form) return getBijirisEditorDraft();
   const draft = getBijirisEditorDraft();
@@ -5955,6 +5982,7 @@ function syncBijirisDraftFromForm(form) {
   draft.notifyCustomers = Boolean(form.elements.notifyCustomers?.checked);
   draft.notificationTitle = String(form.elements.notificationTitle?.value || "").trim();
   draft.notificationBody = String(form.elements.notificationBody?.value || "").trim();
+  syncBijirisDocumentMetaFromForm(form, draft);
   return draft;
 }
 
@@ -6000,6 +6028,25 @@ async function prepareBijirisImageFile(file) {
   };
 }
 
+async function prepareBijirisDocumentCoverFile(file) {
+  if (!String(file?.type || "").startsWith("image/")) {
+    throw new Error("表紙画像ファイルを選択してください。");
+  }
+  const source = await readFileAsDataUrl(file, "表紙画像を読み込めませんでした。");
+  const image = await loadImage(source);
+  const maxSize = 1200;
+  const quality = 0.78;
+  const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
 async function prepareBijirisDocumentFile(file) {
   const isPdf = String(file?.type || "").includes("pdf") || /\.pdf$/i.test(String(file?.name || ""));
   if (!isPdf) {
@@ -6013,9 +6060,11 @@ async function prepareBijirisDocumentFile(file) {
   return {
     kind: "pdf",
     name: file.name || "document.pdf",
+    title: stripPdfExtension(file.name || "document"),
     mimeType: "application/pdf",
     type: "application/pdf",
     base64Data: match[1],
+    thumbnailDataUrl: "",
   };
 }
 
@@ -6025,12 +6074,41 @@ function renderBijirisAttachmentPreview(files, kind) {
   }
   if (kind === "pdf") {
     return `
-      <div class="bijiris-attachment-list">
+      <div class="bijiris-document-editor-list">
         ${files
           .map((file, index) => `
-            <article class="history-photo-badge bijiris-attachment-chip">
-              <span>${escapeHtml(file.name || `資料${index + 1}`)}</span>
-              <button class="ghost-button" type="button" data-remove-bijiris-document="${index}">削除</button>
+            <article class="history-card bijiris-document-editor-card">
+              <div class="bijiris-document-editor-thumb-wrap">
+                <img
+                  class="bijiris-preview-document-thumb"
+                  src="${escapeHtml(getBijirisDocumentThumbnailSrc(file))}"
+                  alt="${escapeHtml(getBijirisDocumentDisplayTitle(file, index))}"
+                />
+              </div>
+              <div class="bijiris-document-editor-body">
+                <label>
+                  表示タイトル
+                  <input
+                    type="text"
+                    value="${escapeHtml(getBijirisDocumentDisplayTitle(file, index))}"
+                    data-bijiris-document-title="${index}"
+                    placeholder="PDFタイトル"
+                  />
+                </label>
+                <div class="meta">${escapeHtml(file.name || `document_${index + 1}.pdf`)}</div>
+                <div class="action-row">
+                  <label class="secondary-button upload-button">
+                    表紙画像を追加
+                    <input type="file" accept="image/*" data-bijiris-document-cover-input="${index}" hidden />
+                  </label>
+                  ${
+                    file.thumbnailUrl || file.thumbnailDataUrl
+                      ? `<button class="ghost-button" type="button" data-remove-bijiris-document-cover="${index}">表紙画像を削除</button>`
+                      : ""
+                  }
+                  <button class="ghost-button" type="button" data-remove-bijiris-document="${index}">削除</button>
+                </div>
+              </div>
             </article>
           `)
           .join("")}
@@ -6081,6 +6159,31 @@ async function handleBijirisDocumentInput(input) {
     prepared.push(await prepareBijirisDocumentFile(file));
   }
   state.bijirisEditorDraft.documents = state.bijirisEditorDraft.documents.concat(prepared).slice(0, 5);
+  renderBijirisManager();
+  setPage("bijiris");
+}
+
+async function handleBijirisDocumentCoverInput(input, index) {
+  const form = input?.form;
+  syncBijirisDraftFromForm(form);
+  const targetIndex = Number(index);
+  if (!Number.isInteger(targetIndex) || !state.bijirisEditorDraft.documents[targetIndex]) return;
+  const file = Array.from(input?.files || [])[0];
+  if (!file) return;
+  state.bijirisEditorDraft.documents[targetIndex].thumbnailDataUrl = await prepareBijirisDocumentCoverFile(file);
+  state.bijirisEditorDraft.documents[targetIndex].thumbnailUrl = state.bijirisEditorDraft.documents[targetIndex].thumbnailDataUrl;
+  state.bijirisEditorDraft.documents[targetIndex].thumbnailRemoved = false;
+  renderBijirisManager();
+  setPage("bijiris");
+}
+
+function removeBijirisDocumentCover(index, form) {
+  syncBijirisDraftFromForm(form);
+  const targetIndex = Number(index);
+  if (!Number.isInteger(targetIndex) || !state.bijirisEditorDraft.documents[targetIndex]) return;
+  state.bijirisEditorDraft.documents[targetIndex].thumbnailDataUrl = "";
+  state.bijirisEditorDraft.documents[targetIndex].thumbnailUrl = "";
+  state.bijirisEditorDraft.documents[targetIndex].thumbnailRemoved = true;
   renderBijirisManager();
   setPage("bijiris");
 }
@@ -6488,6 +6591,13 @@ function renderBijirisManager() {
       showToast(error.message || "PDF を追加できませんでした。");
     });
   });
+  document.querySelectorAll("[data-bijiris-document-cover-input]").forEach((input) => {
+    input.addEventListener("change", (event) => {
+      handleBijirisDocumentCoverInput(event.currentTarget, input.dataset.bijirisDocumentCoverInput).catch((error) => {
+        showToast(error.message || "表紙画像を追加できませんでした。");
+      });
+    });
+  });
   document.querySelectorAll("[data-remove-bijiris-photo]").forEach((button) => {
     button.addEventListener("click", () => {
       syncBijirisDraftFromForm(form);
@@ -6502,6 +6612,11 @@ function renderBijirisManager() {
       state.bijirisEditorDraft.documents.splice(Number(button.dataset.removeBijirisDocument), 1);
       renderBijirisManager();
       setPage("bijiris");
+    });
+  });
+  document.querySelectorAll("[data-remove-bijiris-document-cover]").forEach((button) => {
+    button.addEventListener("click", () => {
+      removeBijirisDocumentCover(button.dataset.removeBijirisDocumentCover, form);
     });
   });
   document.querySelector("[data-delete-bijiris-post]")?.addEventListener("click", () => {
@@ -7225,7 +7340,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-05", { updateViaCache: "none" })
+        .register("./sw.js?v=20260417-06", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

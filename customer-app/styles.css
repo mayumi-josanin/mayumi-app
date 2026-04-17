@@ -492,12 +492,17 @@ textarea {
 }
 
 .bijiris-document-card {
-  text-decoration: none;
+  display: grid;
+  gap: 8px;
 }
 
 .bijiris-document-card.compact {
   gap: 6px;
   padding: 10px;
+}
+
+.bijiris-document-action {
+  text-decoration: none;
 }
 
 .bijiris-document-thumb {

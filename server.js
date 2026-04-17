@@ -249,6 +249,7 @@ function normalizeBijirisPostFile(file, kind = "photo", index = 0) {
   const name = normalizeText(file?.name) || (kind === "pdf" ? `資料${index + 1}.pdf` : `写真${index + 1}.jpg`);
   if (kind === "pdf") {
     const base64Data = normalizeText(file?.base64Data);
+    const thumbnailDataUrl = normalizeText(file?.thumbnailDataUrl);
     const dataUrl = /^data:application\/pdf;base64,/i.test(String(file?.url || ""))
       ? String(file.url)
       : base64Data
@@ -261,10 +262,11 @@ function normalizeBijirisPostFile(file, kind = "photo", index = 0) {
       name,
       type: "application/pdf",
       fileId: normalizeText(file?.fileId),
+      title: normalizeText(file?.title) || name.replace(/\.pdf$/i, ""),
       url,
       previewUrl: normalizeText(file?.previewUrl) || url,
       downloadUrl: normalizeText(file?.downloadUrl) || url,
-      thumbnailUrl: normalizeText(file?.thumbnailUrl),
+      thumbnailUrl: normalizeText(file?.thumbnailUrl) || thumbnailDataUrl,
     };
   }
   const dataUrl = String(file?.dataUrl || file?.url || "");
