@@ -543,8 +543,8 @@ window.MayumiSurveyApi = (() => {
   }
 
   async function waitForAdminBijirisPosts(gasUrl, token, matcher) {
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      if (attempt) await sleep(1000);
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      if (attempt) await sleep(1500);
       const data = await jsonp(gasUrl, "adminBijirisPosts", { token });
       const posts = Array.isArray(data.posts) ? data.posts : [];
       const matched = matcher(posts);
