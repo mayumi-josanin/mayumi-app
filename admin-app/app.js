@@ -6195,10 +6195,24 @@ async function saveBijirisPost() {
   if (!draft.summary && !draft.body && !draft.photos.length && !draft.documents.length) {
     throw new Error("本文、要約、写真、PDF のいずれかを入力してください。");
   }
-  const isPublished = draft.status === "published";
+  const existingPost = draft.id ? getBijirisPostById(draft.id) : null;
+  const effectiveStatus =
+    existingPost?.status === "published" && draft.status !== "archived"
+      ? "published"
+      : draft.status;
+  const effectivePublishedAt =
+    effectiveStatus === "published"
+      ? (draft.publishedAt || existingPost?.publishedAt || new Date().toISOString())
+      : draft.publishedAt;
+  const isPublished = effectiveStatus === "published";
+  const reflectsToCustomerApp = Boolean(existingPost?.id) && existingPost.status === "published" && effectiveStatus === "published";
   showBusyToast(
     draft.id
-      ? (isPublished ? "豆知識の公開内容を保存中です。" : "豆知識を保存中です。")
+      ? (reflectsToCustomerApp
+          ? "豆知識を保存して顧客アプリへ反映中です。"
+          : isPublished
+            ? "豆知識の公開内容を保存中です。"
+            : "豆知識を保存中です。")
       : (isPublished ? "豆知識を公開中です。" : "豆知識を作成中です。"),
   );
   const payload = {
@@ -6207,9 +6221,9 @@ async function saveBijirisPost() {
     category: draft.category,
     summary: draft.summary,
     body: draft.body,
-    status: draft.status,
+    status: effectiveStatus,
     pinned: draft.pinned,
-    publishedAt: draft.publishedAt,
+    publishedAt: effectivePublishedAt,
     notifyCustomers: draft.notifyCustomers === true,
     notificationTitle: draft.notificationTitle,
     notificationBody: draft.notificationBody,
@@ -6235,7 +6249,11 @@ async function saveBijirisPost() {
   setPage("bijiris");
   showToast(
     draft.id
-      ? (isPublished ? "豆知識の公開内容を保存しました。" : "豆知識を更新しました。")
+      ? (reflectsToCustomerApp
+          ? "豆知識を保存し、顧客アプリへ反映しました。"
+          : isPublished
+            ? "豆知識の公開内容を保存しました。"
+            : "豆知識を更新しました。")
       : (isPublished ? "豆知識を公開しました。" : "豆知識を作成しました。"),
   );
 }
@@ -6390,6 +6408,10 @@ function renderBijirisManager() {
   }
 
   const draft = getBijirisEditorDraft();
+  const isEditingPublishedPost = Boolean(selectedPost?.id) && selectedPost.status === "published";
+  if (isEditingPublishedPost && draft.status === "draft") {
+    draft.status = "published";
+  }
   editorCard.innerHTML = `
     <div class="survey-editor-head">
       <div>
@@ -6436,10 +6458,16 @@ function renderBijirisManager() {
           公開状態
           <select name="status">
             <option value="published" ${draft.status === "published" ? "selected" : ""}>公開</option>
-            <option value="draft" ${draft.status === "draft" ? "selected" : ""}>下書き</option>
+            ${isEditingPublishedPost ? "" : `<option value="draft" ${draft.status === "draft" ? "selected" : ""}>下書き</option>`}
             <option value="archived" ${draft.status === "archived" ? "selected" : ""}>アーカイブ</option>
           </select>
-          <div class="meta">顧客アプリに表示されるのは「公開」の投稿だけです。</div>
+          <div class="meta">
+            ${
+              isEditingPublishedPost
+                ? "この投稿は保存すると同じ投稿を更新し、そのまま顧客アプリへ反映されます。顧客アプリから外したい場合のみ「アーカイブ」を選択してください。"
+                : "顧客アプリに表示されるのは「公開」の投稿だけです。"
+            }
+          </div>
         </label>
       </div>
       <label class="inline-toggle">
@@ -6506,7 +6534,9 @@ function renderBijirisManager() {
       <div class="survey-editor-actions">
         <button class="primary-button" type="submit">
           ${draft.status === "published"
-            ? (selectedPost ? "公開内容を保存" : "作成して公開")
+            ? (selectedPost
+                ? (isEditingPublishedPost ? "保存して顧客アプリへ反映" : "公開内容を保存")
+                : "作成して公開")
             : draft.status === "draft"
               ? (selectedPost ? "下書きを保存" : "下書きを作成")
               : (selectedPost ? "保存" : "作成")}
