@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v79";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v80";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -32,6 +32,7 @@ const MEASUREMENT_PHOTO_QUESTION_IDS = [
   "q_bijiris_session_ticket_photos",
 ];
 const SESSION_CONCERN_QUESTION_ID = "q_bijiris_session_concern";
+const SESSION_LIFE_CHANGE_QUESTION_ID = "q_bijiris_session_life_changes";
 const SESSION_CONCERN_CATEGORIES = [
   {
     id: "toilet",
@@ -143,6 +144,48 @@ const SESSION_CONCERN_CATEGORIES = [
       "夜ぐっすり眠りたい",
       "日常のちょっとした動作に不安がある",
       "トイレを気にせず過ごせる時間を増やしたい",
+    ],
+  },
+];
+const SESSION_LIFE_CHANGE_CATEGORIES = [
+  {
+    id: "toilet-change",
+    label: "【トイレまわりの変化】",
+    options: [
+      "咳やくしゃみをした時の不安が以前より減った",
+      "急な尿意を気にする場面が減った",
+      "外出時にトイレの場所を気にしすぎなくなった",
+      "夜中にトイレで起きる回数が減った",
+    ],
+  },
+  {
+    id: "core-change",
+    label: "【お腹・骨盤まわりの変化】",
+    options: [
+      "お腹の奥に力が入りやすくなった",
+      "骨盤まわりが安定した感じがある",
+    ],
+  },
+  {
+    id: "posture-change",
+    label: "【姿勢・見た目の変化】",
+    options: [
+      "姿勢を意識しやすくなった",
+      "下腹まわりがすっきりした感じがある",
+    ],
+  },
+  {
+    id: "movement-change",
+    label: "【動きやすさの変化】",
+    options: [
+      "歩く・立つ・動くことが以前より楽になった",
+    ],
+  },
+  {
+    id: "other-change",
+    label: "【その他】",
+    options: [
+      "その他（自由記述）",
     ],
   },
 ];
@@ -3221,6 +3264,8 @@ function renderReadOnlyResponseCard(response) {
                 ${renderQuestionHeading(question, answer.label)}
                 ${answer.questionId === SESSION_CONCERN_QUESTION_ID
                   ? renderConcernAnswerSummary(answer)
+                  : answer.questionId === SESSION_LIFE_CHANGE_QUESTION_ID
+                    ? renderLifeChangeAnswerSummary(answer)
                   : renderAnswerValue(answer)}
               </div>
             `;
@@ -3287,6 +3332,8 @@ function renderCustomerTimeline(responseList) {
                           ${renderQuestionHeading(question, answer.label)}
                           ${answer.questionId === SESSION_CONCERN_QUESTION_ID
                             ? renderConcernAnswerSummary(answer)
+                            : answer.questionId === SESSION_LIFE_CHANGE_QUESTION_ID
+                              ? renderLifeChangeAnswerSummary(answer)
                             : renderAnswerValue(answer)}
                         </div>
                       `;
@@ -3834,6 +3881,17 @@ function getConcernAnswerGroups(answer) {
   return groups;
 }
 
+function getCategorizedAnswerGroups(answer, categories) {
+  const selected = new Set(getAnswerValues(answer));
+  return (Array.isArray(categories) ? categories : [])
+    .map((category) => ({
+      id: category.id,
+      label: category.label,
+      options: (Array.isArray(category.options) ? category.options : []).filter((option) => selected.has(option)),
+    }))
+    .filter((category) => category.options.length);
+}
+
 function getConcernAnswerSummaryRows(answer) {
   return getConcernAnswerGroups(answer).map((group) => ({
     ...group,
@@ -3841,8 +3899,14 @@ function getConcernAnswerSummaryRows(answer) {
   }));
 }
 
-function renderConcernAnswerSummary(answer, { preserveInputs = false, questionId = SESSION_CONCERN_QUESTION_ID } = {}) {
-  const groups = getConcernAnswerSummaryRows(answer);
+function getLifeChangeAnswerSummaryRows(answer) {
+  return getCategorizedAnswerGroups(answer, SESSION_LIFE_CHANGE_CATEGORIES).map((group) => ({
+    ...group,
+    count: Array.isArray(group.options) ? group.options.length : 0,
+  }));
+}
+
+function renderCategorizedAnswerSummary(groups, { preserveInputs = false, questionId = "" } = {}) {
   if (!groups.length) {
     return `
       <div class="concern-summary-list">
@@ -3850,6 +3914,7 @@ function renderConcernAnswerSummary(answer, { preserveInputs = false, questionId
       </div>
     `;
   }
+  const normalizedQuestionId = String(questionId || "").trim();
   return `
     <div class="concern-summary-list">
       ${groups
@@ -3859,13 +3924,13 @@ function renderConcernAnswerSummary(answer, { preserveInputs = false, questionId
               <strong>${escapeHtml(group.label)}</strong>
               <span class="concern-summary-count">${escapeHtml(`${group.count}件`)}</span>
               ${
-                preserveInputs
+                preserveInputs && normalizedQuestionId
                   ? group.options
                       .map(
                         (option) => `
                           <input
                             type="checkbox"
-                            data-answer-checkbox="${escapeHtml(questionId)}"
+                            data-answer-checkbox="${escapeHtml(normalizedQuestionId)}"
                             value="${escapeHtml(option)}"
                             checked
                             hidden
@@ -3881,6 +3946,14 @@ function renderConcernAnswerSummary(answer, { preserveInputs = false, questionId
         .join("")}
     </div>
   `;
+}
+
+function renderConcernAnswerSummary(answer, { preserveInputs = false, questionId = SESSION_CONCERN_QUESTION_ID } = {}) {
+  return renderCategorizedAnswerSummary(getConcernAnswerSummaryRows(answer), { preserveInputs, questionId });
+}
+
+function renderLifeChangeAnswerSummary(answer, { preserveInputs = false, questionId = SESSION_LIFE_CHANGE_QUESTION_ID } = {}) {
+  return renderCategorizedAnswerSummary(getLifeChangeAnswerSummaryRows(answer), { preserveInputs, questionId });
 }
 
 function renderConcernAnswerEditor(answer, questionId) {
@@ -4005,6 +4078,9 @@ function renderEditableAnswerField(question, answer) {
   if (question.type === "checkbox") {
     if (question.id === SESSION_CONCERN_QUESTION_ID) {
       return renderConcernAnswerEditor(answer, question.id);
+    }
+    if (question.id === SESSION_LIFE_CHANGE_QUESTION_ID) {
+      return renderLifeChangeAnswerSummary(answer, { preserveInputs: true, questionId: question.id });
     }
     const selected = new Set(getAnswerValues(answer));
     return `
@@ -7582,7 +7658,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260418-21", { updateViaCache: "none" })
+        .register("./sw.js?v=20260418-22", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
