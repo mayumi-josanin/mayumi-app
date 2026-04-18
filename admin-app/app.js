@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v77";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v78";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -4696,22 +4696,9 @@ function renderResponses() {
       <div class="stage-head">
         <div>
           <div class="card-title">${escapeHtml(selectedGroup.surveyTitle)}</div>
-          <div class="meta">過去回答を最新順で表示しています。回答を押すと詳細を表示します。</div>
+          <div class="meta">回答者名を押すと詳細を表示します。</div>
         </div>
         <button class="secondary-button" type="button" data-back-stage="survey-groups">戻る</button>
-      </div>
-      <div class="bulk-toolbar">
-        <label>
-          一括変更
-          <select id="bulkStatusSelect">
-            <option value="">選択してください</option>
-            <option value="new">未対応</option>
-            <option value="checked">確認済み</option>
-            <option value="done">対応済み</option>
-            <option value="trash">ゴミ箱</option>
-          </select>
-        </label>
-        <button class="secondary-button" type="button" id="bulkStatusApplyButton">選択した回答に適用</button>
       </div>
       <div class="response-list">
         ${
@@ -4719,33 +4706,21 @@ function renderResponses() {
             ? surveyResponses
                 .map(
                   (response) => `
-                    <article class="response-history-card selectable-card">
-                      <label class="inline-toggle history-check">
-                        <input type="checkbox" data-select-response-id="${response.id}" ${state.selectedResponseIds.includes(response.id) ? "checked" : ""} />
-                        選択
-                      </label>
+                    <article class="response-history-card selectable-card customer-list-card">
                       <button
-                        class="history-open-button"
+                        class="customer-list-open-button"
                         type="button"
                         data-history-response-id="${response.id}"
                       >
-                        <strong>${escapeHtml(getCustomerNameWithMember(response.customerName))}</strong>
-                        <div class="meta">${formatDate(response.submittedAt)}</div>
-                        ${renderTicketStampList(getResponseTicketInfo(response))}
-                        ${renderResponsePhotoPreview(response, 3)}
-                        <span class="badge ${normalizeStatus(response.status)}">
-                          ${STATUS_LABELS[normalizeStatus(response.status)]}
-                        </span>
+                        <strong>${escapeHtml(response.customerName)}</strong>
                       </button>
-                      <div class="action-row">
-                        <button
-                          class="secondary-button danger-button"
-                          type="button"
-                          data-delete-response="${escapeHtml(response.id)}"
-                        >
-                          ${normalizeStatus(response.status) === "trash" ? "完全削除" : "回答削除"}
-                        </button>
-                      </div>
+                      <button
+                        class="secondary-button danger-button"
+                        type="button"
+                        data-delete-response="${escapeHtml(response.id)}"
+                      >
+                        ${normalizeStatus(response.status) === "trash" ? "完全削除" : "回答削除"}
+                      </button>
                     </article>
                   `,
                 )
@@ -4791,16 +4766,6 @@ function renderResponses() {
     });
   });
 
-  stage.querySelectorAll("[data-select-response-id]").forEach((input) => {
-    input.addEventListener("change", () => {
-      if (input.checked) {
-        state.selectedResponseIds = Array.from(new Set(state.selectedResponseIds.concat(input.dataset.selectResponseId)));
-      } else {
-        state.selectedResponseIds = state.selectedResponseIds.filter((responseId) => responseId !== input.dataset.selectResponseId);
-      }
-    });
-  });
-
   stage.querySelectorAll("[data-back-stage]").forEach((button) => {
     button.addEventListener("click", () => {
       if (button.dataset.backStage === "survey-groups") {
@@ -4836,9 +4801,6 @@ function renderResponses() {
     });
   });
 
-  stage.querySelector("#bulkStatusApplyButton")?.addEventListener("click", () => {
-    void applyBulkStatus();
-  });
   stage.querySelectorAll("[data-print-response]").forEach((button) => {
     button.addEventListener("click", () => {
       const response = state.responses.find((item) => item.id === button.dataset.printResponse);
@@ -7645,7 +7607,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260418-19", { updateViaCache: "none" })
+        .register("./sw.js?v=20260418-20", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
