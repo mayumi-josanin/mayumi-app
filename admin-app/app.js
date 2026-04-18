@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v80";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v81";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -3920,27 +3920,34 @@ function renderCategorizedAnswerSummary(groups, { preserveInputs = false, questi
       ${groups
         .map(
           (group) => `
-            <section class="concern-summary-card">
-              <strong>${escapeHtml(group.label)}</strong>
-              <span class="concern-summary-count">${escapeHtml(`${group.count}件`)}</span>
-              ${
-                preserveInputs && normalizedQuestionId
-                  ? group.options
-                      .map(
-                        (option) => `
-                          <input
-                            type="checkbox"
-                            data-answer-checkbox="${escapeHtml(normalizedQuestionId)}"
-                            value="${escapeHtml(option)}"
-                            checked
-                            hidden
-                          />
-                        `,
-                      )
-                      .join("")
-                  : ""
-              }
-            </section>
+            <details class="concern-summary-card">
+              <summary class="concern-summary-toggle">
+                <strong>${escapeHtml(group.label)}</strong>
+                <span class="concern-summary-count">${escapeHtml(`${group.count}件`)}</span>
+              </summary>
+              <div class="concern-summary-options">
+                ${group.options
+                  .map((option) => `<div class="concern-summary-option">${escapeHtml(option)}</div>`)
+                  .join("")}
+                ${
+                  preserveInputs && normalizedQuestionId
+                    ? group.options
+                        .map(
+                          (option) => `
+                            <input
+                              type="checkbox"
+                              data-answer-checkbox="${escapeHtml(normalizedQuestionId)}"
+                              value="${escapeHtml(option)}"
+                              checked
+                              hidden
+                            />
+                          `,
+                        )
+                        .join("")
+                    : ""
+                }
+              </div>
+            </details>
           `,
         )
         .join("")}
@@ -7658,7 +7665,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260418-22", { updateViaCache: "none" })
+        .register("./sw.js?v=20260418-23", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

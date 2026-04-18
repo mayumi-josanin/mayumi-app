@@ -790,14 +790,27 @@ textarea {
 }
 
 .concern-summary-card {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.concern-summary-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
+  cursor: pointer;
+  list-style: none;
+}
+
+.concern-summary-toggle::-webkit-details-marker {
+  display: none;
 }
 
 .concern-summary-card strong {
@@ -809,6 +822,21 @@ textarea {
   color: var(--text-mid);
   font-weight: 700;
   white-space: nowrap;
+}
+
+.concern-summary-options {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.concern-summary-option {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-soft);
+  color: var(--text-dark);
+  line-height: 1.5;
 }
 
 .history-photo-strip {
