@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v81";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v82";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -987,6 +987,7 @@ function normalizeCustomerProfile(value) {
     memberNumber: String(value?.memberNumber || "").trim().toUpperCase(),
     nameKana: String(value?.nameKana || "").trim(),
     activeTicketCard: normalizeActiveTicketCard(value?.activeTicketCard),
+    activeTicketCardSource: String(value?.activeTicketCardSource || "").trim().toLowerCase(),
     measurementTargets: normalizeMeasurementTargets(value?.measurementTargets),
     pushStatus: normalizePushStatus(value?.pushStatus),
     updatedAt: String(value?.updatedAt || "").trim(),
@@ -1979,10 +1980,9 @@ function groupResponsesBySurvey(responses) {
 }
 
 function getCurrentTicketInfoForCustomer(customerName) {
-  const profileTicketInfo = buildTicketInfoFromActiveTicketCard(
-    getCustomerProfileByName(customerName)?.activeTicketCard,
-  );
-  if (profileTicketInfo.length) {
+  const profile = getCustomerProfileByName(customerName);
+  const profileTicketInfo = buildTicketInfoFromActiveTicketCard(profile?.activeTicketCard);
+  if (profileTicketInfo.length && profile?.activeTicketCardSource === "admin") {
     return profileTicketInfo;
   }
   const latestTicketResponse = state.responses
@@ -1993,7 +1993,10 @@ function getCurrentTicketInfoForCustomer(customerName) {
         getResponseTicketInfo(response).length,
     )
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
-  return latestTicketResponse ? getResponseTicketInfo(latestTicketResponse) : [];
+  if (latestTicketResponse) {
+    return getResponseTicketInfo(latestTicketResponse);
+  }
+  return profileTicketInfo;
 }
 
 function getActiveResponses() {
@@ -7665,7 +7668,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260418-23", { updateViaCache: "none" })
+        .register("./sw.js?v=20260418-24", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
