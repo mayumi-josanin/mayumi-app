@@ -10,11 +10,12 @@ const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
 const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const TICKET_CARD_ACQUIRE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260417-17";
+const APP_VERSION = "20260418-18";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v91";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v92";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -378,6 +379,7 @@ const appState = {
   historyResponseId: "",
   historyLoading: false,
   historyLoadError: "",
+  ticketAcquirePending: false,
   selectedBijirisPostId: "",
   selectedBijirisCategory: "all",
   selectedBijirisCategoryPath: [],
@@ -538,6 +540,7 @@ function normalizeCustomerProfile(value) {
     nameKana: normalizeKana(value?.nameKana),
     historyMatchMode: value?.historyMatchMode === "name" ? "name" : "device",
     measurementTargets: normalizeMeasurementTargets(value?.measurementTargets),
+    lastTicketCardAcquiredAt: normalizeText(value?.lastTicketCardAcquiredAt),
   };
 }
 
@@ -626,6 +629,7 @@ function normalizeServerCustomerProfile(value) {
     activeTicketCard: normalizeServerActiveTicketCard(value?.activeTicketCard),
     measurementTargets: normalizeMeasurementTargets(value?.measurementTargets),
     pushStatus: normalizePushStatus(value?.pushStatus),
+    lastTicketCardAcquiredAt: normalizeText(value?.lastTicketCardAcquiredAt),
   };
 }
 
@@ -708,6 +712,7 @@ function mergeCustomerProfile(baseProfile, serverProfile) {
     nameKana: server.nameKana || base.nameKana,
     historyMatchMode: base.historyMatchMode,
     measurementTargets: server.measurementTargets || base.measurementTargets,
+    lastTicketCardAcquiredAt: server.lastTicketCardAcquiredAt || base.lastTicketCardAcquiredAt,
   });
 }
 
@@ -718,7 +723,8 @@ function syncCustomerProfileFromServer(serverProfile) {
     merged.memberNumber === appState.customer.memberNumber &&
     merged.nameKana === appState.customer.nameKana &&
     merged.historyMatchMode === appState.customer.historyMatchMode &&
-    JSON.stringify(merged.measurementTargets || null) === JSON.stringify(appState.customer.measurementTargets || null)
+    JSON.stringify(merged.measurementTargets || null) === JSON.stringify(appState.customer.measurementTargets || null) &&
+    merged.lastTicketCardAcquiredAt === appState.customer.lastTicketCardAcquiredAt
   ) {
     return false;
   }
@@ -4696,14 +4702,43 @@ function getNextTicketSheetLabel(sheetValue) {
   return currentSheet ? `${currentSheet + 1}枚目` : "";
 }
 
+function getTicketCardAcquireAvailableAt(profile = appState.customer) {
+  const acquiredAtRaw = normalizeText(profile?.lastTicketCardAcquiredAt);
+  if (!acquiredAtRaw) return "";
+  const acquiredAt = new Date(acquiredAtRaw);
+  if (Number.isNaN(acquiredAt.getTime())) return "";
+  return new Date(acquiredAt.getTime() + TICKET_CARD_ACQUIRE_COOLDOWN_MS).toISOString();
+}
+
+function getTicketCardAcquireCooldownRemainingMs(profile = appState.customer) {
+  const availableAt = getTicketCardAcquireAvailableAt(profile);
+  if (!availableAt) return 0;
+  return Math.max(0, new Date(availableAt).getTime() - Date.now());
+}
+
+function buildTicketCardAcquireCooldownMessage(profile = appState.customer) {
+  const availableAt = getTicketCardAcquireAvailableAt(profile);
+  if (!availableAt) {
+    return "スタンプカードの取得は24時間に1回までです。時間をおいてからもう一度お試しください。";
+  }
+  return `スタンプカードの取得は24時間に1回までです。次は ${formatDate(availableAt)} 以降に取得できます。`;
+}
+
 async function acquireNextTicketSheet(ticketPlan) {
+  if (appState.ticketAcquirePending) return;
   const nextSheetLabel = getNextTicketSheetLabelForPlan(ticketPlan);
   const nextSheetNumber = parseTicketSheet(nextSheetLabel);
   if (!normalizeText(ticketPlan) || !nextSheetNumber) {
     showToast("新しいスタンプカードを取得できませんでした。");
     return;
   }
-  setActiveTicketCardOverride(ticketPlan, nextSheetNumber);
+  const cooldownRemainingMs = getTicketCardAcquireCooldownRemainingMs();
+  if (cooldownRemainingMs > 0) {
+    showToast(buildTicketCardAcquireCooldownMessage());
+    renderHomeTicketStatus();
+    return;
+  }
+  appState.ticketAcquirePending = true;
   renderHomeTicketStatus();
   try {
     const result = await api.request("/api/public/customer-profile/ticket-card", {
@@ -4717,6 +4752,7 @@ async function acquireNextTicketSheet(ticketPlan) {
         },
       },
     });
+    setActiveTicketCardOverride(ticketPlan, nextSheetNumber);
     syncCustomerProfileFromServer(result.customerProfile);
     syncActiveTicketCardOverrideFromServer(result.customerProfile);
     showToast(`${ticketPlan} ${nextSheetLabel} を取得しました。`);
@@ -4725,7 +4761,10 @@ async function acquireNextTicketSheet(ticketPlan) {
       ticketPlan,
       sheetNumber: nextSheetNumber,
     });
-    showToast(`${ticketPlan} ${nextSheetLabel} を端末に保存しました。通信後に更新してください。`);
+    showToast(error.message || "スタンプカードを取得できませんでした。");
+  } finally {
+    appState.ticketAcquirePending = false;
+    renderHomeTicketStatus();
   }
 }
 
@@ -4746,6 +4785,13 @@ function getActiveTicketCardState() {
   const ticketCount = parseTicketCount(ticketPlan);
   const activeOverride = getActiveTicketCardOverride();
   const isCurrentCardComplete = Boolean(ticketPlan && ticketCount && currentRound >= ticketCount);
+  const ticketAcquireCooldownRemainingMs = getTicketCardAcquireCooldownRemainingMs();
+  const ticketAcquireAvailableAt = getTicketCardAcquireAvailableAt();
+  const acquireStatusMessage = appState.ticketAcquirePending
+    ? "スタンプカードを取得中です。"
+    : ticketAcquireCooldownRemainingMs > 0 && ticketAcquireAvailableAt
+      ? `次の取得は ${formatDate(ticketAcquireAvailableAt)} 以降です。`
+      : "";
 
   if (
     activeOverride &&
@@ -4760,6 +4806,7 @@ function getActiveTicketCardState() {
       ticketInfo: buildTicketInfoFromValues(activeOverride.plan, `${activeOverride.sheetNumber}枚目`, "0回目"),
       showAcquireButtons: false,
       acquirePlans: [],
+      acquireStatusMessage,
     };
   }
 
@@ -4770,8 +4817,9 @@ function getActiveTicketCardState() {
     currentRound,
     ticketCount,
     ticketInfo: buildTicketInfoFromValues(ticketPlan, currentSheetLabel, ticketMap.get("何回目") || ""),
-    showAcquireButtons: isCurrentCardComplete,
+    showAcquireButtons: isCurrentCardComplete && !appState.ticketAcquirePending && ticketAcquireCooldownRemainingMs <= 0,
     acquirePlans: isCurrentCardComplete ? ["6回券", "10回券"] : [],
+    acquireStatusMessage,
   };
 }
 
@@ -4867,7 +4915,9 @@ function renderHomeTicketStatus() {
                       </div>
                     </div>
                   `
-                  : ""
+                  : activeTicketCard.acquireStatusMessage
+                    ? `<div class="meta">${escapeHtml(activeTicketCard.acquireStatusMessage)}</div>`
+                    : ""
               }
             </div>
           `
@@ -5775,7 +5825,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260417-17", { updateViaCache: "none" })
+        .register("./sw.js?v=20260418-18", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
