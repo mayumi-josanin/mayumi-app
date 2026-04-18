@@ -231,6 +231,37 @@ h2 {
   background: #f5f8f1;
 }
 
+.customer-list-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.customer-list-open-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customer-list-open-button strong {
+  display: block;
+  color: var(--text-dark);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.customer-list-open-button:hover strong,
+.customer-list-open-button:focus-visible strong {
+  color: var(--sage-dark);
+}
+
 button.customer-card,
 button.response-history-card {
   border: 1px solid var(--border);
@@ -1787,6 +1818,7 @@ textarea {
   .survey-manager-grid,
   .filter-grid,
   .customer-editor-grid,
+  .customer-list-card,
   .customer-summary-grid,
   .measurement-summary-grid,
   .measurement-target-grid,

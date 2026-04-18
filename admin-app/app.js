@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v76";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v77";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -3461,27 +3461,21 @@ function renderCustomerManagement() {
             ? customers
                 .map(
                   (customer) => `
-                    <article class="customer-card selectable-card">
+                    <article class="customer-card selectable-card customer-list-card">
                       <button
-                        class="history-open-button"
+                        class="customer-list-open-button"
                         type="button"
                         data-open-customer="${escapeHtml(customer.name)}"
                       >
-                        <strong>${escapeHtml(customer.memberNumber ? `${customer.memberNumber} / ${customer.name}` : customer.name)}</strong>
-                        <div>回答数: ${customer.count}件</div>
-                        ${renderCustomerPushStatus(getCustomerProfileByName(customer.name)?.pushStatus)}
-                        <div class="meta">${customer.hasResponses ? `最新回答: ${formatDate(customer.latestAt)}` : "回答履歴はまだありません。"}</div>
-                        ${renderTicketStampList(getCurrentTicketInfoForCustomer(customer.name))}
+                        <strong>${escapeHtml(customer.name)}</strong>
                       </button>
-                      <div class="action-row">
-                        <button
-                          class="secondary-button danger-button"
-                          type="button"
-                          data-delete-customer-card="${escapeHtml(customer.name)}"
-                        >
-                          顧客削除
-                        </button>
-                      </div>
+                      <button
+                        class="secondary-button danger-button"
+                        type="button"
+                        data-delete-customer-card="${escapeHtml(customer.name)}"
+                      >
+                        顧客削除
+                      </button>
                     </article>
                   `,
                 )
@@ -7651,7 +7645,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260418-18", { updateViaCache: "none" })
+        .register("./sw.js?v=20260418-19", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
