@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v78";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v79";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -3220,24 +3220,7 @@ function renderReadOnlyResponseCard(response) {
               <div class="answer-item">
                 ${renderQuestionHeading(question, answer.label)}
                 ${answer.questionId === SESSION_CONCERN_QUESTION_ID
-                  ? `
-                    <div class="concern-answer-groups">
-                      ${getConcernAnswerGroups(answer)
-                        .map(
-                          (group) => `
-                            <section class="concern-answer-group">
-                              <strong>${escapeHtml(group.label)}</strong>
-                              <div class="checkbox-row">
-                                ${group.options
-                                  .map((option) => `<label>${escapeHtml(option)}</label>`)
-                                  .join("")}
-                              </div>
-                            </section>
-                          `,
-                        )
-                        .join("")}
-                    </div>
-                  `
+                  ? renderConcernAnswerSummary(answer)
                   : renderAnswerValue(answer)}
               </div>
             `;
@@ -3303,22 +3286,7 @@ function renderCustomerTimeline(responseList) {
                         <div class="answer-item">
                           ${renderQuestionHeading(question, answer.label)}
                           ${answer.questionId === SESSION_CONCERN_QUESTION_ID
-                            ? `
-                              <div class="concern-answer-groups">
-                                ${getConcernAnswerGroups(answer)
-                                  .map(
-                                    (group) => `
-                                      <section class="concern-answer-group">
-                                        <strong>${escapeHtml(group.label)}</strong>
-                                        <div class="checkbox-row">
-                                          ${group.options.map((option) => `<label>${escapeHtml(option)}</label>`).join("")}
-                                        </div>
-                                      </section>
-                                    `,
-                                  )
-                                  .join("")}
-                              </div>
-                            `
+                            ? renderConcernAnswerSummary(answer)
                             : renderAnswerValue(answer)}
                         </div>
                       `;
@@ -3866,50 +3834,57 @@ function getConcernAnswerGroups(answer) {
   return groups;
 }
 
-function renderConcernAnswerEditor(answer, questionId) {
-  const selected = new Set(getAnswerValues(answer));
+function getConcernAnswerSummaryRows(answer) {
+  return getConcernAnswerGroups(answer).map((group) => ({
+    ...group,
+    count: Array.isArray(group.options) ? group.options.length : 0,
+  }));
+}
+
+function renderConcernAnswerSummary(answer, { preserveInputs = false, questionId = SESSION_CONCERN_QUESTION_ID } = {}) {
+  const groups = getConcernAnswerSummaryRows(answer);
+  if (!groups.length) {
+    return `
+      <div class="concern-summary-list">
+        <div class="meta">選択された項目はありません。</div>
+      </div>
+    `;
+  }
   return `
-    <div class="concern-answer-groups">
-      ${SESSION_CONCERN_CATEGORIES.map(
-        (category) => `
-          <section class="concern-answer-group">
-            <strong>${escapeHtml(category.label)}</strong>
-            <div class="checkbox-row">
-              ${category.options
-                .map(
-                  (option) => `
-                    <label>
-                      <input
-                        type="checkbox"
-                        data-answer-checkbox="${questionId}"
-                        value="${escapeHtml(option)}"
-                        ${selected.has(option) ? "checked" : ""}
-                      />
-                      <span class="option-text">${escapeHtml(option)}</span>
-                    </label>
-                  `,
-                )
-                .join("")}
-            </div>
-          </section>
-        `,
-      ).join("")}
-      <section class="concern-answer-group">
-        <strong>【その他】</strong>
-        <div class="checkbox-row">
-          <label>
-            <input
-              type="checkbox"
-              data-answer-checkbox="${questionId}"
-              value="その他（長文）"
-              ${selected.has("その他（長文）") ? "checked" : ""}
-            />
-            <span class="option-text">その他（長文）</span>
-          </label>
-        </div>
-      </section>
+    <div class="concern-summary-list">
+      ${groups
+        .map(
+          (group) => `
+            <section class="concern-summary-card">
+              <strong>${escapeHtml(group.label)}</strong>
+              <span class="concern-summary-count">${escapeHtml(`${group.count}件`)}</span>
+              ${
+                preserveInputs
+                  ? group.options
+                      .map(
+                        (option) => `
+                          <input
+                            type="checkbox"
+                            data-answer-checkbox="${escapeHtml(questionId)}"
+                            value="${escapeHtml(option)}"
+                            checked
+                            hidden
+                          />
+                        `,
+                      )
+                      .join("")
+                  : ""
+              }
+            </section>
+          `,
+        )
+        .join("")}
     </div>
   `;
+}
+
+function renderConcernAnswerEditor(answer, questionId) {
+  return renderConcernAnswerSummary(answer, { preserveInputs: true, questionId });
 }
 
 function collectPhotosFromResponse(response) {
@@ -7607,7 +7582,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260418-20", { updateViaCache: "none" })
+        .register("./sw.js?v=20260418-21", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

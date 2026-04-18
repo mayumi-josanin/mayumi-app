@@ -739,7 +739,8 @@ textarea {
 .response-photo-panel,
 .photo-answer-group,
 .concern-answer-group,
-.concern-answer-groups {
+.concern-answer-groups,
+.concern-summary-list {
   display: grid;
   gap: 8px;
 }
@@ -786,6 +787,28 @@ textarea {
 
 .concern-answer-group + .concern-answer-group {
   margin-top: 10px;
+}
+
+.concern-summary-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.concern-summary-card strong {
+  color: var(--text-dark);
+}
+
+.concern-summary-count {
+  flex: 0 0 auto;
+  color: var(--text-mid);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .history-photo-strip {
