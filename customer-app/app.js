@@ -13,9 +13,9 @@ const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TICKET_CARD_ACQUIRE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260418-18";
+const APP_VERSION = "20260418-19";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v92";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v93";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1789,6 +1789,42 @@ function getSurveyAvailability(survey) {
   };
 }
 
+function getLatestResponseForSurvey(surveyId) {
+  const normalizedSurveyId = normalizeText(surveyId);
+  if (!normalizedSurveyId) return null;
+  return (
+    appState.history
+      .filter((response) => normalizeText(response?.surveyId) === normalizedSurveyId)
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null
+  );
+}
+
+function getSurveyResubmissionAvailableAt(surveyId) {
+  const latestResponse = getLatestResponseForSurvey(surveyId);
+  if (!latestResponse?.submittedAt) return "";
+  const submittedAt = new Date(latestResponse.submittedAt);
+  if (Number.isNaN(submittedAt.getTime())) return "";
+  return new Date(submittedAt.getTime() + RESPONSE_EDIT_WINDOW_MS).toISOString();
+}
+
+function getSurveyResubmissionCooldownRemainingMs(surveyId) {
+  const availableAt = getSurveyResubmissionAvailableAt(surveyId);
+  if (!availableAt) return 0;
+  return Math.max(0, new Date(availableAt).getTime() - Date.now());
+}
+
+function canSubmitNewResponseForSurvey(surveyId) {
+  return getSurveyResubmissionCooldownRemainingMs(surveyId) <= 0;
+}
+
+function buildSurveyResubmissionCooldownMessage(surveyId) {
+  const availableAt = getSurveyResubmissionAvailableAt(surveyId);
+  if (!availableAt) {
+    return "このアンケートは送信後24時間たたないと再送信できません。";
+  }
+  return `このアンケートは送信後24時間たたないと再送信できません。次は ${formatDate(availableAt)} 以降に送信できます。`;
+}
+
 function buildDraftAnswerMap(survey, draft) {
   const map = {};
   survey.questions.forEach((question) => {
@@ -3186,6 +3222,10 @@ function selectSurvey(surveyId) {
     showToast("先にログインしてください。");
     return;
   }
+  if (!canSubmitNewResponseForSurvey(surveyId)) {
+    showToast(buildSurveyResubmissionCooldownMessage(surveyId));
+    return;
+  }
   appState.selectedSurveyId = surveyId;
   appState.panelMode = "form";
   appState.confirmPayload = null;
@@ -3216,21 +3256,24 @@ function renderSurveys() {
     ${appState.surveys
       .map((survey) => {
         const availability = getSurveyAvailability(survey);
+        const resubmissionBlocked = availability.open && getSurveyResubmissionCooldownRemainingMs(survey.id) > 0;
+        const resubmissionMessage = resubmissionBlocked ? buildSurveyResubmissionCooldownMessage(survey.id) : "";
         const draft = getSurveyDraft(survey.id);
         const hasDraft = hasDraftContent(draft);
         const draftSavedAt = getDraftSavedAt(survey.id);
         return `
           <button
-            class="survey-card ${survey.id === appState.selectedSurveyId ? "active" : ""} ${availability.open ? "" : "disabled"} ${availability.nearDeadline ? "deadline-soon" : ""} ${hasDraft ? "has-draft" : ""}"
+            class="survey-card ${survey.id === appState.selectedSurveyId ? "active" : ""} ${availability.open && !resubmissionBlocked ? "" : "disabled"} ${availability.nearDeadline ? "deadline-soon" : ""} ${hasDraft ? "has-draft" : ""}"
             type="button"
             data-survey-id="${survey.id}"
+            ${availability.open && !resubmissionBlocked ? "" : "disabled"}
           >
             <strong>${escapeHtml(survey.title)}</strong>
             <span>${escapeHtml(survey.description)}</span>
             <div class="survey-card-meta">
-              <span class="badge ${availability.open ? "open" : "closed"}">${escapeHtml(availability.label)}</span>
+              <span class="badge ${availability.open && !resubmissionBlocked ? "open" : "closed"}">${escapeHtml(resubmissionBlocked ? "再送信待ち" : availability.label)}</span>
               ${hasDraft ? `<span class="badge draft">下書きあり</span>` : ""}
-              <span class="meta">${escapeHtml(availability.detail)}</span>
+              <span class="meta">${escapeHtml(resubmissionBlocked ? resubmissionMessage : availability.detail)}</span>
             </div>
             ${
               hasDraft && draftSavedAt
@@ -4462,6 +4505,11 @@ async function submitPreparedAnswer() {
   if (!hasCustomerSession()) {
     showToast("先にログインしてください。");
     setPage("login");
+    return;
+  }
+  if (!appState.editingResponseId && !canSubmitNewResponseForSurvey(survey.id)) {
+    showToast(buildSurveyResubmissionCooldownMessage(survey.id));
+    renderSurveys();
     return;
   }
 
@@ -5825,7 +5873,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260418-18", { updateViaCache: "none" })
+        .register("./sw.js?v=20260418-19", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
