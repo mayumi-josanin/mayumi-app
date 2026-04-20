@@ -13,9 +13,9 @@ const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TICKET_CARD_ACQUIRE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260420-22";
+const APP_VERSION = "20260420-23";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v96";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v97";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2873,11 +2873,19 @@ function renderBijirisPostDetail(post) {
               ${post.photos
                 .map((file, index) => {
                   const preview = getBijirisPhotoPreviewSrc(file);
-                  const href = getPhotoOpenHref(file);
+                  const openHref = getPhotoOpenHref(file);
+                  const downloadHref = getPhotoDownloadHref(file);
+                  const downloadName = normalizeText(file?.name || `bijiris-photo-${index + 1}.jpg`);
                   return `
-                    <a class="bijiris-photo-link" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">
-                      ${preview ? `<img class="bijiris-photo-image" src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || `写真${index + 1}`)}" />` : ""}
-                    </a>
+                    <article class="bijiris-photo-card">
+                      <a class="bijiris-photo-link" href="${escapeHtml(openHref)}" target="_blank" rel="noreferrer">
+                        ${preview ? `<img class="bijiris-photo-image" src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || `写真${index + 1}`)}" />` : ""}
+                      </a>
+                      <div class="action-row bijiris-photo-actions">
+                        <a class="ghost-button bijiris-document-action" href="${escapeHtml(openHref)}" target="_blank" rel="noreferrer">写真を開く</a>
+                        <a class="ghost-button bijiris-document-action" href="${escapeHtml(downloadHref)}" download="${escapeHtml(downloadName)}" rel="noreferrer">保存</a>
+                      </div>
+                    </article>
                   `;
                 })
                 .join("")}
@@ -4888,6 +4896,12 @@ function getPhotoOpenHref(file) {
   );
 }
 
+function getPhotoDownloadHref(file) {
+  return normalizeText(
+    file?.downloadUrl || file?.url || file?.previewUrl || file?.thumbnailUrl || file?.dataUrl || "#",
+  );
+}
+
 function renderTicketStampProgress(ticketCount, currentRound) {
   if (!ticketCount) return "";
   const normalizedCount = Math.max(0, Number(ticketCount) || 0);
@@ -5880,7 +5894,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260420-22", { updateViaCache: "none" })
+        .register("./sw.js?v=20260420-23", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

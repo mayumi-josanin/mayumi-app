@@ -586,10 +586,19 @@ textarea {
   gap: 10px;
 }
 
+.bijiris-photo-card {
+  display: grid;
+  gap: 8px;
+}
+
 .bijiris-photo-link {
   display: block;
   color: inherit;
   text-decoration: none;
+}
+
+.bijiris-photo-actions {
+  justify-content: flex-end;
 }
 
 .bijiris-photo-image {
