@@ -13,9 +13,9 @@ const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TICKET_CARD_ACQUIRE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260420-21";
+const APP_VERSION = "20260420-22";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v95";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v96";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2754,7 +2754,6 @@ function renderBijirisListPhotoPreview(file, index, compact = false) {
       ${preview ? `<img class="bijiris-media-preview-thumb" src="${escapeHtml(preview)}" alt="${escapeHtml(title)}" />` : ""}
       <div class="bijiris-media-preview-copy">
         <span class="badge draft">写真</span>
-        <strong>${escapeHtml(title)}</strong>
       </div>
     </article>
   `;
@@ -5881,7 +5880,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260420-21", { updateViaCache: "none" })
+        .register("./sw.js?v=20260420-22", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
