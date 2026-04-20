@@ -462,7 +462,8 @@ textarea {
 
 .bijiris-media-preview-thumb {
   width: 100%;
-  aspect-ratio: 3 / 2;
+  height: auto;
+  max-height: 320px;
   object-fit: contain;
   border-radius: 8px;
   border: 1px solid rgba(136, 112, 96, 0.16);
@@ -593,7 +594,8 @@ textarea {
 
 .bijiris-photo-image {
   width: 100%;
-  aspect-ratio: 3 / 2;
+  height: auto;
+  max-height: 560px;
   object-fit: contain;
   border-radius: 8px;
   display: block;

@@ -13,9 +13,9 @@ const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TICKET_CARD_ACQUIRE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260418-19";
+const APP_VERSION = "20260420-20";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v93";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v94";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -2748,7 +2748,7 @@ function renderBijirisListDocumentPreview(file, index, compact = false) {
 
 function renderBijirisListPhotoPreview(file, index, compact = false) {
   const title = normalizeText(file?.name || `写真${index + 1}`);
-  const preview = getPhotoPreviewSrc(file);
+  const preview = getBijirisPhotoPreviewSrc(file);
   return `
     <article class="history-card bijiris-media-preview-card ${compact ? "compact" : ""}">
       ${preview ? `<img class="bijiris-media-preview-thumb" src="${escapeHtml(preview)}" alt="${escapeHtml(title)}" />` : ""}
@@ -2873,7 +2873,7 @@ function renderBijirisPostDetail(post) {
             <div class="bijiris-photo-grid">
               ${post.photos
                 .map((file, index) => {
-                  const preview = getPhotoPreviewSrc(file);
+                  const preview = getBijirisPhotoPreviewSrc(file);
                   const href = getPhotoOpenHref(file);
                   return `
                     <a class="bijiris-photo-link" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">
@@ -4875,6 +4875,10 @@ function getPhotoPreviewSrc(file) {
   return normalizeText(file?.thumbnailUrl || file?.previewUrl || file?.dataUrl || file?.url || "");
 }
 
+function getBijirisPhotoPreviewSrc(file) {
+  return normalizeText(file?.previewUrl || file?.url || file?.downloadUrl || file?.thumbnailUrl || file?.dataUrl || "");
+}
+
 function getPhotoOpenHref(file) {
   return normalizeText(
     file?.previewUrl || file?.url || file?.downloadUrl || file?.thumbnailUrl || file?.dataUrl || "#",
@@ -5873,7 +5877,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260418-19", { updateViaCache: "none" })
+        .register("./sw.js?v=20260420-20", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
