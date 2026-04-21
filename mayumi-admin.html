@@ -3080,7 +3080,7 @@
   </div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwVG6Kds0hMIiXbfrlPTtqbX7sbfxl0eEXa4oLACfag/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
@@ -3088,7 +3088,8 @@
       currentStored.includes('AKfycbxjaZUpoenBPzbYit9vpgsXvC5Oo74PCie4yCH2CMeQ5gJ27Be6hlkh95J6UfhLnt1jKQ') ||
       currentStored.includes('AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww') ||
       currentStored.includes('AKfycbz5cIeCDi5x3KaNuAV4SYHVTiIWr0kDq4xSPToQDU1jqeeerxTZU3uxDpxI5ubv3kcR1Q') ||
-      currentStored.includes('AKfycbzFi4hL2mSh8VjshupIulGGI3G6V0Q2A3na_6bPPBRcpS3sQMBecN3x93f5XuHuqZgtxQ')
+      currentStored.includes('AKfycbzFi4hL2mSh8VjshupIulGGI3G6V0Q2A3na_6bPPBRcpS3sQMBecN3x93f5XuHuqZgtxQ') ||
+      currentStored.includes('AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA')
     )) {
       localStorage.setItem('MAYUMI_GAS_URL', DEFAULT_GAS_URL);
     }
