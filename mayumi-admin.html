@@ -2444,6 +2444,40 @@
           </div>
         </div>
 
+        <div class="card" style="margin-bottom:16px;">
+          <div class="flex space-between" style="flex-wrap:wrap; align-items:flex-start; gap:12px;">
+            <div>
+              <div class="card-title">🎁 月別ガチャ特典設定</div>
+              <div style="font-size:12px; color:var(--text-light); margin-top:6px;">
+                行が月、列が A〜D 賞です。各セルで特典内容と出現確率を編集できます。
+              </div>
+            </div>
+            <div class="flex" style="flex-wrap:wrap;">
+              <button class="btn btn-outline" type="button" onclick="addRewardGachaMonth()">➕ 月を追加</button>
+              <button class="btn" type="button" id="saveRewardGachaConfigBtn" onclick="saveRewardGachaConfig()">💾 保存</button>
+            </div>
+          </div>
+          <div id="rewardGachaConfigMeta" style="font-size:12px; color:var(--text-light); margin:14px 0 10px;">読み込み中...</div>
+          <div style="overflow:auto;">
+            <table style="min-width:1120px;">
+              <thead>
+                <tr>
+                  <th style="width:170px;">月</th>
+                  <th style="width:230px;">A賞</th>
+                  <th style="width:230px;">B賞</th>
+                  <th style="width:230px;">C賞</th>
+                  <th style="width:230px;">D賞</th>
+                </tr>
+              </thead>
+              <tbody id="rewardGachaConfigBody">
+                <tr>
+                  <td colspan="5" style="text-align:center;">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="card compact-card">
           <div class="summary-grid" id="rewardStatusSummaryCards"></div>
           <div class="filter-toolbar" style="margin-top:14px;">
@@ -2538,9 +2572,9 @@
             <p id="stampQrCodeUrlDisplay"
               style="font-size: 12px; color: var(--sage-dark); word-break: break-all; margin-bottom: 14px;"></p>
             <div style="text-align:left; font-size:12px; color:var(--text-mid); line-height:1.8; background:#f8f6f2; border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:16px;">
-              <div>・iPhone / Android の標準カメラで読み取ると、中継ページが開いてアプリ起動を試します。</div>
-              <div>・中では <strong>mayumijosanin://stamp?action=add_stamp</strong> を呼び出します。</div>
-              <div>・ただし、ホーム画面追加型のWebアプリは iPhone標準カメラから直接は開けません。その場合は中継ページで止まり、アプリ内QR読み取りをご案内します。</div>
+              <div>・iPhone / Android の標準カメラで読み取ると、中継ページが開いてアプリ起動だけを試します。</div>
+              <div>・中では <strong>mayumijosanin://stamp?open=home</strong> を呼び出すため、標準カメラではスタンプは付きません。</div>
+              <div>・来院スタンプは、アプリを開いた後にアプリ内の「カメラを起動して読み取る」から同じQRコードを読み取った時だけ付与されます。</div>
               <div>・旧式の `mayumijosanin://...` 直QRは、iPhone標準カメラでは「使用可能なデータがみつかりません」になるため使わないでください。</div>
             </div>
             <div class="flex" style="justify-content: center; gap: 10px; flex-wrap:wrap;">
@@ -3089,6 +3123,7 @@
     let editingAdminTemplateRowIdx = 0;
     let latestBackupStatus = null;
     let editingRewardEntries = [];
+    let rewardGachaConfig = { monthlyPrizes: [] };
     let allMenuRevenueRecords = [];
     let allProductRevenueRecords = [];
     let menuRevenueDraftEntries = [];
@@ -3100,6 +3135,8 @@
     let deferredAdminInstallPrompt = null;
     let pendingDangerConfirm = null;
     const MENU_REVENUE_TYPES = ['母乳外来', 'ビジリス', '教室', 'その他'];
+    const REWARD_GACHA_RANK_KEYS = ['A', 'B', 'C', 'D'];
+    const DEFAULT_REWARD_GACHA_PROBABILITIES = { A: 5, B: 15, C: 30, D: 50 };
     const ADMIN_NOTICE_FEED_START_DATE = '2026-04-01';
     const API_GET_TIMEOUT_MS = 45000;
     const API_POST_TIMEOUT_MS = 45000;
