@@ -152,12 +152,14 @@ const REWARD_GACHA_PRIZE_POOL = [
   { key: 'C', rankLabel: 'C賞', rewardName: 'C賞プレゼント', capsuleColor: '#b9d8a7', accentColor: '#628f58', message: 'やさしいプレゼントをご用意しています。受付へお声がけください。', weight: 30 },
   { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: '当日のおたのしみプレゼントは受付でご確認ください。', weight: 50 }
 ];
+const REWARD_GACHA_RANK_KEYS = ['A', 'B', 'C', 'D'];
 const FALLBACK_SPREADSHEET_ID = '1gIcUGxg2PEuFoU5a_IgQ6lDWgghceJ7v2dgqo9iPe4w';
 const DATA_CACHE_VERSION_PROPERTY = 'DATA_CACHE_VERSION';
 const DATA_CACHE_TTL_SEC = 120;
 const DATA_CACHE_MAX_CHARS = 90000;
 const APP_RUNTIME_CONFIG_PROPERTY = 'APP_RUNTIME_CONFIG';
 const ADMIN_SECURITY_CONFIG_PROPERTY = 'ADMIN_SECURITY_CONFIG';
+const REWARD_GACHA_CONFIG_PROPERTY = 'REWARD_GACHA_CONFIG';
 const DEFAULT_APP_RUNTIME_CONFIG = {
   latestAppVersion: '1.1.1',
   minimumSupportedVersion: '0.0.0',
@@ -352,6 +354,153 @@ function handleSaveAdminSecurityConfig(data) {
   } catch (err) {
     return { status: 'error', message: err.toString() };
   }
+}
+
+function normalizeRewardGachaMonthKey_(value) {
+  const raw = String(value || '').trim();
+  const matched = raw.match(/^(\d{4})[-/年](\d{1,2})/);
+  if (!matched) return '';
+  const year = Number(matched[1]);
+  const month = Number(matched[2]);
+  if (!isFinite(year) || !isFinite(month) || month < 1 || month > 12) return '';
+  return Utilities.formatString('%04d-%02d', year, month);
+}
+
+function getCurrentRewardGachaMonthKey_() {
+  return normalizeRewardGachaMonthKey_(new Date().toISOString()) || '2026-04';
+}
+
+function normalizeRewardGachaProbability_(value, fallback) {
+  const numeric = Number(value);
+  if (!isFinite(numeric)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(numeric * 10) / 10));
+}
+
+function formatRewardGachaRewardName_(rankLabel, content) {
+  const normalizedContent = String(content || '').trim();
+  return normalizedContent
+    ? rankLabel + ' ' + normalizedContent
+    : rankLabel + 'プレゼント';
+}
+
+function createDefaultRewardGachaMonthEntry_(monthKey) {
+  return {
+    month: monthKey || getCurrentRewardGachaMonthKey_(),
+    prizes: {
+      A: { content: '', probability: 5 },
+      B: { content: '', probability: 15 },
+      C: { content: '', probability: 30 },
+      D: { content: '', probability: 50 }
+    }
+  };
+}
+
+function getDefaultRewardGachaConfig_() {
+  return {
+    monthlyPrizes: [createDefaultRewardGachaMonthEntry_(getCurrentRewardGachaMonthKey_())]
+  };
+}
+
+function sanitizeRewardGachaConfig_(raw) {
+  const defaults = getDefaultRewardGachaConfig_();
+  const seenMonths = {};
+  const monthlyPrizes = [];
+  (Array.isArray(raw && raw.monthlyPrizes) ? raw.monthlyPrizes : []).forEach(function (entry) {
+    const month = normalizeRewardGachaMonthKey_(entry && entry.month);
+    if (!month || seenMonths[month]) return;
+    const defaultEntry = createDefaultRewardGachaMonthEntry_(month);
+    const prizes = {};
+    REWARD_GACHA_RANK_KEYS.forEach(function (key) {
+      const prize = entry && entry.prizes && entry.prizes[key] || {};
+      prizes[key] = {
+        content: String(prize.content || '').trim(),
+        probability: normalizeRewardGachaProbability_(prize.probability, defaultEntry.prizes[key].probability)
+      };
+    });
+    seenMonths[month] = true;
+    monthlyPrizes.push({ month: month, prizes: prizes });
+  });
+  monthlyPrizes.sort(function (a, b) {
+    return a.month < b.month ? -1 : a.month > b.month ? 1 : 0;
+  });
+  return {
+    monthlyPrizes: monthlyPrizes.length ? monthlyPrizes : defaults.monthlyPrizes
+  };
+}
+
+function loadRewardGachaConfig_() {
+  const raw = PropertiesService.getScriptProperties().getProperty(REWARD_GACHA_CONFIG_PROPERTY);
+  let saved = null;
+  if (raw) {
+    try {
+      saved = JSON.parse(raw);
+    } catch (err) {
+      Logger.log('loadRewardGachaConfig_ parse error: ' + err.toString());
+    }
+  }
+  return sanitizeRewardGachaConfig_(saved);
+}
+
+function getRewardGachaConfig() {
+  try {
+    return {
+      status: 'ok',
+      config: loadRewardGachaConfig_()
+    };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function handleSaveRewardGachaConfig(data) {
+  try {
+    const nextConfig = sanitizeRewardGachaConfig_((data && data.config) || data || {});
+    PropertiesService.getScriptProperties().setProperty(REWARD_GACHA_CONFIG_PROPERTY, JSON.stringify(nextConfig));
+    return {
+      status: 'ok',
+      config: nextConfig
+    };
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function getRewardGachaMonthlyConfig_(monthKey) {
+  const normalizedMonth = normalizeRewardGachaMonthKey_(monthKey) || getCurrentRewardGachaMonthKey_();
+  const config = loadRewardGachaConfig_();
+  const monthlyPrizes = Array.isArray(config && config.monthlyPrizes) ? config.monthlyPrizes : [];
+  if (!monthlyPrizes.length) {
+    return createDefaultRewardGachaMonthEntry_(normalizedMonth);
+  }
+  let exactMatch = null;
+  let latestPrevious = null;
+  for (let i = 0; i < monthlyPrizes.length; i++) {
+    const entry = monthlyPrizes[i];
+    if (entry.month === normalizedMonth) {
+      exactMatch = entry;
+      break;
+    }
+    if (entry.month <= normalizedMonth) {
+      latestPrevious = entry;
+    }
+  }
+  return exactMatch || latestPrevious || monthlyPrizes[monthlyPrizes.length - 1] || createDefaultRewardGachaMonthEntry_(normalizedMonth);
+}
+
+function getActiveRewardGachaPrizePool_(monthKey) {
+  const activeConfig = getRewardGachaMonthlyConfig_(monthKey);
+  return REWARD_GACHA_PRIZE_POOL.map(function (basePrize) {
+    const savedPrize = activeConfig && activeConfig.prizes && activeConfig.prizes[basePrize.key] || {};
+    return {
+      key: basePrize.key,
+      rankLabel: basePrize.rankLabel,
+      rewardName: formatRewardGachaRewardName_(basePrize.rankLabel, savedPrize.content),
+      capsuleColor: basePrize.capsuleColor,
+      accentColor: basePrize.accentColor,
+      message: basePrize.message,
+      weight: normalizeRewardGachaProbability_(savedPrize.probability, basePrize.weight)
+    };
+  });
 }
 
 function ensureAdminAuditLogSheet_() {
@@ -1432,6 +1581,9 @@ function doGet(e) {
       case 'getAdminSecurityConfig':
         result = getAdminSecurityConfig();
         break;
+      case 'getRewardGachaConfig':
+        result = getRewardGachaConfig();
+        break;
       case 'getCustomerOrders':
         result = getCustomerOrders(e.parameter.data ? JSON.parse(decodeURIComponent(e.parameter.data)) : null);
         break;
@@ -1677,6 +1829,9 @@ function doPost(e) {
         break;
       case 'saveAdminSecurityConfig':
         result = handleSaveAdminSecurityConfig(data);
+        break;
+      case 'saveRewardGachaConfig':
+        result = handleSaveRewardGachaConfig(data);
         break;
       case 'runManualBackup':
         result = handleRunManualBackup(data);
@@ -3093,17 +3248,21 @@ function getRewardGachaPrizeMeta_(rewardName) {
 }
 
 function pickWeightedRewardGachaPrize_() {
-  const totalWeight = REWARD_GACHA_PRIZE_POOL.reduce(function (sum, prize) {
-    return sum + Math.max(1, Number(prize.weight) || 0);
+  const activePool = getActiveRewardGachaPrizePool_(getCurrentRewardGachaMonthKey_());
+  const totalWeight = activePool.reduce(function (sum, prize) {
+    return sum + Math.max(0, Number(prize.weight) || 0);
   }, 0);
+  if (totalWeight <= 0) {
+    return activePool[activePool.length - 1];
+  }
   let roll = Math.random() * totalWeight;
-  for (let i = 0; i < REWARD_GACHA_PRIZE_POOL.length; i++) {
-    roll -= Math.max(1, Number(REWARD_GACHA_PRIZE_POOL[i].weight) || 0);
+  for (let i = 0; i < activePool.length; i++) {
+    roll -= Math.max(0, Number(activePool[i].weight) || 0);
     if (roll < 0) {
-      return REWARD_GACHA_PRIZE_POOL[i];
+      return activePool[i];
     }
   }
-  return REWARD_GACHA_PRIZE_POOL[REWARD_GACHA_PRIZE_POOL.length - 1];
+  return activePool[activePool.length - 1];
 }
 
 function buildRewardGachaEntry_(rewardStatus, prizeMeta) {
