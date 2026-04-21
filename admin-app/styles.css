@@ -185,6 +185,23 @@ header h1 {
   font-size: 12px;
 }
 
+.probability-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #eef5e8;
+  color: var(--sage-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.probability-badge.warn {
+  background: #fff3d5;
+  color: #8a6200;
+}
+
 .main-content {
   flex: 1;
   min-width: 0;
@@ -198,6 +215,61 @@ header h1 {
 
 .page.active {
   display: block;
+}
+
+.gacha-table-wrap {
+  overflow-x: auto;
+}
+
+.gacha-config-table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: collapse;
+}
+
+.gacha-config-table th,
+.gacha-config-table td {
+  padding: 12px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+  background: #fff;
+}
+
+.gacha-config-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f7f3ec;
+  color: var(--text-dark);
+}
+
+.gacha-month-cell,
+.gacha-prize-cell {
+  display: grid;
+  gap: 8px;
+}
+
+.gacha-month-cell {
+  min-width: 180px;
+}
+
+.gacha-prize-cell {
+  min-width: 200px;
+}
+
+.gacha-field-label {
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gacha-cell-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gacha-note {
+  margin: 0;
 }
 
 h2 {
@@ -1896,7 +1968,7 @@ textarea {
     bottom: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(8, 1fr);
     gap: 4px;
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
     background: var(--warm-white);
@@ -1919,5 +1991,9 @@ textarea {
   .bottom-nav-item.active {
     background: #eef5e8;
     color: var(--sage-dark);
+  }
+
+  .gacha-config-table {
+    min-width: 860px;
   }
 }

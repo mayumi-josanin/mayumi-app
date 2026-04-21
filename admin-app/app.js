@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v82";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v83";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -218,6 +218,7 @@ const BIJIRIS_POST_CATEGORY_OPTIONS = [
   "お知らせ",
   "よくある質問",
 ];
+const GACHA_PRIZE_KEYS = ["A", "B", "C", "D"];
 const BIJIRIS_CATEGORY_MODE_OPTIONS = [
   { value: "general", label: "通常カテゴリ" },
   { value: "concern", label: "お悩みカテゴリ" },
@@ -435,6 +436,294 @@ function normalizeBijirisCategoryConfig(rawConfig) {
 
 function getBijirisCategoryConfig(preferences = state.preferences) {
   return normalizeBijirisCategoryConfig(preferences?.bijirisCategoryConfig);
+}
+
+function normalizeMonthKey(value) {
+  const raw = String(value || "").trim();
+  const matched = raw.match(/^(\d{4})[-/年](\d{1,2})/);
+  if (!matched) return "";
+  const year = Number(matched[1]);
+  const month = Number(matched[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return "";
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
+}
+
+function getCurrentMonthKey() {
+  return normalizeMonthKey(new Date().toISOString()) || "2026-04";
+}
+
+function normalizeGachaProbability(value, fallback = 0) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(numeric * 10) / 10));
+}
+
+function createDefaultGachaMonthlyPrize(month = getCurrentMonthKey()) {
+  return {
+    month,
+    prizes: {
+      A: { content: "", probability: 25 },
+      B: { content: "", probability: 25 },
+      C: { content: "", probability: 25 },
+      D: { content: "", probability: 25 },
+    },
+  };
+}
+
+function getDefaultGachaPrizeConfig() {
+  return {
+    monthlyPrizes: [createDefaultGachaMonthlyPrize()],
+  };
+}
+
+function normalizeGachaPrizeConfig(rawConfig) {
+  const byMonth = new Map();
+  (Array.isArray(rawConfig?.monthlyPrizes) ? rawConfig.monthlyPrizes : []).forEach((entry) => {
+    const month = normalizeMonthKey(entry?.month);
+    if (!month || byMonth.has(month)) return;
+    const prizes = {};
+    GACHA_PRIZE_KEYS.forEach((key) => {
+      prizes[key] = {
+        content: String(entry?.prizes?.[key]?.content || "").trim(),
+        probability: normalizeGachaProbability(entry?.prizes?.[key]?.probability, 0),
+      };
+    });
+    byMonth.set(month, { month, prizes });
+  });
+  const monthlyPrizes = Array.from(byMonth.values()).sort((a, b) => a.month.localeCompare(b.month));
+  return {
+    monthlyPrizes: monthlyPrizes.length ? monthlyPrizes : getDefaultGachaPrizeConfig().monthlyPrizes,
+  };
+}
+
+function getGachaPrizeConfig(preferences = state.preferences) {
+  return normalizeGachaPrizeConfig(preferences?.gachaPrizeConfig);
+}
+
+function getNextMonthKey(months = []) {
+  const lastMonth = months
+    .map((entry) => normalizeMonthKey(entry?.month))
+    .filter(Boolean)
+    .sort()
+    .pop() || getCurrentMonthKey();
+  const [yearText, monthText] = lastMonth.split("-");
+  const date = new Date(Number(yearText), Number(monthText) - 1, 1);
+  date.setMonth(date.getMonth() + 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonthLabel(monthKey) {
+  const normalized = normalizeMonthKey(monthKey);
+  if (!normalized) return "未設定";
+  const [year, month] = normalized.split("-");
+  return `${year}年${Number(month)}月`;
+}
+
+function renderGachaPrizeCell(entry, key) {
+  const prize = entry?.prizes?.[key] || { content: "", probability: 0 };
+  return `
+    <div class="gacha-prize-cell">
+      <label>
+        <span class="gacha-field-label">特典内容</span>
+        <textarea rows="4" data-gacha-prize-content="${escapeHtml(key)}" placeholder="${escapeHtml(`${key}賞の特典内容`)}">${escapeHtml(prize.content || "")}</textarea>
+      </label>
+      <label>
+        <span class="gacha-field-label">出現確率 (%)</span>
+        <input type="number" min="0" max="100" step="0.1" value="${escapeHtml(prize.probability || 0)}" data-gacha-prize-probability="${escapeHtml(key)}" />
+      </label>
+    </div>
+  `;
+}
+
+function getGachaPrizeTotal(entry) {
+  return GACHA_PRIZE_KEYS.reduce(
+    (sum, key) => sum + normalizeGachaProbability(entry?.prizes?.[key]?.probability, 0),
+    0,
+  );
+}
+
+function renderGachaPrizeManager() {
+  const stage = document.querySelector("#gachaPrizeManagerStage");
+  if (!stage) return;
+  const config = getGachaPrizeConfig(state.preferences);
+  const monthlyPrizes = Array.isArray(config.monthlyPrizes) ? config.monthlyPrizes : [];
+  stage.innerHTML = `
+    <form id="gachaPrizeConfigForm" class="stack">
+      <div class="stage-head">
+        <div>
+          <div class="card-title">月別ガチャ特典</div>
+          <p class="meta gacha-note">行ごとに月、列ごとに A〜D賞の特典内容と出現確率を設定できます。</p>
+        </div>
+        <div class="action-row">
+          <button class="secondary-button" type="button" data-add-gacha-month>月を追加</button>
+          <button class="primary-button" type="submit">保存</button>
+        </div>
+      </div>
+      <div class="gacha-table-wrap">
+        <table class="gacha-config-table">
+          <thead>
+            <tr>
+              <th>月</th>
+              <th>A賞</th>
+              <th>B賞</th>
+              <th>C賞</th>
+              <th>D賞</th>
+            </tr>
+          </thead>
+          <tbody id="gachaPrizeTableBody">
+            ${monthlyPrizes
+              .map((entry, index) => {
+                const total = getGachaPrizeTotal(entry);
+                return `
+                  <tr data-gacha-month-row="${index}">
+                    <td>
+                      <div class="gacha-month-cell">
+                        <label>
+                          <span class="gacha-field-label">対象月</span>
+                          <input type="month" value="${escapeHtml(entry.month || "")}" data-gacha-month />
+                        </label>
+                        <div class="meta">${escapeHtml(formatMonthLabel(entry.month))}</div>
+                        <div>
+                          <span class="probability-badge ${Math.abs(total - 100) > 0.001 ? "warn" : ""}" data-gacha-total-output>
+                            合計 ${escapeHtml(`${total}%`)}
+                          </span>
+                        </div>
+                        <div class="gacha-cell-actions">
+                          <button class="secondary-button danger-button" type="button" data-remove-gacha-month>削除</button>
+                        </div>
+                      </div>
+                    </td>
+                    ${GACHA_PRIZE_KEYS.map((key) => `<td>${renderGachaPrizeCell(entry, key)}</td>`).join("")}
+                  </tr>
+                `;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </form>
+  `;
+
+  const form = stage.querySelector("#gachaPrizeConfigForm");
+  const tableBody = stage.querySelector("#gachaPrizeTableBody");
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void saveGachaPrizeConfig(event.currentTarget);
+  });
+  stage.querySelector("[data-add-gacha-month]")?.addEventListener("click", () => {
+    const nextMonth = getNextMonthKey(collectGachaPrizeConfigFromTable(tableBody).monthlyPrizes);
+    tableBody?.insertAdjacentHTML(
+      "beforeend",
+      `
+        <tr data-gacha-month-row="new">
+          <td>
+            <div class="gacha-month-cell">
+              <label>
+                <span class="gacha-field-label">対象月</span>
+                <input type="month" value="${escapeHtml(nextMonth)}" data-gacha-month />
+              </label>
+              <div class="meta">${escapeHtml(formatMonthLabel(nextMonth))}</div>
+              <div>
+                <span class="probability-badge" data-gacha-total-output>合計 100%</span>
+              </div>
+              <div class="gacha-cell-actions">
+                <button class="secondary-button danger-button" type="button" data-remove-gacha-month>削除</button>
+              </div>
+            </div>
+          </td>
+          ${GACHA_PRIZE_KEYS.map((key) => `<td>${renderGachaPrizeCell(createDefaultGachaMonthlyPrize(nextMonth), key)}</td>`).join("")}
+        </tr>
+      `,
+    );
+  });
+  tableBody?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove-gacha-month]");
+    if (!removeButton) return;
+    const rows = tableBody.querySelectorAll("[data-gacha-month-row]");
+    if (rows.length <= 1) {
+      showToast("設定する月は1件以上必要です。");
+      return;
+    }
+    removeButton.closest("[data-gacha-month-row]")?.remove();
+  });
+  tableBody?.addEventListener("input", (event) => {
+    const row = event.target.closest("[data-gacha-month-row]");
+    if (!row) return;
+    const monthInput = row.querySelector("[data-gacha-month]");
+    const monthMeta = row.querySelector(".meta");
+    if (monthInput && monthMeta) {
+      monthMeta.textContent = formatMonthLabel(monthInput.value);
+    }
+    updateGachaPrizeRowTotal(row);
+  });
+}
+
+function updateGachaPrizeRowTotal(row) {
+  if (!row) return;
+  const total = GACHA_PRIZE_KEYS.reduce((sum, key) => {
+    const input = row.querySelector(`[data-gacha-prize-probability="${key}"]`);
+    return sum + normalizeGachaProbability(input?.value, 0);
+  }, 0);
+  const output = row.querySelector("[data-gacha-total-output]");
+  if (!output) return;
+  output.textContent = `合計 ${total}%`;
+  output.classList.toggle("warn", Math.abs(total - 100) > 0.001);
+}
+
+function collectGachaPrizeConfigFromTable(tableBody) {
+  const seenMonths = new Set();
+  const monthlyPrizes = Array.from(tableBody?.querySelectorAll("[data-gacha-month-row]") || []).map((row) => {
+    const month = normalizeMonthKey(row.querySelector("[data-gacha-month]")?.value);
+    if (!month) {
+      throw new Error("月を選択してください。");
+    }
+    if (seenMonths.has(month)) {
+      throw new Error("同じ月が重複しています。月ごとに1行だけ設定してください。");
+    }
+    seenMonths.add(month);
+    const prizes = {};
+    GACHA_PRIZE_KEYS.forEach((key) => {
+      prizes[key] = {
+        content: String(row.querySelector(`[data-gacha-prize-content="${key}"]`)?.value || "").trim(),
+        probability: normalizeGachaProbability(
+          row.querySelector(`[data-gacha-prize-probability="${key}"]`)?.value,
+          0,
+        ),
+      };
+    });
+    return { month, prizes };
+  });
+  return normalizeGachaPrizeConfig({ monthlyPrizes });
+}
+
+async function saveGachaPrizeConfig(form) {
+  const button = form.querySelector('button[type="submit"]');
+  if (button) {
+    button.disabled = true;
+    button.textContent = "保存中";
+  }
+  try {
+    const gachaPrizeConfig = collectGachaPrizeConfigFromTable(form.querySelector("#gachaPrizeTableBody"));
+    const payload = {
+      ...(state.preferences || {}),
+      gachaPrizeConfig,
+    };
+    const result = await api.request("/api/admin/preferences", {
+      method: "PUT",
+      token: state.token,
+      body: payload,
+    });
+    state.preferences = result.preferences || payload;
+    renderGachaPrizeManager();
+    showToast("ガチャ特典設定を保存しました。");
+  } catch (error) {
+    showToast(error.message || "ガチャ特典設定を保存できませんでした。");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "保存";
+    }
+  }
 }
 
 function renderBijirisGeneralCategorySettingRow(value = "") {
@@ -1361,6 +1650,7 @@ async function loadAdminData() {
 function renderAll() {
   renderNavigation();
   renderDashboard();
+  renderGachaPrizeManager();
   renderBijirisManager();
   renderSurveyManager();
   renderFilters();
@@ -5196,6 +5486,7 @@ function renderSettings() {
       retentionDays: 365,
       recoveryMemo: "",
       bijirisCategoryConfig: getDefaultBijirisCategoryConfig(),
+      gachaPrizeConfig: getDefaultGachaPrizeConfig(),
     };
     const bijirisCategoryConfig = normalizeBijirisCategoryConfig(preferences.bijirisCategoryConfig);
     preferencesCard.innerHTML = `
@@ -7395,10 +7686,15 @@ async function restoreBackup(file) {
   });
   state.surveys = surveysResult.surveys || state.surveys;
   if (payload.preferences) {
+    const mergedPreferences = {
+      ...(state.preferences || {}),
+      ...payload.preferences,
+      gachaPrizeConfig: payload.preferences.gachaPrizeConfig || getGachaPrizeConfig(state.preferences),
+    };
     const preferencesResult = await api.request("/api/admin/preferences", {
       method: "PUT",
       token: state.token,
-      body: payload.preferences,
+      body: mergedPreferences,
     });
     state.preferences = preferencesResult.preferences || state.preferences;
   }
@@ -7476,6 +7772,7 @@ async function savePreferences() {
       recoveryMemo: String(formData.get("recoveryMemo") || "").trim(),
       twoFactorEnabled: false,
       bijirisCategoryConfig: collectBijirisCategoryConfigFromForm(form),
+      gachaPrizeConfig: getGachaPrizeConfig(state.preferences),
     };
     const result = await api.request("/api/admin/preferences", {
       method: "PUT",
@@ -7668,7 +7965,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260418-24", { updateViaCache: "none" })
+        .register("./sw.js?v=20260421-01", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

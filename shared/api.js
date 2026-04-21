@@ -224,6 +224,21 @@ window.MayumiSurveyApi = (() => {
   }
 
   function makePreferencesSignature(preferences) {
+    const normalizeGachaPrizeConfigForSignature = (config) => ({
+      monthlyPrizes: Array.isArray(config?.monthlyPrizes)
+        ? config.monthlyPrizes
+            .map((entry) => ({
+              month: normalizeText(entry?.month),
+              prizes: ["A", "B", "C", "D"].map((key) => ({
+                key,
+                content: normalizeText(entry?.prizes?.[key]?.content),
+                probability: Number(entry?.prizes?.[key]?.probability || 0),
+              })),
+            }))
+            .filter((entry) => entry.month)
+            .sort((a, b) => a.month.localeCompare(b.month))
+        : [],
+    });
     const normalizeBijirisCategoryConfigForSignature = (config) => ({
       generalCategories: Array.isArray(config?.generalCategories)
         ? config.generalCategories.map(normalizeText).filter(Boolean)
@@ -247,6 +262,7 @@ window.MayumiSurveyApi = (() => {
       recoveryMemo: normalizeText(preferences?.recoveryMemo),
       twoFactorEnabled: preferences?.twoFactorEnabled === false ? false : true,
       bijirisCategoryConfig: normalizeBijirisCategoryConfigForSignature(preferences?.bijirisCategoryConfig),
+      gachaPrizeConfig: normalizeGachaPrizeConfigForSignature(preferences?.gachaPrizeConfig),
     });
   }
 

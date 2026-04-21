@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260418-24" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260418-24" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260418-24" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260418-24" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260421-01" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260421-01" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260421-01" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260421-01" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -47,6 +47,7 @@
       <div class="app-container">
         <aside class="sidebar">
           <button class="nav-item active" type="button" data-page="dashboard">📊 集計</button>
+          <button class="nav-item" type="button" data-page="gacha">🎁 ガチャ特典</button>
           <button class="nav-item" type="button" data-page="bijiris">💡 豆知識</button>
           <button class="nav-item" type="button" data-page="surveys">📝 アンケート管理</button>
           <button class="nav-item" type="button" data-page="customers">🧾 顧客管理</button>
@@ -91,6 +92,11 @@
               </div>
               <div id="monthlySurveyChart" class="stack"></div>
             </section>
+          </section>
+
+          <section id="page-gacha" class="page">
+            <h2>ガチャ特典管理</h2>
+            <section id="gachaPrizeManagerStage" class="card response-stage"></section>
           </section>
 
           <section id="page-surveys" class="page">
@@ -328,6 +334,7 @@
 
       <nav class="bottom-nav" aria-label="管理アプリメニュー">
         <button class="bottom-nav-item active" type="button" data-page="dashboard">📊<span>集計</span></button>
+        <button class="bottom-nav-item" type="button" data-page="gacha">🎁<span>ガチャ</span></button>
         <button class="bottom-nav-item" type="button" data-page="bijiris">💡<span>豆知識</span></button>
         <button class="bottom-nav-item" type="button" data-page="surveys">📝<span>アンケート</span></button>
         <button class="bottom-nav-item" type="button" data-page="customers">🧾<span>顧客</span></button>
@@ -369,9 +376,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260418-24"></script>
+    <script src="../default-surveys.js?v=20260421-01"></script>
     <script src="../shared/gas-config.js?v=20260417-12"></script>
-    <script src="../shared/api.js?v=20260418-24"></script>
-    <script src="./app.js?v=20260418-24"></script>
+    <script src="../shared/api.js?v=20260421-01"></script>
+    <script src="./app.js?v=20260421-01"></script>
   </body>
 </html>
