@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwqXrUDdnenzxD_wqlXKNa3mvH2QuxhAwNAbzCSYoGccDNQY82YOkUVOiE9hae7s6pHgQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.21.66';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.21.67';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -109,12 +109,14 @@ let accessibilitySettings = Object.assign({
   textSize: 'standard',
   highContrast: false
 }, readJsonStorage(ACCESSIBILITY_STORAGE_KEY, {}));
-const REWARD_GACHA_PRIZE_POOL = [
-  { key: 'A', rankLabel: 'A賞', rewardName: 'A賞プレゼント', capsuleColor: '#f5cb6c', accentColor: '#b0791b', message: '当日のおたのしみプレゼントをご用意しています。', weight: 10 },
-  { key: 'B', rankLabel: 'B賞', rewardName: 'B賞プレゼント', capsuleColor: '#f3b7c9', accentColor: '#b86282', message: '当日のおたのしみプレゼントをご用意しています。', weight: 20 },
+const DEFAULT_REWARD_GACHA_PRIZE_POOL = Object.freeze([
+  { key: 'A', rankLabel: 'A賞', rewardName: 'A賞プレゼント', capsuleColor: '#f5cb6c', accentColor: '#b0791b', message: '当日のおたのしみプレゼントをご用意しています。', weight: 5 },
+  { key: 'B', rankLabel: 'B賞', rewardName: 'B賞プレゼント', capsuleColor: '#f3b7c9', accentColor: '#b86282', message: '当日のおたのしみプレゼントをご用意しています。', weight: 15 },
   { key: 'C', rankLabel: 'C賞', rewardName: 'C賞プレゼント', capsuleColor: '#b9d8a7', accentColor: '#628f58', message: '当日のおたのしみプレゼントをご用意しています。', weight: 30 },
-  { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: '当日のおたのしみプレゼントをご用意しています。', weight: 40 }
-];
+  { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: '当日のおたのしみプレゼントをご用意しています。', weight: 50 }
+]);
+const REWARD_GACHA_RANK_KEYS = ['A', 'B', 'C', 'D'];
+let REWARD_GACHA_PRIZE_POOL = cloneRewardGachaPrizePool(DEFAULT_REWARD_GACHA_PRIZE_POOL);
 let lastHandledIncomingUrl = '';
 let lastHandledIncomingUrlAt = 0;
 let nativeDeepLinkListenerReady = false;
@@ -1484,6 +1486,141 @@ function getRewardGachaPrizeMeta(rewardName) {
   };
 }
 
+function cloneRewardGachaPrizePool(pool) {
+  return (Array.isArray(pool) ? pool : DEFAULT_REWARD_GACHA_PRIZE_POOL).map(function (prize) {
+    return Object.assign({}, prize);
+  });
+}
+
+function normalizeRewardGachaProbability(value, fallback) {
+  const numeric = Number(value);
+  if (!isFinite(numeric)) return Math.max(0, Number(fallback) || 0);
+  return Math.max(0, Math.min(100, Math.round(numeric * 10) / 10));
+}
+
+function normalizeRewardGachaMonthKey(value) {
+  const normalized = String(value || '').trim();
+  return /^\d{4}-\d{2}$/.test(normalized) ? normalized : '';
+}
+
+function getCurrentRewardGachaMonthKey() {
+  const now = new Date();
+  return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+}
+
+function formatRewardGachaMonthLabel(monthKey) {
+  const normalized = normalizeRewardGachaMonthKey(monthKey) || getCurrentRewardGachaMonthKey();
+  const parts = normalized.split('-');
+  return parts[0] + '年' + String(Number(parts[1]) || 0) + '月';
+}
+
+function getRewardGachaPrizeContent(prizeMeta) {
+  const prize = prizeMeta && typeof prizeMeta === 'object'
+    ? prizeMeta
+    : getRewardGachaPrizeMeta(prizeMeta);
+  const rewardName = String(prize && prize.rewardName || '').trim();
+  const rankLabel = String(prize && prize.rankLabel || '').trim();
+  if (rankLabel && rewardName.indexOf(rankLabel) === 0) {
+    const content = rewardName.slice(rankLabel.length).trim();
+    if (content) return content;
+  }
+  return rewardName || 'プレゼント';
+}
+
+function normalizeRewardGachaPrizeConfig(prizes) {
+  const fallbackByKey = {};
+  DEFAULT_REWARD_GACHA_PRIZE_POOL.forEach(function (prize) {
+    fallbackByKey[prize.key] = prize;
+  });
+  const sortedProbabilities = REWARD_GACHA_RANK_KEYS.map(function (key) {
+    const prize = prizes && prizes[key] || {};
+    const fallbackPrize = fallbackByKey[key] || {};
+    return normalizeRewardGachaProbability(prize.probability, fallbackPrize.weight);
+  }).sort(function (a, b) {
+    return a - b;
+  });
+  const normalized = {};
+  REWARD_GACHA_RANK_KEYS.forEach(function (key, index) {
+    const prize = prizes && prizes[key] || {};
+    normalized[key] = {
+      content: String(prize.content || '').trim(),
+      probability: sortedProbabilities[index]
+    };
+  });
+  return normalized;
+}
+
+function buildRewardGachaPrizePoolFromConfig(configEntry) {
+  const normalizedPrizes = normalizeRewardGachaPrizeConfig(configEntry && configEntry.prizes);
+  return DEFAULT_REWARD_GACHA_PRIZE_POOL.map(function (basePrize) {
+    const savedPrize = normalizedPrizes[basePrize.key] || {};
+    return {
+      key: basePrize.key,
+      rankLabel: basePrize.rankLabel,
+      rewardName: savedPrize.content
+        ? basePrize.rankLabel + ' ' + savedPrize.content
+        : basePrize.rankLabel + 'プレゼント',
+      capsuleColor: basePrize.capsuleColor,
+      accentColor: basePrize.accentColor,
+      message: basePrize.message,
+      weight: normalizeRewardGachaProbability(savedPrize.probability, basePrize.weight)
+    };
+  });
+}
+
+function buildRewardGachaMonthEntry(monthKey, prizes) {
+  return {
+    month: normalizeRewardGachaMonthKey(monthKey) || getCurrentRewardGachaMonthKey(),
+    prizes: normalizeRewardGachaPrizeConfig(prizes)
+  };
+}
+
+function getActiveRewardGachaConfigEntry(config, monthKey) {
+  const normalizedMonth = normalizeRewardGachaMonthKey(monthKey) || getCurrentRewardGachaMonthKey();
+  const monthlyPrizes = Array.isArray(config && config.monthlyPrizes) ? config.monthlyPrizes : [];
+  if (!monthlyPrizes.length) {
+    return null;
+  }
+  let exactMatch = null;
+  let latestPrevious = null;
+  for (let i = 0; i < monthlyPrizes.length; i++) {
+    const entry = monthlyPrizes[i];
+    const entryMonth = normalizeRewardGachaMonthKey(entry && entry.month);
+    if (!entryMonth) continue;
+    if (entryMonth === normalizedMonth) {
+      exactMatch = entry;
+      break;
+    }
+    if (entryMonth <= normalizedMonth) {
+      latestPrevious = entry;
+    }
+  }
+  return exactMatch || latestPrevious || monthlyPrizes[monthlyPrizes.length - 1] || null;
+}
+
+function renderRewardGachaPrizeGuide() {
+  const container = document.getElementById('rewardGachaPrizeGuide');
+  const monthLabel = document.getElementById('rewardGachaGuideMonthLabel');
+  if (!container) return;
+  const activeMonthKey = CURRENT_MONTHLY_REWARD && CURRENT_MONTHLY_REWARD.month
+    ? CURRENT_MONTHLY_REWARD.month
+    : getCurrentRewardGachaMonthKey();
+  if (monthLabel) {
+    monthLabel.textContent = formatRewardGachaMonthLabel(activeMonthKey) + 'の特典一覧';
+  }
+  container.innerHTML = REWARD_GACHA_PRIZE_POOL.map(function (prize) {
+    return `
+      <div class="gacha-prize-card">
+        <div class="gacha-prize-card-head">
+          <span class="gacha-prize-rank-chip" style="background:${prize.capsuleColor}; color:${prize.accentColor};">${escapeHtml(prize.rankLabel)}</span>
+          <span class="gacha-prize-probability">${escapeHtml(String(prize.weight))}%</span>
+        </div>
+        <div class="gacha-prize-content">${escapeHtml(getRewardGachaPrizeContent(prize))}</div>
+      </div>
+    `;
+  }).join('');
+}
+
 function getCurrentCardReward(cardNum) {
   const targetCardNum = Math.max(1, Number(cardNum || stampCardNum) || 1);
   return normalizeRewardList(EARNED_REWARDS).find(function (reward) {
@@ -1497,11 +1634,14 @@ function hasCurrentCardReward(cardNum) {
 
 function drawRewardGachaWeightedPrize() {
   const totalWeight = REWARD_GACHA_PRIZE_POOL.reduce(function (sum, prize) {
-    return sum + Math.max(1, Number(prize.weight) || 0);
+    return sum + Math.max(0, Number(prize.weight) || 0);
   }, 0);
+  if (totalWeight <= 0) {
+    return Object.assign({}, REWARD_GACHA_PRIZE_POOL[REWARD_GACHA_PRIZE_POOL.length - 1] || DEFAULT_REWARD_GACHA_PRIZE_POOL[DEFAULT_REWARD_GACHA_PRIZE_POOL.length - 1]);
+  }
   let roll = Math.random() * totalWeight;
   for (let i = 0; i < REWARD_GACHA_PRIZE_POOL.length; i++) {
-    roll -= Math.max(1, Number(REWARD_GACHA_PRIZE_POOL[i].weight) || 0);
+    roll -= Math.max(0, Number(REWARD_GACHA_PRIZE_POOL[i].weight) || 0);
     if (roll < 0) {
       return Object.assign({}, REWARD_GACHA_PRIZE_POOL[i]);
     }
@@ -1591,9 +1731,7 @@ function showRewardGachaResult(prizeMeta, options) {
   }
   // 特典内容表示
   if (name) {
-    // rewardNameから賞ラベル部分を除いて特典内容のみ表示
-    const rewardContent = prize.rewardName.replace(prize.rankLabel, '').trim();
-    name.textContent = rewardContent || prize.rewardName;
+    name.textContent = getRewardGachaPrizeContent(prize);
   }
   if (message) {
     message.innerHTML = `${escapeHtml(prize.message)}<br>受け取りの際は受付へ直接お問い合わせください。`;
@@ -1648,6 +1786,7 @@ function resetRewardGachaModal() {
       ? 'このカードのガチャ結果は保存済みです。次のスタンプカードへ進めます。'
       : 'ハンドルを回して、特典カプセルを受け取ってください。';
   }
+  renderRewardGachaPrizeGuide();
   renderRewardGachaCapsules(currentReward ? getRewardGachaPrizeMeta(currentReward.rewardName).key : '');
   if (currentReward) {
     showRewardGachaResult(currentReward, { alreadyDrawn: true });
@@ -1872,11 +2011,12 @@ function handleStampMilestoneAction() {
   openRewardGachaModal();
 }
 
-function openRewardGachaModal() {
+async function openRewardGachaModal() {
   if (stampCount < 10) {
     showToast('スタンプが10個たまると特典ガチャを回せます。');
     return;
   }
+  await loadCurrentMonthlyReward();
   closeModal('stampModal');
   resetRewardGachaModal();
   openModal('rewardGachaModal');
@@ -2553,9 +2693,24 @@ async function loadPushNotices() {
 }
 
 async function loadCurrentMonthlyReward() {
-  CURRENT_MONTHLY_REWARD = null;
+  const fallbackMonthKey = getCurrentRewardGachaMonthKey();
+  CURRENT_MONTHLY_REWARD = buildRewardGachaMonthEntry(fallbackMonthKey, null);
   STAMP_REWARD_CONFIG = [];
-  return null;
+  REWARD_GACHA_PRIZE_POOL = cloneRewardGachaPrizePool(DEFAULT_REWARD_GACHA_PRIZE_POOL);
+  try {
+    const data = await getFromGAS('getRewardGachaConfig');
+    const config = data && data.status === 'ok' && data.config ? data.config : null;
+    const activeEntry = getActiveRewardGachaConfigEntry(config, fallbackMonthKey);
+    STAMP_REWARD_CONFIG = Array.isArray(config && config.monthlyPrizes) ? config.monthlyPrizes.slice() : [];
+    if (activeEntry) {
+      CURRENT_MONTHLY_REWARD = buildRewardGachaMonthEntry(activeEntry.month, activeEntry.prizes);
+      REWARD_GACHA_PRIZE_POOL = buildRewardGachaPrizePoolFromConfig(CURRENT_MONTHLY_REWARD);
+    }
+  } catch (err) {
+    console.log('loadCurrentMonthlyReward error:', err);
+  }
+  renderRewardGachaPrizeGuide();
+  return CURRENT_MONTHLY_REWARD;
 }
 
 async function loadStampRewards() {
