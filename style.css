@@ -2389,89 +2389,6 @@
       color: var(--text-mid);
     }
 
-    .gacha-prize-guide-wrap {
-      margin: 14px 0 18px;
-      padding: 14px;
-      border: 1px solid rgba(168, 136, 94, 0.18);
-      border-radius: 20px;
-      background: rgba(255, 252, 246, 0.92);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
-    }
-
-    .gacha-prize-guide-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-
-    .gacha-prize-guide-label {
-      color: #735733;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-    }
-
-    .gacha-prize-guide-note {
-      color: #90724d;
-      font-size: 10px;
-      font-weight: 600;
-      text-align: right;
-      line-height: 1.6;
-    }
-
-    .gacha-prize-guide {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .gacha-prize-card {
-      min-width: 0;
-      padding: 12px;
-      border-radius: 16px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 241, 232, 0.92));
-      border: 1px solid rgba(168, 136, 94, 0.14);
-      box-shadow: 0 8px 18px rgba(148, 118, 78, 0.08);
-    }
-
-    .gacha-prize-card-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .gacha-prize-rank-chip {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 42px;
-      padding: 5px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 800;
-      line-height: 1;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
-    }
-
-    .gacha-prize-probability {
-      color: #8f714b;
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .gacha-prize-content {
-      color: var(--text-main);
-      font-size: 12px;
-      font-weight: 600;
-      line-height: 1.7;
-      word-break: break-word;
-    }
-
     .gacha-machine {
       position: relative;
       width: min(100%, 290px);
@@ -2882,18 +2799,6 @@
     }
 
     @media (max-width: 420px) {
-      .gacha-prize-guide {
-        grid-template-columns: 1fr;
-      }
-
-      .gacha-prize-guide-head {
-        flex-direction: column;
-      }
-
-      .gacha-prize-guide-note {
-        text-align: left;
-      }
-
       .gacha-machine {
         width: 100%;
       }
