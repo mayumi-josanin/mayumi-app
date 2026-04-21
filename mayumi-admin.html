@@ -4852,8 +4852,306 @@
       }
     }
 
-    function loadAdminRewardStatuses() {
-      return loadAdminUsers();
+    function normalizeRewardGachaMonthKey(value) {
+      const raw = String(value || '').trim();
+      const matched = raw.match(/^(\d{4})[-/年](\d{1,2})/);
+      if (!matched) return '';
+      const year = Number(matched[1]);
+      const month = Number(matched[2]);
+      if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return '';
+      return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
+    }
+
+    function getCurrentRewardGachaMonthKey() {
+      return normalizeRewardGachaMonthKey(new Date().toISOString()) || '2026-04';
+    }
+
+    function normalizeRewardGachaProbability(value, fallback = 0) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return fallback;
+      return Math.max(0, Math.min(100, Math.round(numeric * 10) / 10));
+    }
+
+    function createDefaultRewardGachaMonthEntry(monthKey = getCurrentRewardGachaMonthKey()) {
+      return {
+        month: monthKey,
+        prizes: {
+          A: { content: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.A },
+          B: { content: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.B },
+          C: { content: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.C },
+          D: { content: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.D }
+        }
+      };
+    }
+
+    function getDefaultRewardGachaConfig() {
+      return {
+        monthlyPrizes: [createDefaultRewardGachaMonthEntry()]
+      };
+    }
+
+    function normalizeRewardGachaConfig(rawConfig) {
+      const seenMonths = new Set();
+      const monthlyPrizes = [];
+      (Array.isArray(rawConfig && rawConfig.monthlyPrizes) ? rawConfig.monthlyPrizes : []).forEach((entry) => {
+        const month = normalizeRewardGachaMonthKey(entry && entry.month);
+        if (!month || seenMonths.has(month)) return;
+        const defaultEntry = createDefaultRewardGachaMonthEntry(month);
+        const prizes = {};
+        REWARD_GACHA_RANK_KEYS.forEach((key) => {
+          prizes[key] = {
+            content: String(entry && entry.prizes && entry.prizes[key] && entry.prizes[key].content || ''),
+            probability: normalizeRewardGachaProbability(
+              entry && entry.prizes && entry.prizes[key] && entry.prizes[key].probability,
+              defaultEntry.prizes[key].probability
+            )
+          };
+        });
+        seenMonths.add(month);
+        monthlyPrizes.push({ month, prizes });
+      });
+      monthlyPrizes.sort((a, b) => a.month.localeCompare(b.month));
+      return {
+        monthlyPrizes: monthlyPrizes.length ? monthlyPrizes : getDefaultRewardGachaConfig().monthlyPrizes
+      };
+    }
+
+    function getNextRewardGachaMonthKey(monthlyPrizes = []) {
+      const lastMonth = (Array.isArray(monthlyPrizes) ? monthlyPrizes : [])
+        .map((entry) => normalizeRewardGachaMonthKey(entry && entry.month))
+        .filter(Boolean)
+        .sort()
+        .pop() || getCurrentRewardGachaMonthKey();
+      const [yearText, monthText] = lastMonth.split('-');
+      const date = new Date(Number(yearText), Number(monthText) - 1, 1);
+      date.setMonth(date.getMonth() + 1);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function formatRewardGachaMonthLabel(monthKey) {
+      const normalized = normalizeRewardGachaMonthKey(monthKey);
+      if (!normalized) return '未設定';
+      const [year, month] = normalized.split('-');
+      return `${year}年${Number(month)}月`;
+    }
+
+    function getRewardGachaProbabilityTotal(entry) {
+      return REWARD_GACHA_RANK_KEYS.reduce((sum, key) => {
+        return sum + normalizeRewardGachaProbability(entry && entry.prizes && entry.prizes[key] && entry.prizes[key].probability, 0);
+      }, 0);
+    }
+
+    function getActiveRewardGachaConfigEntry(config, monthKey = getCurrentRewardGachaMonthKey()) {
+      const normalizedMonth = normalizeRewardGachaMonthKey(monthKey) || getCurrentRewardGachaMonthKey();
+      const monthlyPrizes = Array.isArray(config && config.monthlyPrizes) ? config.monthlyPrizes : [];
+      if (!monthlyPrizes.length) return createDefaultRewardGachaMonthEntry(normalizedMonth);
+      let exactMatch = null;
+      let latestPrevious = null;
+      monthlyPrizes.forEach((entry) => {
+        if (entry.month === normalizedMonth) {
+          exactMatch = entry;
+        } else if (entry.month <= normalizedMonth) {
+          latestPrevious = entry;
+        }
+      });
+      return exactMatch || latestPrevious || monthlyPrizes[monthlyPrizes.length - 1] || createDefaultRewardGachaMonthEntry(normalizedMonth);
+    }
+
+    function updateRewardGachaConfigMeta() {
+      const metaEl = document.getElementById('rewardGachaConfigMeta');
+      if (!metaEl) return;
+      const currentMonthLabel = formatRewardGachaMonthLabel(getCurrentRewardGachaMonthKey());
+      const activeEntry = getActiveRewardGachaConfigEntry(rewardGachaConfig, getCurrentRewardGachaMonthKey());
+      const activeLabel = formatRewardGachaMonthLabel(activeEntry && activeEntry.month);
+      metaEl.textContent = `現在月は ${currentMonthLabel} です。抽選では ${activeLabel} の設定を参照し、未設定月は直近の月を使用します。`;
+    }
+
+    function renderRewardGachaConfigCard() {
+      const bodyEl = document.getElementById('rewardGachaConfigBody');
+      if (!bodyEl) return;
+      const monthlyPrizes = Array.isArray(rewardGachaConfig && rewardGachaConfig.monthlyPrizes)
+        ? rewardGachaConfig.monthlyPrizes
+        : [];
+      bodyEl.innerHTML = monthlyPrizes.map((entry, index) => {
+        const total = getRewardGachaProbabilityTotal(entry);
+        const totalWarn = Math.abs(total - 100) > 0.001;
+        return `
+          <tr>
+            <td style="vertical-align:top;">
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                <label style="display:flex; flex-direction:column; gap:6px;">
+                  <span style="font-size:12px; color:var(--text-light);">対象月</span>
+                  <input type="month" value="${escapeHtml(entry.month || '')}" onchange="updateRewardGachaMonthField(${index}, this.value)">
+                </label>
+                <div id="rewardGachaMonthLabel-${index}" style="font-size:12px; color:var(--text-light);">${escapeHtml(formatRewardGachaMonthLabel(entry.month))}</div>
+                <div>
+                  <span id="rewardGachaTotal-${index}" style="display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; background:${totalWarn ? '#fdeaea' : '#eef6ea'}; color:${totalWarn ? '#b45a5a' : '#5f7b4f'};">
+                    合計 ${escapeHtml(`${total}%`)}
+                  </span>
+                </div>
+                <button class="btn btn-outline" type="button" onclick="removeRewardGachaMonth(${index})">削除</button>
+              </div>
+            </td>
+            ${REWARD_GACHA_RANK_KEYS.map((key) => {
+              const prize = entry && entry.prizes && entry.prizes[key] || { content: '', probability: 0 };
+              return `
+                <td style="vertical-align:top;">
+                  <div style="display:flex; flex-direction:column; gap:10px;">
+                    <label style="display:flex; flex-direction:column; gap:6px;">
+                      <span style="font-size:12px; color:var(--text-light);">特典内容</span>
+                      <textarea rows="4" style="resize:vertical;" placeholder="${escapeHtml(`${key}賞の特典内容`)}" oninput="updateRewardGachaPrizeField(${index}, '${key}', 'content', this.value)">${escapeHtml(prize.content || '')}</textarea>
+                    </label>
+                    <label style="display:flex; flex-direction:column; gap:6px;">
+                      <span style="font-size:12px; color:var(--text-light);">出現確率 (%)</span>
+                      <input type="number" min="0" max="100" step="0.1" value="${escapeHtml(prize.probability || 0)}" oninput="updateRewardGachaPrizeField(${index}, '${key}', 'probability', this.value)">
+                    </label>
+                  </div>
+                </td>
+              `;
+            }).join('')}
+          </tr>
+        `;
+      }).join('');
+      updateRewardGachaConfigMeta();
+    }
+
+    function refreshRewardGachaProbabilityBadge(index) {
+      const badge = document.getElementById(`rewardGachaTotal-${index}`);
+      if (!badge) return;
+      const entry = rewardGachaConfig && rewardGachaConfig.monthlyPrizes && rewardGachaConfig.monthlyPrizes[index];
+      const total = getRewardGachaProbabilityTotal(entry);
+      const warn = Math.abs(total - 100) > 0.001;
+      badge.textContent = `合計 ${total}%`;
+      badge.style.background = warn ? '#fdeaea' : '#eef6ea';
+      badge.style.color = warn ? '#b45a5a' : '#5f7b4f';
+    }
+
+    function updateRewardGachaMonthField(index, value) {
+      const entry = rewardGachaConfig && rewardGachaConfig.monthlyPrizes && rewardGachaConfig.monthlyPrizes[index];
+      if (!entry) return;
+      entry.month = normalizeRewardGachaMonthKey(value);
+      const labelEl = document.getElementById(`rewardGachaMonthLabel-${index}`);
+      if (labelEl) labelEl.textContent = formatRewardGachaMonthLabel(entry.month);
+      updateRewardGachaConfigMeta();
+    }
+
+    function updateRewardGachaPrizeField(index, key, field, value) {
+      const entry = rewardGachaConfig && rewardGachaConfig.monthlyPrizes && rewardGachaConfig.monthlyPrizes[index];
+      if (!entry) return;
+      if (!entry.prizes) entry.prizes = {};
+      if (!entry.prizes[key]) {
+        entry.prizes[key] = {
+          content: '',
+          probability: DEFAULT_REWARD_GACHA_PROBABILITIES[key] || 0
+        };
+      }
+      if (field === 'probability') {
+        entry.prizes[key].probability = normalizeRewardGachaProbability(value, 0);
+      } else {
+        entry.prizes[key].content = String(value || '');
+      }
+      refreshRewardGachaProbabilityBadge(index);
+    }
+
+    function addRewardGachaMonth() {
+      const nextMonth = getNextRewardGachaMonthKey(rewardGachaConfig && rewardGachaConfig.monthlyPrizes);
+      const monthlyPrizes = Array.isArray(rewardGachaConfig && rewardGachaConfig.monthlyPrizes)
+        ? rewardGachaConfig.monthlyPrizes.slice()
+        : [];
+      monthlyPrizes.push(createDefaultRewardGachaMonthEntry(nextMonth));
+      rewardGachaConfig = normalizeRewardGachaConfig({ monthlyPrizes });
+      renderRewardGachaConfigCard();
+    }
+
+    function removeRewardGachaMonth(index) {
+      const monthlyPrizes = Array.isArray(rewardGachaConfig && rewardGachaConfig.monthlyPrizes)
+        ? rewardGachaConfig.monthlyPrizes.slice()
+        : [];
+      if (monthlyPrizes.length <= 1) {
+        showToast('設定する月は1件以上必要です。');
+        return;
+      }
+      monthlyPrizes.splice(index, 1);
+      rewardGachaConfig = normalizeRewardGachaConfig({ monthlyPrizes });
+      renderRewardGachaConfigCard();
+    }
+
+    function validateRewardGachaConfig(config) {
+      const seenMonths = new Set();
+      const monthlyPrizes = Array.isArray(config && config.monthlyPrizes) ? config.monthlyPrizes : [];
+      if (!monthlyPrizes.length) {
+        throw new Error('設定する月がありません。');
+      }
+      monthlyPrizes.forEach((entry) => {
+        const month = normalizeRewardGachaMonthKey(entry && entry.month);
+        if (!month) {
+          throw new Error('対象月を選択してください。');
+        }
+        if (seenMonths.has(month)) {
+          throw new Error('同じ月が重複しています。月ごとに1行だけ設定してください。');
+        }
+        seenMonths.add(month);
+        const total = getRewardGachaProbabilityTotal(entry);
+        if (Math.abs(total - 100) > 0.001) {
+          throw new Error(`${formatRewardGachaMonthLabel(month)} の出現確率合計を 100% にしてください。`);
+        }
+      });
+    }
+
+    async function loadRewardGachaConfig() {
+      const bodyEl = document.getElementById('rewardGachaConfigBody');
+      if (bodyEl) {
+        bodyEl.innerHTML = '<tr><td colspan="5" style="text-align:center;">読み込み中...</td></tr>';
+      }
+      const res = await apiRequest('getRewardGachaConfig');
+      if (!(res && res.status === 'ok')) {
+        rewardGachaConfig = getDefaultRewardGachaConfig();
+        renderRewardGachaConfigCard();
+        throw new Error(res && res.message ? res.message : 'ガチャ特典設定を取得できませんでした');
+      }
+      rewardGachaConfig = normalizeRewardGachaConfig(res.config);
+      renderRewardGachaConfigCard();
+    }
+
+    async function saveRewardGachaConfig() {
+      const saveBtn = document.getElementById('saveRewardGachaConfigBtn');
+      const nextConfig = normalizeRewardGachaConfig(rewardGachaConfig);
+      try {
+        validateRewardGachaConfig(nextConfig);
+      } catch (error) {
+        showToast(error.message || 'ガチャ特典設定を確認してください。');
+        return;
+      }
+
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+      }
+
+      try {
+        const res = await apiRequest('', { type: 'saveRewardGachaConfig', config: nextConfig }, true);
+        if (res && res.status === 'ok') {
+          rewardGachaConfig = normalizeRewardGachaConfig(res.config);
+          renderRewardGachaConfigCard();
+          showToast('月別ガチャ特典設定を保存しました');
+        } else if (res && String(res.message || '').indexOf('未定義のPOSTアクション') !== -1) {
+          showToast('ガチャ特典設定の保存に失敗しました: GAS に saveRewardGachaConfig が未反映です');
+        } else {
+          showToast('ガチャ特典設定の保存に失敗しました: ' + (res && res.message ? res.message : '不明なエラー'));
+        }
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = '💾 保存';
+        }
+      }
+    }
+
+    async function loadAdminRewardStatuses() {
+      await runAdminLoadTasks([
+        () => loadAdminUsers(),
+        () => loadRewardGachaConfig()
+      ], 'スタンプ・特典管理の一部データ取得に失敗しました');
     }
 
     function normalizeRewardList(rewards) {
@@ -11056,7 +11354,9 @@
         ['loadAdminSupportFaq', 'FAQ更新'],
         ['loadSupportChatAnalytics', 'チャット分析更新'],
         ['loadAdminTemplates', 'テンプレート更新'],
-        ['loadAdminRewardStatuses', 'スタンプ・特典更新']
+        ['loadAdminRewardStatuses', 'スタンプ・特典更新'],
+        ['loadRewardGachaConfig', 'ガチャ設定更新'],
+        ['saveRewardGachaConfig', 'ガチャ設定保存']
       ].forEach(function (entry) {
         wrapAdminActionSafely(entry[0], entry[1]);
       });
