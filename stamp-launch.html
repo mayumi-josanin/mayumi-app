@@ -174,24 +174,24 @@
     <h1>来院スタンプを開いています</h1>
     <p class="lead">
       そのまま数秒お待ちください。<br>
-      ネイティブ版アプリが入っている端末では、アプリ起動を試します。
+      標準カメラからはアプリを開くだけにし、スタンプは増やしません。
     </p>
-    <div id="launchStatus" class="status">アプリを起動できるか確認しています...</div>
+    <div id="launchStatus" class="status">アプリを開いています...</div>
     <div class="spinner" aria-hidden="true"></div>
 
     <section id="fallbackPanel" class="fallback">
       <h2>アプリが開かない場合</h2>
       <p>
-        この画面で止まる場合、その端末のアプリは「ホーム画面に追加したWebアプリ」のため、標準カメラから直接は開けません。<br>
-        その場合はホーム画面のアプリを開いて、アプリ内のQR読み取りから来院スタンプをご利用ください。
+        標準カメラで読んだ時は、アプリを開くだけです。来院スタンプは付きません。<br>
+        アプリを開いた後、アプリ内の「カメラを起動して読み取る」から同じQRコードを読み取ると来院スタンプが付きます。
       </p>
       <div class="actions">
-        <button id="openAppBtn" class="btn btn-primary" type="button">ネイティブ版アプリを再度開く</button>
+        <button id="openAppBtn" class="btn btn-primary" type="button">アプリを開く</button>
         <a id="openRegistrationBtn" class="btn btn-outline" href="./index.html">アプリ登録画面を開く</a>
       </div>
       <div class="tiny">
         すでに登録済みの方は、新規登録ではなくアプリ内の「以前登録した方はこちら ↺」からお進みください。<br>
-        iPhone標準カメラからホーム画面追加アプリを直接開くことはできません。
+        iPhone標準カメラからホーム画面追加アプリを直接開けない端末では、この画面で止まる場合があります。
       </div>
     </section>
   </main>
@@ -199,8 +199,7 @@
   <script>
     (function () {
       const params = new URLSearchParams(window.location.search);
-      const action = String(params.get('action') || 'add_stamp').trim() || 'add_stamp';
-      const appUrl = `mayumijosanin://stamp?action=${encodeURIComponent(action)}`;
+      const appUrl = 'mayumijosanin://stamp?open=home';
       const fallbackPanel = document.getElementById('fallbackPanel');
       const launchStatus = document.getElementById('launchStatus');
       const openAppBtn = document.getElementById('openAppBtn');
@@ -220,12 +219,12 @@
         clearFallbackTimer();
         fallbackTimer = window.setTimeout(function () {
           fallbackPanel.classList.add('active');
-          launchStatus.textContent = 'この端末では直接起動できない可能性があります';
+          launchStatus.textContent = 'アプリが開かない場合は下の案内をご確認ください';
         }, 1800);
       }
 
       function openApp() {
-        launchStatus.textContent = 'アプリを起動できるか確認しています...';
+        launchStatus.textContent = 'アプリを開いています...';
         fallbackPanel.classList.remove('active');
         scheduleFallback();
 
