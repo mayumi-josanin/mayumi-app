@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwqXrUDdnenzxD_wqlXKNa3mvH2QuxhAwNAbzCSYoGccDNQY82YOkUVOiE9hae7s6pHgQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.21.67';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.21.68';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -1508,12 +1508,6 @@ function getCurrentRewardGachaMonthKey() {
   return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
 }
 
-function formatRewardGachaMonthLabel(monthKey) {
-  const normalized = normalizeRewardGachaMonthKey(monthKey) || getCurrentRewardGachaMonthKey();
-  const parts = normalized.split('-');
-  return parts[0] + '年' + String(Number(parts[1]) || 0) + '月';
-}
-
 function getRewardGachaPrizeContent(prizeMeta) {
   const prize = prizeMeta && typeof prizeMeta === 'object'
     ? prizeMeta
@@ -1596,29 +1590,6 @@ function getActiveRewardGachaConfigEntry(config, monthKey) {
     }
   }
   return exactMatch || latestPrevious || monthlyPrizes[monthlyPrizes.length - 1] || null;
-}
-
-function renderRewardGachaPrizeGuide() {
-  const container = document.getElementById('rewardGachaPrizeGuide');
-  const monthLabel = document.getElementById('rewardGachaGuideMonthLabel');
-  if (!container) return;
-  const activeMonthKey = CURRENT_MONTHLY_REWARD && CURRENT_MONTHLY_REWARD.month
-    ? CURRENT_MONTHLY_REWARD.month
-    : getCurrentRewardGachaMonthKey();
-  if (monthLabel) {
-    monthLabel.textContent = formatRewardGachaMonthLabel(activeMonthKey) + 'の特典一覧';
-  }
-  container.innerHTML = REWARD_GACHA_PRIZE_POOL.map(function (prize) {
-    return `
-      <div class="gacha-prize-card">
-        <div class="gacha-prize-card-head">
-          <span class="gacha-prize-rank-chip" style="background:${prize.capsuleColor}; color:${prize.accentColor};">${escapeHtml(prize.rankLabel)}</span>
-          <span class="gacha-prize-probability">${escapeHtml(String(prize.weight))}%</span>
-        </div>
-        <div class="gacha-prize-content">${escapeHtml(getRewardGachaPrizeContent(prize))}</div>
-      </div>
-    `;
-  }).join('');
 }
 
 function getCurrentCardReward(cardNum) {
@@ -1726,12 +1697,12 @@ function showRewardGachaResult(prizeMeta, options) {
   }
   // ランク表示（○賞）
   if (rank) {
-    rank.textContent = prize.rankLabel;
+    rank.textContent = prize.rewardName || prize.rankLabel;
     rank.style.color = prize.accentColor;
   }
-  // 特典内容表示
   if (name) {
-    name.textContent = getRewardGachaPrizeContent(prize);
+    name.textContent = '';
+    name.style.display = 'none';
   }
   if (message) {
     message.innerHTML = `${escapeHtml(prize.message)}<br>受け取りの際は受付へ直接お問い合わせください。`;
@@ -1786,7 +1757,6 @@ function resetRewardGachaModal() {
       ? 'このカードのガチャ結果は保存済みです。次のスタンプカードへ進めます。'
       : 'ハンドルを回して、特典カプセルを受け取ってください。';
   }
-  renderRewardGachaPrizeGuide();
   renderRewardGachaCapsules(currentReward ? getRewardGachaPrizeMeta(currentReward.rewardName).key : '');
   if (currentReward) {
     showRewardGachaResult(currentReward, { alreadyDrawn: true });
@@ -2709,7 +2679,6 @@ async function loadCurrentMonthlyReward() {
   } catch (err) {
     console.log('loadCurrentMonthlyReward error:', err);
   }
-  renderRewardGachaPrizeGuide();
   return CURRENT_MONTHLY_REWARD;
 }
 
