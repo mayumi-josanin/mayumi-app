@@ -847,8 +847,8 @@
 </head>
 
 <body>
-  <div id="admin-login-overlay"
-    style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.98); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);">
+  <div id="admin-login-overlay" aria-hidden="true"
+    style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.98); z-index:9999; display:none; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);">
     <div
       style="width:90%; max-width:380px; padding:40px 30px; background:#fff; border-radius:24px; box-shadow:0 20px 60px rgba(0,0,0,0.1); text-align:center;">
       <div style="font-size:48px; margin-bottom:20px;">🔒</div>
@@ -3080,11 +3080,12 @@
   </div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwqXrUDdnenzxD_wqlXKNa3mvH2QuxhAwNAbzCSYoGccDNQY82YOkUVOiE9hae7s6pHgQ/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
     if (currentStored && (
+      currentStored.includes('AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA') ||
       currentStored.includes('AKfycbxjaZUpoenBPzbYit9vpgsXvC5Oo74PCie4yCH2CMeQ5gJ27Be6hlkh95J6UfhLnt1jKQ') ||
       currentStored.includes('AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww') ||
       currentStored.includes('AKfycbz5cIeCDi5x3KaNuAV4SYHVTiIWr0kDq4xSPToQDU1jqeeerxTZU3uxDpxI5ubv3kcR1Q') ||
@@ -11381,79 +11382,17 @@
 
     installAdminActionSafetyGuards();
 
-    // 認証機能の初期化
+    // 管理者認証を無効化し、画面をそのまま開けるようにする
     (function () {
-      const DEFAULT_HASH = '4545deaf3f0f78082fc8f0fad55fc167c2903ab0f5009019c7271c9662ce0fba'; // "mayumi2026"
       const LS_KEY = 'admin_auth_authenticated';
-      const HASH_KEY = 'admin_auth_current_hash';
       const overlay = document.getElementById('admin-login-overlay');
-      const input = document.getElementById('admin-password-input');
-      const btn = document.getElementById('admin-login-btn');
-      const err = document.getElementById('admin-login-error');
-
-      let currentExpectedHash = localStorage.getItem(HASH_KEY) || DEFAULT_HASH;
-
-      async function sha256(str) {
-        const msgBuffer = new TextEncoder().encode(str);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      }
-
-      // GASサーバーから最新のハッシュを取得して同期する
-      async function syncHashWithServer() {
-        const gasUrl = localStorage.getItem('MAYUMI_GAS_URL');
-        if (!gasUrl) return;
-
-        try {
-          const response = await fetch(gasUrl + '?action=getAdminSecurityConfig');
-          const res = await response.json();
-          if (res && res.status === 'ok' && res.config && res.config.loginHash) {
-            currentExpectedHash = res.config.loginHash;
-            localStorage.setItem(HASH_KEY, currentExpectedHash);
-          }
-        } catch (e) {
-          console.warn('Failed to sync login hash with server:', e);
-        }
-      }
-
-      function checkAuth() {
-        if (localStorage.getItem(LS_KEY) === 'true') {
-          overlay.style.display = 'none';
-        }
-      }
-
-      async function performLogin() {
-        const pwd = input.value;
-        const hashed = await sha256(pwd);
-        
-        // ログイン試行前に同期を待つ、または同期失敗時は現在のハッシュで検証
-        if (hashed === currentExpectedHash) {
-          localStorage.setItem(LS_KEY, 'true');
-          overlay.style.transition = 'opacity 0.4s ease';
-          overlay.style.opacity = '0';
-          setTimeout(() => {
-            overlay.style.display = 'none';
-          }, 400);
-        } else {
-          err.style.display = 'block';
-          input.style.borderColor = '#d00';
-          input.value = '';
-          input.focus();
-        }
-      }
-
-      btn.addEventListener('click', performLogin);
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performLogin();
-      });
-
-      // 初期化
-      checkAuth();
-      if (overlay.style.display !== 'none') {
-        input.focus();
-        // ログイン画面が表示されている間にサーバーとハッシュを同期する
-        syncHashWithServer();
+      try {
+        localStorage.setItem(LS_KEY, 'true');
+      } catch (error) { }
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.style.opacity = '0';
+        overlay.setAttribute('aria-hidden', 'true');
       }
     })();
 
