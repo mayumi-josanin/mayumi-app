@@ -395,6 +395,26 @@ function createDefaultRewardGachaMonthEntry_(monthKey) {
   };
 }
 
+function normalizeRewardGachaPrizes_(rawPrizes, defaultPrizes) {
+  const fallbackPrizes = defaultPrizes || createDefaultRewardGachaMonthEntry_(getCurrentRewardGachaMonthKey_()).prizes;
+  const sortedProbabilities = REWARD_GACHA_RANK_KEYS.map(function (key) {
+    const prize = rawPrizes && rawPrizes[key] || {};
+    const fallbackPrize = fallbackPrizes[key] || {};
+    return normalizeRewardGachaProbability_(prize.probability, fallbackPrize.probability);
+  }).sort(function (a, b) {
+    return a - b;
+  });
+  const normalized = {};
+  REWARD_GACHA_RANK_KEYS.forEach(function (key, index) {
+    const prize = rawPrizes && rawPrizes[key] || {};
+    normalized[key] = {
+      content: String(prize.content || '').trim(),
+      probability: sortedProbabilities[index]
+    };
+  });
+  return normalized;
+}
+
 function getDefaultRewardGachaConfig_() {
   return {
     monthlyPrizes: [createDefaultRewardGachaMonthEntry_(getCurrentRewardGachaMonthKey_())]
@@ -409,14 +429,7 @@ function sanitizeRewardGachaConfig_(raw) {
     const month = normalizeRewardGachaMonthKey_(entry && entry.month);
     if (!month || seenMonths[month]) return;
     const defaultEntry = createDefaultRewardGachaMonthEntry_(month);
-    const prizes = {};
-    REWARD_GACHA_RANK_KEYS.forEach(function (key) {
-      const prize = entry && entry.prizes && entry.prizes[key] || {};
-      prizes[key] = {
-        content: String(prize.content || '').trim(),
-        probability: normalizeRewardGachaProbability_(prize.probability, defaultEntry.prizes[key].probability)
-      };
-    });
+    const prizes = normalizeRewardGachaPrizes_(entry && entry.prizes, defaultEntry.prizes);
     seenMonths[month] = true;
     monthlyPrizes.push({ month: month, prizes: prizes });
   });
