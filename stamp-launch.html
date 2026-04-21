@@ -174,23 +174,24 @@
     <h1>来院スタンプを開いています</h1>
     <p class="lead">
       そのまま数秒お待ちください。<br>
-      インストール済みのアプリ起動を試しています。
+      ネイティブ版アプリが入っている端末では、アプリ起動を試します。
     </p>
-    <div id="launchStatus" class="status">アプリを起動しています...</div>
+    <div id="launchStatus" class="status">アプリを起動できるか確認しています...</div>
     <div class="spinner" aria-hidden="true"></div>
 
     <section id="fallbackPanel" class="fallback">
       <h2>アプリが開かない場合</h2>
       <p>
-        iPhone / Android の標準カメラから開いたあとに反応しない場合は、下のボタンからもう一度お試しください。<br>
-        まだアプリを入れていない方は、登録画面へ進んでください。
+        この画面で止まる場合、その端末のアプリは「ホーム画面に追加したWebアプリ」のため、標準カメラから直接は開けません。<br>
+        その場合はホーム画面のアプリを開いて、アプリ内のQR読み取りから来院スタンプをご利用ください。
       </p>
       <div class="actions">
-        <button id="openAppBtn" class="btn btn-primary" type="button">アプリを開く</button>
+        <button id="openAppBtn" class="btn btn-primary" type="button">ネイティブ版アプリを再度開く</button>
         <a id="openRegistrationBtn" class="btn btn-outline" href="./index.html">アプリ登録画面を開く</a>
       </div>
       <div class="tiny">
-        すでに登録済みの方は、新規登録ではなくアプリ内の「以前登録した方はこちら ↺」からお進みください。
+        すでに登録済みの方は、新規登録ではなくアプリ内の「以前登録した方はこちら ↺」からお進みください。<br>
+        iPhone標準カメラからホーム画面追加アプリを直接開くことはできません。
       </div>
     </section>
   </main>
@@ -219,12 +220,12 @@
         clearFallbackTimer();
         fallbackTimer = window.setTimeout(function () {
           fallbackPanel.classList.add('active');
-          launchStatus.textContent = 'アプリを開けるか確認しています...';
+          launchStatus.textContent = 'この端末では直接起動できない可能性があります';
         }, 1800);
       }
 
       function openApp() {
-        launchStatus.textContent = 'アプリを起動しています...';
+        launchStatus.textContent = 'アプリを起動できるか確認しています...';
         fallbackPanel.classList.remove('active');
         scheduleFallback();
 
