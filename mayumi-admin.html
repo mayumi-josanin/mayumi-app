@@ -2499,25 +2499,53 @@
 
       <section id="page-qrcode" class="page">
         <div class="flex space-between mb-2">
-          <h2>アプリ配布用QRコード</h2>
+          <h2>QRコード案内</h2>
         </div>
-        <div class="card" style="text-align: center; padding: 30px;">
-          <div id="qrCodeContainer">
-            <p style="color: var(--text-mid); margin-bottom: 20px;">初期設定で「アプリ公開用URL」を設定してください。</p>
-            <button class="btn" onclick="openSettings()">⚙ 初期設定を開く</button>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:20px; align-items:stretch;">
+          <div class="card" style="text-align: center; padding: 30px;">
+            <div class="mb-2">
+              <h3 style="font-size:18px; color:var(--sage-dark);">アプリ配布用QRコード</h3>
+              <p style="font-size: 13px; color: var(--text-mid); margin-top: 8px;">初回登録やホーム画面追加のご案内用です。</p>
+            </div>
+            <div id="qrCodeContainer">
+              <p style="color: var(--text-mid); margin-bottom: 20px;">初期設定で「アプリ公開用URL」を設定してください。</p>
+              <button class="btn" onclick="openSettings()">⚙ 初期設定を開く</button>
+            </div>
+            <div id="qrCodeDisplay" style="display: none;">
+              <img id="qrCodeImg" src="" alt="QR Code"
+                style="width: 200px; height: 200px; border: 1px solid var(--border); padding: 10px; background: #fff; margin-bottom: 15px;">
+              <p style="font-size: 14px; color: var(--text-dark); font-weight: bold; margin-bottom: 5px;">スキャン用URL:</p>
+              <p id="qrCodeUrlDisplay"
+                style="font-size: 12px; color: var(--sage-dark); word-break: break-all; margin-bottom: 20px;"></p>
+              <div class="flex" style="justify-content: center; gap: 10px; flex-wrap:wrap;">
+                <button class="btn" onclick="showPrintMaterial()" style="font-size: 14px; padding: 10px 24px;">🖨 配布用資料を表示
+                  (印刷)</button>
+                <a id="qrDownloadLink" href="#" target="_blank" class="btn btn-outline"
+                  style="display: inline-block; font-size: 12px;">QRコードを画像で保存</a>
+                <button class="btn btn-outline" onclick="openSettings()" style="font-size: 12px;">URLを変更</button>
+              </div>
+            </div>
           </div>
-          <div id="qrCodeDisplay" style="display: none;">
-            <img id="qrCodeImg" src="" alt="QR Code"
+
+          <div class="card" style="text-align: center; padding: 30px;">
+            <div class="mb-2">
+              <h3 style="font-size:18px; color:var(--sage-dark);">来院スタンプ用QRコード</h3>
+              <p style="font-size: 13px; color: var(--text-mid); margin-top: 8px;">院内で掲示する、アプリ起動専用のQRコードです。</p>
+            </div>
+            <img id="stampQrCodeImg" src="" alt="Stamp QR Code"
               style="width: 200px; height: 200px; border: 1px solid var(--border); padding: 10px; background: #fff; margin-bottom: 15px;">
             <p style="font-size: 14px; color: var(--text-dark); font-weight: bold; margin-bottom: 5px;">スキャン用URL:</p>
-            <p id="qrCodeUrlDisplay"
-              style="font-size: 12px; color: var(--sage-dark); word-break: break-all; margin-bottom: 20px;"></p>
-            <div class="flex" style="justify-content: center; gap: 10px;">
-              <button class="btn" onclick="showPrintMaterial()" style="font-size: 14px; padding: 10px 24px;">🖨 配布用資料を表示
-                (印刷)</button>
-              <a id="qrDownloadLink" href="#" target="_blank" class="btn btn-outline"
-                style="display: inline-block; font-size: 12px;">QRコードを画像で保存</a>
-              <button class="btn btn-outline" onclick="openSettings()" style="font-size: 12px;">URLを変更</button>
+            <p id="stampQrCodeUrlDisplay"
+              style="font-size: 12px; color: var(--sage-dark); word-break: break-all; margin-bottom: 14px;"></p>
+            <div style="text-align:left; font-size:12px; color:var(--text-mid); line-height:1.8; background:#f8f6f2; border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:16px;">
+              <div>・iPhone / Android の標準カメラで読み取ると、中継ページが開いてアプリ起動を試します。</div>
+              <div>・中では <strong>mayumijosanin://stamp?action=add_stamp</strong> を呼び出します。</div>
+              <div>・アプリ未インストール時は登録画面へ進めるため、同じQRコードを iPhone / Android で共通利用できます。</div>
+              <div>・旧式の `mayumijosanin://...` 直QRは、iPhone標準カメラでは「使用可能なデータがみつかりません」になるため使わないでください。</div>
+            </div>
+            <div class="flex" style="justify-content: center; gap: 10px; flex-wrap:wrap;">
+              <a id="stampQrDownloadLink" href="#" target="_blank" class="btn btn-outline"
+                style="display: inline-block; font-size: 12px;">スタンプQRを画像で保存</a>
             </div>
           </div>
         </div>
@@ -2526,6 +2554,9 @@
           <h2>インストール手順（お客様への案内用）</h2>
         </div>
         <div class="card">
+          <div style="font-size:13px; color:var(--sage-dark); background:#f8f6f2; border:1px solid var(--border); border-radius:14px; padding:12px 16px; margin-bottom:18px;">
+            来院スタンプは「来院スタンプ用QRコード」をご利用ください。配布用QRコードを院内スタンプ案内に使うと、登録画面が開いて重複登録の原因になります。
+          </div>
           <div class="mb-2">
             <h3
               style="font-size: 16px; color: var(--sage-dark); border-bottom: 1px solid var(--sage-light); padding-bottom: 5px; margin-bottom: 10px;">
@@ -4316,12 +4347,43 @@
       return false;
     }
 
+    function buildQrCodeImageUrl(value, size) {
+      const qrText = String(value || '').trim();
+      const qrSize = Math.max(120, Number(size || 300) || 300);
+      return `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(qrText)}`;
+    }
+
+    function buildStampLaunchUrl(baseUrl) {
+      const baseText = String(baseUrl || '').trim();
+      if (!baseText) return '';
+      try {
+        return new URL('stamp-launch.html?action=add_stamp', baseText).toString();
+      } catch (error) {
+        return '';
+      }
+    }
+
     function updateQrCodePage() {
       const display = document.getElementById('qrCodeDisplay');
       const container = document.getElementById('qrCodeContainer');
       const img = document.getElementById('qrCodeImg');
       const urlText = document.getElementById('qrCodeUrlDisplay');
       const downloadLink = document.getElementById('qrDownloadLink');
+      const stampImg = document.getElementById('stampQrCodeImg');
+      const stampUrlText = document.getElementById('stampQrCodeUrlDisplay');
+      const stampDownloadLink = document.getElementById('stampQrDownloadLink');
+      const stampLaunchUrl = buildStampLaunchUrl(APP_PUBLIC_URL);
+
+      if (stampLaunchUrl) {
+        const stampQrUrl = buildQrCodeImageUrl(stampLaunchUrl, 300);
+        if (stampImg) stampImg.src = stampQrUrl;
+        if (stampUrlText) stampUrlText.innerText = stampLaunchUrl;
+        if (stampDownloadLink) stampDownloadLink.href = stampQrUrl;
+      } else {
+        if (stampImg) stampImg.removeAttribute('src');
+        if (stampUrlText) stampUrlText.innerText = '先にアプリ公開用URLを設定してください';
+        if (stampDownloadLink) stampDownloadLink.removeAttribute('href');
+      }
 
       if (!APP_PUBLIC_URL) {
         if (display) display.style.display = 'none';
@@ -4332,7 +4394,7 @@
       if (container) container.style.display = 'none';
       if (display) display.style.display = 'block';
 
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(APP_PUBLIC_URL)}`;
+      const qrUrl = buildQrCodeImageUrl(APP_PUBLIC_URL, 300);
       if (img) img.src = qrUrl;
       if (urlText) urlText.innerText = APP_PUBLIC_URL;
       if (downloadLink) downloadLink.href = qrUrl;
@@ -4344,7 +4406,7 @@
         return;
       }
 
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(APP_PUBLIC_URL)}`;
+      const qrUrl = buildQrCodeImageUrl(APP_PUBLIC_URL, 400);
 
       const printWindow = window.open('', '_blank');
       printWindow.document.write(`
