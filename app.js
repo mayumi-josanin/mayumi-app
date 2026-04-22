@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwqXrUDdnenzxD_wqlXKNa3mvH2QuxhAwNAbzCSYoGccDNQY82YOkUVOiE9hae7s6pHgQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.22.74';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.23.75';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -417,7 +417,7 @@ function normalizePhoneInput(value) {
 }
 
 function normalizeNameInput(value) {
-  return String(value == null ? '' : value).trim();
+  return String(value == null ? '' : value).replace(/[\s\u3000]+/g, ' ').trim();
 }
 
 function normalizeDateOnlyInput(value) {
@@ -7409,7 +7409,7 @@ async function resetForgottenPasscode() {
 async function saveProfile() {
   const nameEl = document.getElementById('setupName');
   const nameErr = document.getElementById('setupNameErr');
-  const name = nameEl.value.trim();
+  const name = normalizeNameInput(nameEl ? nameEl.value : '');
   const phone = document.getElementById('setupPhone').value.trim();
   const birthday = document.getElementById('setupBirthday').value;
   const address = document.getElementById('setupAddress').value.trim();
@@ -7437,6 +7437,7 @@ async function saveProfile() {
     nameEl.focus();
     return;
   }
+  if (nameEl) nameEl.value = name;
   nameEl.classList.remove('error');
   nameErr.classList.remove('show');
 

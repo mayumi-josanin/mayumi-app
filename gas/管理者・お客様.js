@@ -5368,9 +5368,14 @@ function handleUpdateUser(data) {
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
+    const rawName = String(data && data.name !== undefined ? data.name : '').trim();
+    const normalizedName = normalizeNameForMatch_(data && data.name);
 
     const memberId = data.memberId;
     if (!memberId) return { status: 'error', message: 'IDが指定されていません' };
+    if (data && data.name !== undefined && !normalizedName) {
+      return { status: 'error', message: 'お名前を入力してください' };
+    }
 
     const targetRow = findUserRowByMemberId_(sheet, memberId);
 
@@ -5381,7 +5386,7 @@ function handleUpdateUser(data) {
       const rowData = new Array(USER_HEADERS.length).fill('');
       rowData[USER_COL.MEMBER_ID - 1] = memberId;
       rowData[USER_COL.TIMESTAMP - 1] = timestamp;
-      rowData[USER_COL.NAME - 1] = data.name || '';
+      rowData[USER_COL.NAME - 1] = rawName;
       rowData[USER_COL.KANA - 1] = data.kana || '';
       rowData[USER_COL.PHONE - 1] = data.phone || '';
       rowData[USER_COL.AVATAR_URL - 1] = data.avatar || '';
@@ -5419,7 +5424,7 @@ function handleUpdateUser(data) {
       const updatedRow = currentValues.slice();
       updatedRow[USER_COL.MEMBER_ID - 1] = memberId;
       updatedRow[USER_COL.TIMESTAMP - 1] = timestamp;
-      updatedRow[USER_COL.NAME - 1] = data.name !== undefined ? data.name : currentValues[USER_COL.NAME - 1];
+      updatedRow[USER_COL.NAME - 1] = data.name !== undefined ? rawName : currentValues[USER_COL.NAME - 1];
       updatedRow[USER_COL.KANA - 1] = data.kana !== undefined ? data.kana : currentValues[USER_COL.KANA - 1];
       updatedRow[USER_COL.PHONE - 1] = data.phone !== undefined ? data.phone : currentValues[USER_COL.PHONE - 1];
       updatedRow[USER_COL.AVATAR_URL - 1] = data.avatar !== undefined ? data.avatar : currentValues[USER_COL.AVATAR_URL - 1];
