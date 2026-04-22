@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwqXrUDdnenzxD_wqlXKNa3mvH2QuxhAwNAbzCSYoGccDNQY82YOkUVOiE9hae7s6pHgQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.22.73';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.22.74';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -2212,56 +2212,26 @@ function renderEarnedRewards() {
   const container = document.getElementById('earnedRewardsList');
   if (!container) return;
 
-  const stampHistoryItems = normalizeStampHistoryList(STAMP_HISTORY).map(function (entry) {
-    return {
-      type: 'stamp',
-      occurredAt: entry.acquiredDate,
-      entry: entry
-    };
-  });
   const rewardHistoryItems = normalizeRewardList(EARNED_REWARDS).filter(function (reward) {
     return !reward.used;
   }).map(function (reward) {
     return {
-      type: 'reward',
       occurredAt: reward.earnedDate,
       entry: reward
     };
   });
-  const historyItems = stampHistoryItems.concat(rewardHistoryItems).sort(function (a, b) {
+  const historyItems = rewardHistoryItems.sort(function (a, b) {
     return new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime();
   });
 
   if (!historyItems.length) {
-    container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">スタンプ・特典の履歴はありません</div>';
+    container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">未使用のガチャ特典はありません</div>';
     return;
   }
 
   const now = new Date();
   let html = '';
   historyItems.forEach(function (item) {
-    if (item.type === 'stamp') {
-      const stampEntry = item.entry;
-      const acquiredStr = formatCustomerDateYmdHm(stampEntry.acquiredDate) || formatCustomerDateYmd(stampEntry.acquiredDate);
-      const isMilestone = Number(stampEntry.stampNumber) === 10;
-      html += `
-        <div style="padding:16px; border-radius:16px; margin-bottom:12px; display:flex; flex-direction:column; box-shadow:0 4px 12px rgba(0,0,0,0.05); background:#f8fcf6; border:1px solid rgba(126, 154, 109, 0.28);">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
-            <span style="font-weight:600; font-size:12px; color:#567244; background:rgba(181, 201, 168, 0.24); padding:4px 10px; border-radius:100px;">来院スタンプ</span>
-            <span style="font-size:11px; padding:3px 8px; border-radius:12px; background:${isMilestone ? 'var(--primary)' : '#e6f2df'}; color:${isMilestone ? '#fff' : '#567244'};">${isMilestone ? '🎉 10個達成' : '🌿 取得済み'}</span>
-          </div>
-          <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:8px;">来院スタンプを取得しました</div>
-          <div style="font-size:13px; color:var(--sage-dark); font-weight:500; line-height:1.5; margin-bottom:12px; padding:10px; background:#fff; border-radius:8px;">
-            ${isMilestone
-          ? 'スタンプが10個たまりました。ホームから特典ガチャを回し、マイページの履歴で結果を確認できます。'
-          : '来院スタンプを取得しました。スタンプが10個たまると特典ガチャに進めます。'}
-          </div>
-          <div style="font-size:12px; color:var(--text-light); line-height:1.5;">取得日時: ${acquiredStr}</div>
-        </div>
-      `;
-      return;
-    }
-
     const reward = item.entry;
     const expiry = new Date(reward.expiryDate);
     const isExpired = now > expiry;
@@ -5724,7 +5694,7 @@ function getFeatureSupportReply(messageNorm) {
         topic,
         availableRewards.length
           ? [
-            `現在、未使用の特典が${availableRewards.length}件あります。`,
+            `現在、未使用のガチャ特典が${availableRewards.length}件あります。`,
             'マイページの「🎁 スタンプ・特典履歴」で確認できます。',
             '特典は達成当日から使用でき、使用すると履歴から表示されなくなります。'
           ]
@@ -5740,7 +5710,7 @@ function getFeatureSupportReply(messageNorm) {
       [
         'スタンプ特典の使い方です。',
         '1. マイページの「🎁 スタンプ・特典履歴」を開きます。',
-        '2. 獲得済みの特典を確認し、必要なら「使用する」を押します。',
+        '2. 未使用のガチャ特典を確認し、必要なら「使用する」を押します。',
         '3. 特典は達成当日から使用でき、使用すると履歴から表示されなくなります。',
         '4. 一度使用すると再使用できません。受け取りは受付へ直接お問い合わせください。'
       ],
@@ -6255,7 +6225,7 @@ function getBuiltInSupportReply(messageNorm) {
       [
         'スタンプ特典の使い方です。',
         '1. マイページの「スタンプ・特典履歴」を開きます。',
-        '2. 獲得済み特典を確認し、必要な場合は「使用する」を押します。',
+        '2. 未使用のガチャ特典を確認し、必要な場合は「使用する」を押します。',
         '3. 特典は達成当日から使用でき、使用すると履歴から表示されなくなります。',
         '4. 受取期限は獲得から1か月です。',
         '補足: 一度使用すると再度は使用できません。受け取りの際は受付へ直接お問い合わせください'
