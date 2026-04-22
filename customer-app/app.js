@@ -13,9 +13,9 @@ const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TICKET_CARD_ACQUIRE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260420-23";
+const APP_VERSION = "20260422-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v97";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v98";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1176,6 +1176,17 @@ function formatDateOnly(value) {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(value));
+}
+
+function formatStampDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 function roundMeasurementDelta(value) {
@@ -4902,7 +4913,27 @@ function getPhotoDownloadHref(file) {
   );
 }
 
-function renderTicketStampProgress(ticketCount, currentRound) {
+function getTicketProgressStampDates(ticketPlan, ticketSheetLabel, ticketCount) {
+  const normalizedPlan = normalizeText(ticketPlan);
+  const normalizedSheet = normalizeText(ticketSheetLabel);
+  if (!normalizedPlan || !normalizedSheet || !ticketCount) return new Map();
+  const datesByRound = new Map();
+  getVisibleHistoryResponses()
+    .slice()
+    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+    .forEach((response) => {
+      const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
+      const responsePlan = normalizeText(ticketMap.get("回数券") || "");
+      const responseSheet = normalizeText(ticketMap.get("何枚目") || "");
+      const responseRound = parseTicketStep(ticketMap.get("何回目") || "");
+      if (responsePlan !== normalizedPlan || responseSheet !== normalizedSheet) return;
+      if (!responseRound || responseRound > ticketCount || datesByRound.has(responseRound)) return;
+      datesByRound.set(responseRound, response.submittedAt);
+    });
+  return datesByRound;
+}
+
+function renderTicketStampProgress(ticketCount, currentRound, stampDates = new Map()) {
   if (!ticketCount) return "";
   const normalizedCount = Math.max(0, Number(ticketCount) || 0);
   const normalizedRound = Math.max(0, Math.min(normalizedCount, Number(currentRound) || 0));
@@ -4910,10 +4941,20 @@ function renderTicketStampProgress(ticketCount, currentRound) {
     <div class="ticket-progress" data-ticket-count="${normalizedCount}">
       ${Array.from({ length: normalizedCount }, (_, index) => {
         const step = index + 1;
+        const submittedAt = step <= normalizedRound ? stampDates.get(step) || "" : "";
+        const stampDate = formatStampDate(submittedAt);
+        const stampDateTitle = submittedAt ? formatDateOnly(submittedAt) : "";
         return `
-          <span class="stamp-dot ${step <= normalizedRound ? "active" : ""}" aria-label="${step}回目">
-            <span class="stamp-dot-step">${step}</span>
-            <span class="stamp-dot-unit">回</span>
+          <span class="stamp-dot-cell">
+            <span
+              class="stamp-dot ${step <= normalizedRound ? "active" : ""}"
+              aria-label="${escapeHtml(stampDateTitle ? `${step}回目 ${stampDateTitle}` : `${step}回目`)}"
+              title="${escapeHtml(stampDateTitle ? `${step}回目 / ${stampDateTitle}` : `${step}回目`)}"
+            >
+              <span class="stamp-dot-step">${step}</span>
+              <span class="stamp-dot-unit">回</span>
+              <span class="stamp-dot-date">${stampDate ? escapeHtml(stampDate) : ""}</span>
+            </span>
           </span>
         `;
       }).join("")}
@@ -4942,6 +4983,12 @@ function renderHomeTicketStatus() {
     return;
   }
 
+  const stampDates = getTicketProgressStampDates(
+    activeTicketCard.ticketPlan,
+    activeTicketCard.ticketSheetLabel,
+    activeTicketCard.ticketCount,
+  );
+
   homeTicketStatus.innerHTML = `
     <article class="ticket-home-card">
       <div class="ticket-home-head">
@@ -4961,7 +5008,7 @@ function renderHomeTicketStatus() {
                 <strong>${escapeHtml(activeTicketCard.ticketSheetLabel || "-")}</strong>
                 <span>${activeTicketCard.currentRound} / ${activeTicketCard.ticketCount}</span>
               </div>
-              ${renderTicketStampProgress(activeTicketCard.ticketCount, activeTicketCard.currentRound)}
+              ${renderTicketStampProgress(activeTicketCard.ticketCount, activeTicketCard.currentRound, stampDates)}
               ${
                 activeTicketCard.showAcquireButtons
                   ? `
@@ -5894,7 +5941,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260420-23", { updateViaCache: "none" })
+        .register("./sw.js?v=20260422-01", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v83";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v86";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -1080,6 +1080,17 @@ function formatDateOnly(value) {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(value));
+}
+
+function formatStampDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 function normalizeLabel(value) {
@@ -2184,16 +2195,35 @@ function parseTicketStep(stepValue) {
 
 function getTicketProgressInfo(ticketInfo) {
   const ticketMap = new Map((ticketInfo || []).map((item) => [item.label, item.value]));
-  const ticketCount = parseTicketCount(ticketMap.get("回数券") || "");
+  const planLabel = ticketMap.get("回数券") || "";
+  const ticketCount = parseTicketCount(planLabel);
   const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
   return {
+    planLabel,
     sheetLabel: ticketMap.get("何枚目") || "",
     ticketCount,
     currentRound,
   };
 }
 
-function renderTicketStampProgress(ticketCount, currentRound) {
+function getCustomerTicketStampDates(ticketInfo, options = {}) {
+  const { customerName = "", responses = null } = options;
+  const { planLabel, sheetLabel, ticketCount } = getTicketProgressInfo(ticketInfo);
+  const sourceResponses = Array.isArray(responses) ? responses : customerName ? getActiveCustomerResponses(customerName) : [];
+  if (!sourceResponses.length || !ticketCount) return new Map();
+  const datesByRound = new Map();
+  sourceResponses.forEach((response) => {
+    const responseTicketInfo = getTicketProgressInfo(getResponseTicketInfo(response));
+    const round = responseTicketInfo.currentRound;
+    if (!round || round > ticketCount || datesByRound.has(round)) return;
+    if (planLabel && responseTicketInfo.planLabel !== planLabel) return;
+    if (sheetLabel && responseTicketInfo.sheetLabel !== sheetLabel) return;
+    datesByRound.set(round, response.submittedAt);
+  });
+  return datesByRound;
+}
+
+function renderTicketStampProgress(ticketCount, currentRound, stampDates = new Map()) {
   if (!ticketCount) return "";
   const normalizedCount = Math.max(0, Number(ticketCount) || 0);
   const normalizedRound = Math.max(0, Math.min(normalizedCount, Number(currentRound) || 0));
@@ -2201,10 +2231,20 @@ function renderTicketStampProgress(ticketCount, currentRound) {
     <div class="ticket-progress" data-ticket-count="${normalizedCount}">
       ${Array.from({ length: normalizedCount }, (_, index) => {
         const step = index + 1;
+        const submittedAt = step <= normalizedRound ? stampDates.get(step) || "" : "";
+        const stampDate = formatStampDate(submittedAt);
+        const stampDateTitle = submittedAt ? formatDateOnly(submittedAt) : "";
         return `
-          <span class="stamp-dot ${step <= normalizedRound ? "active" : ""}" aria-label="${step}回目">
-            <span class="stamp-dot-step">${step}</span>
-            <span class="stamp-dot-unit">回</span>
+          <span class="stamp-dot-cell">
+            <span
+              class="stamp-dot ${step <= normalizedRound ? "active" : ""}"
+              aria-label="${escapeHtml(stampDateTitle ? `${step}回目 ${stampDateTitle}` : `${step}回目`)}"
+              title="${escapeHtml(stampDateTitle ? `${step}回目 / ${stampDateTitle}` : `${step}回目`)}"
+            >
+              <span class="stamp-dot-step">${step}</span>
+              <span class="stamp-dot-unit">回</span>
+              <span class="stamp-dot-date">${stampDate ? escapeHtml(stampDate) : ""}</span>
+            </span>
           </span>
         `;
       }).join("")}
@@ -2212,9 +2252,11 @@ function renderTicketStampProgress(ticketCount, currentRound) {
   `;
 }
 
-function renderTicketStampPanel(ticketInfo) {
+function renderTicketStampPanel(ticketInfo, options = {}) {
   if (!ticketInfo.length) return "";
+  const { customerName = "", responses = null } = options;
   const { sheetLabel, ticketCount, currentRound } = getTicketProgressInfo(ticketInfo);
+  const stampDates = getCustomerTicketStampDates(ticketInfo, { customerName, responses });
   return `
     <div class="ticket-stamp-panel">
       ${renderTicketStampList(ticketInfo)}
@@ -2226,7 +2268,7 @@ function renderTicketStampPanel(ticketInfo) {
                 <strong>${escapeHtml(sheetLabel || "-")}</strong>
                 <span>${currentRound || 0} / ${ticketCount}</span>
               </div>
-              ${renderTicketStampProgress(ticketCount, currentRound)}
+              ${renderTicketStampProgress(ticketCount, currentRound, stampDates)}
             </div>
           `
           : ""
@@ -2241,7 +2283,10 @@ function renderResponseTicketInfo(response) {
   return `
     <div class="answer-item ticket-info-panel">
       <strong>回答者情報</strong>
-      ${renderTicketStampPanel(ticketInfo)}
+      ${renderTicketStampPanel(ticketInfo, {
+        customerName: response.customerName,
+        responses: getActiveCustomerResponses(response.customerName),
+      })}
     </div>
   `;
 }
@@ -2400,7 +2445,7 @@ function renderCustomerSummaryCard(customerName, responses) {
       </div>
       ${
         ticketInfo.length
-          ? renderTicketStampPanel(ticketInfo)
+          ? renderTicketStampPanel(ticketInfo, { customerName, responses })
           : `<div class="meta">現在の回数券スタンプ情報はありません。</div>`
       }
     </article>
@@ -7965,7 +8010,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260421-01", { updateViaCache: "none" })
+        .register("./sw.js?v=20260422-03", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

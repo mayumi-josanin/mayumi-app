@@ -882,6 +882,13 @@ textarea {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.stamp-dot-cell {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0;
+}
+
 .stamp-dot {
   position: relative;
   display: inline-grid;
@@ -935,6 +942,23 @@ textarea {
   letter-spacing: 0;
 }
 
+.stamp-dot-date {
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  min-height: 0;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--text-dark);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
 .stamp-dot.active::before {
   opacity: 0.42;
 }
@@ -960,11 +984,11 @@ textarea {
     0 8px 18px rgba(192, 57, 43, 0.12);
 }
 
-.stamp-dot.active:nth-child(odd) {
+.stamp-dot-cell:nth-child(odd) .stamp-dot.active {
   transform: rotate(-8deg);
 }
 
-.stamp-dot.active:nth-child(even) {
+.stamp-dot-cell:nth-child(even) .stamp-dot.active {
   transform: rotate(7deg);
 }
 
