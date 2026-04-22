@@ -3018,9 +3018,44 @@ function sanitizeRewardEntry_(entry, fallbackId) {
     rewardName: String(base.rewardName || 'スタンプ達成特典'),
     earnedDate: earnedDate,
     expiryDate: expiryDate,
-    used: base.used === true || String(base.used).toLowerCase() === 'true',
+    used: base.used === true || String(base.used).toLowerCase() === 'true' || !!normalizeDateTimeValue_(base.usedAt),
     usedAt: normalizeDateTimeValue_(base.usedAt)
   };
+}
+
+function buildRewardMergeKey_(reward) {
+  return [
+    String(reward && reward.cardNum || ''),
+    String(reward && reward.rewardName || ''),
+    String(reward && reward.earnedDate || '')
+  ].join('|');
+}
+
+function sanitizeRewardList_(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  const map = {};
+  list.map(function (reward, index) {
+    return sanitizeRewardEntry_(reward, 'reward-' + (index + 1) + '-' + new Date().getTime());
+  }).forEach(function (reward) {
+    const key = buildRewardMergeKey_(reward);
+    const current = map[key];
+    if (!current) {
+      map[key] = reward;
+      return;
+    }
+    if (reward.used && !current.used) {
+      map[key] = reward;
+      return;
+    }
+    if (reward.usedAt && !current.usedAt) {
+      map[key] = reward;
+    }
+  });
+  return Object.keys(map).map(function (key) {
+    return map[key];
+  }).sort(function (a, b) {
+    return parseLooseDateToTimestamp_(b.earnedDate) - parseLooseDateToTimestamp_(a.earnedDate);
+  });
 }
 
 function sanitizeStampHistoryEntry_(entry, fallbackId) {
@@ -3061,10 +3096,7 @@ function deriveLastStampAt_(data, stampHistory) {
 }
 
 function sanitizeRewardStatus_(data) {
-  const rewardsInput = Array.isArray(data && data.rewards) ? data.rewards : [];
-  const rewards = rewardsInput.map(function (reward, index) {
-    return sanitizeRewardEntry_(reward, 'reward-' + (index + 1) + '-' + new Date().getTime());
-  });
+  const rewards = sanitizeRewardList_(data && data.rewards);
   const stampHistory = sanitizeStampHistoryList_(data && data.stampHistory);
   const lastStampAt = deriveLastStampAt_(data, stampHistory);
   return {
@@ -3083,9 +3115,7 @@ function parseRewardsJson_(value) {
   try {
     const parsed = JSON.parse(String(value));
     if (!Array.isArray(parsed)) return [];
-    return parsed.map(function (reward, index) {
-      return sanitizeRewardEntry_(reward, 'reward-' + (index + 1));
-    });
+    return sanitizeRewardList_(parsed);
   } catch (err) {
     Logger.log('parseRewardsJson_ error: ' + err.toString());
     return [];
@@ -3093,9 +3123,7 @@ function parseRewardsJson_(value) {
 }
 
 function serializeRewardsJson_(rewards) {
-  return JSON.stringify((rewards || []).map(function (reward, index) {
-    return sanitizeRewardEntry_(reward, 'reward-' + (index + 1));
-  }));
+  return JSON.stringify(sanitizeRewardList_(rewards));
 }
 
 function parseStampHistoryJson_(value) {
@@ -6344,20 +6372,7 @@ function getAdminUsers() {
 }
 
 function mergeRewardEntries_(leftRewards, rightRewards) {
-  const map = {};
-  (Array.isArray(leftRewards) ? leftRewards : []).concat(Array.isArray(rightRewards) ? rightRewards : []).map(function (reward, index) {
-    return sanitizeRewardEntry_(reward, 'merged-reward-' + index);
-  }).forEach(function (reward) {
-    const key = [reward.cardNum, reward.rewardName, reward.earnedDate].join('|');
-    if (!map[key]) {
-      map[key] = reward;
-      return;
-    }
-    if (reward.used && !map[key].used) {
-      map[key] = reward;
-    }
-  });
-  return Object.keys(map).map(function (key) { return map[key]; });
+  return sanitizeRewardList_([].concat(leftRewards || [], rightRewards || []));
 }
 
 function mergeStampHistoryEntries_(leftHistory, rightHistory) {
@@ -7220,7 +7235,7 @@ function getDefaultSupportFaqRows_(updatedAt) {
     ['公開', 'スタンプ', 'スタンプは1日何回取得できますか？', 'スタンプ,1日,一日,何回,回数', '来院スタンプは1日1回までです。同じ日に再度読み取ると、すでに取得済みの案内が表示されます。', 108, now],
     ['公開', 'トラブル', 'カメラが起動しないときはどうすればいいですか？', 'カメラ,起動しない,許可,権限,QR,読めない', 'スタンプ取得時にカメラ許可の確認が出た場合は「許可」を選んでください。すでに拒否している場合は、表示される「設定を開く」から設定画面へ進み、iPhone や Android のカメラ許可をオンにしてから、もう一度「📷 カメラを起動して読み取る」を押してください。', 106, now],
     ['公開', 'スタンプ特典', 'スタンプが10個たまったらどうなりますか？', 'スタンプ,10個,達成,ガチャ,特典', 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。ガチャ後はホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。', 104, now],
-    ['公開', 'スタンプ特典', '特典はどこで確認できますか？', '特典,どこ,確認,プレゼント,ガチャ', '特典はマイページの「🎁 スタンプ・特典履歴」で確認できます。未使用の特典、使用済みの特典、受取期限を確認できます。', 102, now],
+    ['公開', 'スタンプ特典', '特典はどこで確認できますか？', '特典,どこ,確認,プレゼント,ガチャ', '特典はマイページの「🎁 スタンプ・特典履歴」で確認できます。未使用の特典と受取期限を確認でき、使用した特典は履歴から表示されません。', 102, now],
     ['公開', 'スタンプ特典', '特典の有効期限を知りたい', '特典,期限,有効期限,いつまで', '特典の受取期限は、スタンプ10個を達成した日から1か月です。期限はマイページの「🎁 スタンプ・特典履歴」に表示されます。', 100, now],
     ['公開', '通知', '通知をオン・オフにしたい', '通知,オン,オフ,push,プッシュ,許可', 'マイページの「🔔 通知設定」からオン・オフを切り替えられます。アプリ内でオンにしても届かない場合は、iPhone や Android 本体側の通知許可もご確認ください。', 98, now],
     ['公開', '通知', '通知が届かないときはどうすればいいですか？', '通知,届かない,push,プッシュ,こない', 'まずマイページの「🔔 通知設定」がオンか確認してください。そのうえで、iPhone や Android 本体側の通知許可、通信状態、アプリの最新化をご確認ください。必要に応じて画面上部の🔄で最新情報を再取得してください。', 96, now],

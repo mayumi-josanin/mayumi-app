@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwqXrUDdnenzxD_wqlXKNa3mvH2QuxhAwNAbzCSYoGccDNQY82YOkUVOiE9hae7s6pHgQ/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.21.68';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.22.72';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -924,6 +924,79 @@ function getPreferredStartupPage() {
   return getPendingUpdateRestorePage() || 'home';
 }
 
+function waitForWaitingServiceWorker(registration, timeoutMs) {
+  return new Promise(function (resolve) {
+    let settled = false;
+    let timerId = 0;
+
+    function finish(value) {
+      if (settled) return;
+      settled = true;
+      if (timerId) clearTimeout(timerId);
+      resolve(!!value);
+    }
+
+    function watch(worker) {
+      if (!worker) return;
+      if (worker.state === 'installed' || worker.state === 'activated' || worker.state === 'redundant') {
+        finish(!!registration.waiting);
+        return;
+      }
+      worker.addEventListener('statechange', function () {
+        if (worker.state === 'installed' || worker.state === 'activated' || worker.state === 'redundant') {
+          finish(!!registration.waiting);
+        }
+      });
+    }
+
+    if (registration.waiting) {
+      finish(true);
+      return;
+    }
+    if (registration.installing) watch(registration.installing);
+    registration.addEventListener('updatefound', function () {
+      watch(registration.installing);
+    }, { once: true });
+    timerId = setTimeout(function () {
+      finish(!!registration.waiting);
+    }, Math.max(800, Number(timeoutMs) || 3500));
+  });
+}
+
+async function syncLatestAppShell() {
+  if (!('serviceWorker' in navigator)) return false;
+  let shouldReloadForCodeUpdate = false;
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const registration of registrations) {
+      const waitingPromise = waitForWaitingServiceWorker(registration, 3500);
+      await registration.update();
+      if (registration.waiting) {
+        appUpdateContext.waitingServiceWorker = true;
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        shouldReloadForCodeUpdate = true;
+        continue;
+      }
+      const foundWaiting = registration.installing
+        ? await waitingPromise
+        : await Promise.race([
+          waitingPromise,
+          new Promise(function (resolve) {
+            setTimeout(function () { resolve(false); }, 450);
+          })
+        ]);
+      if (foundWaiting && registration.waiting) {
+        appUpdateContext.waitingServiceWorker = true;
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        shouldReloadForCodeUpdate = true;
+      }
+    }
+  } catch (e) {
+    console.error('[更新] サービスワーカー更新失敗:', e);
+  }
+  return shouldReloadForCodeUpdate;
+}
+
 async function applyPendingAppUpdate() {
   if (appUpdateContext.reloadStarted) return;
   appUpdateContext.reloadStarted = true;
@@ -1345,15 +1418,46 @@ function normalizeSingleReward(reward, index) {
     rewardName: reward && reward.rewardName ? String(reward.rewardName) : '特典プレゼント',
     earnedDate: earnedDate,
     expiryDate: expiryDate,
-    used: reward && reward.used === true,
+    used: reward && (
+      reward.used === true ||
+      String(reward.used || '').toLowerCase() === 'true' ||
+      !!normalizeRewardDateTime(reward.usedAt)
+    ),
     usedAt: normalizeRewardDateTime(reward && reward.usedAt)
   };
 }
 
+function buildRewardMergeKey(reward) {
+  return [
+    String(reward && reward.cardNum || ''),
+    String(reward && reward.rewardName || ''),
+    String(reward && reward.earnedDate || '')
+  ].join('|');
+}
+
 function normalizeRewardList(rewards) {
   if (!Array.isArray(rewards)) return [];
-  return rewards.map(function (reward, index) {
+  const merged = {};
+  rewards.map(function (reward, index) {
     return normalizeSingleReward(reward, index);
+  }).forEach(function (reward) {
+    const key = buildRewardMergeKey(reward);
+    if (!merged[key]) {
+      merged[key] = reward;
+      return;
+    }
+    if (reward.used && !merged[key].used) {
+      merged[key] = reward;
+      return;
+    }
+    if (reward.usedAt && !merged[key].usedAt) {
+      merged[key] = reward;
+    }
+  });
+  return Object.keys(merged).map(function (key) {
+    return merged[key];
+  }).sort(function (a, b) {
+    return new Date(b.earnedDate).getTime() - new Date(a.earnedDate).getTime();
   });
 }
 
@@ -1415,22 +1519,7 @@ function deriveLastStampAt(statusLike, normalizedHistory) {
 }
 
 function mergeRewardLists(leftRewards, rightRewards) {
-  const merged = {};
-  normalizeRewardList([].concat(leftRewards || [], rightRewards || [])).forEach(function (reward) {
-    const key = [String(reward.id || ''), String(reward.cardNum || ''), String(reward.rewardName || ''), String(reward.earnedDate || '')].join('|');
-    if (!merged[key]) {
-      merged[key] = reward;
-      return;
-    }
-    if (reward.used && !merged[key].used) {
-      merged[key] = reward;
-    }
-  });
-  return Object.keys(merged).map(function (key) {
-    return merged[key];
-  }).sort(function (a, b) {
-    return new Date(b.earnedDate).getTime() - new Date(a.earnedDate).getTime();
-  });
+  return normalizeRewardList([].concat(leftRewards || [], rightRewards || []));
 }
 
 function mergeRewardStatuses(primaryStatus, secondaryStatus) {
@@ -2130,7 +2219,9 @@ function renderEarnedRewards() {
       entry: entry
     };
   });
-  const rewardHistoryItems = normalizeRewardList(EARNED_REWARDS).map(function (reward) {
+  const rewardHistoryItems = normalizeRewardList(EARNED_REWARDS).filter(function (reward) {
+    return !reward.used;
+  }).map(function (reward) {
     return {
       type: 'reward',
       occurredAt: reward.earnedDate,
@@ -2156,10 +2247,10 @@ function renderEarnedRewards() {
       html += `
         <div style="padding:16px; border-radius:16px; margin-bottom:12px; display:flex; flex-direction:column; box-shadow:0 4px 12px rgba(0,0,0,0.05); background:#f8fcf6; border:1px solid rgba(126, 154, 109, 0.28);">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
-            <span style="font-weight:600; font-size:12px; color:#567244; background:rgba(181, 201, 168, 0.24); padding:4px 10px; border-radius:100px;">来院スタンプ ${stampEntry.cardNum}枚目カード</span>
-            <span style="font-size:11px; padding:3px 8px; border-radius:12px; background:${isMilestone ? 'var(--primary)' : '#e6f2df'}; color:${isMilestone ? '#fff' : '#567244'};">${isMilestone ? '🎉 10個達成' : `🌿 ${stampEntry.stampNumber}個目`}</span>
+            <span style="font-weight:600; font-size:12px; color:#567244; background:rgba(181, 201, 168, 0.24); padding:4px 10px; border-radius:100px;">来院スタンプ</span>
+            <span style="font-size:11px; padding:3px 8px; border-radius:12px; background:${isMilestone ? 'var(--primary)' : '#e6f2df'}; color:${isMilestone ? '#fff' : '#567244'};">${isMilestone ? '🎉 10個達成' : '🌿 取得済み'}</span>
           </div>
-          <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:8px;">${stampEntry.cardNum}枚目カードの${stampEntry.stampNumber}個目のスタンプを取得しました</div>
+          <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:8px;">来院スタンプを取得しました</div>
           <div style="font-size:13px; color:var(--sage-dark); font-weight:500; line-height:1.5; margin-bottom:12px; padding:10px; background:#fff; border-radius:8px;">
             ${isMilestone
           ? 'スタンプが10個たまりました。ホームから特典ガチャを回し、マイページの履歴で結果を確認できます。'
@@ -2344,7 +2435,7 @@ const SUPPORT_FAQ_FALLBACK = [
   { category: 'スタンプ', question: 'スタンプは1日何回取得できますか？', keywords: 'スタンプ,1日,一日,何回,回数', answer: '来院スタンプは1日1回までです。同じ日に再度読み取ると、すでに取得済みの案内が表示されます。', priority: 108 },
   { category: 'トラブル', question: 'カメラが起動しないときはどうすればいいですか？', keywords: 'カメラ,起動しない,許可,権限,QR,読めない', answer: 'スタンプ取得時にカメラ許可の確認が出た場合は「許可」を選んでください。すでに拒否している場合は、表示される「設定を開く」から設定画面へ進み、iPhone や Android のカメラ許可をオンにしてから、もう一度「📷 カメラを起動して読み取る」を押してください。', priority: 106 },
   { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。ガチャ後はホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。', priority: 104 },
-  { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,どこ,確認,プレゼント,ガチャ', answer: '特典はマイページの「🎁 スタンプ・特典履歴」で確認できます。未使用の特典、使用済みの特典、受取期限を確認できます。', priority: 102 },
+  { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,どこ,確認,プレゼント,ガチャ', answer: '特典はマイページの「🎁 スタンプ・特典履歴」で確認できます。未使用の特典と受取期限を確認でき、使用した特典は履歴から表示されません。', priority: 102 },
   { category: 'スタンプ特典', question: '特典の有効期限を知りたい', keywords: '特典,期限,有効期限,いつまで', answer: '特典の受取期限は、スタンプ10個を達成した日から1か月です。期限はマイページの「🎁 スタンプ・特典履歴」に表示されます。', priority: 100 },
   { category: '通知', question: '通知をオン・オフにしたい', keywords: '通知,オン,オフ,push,プッシュ,許可', answer: 'マイページの「🔔 通知設定」からオン・オフを切り替えられます。アプリ内でオンにしても届かない場合は、iPhone や Android 本体側の通知許可もご確認ください。', priority: 98 },
   { category: '通知', question: '通知が届かないときはどうすればいいですか？', keywords: '通知,届かない,push,プッシュ,こない', answer: 'まずマイページの「🔔 通知設定」がオンか確認してください。そのうえで、iPhone や Android 本体側の通知許可、通信状態、アプリの最新化をご確認ください。必要に応じて画面上部の🔄で最新情報を再取得してください。', priority: 96 },
@@ -3173,19 +3264,14 @@ async function refreshAppData() {
     }
     if (versionGate.needsWebUpdate) shouldReloadForCodeUpdate = true;
 
-    if ('serviceWorker' in navigator) {
-      try {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        for (let registration of registrations) {
-          await registration.update();
-          if (registration.waiting) {
-            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            shouldReloadForCodeUpdate = true;
-          }
-        }
-      } catch (e) {
-        console.error('[更新] サービスワーカー更新失敗:', e);
-      }
+    if (await syncLatestAppShell()) {
+      shouldReloadForCodeUpdate = true;
+    }
+
+    if (shouldReloadForCodeUpdate) {
+      showToast('最新バージョンへ更新しています...');
+      await applyPendingAppUpdate();
+      return;
     }
 
     await fetchLatestManagedContent({
@@ -3194,13 +3280,8 @@ async function refreshAppData() {
       refreshOrderHistory: true
     });
 
-    if (shouldReloadForCodeUpdate) {
-      await applyPendingAppUpdate();
-      return;
-    } else {
-      hideAppUpdateBanner(false);
-      showToast('最新情報を反映しました ✨');
-    }
+    hideAppUpdateBanner(false);
+    showToast('最新情報を反映しました ✨');
   } catch (e) {
     console.error('[更新] 同期中に致命的なエラーが発生しました:', e);
     showToast('同期中に問題が発生しました。しばらく経ってから再度お試しください。');
@@ -5645,7 +5726,7 @@ function getFeatureSupportReply(messageNorm) {
           ? [
             `現在、未使用の特典が${availableRewards.length}件あります。`,
             'マイページの「🎁 スタンプ・特典履歴」で確認できます。',
-            '特典は達成当日から使用でき、一度使用すると再使用できません。'
+            '特典は達成当日から使用でき、使用すると履歴から表示されなくなります。'
           ]
           : [
             '現在、未使用の特典はありません。',
@@ -5660,7 +5741,7 @@ function getFeatureSupportReply(messageNorm) {
         'スタンプ特典の使い方です。',
         '1. マイページの「🎁 スタンプ・特典履歴」を開きます。',
         '2. 獲得済みの特典を確認し、必要なら「使用する」を押します。',
-        '3. 特典は達成当日から使用できます。',
+        '3. 特典は達成当日から使用でき、使用すると履歴から表示されなくなります。',
         '4. 一度使用すると再使用できません。受け取りは受付へ直接お問い合わせください。'
       ],
       ['特典に有効期限はありますか？', 'スタンプが10個たまったらどうなりますか？']
@@ -6175,7 +6256,7 @@ function getBuiltInSupportReply(messageNorm) {
         'スタンプ特典の使い方です。',
         '1. マイページの「スタンプ・特典履歴」を開きます。',
         '2. 獲得済み特典を確認し、必要な場合は「使用する」を押します。',
-        '3. 特典は達成当日から使用できます。',
+        '3. 特典は達成当日から使用でき、使用すると履歴から表示されなくなります。',
         '4. 受取期限は獲得から1か月です。',
         '補足: 一度使用すると再度は使用できません。受け取りの際は受付へ直接お問い合わせください'
       ],

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mayumi-app-v37';
+const CACHE_NAME = 'mayumi-app-v40';
 const ASSETS = [
   './',
   './index.html',
@@ -14,10 +14,27 @@ function isHtmlRequest(request) {
   return request.mode === 'navigate' || accept.includes('text/html');
 }
 
+function isNetworkFirstAsset(requestUrl) {
+  const pathname = requestUrl.pathname || '';
+  return pathname.endsWith('/index.html') ||
+    pathname.endsWith('/app.js') ||
+    pathname.endsWith('/style.css') ||
+    pathname.endsWith('/manifest.json') ||
+    pathname.endsWith('/stamp-launch.html');
+}
+
+function createNoStoreRequest(request) {
+  try {
+    return new Request(request, { cache: 'no-store' });
+  } catch (e) {
+    return request;
+  }
+}
+
 async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   try {
-    const response = await fetch(request);
+    const response = await fetch(createNoStoreRequest(request));
     cache.put(request, response.clone());
     return response;
   } catch (err) {
@@ -103,7 +120,7 @@ self.addEventListener('fetch', (event) => {
 
   const requestUrl = new URL(event.request.url);
   const isSameOrigin = requestUrl.origin === self.location.origin;
-  if (isHtmlRequest(event.request)) {
+  if (isHtmlRequest(event.request) || (isSameOrigin && isNetworkFirstAsset(requestUrl))) {
     event.respondWith(networkFirst(event.request));
     return;
   }
