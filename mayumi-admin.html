@@ -2452,7 +2452,7 @@
             <div>
               <div class="card-title">🎁 月別ガチャ特典設定</div>
               <div style="font-size:12px; color:var(--text-light); margin-top:6px;">
-                行が月、列が A〜D 賞です。各セルで特典内容と出現確率を編集できます。
+                行が月、列が A〜D 賞です。各セルで特典内容、説明書き（注意書き）、出現確率を編集できます。
               </div>
             </div>
             <div class="flex" style="flex-wrap:wrap;">
@@ -2462,7 +2462,7 @@
           </div>
           <div id="rewardGachaConfigMeta" style="font-size:12px; color:var(--text-light); margin:14px 0 10px;">読み込み中...</div>
           <div style="overflow:auto;">
-            <table style="min-width:1120px;">
+            <table style="min-width:1240px;">
               <thead>
                 <tr>
                   <th style="width:170px;">月</th>
@@ -4973,10 +4973,10 @@
       return {
         month: monthKey,
         prizes: {
-          A: { content: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.A },
-          B: { content: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.B },
-          C: { content: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.C },
-          D: { content: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.D }
+          A: { content: '', note: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.A },
+          B: { content: '', note: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.B },
+          C: { content: '', note: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.C },
+          D: { content: '', note: '', probability: DEFAULT_REWARD_GACHA_PROBABILITIES.D }
         }
       };
     }
@@ -4998,6 +4998,7 @@
         REWARD_GACHA_RANK_KEYS.forEach((key) => {
           prizes[key] = {
             content: String(entry && entry.prizes && entry.prizes[key] && entry.prizes[key].content || ''),
+            note: String(entry && entry.prizes && entry.prizes[key] && entry.prizes[key].note || ''),
             probability: normalizeRewardGachaProbability(
               entry && entry.prizes && entry.prizes[key] && entry.prizes[key].probability,
               defaultEntry.prizes[key].probability
@@ -5090,13 +5091,17 @@
               </div>
             </td>
             ${REWARD_GACHA_RANK_KEYS.map((key) => {
-              const prize = entry && entry.prizes && entry.prizes[key] || { content: '', probability: 0 };
+              const prize = entry && entry.prizes && entry.prizes[key] || { content: '', note: '', probability: 0 };
               return `
                 <td style="vertical-align:top;">
                   <div style="display:flex; flex-direction:column; gap:10px;">
                     <label style="display:flex; flex-direction:column; gap:6px;">
                       <span style="font-size:12px; color:var(--text-light);">特典内容</span>
                       <textarea rows="4" style="resize:vertical;" placeholder="${escapeHtml(`${key}賞の特典内容`)}" oninput="updateRewardGachaPrizeField(${index}, '${key}', 'content', this.value)">${escapeHtml(prize.content || '')}</textarea>
+                    </label>
+                    <label style="display:flex; flex-direction:column; gap:6px;">
+                      <span style="font-size:12px; color:var(--text-light);">説明書き（注意書き）</span>
+                      <textarea rows="3" style="resize:vertical;" placeholder="${escapeHtml(`${key}賞の説明書き・注意書き`)}" oninput="updateRewardGachaPrizeField(${index}, '${key}', 'note', this.value)">${escapeHtml(prize.note || '')}</textarea>
                     </label>
                     <label style="display:flex; flex-direction:column; gap:6px;">
                       <span style="font-size:12px; color:var(--text-light);">出現確率 (%)</span>
@@ -5139,11 +5144,14 @@
       if (!entry.prizes[key]) {
         entry.prizes[key] = {
           content: '',
+          note: '',
           probability: DEFAULT_REWARD_GACHA_PROBABILITIES[key] || 0
         };
       }
       if (field === 'probability') {
         entry.prizes[key].probability = normalizeRewardGachaProbability(value, 0);
+      } else if (field === 'note') {
+        entry.prizes[key].note = String(value || '');
       } else {
         entry.prizes[key].content = String(value || '');
       }
@@ -5259,6 +5267,9 @@
         return {
           id: reward && reward.id ? String(reward.id) : `reward-${index + 1}`,
           rewardName: reward && reward.rewardName ? String(reward.rewardName) : 'スタンプ達成特典',
+          rewardNote: reward && (reward.rewardNote !== undefined || reward.note !== undefined)
+            ? String(reward.rewardNote !== undefined ? reward.rewardNote : reward.note)
+            : '',
           cardNum: Math.max(1, Number(reward && reward.cardNum) || 1),
           earnedDate: earnedDate,
           expiryDate: expiryDate,
@@ -5537,9 +5548,16 @@
         const rewardRows = card.rewards.length
           ? card.rewards.map((reward, index) => {
             const receiptStatus = getRewardReceiptStatusInfo(reward);
+            const rewardNoteHtml = reward.rewardNote
+              ? `<div style="font-size:11px; color:var(--text-mid); line-height:1.6; margin-top:4px;">${escapeHtml(String(reward.rewardNote || '')).replace(/\n/g, '<br>')}</div>`
+              : '<div style="font-size:11px; color:var(--text-light); margin-top:4px;">説明書きなし</div>';
             return `
               <tr>
-                <td style="font-size:12px;">${escapeHtml(String(index + 1))}件目</td>
+                <td style="font-size:12px; line-height:1.6;">
+                  <div>${escapeHtml(String(index + 1))}件目</div>
+                  <div style="font-weight:700; color:var(--text-dark); margin-top:4px;">${escapeHtml(reward.rewardName || 'スタンプ達成特典')}</div>
+                  ${rewardNoteHtml}
+                </td>
                 <td style="text-align:center;">
                   <span style="display:inline-block; font-size:11px; padding:4px 10px; border-radius:999px; ${receiptStatus.style}">
                     ${escapeHtml(receiptStatus.label)}
@@ -5577,7 +5595,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th style="width:90px;">記録</th>
+                    <th style="width:260px;">記録 / 特典内容</th>
                     <th style="width:140px;">受け取り状況</th>
                     <th style="width:150px;">有効期限</th>
                     <th style="width:150px;">受取日時</th>
@@ -5774,6 +5792,7 @@
       editingRewardEntries = getUserRewards(user).map((reward, index) => ({
         id: reward.id || `reward-${index + 1}`,
         rewardName: reward.rewardName || 'スタンプ達成特典',
+        rewardNote: reward.rewardNote || '',
         cardNum: Math.max(1, Number(reward.cardNum) || 1),
         earnedDate: reward.earnedDate || '',
         expiryDate: reward.expiryDate || '',
@@ -5811,6 +5830,8 @@
           </div>
           <div style="font-size:12px; color:var(--text-mid); line-height:1.6; margin-bottom:12px;">
             <div>対象カード: ${escapeHtml(String(Math.max(1, Number(reward.cardNum) || 1)))}枚目</div>
+            <div>特典内容: ${escapeHtml(reward.rewardName || 'スタンプ達成特典')}</div>
+            <div>説明書き: ${reward.rewardNote ? escapeHtml(String(reward.rewardNote || '')).replace(/\n/g, '<br>') : 'なし'}</div>
             <div>有効期限: ${formatDisplayDate(reward.expiryDate, true)}</div>
             <div>受け取り状況: ${escapeHtml(getRewardReceiptStatusInfo(reward).label)}${reward.usedAt ? ` / 受取日時 ${formatDisplayDate(reward.usedAt, true)}` : ''}</div>
           </div>
@@ -5827,6 +5848,14 @@
               <label>有効期限</label>
               <input type="date" value="${toDateInputValue(reward.expiryDate)}" onchange="updateRewardEntryField(${index}, 'expiryDate', this.value)">
             </div>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label>特典内容</label>
+            <input type="text" value="${escapeHtml(reward.rewardName || 'スタンプ達成特典')}" oninput="updateRewardEntryField(${index}, 'rewardName', this.value)">
+          </div>
+          <div class="form-group">
+            <label>説明書き（注意書き）</label>
+            <textarea rows="3" style="resize:vertical;" oninput="updateRewardEntryField(${index}, 'rewardNote', this.value)">${escapeHtml(reward.rewardNote || '')}</textarea>
           </div>
           <div class="flex" style="gap:12px; flex-wrap:wrap; align-items:flex-end;">
             <div class="form-group" style="flex:1; min-width:180px;">
@@ -5847,6 +5876,7 @@
       editingRewardEntries.push({
         id: `reward-${Date.now()}-${editingRewardEntries.length + 1}`,
         rewardName: 'スタンプ達成特典',
+        rewardNote: '',
         cardNum: fallbackCardNum,
         earnedDate: '',
         expiryDate: '',
@@ -5877,6 +5907,7 @@
         return {
           id: reward.id || `reward-${index + 1}`,
           rewardName: (reward.rewardName || '').trim() || 'スタンプ達成特典',
+          rewardNote: String(reward.rewardNote || '').trim(),
           cardNum: Math.max(1, Number(reward.cardNum) || 1),
           earnedDate: earnedDate,
           expiryDate: expiryDate,

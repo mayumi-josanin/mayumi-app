@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.23.75';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.23.76';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -110,10 +110,10 @@ let accessibilitySettings = Object.assign({
   highContrast: false
 }, readJsonStorage(ACCESSIBILITY_STORAGE_KEY, {}));
 const DEFAULT_REWARD_GACHA_PRIZE_POOL = Object.freeze([
-  { key: 'A', rankLabel: 'A賞', rewardName: 'A賞プレゼント', capsuleColor: '#f5cb6c', accentColor: '#b0791b', message: '当日のおたのしみプレゼントをご用意しています。', weight: 5 },
-  { key: 'B', rankLabel: 'B賞', rewardName: 'B賞プレゼント', capsuleColor: '#f3b7c9', accentColor: '#b86282', message: '当日のおたのしみプレゼントをご用意しています。', weight: 15 },
-  { key: 'C', rankLabel: 'C賞', rewardName: 'C賞プレゼント', capsuleColor: '#b9d8a7', accentColor: '#628f58', message: '当日のおたのしみプレゼントをご用意しています。', weight: 30 },
-  { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: '当日のおたのしみプレゼントをご用意しています。', weight: 50 }
+  { key: 'A', rankLabel: 'A賞', rewardName: 'A賞プレゼント', capsuleColor: '#f5cb6c', accentColor: '#b0791b', message: 'お楽しみプレゼントをご用意しています。', weight: 5 },
+  { key: 'B', rankLabel: 'B賞', rewardName: 'B賞プレゼント', capsuleColor: '#f3b7c9', accentColor: '#b86282', message: 'お楽しみプレゼントをご用意しています。', weight: 15 },
+  { key: 'C', rankLabel: 'C賞', rewardName: 'C賞プレゼント', capsuleColor: '#b9d8a7', accentColor: '#628f58', message: 'お楽しみプレゼントをご用意しています。', weight: 30 },
+  { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: 'お楽しみプレゼントをご用意しています。', weight: 50 }
 ]);
 const REWARD_GACHA_RANK_KEYS = ['A', 'B', 'C', 'D'];
 let REWARD_GACHA_PRIZE_POOL = cloneRewardGachaPrizePool(DEFAULT_REWARD_GACHA_PRIZE_POOL);
@@ -1416,6 +1416,9 @@ function normalizeSingleReward(reward, index) {
     id: reward && reward.id ? String(reward.id) : `reward-${index + 1}`,
     cardNum: Math.max(1, Number(reward && reward.cardNum) || 1),
     rewardName: reward && reward.rewardName ? String(reward.rewardName) : '特典プレゼント',
+    rewardNote: reward && (reward.rewardNote !== undefined || reward.note !== undefined)
+      ? String(reward.rewardNote !== undefined ? reward.rewardNote : reward.note)
+      : '',
     earnedDate: earnedDate,
     expiryDate: expiryDate,
     used: reward && (
@@ -1445,6 +1448,9 @@ function normalizeRewardList(rewards) {
     if (!merged[key]) {
       merged[key] = reward;
       return;
+    }
+    if (reward.rewardNote && !merged[key].rewardNote) {
+      merged[key] = Object.assign({}, merged[key], { rewardNote: reward.rewardNote });
     }
     if (reward.used && !merged[key].used) {
       merged[key] = reward;
@@ -1571,7 +1577,8 @@ function getRewardGachaPrizeMeta(rewardName) {
     rewardName: normalized || '特典プレゼント',
     capsuleColor: '#d9c5a2',
     accentColor: '#8d6c46',
-    message: '受付でその時の特典をお受け取りください。'
+    message: '受付でその時の特典をお受け取りください。',
+    note: ''
   };
 }
 
@@ -1595,6 +1602,15 @@ function normalizeRewardGachaMonthKey(value) {
 function getCurrentRewardGachaMonthKey() {
   const now = new Date();
   return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+}
+
+function getRewardGachaPrizeNote(prizeMeta) {
+  const prize = prizeMeta && typeof prizeMeta === 'object'
+    ? prizeMeta
+    : getRewardGachaPrizeMeta(prizeMeta);
+  const rewardNote = prize && prize.rewardNote;
+  const fallbackNote = prize && prize.note;
+  return String((String(rewardNote || '').trim() ? rewardNote : fallbackNote) || '').trim();
 }
 
 function getRewardGachaPrizeContent(prizeMeta) {
@@ -1627,6 +1643,7 @@ function normalizeRewardGachaPrizeConfig(prizes) {
     const prize = prizes && prizes[key] || {};
     normalized[key] = {
       content: String(prize.content || '').trim(),
+      note: String(prize.note || '').trim(),
       probability: sortedProbabilities[index]
     };
   });
@@ -1646,6 +1663,7 @@ function buildRewardGachaPrizePoolFromConfig(configEntry) {
       capsuleColor: basePrize.capsuleColor,
       accentColor: basePrize.accentColor,
       message: basePrize.message,
+      note: String(savedPrize.note || '').trim(),
       weight: normalizeRewardGachaProbability(savedPrize.probability, basePrize.weight)
     };
   });
@@ -1679,6 +1697,39 @@ function getActiveRewardGachaConfigEntry(config, monthKey) {
     }
   }
   return exactMatch || latestPrevious || monthlyPrizes[monthlyPrizes.length - 1] || null;
+}
+
+function resolveRewardGachaResultEntry(prizeMeta, prize) {
+  if (prizeMeta && typeof prizeMeta === 'object' && prizeMeta.rewardName && prizeMeta.expiryDate) {
+    return prizeMeta;
+  }
+  const currentReward = getCurrentCardReward();
+  if (!currentReward) return prizeMeta && typeof prizeMeta === 'object' ? prizeMeta : null;
+  const currentPrize = getRewardGachaPrizeMeta(currentReward.rewardName);
+  if (currentPrize.key === (prize && prize.key)) {
+    return Object.assign({}, currentReward, prizeMeta && typeof prizeMeta === 'object' ? prizeMeta : {});
+  }
+  return prizeMeta && typeof prizeMeta === 'object' ? prizeMeta : null;
+}
+
+function buildRewardGachaOtherPrizesHtml(activePrizeKey) {
+  const otherPrizes = REWARD_GACHA_PRIZE_POOL.filter(function (prize) {
+    return prize.key !== activePrizeKey;
+  });
+  if (!otherPrizes.length) return '';
+  return [
+    '<div class="gacha-result-lineup-title">今回の他の賞品</div>',
+    '<div class="gacha-result-lineup-list">',
+    otherPrizes.map(function (prize) {
+      return `
+        <div class="gacha-result-lineup-item">
+          <span class="gacha-result-lineup-rank" style="color:${prize.accentColor};">${escapeHtml(prize.rankLabel)}</span>
+          <span class="gacha-result-lineup-name">${escapeHtml(getRewardGachaPrizeContent(prize))}</span>
+        </div>
+      `;
+    }).join(''),
+    '</div>'
+  ].join('');
 }
 
 function getCurrentCardReward(cardNum) {
@@ -1717,6 +1768,7 @@ function buildLocalGachaReward(prizeMeta) {
     id: 'reward-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
     cardNum: stampCardNum,
     rewardName: prizeMeta.rewardName,
+    rewardNote: String(prizeMeta && prizeMeta.note || ''),
     earnedDate: achievedAt,
     expiryDate: expiryDate.toISOString(),
     used: false
@@ -1765,7 +1817,10 @@ function showRewardGachaResult(prizeMeta, options) {
   const badge = document.getElementById('rewardGachaResultBadge');
   const rank = document.getElementById('rewardGachaResultRank');
   const name = document.getElementById('rewardGachaResultName');
+  const expiry = document.getElementById('rewardGachaResultExpiry');
   const message = document.getElementById('rewardGachaResultMessage');
+  const note = document.getElementById('rewardGachaResultNote');
+  const otherPrizes = document.getElementById('rewardGachaOtherPrizes');
   const gift = document.getElementById('rewardGachaResultGift');
   const drawBtn = document.getElementById('rewardGachaDrawBtn');
   const nextBtn = document.getElementById('rewardGachaNextBtn');
@@ -1773,7 +1828,11 @@ function showRewardGachaResult(prizeMeta, options) {
   const status = document.getElementById('rewardGachaStatus');
   const machine = document.getElementById('rewardGachaMachine');
   const prize = getRewardGachaPrizeMeta(prizeMeta && prizeMeta.rewardName ? prizeMeta.rewardName : prizeMeta);
+  const rewardEntry = resolveRewardGachaResultEntry(prizeMeta, prize);
   const alreadyDrawn = !!(options && options.alreadyDrawn);
+  const prizeContent = getRewardGachaPrizeContent(rewardEntry || prize);
+  const noteText = getRewardGachaPrizeNote(rewardEntry) || getRewardGachaPrizeNote(prizeMeta) || getRewardGachaPrizeNote(prize);
+  const expiryText = rewardEntry && rewardEntry.expiryDate ? formatCustomerDateYmd(rewardEntry.expiryDate) : '';
 
   if (gift) {
     gift.textContent = '🎁';
@@ -1786,15 +1845,34 @@ function showRewardGachaResult(prizeMeta, options) {
   }
   // ランク表示（○賞）
   if (rank) {
-    rank.textContent = prize.rewardName || prize.rankLabel;
+    rank.textContent = prize.rankLabel || prize.rewardName;
     rank.style.color = prize.accentColor;
   }
   if (name) {
-    name.textContent = '';
-    name.style.display = 'none';
+    name.textContent = prizeContent;
+    name.style.display = 'block';
+  }
+  if (expiry) {
+    const showExpiry = prize.key === 'D' && !!expiryText;
+    expiry.textContent = showExpiry ? `有効期限: ${expiryText}まで` : '';
+    expiry.style.display = showExpiry ? 'inline-flex' : 'none';
   }
   if (message) {
-    message.innerHTML = `${escapeHtml(prize.message)}<br>受け取りの際は受付へ直接お問い合わせください。`;
+    message.innerHTML = `${escapeHtml(prize.message)}<br>受け取りの際は受付へお声かけください。`;
+  }
+  if (note) {
+    if (noteText) {
+      note.innerHTML = `<strong>説明書き・注意書き</strong><br>${escapeHtml(noteText).replace(/\n/g, '<br>')}`;
+      note.style.display = 'block';
+    } else {
+      note.innerHTML = '';
+      note.style.display = 'none';
+    }
+  }
+  if (otherPrizes) {
+    const otherPrizesHtml = buildRewardGachaOtherPrizesHtml(prize.key);
+    otherPrizes.innerHTML = otherPrizesHtml;
+    otherPrizes.style.display = otherPrizesHtml ? 'block' : 'none';
   }
   if (drawBtn) drawBtn.style.display = 'none';
   if (nextBtn) nextBtn.style.display = 'block';
@@ -2270,7 +2348,7 @@ function renderEarnedRewards() {
         </div>
         <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:10px;">${rewardTitle}</div>
         <div style="font-size:13px; color:var(--sage-dark); font-weight:500; line-height:1.5; margin-bottom:12px; padding:10px; background:var(--cream); border-radius:8px;">
-          🎁 <strong>受け取りの際は受付へ直接お問い合わせください。</strong><br>
+          🎁 <strong>受け取りの際は受付へお声かけください。</strong><br>
           ※ 特典は達成当日から使用できます。<br>
           ※ 受取期間は特典獲得から1ヶ月で、一度使用すると再度は使用できません。
         </div>
@@ -5684,7 +5762,7 @@ function getFeatureSupportReply(messageNorm) {
         [
           '特典の受取期限は、スタンプ10個を達成した日から1か月です。',
           'マイページの「🎁 スタンプ・特典履歴」に期限が表示されます。',
-          '受け取りについては受付へ直接お問い合わせください。'
+          '受け取りの際は受付へお声かけください。'
         ],
         ['スタンプ特典の使い方を知りたい', '特典はどこで確認できますか？']
       );
@@ -5712,7 +5790,7 @@ function getFeatureSupportReply(messageNorm) {
         '1. マイページの「🎁 スタンプ・特典履歴」を開きます。',
         '2. 未使用のガチャ特典を確認し、必要なら「使用する」を押します。',
         '3. 特典は達成当日から使用でき、使用すると履歴から表示されなくなります。',
-        '4. 一度使用すると再使用できません。受け取りは受付へ直接お問い合わせください。'
+        '4. 一度使用すると再使用できません。受け取りの際は受付へお声かけください。'
       ],
       ['特典に有効期限はありますか？', 'スタンプが10個たまったらどうなりますか？']
     );
@@ -6228,7 +6306,7 @@ function getBuiltInSupportReply(messageNorm) {
         '2. 未使用のガチャ特典を確認し、必要な場合は「使用する」を押します。',
         '3. 特典は達成当日から使用でき、使用すると履歴から表示されなくなります。',
         '4. 受取期限は獲得から1か月です。',
-        '補足: 一度使用すると再度は使用できません。受け取りの際は受付へ直接お問い合わせください'
+        '補足: 一度使用すると再度は使用できません。受け取りの際は受付へお声かけください'
       ],
       ['スタンプ特典の使い方を知りたい', 'スタンプの集め方を知りたい']
     );

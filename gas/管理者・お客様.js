@@ -150,7 +150,7 @@ const REWARD_GACHA_PRIZE_POOL = [
   { key: 'A', rankLabel: 'A賞', rewardName: 'A賞プレゼント', capsuleColor: '#f5cb6c', accentColor: '#b0791b', message: '受付でその時の特典をお受け取りください。', weight: 5 },
   { key: 'B', rankLabel: 'B賞', rewardName: 'B賞プレゼント', capsuleColor: '#f3b7c9', accentColor: '#b86282', message: 'まゆみ助産院からのうれしいごほうびです。受付でご案内します。', weight: 15 },
   { key: 'C', rankLabel: 'C賞', rewardName: 'C賞プレゼント', capsuleColor: '#b9d8a7', accentColor: '#628f58', message: 'やさしいプレゼントをご用意しています。受付へお声がけください。', weight: 30 },
-  { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: '当日のおたのしみプレゼントは受付でご確認ください。', weight: 50 }
+  { key: 'D', rankLabel: 'D賞', rewardName: 'D賞プレゼント', capsuleColor: '#b9d9f3', accentColor: '#547fa2', message: 'お楽しみプレゼントをご用意しています。', weight: 50 }
 ];
 const REWARD_GACHA_RANK_KEYS = ['A', 'B', 'C', 'D'];
 const FALLBACK_SPREADSHEET_ID = '1gIcUGxg2PEuFoU5a_IgQ6lDWgghceJ7v2dgqo9iPe4w';
@@ -387,10 +387,10 @@ function createDefaultRewardGachaMonthEntry_(monthKey) {
   return {
     month: monthKey || getCurrentRewardGachaMonthKey_(),
     prizes: {
-      A: { content: '', probability: 5 },
-      B: { content: '', probability: 15 },
-      C: { content: '', probability: 30 },
-      D: { content: '', probability: 50 }
+      A: { content: '', note: '', probability: 5 },
+      B: { content: '', note: '', probability: 15 },
+      C: { content: '', note: '', probability: 30 },
+      D: { content: '', note: '', probability: 50 }
     }
   };
 }
@@ -409,6 +409,7 @@ function normalizeRewardGachaPrizes_(rawPrizes, defaultPrizes) {
     const prize = rawPrizes && rawPrizes[key] || {};
     normalized[key] = {
       content: String(prize.content || '').trim(),
+      note: String(prize.note || '').trim(),
       probability: sortedProbabilities[index]
     };
   });
@@ -508,6 +509,7 @@ function getActiveRewardGachaPrizePool_(monthKey) {
       key: basePrize.key,
       rankLabel: basePrize.rankLabel,
       rewardName: formatRewardGachaRewardName_(basePrize.rankLabel, savedPrize.content),
+      note: String(savedPrize.note || '').trim(),
       capsuleColor: basePrize.capsuleColor,
       accentColor: basePrize.accentColor,
       message: basePrize.message,
@@ -936,7 +938,8 @@ function getProductInventoryAlerts_() {
   return (products.products || []).filter(function (product) {
     const stockQty = Number(product.stockQty || 0);
     const lowStockThreshold = Number(product.lowStockThreshold || 0);
-    return stockQty <= 0 || (lowStockThreshold > 0 && stockQty <= lowStockThreshold);
+    const isSoldOut = normalizeProductSoldOutStatus_(product && product.soldOutStatus) === '売切' || product.isSoldOut === true;
+    return isSoldOut || (lowStockThreshold > 0 && stockQty > 0 && stockQty <= lowStockThreshold);
   }).slice(0, 10);
 }
 
@@ -2397,6 +2400,7 @@ function getProducts() {
   const sheet = ss.getSheetByName(SHEETS.PRODUCTS);
   if (!sheet) return { status: 'ok', products: [] };
   ensureProductSheetStructure_(sheet);
+  const soldOutCol = ensureProductSoldOutColumn_(sheet);
   const noticeCol = ensureNoticeVisibilityColumn_(sheet, 6, '公開');
   const deletedAtCol = ensureNoticeDeletedAtColumn_(sheet);
   const deleteCols = ensureSoftDeleteColumns_(sheet);
@@ -2412,6 +2416,7 @@ function getProducts() {
     if (!isPublishAtAvailable_(row[publishAtCol - 1])) continue;
     const stockQty = Number(row[9] || 0);
     const lowStockThreshold = Number(row[10] || 0);
+    const soldOutStatus = normalizeProductSoldOutStatus_(row[soldOutCol - 1]);
     const imageUrls = parseStoredImageUrls_(row[3]);
     const descriptionImageUrls = parseStoredImageUrls_(row[7]);
     products.push({
@@ -2427,8 +2432,9 @@ function getProducts() {
       updatedAt: formatMaybeDateTime_(row[8]),
       stockQty: stockQty,
       lowStockThreshold: lowStockThreshold,
-      isSoldOut: stockQty <= 0,
-      isLowStock: lowStockThreshold > 0 && stockQty > 0 && stockQty <= lowStockThreshold,
+      soldOutStatus: soldOutStatus,
+      isSoldOut: soldOutStatus === '売切',
+      isLowStock: soldOutStatus !== '売切' && lowStockThreshold > 0 && stockQty > 0 && stockQty <= lowStockThreshold,
       publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
       noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[5] || '公開')
     });
@@ -2873,6 +2879,37 @@ function ensureProductSheetStructure_(sheet) {
   sheet.setColumnWidth(10, 90);
   sheet.setColumnWidth(11, 120);
   ensureNoticeVisibilityColumn_(sheet, 6, '公開');
+  ensureProductSoldOutColumn_(sheet);
+}
+
+function normalizeProductSoldOutStatus_(status) {
+  return String(status || '').trim() === '売切' ? '売切' : '在庫あり';
+}
+
+function ensureProductSoldOutColumn_(sheet) {
+  if (!sheet) return 0;
+  const soldOutCol = ensureNamedColumn_(sheet, '売切状態', 110);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return soldOutCol;
+
+  const currentValues = sheet.getRange(2, soldOutCol, lastRow - 1, 1).getDisplayValues();
+  const stockValues = sheet.getRange(2, 10, lastRow - 1, 1).getDisplayValues();
+  const nextValues = [];
+  let needsUpdate = false;
+
+  for (let i = 0; i < currentValues.length; i++) {
+    const current = String(currentValues[i][0] || '').trim();
+    const next = current
+      ? normalizeProductSoldOutStatus_(current)
+      : (Number(stockValues[i][0] || 0) <= 0 ? '売切' : '在庫あり');
+    if (current !== next) needsUpdate = true;
+    nextValues.push([next]);
+  }
+
+  if (needsUpdate) {
+    sheet.getRange(2, soldOutCol, nextValues.length, 1).setValues(nextValues);
+  }
+  return soldOutCol;
 }
 
 function ensureSortOrderColumn_(sheet) {
@@ -3016,6 +3053,7 @@ function sanitizeRewardEntry_(entry, fallbackId) {
     id: String(base.id || fallbackId || new Date().getTime()),
     cardNum: Math.max(1, Number(base.cardNum || 1) || 1),
     rewardName: String(base.rewardName || 'スタンプ達成特典'),
+    rewardNote: String(base.rewardNote || base.note || ''),
     earnedDate: earnedDate,
     expiryDate: expiryDate,
     used: base.used === true || String(base.used).toLowerCase() === 'true' || !!normalizeDateTimeValue_(base.usedAt),
@@ -3284,6 +3322,7 @@ function getRewardGachaPrizeMeta_(rewardName) {
     capsuleColor: '#d9c5a2',
     accentColor: '#8d6c46',
     message: '受付でその時の特典をお受け取りください。',
+    note: '',
     weight: 0
   };
 }
@@ -3314,6 +3353,7 @@ function buildRewardGachaEntry_(rewardStatus, prizeMeta) {
     id: 'reward-' + new Date().getTime() + '-' + Math.floor(Math.random() * 1000),
     cardNum: Math.max(1, Number(rewardStatus && rewardStatus.stampCardNum) || 1),
     rewardName: prizeMeta.rewardName,
+    rewardNote: String(prizeMeta && prizeMeta.note || ''),
     earnedDate: earnedDate,
     expiryDate: formatDateTime_(expiryDate),
     used: false
@@ -3326,6 +3366,9 @@ function buildRewardGachaResult_(reward, alreadyDrawn) {
     key: prizeMeta.key,
     rankLabel: prizeMeta.rankLabel,
     rewardName: String((reward && reward.rewardName) || prizeMeta.rewardName || '特典プレゼント'),
+    rewardNote: String((reward && reward.rewardNote) || prizeMeta.note || ''),
+    earnedDate: normalizeDateTimeValue_(reward && reward.earnedDate),
+    expiryDate: normalizeDateTimeValue_(reward && reward.expiryDate),
     capsuleColor: prizeMeta.capsuleColor,
     accentColor: prizeMeta.accentColor,
     message: prizeMeta.message,
@@ -4063,6 +4106,7 @@ function getAdminProducts() {
   const sheet = ss.getSheetByName(SHEETS.PRODUCTS);
   if (!sheet) return { status: 'ok', products: [] };
   ensureProductSheetStructure_(sheet);
+  const soldOutCol = ensureProductSoldOutColumn_(sheet);
   const noticeCol = ensureNoticeVisibilityColumn_(sheet, 6, '公開');
   const deletedAtCol = ensureNoticeDeletedAtColumn_(sheet);
   const deleteCols = ensureSoftDeleteColumns_(sheet);
@@ -4079,6 +4123,7 @@ function getAdminProducts() {
 
     const imageUrls = parseStoredImageUrls_(row[3]);
     const descriptionImageUrls = parseStoredImageUrls_(row[7]);
+    const soldOutStatus = normalizeProductSoldOutStatus_(row[soldOutCol - 1]);
     products.push({
       rowIdx: i + 1,
       category: String(row[0]),
@@ -4095,6 +4140,8 @@ function getAdminProducts() {
       updatedAt: formatMaybeDateTime_(row[8]),
       stockQty: Number(row[9] || 0),
       lowStockThreshold: Number(row[10] || 0),
+      soldOutStatus: soldOutStatus,
+      isSoldOut: soldOutStatus === '売切',
       publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
       noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[5] || '公開'),
       noticeDeletedAt: formatMaybeDateTime_(row[deletedAtCol - 1]) || String(row[deletedAtCol - 1] || '')
@@ -4111,6 +4158,7 @@ function handleAddProduct(data) {
     const ss = getOrCreateSpreadsheet();
     const prodSheet = ss.getSheetByName(SHEETS.PRODUCTS);
     ensureProductSheetStructure_(prodSheet);
+    const soldOutCol = ensureProductSoldOutColumn_(prodSheet);
     const noticeCol = ensureNoticeVisibilityColumn_(prodSheet, 6, '公開');
     const publishAtCol = ensurePublishAtColumn_(prodSheet);
     const updatedAt = getCurrentTime();
@@ -4134,6 +4182,9 @@ function handleAddProduct(data) {
     prodSheet.getRange(prodSheet.getLastRow(), noticeCol).setValue(
       normalizePublishVisibilityStatus_(data.noticeStatus || data.status || '公開')
     );
+    if (soldOutCol) {
+      prodSheet.getRange(prodSheet.getLastRow(), soldOutCol).setValue(normalizeProductSoldOutStatus_(data.soldOutStatus));
+    }
 
     // 管理マスタにも仕入値を追加
     if (data.costPrice) {
@@ -4167,6 +4218,7 @@ function handleUpdateProduct(data) {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.PRODUCTS);
     ensureProductSheetStructure_(sheet);
+    const soldOutCol = ensureProductSoldOutColumn_(sheet);
     const noticeCol = ensureNoticeVisibilityColumn_(sheet, 6, '公開');
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const rowIdx = Number(data.rowIdx);
@@ -4201,6 +4253,9 @@ function handleUpdateProduct(data) {
     if (data.description !== undefined) sheet.getRange(rowIdx, 7).setValue(data.description);
     if (data.stockQty !== undefined) sheet.getRange(rowIdx, 10).setValue(Number(data.stockQty || 0));
     if (data.lowStockThreshold !== undefined) sheet.getRange(rowIdx, 11).setValue(Number(data.lowStockThreshold || 0));
+    if (soldOutCol && data.soldOutStatus !== undefined) {
+      sheet.getRange(rowIdx, soldOutCol).setValue(normalizeProductSoldOutStatus_(data.soldOutStatus));
+    }
     if (data.descriptionImage !== undefined || data.descriptionImageUrls !== undefined) {
       sheet.getRange(rowIdx, 8).setValue(
         serializeStoredImageUrls_(data.descriptionImageUrls && data.descriptionImageUrls.length ? data.descriptionImageUrls : (data.descriptionImage || ''))
