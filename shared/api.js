@@ -534,14 +534,13 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
-  async function waitForAdminMemos(gasUrl, token, customerName, expectedMemo) {
+  async function waitForAdminMemos(gasUrl, token, matcher) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
       const data = await jsonp(gasUrl, "adminCustomerMemos", { token });
       const memos = data.memos || {};
-      if (normalizeText(memos[customerName]) === normalizeText(expectedMemo)) {
-        return memos;
-      }
+      const matched = matcher(memos);
+      if (matched !== undefined) return matched;
     }
     return null;
   }
@@ -1083,12 +1082,23 @@ window.MayumiSurveyApi = (() => {
       if (path.startsWith("/api/admin/customer-memos/") && method === "PUT") {
         const customerName = getRouteId(path, "/api/admin/customer-memos/");
         const memo = normalizeText(options.body?.memo);
+        const at = normalizeText(options.body?.at);
         await postToGas(gasUrl, "adminUpdateCustomerMemo", {
           token: options.token,
           customerName,
           memo,
+          at,
         });
-        const memos = await waitForAdminMemos(gasUrl, options.token, customerName, memo);
+        const memos = await waitForAdminMemos(gasUrl, options.token, (items) => {
+          const record = items?.[customerName];
+          if (!memo) return record ? undefined : items;
+          const entries = Array.isArray(record?.entries) ? record.entries : [];
+          const matched = entries.some((entry) =>
+            normalizeText(entry?.memo) === memo && (!at || normalizeText(entry?.at) === at),
+          );
+          if (matched) return items;
+          return !at && normalizeText(record?.latestMemo || record?.memo) === memo ? items : undefined;
+        });
         if (!memos) throw new Error("お客様メモの更新を確認できませんでした。");
         return { memos };
       }

@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v86";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v87";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -1587,6 +1587,11 @@ function setLoggedIn(loggedIn) {
   loginSubmitButton.textContent = "ログイン";
 }
 
+function getMemoEntryTime(value) {
+  const time = new Date(String(value || "").trim()).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
 function normalizeMemoRecord(record) {
   if (!record) return { latestMemo: "", entries: [] };
   if (typeof record === "string") {
@@ -1595,9 +1600,23 @@ function normalizeMemoRecord(record) {
       entries: record ? [{ at: "", memo: record }] : [],
     };
   }
+  const entries = Array.isArray(record.entries)
+    ? record.entries
+      .map((entry) => ({
+        at: String(entry?.at || "").trim(),
+        memo: String(entry?.memo || entry?.content || "").trim(),
+      }))
+      .filter((entry) => entry.memo)
+      .sort((a, b) => {
+        const diff = getMemoEntryTime(b.at) - getMemoEntryTime(a.at);
+        if (diff !== 0) return diff;
+        return b.at.localeCompare(a.at);
+      })
+    : [];
+  const latestMemo = entries[0]?.memo || String(record.latestMemo || record.memo || "").trim();
   return {
-    latestMemo: String(record.latestMemo || record.memo || "").trim(),
-    entries: Array.isArray(record.entries) ? record.entries : [],
+    latestMemo,
+    entries: entries.length || !latestMemo ? entries : [{ at: "", memo: latestMemo }],
   };
 }
 
@@ -3286,6 +3305,33 @@ function renderMeasurementSection(customerName) {
   `;
 }
 
+function renderCustomerMemoSection(customerName) {
+  const record = getCustomerMemoRecord(customerName);
+  return `
+    <article class="answer-item">
+      <strong>顧客メモ</strong>
+      <div class="meta">管理者メモを日付つきで記録できます。</div>
+      <form id="customerMemoForm" class="stack" data-customer-name="${escapeHtml(customerName)}">
+        <div class="customer-editor-grid">
+          <label>
+            記録日
+            <input name="at" type="date" required value="${escapeHtml(getTodayDateInputValue())}" />
+          </label>
+        </div>
+        <label>
+          メモ
+          <textarea id="customerMemoInput" name="memo" rows="4" placeholder="対応履歴、注意点、次回確認事項などを記録" required></textarea>
+        </label>
+        <div class="action-row">
+          <button class="primary-button" type="submit">メモを記録</button>
+        </div>
+      </form>
+      <div class="meta">${record.entries.length ? `メモ履歴 ${record.entries.length}件` : "まだ顧客メモはありません。"}</div>
+      ${renderMemoTimeline(customerName)}
+    </article>
+  `;
+}
+
 function getFilteredCustomerMeasurements(customerName) {
   return filterMeasurementsByPeriod(getCustomerMeasurements(customerName), state.selectedMeasurementPeriod);
 }
@@ -3851,6 +3897,7 @@ function renderCustomerManagement() {
       </div>
       <div class="stack">
         ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
+        ${renderCustomerMemoSection(selectedCustomer.name)}
         <article class="answer-item">
           <strong>時系列カルテ</strong>
           <div class="meta">古い回答から順に表示しています。</div>
@@ -3873,6 +3920,7 @@ function renderCustomerManagement() {
       <div class="stack">
         ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
         ${renderCustomerEditorCard(selectedCustomer.name)}
+        ${renderCustomerMemoSection(selectedCustomer.name)}
         ${renderMeasurementSection(selectedCustomer.name)}
         <article class="answer-item">
           <strong>カルテ</strong>
@@ -3918,6 +3966,7 @@ function renderCustomerManagement() {
       </div>
       <div class="stack">
         ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
+        ${renderCustomerMemoSection(selectedCustomer.name)}
         <div class="response-list">
           ${
             surveyResponses.length
@@ -3973,6 +4022,7 @@ function renderCustomerManagement() {
       </div>
       <div class="stack">
         ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
+        ${renderCustomerMemoSection(selectedCustomer.name)}
         ${renderComparisonSection(selectedResponse)}
         ${renderResponseCard(selectedResponse)}
       </div>
@@ -4055,6 +4105,11 @@ function renderCustomerManagement() {
   stage.querySelector("#measurementForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     void saveMeasurement(event.currentTarget);
+  });
+
+  stage.querySelector("#customerMemoForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void saveCustomerMemo(event.currentTarget);
   });
 
   stage.querySelector("[data-cancel-measurement-edit]")?.addEventListener("click", () => {
@@ -4532,21 +4587,41 @@ function getCustomerMemo(customerName) {
   return getCustomerMemoRecord(customerName).latestMemo;
 }
 
-async function saveCustomerMemo(customerName) {
-  const textarea = document.querySelector("#customerMemoInput");
-  if (!textarea || !customerName) return;
-  const memo = textarea.value.trim();
+async function saveCustomerMemo(form) {
+  const customerName = String(form?.dataset.customerName || "").trim();
+  if (!customerName) return;
+  const formData = new FormData(form);
+  const memo = String(formData.get("memo") || "").trim();
+  const at = String(formData.get("at") || "").trim();
+  if (!at) {
+    showToast("記録日を入力してください。");
+    return;
+  }
+  if (!memo) {
+    showToast("メモを入力してください。");
+    return;
+  }
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "保存中";
+  }
   try {
     const result = await api.request(`/api/admin/customer-memos/${encodeURIComponent(customerName)}`, {
       method: "PUT",
       token: state.token,
-      body: { memo },
+      body: { memo, at },
     });
     state.customerMemos = result.memos || state.customerMemos;
-    showToast("お客様メモを保存しました。");
-    renderResponses();
+    showToast("顧客メモを保存しました。");
+    renderCustomerManagement();
   } catch (error) {
-    showToast(error.message || "お客様メモを保存できませんでした。");
+    showToast(error.message || "顧客メモを保存できませんでした。");
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = "メモを記録";
+    }
   }
 }
 
@@ -4855,8 +4930,8 @@ function renderMemoTimeline(customerName) {
         .map(
           (entry) => `
             <article class="timeline-item">
-              <div class="meta">${escapeHtml(entry.at ? formatDate(entry.at) : "-")}</div>
-              <div>${escapeHtml(entry.memo || "")}</div>
+              <div class="meta">${escapeHtml(entry.at ? formatDateOnly(entry.at) : "-")}</div>
+              <div>${escapeHtml(entry.memo || "").replaceAll("\n", "<br />")}</div>
             </article>
           `,
         )
@@ -8010,7 +8085,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260422-03", { updateViaCache: "none" })
+        .register("./sw.js?v=20260423-01", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
