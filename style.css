@@ -2763,6 +2763,21 @@
       word-break: break-word;
     }
 
+    .gacha-result-expiry {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(84, 127, 162, 0.12);
+      color: #547fa2;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.5;
+      align-self: flex-start;
+    }
+
     .gacha-result-message {
       margin-top: 12px;
       padding-top: 12px;
@@ -2771,6 +2786,68 @@
       line-height: 1.8;
       color: var(--text-mid);
       text-align: center;
+      word-break: break-word;
+    }
+
+    .gacha-result-note {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255, 250, 242, 0.95);
+      border: 1px solid rgba(186, 159, 127, 0.18);
+      font-size: 12px;
+      line-height: 1.8;
+      color: var(--text-main);
+      word-break: break-word;
+    }
+
+    .gacha-result-note strong {
+      display: inline-block;
+      margin-bottom: 4px;
+      color: var(--sage-dark);
+    }
+
+    .gacha-result-lineup {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px dashed rgba(186, 159, 127, 0.25);
+    }
+
+    .gacha-result-lineup-title {
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+      text-align: center;
+      letter-spacing: 0.03em;
+    }
+
+    .gacha-result-lineup-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .gacha-result-lineup-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255, 251, 244, 0.92);
+      border: 1px solid rgba(186, 159, 127, 0.16);
+    }
+
+    .gacha-result-lineup-rank {
+      font-size: 12px;
+      font-weight: 700;
+      flex: 0 0 auto;
+    }
+
+    .gacha-result-lineup-name {
+      font-size: 13px;
+      color: var(--text-dark);
+      text-align: right;
       word-break: break-word;
     }
 
@@ -2835,6 +2912,19 @@
 
       .gacha-result-name {
         font-size: 15px;
+      }
+
+      .gacha-result-expiry {
+        align-self: center;
+      }
+
+      .gacha-result-lineup-item {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .gacha-result-lineup-name {
+        text-align: center;
       }
     }
 
