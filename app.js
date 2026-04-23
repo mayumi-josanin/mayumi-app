@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.23.76';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.23.77';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -1853,7 +1853,7 @@ function showRewardGachaResult(prizeMeta, options) {
     name.style.display = 'block';
   }
   if (expiry) {
-    const showExpiry = prize.key === 'D' && !!expiryText;
+    const showExpiry = !!expiryText;
     expiry.textContent = showExpiry ? `有効期限: ${expiryText}まで` : '';
     expiry.style.display = showExpiry ? 'inline-flex' : 'none';
   }
