@@ -873,10 +873,10 @@
   <div class="app-container">
     <!-- サイドバー (PC/iPad用) -->
     <aside class="sidebar">
-      <div class="nav-item active" onclick="switchPage('orders', this)">
+      <div class="nav-item" onclick="switchPage('orders', this)">
         <span>📦</span>注文管理
       </div>
-      <div class="nav-item" onclick="switchPage('blogs', this)">
+      <div class="nav-item active" onclick="switchPage('blogs', this)">
         <span>💬</span>NEWS
       </div>
       <div class="nav-item" onclick="switchPage('products', this)">
@@ -914,19 +914,19 @@
     <!-- メインコンテンツ -->
     <main class="main-content">
 
-      <!-- === 注文管理ページ === -->
-      <section id="page-orders" class="page active">
+      <section id="page-orders" class="page">
         <div class="flex space-between mb-2" style="flex-wrap:wrap; align-items:flex-start;">
-          <h2>注文一覧</h2>
+          <div>
+            <h2>📦 注文管理</h2>
+            <div style="font-size:12px; color:var(--text-light); margin-top:6px;">
+              ショップから入った注文を一覧で確認できます。ここに表示される注文金額はデータ分析に反映されません。
+            </div>
+          </div>
           <div class="flex" style="flex-wrap:wrap;">
             <label style="font-size:12px; display:flex; align-items:center; gap:5px; margin-right:10px;">
               <input type="checkbox" id="showAllOrders" onchange="loadAdminOrders()" style="width:14px; height:14px;">
               受取済も含めて表示
             </label>
-            <button type="button" class="btn" style="background:var(--primary); margin-right:8px;"
-              onclick="openOrderModal()">➕ 新規注文</button>
-            <button type="button" class="btn" style="background:var(--danger); margin-right:8px;"
-              onclick="bulkDelete('ORDERS')">🗑 一括削除</button>
             <button class="btn btn-outline" onclick="loadAdminOrders()">🔄 更新</button>
           </div>
         </div>
@@ -960,7 +960,7 @@
                 <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('ORDERS', this)"></th>
                 <th>日時</th>
                 <th>会員ID / 名前</th>
-                <th>商品 (個数)</th>
+                <th>注文商品一覧</th>
                 <th>ステータス</th>
                 <th>受取確認</th>
                 <th>操作</th>
@@ -996,7 +996,7 @@
       </section>
 
       <!-- === NEWS配信・管理ページ === -->
-      <section id="page-blogs" class="page">
+      <section id="page-blogs" class="page active">
         <div class="flex space-between mb-2">
           <h2>NEWS配信・管理</h2>
         </div>
@@ -2090,7 +2090,7 @@
         <div class="card mb-2">
           <div class="card-title">🛒 商品収益を記録</div>
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
-            店頭販売分などを日ごとにまとめて記録できます。商品名は商品管理の商品一覧と連動し、登録した内容は商品別販売数・商品別収益詳細・収益サマリーに反映されます。
+            店頭販売分などを日ごとにまとめて記録できます。商品名は商品管理の商品一覧と連動し、注文データではなく、ここに記録した内容のみが商品別販売数・商品別収益詳細・収益サマリーに反映されます。
           </div>
           <form id="productRevenueForm" onsubmit="submitProductRevenueRecord(event)">
             <div class="flex" style="gap:12px; flex-wrap:wrap; align-items:flex-end;">
@@ -2128,7 +2128,7 @@
         <div class="card">
           <div class="card-title">📦 商品別収益詳細 (月別)</div>
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
-            月を選択するとその月に売れた商品の価格帯ごとの 個数 / 売上 / 利益 を確認できます。天然だし調味粉は割引価格ごとに表示します。
+            月を選択すると、その月に「商品収益を記録」で登録した商品の価格帯ごとの 個数 / 売上 / 利益 を確認できます。天然だし調味粉は割引価格ごとに表示します。
           </div>
           <div class="filter-toolbar" style="margin-bottom:14px;">
             <select id="detailedAnalyticsMonthFilter" onchange="renderDetailedAnalytics(this.value)"
@@ -2186,6 +2186,9 @@
 
         <div class="card">
           <div class="card-title">📝 商品別販売数 (推移)</div>
+          <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
+            「商品収益を記録」で登録した件数だけを月別に集計します。
+          </div>
           <div class="table-wrapper">
             <table id="analyticsTable">
               <thead>
@@ -2650,10 +2653,10 @@
 
   <!-- スマホ用ボトムナビ -->
   <nav class="bottom-nav">
-    <div class="bottom-nav-item active" onclick="switchPage('orders', this)">
+    <div class="bottom-nav-item" onclick="switchPage('orders', this)">
       <span class="bottom-icon">📦</span>注文
     </div>
-    <div class="bottom-nav-item" onclick="switchPage('blogs', this)">
+    <div class="bottom-nav-item active" onclick="switchPage('blogs', this)">
       <span class="bottom-icon">💬</span>NEWS
     </div>
     <div class="bottom-nav-item" onclick="switchPage('products', this)">
@@ -2805,7 +2808,7 @@
       </div>
     </div>
   </div>
-  <!-- 注文編集/新規作成モーダル -->
+
   <div id="orderEditModal" class="modal">
     <div class="modal-content">
       <h3 id="orderModalTitle" style="margin-bottom: 15px;">📦 注文の編集</h3>
@@ -2862,7 +2865,6 @@
       </form>
     </div>
   </div>
-
   <div id="toast" class="toast"></div>
 
   <div id="contentPreviewModal" class="modal">
@@ -2930,39 +2932,6 @@
         <button class="btn" onclick="saveUserEdit()" style="flex:1;">保存</button>
         <button class="btn btn-outline" onclick="document.getElementById('userEditModal').classList.remove('active')"
           style="flex:1; margin-left:10px;">キャンセル</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="userOrdersModal" class="modal">
-    <div class="modal-content" style="max-width:980px;">
-      <div class="flex space-between" style="align-items:flex-start; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
-        <div>
-          <h3 style="margin-bottom:8px;">📦 会員の注文詳細</h3>
-          <div id="userOrdersMeta" style="font-size:13px; color:var(--text-mid);">読み込み中...</div>
-        </div>
-        <div class="flex" style="gap:8px; flex-wrap:wrap;">
-          <button class="btn btn-outline" type="button" onclick="openOrdersPageFromUserOrders()">注文管理を開く</button>
-          <button class="btn btn-outline" type="button" onclick="closeUserOrdersModal()">閉じる</button>
-        </div>
-      </div>
-      <div class="summary-grid" id="userOrdersSummary" style="margin-bottom:16px;"></div>
-      <div class="card table-wrapper" style="margin:0;">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:170px;">注文日時 / 注文ID</th>
-              <th>注文内容</th>
-              <th style="width:110px;">支払い</th>
-              <th style="width:110px;">合計</th>
-              <th style="width:150px;">受け取り状況</th>
-              <th style="width:160px;">操作</th>
-            </tr>
-          </thead>
-          <tbody id="userOrdersList">
-            <tr><td colspan="6" style="text-align:center;">読み込み中...</td></tr>
-          </tbody>
-        </table>
       </div>
     </div>
   </div>
@@ -4238,22 +4207,41 @@
       location.reload();
     }
 
+    function normalizeAdminPageId(pageId) {
+      const normalized = String(pageId || 'blogs');
+      return document.getElementById('page-' + normalized) ? normalized : 'blogs';
+    }
+
+    function findAdminBottomNavByPageId(pageId) {
+      return Array.from(document.querySelectorAll('.bottom-nav .bottom-nav-item')).find(function (node) {
+        return String(node.getAttribute('onclick') || '').indexOf(`switchPage('${pageId}'`) !== -1;
+      }) || null;
+    }
+
     async function switchPage(pageId, navEl) {
+      const normalizedPageId = normalizeAdminPageId(pageId);
+      const targetPage = document.getElementById('page-' + normalizedPageId);
+      if (!targetPage) return;
+
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.getElementById('page-' + pageId).classList.add('active');
+      targetPage.classList.add('active');
 
       document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(n => n.classList.remove('active'));
+      const sidebarNav = navEl && navEl.classList && navEl.classList.contains('nav-item')
+        ? navEl
+        : findAdminSidebarNavByPageId(normalizedPageId);
+      const bottomNav = navEl && navEl.classList && navEl.classList.contains('bottom-nav-item')
+        ? navEl
+        : findAdminBottomNavByPageId(normalizedPageId);
+      if (sidebarNav) sidebarNav.classList.add('active');
+      if (bottomNav) bottomNav.classList.add('active');
 
-      const index = Array.from(navEl.parentElement.children).indexOf(navEl);
-      document.querySelectorAll('.sidebar .nav-item')[index].classList.add('active');
-      document.querySelectorAll('.bottom-nav .bottom-nav-item')[index].classList.add('active');
-
-      await loadPageData(pageId);
+      await loadPageData(normalizedPageId);
     }
 
     function getActiveAdminPageId() {
       const activePage = document.querySelector('.page.active');
-      return activePage ? activePage.id.replace('page-', '') : 'orders';
+      return activePage ? normalizeAdminPageId(activePage.id.replace('page-', '')) : 'blogs';
     }
 
     function resetAdminDataCache() {
@@ -4545,6 +4533,164 @@
       printWindow.document.close();
     }
 
+    function parseAdminDateTimestamp(value) {
+      if (!value) return 0;
+      const parsed = value instanceof Date
+        ? value
+        : new Date(String(value).trim().replace(' ', 'T'));
+      const time = parsed.getTime();
+      return Number.isNaN(time) ? 0 : time;
+    }
+
+    function mergeAdminDeviceSessions(left, right) {
+      const merged = {};
+      []
+        .concat(Array.isArray(left) ? left : [], Array.isArray(right) ? right : [])
+        .forEach(session => {
+          const deviceId = String(session && session.deviceId || '').trim();
+          if (!deviceId) return;
+          const current = merged[deviceId];
+          const nextTimestamp = parseAdminDateTimestamp(session && session.lastSeenAt);
+          const currentTimestamp = parseAdminDateTimestamp(current && current.lastSeenAt);
+          if (!current || nextTimestamp >= currentTimestamp) {
+            merged[deviceId] = Object.assign({}, current || {}, session);
+          } else {
+            merged[deviceId] = Object.assign({}, session, current);
+          }
+        });
+      return Object.values(merged).sort((a, b) => parseAdminDateTimestamp(b && b.lastSeenAt) - parseAdminDateTimestamp(a && a.lastSeenAt));
+    }
+
+    function mergeAdminRewards(left, right) {
+      const merged = {};
+      []
+        .concat(Array.isArray(left) ? left : [], Array.isArray(right) ? right : [])
+        .forEach(reward => {
+          const key = [
+            Math.max(1, Number(reward && reward.cardNum) || 1),
+            String(reward && reward.rewardName || '').trim(),
+            String(reward && reward.earnedDate || '').trim()
+          ].join('|');
+          if (!key.replace(/\|/g, '')) return;
+          const current = merged[key];
+          const rewardUsed = reward && (reward.used === true || String(reward.used).toLowerCase() === 'true' || reward.usedAt);
+          const currentUsed = current && (current.used === true || String(current.used).toLowerCase() === 'true' || current.usedAt);
+          if (!current || (rewardUsed && !currentUsed) || (reward && reward.usedAt && !currentUsed)) {
+            merged[key] = reward;
+          }
+        });
+      return Object.values(merged).sort((a, b) => parseAdminDateTimestamp(b && b.earnedDate) - parseAdminDateTimestamp(a && a.earnedDate));
+    }
+
+    function mergeAdminStampHistory(left, right) {
+      const merged = {};
+      []
+        .concat(Array.isArray(left) ? left : [], Array.isArray(right) ? right : [])
+        .forEach(entry => {
+          const key = [
+            Math.max(1, Number(entry && entry.cardNum) || 1),
+            Math.max(1, Number(entry && entry.stampNumber) || 1)
+          ].join('|');
+          const current = merged[key];
+          if (!current || parseAdminDateTimestamp(entry && entry.acquiredDate) >= parseAdminDateTimestamp(current && current.acquiredDate)) {
+            merged[key] = entry;
+          }
+        });
+      return Object.values(merged).sort((a, b) => parseAdminDateTimestamp(b && b.acquiredDate) - parseAdminDateTimestamp(a && a.acquiredDate));
+    }
+
+    function countAdminUserFilledFields(user) {
+      return [
+        'name',
+        'kana',
+        'phone',
+        'avatarUrl',
+        'memo',
+        'status',
+        'birthday',
+        'address'
+      ].reduce((count, key) => count + (String(user && user[key] || '').trim() ? 1 : 0), 0) + (user && user.pushEnabled ? 1 : 0);
+    }
+
+    function getAdminUserActivityTimestamp(user) {
+      const latestDeviceSeenAt = (Array.isArray(user && user.deviceSessions) ? user.deviceSessions : []).reduce((maxValue, session) => {
+        return Math.max(maxValue, parseAdminDateTimestamp(session && session.lastSeenAt));
+      }, 0);
+      return Math.max(
+        parseAdminDateTimestamp(user && user.timestamp),
+        parseAdminDateTimestamp(user && user.latestStampActivityAt),
+        parseAdminDateTimestamp(user && user.lastStampAt),
+        parseAdminDateTimestamp(user && user.lastStampDate),
+        parseAdminDateTimestamp(user && user.stampAchievedDate),
+        latestDeviceSeenAt
+      );
+    }
+
+    function choosePreferredAdminUser(left, right) {
+      const leftActivity = getAdminUserActivityTimestamp(left);
+      const rightActivity = getAdminUserActivityTimestamp(right);
+      if (rightActivity !== leftActivity) return rightActivity > leftActivity ? right : left;
+      const leftDeviceSeen = (Array.isArray(left && left.deviceSessions) ? left.deviceSessions : []).reduce((maxValue, session) => Math.max(maxValue, parseAdminDateTimestamp(session && session.lastSeenAt)), 0);
+      const rightDeviceSeen = (Array.isArray(right && right.deviceSessions) ? right.deviceSessions : []).reduce((maxValue, session) => Math.max(maxValue, parseAdminDateTimestamp(session && session.lastSeenAt)), 0);
+      if (rightDeviceSeen !== leftDeviceSeen) return rightDeviceSeen > leftDeviceSeen ? right : left;
+      const leftUpdated = parseAdminDateTimestamp(left && left.timestamp);
+      const rightUpdated = parseAdminDateTimestamp(right && right.timestamp);
+      if (rightUpdated !== leftUpdated) return rightUpdated > leftUpdated ? right : left;
+      const leftFilled = countAdminUserFilledFields(left);
+      const rightFilled = countAdminUserFilledFields(right);
+      if (rightFilled !== leftFilled) return rightFilled > leftFilled ? right : left;
+      return Number(right && right.rowIdx || 0) > Number(left && left.rowIdx || 0) ? right : left;
+    }
+
+    function mergeAdminUsersByMemberId(currentUser, incomingUser) {
+      const preferred = choosePreferredAdminUser(currentUser, incomingUser);
+      const fallback = preferred === incomingUser ? currentUser : incomingUser;
+      const merged = Object.assign({}, preferred);
+      ['name', 'kana', 'phone', 'avatarUrl', 'memo', 'status', 'birthday', 'address'].forEach(key => {
+        if (!String(merged[key] || '').trim() && String(fallback && fallback[key] || '').trim()) {
+          merged[key] = fallback[key];
+        }
+      });
+      if (!merged.pushEnabled && fallback && fallback.pushEnabled) merged.pushEnabled = true;
+      merged.deviceSessions = mergeAdminDeviceSessions(merged.deviceSessions, fallback && fallback.deviceSessions);
+      merged.deviceCount = merged.deviceSessions.length || Math.max(Number(merged.deviceCount || 0), Number(fallback && fallback.deviceCount || 0));
+      merged.stampCount = Math.max(Number(merged.stampCount || 0), Number(fallback && fallback.stampCount || 0));
+      merged.stampCardNum = Math.max(Number(merged.stampCardNum || 1), Number(fallback && fallback.stampCardNum || 1));
+      merged.rewards = mergeAdminRewards(merged.rewards, fallback && fallback.rewards);
+      merged.stampHistory = mergeAdminStampHistory(merged.stampHistory, fallback && fallback.stampHistory);
+      if (!merged.lastStampDate && fallback && fallback.lastStampDate) merged.lastStampDate = fallback.lastStampDate;
+      if (!merged.lastStampAt && fallback && fallback.lastStampAt) merged.lastStampAt = fallback.lastStampAt;
+      if (!merged.stampAchievedDate && fallback && fallback.stampAchievedDate) merged.stampAchievedDate = fallback.stampAchievedDate;
+      if (parseAdminDateTimestamp(fallback && fallback.latestStampActivityAt) > parseAdminDateTimestamp(merged.latestStampActivityAt)) {
+        merged.latestStampActivityAt = fallback.latestStampActivityAt;
+      }
+      merged.orderCount = Math.max(Number(merged.orderCount || 0), Number(fallback && fallback.orderCount || 0));
+      merged.pendingOrderCount = Math.max(Number(merged.pendingOrderCount || 0), Number(fallback && fallback.pendingOrderCount || 0));
+      if (parseAdminDateTimestamp(fallback && fallback.lastOrderAt) > parseAdminDateTimestamp(merged.lastOrderAt)) {
+        merged.lastOrderAt = fallback.lastOrderAt;
+      }
+      merged.orderTotal = Math.max(Number(merged.orderTotal || 0), Number(fallback && fallback.orderTotal || 0));
+      return merged;
+    }
+
+    function dedupeAdminUsersByMemberId(users) {
+      const memberMap = {};
+      const noMemberUsers = [];
+      (Array.isArray(users) ? users : []).forEach(user => {
+        const memberId = String(user && user.memberId || '').trim();
+        if (!memberId) {
+          noMemberUsers.push(user);
+          return;
+        }
+        memberMap[memberId] = memberMap[memberId]
+          ? mergeAdminUsersByMemberId(memberMap[memberId], user)
+          : mergeAdminUsersByMemberId({}, user);
+      });
+      return noMemberUsers.concat(Object.values(memberMap)).sort((a, b) => {
+        return getAdminUserActivityTimestamp(b) - getAdminUserActivityTimestamp(a);
+      });
+    }
+
     async function loadAdminUsers() {
       const loadVersion = ++adminUsersLoadVersion;
       const tbody = document.getElementById('usersList');
@@ -4552,7 +4698,7 @@
       if (!tbody) return;
       const cachedRes = readAdminApiCache('getAdminUsers');
       if (cachedRes && cachedRes.status === 'ok' && loadVersion === adminUsersLoadVersion) {
-        allUsers = cachedRes.users || [];
+        allUsers = dedupeAdminUsersByMemberId(cachedRes.users || []);
         applyUserFilters();
         applyRewardStatusFilters();
       } else {
@@ -4565,7 +4711,7 @@
       const res = await apiRequest('getAdminUsers');
       if (loadVersion !== adminUsersLoadVersion) return;
       if (res && res.status === 'ok') {
-        allUsers = res.users || [];
+        allUsers = dedupeAdminUsersByMemberId(res.users || []);
         applyUserFilters();
         applyRewardStatusFilters();
       } else {
@@ -4614,7 +4760,6 @@
           <td>
             <div class="flex" style="gap:5px;">
               <button type="button" class="btn btn-outline" title="会員サマリー" style="padding:4px 8px; font-size:11px;" onclick='openUserSummaryModal(${memberIdExpr}, ${rowIdxExpr})'>ℹ️</button>
-              <button type="button" class="btn btn-outline" title="注文詳細を確認" style="padding:4px 8px; font-size:11px;" onclick='openUserOrdersModal(${memberIdExpr}, ${rowIdxExpr})'>📦</button>
               <button type="button" class="btn" title="会員情報を編集" style="padding:4px 8px; font-size:11px;" onclick='editUser(${memberIdExpr}, ${u.rowIdx})'>📝</button>
               <button type="button" class="btn" title="会員を削除" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick='deleteUser(${memberIdExpr}, ${u.rowIdx}, ${deleteName})'>🗑</button>
             </div>
@@ -4731,35 +4876,12 @@
 
     async function openOrdersPageFromUserOrders() {
       closeUserOrdersModal();
-      const showAllInput = document.getElementById('showAllOrders');
-      if (showAllInput) showAllInput.checked = true;
-      await switchPage('orders');
-      await loadAdminOrders();
+      showToast('注文管理機能は削除しました');
     }
 
     async function openUserOrderEditor(orderId, memberId = '') {
-      const targetOrderId = String(orderId || '').trim();
-      if (!targetOrderId) return;
       closeUserOrdersModal();
-      const showAllInput = document.getElementById('showAllOrders');
-      if (showAllInput) showAllInput.checked = true;
-      await switchPage('orders');
-      await loadAdminOrders();
-      let targetOrder = allOrders.find(order => String(order.orderId || '') === targetOrderId);
-      if (!targetOrder && memberId) {
-        const res = await apiRequest('getAdminUserOrders', { memberId: String(memberId).trim() });
-        if (res && res.status === 'ok' && Array.isArray(res.orders)) {
-          targetOrder = res.orders.find(order => String(order.orderId || '') === targetOrderId) || null;
-          if (targetOrder) {
-            allOrders = [targetOrder].concat(allOrders.filter(order => String(order.orderId || '') !== targetOrderId));
-          }
-        }
-      }
-      if (!targetOrder) {
-        showToast('注文情報を開けませんでした');
-        return;
-      }
-      await openOrderModal(targetOrderId);
+      showToast('注文管理機能は削除しました');
     }
 
     function renderUserOrdersDetail(user, orders) {
@@ -4823,34 +4945,7 @@
     }
 
     async function openUserOrdersModal(memberId, rowIdx) {
-      const user = findAdminUser(memberId, rowIdx);
-      if (!user) {
-        showToast('会員情報が見つかりません');
-        return;
-      }
-      const normalizedMemberId = String(user.memberId || memberId || '').trim();
-      if (!normalizedMemberId) {
-        showToast('会員IDがないため注文履歴を取得できません');
-        return;
-      }
-      activeUserOrdersMemberId = normalizedMemberId;
-
-      const modal = document.getElementById('userOrdersModal');
-      const metaEl = document.getElementById('userOrdersMeta');
-      const listEl = document.getElementById('userOrdersList');
-      if (metaEl) metaEl.textContent = `${user.name || '会員'} の注文履歴を読み込み中...`;
-      if (listEl) listEl.innerHTML = '<tr><td colspan="6" style="text-align:center;">読み込み中...</td></tr>';
-      renderSummaryCards('userOrdersSummary', []);
-      if (modal) modal.classList.add('active');
-
-      const res = await apiRequest('getAdminUserOrders', { memberId: normalizedMemberId });
-      if (activeUserOrdersMemberId !== normalizedMemberId) return;
-      if (res && res.status === 'ok') {
-        renderUserOrdersDetail(user, Array.isArray(res.orders) ? res.orders : []);
-      } else {
-        if (metaEl) metaEl.textContent = `${user.name || '会員'} の注文履歴を取得できませんでした`;
-        if (listEl) listEl.innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">注文履歴の取得に失敗しました</td></tr>';
-      }
+      showToast('注文管理機能は削除しました');
     }
 
     function normalizeRewardGachaMonthKey(value) {
@@ -6021,7 +6116,6 @@
       }
       renderSummaryCards('adminDashboardCards', [
         { label: '会員数', value: Number(adminDashboardData.summary.users || 0) },
-        { label: '受付中注文', value: Number(adminDashboardData.summary.ordersPending || 0) },
         { label: '公開予約', value: Number(adminDashboardData.summary.scheduledPublishes || 0) },
         { label: '重複候補', value: Number(adminDashboardData.summary.duplicateGroups || 0) },
         { label: 'Push失敗', value: Number(adminDashboardData.summary.failedPushes || 0) }
@@ -6032,14 +6126,6 @@
           ? (adminDashboardData.alerts || []).map(alert => `<div style="padding:10px 12px; border-radius:10px; margin-bottom:8px; background:${alert.level === 'warning' ? '#fff3e0' : '#f4f7fb'}; color:var(--text-dark);"><strong>${escapeHtml(alert.label || '')}</strong><div style="font-size:12px; color:var(--text-mid); margin-top:4px;">${escapeHtml(alert.detail || '')}</div></div>`).join('')
           : '<div style="font-size:12px; color:var(--text-mid);">現在のアラートはありません。</div>';
         const detailSections = [];
-        if ((adminDashboardData.stalePendingOrders || []).length) {
-          detailSections.push(`
-            <div style="margin-top:12px; padding:12px; border:1px solid var(--border); border-radius:10px; background:#fff;">
-              <div style="font-weight:700; margin-bottom:8px;">長期間未対応注文</div>
-              ${(adminDashboardData.stalePendingOrders || []).map(item => `<div style="font-size:12px; color:var(--text-mid); margin-bottom:4px;">${escapeHtml(formatDisplayDate(item.date || ''))} / ${escapeHtml(item.customerName || '')} / ${escapeHtml(item.orderId || '')}</div>`).join('')}
-            </div>
-          `);
-        }
         if ((adminDashboardData.staleUnusedRewards || []).length) {
           detailSections.push(`
             <div style="margin-top:12px; padding:12px; border:1px solid var(--border); border-radius:10px; background:#fff;">
@@ -6784,21 +6870,23 @@
     }
 
     function findAdminSidebarNavByPageId(pageId) {
+      const normalizedPageId = normalizeAdminPageId(pageId);
       return Array.from(document.querySelectorAll('.sidebar .nav-item')).find(function (node) {
-        return String(node.getAttribute('onclick') || '').indexOf(`switchPage('${pageId}'`) !== -1;
+        return String(node.getAttribute('onclick') || '').indexOf(`switchPage('${normalizedPageId}'`) !== -1;
       }) || null;
     }
 
     async function openAdminPageById(pageId) {
-      if (getActiveAdminPageId() === pageId) {
-        await loadPageData(pageId);
+      const normalizedPageId = normalizeAdminPageId(pageId);
+      if (getActiveAdminPageId() === normalizedPageId) {
+        await loadPageData(normalizedPageId);
         return;
       }
-      const navEl = findAdminSidebarNavByPageId(pageId);
+      const navEl = findAdminSidebarNavByPageId(normalizedPageId);
       if (navEl) {
-        await switchPage(pageId, navEl);
+        await switchPage(normalizedPageId, navEl);
       } else {
-        await loadPageData(pageId);
+        await loadPageData(normalizedPageId);
       }
     }
 
@@ -7168,15 +7256,6 @@
       let usedCachedRecords = false;
       let usedCachedProductRecords = false;
 
-      if (cachedAnalytics && cachedAnalytics.status === 'ok') {
-        renderAnalytics(cachedAnalytics);
-        usedCachedAnalytics = true;
-      } else {
-        tbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
-        pbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
-        menuBody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
-      }
-
       if (cachedRecords && cachedRecords.status === 'ok') {
         allMenuRevenueRecords = cachedRecords.records || [];
         updateMenuRevenueMonthFilterOptions();
@@ -7193,6 +7272,15 @@
         usedCachedProductRecords = true;
       } else {
         productRecordsBody.innerHTML = '<div style="text-align:center; color:var(--text-mid);">読み込み中...</div>';
+      }
+
+      if (cachedAnalytics && cachedAnalytics.status === 'ok') {
+        renderAnalytics(buildAnalyticsWithManualProductRevenue(cachedAnalytics, allProductRevenueRecords));
+        usedCachedAnalytics = true;
+      } else {
+        tbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
+        pbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
+        menuBody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
       }
 
       // 商品マスタは分析本体の表示を止めない
@@ -7244,9 +7332,11 @@
         productRecordsBody.innerHTML = '<div style="text-align:center; color:red;">商品収益の取得に失敗しました</div>';
       }
 
-      if (res && res.status === 'ok') {
+      const mergedAnalytics = buildAnalyticsWithManualProductRevenue(res && res.status === 'ok' ? res : null, allProductRevenueRecords);
+
+      if ((res && res.status === 'ok') || allProductRevenueRecords.length) {
         try {
-          renderAnalytics(res);
+          renderAnalytics(mergedAnalytics);
         } catch (err) {
           console.error('分析描画に失敗しました', err);
           if (!usedCachedAnalytics) {
@@ -7316,6 +7406,187 @@
         return String(name || '').trim();
       }).filter(Boolean))).sort(function (a, b) {
         return String(a).localeCompare(String(b), 'ja');
+      });
+    }
+
+    function getProductRevenueMonthKey(value) {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      const simpleMatch = raw.match(/^(\d{4})[\/.-](\d{1,2})/);
+      if (simpleMatch) {
+        return `${simpleMatch[1]}-${String(simpleMatch[2]).padStart(2, '0')}`;
+      }
+      const date = new Date(raw.replace(' ', 'T'));
+      if (Number.isNaN(date.getTime())) return '';
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function getProductRevenueRecordTotals(record) {
+      const qty = Math.max(0, Number(record && record.qty) || 0);
+      const unitPrice = Math.max(0, Number(record && record.unitPrice) || 0);
+      const unitCost = Math.max(0, Number(record && record.unitCost) || 0);
+      const hasTotalAmount = record && record.totalAmount !== '' && record.totalAmount != null && Number.isFinite(Number(record.totalAmount));
+      const hasProfit = record && record.profit !== '' && record.profit != null && Number.isFinite(Number(record.profit));
+      const totalAmount = hasTotalAmount ? Math.max(0, Number(record.totalAmount) || 0) : (qty * unitPrice);
+      const totalProfit = hasProfit ? Number(record.profit) || 0 : (totalAmount - (qty * unitCost));
+      return {
+        qty: qty,
+        unitPrice: unitPrice,
+        unitCost: unitCost,
+        totalAmount: totalAmount,
+        totalCost: totalAmount - totalProfit,
+        totalProfit: totalProfit
+      };
+    }
+
+    function formatAnalyticsUnitPriceLabel(unitPrice, priceBreakdownText) {
+      const numeric = Number(unitPrice || 0);
+      if (!Number.isFinite(numeric) || numeric <= 0) return '-';
+      const unitPriceText = Number.isInteger(numeric)
+        ? numeric.toLocaleString()
+        : numeric.toLocaleString('ja-JP', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      return String(priceBreakdownText || '').trim() ? `実質 ¥${unitPriceText}` : `¥${unitPriceText}`;
+    }
+
+    function parseProductRevenuePriceBreakdownEntries(record) {
+      const raw = String(record && record.priceBreakdownText || '').trim();
+      if (!raw) return [];
+      return raw.split(/\s*\/\s*/).map(function (part) {
+        const match = String(part || '').trim().match(/([\d,]+)円(?:\(([^)]+)\))?\s*×\s*(\d+)個/);
+        if (!match) return null;
+        const price = Number(String(match[1] || '').replace(/,/g, ''));
+        const qty = Number(match[3] || 0);
+        if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(qty) || qty <= 0) return null;
+        const discountText = String(match[2] || '').trim();
+        return {
+          price: price,
+          qty: qty,
+          priceLabel: `¥${price.toLocaleString()}${discountText ? ` (${discountText})` : ''}`
+        };
+      }).filter(Boolean);
+    }
+
+    function createEmptyManualProductMonthStats() {
+      return {
+        sales: 0,
+        cost: 0,
+        profit: 0,
+        products: {},
+        productDetails: {}
+      };
+    }
+
+    function buildAnalyticsWithManualProductRevenue(baseRes, productRevenueRecords) {
+      const base = baseRes && typeof baseRes === 'object' ? baseRes : {};
+      const baseMatrix = base.matrix && typeof base.matrix === 'object' ? base.matrix : {};
+      const records = Array.isArray(productRevenueRecords) ? productRevenueRecords : [];
+      const manualMatrix = {};
+      const productNames = new Set();
+
+      records.forEach(function (record) {
+        const monthKey = getProductRevenueMonthKey(record && record.date);
+        const productName = String(record && record.productName || '').trim();
+        if (!monthKey || !productName) return;
+
+        const totals = getProductRevenueRecordTotals(record);
+        if (totals.qty <= 0) return;
+
+        const monthStats = manualMatrix[monthKey] || (manualMatrix[monthKey] = createEmptyManualProductMonthStats());
+        const productStats = monthStats.products[productName] || {
+          qty: 0,
+          sales: 0,
+          cost: 0,
+          profit: 0
+        };
+
+        productStats.qty += totals.qty;
+        productStats.sales += totals.totalAmount;
+        productStats.cost += totals.totalCost;
+        productStats.profit += totals.totalProfit;
+        monthStats.products[productName] = productStats;
+        monthStats.sales += totals.totalAmount;
+        monthStats.cost += totals.totalCost;
+        monthStats.profit += totals.totalProfit;
+        productNames.add(productName);
+
+        const productMaster = getProductMasterByName(productName);
+        const sortOrder = Number.isFinite(Number(productMaster && productMaster.sortOrder))
+          ? Number(productMaster.sortOrder)
+          : 1000;
+        const priceEntries = parseProductRevenuePriceBreakdownEntries(record);
+        const detailEntries = priceEntries.length
+          ? priceEntries.map(function (entry) {
+              const entrySales = Number(entry.price || 0) * Number(entry.qty || 0);
+              const entryCost = Number(totals.unitCost || 0) * Number(entry.qty || 0);
+              return {
+                price: Number(entry.price || 0),
+                priceLabel: entry.priceLabel,
+                qty: Number(entry.qty || 0),
+                sales: entrySales,
+                cost: entryCost,
+                profit: entrySales - entryCost
+              };
+            })
+          : [{
+              price: Number(totals.unitPrice || 0),
+              priceLabel: formatAnalyticsUnitPriceLabel(totals.unitPrice, record && record.priceBreakdownText),
+              qty: totals.qty,
+              sales: totals.totalAmount,
+              cost: totals.totalCost,
+              profit: totals.totalProfit
+            }];
+
+        detailEntries.forEach(function (entry) {
+          const detailKey = `${productName}::${entry.priceLabel}`;
+          const current = monthStats.productDetails[detailKey] || {
+            name: productName,
+            price: entry.price,
+            priceLabel: entry.priceLabel,
+            qty: 0,
+            sales: 0,
+            cost: 0,
+            profit: 0,
+            sortOrder: sortOrder
+          };
+          current.qty += Number(entry.qty || 0);
+          current.sales += Number(entry.sales || 0);
+          current.cost += Number(entry.cost || 0);
+          current.profit += Number(entry.profit || 0);
+          monthStats.productDetails[detailKey] = current;
+        });
+      });
+
+      const monthSet = new Set();
+      (Array.isArray(base.months) ? base.months : []).forEach(function (monthKey) {
+        if (monthKey) monthSet.add(monthKey);
+      });
+      Object.keys(manualMatrix).forEach(function (monthKey) {
+        if (monthKey) monthSet.add(monthKey);
+      });
+
+      const months = Array.from(monthSet).sort().reverse();
+      const mergedMatrix = {};
+      months.forEach(function (monthKey) {
+        const current = Object.assign({}, baseMatrix[monthKey] || {});
+        const manual = manualMatrix[monthKey] || createEmptyManualProductMonthStats();
+        current.products = manual.products;
+        current.productDetails = manual.productDetails;
+        current.sales = Number(manual.sales || 0);
+        current.cost = Number(manual.cost || 0);
+        current.profit = Number(manual.profit || 0);
+        current.combinedRevenue = Number(current.menuRevenueTotal || 0) + current.sales;
+        current.combinedCost = Number(current.menuCostTotal || 0) + current.cost;
+        current.combinedProfit = Number(current.menuProfitTotal || 0) + current.profit;
+        mergedMatrix[monthKey] = current;
+      });
+
+      return Object.assign({}, base, {
+        status: base.status || 'ok',
+        months: months,
+        products: Array.from(productNames).sort(function (a, b) {
+          return String(a).localeCompare(String(b), 'ja');
+        }),
+        matrix: mergedMatrix
       });
     }
 
@@ -9435,8 +9706,10 @@
     let allProducts = [];
 
     async function loadAdminOrders() {
-      const showAll = document.getElementById('showAllOrders').checked;
+      const showAllInput = document.getElementById('showAllOrders');
+      const showAll = !!(showAllInput && showAllInput.checked);
       const tbody = document.getElementById('ordersList');
+      if (!tbody) return;
       const requestData = { showAll: showAll };
       const cachedRes = readAdminApiCache('getAdminOrders', requestData);
       if (cachedRes && cachedRes.status === 'ok') {
@@ -9476,6 +9749,27 @@
       const itemNames = Array.from(new Set(allOrders.flatMap(order => getOrderItemNames(order)))).sort((a, b) => a.localeCompare(b, 'ja'));
       select.innerHTML = '<option value="all">全ての商品</option>' + itemNames.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
       select.value = itemNames.includes(currentValue) ? currentValue : 'all';
+    }
+
+    function buildAdminOrderItemsMarkup(order) {
+      const items = Array.isArray(order && order.items) && order.items.length
+        ? order.items.map(function (item) {
+            return {
+              name: String(item && item.name || '').trim(),
+              qty: Math.max(0, Number(item && item.qty) || 0)
+            };
+          }).filter(function (item) {
+            return item.name;
+          })
+        : getOrderItemNames(order).map(function (name) {
+            return { name: name, qty: 0 };
+          });
+      if (!items.length) {
+        return '<span style="font-size:12px; color:var(--text-mid);">商品情報なし</span>';
+      }
+      return `<ul style="margin:0; padding-left:18px;">${items.map(function (item) {
+        return `<li style="margin-bottom:4px;">${escapeHtml(item.name)}${item.qty > 0 ? ` <span style="color:var(--text-mid);">× ${item.qty}</span>` : ''}</li>`;
+      }).join('')}</ul>`;
     }
 
     function updateOrdersSummary(filteredOrders) {
@@ -9545,7 +9839,7 @@
             <div style="font-size:12px; font-weight:bold;">${escapeHtml(o.memberId || '-')}</div>
             <div style="font-size:11px; color:var(--text-mid);">${escapeHtml(o.customerName || '')}</div>
           </td>
-          <td style="font-size:12px; white-space:pre-line;">${escapeHtml(o.itemName || '')}</td>
+          <td style="font-size:12px;">${buildAdminOrderItemsMarkup(o)}</td>
           <td>
             <select id="status_${o.orderId}" style="padding:4px; font-size:12px;">
               <option value="受付中" ${normalizedStatus === '受付中' ? 'selected' : ''}>受付中</option>

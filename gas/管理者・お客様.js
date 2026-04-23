@@ -3334,15 +3334,198 @@ function buildRewardGachaResult_(reward, alreadyDrawn) {
 }
 
 function findUserRowByMemberId_(sheet, memberId) {
+  const result = consolidateDuplicateUserRowsByMemberId_(sheet, memberId);
+  return result && result.rowIdx > 1 ? result.rowIdx : -1;
+}
+
+function isSoftDeletedUserRow_(row) {
+  return isSoftDeletedByColumns_(row, USER_COL.DELETE_STATUS, USER_COL.DELETED_AT);
+}
+
+function countFilledUserProfileFields_(row) {
+  return [
+    USER_COL.NAME,
+    USER_COL.KANA,
+    USER_COL.PHONE,
+    USER_COL.AVATAR_URL,
+    USER_COL.MEMO,
+    USER_COL.PUSH,
+    USER_COL.STATUS,
+    USER_COL.BIRTHDAY,
+    USER_COL.ADDRESS,
+    USER_COL.PASSCODE
+  ].reduce(function (count, col) {
+    return count + (String(row[col - 1] || '').trim() ? 1 : 0);
+  }, 0);
+}
+
+function buildUserRowCandidate_(row, rowIdx) {
+  const rewardStatus = getRewardStatusFromRow_(row);
+  const deviceSessions = getUserDeviceSessionsFromRow_(row);
+  const rowTimestamp = parseLooseDateToTimestamp_(row[USER_COL.TIMESTAMP - 1]);
+  const latestDeviceSeenAt = deviceSessions.reduce(function (maxValue, session) {
+    return Math.max(maxValue, parseLooseDateToTimestamp_(session && session.lastSeenAt));
+  }, 0);
+  const latestStampAt = Math.max(
+    parseLooseDateToTimestamp_(rewardStatus.lastStampAt),
+    parseLooseDateToTimestamp_(rewardStatus.lastStampDate),
+    parseLooseDateToTimestamp_(rewardStatus.stampAchievedDate),
+    parseLooseDateToTimestamp_(rewardStatus.stampHistory && rewardStatus.stampHistory[0] && rewardStatus.stampHistory[0].acquiredDate)
+  );
+  return {
+    rowIdx: rowIdx,
+    row: row,
+    rewardStatus: rewardStatus,
+    deviceSessions: deviceSessions,
+    rowTimestamp: rowTimestamp,
+    latestDeviceSeenAt: latestDeviceSeenAt,
+    latestStampAt: latestStampAt,
+    activityTimestamp: Math.max(rowTimestamp, latestDeviceSeenAt, latestStampAt),
+    filledFieldCount: countFilledUserProfileFields_(row),
+    softDeleted: isSoftDeletedUserRow_(row)
+  };
+}
+
+function compareUserRowCandidates_(a, b) {
+  if (b.activityTimestamp !== a.activityTimestamp) return b.activityTimestamp - a.activityTimestamp;
+  if (b.latestDeviceSeenAt !== a.latestDeviceSeenAt) return b.latestDeviceSeenAt - a.latestDeviceSeenAt;
+  if (b.rowTimestamp !== a.rowTimestamp) return b.rowTimestamp - a.rowTimestamp;
+  if (b.filledFieldCount !== a.filledFieldCount) return b.filledFieldCount - a.filledFieldCount;
+  return b.rowIdx - a.rowIdx;
+}
+
+function getUserRowCandidatesByMemberId_(sheet, memberId) {
+  const normalizedMemberId = String(memberId || '').trim();
+  if (!sheet || !normalizedMemberId) return [];
   const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return -1;
-  const ids = sheet.getRange(2, USER_COL.MEMBER_ID, lastRow - 1, 1).getValues();
-  for (let i = 0; i < ids.length; i++) {
-    if (String(ids[i][0] || '').trim() === String(memberId || '').trim()) {
-      return i + 2;
-    }
+  if (lastRow < 2) return [];
+  const values = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
+  return values.map(function (row, index) {
+    if (String(row[USER_COL.MEMBER_ID - 1] || '').trim() !== normalizedMemberId) return null;
+    return buildUserRowCandidate_(row, index + 2);
+  }).filter(Boolean);
+}
+
+function choosePrimaryUserRowCandidate_(candidates) {
+  const activeCandidates = (candidates || []).filter(function (candidate) {
+    return !candidate.softDeleted;
+  });
+  const pool = activeCandidates.length ? activeCandidates : (candidates || []);
+  if (!pool.length) return null;
+  return pool.slice().sort(compareUserRowCandidates_)[0] || null;
+}
+
+function mergeRewardStatuses_(leftStatus, rightStatus) {
+  const left = sanitizeRewardStatus_(leftStatus || {});
+  const right = sanitizeRewardStatus_(rightStatus || {});
+  return sanitizeRewardStatus_({
+    stampCount: Math.max(Number(left.stampCount || 0), Number(right.stampCount || 0)),
+    stampCardNum: Math.max(Number(left.stampCardNum || 1), Number(right.stampCardNum || 1)),
+    rewards: mergeRewardEntries_(left.rewards, right.rewards),
+    stampHistory: mergeStampHistoryEntries_(left.stampHistory, right.stampHistory),
+    lastStampDate: left.lastStampDate || right.lastStampDate,
+    lastStampAt: left.lastStampAt || right.lastStampAt,
+    stampAchievedDate: left.stampAchievedDate || right.stampAchievedDate
+  });
+}
+
+function consolidateDuplicateUserRowsByMemberId_(sheet, memberId) {
+  const normalizedMemberId = String(memberId || '').trim();
+  if (!sheet || !normalizedMemberId) return { rowIdx: -1, merged: false };
+
+  const candidates = getUserRowCandidatesByMemberId_(sheet, normalizedMemberId);
+  if (!candidates.length) return { rowIdx: -1, merged: false };
+
+  const primary = choosePrimaryUserRowCandidate_(candidates);
+  if (!primary) return { rowIdx: -1, merged: false };
+
+  const activeDuplicates = candidates.filter(function (candidate) {
+    return !candidate.softDeleted && candidate.rowIdx !== primary.rowIdx;
+  });
+  if (!activeDuplicates.length) {
+    return { rowIdx: primary.rowIdx, rowData: primary.row, merged: false };
   }
-  return -1;
+
+  let mergedRow = primary.row.slice();
+  let mergedRewardStatus = primary.rewardStatus;
+  let mergedDeviceSessions = primary.deviceSessions;
+  let latestRowTimestamp = primary.rowTimestamp;
+  let latestRegistrationSourceTimestamp = parseLooseDateToTimestamp_(mergedRow[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1]);
+  const mergedAt = formatDateTime_(new Date());
+
+  activeDuplicates.forEach(function (candidate) {
+    [
+      USER_COL.NAME,
+      USER_COL.KANA,
+      USER_COL.PHONE,
+      USER_COL.AVATAR_URL,
+      USER_COL.MEMO,
+      USER_COL.PUSH,
+      USER_COL.STATUS,
+      USER_COL.BIRTHDAY,
+      USER_COL.ADDRESS,
+      USER_COL.PASSCODE
+    ].forEach(function (col) {
+      if (!String(mergedRow[col - 1] || '').trim() && String(candidate.row[col - 1] || '').trim()) {
+        mergedRow[col - 1] = candidate.row[col - 1];
+      }
+    });
+
+    if (candidate.rowTimestamp > latestRowTimestamp) {
+      latestRowTimestamp = candidate.rowTimestamp;
+      mergedRow[USER_COL.TIMESTAMP - 1] = candidate.row[USER_COL.TIMESTAMP - 1];
+    }
+
+    const candidateRegistrationSourceTimestamp = parseLooseDateToTimestamp_(candidate.row[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1]);
+    if (candidateRegistrationSourceTimestamp > latestRegistrationSourceTimestamp) {
+      latestRegistrationSourceTimestamp = candidateRegistrationSourceTimestamp;
+      mergedRow[USER_COL.REGISTRATION_SOURCE - 1] = candidate.row[USER_COL.REGISTRATION_SOURCE - 1];
+      mergedRow[USER_COL.REGISTRATION_SOURCE_DETAIL - 1] = candidate.row[USER_COL.REGISTRATION_SOURCE_DETAIL - 1];
+      mergedRow[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1] = candidate.row[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1];
+    }
+
+    if (!String(mergedRow[USER_COL.TRANSFER_CODE - 1] || '').trim() && String(candidate.row[USER_COL.TRANSFER_CODE - 1] || '').trim()) {
+      mergedRow[USER_COL.TRANSFER_CODE - 1] = candidate.row[USER_COL.TRANSFER_CODE - 1];
+      mergedRow[USER_COL.TRANSFER_CODE_ISSUED_AT - 1] = candidate.row[USER_COL.TRANSFER_CODE_ISSUED_AT - 1];
+    }
+
+    mergedRewardStatus = mergeRewardStatuses_(mergedRewardStatus, candidate.rewardStatus);
+    mergedDeviceSessions = mergeDeviceSessionLists_(mergedDeviceSessions, candidate.deviceSessions);
+
+    const sourceRow = candidate.row.slice();
+    sourceRow[USER_COL.DELETE_STATUS - 1] = SOFT_DELETE_STATUS;
+    sourceRow[USER_COL.DELETED_AT - 1] = mergedAt;
+    sourceRow[USER_COL.MERGED_INTO - 1] = normalizedMemberId;
+    sheet.getRange(candidate.rowIdx, 1, 1, USER_HEADERS.length).setValues([sourceRow]);
+  });
+
+  mergedRow = applyRewardStatusToRow_(mergedRow, mergedRewardStatus);
+  mergedRow = applyUserDeviceSessionsToRow_(mergedRow, mergedDeviceSessions);
+  mergedRow[USER_COL.DELETE_STATUS - 1] = '';
+  mergedRow[USER_COL.DELETED_AT - 1] = '';
+  mergedRow[USER_COL.MERGED_INTO - 1] = '';
+  sheet.getRange(primary.rowIdx, 1, 1, USER_HEADERS.length).setValues([mergedRow]);
+
+  return { rowIdx: primary.rowIdx, rowData: mergedRow, merged: true };
+}
+
+function consolidateDuplicateUserRowsInSheet_(sheet) {
+  if (!sheet) return;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return;
+  const values = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
+  const activeMemberCounts = {};
+  values.forEach(function (row) {
+    if (isSoftDeletedUserRow_(row)) return;
+    const memberId = String(row[USER_COL.MEMBER_ID - 1] || '').trim();
+    if (!memberId) return;
+    activeMemberCounts[memberId] = (activeMemberCounts[memberId] || 0) + 1;
+  });
+  Object.keys(activeMemberCounts).forEach(function (memberId) {
+    if (activeMemberCounts[memberId] > 1) {
+      consolidateDuplicateUserRowsByMemberId_(sheet, memberId);
+    }
+  });
 }
 
 function clearUserPushSubscription_(memberId) {
@@ -5667,6 +5850,7 @@ function getRecoveryCandidates(params) {
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
+    consolidateDuplicateUserRowsInSheet_(sheet);
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', candidates: [] };
 
@@ -5714,6 +5898,7 @@ function handleRecoverAccount(data) {
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
+    consolidateDuplicateUserRowsInSheet_(sheet);
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'error', message: '会員が見つかりません' };
 
@@ -5868,6 +6053,7 @@ function handleResetForgottenPasscode(data) {
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
+    consolidateDuplicateUserRowsInSheet_(sheet);
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'error', message: '会員が見つかりません' };
 
@@ -6319,6 +6505,7 @@ function getAdminUsers() {
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
+    consolidateDuplicateUserRowsInSheet_(sheet);
     const orderStats = buildOrderStatsByMemberId_();
 
     const lastRow = sheet.getLastRow();
