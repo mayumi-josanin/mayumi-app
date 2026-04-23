@@ -3049,11 +3049,12 @@
   </div>
 
   <script>
-    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwqXrUDdnenzxD_wqlXKNa3mvH2QuxhAwNAbzCSYoGccDNQY82YOkUVOiE9hae7s6pHgQ/exec';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
 
     // 複数の過去バージョンURLを強制的に最新にリセットする
     const currentStored = localStorage.getItem('MAYUMI_GAS_URL');
     if (currentStored && (
+      currentStored.includes('AKfycbwqXrUDdnenzxD_wqlXKNa3mvH2QuxhAwNAbzCSYoGccDNQY82YOkUVOiE9hae7s6pHgQ') ||
       currentStored.includes('AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA') ||
       currentStored.includes('AKfycbxjaZUpoenBPzbYit9vpgsXvC5Oo74PCie4yCH2CMeQ5gJ27Be6hlkh95J6UfhLnt1jKQ') ||
       currentStored.includes('AKfycbzCHQuL4CpoBdEVI4QwN25W-0RtHcwFc4E9ZJ4PLaL6sSyWjR_tOr4ApVB-auTP6dveww') ||
