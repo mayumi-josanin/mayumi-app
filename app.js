@@ -2949,6 +2949,14 @@ function nextMonth() {
   renderCalendar();
 }
 
+function ensureAbsoluteUrl(url) {
+  if (!url) return '';
+  const trimmed = String(url).trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  return 'https://' + trimmed;
+}
+
 function openCalendarEventDetail(idx) {
   const event = calendarData[idx];
   if (!event) return;
@@ -2963,6 +2971,11 @@ function openCalendarEventDetail(idx) {
   }) || '詳細はありません。';
   const safeColor = getCalendarSafeColor(event.color);
   const detailImageHtml = buildDetailImageGalleryHtml(event.imageUrls || event.image, event.title || 'Calendar Image');
+  const absoluteUrl = ensureAbsoluteUrl(event.linkUrl);
+  const linkText = event.linkButtonText || '詳しく見る';
+  const linkButtonHtml = absoluteUrl
+    ? `<button class="btn primary favorite-action-btn" type="button" data-url="${escapeHtml(absoluteUrl)}" onclick="window.open(this.dataset.url, '_blank', 'noopener')">${escapeHtml(linkText)} 🔗</button>`
+    : '';
   detail.innerHTML = `
     ${detailImageHtml}
     <div class="blog-detail-title" style="margin-bottom:12px;">${safeTitle}</div>
@@ -2974,6 +2987,7 @@ function openCalendarEventDetail(idx) {
       <div>${safeDesc}</div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+      ${linkButtonHtml}
       ${buildFavoriteActionMarkup('calendar', event)}
       <button class="btn secondary favorite-action-btn" type="button" onclick="downloadCalendarEventIcs(${idx})">端末カレンダーに追加</button>
       <button class="btn secondary favorite-action-btn" type="button" onclick="openGoogleCalendarEvent(${idx})">Googleカレンダーに追加</button>
@@ -3692,7 +3706,9 @@ function buildNoticeFeedItems() {
       body: event.desc || '',
       image: getDisplayImageUrl(event.image || ''),
       imageUrls: normalizeManagedImageList(event.imageUrls || event.image),
-      icon: '📅'
+      icon: '📅',
+      linkUrl: event.linkUrl || '',
+      linkButtonText: event.linkButtonText || ''
     };
   }).filter(isNoticeFeedEntryVisible);
 
@@ -3856,6 +3872,8 @@ function normalizeCalendarEventEntry(item) {
     updatedAt: String(event.updatedAt || ''),
     noticeListedAt: String(event.noticeListedAt || ''),
     publishAt: String(event.publishAt || ''),
+    linkUrl: String(event.linkUrl || event.link_url || '').trim(),
+    linkButtonText: String(event.linkButtonText || event.link_button_text || '').trim(),
     noticeStatus: normalizeNoticeVisibilityStatus(event.noticeStatus),
     sortOrder: Number(event.sortOrder || 0)
   };
@@ -4174,22 +4192,12 @@ function openBlogDetail(item) {
     inlineImageAlt: (item.title || '記事画像')
   }) || '本文はありません。';
   const displayDate = formatCustomerDateYmd(item.date);
-  
-  // URLの正規化（http/httpsがなければ補完）
-  const ensureAbsoluteUrl = (url) => {
-    if (!url) return '';
-    const trimmed = String(url).trim();
-    if (!trimmed) return '';
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
-    // もし google.com のような形式なら https:// を付与
-    return 'https://' + trimmed;
-  };
   const absoluteUrl = ensureAbsoluteUrl(item.linkUrl);
 
   const linkText = item.linkButtonText || '詳しく見る';
   const linkButtonHtml = absoluteUrl ? `
     <div style="margin-top:28px; text-align:center;">
-      <button class="btn primary" style="max-width:320px; font-weight:bold; font-size:16px;" onclick="window.open('${absoluteUrl}', '_blank', 'noopener')">
+      <button class="btn primary" style="max-width:320px; font-weight:bold; font-size:16px;" type="button" data-url="${escapeHtml(absoluteUrl)}" onclick="window.open(this.dataset.url, '_blank', 'noopener')">
         ${escapeHtml(linkText)} 🔗
       </button>
     </div>` : '';

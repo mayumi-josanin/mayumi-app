@@ -111,6 +111,8 @@ const SOFT_DELETE_STATUS = '削除済み';
 const SOFT_DELETE_STATUS_HEADER = '削除状態';
 const SOFT_DELETE_DATE_HEADER = '削除日時';
 const PUBLISH_AT_HEADER = '公開開始日時';
+const LINK_URL_HEADER = 'リンクURL';
+const LINK_BUTTON_TEXT_HEADER = 'ボタンテキスト';
 const ADMIN_TRASH_SOURCES = {
   BLOG: 'NEWS',
   PRODUCTS: 'ショップ',
@@ -1192,6 +1194,14 @@ function ensureSoftDeleteColumns_(sheet) {
 function ensurePublishAtColumn_(sheet) {
   if (!sheet) return 0;
   return ensureNamedColumn_(sheet, PUBLISH_AT_HEADER, 170);
+}
+
+function ensureManagedLinkColumns_(sheet) {
+  if (!sheet) return { urlCol: 0, buttonTextCol: 0 };
+  return {
+    urlCol: ensureNamedColumn_(sheet, LINK_URL_HEADER, 220),
+    buttonTextCol: ensureNamedColumn_(sheet, LINK_BUTTON_TEXT_HEADER, 180)
+  };
 }
 
 function isSoftDeletedByColumns_(row, statusCol, deletedAtCol) {
@@ -3892,6 +3902,7 @@ function handleAddBlog(data) {
     const noticeCol = ensureNoticeVisibilityColumn_(sheet, 6, '公開');
     const imageCol = ensureNamedColumn_(sheet, '画像URL', 220);
     const publishAtCol = ensurePublishAtColumn_(sheet);
+    const linkCols = ensureManagedLinkColumns_(sheet);
 
     // 本文に画像URLを追記（画像がある場合）
     const body = data.body || '';
@@ -3916,6 +3927,8 @@ function handleAddBlog(data) {
       );
     }
     if (publishAtCol) sheet.getRange(rowIdx, publishAtCol).setValue(normalizePublishAtValue_(data.publishAt));
+    if (linkCols.urlCol) sheet.getRange(rowIdx, linkCols.urlCol).setValue(String(data.linkUrl || '').trim());
+    if (linkCols.buttonTextCol) sheet.getRange(rowIdx, linkCols.buttonTextCol).setValue(String(data.linkButtonText || '').trim());
 
     // 自動プッシュ通知
     if (shouldSendManagedContentPush_(data) && String(data.status || '公開') !== '非公開' && isPublishAtAvailable_(data.publishAt)) {
@@ -3942,6 +3955,7 @@ function handleUpdateBlog(data) {
     const noticeCol = ensureNoticeVisibilityColumn_(sheet, 6, '公開');
     const imageCol = ensureNamedColumn_(sheet, '画像URL', 220);
     const publishAtCol = ensurePublishAtColumn_(sheet);
+    const linkCols = ensureManagedLinkColumns_(sheet);
     const rowIdx = Number(data.rowIdx);
 
     // B:タイトル, C:カテゴリ, D:アイコン, E:本文, F:公開設定 (Aは日付)
@@ -3964,6 +3978,12 @@ function handleUpdateBlog(data) {
     }
     if (publishAtCol && data.publishAt !== undefined) {
       sheet.getRange(rowIdx, publishAtCol).setValue(normalizePublishAtValue_(data.publishAt));
+    }
+    if (linkCols.urlCol && data.linkUrl !== undefined) {
+      sheet.getRange(rowIdx, linkCols.urlCol).setValue(String(data.linkUrl || '').trim());
+    }
+    if (linkCols.buttonTextCol && data.linkButtonText !== undefined) {
+      sheet.getRange(rowIdx, linkCols.buttonTextCol).setValue(String(data.linkButtonText || '').trim());
     }
 
     // 自動プッシュ通知
@@ -5440,6 +5460,7 @@ function getAdminCalendar() {
   const sheet = ss.getSheetByName(SHEETS.CALENDAR);
   if (!sheet) return { status: 'ok', events: [] };
   ensureUpdatedAtColumn_(sheet, '更新日時');
+  const linkCols = ensureManagedLinkColumns_(sheet);
 
   const data = sheet.getDataRange().getValues();
   const events = [];
@@ -5464,7 +5485,9 @@ function getAdminCalendar() {
       color: String(row[3] || '#e57373'),
       status: String(row[4] || '公開'), // E列: 公開設定
       image: String(row[5] || ''), // F列: 画像URL
-      updatedAt: formatMaybeDateTime_(row[6])
+      updatedAt: formatMaybeDateTime_(row[6]),
+      linkUrl: linkCols.urlCol ? String(row[linkCols.urlCol - 1] || '').trim() : '',
+      linkButtonText: linkCols.buttonTextCol ? String(row[linkCols.buttonTextCol - 1] || '').trim() : ''
     });
   }
 
@@ -5487,6 +5510,7 @@ function handleAddCalendar(data) {
     const noticeCol = ensureNoticeVisibilityColumn_(sheet, 5, '公開');
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
+    const linkCols = ensureManagedLinkColumns_(sheet);
 
     const rowsToAdd = [];
     const updatedAt = formatDateTime_(new Date());
@@ -5534,6 +5558,18 @@ function handleAddCalendar(data) {
         });
         sheet.getRange(startRow, publishAtCol, publishValues.length, 1).setValues(publishValues);
       }
+      if (linkCols.urlCol) {
+        const linkUrlValues = rowsToAdd.map(function () {
+          return [String(data.linkUrl || '').trim()];
+        });
+        sheet.getRange(startRow, linkCols.urlCol, linkUrlValues.length, 1).setValues(linkUrlValues);
+      }
+      if (linkCols.buttonTextCol) {
+        const linkTextValues = rowsToAdd.map(function () {
+          return [String(data.linkButtonText || '').trim()];
+        });
+        sheet.getRange(startRow, linkCols.buttonTextCol, linkTextValues.length, 1).setValues(linkTextValues);
+      }
     }
 
     // 自動プッシュ通知
@@ -5561,6 +5597,7 @@ function handleUpdateCalendar(data) {
     const noticeCol = ensureNoticeVisibilityColumn_(sheet, 5, '公開');
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
+    const linkCols = ensureManagedLinkColumns_(sheet);
 
     const rowIdx = Number(data.rowIdx);
     if (rowIdx < 2) return { status: 'error', message: '更新対象が見つかりません' };
@@ -5582,6 +5619,12 @@ function handleUpdateCalendar(data) {
     }
     if (publishAtCol && data.publishAt !== undefined) {
       sheet.getRange(rowIdx, publishAtCol).setValue(normalizePublishAtValue_(data.publishAt));
+    }
+    if (linkCols.urlCol && data.linkUrl !== undefined) {
+      sheet.getRange(rowIdx, linkCols.urlCol).setValue(String(data.linkUrl || '').trim());
+    }
+    if (linkCols.buttonTextCol && data.linkButtonText !== undefined) {
+      sheet.getRange(rowIdx, linkCols.buttonTextCol).setValue(String(data.linkButtonText || '').trim());
     }
 
     // 自動プッシュ通知
@@ -6955,6 +6998,7 @@ function getCalendarEvents() {
     const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
     const deleteCols = ensureSoftDeleteColumns_(sheet);
     const publishAtCol = ensurePublishAtColumn_(sheet);
+    const linkCols = ensureManagedLinkColumns_(sheet);
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', events: [] };
@@ -6981,6 +7025,8 @@ function getCalendarEvents() {
         imageUrls: parseStoredImageUrls_(row[5]),
         updatedAt: formatMaybeDateTime_(row[6]),
         publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
+        linkUrl: linkCols.urlCol ? String(row[linkCols.urlCol - 1] || '').trim() : '',
+        linkButtonText: linkCols.buttonTextCol ? String(row[linkCols.buttonTextCol - 1] || '').trim() : '',
         noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[4] || '公開'),
         sortOrder: sortCol > 0 ? Number(row[sortCol - 1] || 0) : 0
       };
@@ -7004,6 +7050,7 @@ function getAdminCalendar() {
     const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
     const deleteCols = ensureSoftDeleteColumns_(sheet);
     const publishAtCol = ensurePublishAtColumn_(sheet);
+    const linkCols = ensureManagedLinkColumns_(sheet);
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', events: [] };
@@ -7026,6 +7073,8 @@ function getAdminCalendar() {
         imageUrls: parseStoredImageUrls_(row[5]),
         updatedAt: formatMaybeDateTime_(row[6]),
         publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
+        linkUrl: linkCols.urlCol ? String(row[linkCols.urlCol - 1] || '').trim() : '',
+        linkButtonText: linkCols.buttonTextCol ? String(row[linkCols.buttonTextCol - 1] || '').trim() : '',
         noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[4] || '公開'),
         noticeDeletedAt: formatMaybeDateTime_(row[deletedAtCol - 1]) || String(row[deletedAtCol - 1] || ''),
         sortOrder: sortCol > 0 ? Number(row[sortCol - 1] || 0) : 0
@@ -7319,6 +7368,7 @@ function getBlogNews() {
     const deleteCols = ensureSoftDeleteColumns_(sheet);
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const imageCol = ensureNamedColumn_(sheet, '画像URL', 220);
+    const linkCols = ensureManagedLinkColumns_(sheet);
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', news: [] };
@@ -7357,6 +7407,8 @@ function getBlogNews() {
         imageUrl: imageUrl,
         imageUrls: imageUrls,
         updatedAt: formatMaybeDateTime_(row[6]),
+        linkUrl: linkCols.urlCol ? String(row[linkCols.urlCol - 1] || '').trim() : '',
+        linkButtonText: linkCols.buttonTextCol ? String(row[linkCols.buttonTextCol - 1] || '').trim() : '',
         publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
         noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[5] || '公開'),
         sortOrder: sortCol > 0 ? Number(row[sortCol - 1] || 0) : 0
@@ -7385,6 +7437,7 @@ function getAdminBlogs() {
     const deleteCols = ensureSoftDeleteColumns_(sheet);
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const imageCol = ensureNamedColumn_(sheet, '画像URL', 220);
+    const linkCols = ensureManagedLinkColumns_(sheet);
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', blogs: [] };
@@ -7410,6 +7463,8 @@ function getAdminBlogs() {
         updatedAt: formatMaybeDateTime_(row[6]),
         imageUrl: imageUrl,
         imageUrls: imageUrls,
+        linkUrl: linkCols.urlCol ? String(row[linkCols.urlCol - 1] || '').trim() : '',
+        linkButtonText: linkCols.buttonTextCol ? String(row[linkCols.buttonTextCol - 1] || '').trim() : '',
         publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
         noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[5] || '公開'),
         noticeDeletedAt: formatMaybeDateTime_(row[deletedAtCol - 1]) || String(row[deletedAtCol - 1] || ''),

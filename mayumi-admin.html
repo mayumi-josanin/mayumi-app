@@ -1678,6 +1678,16 @@
               <input type="datetime-local" id="calPublishAt">
             </div>
             <div class="form-group">
+              <label>リンクURL（任意：イベント詳細ボタンの遷移先）</label>
+              <input type="url" id="calLinkUrl" placeholder="https://example.com">
+              <p style="font-size:11px; color:var(--text-mid); margin-top:4px;">※入力すると、アプリ側のイベント詳細にボタンが表示されます。</p>
+            </div>
+            <div class="form-group">
+              <label>ボタンのテキスト（任意）</label>
+              <input type="text" id="calLinkText" placeholder="詳しく見る （未入力ならこれになります）">
+              <p style="font-size:11px; color:var(--text-mid); margin-top:4px;">※「予約はこちら」「イベント詳細を見る」など自由に入力できます。</p>
+            </div>
+            <div class="form-group">
               <div class="push-send-card">
                 <div class="push-send-card__top">
                   <label class="push-send-card__title" for="calNoticeRefresh">
@@ -3642,6 +3652,15 @@
       const currentDate = document.getElementById('calDate').value;
       const dateList = selectedDates.length ? selectedDates.slice() : (currentDate ? [currentDate] : []);
       const imageHtml = buildPreviewImageHtml(getPreviewImageSrc('cal'), 'イベント画像');
+      const linkUrl = document.getElementById('calLinkUrl').value.trim();
+      const linkText = document.getElementById('calLinkText').value.trim() || '詳しく見る';
+      const linkButtonHtml = linkUrl ? `
+        <div style="margin-top:20px; text-align:center;">
+          <div style="width:100%; max-width:320px; padding:14px; background:var(--primary); color:white; border:none; border-radius:12px; font-weight:bold; font-size:15px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin:0 auto;">
+            ${escapeHtml(linkText)} 🔗
+          </div>
+          <p style="font-size:10px; color:var(--text-mid); margin-top:10px;">※プレビューではクリックできません</p>
+        </div>` : '';
       openContentPreview('カレンダープレビュー', `
         <div style="padding:18px; border:1px solid var(--border); border-radius:18px; background:#fff;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
@@ -3651,6 +3670,7 @@
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">対象日: ${escapeHtml(dateList.length ? dateList.map(item => formatDisplayDate(item)).join(' / ') : '未選択')}</div>
           <div class="managed-rich-text" style="line-height:1.9; color:var(--text-main);">${renderAdminFormattedTextHtml(desc, { stripInlineImages: true })}</div>
           ${imageHtml}
+          ${linkButtonHtml}
         </div>
       `);
     }
@@ -10805,6 +10825,8 @@
         imageUrls: finalCalendarImageUrls,
         status: status,
         publishAt: document.getElementById('calPublishAt').value || '',
+        linkUrl: document.getElementById('calLinkUrl').value.trim(),
+        linkButtonText: document.getElementById('calLinkText').value.trim(),
         noticeRefreshOnSave: shouldRefreshNoticeListingOnSave('calNoticeRefresh'),
         sendPushNotification: shouldSendContentPush('calSendPush', status)
       };
@@ -10990,6 +11012,8 @@
       document.getElementById('calDesc').value = c.desc;
       document.getElementById('calColor').value = c.color;
       document.getElementById('calPublishAt').value = formatDateForDateTimeLocal(c.publishAt || '');
+      document.getElementById('calLinkUrl').value = c.linkUrl || '';
+      document.getElementById('calLinkText').value = c.linkButtonText || '';
       setContentNoticeToggle('calNoticeRefresh', false);
       resetContentPushToggle('calSendPush');
       clearPreparedImages('cal');
@@ -11016,6 +11040,8 @@
       document.getElementById('calColor').value = '#e57373';
       document.getElementById('calCategory').value = '';
       document.getElementById('calPublishAt').value = '';
+      document.getElementById('calLinkUrl').value = '';
+      document.getElementById('calLinkText').value = '';
       clearAllImageState('cal');
       setContentNoticeToggle('calNoticeRefresh', true);
       resetContentPushToggle('calSendPush');
