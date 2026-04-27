@@ -1,7 +1,7 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
-const CURRENT_WEB_BUNDLE_VERSION = '2026.04.23.77';
+const CURRENT_WEB_BUNDLE_VERSION = '2026.04.27.78';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
   latestAppVersion: '1.1.1',
@@ -2331,6 +2331,13 @@ function renderEarnedRewards() {
     const earnedStr = formatCustomerDateYmd(reward.earnedDate);
     const expiryStr = formatCustomerDateYmd(reward.expiryDate);
     const rewardTitle = escapeHtml(String(reward.rewardName || '特典プレゼント'));
+    const rewardNoteText = getRewardGachaPrizeNote(reward);
+    const rewardNoteHtml = rewardNoteText
+      ? `<div style="font-size:12px; color:var(--text-main); line-height:1.7; margin-bottom:12px; padding:10px; background:#f7f3eb; border:1px solid rgba(141,108,70,0.16); border-radius:10px;">
+          <strong style="display:block; margin-bottom:4px; color:var(--text-dark);">説明書き・注意書き</strong>
+          ${escapeHtml(rewardNoteText).replace(/\n/g, '<br>')}
+        </div>`
+      : '';
     let countdownHtml = '';
     if (!reward.used && !isExpired) {
       const diffMs = expiry - now;
@@ -2347,6 +2354,7 @@ function renderEarnedRewards() {
           ${statusHtml}
         </div>
         <div style="font-size:18px; font-weight:bold; color:var(--text-dark); margin-bottom:10px;">${rewardTitle}</div>
+        ${rewardNoteHtml}
         <div style="font-size:13px; color:var(--sage-dark); font-weight:500; line-height:1.5; margin-bottom:12px; padding:10px; background:var(--cream); border-radius:8px;">
           🎁 <strong>受け取りの際は受付へお声かけください。</strong><br>
           ※ 特典は達成当日から使用できます。<br>
