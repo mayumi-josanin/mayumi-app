@@ -3121,6 +3121,7 @@
     const ADMIN_NOTICE_FEED_START_DATE = '2026-04-01';
     const API_GET_TIMEOUT_MS = 45000;
     const API_POST_TIMEOUT_MS = 45000;
+    const API_IMAGE_UPLOAD_TIMEOUT_MS = 120000;
     const API_GET_RETRY_COUNT = 1;
     const API_RETRY_DELAY_MS = 1200;
     const pendingGetRequests = new Map();
@@ -9653,6 +9654,13 @@
       }
     }
 
+    function resolveApiTimeoutMs(action, data, isPost) {
+      if (!isPost) return API_GET_TIMEOUT_MS;
+      const actionType = String((data && data.type) || action || '').trim();
+      if (actionType === 'uploadImage') return API_IMAGE_UPLOAD_TIMEOUT_MS;
+      return API_POST_TIMEOUT_MS;
+    }
+
     async function apiRequest(action, data = null, isPost = false) {
       if (!GAS_URL) {
         showToast('⚙ 初期設定からGASのURLを設定してください');
@@ -9675,7 +9683,7 @@
         const maxAttempts = isPost ? 1 : (API_GET_RETRY_COUNT + 1);
         while (attempt < maxAttempts) {
           const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-          const timeoutMs = isPost ? API_POST_TIMEOUT_MS : API_GET_TIMEOUT_MS;
+          const timeoutMs = resolveApiTimeoutMs(action, data, isPost);
           const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
           try {
             let url = baseUrl;
@@ -11290,6 +11298,9 @@
     }
     // ===== 画像取り込み機能 =====
     const IMAGE_UPLOAD_MAX_EDGE = 1600;
+    const IMAGE_UPLOAD_MIN_EDGE = 960;
+    const IMAGE_UPLOAD_TARGET_MAX_BYTES = 900 * 1024;
+    const IMAGE_UPLOAD_MAX_ATTEMPTS = 2;
 
     function getOptimizedImageMime(file) {
       const mimeType = String(file && file.type ? file.type : '').toLowerCase();
@@ -11306,6 +11317,88 @@
       if (mimeType === 'image/png') extension = 'png';
       if (mimeType === 'image/webp') extension = 'webp';
       return `${baseName}.${extension}`;
+    }
+
+    function estimateBase64BinarySize(base64Value) {
+      const normalized = String(base64Value || '').trim();
+      if (!normalized) return 0;
+      const padding = normalized.endsWith('==') ? 2 : (normalized.endsWith('=') ? 1 : 0);
+      return Math.max(0, Math.floor((normalized.length * 3) / 4) - padding);
+    }
+
+    function estimateDataUrlBinarySize(dataUrl) {
+      return estimateBase64BinarySize(String(dataUrl || '').split(',')[1] || '');
+    }
+
+    function drawImageToUploadCanvas(image, width, height, mimeType) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        throw new Error('画像処理に必要な描画コンテキストを取得できませんでした。');
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      if (mimeType === 'image/jpeg') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      ctx.drawImage(image, 0, 0, width, height);
+      return canvas;
+    }
+
+    function buildOptimizedUploadImage(image, file) {
+      const sourceWidth = image.naturalWidth || image.width || 1;
+      const sourceHeight = image.naturalHeight || image.height || 1;
+      const maxEdge = Math.max(sourceWidth, sourceHeight);
+      const scale = maxEdge > IMAGE_UPLOAD_MAX_EDGE ? (IMAGE_UPLOAD_MAX_EDGE / maxEdge) : 1;
+      let targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+      let targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+      let mimeType = getOptimizedImageMime(file);
+      let quality = mimeType === 'image/png' ? undefined : 0.86;
+      let bestResult = null;
+
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const canvas = drawImageToUploadCanvas(image, targetWidth, targetHeight, mimeType);
+        const resolvedQuality = mimeType === 'image/png' ? undefined : quality;
+        const dataUrl = canvas.toDataURL(mimeType, resolvedQuality);
+        bestResult = {
+          dataUrl: dataUrl,
+          mimeType: mimeType,
+          fileName: buildOptimizedImageName(file.name, mimeType)
+        };
+
+        if (estimateDataUrlBinarySize(dataUrl) <= IMAGE_UPLOAD_TARGET_MAX_BYTES) {
+          return bestResult;
+        }
+
+        if (mimeType === 'image/png') {
+          mimeType = 'image/jpeg';
+          quality = 0.84;
+          continue;
+        }
+
+        if ((quality || 0) > 0.72) {
+          quality = Math.max(0.72, Math.round(((quality || 0.82) - 0.08) * 100) / 100);
+          continue;
+        }
+
+        const longestEdge = Math.max(targetWidth, targetHeight);
+        if (longestEdge <= IMAGE_UPLOAD_MIN_EDGE) {
+          break;
+        }
+
+        const nextLongestEdge = Math.max(IMAGE_UPLOAD_MIN_EDGE, Math.round(longestEdge * 0.85));
+        const resizeScale = nextLongestEdge / longestEdge;
+        targetWidth = Math.max(1, Math.round(targetWidth * resizeScale));
+        targetHeight = Math.max(1, Math.round(targetHeight * resizeScale));
+        quality = 0.78;
+      }
+
+      return bestResult;
     }
 
     function normalizeAdminImageUrls(rawValue) {
@@ -11486,21 +11579,37 @@
       const uploadedUrls = [];
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (btn) {
-          btn.innerText = `${progressLabel || '画像をアップロード中...'} (${i + 1}/${items.length})`;
-        }
-        const imgRes = await apiRequest('', {
-          type: 'uploadImage',
-          filename: item.fileName,
-          mimeType: item.mimeType,
-          base64: item.base64
-        }, true);
+        let uploadedUrl = '';
+        let lastErrorMessage = '';
 
-        if (imgRes && imgRes.status === 'ok' && imgRes.url) {
-          uploadedUrls.push(imgRes.url);
+        for (let attempt = 1; attempt <= IMAGE_UPLOAD_MAX_ATTEMPTS; attempt++) {
+          if (btn) {
+            const retryLabel = attempt > 1 ? ' 再試行' : '';
+            btn.innerText = `${progressLabel || '画像をアップロード中...'} (${i + 1}/${items.length}${retryLabel})`;
+          }
+
+          const imgRes = await apiRequest('', {
+            type: 'uploadImage',
+            filename: item.fileName,
+            mimeType: item.mimeType,
+            base64: item.base64
+          }, true);
+
+          if (imgRes && imgRes.status === 'ok' && imgRes.url) {
+            uploadedUrl = imgRes.url;
+            break;
+          }
+
+          lastErrorMessage = imgRes ? (imgRes.message || JSON.stringify(imgRes)) : '通信エラー';
+          if (attempt < IMAGE_UPLOAD_MAX_ATTEMPTS) {
+            await wait(800 * attempt);
+          }
+        }
+
+        if (uploadedUrl) {
+          uploadedUrls.push(uploadedUrl);
         } else {
-          const errMsg = imgRes ? (imgRes.message || JSON.stringify(imgRes)) : '通信エラー';
-          throw new Error(errMsg);
+          throw new Error(lastErrorMessage || '通信エラー');
         }
       }
 
@@ -11513,37 +11622,11 @@
         reader.onload = (event) => {
           const image = new Image();
           image.onload = () => {
-            const sourceWidth = image.naturalWidth || image.width || 1;
-            const sourceHeight = image.naturalHeight || image.height || 1;
-            const maxEdge = Math.max(sourceWidth, sourceHeight);
-            const scale = maxEdge > IMAGE_UPLOAD_MAX_EDGE ? (IMAGE_UPLOAD_MAX_EDGE / maxEdge) : 1;
-            const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
-            const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
-            const mimeType = getOptimizedImageMime(file);
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-
-            if (!ctx) {
-              reject(new Error('画像処理に必要な描画コンテキストを取得できませんでした。'));
-              return;
+            try {
+              resolve(buildOptimizedUploadImage(image, file));
+            } catch (error) {
+              reject(error);
             }
-
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-
-            if (mimeType === 'image/jpeg') {
-              ctx.fillStyle = '#ffffff';
-              ctx.fillRect(0, 0, targetWidth, targetHeight);
-            }
-
-            ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
-
-            const quality = mimeType === 'image/png' ? undefined : 0.9;
-            resolve({
-              dataUrl: canvas.toDataURL(mimeType, quality),
-              mimeType: mimeType,
-              fileName: buildOptimizedImageName(file.name, mimeType)
-            });
           };
           image.onerror = () => reject(new Error('画像の読み込みに失敗しました。'));
           image.src = event.target.result;
