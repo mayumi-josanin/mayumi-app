@@ -43,6 +43,12 @@
       box-sizing: border-box;
     }
 
+    /* 横スクロールを根本的に禁止 (はみ出すコンテンツは個別に内部スクロール) */
+    html, body {
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+
     body {
       font-family: 'Noto Serif JP', serif;
       background: var(--bg-gray);
@@ -642,6 +648,28 @@
 
     /* === スマホ専用 (~720px): タップしやすさ・読みやすさ重視 === */
     @media (max-width: 720px) {
+      /* === 横はみ出しの予防 === */
+      .main-content,
+      .main-content .card,
+      .main-content section {
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+      /* 画像やアイコンが極端に大きくならない */
+      .main-content img {
+        max-width: 100%;
+        height: auto;
+      }
+      /* 入れ子の flex が横にはみ出さないように、要素を折り返し可能に */
+      .main-content .flex {
+        flex-wrap: wrap;
+      }
+      /* インラインに長い英数字 URL があってもはみ出さない */
+      .main-content {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
       /* 入力欄・ボタンを大きく、タップしやすく */
       .main-content input[type="text"],
       .main-content input[type="url"],
@@ -655,7 +683,9 @@
       .main-content textarea {
         font-size: 16px; /* 16px 未満だと iOS が自動拡大する */
         padding: 11px 12px;
-        min-height: 44px; /* タップターゲットの目安 44px */
+        min-height: 44px;
+        max-width: 100%;
+        width: 100%;
       }
 
       .main-content textarea {
@@ -702,23 +732,53 @@
       #blogForm .flex.mb-2 {
         flex-direction: row;
         gap: 8px;
+        flex-wrap: nowrap;
+      }
+      #blogForm .flex.mb-2 > .form-group {
+        min-width: 0;
+      }
+      #blogForm .flex.mb-2 > .form-group[style*="width:100px"] {
+        flex: 0 0 80px !important;
+        width: 80px !important;
       }
 
-      /* テーブルをカード形式に変換 (NEWS一覧用) */
-      .mobile-card-table {
-        display: block;
+      /* カレンダー編集フォームの3カラム(日時/選択中/イベント名)は縦並びに */
+      #calendarForm .flex.mb-2 {
+        flex-direction: column;
+        gap: 12px;
       }
-      .mobile-card-table thead {
-        display: none;
-      }
-      .mobile-card-table,
-      .mobile-card-table tbody,
-      .mobile-card-table tr,
-      .mobile-card-table td {
-        display: block;
+      #calendarForm .flex.mb-2 > .form-group {
+        flex: none !important;
+        margin-left: 0 !important;
         width: 100%;
       }
-      .mobile-card-table tr {
+      #calendarForm .flex.mb-2 > .form-group .flex {
+        flex-wrap: nowrap;
+      }
+      #calendarForm .flex.mb-2 > .form-group .flex > .btn {
+        flex-shrink: 0;
+      }
+
+      /* === すべてのテーブルをカード形式に変換 (スマホ向け) ===
+         mobile-card-table クラスがあってもなくても、スマホでは
+         全テーブルが画面に収まるようカード化する */
+      .main-content table {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+      }
+      .main-content table thead {
+        display: none;
+      }
+      .main-content table tbody,
+      .main-content table tr,
+      .main-content table td {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      .main-content table tr {
         background: #fff;
         border: 1px solid var(--border);
         border-radius: 8px;
@@ -726,12 +786,15 @@
         margin-bottom: 10px;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       }
-      .mobile-card-table td {
+      .main-content table td {
         border: none;
         padding: 4px 0;
         text-align: left;
+        white-space: normal;
+        word-break: break-word;
       }
-      .mobile-card-table td[data-label]::before {
+      /* data-label 属性付きセルは「ラベル: 値」形式で表示 */
+      .main-content table td[data-label]::before {
         content: attr(data-label) ": ";
         font-weight: bold;
         color: var(--text-mid);
@@ -740,14 +803,15 @@
         margin-right: 6px;
         min-width: 70px;
       }
-      .mobile-card-table td[data-label="操作"] {
+      .main-content table td[data-label="操作"] {
         margin-top: 6px;
         padding-top: 8px;
         border-top: 1px dashed var(--border);
       }
-      .mobile-card-table td[data-label="操作"]::before {
+      .main-content table td[data-label="操作"]::before {
         display: none;
       }
+
       /* テーブルラッパーの横スクロールをスマホ時に解除 */
       .card.table-wrapper {
         overflow-x: visible;
@@ -756,16 +820,21 @@
         border: none;
         box-shadow: none;
       }
-      .card.table-wrapper > .mobile-card-table {
+      .card.table-wrapper > table {
         background: transparent;
       }
 
-      /* ヘッダーの「一括削除」「更新」を縦並びでコンパクトに */
+      /* === 見出し横の操作ボタン群が見出しに重ならず縦折りするように === */
       .flex.space-between {
         flex-wrap: wrap;
+        gap: 8px;
+      }
+      .flex.space-between > .flex {
+        flex-wrap: wrap;
+        gap: 6px;
       }
 
-      /* スマホ用クイック公開バー (NEWSページのみ) */
+      /* === スマホ用クイック公開バー (NEWSページのみ) === */
       .mobile-quick-bar {
         display: flex;
         position: sticky;
@@ -778,12 +847,15 @@
         gap: 6px;
         margin-bottom: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        max-width: 100%;
+        box-sizing: border-box;
       }
       .mobile-quick-bar .btn {
         flex: 1;
         min-height: 42px;
         font-size: 13px;
         padding: 8px;
+        min-width: 0;
       }
       .mobile-quick-bar .btn-primary-publish {
         background: var(--sage-dark);
