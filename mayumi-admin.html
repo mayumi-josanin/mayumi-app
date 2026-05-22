@@ -4,6 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 更新時にブラウザが古い版を表示し続けないようキャッシュを無効化 -->
+  <meta http-equiv="Cache-Control" content="no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#5a7a4e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -572,7 +576,7 @@
     }
 
     /* レスポンシブ */
-    @media (max-width: 768px) {
+    @media (max-width: 1024px) {
       .monthly-charts-grid {
         grid-template-columns: 1fr;
       }
@@ -633,6 +637,166 @@
       .main-content {
         padding: 15px;
         padding-bottom: 60px;
+      }
+    }
+
+    /* === スマホ専用 (~720px): タップしやすさ・読みやすさ重視 === */
+    @media (max-width: 720px) {
+      /* 入力欄・ボタンを大きく、タップしやすく */
+      .main-content input[type="text"],
+      .main-content input[type="url"],
+      .main-content input[type="tel"],
+      .main-content input[type="email"],
+      .main-content input[type="number"],
+      .main-content input[type="date"],
+      .main-content input[type="datetime-local"],
+      .main-content input[type="search"],
+      .main-content select,
+      .main-content textarea {
+        font-size: 16px; /* 16px 未満だと iOS が自動拡大する */
+        padding: 11px 12px;
+        min-height: 44px; /* タップターゲットの目安 44px */
+      }
+
+      .main-content textarea {
+        min-height: 120px;
+      }
+
+      .main-content .btn {
+        min-height: 44px;
+        padding: 11px 16px;
+        font-size: 14px;
+      }
+
+      .main-content label {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 6px;
+      }
+
+      .main-content h2 {
+        font-size: 18px;
+      }
+      .main-content h3 {
+        font-size: 15px;
+      }
+
+      /* カード内の余白を少しコンパクトに */
+      .main-content .card {
+        padding: 14px;
+      }
+
+      /* === NEWS作成ボタン群を縦並びにして大きく === */
+      #blogForm .flex[style*="gap:10px"]:last-of-type,
+      #blogForm > .flex {
+        flex-direction: column;
+      }
+      #blogForm .flex[style*="gap:10px"] > .btn {
+        width: 100%;
+        flex: none !important;
+        font-size: 16px !important;
+        padding: 14px !important;
+        min-height: 50px;
+      }
+      /* カテゴリ + アイコンの2カラムは横並びを維持しつつ調整 */
+      #blogForm .flex.mb-2 {
+        flex-direction: row;
+        gap: 8px;
+      }
+
+      /* テーブルをカード形式に変換 (NEWS一覧用) */
+      .mobile-card-table {
+        display: block;
+      }
+      .mobile-card-table thead {
+        display: none;
+      }
+      .mobile-card-table,
+      .mobile-card-table tbody,
+      .mobile-card-table tr,
+      .mobile-card-table td {
+        display: block;
+        width: 100%;
+      }
+      .mobile-card-table tr {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+      .mobile-card-table td {
+        border: none;
+        padding: 4px 0;
+        text-align: left;
+      }
+      .mobile-card-table td[data-label]::before {
+        content: attr(data-label) ": ";
+        font-weight: bold;
+        color: var(--text-mid);
+        font-size: 12px;
+        display: inline-block;
+        margin-right: 6px;
+        min-width: 70px;
+      }
+      .mobile-card-table td[data-label="操作"] {
+        margin-top: 6px;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border);
+      }
+      .mobile-card-table td[data-label="操作"]::before {
+        display: none;
+      }
+      /* テーブルラッパーの横スクロールをスマホ時に解除 */
+      .card.table-wrapper {
+        overflow-x: visible;
+        padding: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+      }
+      .card.table-wrapper > .mobile-card-table {
+        background: transparent;
+      }
+
+      /* ヘッダーの「一括削除」「更新」を縦並びでコンパクトに */
+      .flex.space-between {
+        flex-wrap: wrap;
+      }
+
+      /* スマホ用クイック公開バー (NEWSページのみ) */
+      .mobile-quick-bar {
+        display: flex;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px;
+        gap: 6px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
+      .mobile-quick-bar .btn {
+        flex: 1;
+        min-height: 42px;
+        font-size: 13px;
+        padding: 8px;
+      }
+      .mobile-quick-bar .btn-primary-publish {
+        background: var(--sage-dark);
+        color: #fff;
+        border: none;
+        font-weight: bold;
+      }
+    }
+
+    /* デスクトップではモバイル専用要素を隠す */
+    @media (min-width: 721px) {
+      .mobile-quick-bar {
+        display: none !important;
       }
     }
 
@@ -787,6 +951,463 @@
     .filter-meta {
       font-size: 12px;
       color: var(--text-light);
+    }
+
+    /* 重複登録バッジ (スタンプ・特典管理) */
+    .duplicate-badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #fff3e0;
+      color: #c75450;
+      border: 1px solid #e57373;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    .duplicate-badge:hover {
+      background: #ffe0b2;
+    }
+
+    .no-duplicate-badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--cream);
+      color: var(--text-light);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    /* === 月間カレンダービュー === */
+    .month-calendar-card {
+      padding: 18px;
+    }
+
+    .month-calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .month-calendar-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--sage-dark);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .month-calendar-nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .month-calendar-nav button {
+      background: var(--cream);
+      border: 1px solid var(--border);
+      color: var(--text-dark);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+
+    .month-calendar-nav button:hover {
+      background: var(--sage-light);
+    }
+
+    .month-calendar-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: var(--cream);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text-mid);
+    }
+
+    .month-calendar-legend .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cal-icon-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      color: #fff;
+      font-weight: bold;
+      flex-shrink: 0;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    /* レジェンド用 (固定サイズ) */
+    .legend-item .cal-icon-badge {
+      width: 18px;
+      height: 18px;
+      font-size: 10px;
+    }
+    .legend-item .cal-icon-badge.icon-visit {
+      width: auto;
+      min-width: 32px;
+      padding: 0 6px;
+      height: 18px;
+      border-radius: 999px;
+      font-size: 9px;
+    }
+
+    /* セル内アイコン */
+    .cal-icon-badge.icon-event {
+      background: #4fc3f7;
+    }
+    .cal-icon-badge.icon-holiday {
+      background: #e57373;
+    }
+    .cal-icon-badge.icon-visit {
+      background: #f48fb1;
+    }
+
+    .month-calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--border);
+    }
+
+    .month-calendar-weekday {
+      background: var(--sage-dark);
+      color: #fff;
+      text-align: center;
+      padding: 8px 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .month-calendar-weekday.sun {
+      background: #c75450;
+    }
+
+    .month-calendar-weekday.sat {
+      background: #4a73a8;
+    }
+
+    .month-calendar-day {
+      background: #fff;
+      min-height: 90px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+      transition: background 0.15s;
+    }
+
+    .month-calendar-day.is-other-month {
+      background: #fafafa;
+      color: var(--text-light);
+    }
+
+    .month-calendar-day.is-other-month .day-number {
+      color: #bbb;
+    }
+
+    .month-calendar-day.is-today {
+      background: #fffdf2;
+      box-shadow: inset 0 0 0 2px var(--sage);
+    }
+
+    .month-calendar-day.has-events {
+      cursor: pointer;
+    }
+
+    .month-calendar-day.is-clickable {
+      cursor: pointer;
+    }
+
+    .month-calendar-day.is-clickable:hover {
+      background: var(--cream);
+    }
+
+    .month-calendar-day.has-events:hover {
+      background: var(--cream);
+    }
+
+    .day-number {
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--text-dark);
+      line-height: 1;
+    }
+
+    .day-number.sun {
+      color: #c75450;
+    }
+
+    .day-number.sat {
+      color: #4a73a8;
+    }
+
+    .day-icons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 2px;
+    }
+
+    .day-icons .cal-icon-badge {
+      width: 18px;
+      height: 18px;
+      font-size: 10px;
+    }
+
+    .day-icons .cal-icon-badge.icon-visit {
+      width: auto;
+      min-width: 30px;
+      padding: 0 5px;
+      height: 18px;
+      font-size: 9px;
+    }
+
+    .day-events {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 2px;
+      overflow: hidden;
+    }
+
+    .day-event-chip {
+      font-size: 10px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      background: var(--cream);
+      color: var(--text-dark);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-left: 3px solid var(--sage);
+    }
+
+    .day-event-more {
+      font-size: 10px;
+      color: var(--text-light);
+      padding-left: 4px;
+    }
+
+    .month-calendar-empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--text-light);
+      font-size: 13px;
+    }
+
+    /* イベント詳細ポップオーバー */
+    .day-detail-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1500;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .day-detail-modal.is-open {
+      display: flex;
+    }
+
+    .day-detail-content {
+      background: #fff;
+      border-radius: 12px;
+      max-width: 480px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    .day-detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .day-detail-date {
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--sage-dark);
+    }
+
+    .day-detail-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: var(--text-mid);
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+
+    .day-detail-back {
+      background: var(--cream);
+      border: 1px solid var(--border);
+      color: var(--text-dark);
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      transition: background 0.15s;
+    }
+
+    .day-detail-back:hover {
+      background: var(--sage-light);
+    }
+
+    /* 一覧形式のイベントアイテム (タップで詳細へ) */
+    .day-event-list-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--sage);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text-dark);
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s, transform 0.05s;
+    }
+
+    .day-event-list-item:hover {
+      background: var(--cream);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    }
+
+    .day-event-list-item:active {
+      transform: scale(0.98);
+    }
+
+    .day-event-list-icon {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .day-event-list-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .day-event-list-title {
+      font-weight: bold;
+      font-size: 14px;
+      color: var(--text-dark);
+      word-break: break-word;
+    }
+
+    .day-event-list-cat {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: var(--cream);
+      border-radius: 4px;
+      color: var(--text-mid);
+    }
+
+    .day-event-list-arrow {
+      flex-shrink: 0;
+      color: var(--text-light);
+      font-size: 20px;
+      line-height: 1;
+      margin-left: 4px;
+    }
+
+    .day-detail-event {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--cream);
+      margin-bottom: 8px;
+      border-left: 4px solid var(--sage);
+    }
+
+    .day-detail-event-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: var(--text-dark);
+      margin-bottom: 4px;
+    }
+
+    .day-detail-event-meta {
+      font-size: 11px;
+      color: var(--text-light);
+      margin-bottom: 4px;
+    }
+
+    .day-detail-event-desc {
+      font-size: 12px;
+      color: var(--text-mid);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 720px) {
+      .month-calendar-day {
+        min-height: 70px;
+        padding: 4px;
+      }
+      .day-event-chip {
+        display: none;
+      }
+      .day-icons .cal-icon-badge {
+        width: 16px;
+        height: 16px;
+        font-size: 9px;
+      }
+      .day-icons .cal-icon-badge.icon-visit {
+        min-width: 26px;
+        padding: 0 4px;
+        height: 16px;
+        font-size: 8px;
+      }
     }
 
     /* 並び替えリストのスタイル */
@@ -997,6 +1618,12 @@
 
       <!-- === NEWS配信・管理ページ === -->
       <section id="page-blogs" class="page active">
+        <!-- スマホ向け: 上部に主要アクションを固定 (スクロール時もクイック操作可能) -->
+        <div class="mobile-quick-bar">
+          <button type="button" class="btn btn-primary-publish" onclick="scrollAndSubmitBlogPublish()">🌟 公開</button>
+          <button type="button" class="btn btn-outline" onclick="scrollAndSubmitBlogDraft()">📁 下書き</button>
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('blogForm').scrollIntoView({behavior:'smooth', block:'start'})">✏️ 編集中</button>
+        </div>
         <div class="flex space-between mb-2">
           <h2>NEWS配信・管理</h2>
         </div>
@@ -1120,7 +1747,7 @@
           </div>
         </div>
         <div class="card table-wrapper mb-2">
-          <table>
+          <table class="mobile-card-table">
             <thead>
               <tr>
                 <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('BLOG', this)"></th>
@@ -1157,7 +1784,7 @@
           </div>
         </div>
         <div class="card table-wrapper">
-          <table>
+          <table class="mobile-card-table">
             <thead>
               <tr>
                 <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('BLOG', this)"></th>
@@ -1478,13 +2105,14 @@
 
         <div class="flex space-between mb-2" style="margin-top:40px; flex-wrap:wrap; align-items:flex-start;">
           <h2>🧩 重複会員候補</h2>
-          <div class="flex">
+          <div class="flex" style="gap:8px; flex-wrap:wrap;">
+            <button class="btn" type="button" onclick="bulkMergeSafeDuplicateUsers()">安全な候補を一括統合</button>
             <button class="btn btn-outline" onclick="loadDuplicateUsers()">🔄 更新</button>
           </div>
         </div>
         <div class="card table-wrapper">
           <div style="font-size:12px; color:var(--text-light); margin-bottom:12px;">
-            同じ電話番号、氏名と生年月日、氏名が一致する候補を一覧表示します。統合すると、残す会員IDへ注文・スタンプ・端末情報を集約し、他の会員はゴミ箱へ移動します。
+            同じ電話番号、氏名と生年月日、氏名が一致する候補を一覧表示します。「安全な候補を一括統合」は「電話番号一致」「氏名＋生年月日一致」だけをまとめて処理し、「氏名だけ一致」は個別確認のまま残します。
           </div>
           <table>
             <thead>
@@ -1742,7 +2370,6 @@
                 <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('CALENDAR', this)">
                 </th>
                 <th>画像</th>
-                <th>日付</th>
                 <th>イベント名</th>
                 <th>カテゴリ</th>
                 <th>詳細</th>
@@ -1753,7 +2380,7 @@
             </thead>
             <tbody id="calendarDraftsList">
               <tr>
-                <td colspan="9" style="text-align:center;">読み込み中...</td>
+                <td colspan="8" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -1789,6 +2416,43 @@
           </div>
         </div>
 
+        <!-- 月間カレンダービュー -->
+        <div class="card month-calendar-card" style="margin-top:20px;">
+          <div class="month-calendar-header">
+            <div class="month-calendar-title">
+              <span>🗓</span>
+              <span id="monthCalendarLabel">読み込み中...</span>
+            </div>
+            <div class="month-calendar-nav">
+              <button type="button" onclick="shiftMonthCalendar(-1)">← 前月</button>
+              <button type="button" onclick="shiftMonthCalendar(0)">今月</button>
+              <button type="button" onclick="shiftMonthCalendar(1)">翌月 →</button>
+            </div>
+          </div>
+          <div class="month-calendar-legend">
+            <span style="font-weight:bold; color:var(--text-mid);">凡例:</span>
+            <span class="legend-item"><span class="cal-icon-badge icon-event">イ</span>イベント</span>
+            <span class="legend-item"><span class="cal-icon-badge icon-holiday">休</span>休診</span>
+            <span class="legend-item"><span class="cal-icon-badge icon-visit">往診</span>往診</span>
+            <span style="margin-left:auto; font-size:11px; color:var(--text-light);">※日付をクリックすると詳細が表示されます</span>
+          </div>
+          <div id="monthCalendarGrid" class="month-calendar-grid"></div>
+        </div>
+
+        <!-- 日別イベント詳細モーダル -->
+        <div id="dayDetailModal" class="day-detail-modal" onclick="closeDayDetailModal(event)">
+          <div class="day-detail-content" onclick="event.stopPropagation()">
+            <div class="day-detail-header">
+              <div style="display:flex; align-items:center; gap:8px; flex:1;">
+                <button type="button" id="dayDetailBackBtn" class="day-detail-back" style="display:none;" onclick="backToDayEventList()" aria-label="一覧に戻る">‹ 戻る</button>
+                <div class="day-detail-date" id="dayDetailDate"></div>
+              </div>
+              <button type="button" class="day-detail-close" onclick="closeDayDetailModal()" aria-label="閉じる">×</button>
+            </div>
+            <div id="dayDetailBody"></div>
+          </div>
+        </div>
+
         <h3 style="margin-top:30px; margin-bottom:10px; font-size: 16px;">イベント一覧</h3>
         <div class="card table-wrapper">
           <table>
@@ -1797,7 +2461,6 @@
                 <th style="width:40px;"><input type="checkbox" onchange="toggleSelectAll('CALENDAR', this)">
                 </th>
                 <th>画像</th>
-                <th>日付</th>
                 <th>イベント名</th>
                 <th>カテゴリ</th>
                 <th>詳細</th>
@@ -1808,7 +2471,7 @@
             </thead>
             <tbody id="calendarList">
               <tr>
-                <td colspan="9" style="text-align:center;">読み込み中...</td>
+                <td colspan="8" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -2453,6 +3116,7 @@
         <div class="flex space-between mb-2" style="flex-wrap:wrap; align-items:flex-start;">
           <h2>スタンプ・特典管理</h2>
           <div class="flex" style="flex-wrap:wrap;">
+            <button class="btn" type="button" onclick="restoreUsersFromRewardData()">🧩 特典データから会員を再作成</button>
             <button class="btn btn-outline" onclick="loadAdminRewardStatuses()">🔄 更新</button>
           </div>
         </div>
@@ -2472,7 +3136,7 @@
           </div>
           <div id="rewardGachaConfigMeta" style="font-size:12px; color:var(--text-light); margin:14px 0 10px;">読み込み中...</div>
           <div style="overflow:auto;">
-            <table style="min-width:1240px;">
+            <table style="min-width:1120px;">
               <thead>
                 <tr>
                   <th style="width:170px;">月</th>
@@ -2748,6 +3412,45 @@
       <div class="form-group" style="margin-bottom:15px;">
         <label>更新案内メッセージ</label>
         <textarea id="runtimeUpdateMessageInput" rows="3" placeholder="例：このアプリを引き続き利用するには最新版へ更新してください。"></textarea>
+      </div>
+      <div style="font-size:13px; font-weight:bold; margin-bottom:10px;">Firebase Realtime Database 連携</div>
+      <p style="font-size:12px; margin-bottom:10px; color:var(--text-mid);">
+        顧客アプリのオンライン状況をほぼリアルタイムで表示する設定です。公開設定とサービスアカウント秘密鍵の両方が揃っている時だけ有効になります。
+      </p>
+      <div class="form-group" style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+        <input type="checkbox" id="firebasePresenceEnabledInput" style="width:18px; height:18px;">
+        <label style="margin-bottom:0;">Realtime Database のオンライン監視を有効にする</label>
+      </div>
+      <div class="form-group">
+        <label>Project ID</label>
+        <input type="text" id="firebasePresenceProjectIdInput" placeholder="例：mayumi-josanin">
+      </div>
+      <div class="form-group">
+        <label>Database URL</label>
+        <input type="url" id="firebasePresenceDatabaseUrlInput" placeholder="https://xxxx-default-rtdb.firebaseio.com">
+      </div>
+      <div class="form-group">
+        <label>API Key</label>
+        <input type="text" id="firebasePresenceApiKeyInput" placeholder="AIza...">
+      </div>
+      <div class="form-group">
+        <label>Auth Domain</label>
+        <input type="text" id="firebasePresenceAuthDomainInput" placeholder="xxxx.firebaseapp.com">
+      </div>
+      <div class="form-group">
+        <label>App ID</label>
+        <input type="text" id="firebasePresenceAppIdInput" placeholder="1:1234567890:web:abcdef">
+      </div>
+      <div class="form-group">
+        <label>サービスアカウント Email</label>
+        <input type="email" id="firebasePresenceServiceAccountEmailInput" placeholder="firebase-adminsdk-xxx@project-id.iam.gserviceaccount.com">
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label>サービスアカウント Private Key（変更する場合のみ入力）</label>
+        <textarea id="firebasePresencePrivateKeyInput" rows="4" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+      </div>
+      <div id="firebasePresenceSecretStatus" style="font-size:11px; color:var(--text-mid); margin-bottom:15px;">
+        サービスアカウント秘密鍵の状態を確認中...
       </div>
       <div style="font-size:13px; font-weight:bold; margin-bottom:10px;">管理画面の権限・安全設定</div>
       <div class="form-group">
@@ -3076,13 +3779,23 @@
 
     let GAS_URL = localStorage.getItem('MAYUMI_GAS_URL') || DEFAULT_GAS_URL;
     let APP_PUBLIC_URL = localStorage.getItem('MAYUMI_APP_PUBLIC_URL') || '';
+    const FIREBASE_COMPAT_SDK_VERSION = '12.7.0';
+    const DEFAULT_FIREBASE_PRESENCE_CONFIG = {
+      enabled: false,
+      apiKey: '',
+      authDomain: '',
+      databaseURL: '',
+      projectId: '',
+      appId: ''
+    };
     const DEFAULT_APP_RUNTIME_CONFIG = {
       latestAppVersion: '1.1.1',
       minimumSupportedVersion: '0.0.0',
       iosStoreUrl: '',
       updateTitle: 'アップデートが必要です',
       updateMessage: 'このアプリを引き続き利用するには、最新版へアップデートしてください。',
-      webBundleVersion: '2026.04.14.64'
+      webBundleVersion: '2026.04.14.64',
+      firebasePresence: DEFAULT_FIREBASE_PRESENCE_CONFIG
     };
     let allUsers = [];
     let allMenus = [];
@@ -3115,6 +3828,21 @@
     let adminUsersLoadVersion = 0;
     let deferredAdminInstallPrompt = null;
     let pendingDangerConfirm = null;
+    let adminFirebasePresenceSecretMeta = { configured: false, serviceAccountEmail: '' };
+    let adminFirebasePresenceByMemberId = {};
+    let currentUserSummaryTarget = null;
+    let adminPresenceAuthPassword = '';
+    const ADMIN_AUTH_PASSWORD_SESSION_KEY = 'admin_auth_plain_password';
+    let adminFirebasePresenceState = {
+      sdkPromise: null,
+      app: null,
+      auth: null,
+      db: null,
+      listenerRef: null,
+      listenerHandler: null,
+      listening: false,
+      missingPasswordNotified: false
+    };
     const MENU_REVENUE_TYPES = ['母乳外来', 'ビジリス', '教室', 'その他'];
     const REWARD_GACHA_RANK_KEYS = ['A', 'B', 'C', 'D'];
     const DEFAULT_REWARD_GACHA_PROBABILITIES = { A: 5, B: 15, C: 30, D: 50 };
@@ -3442,6 +4170,52 @@
       return 0;
     }
 
+    function sanitizeAdminFirebasePresenceConfig(raw) {
+      const input = raw && typeof raw === 'object' ? raw : {};
+      let databaseURL = String(input.databaseURL || '').trim();
+      if (databaseURL && !/^https?:\/\//i.test(databaseURL) && /^[a-z0-9.-]+(\.firebasedatabase\.app|\.firebaseio\.com)(\/.*)?$/i.test(databaseURL)) {
+        databaseURL = 'https://' + databaseURL;
+      }
+      databaseURL = databaseURL.replace(/\/+$/g, '');
+      return {
+        enabled: input.enabled === true || String(input.enabled || '').trim().toLowerCase() === 'true',
+        apiKey: String(input.apiKey || '').trim(),
+        authDomain: String(input.authDomain || '').trim().replace(/^https?:\/\//i, '').replace(/\/+$/g, ''),
+        databaseURL: databaseURL,
+        projectId: String(input.projectId || '').trim(),
+        appId: String(input.appId || '').trim()
+      };
+    }
+
+    function isAdminFirebasePresenceEnabled(config) {
+      const normalized = sanitizeAdminFirebasePresenceConfig(config);
+      return !!(
+        normalized.enabled &&
+        normalized.apiKey &&
+        normalized.authDomain &&
+        normalized.databaseURL &&
+        normalized.projectId &&
+        normalized.appId
+      );
+    }
+
+    function applyAdminFirebasePresenceSecretStatus(meta) {
+      adminFirebasePresenceSecretMeta = {
+        configured: !!(meta && meta.configured),
+        serviceAccountEmail: String(meta && meta.serviceAccountEmail || '').trim()
+      };
+      const emailInput = document.getElementById('firebasePresenceServiceAccountEmailInput');
+      if (emailInput) emailInput.value = adminFirebasePresenceSecretMeta.serviceAccountEmail || '';
+      const keyInput = document.getElementById('firebasePresencePrivateKeyInput');
+      if (keyInput) keyInput.value = '';
+      const statusEl = document.getElementById('firebasePresenceSecretStatus');
+      if (statusEl) {
+        statusEl.textContent = adminFirebasePresenceSecretMeta.configured
+          ? `サービスアカウント秘密鍵は登録済みです (${adminFirebasePresenceSecretMeta.serviceAccountEmail || 'email 未設定'})`
+          : 'サービスアカウント秘密鍵はまだ未登録です';
+      }
+    }
+
     function sanitizeAdminAppRuntimeConfig(raw) {
       const input = raw && typeof raw === 'object' ? raw : {};
       const config = {
@@ -3450,7 +4224,8 @@
         iosStoreUrl: String(input.iosStoreUrl || DEFAULT_APP_RUNTIME_CONFIG.iosStoreUrl).trim(),
         updateTitle: String(input.updateTitle || DEFAULT_APP_RUNTIME_CONFIG.updateTitle).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateTitle,
         updateMessage: String(input.updateMessage || DEFAULT_APP_RUNTIME_CONFIG.updateMessage).trim() || DEFAULT_APP_RUNTIME_CONFIG.updateMessage,
-        webBundleVersion: String(input.webBundleVersion || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion
+        webBundleVersion: String(input.webBundleVersion || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion).trim() || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion,
+        firebasePresence: sanitizeAdminFirebasePresenceConfig(input.firebasePresence || DEFAULT_FIREBASE_PRESENCE_CONFIG)
       };
       if (compareAdminVersions(config.latestAppVersion, config.minimumSupportedVersion) < 0) {
         config.latestAppVersion = config.minimumSupportedVersion;
@@ -3470,6 +4245,12 @@
       document.getElementById('runtimeUpdateTitleInput').value = next.updateTitle;
       document.getElementById('runtimeUpdateMessageInput').value = next.updateMessage;
       document.getElementById('runtimeWebBundleVersionInput').value = next.webBundleVersion || '';
+      document.getElementById('firebasePresenceEnabledInput').checked = !!(next.firebasePresence && next.firebasePresence.enabled);
+      document.getElementById('firebasePresenceProjectIdInput').value = next.firebasePresence && next.firebasePresence.projectId || '';
+      document.getElementById('firebasePresenceDatabaseUrlInput').value = next.firebasePresence && next.firebasePresence.databaseURL || '';
+      document.getElementById('firebasePresenceApiKeyInput').value = next.firebasePresence && next.firebasePresence.apiKey || '';
+      document.getElementById('firebasePresenceAuthDomainInput').value = next.firebasePresence && next.firebasePresence.authDomain || '';
+      document.getElementById('firebasePresenceAppIdInput').value = next.firebasePresence && next.firebasePresence.appId || '';
     }
 
     function collectAdminAppRuntimeConfigFromInputs() {
@@ -3479,7 +4260,15 @@
         iosStoreUrl: document.getElementById('runtimeStoreUrlInput').value,
         updateTitle: document.getElementById('runtimeUpdateTitleInput').value,
         updateMessage: document.getElementById('runtimeUpdateMessageInput').value,
-        webBundleVersion: document.getElementById('runtimeWebBundleVersionInput').value || adminAppRuntimeConfig.webBundleVersion || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion
+        webBundleVersion: document.getElementById('runtimeWebBundleVersionInput').value || adminAppRuntimeConfig.webBundleVersion || DEFAULT_APP_RUNTIME_CONFIG.webBundleVersion,
+        firebasePresence: {
+          enabled: document.getElementById('firebasePresenceEnabledInput').checked,
+          projectId: document.getElementById('firebasePresenceProjectIdInput').value,
+          databaseURL: document.getElementById('firebasePresenceDatabaseUrlInput').value,
+          apiKey: document.getElementById('firebasePresenceApiKeyInput').value,
+          authDomain: document.getElementById('firebasePresenceAuthDomainInput').value,
+          appId: document.getElementById('firebasePresenceAppIdInput').value
+        }
       });
     }
 
@@ -3491,6 +4280,244 @@
       }
       applyAdminAppRuntimeConfigToInputs(adminAppRuntimeConfig);
       return adminAppRuntimeConfig;
+    }
+
+    async function loadAdminFirebasePresenceSecretMeta() {
+      const res = await apiRequest('getFirebasePresenceAdminConfig');
+      if (res && res.status === 'ok') {
+        applyAdminFirebasePresenceSecretStatus(res);
+        return adminFirebasePresenceSecretMeta;
+      }
+      applyAdminFirebasePresenceSecretStatus(adminFirebasePresenceSecretMeta);
+      return adminFirebasePresenceSecretMeta;
+    }
+
+    function buildAdminFirebaseScriptUrl(fileName) {
+      return 'https://www.gstatic.com/firebasejs/' + FIREBASE_COMPAT_SDK_VERSION + '/' + fileName;
+    }
+
+    function loadAdminFirebaseScript(fileName) {
+      if (typeof document === 'undefined') return Promise.reject(new Error('document is not available'));
+      const scriptId = 'mayumi-admin-firebase-' + fileName.replace(/[^a-z0-9]+/gi, '-');
+      const existing = document.getElementById(scriptId);
+      if (existing) {
+        if (existing.dataset.loaded === 'true') return Promise.resolve();
+        return new Promise(function (resolve, reject) {
+          existing.addEventListener('load', function () {
+            resolve();
+          }, { once: true });
+          existing.addEventListener('error', function (event) {
+            reject(event && event.error ? event.error : new Error('Firebase script load failed'));
+          }, { once: true });
+        });
+      }
+      return new Promise(function (resolve, reject) {
+        const script = document.createElement('script');
+        script.id = scriptId;
+        script.src = buildAdminFirebaseScriptUrl(fileName);
+        script.async = true;
+        script.onload = function () {
+          script.dataset.loaded = 'true';
+          resolve();
+        };
+        script.onerror = function () {
+          reject(new Error('Firebase script load failed: ' + fileName));
+        };
+        document.head.appendChild(script);
+      });
+    }
+
+    async function loadAdminFirebaseCompatSdk() {
+      if (window.firebase && typeof window.firebase.initializeApp === 'function') {
+        return window.firebase;
+      }
+      if (!adminFirebasePresenceState.sdkPromise) {
+        adminFirebasePresenceState.sdkPromise = (async function () {
+          await loadAdminFirebaseScript('firebase-app-compat.js');
+          await loadAdminFirebaseScript('firebase-auth-compat.js');
+          await loadAdminFirebaseScript('firebase-database-compat.js');
+          if (!(window.firebase && typeof window.firebase.initializeApp === 'function')) {
+            throw new Error('Firebase SDK could not be initialized');
+          }
+          return window.firebase;
+        })().catch(function (error) {
+          adminFirebasePresenceState.sdkPromise = null;
+          throw error;
+        });
+      }
+      return adminFirebasePresenceState.sdkPromise;
+    }
+
+    function waitForAdminFirebaseAuthReady(auth) {
+      if (!auth || typeof auth.onAuthStateChanged !== 'function') return Promise.resolve(null);
+      return new Promise(function (resolve) {
+        let settled = false;
+        let timeoutId = 0;
+        let unsubscribe = function () { };
+        const finish = function (user) {
+          if (settled) return;
+          settled = true;
+          if (timeoutId) clearTimeout(timeoutId);
+          try { unsubscribe(); } catch (e) { }
+          resolve(user || auth.currentUser || null);
+        };
+        try {
+          unsubscribe = auth.onAuthStateChanged(function (user) {
+            finish(user);
+          }, function () {
+            finish(auth.currentUser || null);
+          });
+        } catch (error) {
+          finish(auth.currentUser || null);
+          return;
+        }
+        timeoutId = setTimeout(function () {
+          finish(auth.currentUser || null);
+        }, 4000);
+      });
+    }
+
+    function getAdminPresencePassword() {
+      if (adminPresenceAuthPassword) return adminPresenceAuthPassword;
+      try {
+        adminPresenceAuthPassword = sessionStorage.getItem(ADMIN_AUTH_PASSWORD_SESSION_KEY) || '';
+      } catch (error) { }
+      return adminPresenceAuthPassword;
+    }
+
+    function normalizeAdminPresenceTimestamp(value) {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (!value) return 0;
+      const parsed = new Date(value).getTime();
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function normalizeAdminFirebasePresenceMap(raw) {
+      const map = {};
+      if (!raw || typeof raw !== 'object') return map;
+      Object.keys(raw).forEach(function (memberId) {
+        const devices = raw[memberId];
+        if (!devices || typeof devices !== 'object') return;
+        map[String(memberId)] = Object.keys(devices).map(function (deviceId) {
+          const item = devices[deviceId] || {};
+          return {
+            deviceId: String(item.deviceId || deviceId || ''),
+            label: String(item.label || 'この端末'),
+            platform: String(item.platform || ''),
+            appVersion: String(item.appVersion || ''),
+            page: String(item.page || ''),
+            visibility: String(item.visibility || ''),
+            status: String(item.status || '').trim() || 'offline',
+            memberId: String(item.memberId || memberId || ''),
+            lastSeenAt: normalizeAdminPresenceTimestamp(item.lastSeenAt),
+            connectedAt: normalizeAdminPresenceTimestamp(item.connectedAt),
+            passcodeEnabled: item.passcodeEnabled === true,
+            pushEnabled: item.pushEnabled === true
+          };
+        }).sort(function (a, b) {
+          return normalizeAdminPresenceTimestamp(b && b.lastSeenAt) - normalizeAdminPresenceTimestamp(a && a.lastSeenAt);
+        });
+      });
+      return map;
+    }
+
+    function refreshAdminPresenceViews() {
+      refreshUserViews();
+      const summaryModal = document.getElementById('userSummaryModal');
+      if (summaryModal && summaryModal.classList.contains('active') && currentUserSummaryTarget) {
+        openUserSummaryModal(currentUserSummaryTarget.memberId, currentUserSummaryTarget.rowIdx);
+      }
+    }
+
+    async function stopAdminFirebasePresenceTracking(options = {}) {
+      if (adminFirebasePresenceState.listenerRef && adminFirebasePresenceState.listenerHandler) {
+        adminFirebasePresenceState.listenerRef.off('value', adminFirebasePresenceState.listenerHandler);
+      }
+      adminFirebasePresenceState.listenerRef = null;
+      adminFirebasePresenceState.listenerHandler = null;
+      adminFirebasePresenceState.listening = false;
+      if (options.signOut === true && adminFirebasePresenceState.auth) {
+        try {
+          await adminFirebasePresenceState.auth.signOut();
+        } catch (error) {
+          console.warn('admin firebase signOut error:', error);
+        }
+      }
+      if (options.clearState !== false) {
+        adminFirebasePresenceByMemberId = {};
+        refreshAdminPresenceViews();
+      }
+    }
+
+    async function ensureAdminFirebasePresenceTracking() {
+      if (!GAS_URL) return false;
+      await loadAdminAppRuntimeConfig();
+      const presenceConfig = sanitizeAdminFirebasePresenceConfig(adminAppRuntimeConfig && adminAppRuntimeConfig.firebasePresence);
+      if (!isAdminFirebasePresenceEnabled(presenceConfig)) {
+        await stopAdminFirebasePresenceTracking({ clearState: true, signOut: false });
+        return false;
+      }
+      try {
+        const firebaseNs = await loadAdminFirebaseCompatSdk();
+        let app = null;
+        try {
+          app = firebaseNs.app('mayumiAdminPresence');
+        } catch (error) {
+          app = firebaseNs.initializeApp(presenceConfig, 'mayumiAdminPresence');
+        }
+        adminFirebasePresenceState.app = app;
+        adminFirebasePresenceState.auth = app.auth();
+        adminFirebasePresenceState.db = app.database();
+        if (adminFirebasePresenceState.auth && adminFirebasePresenceState.auth.setPersistence && firebaseNs.auth && firebaseNs.auth.Auth) {
+          try {
+            await adminFirebasePresenceState.auth.setPersistence(firebaseNs.auth.Auth.Persistence.LOCAL);
+          } catch (error) {
+            console.warn('admin firebase setPersistence error:', error);
+          }
+        }
+        let currentUser = adminFirebasePresenceState.auth.currentUser || await waitForAdminFirebaseAuthReady(adminFirebasePresenceState.auth);
+        if (currentUser && currentUser.uid !== 'presence-admin') {
+          await adminFirebasePresenceState.auth.signOut().catch(function (error) {
+            console.warn('admin firebase signOut before re-auth error:', error);
+          });
+          currentUser = null;
+        }
+        if (!currentUser) {
+          const adminPassword = getAdminPresencePassword();
+          if (!adminPassword) {
+            adminFirebasePresenceState.missingPasswordNotified = true;
+            return false;
+          }
+          const tokenResponse = await apiRequest('', {
+            type: 'getFirebasePresenceToken',
+            clientType: 'admin',
+            adminPassword: adminPassword
+          }, true);
+          if (!(tokenResponse && tokenResponse.status === 'ok' && tokenResponse.token)) {
+            console.warn('admin firebase token acquisition failed:', tokenResponse);
+            return false;
+          }
+          await adminFirebasePresenceState.auth.signInWithCustomToken(tokenResponse.token);
+        }
+        if (adminFirebasePresenceState.listening && adminFirebasePresenceState.listenerRef) {
+          adminFirebasePresenceState.missingPasswordNotified = false;
+          return true;
+        }
+        adminFirebasePresenceState.listenerRef = adminFirebasePresenceState.db.ref('presence/users');
+        adminFirebasePresenceState.listenerHandler = function (snapshot) {
+          adminFirebasePresenceByMemberId = normalizeAdminFirebasePresenceMap(snapshot && snapshot.val ? snapshot.val() : null);
+          refreshAdminPresenceViews();
+        };
+        adminFirebasePresenceState.listenerRef.on('value', adminFirebasePresenceState.listenerHandler, function (error) {
+          console.warn('admin firebase presence listen error:', error);
+        });
+        adminFirebasePresenceState.listening = true;
+        adminFirebasePresenceState.missingPasswordNotified = false;
+        return true;
+      } catch (error) {
+        console.warn('ensureAdminFirebasePresenceTracking error:', error);
+        return false;
+      }
     }
 
     function normalizeFilterText(value) {
@@ -3567,6 +4594,82 @@
       titleEl.textContent = title || 'プレビュー';
       bodyEl.innerHTML = html || '<div style="color:var(--text-mid);">プレビューを表示できませんでした</div>';
       document.getElementById('contentPreviewModal').classList.add('active');
+    }
+
+    /**
+     * スマホ向けクイック公開ボタン: フォームバリデーション後、公開ステータスで送信
+     */
+    function scrollAndSubmitBlogPublish() {
+      const form = document.getElementById('blogForm');
+      if (!form) return;
+      // 必須項目チェック
+      if (!validateBlogFormBasics()) {
+        form.scrollIntoView({behavior:'smooth', block:'start'});
+        return;
+      }
+      const statusInput = document.getElementById('blogStatus');
+      if (statusInput) statusInput.value = '公開';
+      // submit イベントを発火
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+      } else {
+        const e = new Event('submit', { cancelable: true, bubbles: true });
+        form.dispatchEvent(e);
+      }
+    }
+
+    /**
+     * スマホ向け下書き保存ボタン
+     */
+    function scrollAndSubmitBlogDraft() {
+      const form = document.getElementById('blogForm');
+      if (!form) return;
+      const title = (document.getElementById('blogTitle') || {}).value || '';
+      if (!String(title).trim()) {
+        showToastSafe('タイトルだけは入力してください');
+        const tEl = document.getElementById('blogTitle');
+        if (tEl) {
+          tEl.focus();
+          tEl.scrollIntoView({behavior:'smooth', block:'center'});
+        }
+        return;
+      }
+      const statusInput = document.getElementById('blogStatus');
+      if (statusInput) statusInput.value = '非公開';
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+      } else {
+        const e = new Event('submit', { cancelable: true, bubbles: true });
+        form.dispatchEvent(e);
+      }
+    }
+
+    /** 公開前の最低限のバリデーション */
+    function validateBlogFormBasics() {
+      const title = (document.getElementById('blogTitle') || {}).value || '';
+      const body = (document.getElementById('blogBody') || {}).value || '';
+      if (!String(title).trim()) {
+        showToastSafe('タイトルを入力してください');
+        const el = document.getElementById('blogTitle');
+        if (el) { el.focus(); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+        return false;
+      }
+      if (!String(body).trim()) {
+        showToastSafe('本文を入力してください');
+        const el = document.getElementById('blogBody');
+        if (el) { el.focus(); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+        return false;
+      }
+      return true;
+    }
+
+    /** showToast が無い環境でも落ちないようにラップ */
+    function showToastSafe(msg) {
+      if (typeof showToast === 'function') {
+        showToast(msg);
+      } else if (typeof alert === 'function') {
+        alert(msg);
+      }
     }
 
     function previewBlogDraft() {
@@ -3703,6 +4806,7 @@
       const mode = String((data && data.mode) || '').trim();
       const sheet = String((data && data.sheet) || '').trim();
       const labelMap = {
+        getFirebasePresenceToken: 'オンライン監視接続',
         addBlog: 'NEWS追加',
         updateBlog: 'NEWS更新',
         addProduct: '商品追加',
@@ -3738,10 +4842,15 @@
         deleteMenuRevenueRecord: 'メニュー収益削除',
         deleteProductRevenueRecord: '商品収益削除',
         mergeUsers: '会員統合',
+        bulkMergeSafeDuplicateUsers: '安全な重複会員一括統合',
+        restoreUsersFromRewardData: '会員再作成',
         restoreDeletedRecord: 'ゴミ箱復元',
         hardDeleteRecord: '完全削除',
         runManualBackup: '手動バックアップ'
       };
+      if (type === 'getFirebasePresenceToken') {
+        return { level: 'view', label: 'オンライン監視接続' };
+      }
       if (type === 'broadcastPush') {
         if (mode === 'draft') return { level: 'edit', label: '通知下書き保存' };
         if (mode === 'test') return { level: 'danger', label: 'テスト通知送信' };
@@ -3751,7 +4860,7 @@
       const dangerTypes = new Set([
         'deleteRow', 'deleteRows', 'deleteOrders', 'deleteUser', 'deleteCategory', 'deleteSupportFaq',
         'deleteMenu', 'deleteAdminTemplate', 'deleteMenuRevenueRecord', 'deleteProductRevenueRecord',
-        'mergeUsers', 'restoreDeletedRecord', 'hardDeleteRecord', 'runManualBackup', 'deleteNoticeListing',
+        'mergeUsers', 'bulkMergeSafeDuplicateUsers', 'restoreUsersFromRewardData', 'restoreDeletedRecord', 'hardDeleteRecord', 'runManualBackup', 'deleteNoticeListing',
         'saveAppRuntimeConfig', 'saveAdminSecurityConfig'
       ]);
       return {
@@ -3845,6 +4954,11 @@
       if (value === '受取済' || value.indexOf('受取済') !== -1 || value === 'done') return '受取済';
       if (value === 'キャンセル済' || value.indexOf('キャンセル') !== -1 || value === 'cancelled') return 'キャンセル済';
       return value;
+    }
+
+    function shouldHideAdminOrderFromActiveList(order) {
+      const normalizedStatus = normalizeAdminOrderStatus(order && order.status);
+      return normalizedStatus === 'キャンセル済' || normalizedStatus === '受取済' || !!(order && order.checked);
     }
 
     function escapeHtml(text) {
@@ -4133,8 +5247,10 @@
       document.getElementById('gasUrlInput').value = GAS_URL;
       document.getElementById('appPublicUrlInput').value = APP_PUBLIC_URL;
       applyAdminAppRuntimeConfigToInputs(adminAppRuntimeConfig);
+      applyAdminFirebasePresenceSecretStatus(adminFirebasePresenceSecretMeta);
       if (GAS_URL) {
         await loadAdminAppRuntimeConfig();
+        await loadAdminFirebasePresenceSecretMeta();
         const securityRes = await apiRequest('getAdminSecurityConfig');
         if (securityRes && securityRes.status === 'ok' && securityRes.config) {
           adminSecurityConfig = securityRes.config;
@@ -4152,6 +5268,8 @@
       const gUrl = document.getElementById('gasUrlInput').value.trim();
       const aUrl = document.getElementById('appPublicUrlInput').value.trim();
       const runtimeConfig = collectAdminAppRuntimeConfigFromInputs();
+      const firebasePresenceEmail = document.getElementById('firebasePresenceServiceAccountEmailInput').value.trim();
+      const firebasePresencePrivateKey = document.getElementById('firebasePresencePrivateKeyInput').value.trim();
       const securityConfig = {
         roleMode: document.getElementById('adminRoleModeInput').value,
         operatorName: document.getElementById('adminOperatorNameInput').value,
@@ -4168,10 +5286,26 @@
           return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         }
         securityConfig.loginHash = await sha256(newPass);
+        adminPresenceAuthPassword = newPass;
+        try {
+          sessionStorage.setItem(ADMIN_AUTH_PASSWORD_SESSION_KEY, newPass);
+        } catch (error) { }
       }
 
       if (compareAdminVersions(runtimeConfig.minimumSupportedVersion, '0.0.0') > 0 && !runtimeConfig.iosStoreUrl) {
         showToast('最低対応バージョンを設定する場合は App Store URL も入力してください');
+        return;
+      }
+      if (runtimeConfig.firebasePresence && runtimeConfig.firebasePresence.enabled && !isAdminFirebasePresenceEnabled(runtimeConfig.firebasePresence)) {
+        showToast('Firebase Presence を有効にするには Project ID / Database URL / API Key / Auth Domain / App ID をすべて入力してください');
+        return;
+      }
+      if (runtimeConfig.firebasePresence && runtimeConfig.firebasePresence.enabled && !firebasePresencePrivateKey && !adminFirebasePresenceSecretMeta.configured) {
+        showToast('Firebase Presence を有効にするにはサービスアカウント秘密鍵の登録が必要です');
+        return;
+      }
+      if (firebasePresenceEmail && firebasePresenceEmail !== String(adminFirebasePresenceSecretMeta.serviceAccountEmail || '').trim() && !firebasePresencePrivateKey) {
+        showToast('サービスアカウント Email を変更する場合は Private Key も入力してください');
         return;
       }
 
@@ -4186,6 +5320,16 @@
       localStorage.setItem('MAYUMI_APP_PUBLIC_URL', APP_PUBLIC_URL);
 
       if (GAS_URL) {
+        const saveFirebaseSecretRes = await apiRequest('', {
+          type: 'saveFirebasePresenceSecretConfig',
+          serviceAccountEmail: firebasePresenceEmail,
+          privateKey: firebasePresencePrivateKey
+        }, true);
+        if (!saveFirebaseSecretRes || saveFirebaseSecretRes.status !== 'ok') {
+          showToast((saveFirebaseSecretRes && saveFirebaseSecretRes.message) || 'Firebase Presence 秘密鍵の保存に失敗しました');
+          return;
+        }
+        applyAdminFirebasePresenceSecretStatus(saveFirebaseSecretRes);
         const saveConfigRes = await apiRequest('', { type: 'saveAppRuntimeConfig', config: runtimeConfig }, true);
         if (!saveConfigRes || saveConfigRes.status !== 'ok') {
           showToast((saveConfigRes && saveConfigRes.message) || '更新設定の保存に失敗しました');
@@ -4205,6 +5349,10 @@
 
       document.getElementById('settingsModal').classList.remove('active');
       showToast('設定を保存しました');
+      await stopAdminFirebasePresenceTracking({ clearState: false, signOut: false });
+      ensureAdminFirebasePresenceTracking().catch(function (error) {
+        console.warn('ensureAdminFirebasePresenceTracking after save error:', error);
+      });
       if (changed) {
         resetAdminDataCache();
         await refreshActiveAdminPageData();
@@ -4395,6 +5543,14 @@
       return false;
     }
 
+    function isUnsupportedPostActionResponse(response, actionName) {
+      if (!response || response.status !== 'error') return false;
+      const message = String(response.message || '').trim();
+      if (!message || message.indexOf('未定義のPOSTアクション') === -1) return false;
+      const normalizedAction = String(actionName || '').trim();
+      return !normalizedAction || message.indexOf(normalizedAction) !== -1;
+    }
+
     function buildQrCodeImageUrl(value, size) {
       const qrText = String(value || '').trim();
       const qrSize = Math.max(120, Number(size || 300) || 300);
@@ -4555,172 +5711,17 @@
       printWindow.document.close();
     }
 
-    function parseAdminDateTimestamp(value) {
-      if (!value) return 0;
-      const parsed = value instanceof Date
-        ? value
-        : new Date(String(value).trim().replace(' ', 'T'));
-      const time = parsed.getTime();
-      return Number.isNaN(time) ? 0 : time;
-    }
-
-    function mergeAdminDeviceSessions(left, right) {
-      const merged = {};
-      []
-        .concat(Array.isArray(left) ? left : [], Array.isArray(right) ? right : [])
-        .forEach(session => {
-          const deviceId = String(session && session.deviceId || '').trim();
-          if (!deviceId) return;
-          const current = merged[deviceId];
-          const nextTimestamp = parseAdminDateTimestamp(session && session.lastSeenAt);
-          const currentTimestamp = parseAdminDateTimestamp(current && current.lastSeenAt);
-          if (!current || nextTimestamp >= currentTimestamp) {
-            merged[deviceId] = Object.assign({}, current || {}, session);
-          } else {
-            merged[deviceId] = Object.assign({}, session, current);
-          }
-        });
-      return Object.values(merged).sort((a, b) => parseAdminDateTimestamp(b && b.lastSeenAt) - parseAdminDateTimestamp(a && a.lastSeenAt));
-    }
-
-    function mergeAdminRewards(left, right) {
-      const merged = {};
-      []
-        .concat(Array.isArray(left) ? left : [], Array.isArray(right) ? right : [])
-        .forEach(reward => {
-          const key = [
-            Math.max(1, Number(reward && reward.cardNum) || 1),
-            String(reward && reward.rewardName || '').trim(),
-            String(reward && reward.earnedDate || '').trim()
-          ].join('|');
-          if (!key.replace(/\|/g, '')) return;
-          const current = merged[key];
-          const rewardUsed = reward && (reward.used === true || String(reward.used).toLowerCase() === 'true' || reward.usedAt);
-          const currentUsed = current && (current.used === true || String(current.used).toLowerCase() === 'true' || current.usedAt);
-          if (!current || (rewardUsed && !currentUsed) || (reward && reward.usedAt && !currentUsed)) {
-            merged[key] = reward;
-          }
-        });
-      return Object.values(merged).sort((a, b) => parseAdminDateTimestamp(b && b.earnedDate) - parseAdminDateTimestamp(a && a.earnedDate));
-    }
-
-    function mergeAdminStampHistory(left, right) {
-      const merged = {};
-      []
-        .concat(Array.isArray(left) ? left : [], Array.isArray(right) ? right : [])
-        .forEach(entry => {
-          const key = [
-            Math.max(1, Number(entry && entry.cardNum) || 1),
-            Math.max(1, Number(entry && entry.stampNumber) || 1)
-          ].join('|');
-          const current = merged[key];
-          if (!current || parseAdminDateTimestamp(entry && entry.acquiredDate) >= parseAdminDateTimestamp(current && current.acquiredDate)) {
-            merged[key] = entry;
-          }
-        });
-      return Object.values(merged).sort((a, b) => parseAdminDateTimestamp(b && b.acquiredDate) - parseAdminDateTimestamp(a && a.acquiredDate));
-    }
-
-    function countAdminUserFilledFields(user) {
-      return [
-        'name',
-        'kana',
-        'phone',
-        'avatarUrl',
-        'memo',
-        'status',
-        'birthday',
-        'address'
-      ].reduce((count, key) => count + (String(user && user[key] || '').trim() ? 1 : 0), 0) + (user && user.pushEnabled ? 1 : 0);
-    }
-
-    function getAdminUserActivityTimestamp(user) {
-      const latestDeviceSeenAt = (Array.isArray(user && user.deviceSessions) ? user.deviceSessions : []).reduce((maxValue, session) => {
-        return Math.max(maxValue, parseAdminDateTimestamp(session && session.lastSeenAt));
-      }, 0);
-      return Math.max(
-        parseAdminDateTimestamp(user && user.timestamp),
-        parseAdminDateTimestamp(user && user.latestStampActivityAt),
-        parseAdminDateTimestamp(user && user.lastStampAt),
-        parseAdminDateTimestamp(user && user.lastStampDate),
-        parseAdminDateTimestamp(user && user.stampAchievedDate),
-        latestDeviceSeenAt
-      );
-    }
-
-    function choosePreferredAdminUser(left, right) {
-      const leftActivity = getAdminUserActivityTimestamp(left);
-      const rightActivity = getAdminUserActivityTimestamp(right);
-      if (rightActivity !== leftActivity) return rightActivity > leftActivity ? right : left;
-      const leftDeviceSeen = (Array.isArray(left && left.deviceSessions) ? left.deviceSessions : []).reduce((maxValue, session) => Math.max(maxValue, parseAdminDateTimestamp(session && session.lastSeenAt)), 0);
-      const rightDeviceSeen = (Array.isArray(right && right.deviceSessions) ? right.deviceSessions : []).reduce((maxValue, session) => Math.max(maxValue, parseAdminDateTimestamp(session && session.lastSeenAt)), 0);
-      if (rightDeviceSeen !== leftDeviceSeen) return rightDeviceSeen > leftDeviceSeen ? right : left;
-      const leftUpdated = parseAdminDateTimestamp(left && left.timestamp);
-      const rightUpdated = parseAdminDateTimestamp(right && right.timestamp);
-      if (rightUpdated !== leftUpdated) return rightUpdated > leftUpdated ? right : left;
-      const leftFilled = countAdminUserFilledFields(left);
-      const rightFilled = countAdminUserFilledFields(right);
-      if (rightFilled !== leftFilled) return rightFilled > leftFilled ? right : left;
-      return Number(right && right.rowIdx || 0) > Number(left && left.rowIdx || 0) ? right : left;
-    }
-
-    function mergeAdminUsersByMemberId(currentUser, incomingUser) {
-      const preferred = choosePreferredAdminUser(currentUser, incomingUser);
-      const fallback = preferred === incomingUser ? currentUser : incomingUser;
-      const merged = Object.assign({}, preferred);
-      ['name', 'kana', 'phone', 'avatarUrl', 'memo', 'status', 'birthday', 'address'].forEach(key => {
-        if (!String(merged[key] || '').trim() && String(fallback && fallback[key] || '').trim()) {
-          merged[key] = fallback[key];
-        }
-      });
-      if (!merged.pushEnabled && fallback && fallback.pushEnabled) merged.pushEnabled = true;
-      merged.deviceSessions = mergeAdminDeviceSessions(merged.deviceSessions, fallback && fallback.deviceSessions);
-      merged.deviceCount = merged.deviceSessions.length || Math.max(Number(merged.deviceCount || 0), Number(fallback && fallback.deviceCount || 0));
-      merged.stampCount = Math.max(Number(merged.stampCount || 0), Number(fallback && fallback.stampCount || 0));
-      merged.stampCardNum = Math.max(Number(merged.stampCardNum || 1), Number(fallback && fallback.stampCardNum || 1));
-      merged.rewards = mergeAdminRewards(merged.rewards, fallback && fallback.rewards);
-      merged.stampHistory = mergeAdminStampHistory(merged.stampHistory, fallback && fallback.stampHistory);
-      if (!merged.lastStampDate && fallback && fallback.lastStampDate) merged.lastStampDate = fallback.lastStampDate;
-      if (!merged.lastStampAt && fallback && fallback.lastStampAt) merged.lastStampAt = fallback.lastStampAt;
-      if (!merged.stampAchievedDate && fallback && fallback.stampAchievedDate) merged.stampAchievedDate = fallback.stampAchievedDate;
-      if (parseAdminDateTimestamp(fallback && fallback.latestStampActivityAt) > parseAdminDateTimestamp(merged.latestStampActivityAt)) {
-        merged.latestStampActivityAt = fallback.latestStampActivityAt;
-      }
-      merged.orderCount = Math.max(Number(merged.orderCount || 0), Number(fallback && fallback.orderCount || 0));
-      merged.pendingOrderCount = Math.max(Number(merged.pendingOrderCount || 0), Number(fallback && fallback.pendingOrderCount || 0));
-      if (parseAdminDateTimestamp(fallback && fallback.lastOrderAt) > parseAdminDateTimestamp(merged.lastOrderAt)) {
-        merged.lastOrderAt = fallback.lastOrderAt;
-      }
-      merged.orderTotal = Math.max(Number(merged.orderTotal || 0), Number(fallback && fallback.orderTotal || 0));
-      return merged;
-    }
-
-    function dedupeAdminUsersByMemberId(users) {
-      const memberMap = {};
-      const noMemberUsers = [];
-      (Array.isArray(users) ? users : []).forEach(user => {
-        const memberId = String(user && user.memberId || '').trim();
-        if (!memberId) {
-          noMemberUsers.push(user);
-          return;
-        }
-        memberMap[memberId] = memberMap[memberId]
-          ? mergeAdminUsersByMemberId(memberMap[memberId], user)
-          : mergeAdminUsersByMemberId({}, user);
-      });
-      return noMemberUsers.concat(Object.values(memberMap)).sort((a, b) => {
-        return getAdminUserActivityTimestamp(b) - getAdminUserActivityTimestamp(a);
-      });
-    }
-
     async function loadAdminUsers() {
       const loadVersion = ++adminUsersLoadVersion;
       const tbody = document.getElementById('usersList');
       const rewardTbody = document.getElementById('rewardStatusList');
       if (!tbody) return;
+      ensureAdminFirebasePresenceTracking().catch(function (error) {
+        console.warn('ensureAdminFirebasePresenceTracking loadAdminUsers error:', error);
+      });
       const cachedRes = readAdminApiCache('getAdminUsers');
       if (cachedRes && cachedRes.status === 'ok' && loadVersion === adminUsersLoadVersion) {
-        allUsers = dedupeAdminUsersByMemberId(cachedRes.users || []);
+        allUsers = cachedRes.users || [];
         applyUserFilters();
         applyRewardStatusFilters();
       } else {
@@ -4733,7 +5734,7 @@
       const res = await apiRequest('getAdminUsers');
       if (loadVersion !== adminUsersLoadVersion) return;
       if (res && res.status === 'ok') {
-        allUsers = dedupeAdminUsersByMemberId(res.users || []);
+        allUsers = res.users || [];
         applyUserFilters();
         applyRewardStatusFilters();
       } else {
@@ -4742,6 +5743,167 @@
           rewardTbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:red;">スタンプ・特典状況の取得に失敗しました</td></tr>';
         }
       }
+    }
+
+    function getAdminUserLivePresenceSessions(user) {
+      const memberId = String(user && user.memberId || '').trim();
+      const sessions = memberId ? adminFirebasePresenceByMemberId[memberId] : null;
+      return Array.isArray(sessions) ? sessions.slice() : [];
+    }
+
+    function isAdminFirebasePresenceSessionOnline(session) {
+      const lastSeenAt = normalizeAdminPresenceTimestamp(session && session.lastSeenAt);
+      return !!(
+        session &&
+        String(session.status || '').trim() === 'online' &&
+        lastSeenAt > 0 &&
+        (Date.now() - lastSeenAt) <= 1000 * 60 * 2
+      );
+    }
+
+    function formatAdminPresencePageLabel(page) {
+      const map = {
+        home: 'ホーム',
+        shop: 'ショップ',
+        blog: 'NEWS',
+        calendar: 'カレンダー',
+        notices: 'お知らせ',
+        'menu-list': 'メニュー',
+        mypage: 'マイページ',
+        cart: 'カート'
+      };
+      return map[String(page || '').trim()] || '';
+    }
+
+    function getAdminUserDeviceSessions(user) {
+      const sessionsById = {};
+      const persistedSessions = user && Array.isArray(user.deviceSessions) ? user.deviceSessions : [];
+      persistedSessions.forEach(function (session, index) {
+        const deviceId = String(session && session.deviceId || 'persisted-' + index);
+        sessionsById[deviceId] = Object.assign({}, session, {
+          deviceId: deviceId,
+          lastSeenAt: parseAdminNoticeTimestamp(session && session.lastSeenAt),
+          status: String(session && session.status || '').trim(),
+          page: String(session && session.page || '').trim(),
+          visibility: String(session && session.visibility || '').trim()
+        });
+      });
+      getAdminUserLivePresenceSessions(user).forEach(function (session, index) {
+        const deviceId = String(session && session.deviceId || 'live-' + index);
+        const current = sessionsById[deviceId] || {};
+        sessionsById[deviceId] = Object.assign({}, current, session, {
+          deviceId: deviceId,
+          label: session && session.label ? session.label : current.label,
+          platform: session && session.platform ? session.platform : current.platform,
+          appVersion: session && session.appVersion ? session.appVersion : current.appVersion,
+          lastSeenAt: normalizeAdminPresenceTimestamp(session && session.lastSeenAt) || normalizeAdminPresenceTimestamp(current && current.lastSeenAt),
+          connectedAt: normalizeAdminPresenceTimestamp(session && session.connectedAt) || normalizeAdminPresenceTimestamp(current && current.connectedAt),
+          status: String(session && session.status || current.status || '').trim(),
+          page: String(session && session.page || current.page || '').trim(),
+          visibility: String(session && session.visibility || current.visibility || '').trim(),
+          passcodeEnabled: session && session.passcodeEnabled === true ? true : !!current.passcodeEnabled,
+          pushEnabled: session && session.pushEnabled === true ? true : !!current.pushEnabled
+        });
+      });
+      return Object.keys(sessionsById).map(function (key) {
+        return sessionsById[key];
+      }).sort(function (a, b) {
+        return normalizeAdminPresenceTimestamp(b && b.lastSeenAt) - normalizeAdminPresenceTimestamp(a && a.lastSeenAt);
+      });
+    }
+
+    function getAdminUserDeviceCount(user) {
+      return Math.max(Number(user && user.deviceCount || 0), getAdminUserDeviceSessions(user).length);
+    }
+
+    function getAdminUserLastOnlineTimestamp(user) {
+      return getAdminUserDeviceSessions(user).reduce(function (latest, session) {
+        const current = normalizeAdminPresenceTimestamp(session && session.lastSeenAt);
+        return current > latest ? current : latest;
+      }, 0);
+    }
+
+    function getAdminUserPresenceMeta(user) {
+      const onlineSessions = getAdminUserLivePresenceSessions(user).filter(isAdminFirebasePresenceSessionOnline);
+      if (onlineSessions.length) {
+        const lastSeenTimestamp = onlineSessions.reduce(function (latest, session) {
+          const current = normalizeAdminPresenceTimestamp(session && session.lastSeenAt);
+          return current > latest ? current : latest;
+        }, 0);
+        return {
+          label: 'オンライン',
+          badgeStyle: 'background:#dff6e7; color:#146c43;',
+          lastSeenLabel: formatAdminOrderDateTime(lastSeenTimestamp)
+        };
+      }
+
+      const lastSeenTimestamp = getAdminUserLastOnlineTimestamp(user);
+      if (lastSeenTimestamp <= 0) {
+        return {
+          label: '未同期',
+          badgeStyle: 'background:#f3f4f6; color:#666;',
+          lastSeenLabel: '---'
+        };
+      }
+
+      const minutesSinceLastSeen = Math.max(0, (Date.now() - lastSeenTimestamp) / 60000);
+      if (minutesSinceLastSeen <= 10) {
+        return {
+          label: '最近オンライン',
+          badgeStyle: 'background:#e8f6ef; color:#1e7b47;',
+          lastSeenLabel: formatAdminOrderDateTime(lastSeenTimestamp)
+        };
+      }
+      if (minutesSinceLastSeen <= 1440) {
+        return {
+          label: '本日利用',
+          badgeStyle: 'background:#eef6ff; color:#1565c0;',
+          lastSeenLabel: formatAdminOrderDateTime(lastSeenTimestamp)
+        };
+      }
+      return {
+        label: 'オフライン',
+        badgeStyle: 'background:#f3f4f6; color:#666;',
+        lastSeenLabel: formatAdminOrderDateTime(lastSeenTimestamp)
+      };
+    }
+
+    function renderAdminUserDeviceSessionList(user) {
+      const sessions = getAdminUserDeviceSessions(user);
+      if (!sessions.length) {
+        return '<div style="font-size:12px; color:var(--text-light);">端末情報はまだ同期されていません</div>';
+      }
+      return sessions.map(function (session) {
+        const flags = [];
+        if (session && session.passcodeEnabled) flags.push('パスコードON');
+        if (session && session.pushEnabled) flags.push('通知ON');
+        const isOnline = isAdminFirebasePresenceSessionOnline(session);
+        const pageLabel = formatAdminPresencePageLabel(session && session.page);
+        const visibilityLabel = session && session.visibility === 'background'
+          ? 'バックグラウンド'
+          : (session && session.visibility === 'foreground' ? '画面表示中' : '');
+        const statusLabel = isOnline ? 'オンライン' : (session && String(session.status || '').trim() === 'offline' ? 'オフライン' : '登録済み');
+        const statusStyle = isOnline
+          ? 'background:#dff6e7; color:#146c43;'
+          : 'background:#f3f4f6; color:#666;';
+        if (pageLabel) flags.push('表示画面: ' + pageLabel);
+        if (visibilityLabel) flags.push(visibilityLabel);
+        return `
+          <div style="padding:10px 12px; border:1px solid #ece6df; border-radius:12px; background:#fff;">
+            <div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
+              <div>
+                <div style="font-weight:700; color:var(--text-main);">${escapeHtml(session && session.label || 'この端末')}</div>
+                <div style="font-size:11px; color:var(--text-light); margin-top:4px;">${escapeHtml(session && session.platform || '')}${session && session.appVersion ? ' / ' + escapeHtml(session.appVersion) : ''}</div>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+                <span class="badge" style="${statusStyle}">${statusLabel}</span>
+                <div style="font-size:11px; color:var(--text-light); white-space:nowrap;">最終利用: ${escapeHtml(formatAdminOrderDateTime(session && session.lastSeenAt || ''))}</div>
+              </div>
+            </div>
+            <div style="font-size:11px; color:var(--text-light); margin-top:8px;">${flags.length ? flags.map(function (flag) { return escapeHtml(flag); }).join(' / ') : '設定情報なし'}</div>
+          </div>
+        `;
+      }).join('');
     }
 
     function renderUsers(users) {
@@ -4758,6 +5920,8 @@
         const memberIdExpr = JSON.stringify(u.memberId || '');
         const rowIdxExpr = Number(u.rowIdx || 0);
         const deleteName = JSON.stringify(u.name || '');
+        const presenceMeta = getAdminUserPresenceMeta(u);
+        const deviceCount = getAdminUserDeviceCount(u);
         return `
         <tr>
           <td style="text-align:center;">
@@ -4768,7 +5932,11 @@
           <td>
             <div style="font-weight:700;">${escapeHtml(u.name || '')}</div>
             <div style="font-size:11px; color:var(--text-light); margin-top:4px;">
-              注文 ${Number(u.orderCount || 0)}件 / 受付中 ${Number(u.pendingOrderCount || 0)}件 / 端末 ${Number(u.deviceCount || 0)}台
+              注文 ${Number(u.orderCount || 0)}件 / 受付中 ${Number(u.pendingOrderCount || 0)}件 / 端末 ${deviceCount}台
+            </div>
+            <div style="font-size:11px; color:var(--text-light); margin-top:6px;">
+              <span class="badge" style="${presenceMeta.badgeStyle}">${presenceMeta.label}</span>
+              <span style="margin-left:6px;">最終オンライン: ${escapeHtml(presenceMeta.lastSeenLabel)}</span>
             </div>
           </td>
           <td>${escapeHtml(u.phone || '')}</td>
@@ -4910,22 +6078,25 @@
       const summaryEl = document.getElementById('userOrdersSummary');
       const listEl = document.getElementById('userOrdersList');
       if (!summaryEl || !listEl) return;
+      const visibleOrders = (Array.isArray(orders) ? orders : []).filter(function (order) {
+        return !shouldHideAdminOrderFromActiveList(order);
+      });
 
-      const totalAmount = orders.reduce((sum, order) => sum + getAdminOrderAmountValue(order), 0);
+      const totalAmount = visibleOrders.reduce((sum, order) => sum + getAdminOrderAmountValue(order), 0);
       renderSummaryCards('userOrdersSummary', [
-        { label: '注文件数', value: orders.length },
-        { label: '受付中', value: orders.filter(order => normalizeAdminOrderStatus(order.status) === '受付中').length },
-        { label: '受取済', value: orders.filter(order => normalizeAdminOrderStatus(order.status) === '受取済').length },
-        { label: 'キャンセル済', value: orders.filter(order => normalizeAdminOrderStatus(order.status) === 'キャンセル済').length },
+        { label: '注文件数', value: visibleOrders.length },
+        { label: '受付中', value: visibleOrders.filter(order => normalizeAdminOrderStatus(order.status) === '受付中').length },
+        { label: '受取済', value: visibleOrders.filter(order => normalizeAdminOrderStatus(order.status) === '受取済').length },
+        { label: 'キャンセル済', value: visibleOrders.filter(order => normalizeAdminOrderStatus(order.status) === 'キャンセル済').length },
         { label: '合計金額', value: `¥${totalAmount.toLocaleString()}` }
       ]);
 
-      if (!orders.length) {
+      if (!visibleOrders.length) {
         listEl.innerHTML = '<tr><td colspan="6" style="text-align:center;">この会員の注文履歴はありません</td></tr>';
         return;
       }
 
-      listEl.innerHTML = orders.map(order => {
+      listEl.innerHTML = visibleOrders.map(order => {
         const statusInfo = getAdminOrderStatusInfo(order);
         const itemsHtml = (Array.isArray(order.items) ? order.items : []).map(item => `
           <div style="padding:6px 0; border-bottom:1px solid #f1ede8;">
@@ -5112,7 +6283,7 @@
               </div>
             </td>
             ${REWARD_GACHA_RANK_KEYS.map((key) => {
-              const prize = entry && entry.prizes && entry.prizes[key] || { content: '', note: '', probability: 0 };
+              const prize = entry && entry.prizes && entry.prizes[key] || { content: '', probability: 0 };
               return `
                 <td style="vertical-align:top;">
                   <div style="display:flex; flex-direction:column; gap:10px;">
@@ -5122,7 +6293,7 @@
                     </label>
                     <label style="display:flex; flex-direction:column; gap:6px;">
                       <span style="font-size:12px; color:var(--text-light);">説明書き（注意書き）</span>
-                      <textarea rows="3" style="resize:vertical;" placeholder="${escapeHtml(`${key}賞の説明書き・注意書き`)}" oninput="updateRewardGachaPrizeField(${index}, '${key}', 'note', this.value)">${escapeHtml(prize.note || '')}</textarea>
+                      <textarea rows="3" style="resize:vertical;" placeholder="${escapeHtml(`${key}賞の注意書き`)}" oninput="updateRewardGachaPrizeField(${index}, '${key}', 'note', this.value)">${escapeHtml(prize.note || '')}</textarea>
                     </label>
                     <label style="display:flex; flex-direction:column; gap:6px;">
                       <span style="font-size:12px; color:var(--text-light);">出現確率 (%)</span>
@@ -5278,6 +6449,33 @@
         () => loadAdminUsers(),
         () => loadRewardGachaConfig()
       ], 'スタンプ・特典管理の一部データ取得に失敗しました');
+    }
+
+    async function restoreUsersFromRewardData() {
+      const confirmed = await requestDangerousConfirm({
+        title: '会員再作成の確認',
+        message: 'スタンプ・特典履歴、注文履歴、端末履歴を使って、会員管理に表示されていない会員を再作成します。\n統合済みとして退避した重複会員は自動では戻しません。',
+        keyword: '再作成',
+        confirmLabel: '再作成する'
+      });
+      if (!confirmed) return;
+
+      showToast('会員情報を再作成中...');
+      const res = await apiRequest('', { type: 'restoreUsersFromRewardData' }, true);
+      if (res && res.status === 'ok') {
+        await loadAdminUsers();
+        await Promise.all([loadDuplicateUsers(), loadAdminTrashItems()]);
+        showToast(res.message || '会員情報を再作成しました');
+      } else if (res && String(res.message || '').indexOf('未定義のPOSTアクション') !== -1) {
+        console.error('restoreUsersFromRewardData unsupported action response:', res);
+        showToast('会員情報の再作成に失敗しました: 現在の GAS に新機能が未反映です。mayumi_gas_script_3_1.js を再デプロイしてください');
+      } else if (res && !res.status) {
+        console.error('restoreUsersFromRewardData unexpected response:', res);
+        showToast('会員情報の再作成に失敗しました: GAS が古い可能性があります。mayumi_gas_script_3_1.js を再デプロイしてください');
+      } else {
+        console.error('restoreUsersFromRewardData failed response:', res);
+        showToast('会員情報の再作成に失敗しました: ' + (res && res.message ? res.message : '不明なエラー'));
+      }
     }
 
     function normalizeRewardList(rewards) {
@@ -5711,6 +6909,9 @@
 
       const sortedUsers = sortRewardStatusUsers(users);
 
+      // 重複登録マップを構築 (memberId → 重複理由配列)
+      const duplicateMap = buildRewardDuplicateMap();
+
       tbody.innerHTML = sortedUsers.map(user => {
         const totalRewards = getUserTotalRewardCount(user);
         const unusedRewards = getUserUnusedRewardCount(user);
@@ -5719,6 +6920,10 @@
         const latestRewardDate = getLatestRewardDate(user);
         const closestRewardExpiry = getClosestRewardExpiry(user);
         const rewardProgress = getRewardProgressInfo(user);
+        const duplicateReasons = duplicateMap[String(user.memberId || '')] || null;
+        const duplicateBadgeHtml = duplicateReasons
+          ? `<span class="duplicate-badge" title="${escapeHtml('重複候補: ' + duplicateReasons.join(' / '))}" onclick="switchPage('users', null); setTimeout(function(){ var el=document.getElementById('duplicateUsersList'); if(el){el.scrollIntoView({behavior:'smooth', block:'center'});} }, 200);">⚠ 重複あり</span>`
+          : '<span class="no-duplicate-badge" title="重複候補なし">✓ 単独</span>';
         return `
           <tr>
             <td>${escapeHtml(user.memberId || '')}</td>
@@ -5738,21 +6943,49 @@
             <td style="font-size:12px;">${formatDisplayDate(closestRewardExpiry, true)}</td>
             <td style="font-size:12px;">${formatDisplayDate(latestRewardDate, true)}</td>
             <td style="text-align:center;">
-              <span style="display:inline-block; font-size:11px; padding:4px 10px; border-radius:999px; ${rewardProgress.style}">
-                ${escapeHtml(rewardProgress.label)}
-              </span>
+              <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                <span style="display:inline-block; font-size:11px; padding:4px 10px; border-radius:999px; ${rewardProgress.style}">
+                  ${escapeHtml(rewardProgress.label)}
+                </span>
+                ${duplicateBadgeHtml}
+              </div>
             </td>
             <td>
               <div class="flex" style="gap:5px; flex-wrap:wrap;">
                 <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="openRewardStatusDetail(${user.rowIdx})">詳細</button>
                 <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="openRewardStatusEditor(${user.rowIdx})">📝</button>
-                <button class="btn" style="padding:2px 6px; font-size:10px; background:#f39c12; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="demoForceUpdateStamps(${user.rowIdx}, 9)" title="スタンプを9個にして当日制限を解除します">デモ(9)</button>
-                <button class="btn" style="padding:2px 6px; font-size:10px; background:#e67e22; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="demoForceUpdateStamps(${user.rowIdx}, 10)" title="スタンプを10個にして当日制限を解除します">デモ(10)</button>
               </div>
             </td>
           </tr>
         `;
       }).join('');
+    }
+
+    /**
+     * 全会員からスタンプ・特典管理画面用の重複判定マップを構築する
+     * 戻り値: { [memberId]: ['電話番号が一致', '氏名と生年月日が一致', ...] }
+     * 既存の buildDuplicateUsersFromAdminUsers と同じ判定基準を使う
+     */
+    function buildRewardDuplicateMap() {
+      const map = {};
+      try {
+        if (typeof buildDuplicateUsersFromAdminUsers !== 'function' || !Array.isArray(allUsers)) return map;
+        const groups = buildDuplicateUsersFromAdminUsers(allUsers);
+        groups.forEach(function (group) {
+          const reasons = Array.isArray(group.reasons) && group.reasons.length ? group.reasons : [group.reason || '一致候補'];
+          (group.users || []).forEach(function (u) {
+            const id = String(u.memberId || '');
+            if (!id) return;
+            if (!map[id]) map[id] = [];
+            reasons.forEach(function (r) {
+              if (map[id].indexOf(r) === -1) map[id].push(r);
+            });
+          });
+        });
+      } catch (e) {
+        console.warn('buildRewardDuplicateMap failed', e);
+      }
+      return map;
     }
 
     function applyRewardStatusFilters() {
@@ -6019,7 +7252,10 @@
       const numericRowIdx = Number(rowIdx || 0);
       const user = allUsers.find(item => String(item.memberId || '').trim() === normalizedMemberId || Number(item.rowIdx || 0) === numericRowIdx);
       if (!user) return;
+      currentUserSummaryTarget = { memberId: normalizedMemberId, rowIdx: numericRowIdx };
       const unusedRewards = Array.isArray(user.rewards) ? user.rewards.filter(reward => !reward.used) : [];
+      const presenceMeta = getAdminUserPresenceMeta(user);
+      const deviceCount = getAdminUserDeviceCount(user);
       const body = document.getElementById('userSummaryBody');
       if (body) {
         body.innerHTML = `
@@ -6027,7 +7263,7 @@
             <div class="summary-card"><div class="summary-label">会員ID</div><div class="summary-value">${escapeHtml(user.memberId || '')}</div></div>
             <div class="summary-card"><div class="summary-label">注文数</div><div class="summary-value">${Number(user.orderCount || 0)}</div></div>
             <div class="summary-card"><div class="summary-label">受付中注文</div><div class="summary-value">${Number(user.pendingOrderCount || 0)}</div></div>
-            <div class="summary-card"><div class="summary-label">端末数</div><div class="summary-value">${Number(user.deviceCount || 0)}</div></div>
+            <div class="summary-card"><div class="summary-label">端末数</div><div class="summary-value">${deviceCount}</div></div>
             <div class="summary-card"><div class="summary-label">スタンプ</div><div class="summary-value">${Number(user.stampCount || 0)}</div></div>
             <div class="summary-card"><div class="summary-label">未使用特典</div><div class="summary-value">${unusedRewards.length}</div></div>
           </div>
@@ -6036,9 +7272,15 @@
             電話番号: ${escapeHtml(user.phone || '---')}<br>
             生年月日: ${escapeHtml(user.birthday || '---')}<br>
             住所: ${escapeHtml(user.address || '---')}<br>
+            オンライン状況: <span class="badge" style="${presenceMeta.badgeStyle}">${presenceMeta.label}</span><br>
+            最終オンライン: ${escapeHtml(presenceMeta.lastSeenLabel)}<br>
             最終注文: ${escapeHtml(formatDisplayDate(user.lastOrderAt || '') || '---')}<br>
             累計売上: ¥${Number(user.orderTotal || 0).toLocaleString()}<br>
             メモ: ${escapeHtml(user.memo || '---')}
+          </div>
+          <div style="margin-top:16px; padding:14px; border:1px solid #ece6df; border-radius:14px; background:#faf8f5;">
+            <div style="font-weight:700; color:var(--text-main); margin-bottom:10px;">端末ごとの利用状況</div>
+            <div style="display:grid; gap:10px;">${renderAdminUserDeviceSessionList(user)}</div>
           </div>
         `;
       }
@@ -6224,15 +7466,194 @@
       }
     }
 
+    function normalizeDuplicateMatchName(value) {
+      return String(value || '').replace(/\s+/g, '').replace(/　+/g, '').trim();
+    }
+
+    function normalizeDuplicateMatchPhone(value) {
+      return String(value || '').replace(/\D+/g, '').trim();
+    }
+
+    function normalizeDuplicateMatchBirthday(value) {
+      return String(value || '').trim().replace(/-/g, '/');
+    }
+
+    function getDuplicateUserTimestamp(user) {
+      const raw = String((user && (user.updatedAt || user.timestamp)) || '').trim();
+      if (!raw) return 0;
+      const parsed = new Date(raw.replace(/\./g, '-').replace(' ', 'T')).getTime();
+      if (Number.isFinite(parsed)) return parsed;
+      const match = raw.match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+      if (!match) return 0;
+      return new Date(
+        Number(match[1]),
+        Number(match[2]) - 1,
+        Number(match[3]),
+        Number(match[4] || 0),
+        Number(match[5] || 0),
+        0,
+        0
+      ).getTime();
+    }
+
+    function buildDuplicateUsersFromAdminUsers(users) {
+      const groups = [];
+      const seen = {};
+      const phoneMap = {};
+      const nameBirthdayMap = {};
+      const nameMap = {};
+      const toGroupUser = user => ({
+        rowIdx: user.rowIdx,
+        memberId: user.memberId,
+        name: user.name,
+        phone: user.phone,
+        birthday: user.birthday,
+        updatedAt: user.timestamp,
+        stampCount: user.stampCount || 0,
+        orderCount: user.orderCount || 0,
+        pendingOrderCount: user.pendingOrderCount || 0,
+        lastOrderAt: user.lastOrderAt || '',
+        orderTotal: user.orderTotal || 0,
+        deviceCount: user.deviceCount || 0
+      });
+      const pushGroup = (reason, groupUsers) => {
+        const filtered = (groupUsers || []).filter(Boolean);
+        if (filtered.length < 2) return;
+        const key = filtered.map(user => String(user.memberId || '')).sort().join('|');
+        if (seen[key]) {
+          seen[key].reasons[reason] = true;
+          return;
+        }
+        seen[key] = { reasons: {} };
+        seen[key].reasons[reason] = true;
+        groups.push({
+          key,
+          reason,
+          reasons: [reason],
+          users: filtered.slice().sort((left, right) => getDuplicateUserTimestamp(right) - getDuplicateUserTimestamp(left)).map(toGroupUser)
+        });
+      };
+
+      (Array.isArray(users) ? users : []).forEach(user => {
+        const phone = normalizeDuplicateMatchPhone(user && user.phone);
+        const name = normalizeDuplicateMatchName(user && user.name);
+        const birthday = normalizeDuplicateMatchBirthday(user && user.birthday);
+        if (phone) {
+          phoneMap[phone] = phoneMap[phone] || [];
+          phoneMap[phone].push(user);
+        }
+        if (name && birthday) {
+          const key = `${name}|${birthday}`;
+          nameBirthdayMap[key] = nameBirthdayMap[key] || [];
+          nameBirthdayMap[key].push(user);
+        }
+        if (name) {
+          nameMap[name] = nameMap[name] || [];
+          nameMap[name].push(user);
+        }
+      });
+
+      Object.keys(phoneMap).forEach(key => {
+        if (phoneMap[key].length > 1) pushGroup('電話番号が一致', phoneMap[key]);
+      });
+      Object.keys(nameBirthdayMap).forEach(key => {
+        if (nameBirthdayMap[key].length > 1) pushGroup('氏名と生年月日が一致', nameBirthdayMap[key]);
+      });
+      Object.keys(nameMap).forEach(key => {
+        if (nameMap[key].length > 1) pushGroup('氏名が一致', nameMap[key]);
+      });
+
+      return groups.map(group => {
+        group.reasons = Object.keys(seen[group.key].reasons);
+        return group;
+      });
+    }
+
+    function buildSafeDuplicateMergeComponentsFromUsers(users) {
+      const list = Array.isArray(users) ? users : [];
+      const userById = {};
+      const adjacency = {};
+      const phoneMap = {};
+      const nameBirthdayMap = {};
+      const ensureNode = memberId => {
+        if (!memberId) return;
+        if (!adjacency[memberId]) adjacency[memberId] = {};
+      };
+      const connectGroup = groupUsers => {
+        const memberIds = (groupUsers || []).map(user => String(user && user.memberId || '').trim()).filter(Boolean);
+        if (memberIds.length < 2) return;
+        memberIds.forEach(ensureNode);
+        for (let i = 0; i < memberIds.length; i += 1) {
+          for (let j = i + 1; j < memberIds.length; j += 1) {
+            adjacency[memberIds[i]][memberIds[j]] = true;
+            adjacency[memberIds[j]][memberIds[i]] = true;
+          }
+        }
+      };
+
+      list.forEach(user => {
+        const memberId = String(user && user.memberId || '').trim();
+        if (!memberId) return;
+        userById[memberId] = user;
+        const phone = normalizeDuplicateMatchPhone(user && user.phone);
+        const name = normalizeDuplicateMatchName(user && user.name);
+        const birthday = normalizeDuplicateMatchBirthday(user && user.birthday);
+        if (phone) {
+          phoneMap[phone] = phoneMap[phone] || [];
+          phoneMap[phone].push(user);
+        }
+        if (name && birthday) {
+          const key = `${name}|${birthday}`;
+          nameBirthdayMap[key] = nameBirthdayMap[key] || [];
+          nameBirthdayMap[key].push(user);
+        }
+      });
+
+      Object.keys(phoneMap).forEach(key => {
+        if (phoneMap[key].length > 1) connectGroup(phoneMap[key]);
+      });
+      Object.keys(nameBirthdayMap).forEach(key => {
+        if (nameBirthdayMap[key].length > 1) connectGroup(nameBirthdayMap[key]);
+      });
+
+      const visited = {};
+      const components = [];
+      Object.keys(adjacency).forEach(startMemberId => {
+        if (visited[startMemberId]) return;
+        const stack = [startMemberId];
+        const component = [];
+        visited[startMemberId] = true;
+        while (stack.length) {
+          const memberId = stack.pop();
+          const user = userById[memberId];
+          if (user) component.push(user);
+          Object.keys(adjacency[memberId] || {}).forEach(neighborId => {
+            if (visited[neighborId]) return;
+            visited[neighborId] = true;
+            stack.push(neighborId);
+          });
+        }
+        if (component.length > 1) {
+          component.sort((left, right) => getDuplicateUserTimestamp(right) - getDuplicateUserTimestamp(left));
+          components.push(component);
+        }
+      });
+      return components;
+    }
+
     async function loadDuplicateUsers() {
       const body = document.getElementById('duplicateUsersList');
       if (body) body.innerHTML = '<tr><td colspan="3" style="text-align:center;">読み込み中...</td></tr>';
-      const res = await apiRequest('getDuplicateUsers');
-      if (res && res.status === 'ok') {
-        allDuplicateUserGroups = res.groups || [];
-      } else {
-        allDuplicateUserGroups = [];
+      let users = Array.isArray(allUsers) ? allUsers.slice() : [];
+      if (!users.length) {
+        const res = await apiRequest('getAdminUsers');
+        if (res && res.status === 'ok' && Array.isArray(res.users)) {
+          allUsers = res.users || [];
+          renderUsers(allUsers);
+          users = allUsers.slice();
+        }
       }
+      allDuplicateUserGroups = buildDuplicateUsersFromAdminUsers(users);
       renderDuplicateUsers();
     }
 
@@ -6321,9 +7742,49 @@
       if (res && res.status === 'ok') {
         showToast('会員を統合しました');
         document.getElementById('duplicateCompareModal').classList.remove('active');
-        await Promise.all([loadAdminUsers(), loadDuplicateUsers(), loadAdminTrashItems()]);
+        await loadAdminUsers();
+        await Promise.all([loadDuplicateUsers(), loadAdminTrashItems()]);
       } else {
         showToast('統合に失敗しました');
+      }
+    }
+
+    async function bulkMergeSafeDuplicateUsers() {
+      const components = buildSafeDuplicateMergeComponentsFromUsers(allUsers);
+      if (!components.length) {
+        showToast('一括統合できる安全な候補はありませんでした');
+        return;
+      }
+      const confirmed = await requestDangerousConfirm({
+        title: '安全な重複候補の一括統合',
+        message: '電話番号一致、または氏名と生年月日が一致する候補だけをまとめて統合します。氏名だけ一致の候補は残します。',
+        keyword: '一括統合',
+        confirmLabel: '一括統合する'
+      });
+      if (!confirmed) return;
+      showToast('安全な重複候補を一括統合中...');
+      let mergedGroupCount = 0;
+      let mergedUserCount = 0;
+      for (const component of components) {
+        const target = component && component[0];
+        const sourceMemberIds = (component || []).slice(1).map(user => String(user && user.memberId || '').trim()).filter(Boolean);
+        if (!target || !sourceMemberIds.length) continue;
+        const res = await apiRequest('', {
+          type: 'mergeUsers',
+          targetMemberId: target.memberId,
+          sourceMemberIds: sourceMemberIds
+        }, true);
+        if (!(res && res.status === 'ok')) {
+          showToast('一括統合に失敗しました: ' + (res && res.message ? res.message : '不明なエラー'));
+          return;
+        }
+        mergedGroupCount += 1;
+        mergedUserCount += sourceMemberIds.length;
+      }
+      if (mergedGroupCount > 0) {
+        showToast(`安全な重複候補を ${mergedGroupCount}組 (${mergedUserCount}件) 統合しました`);
+        await loadAdminUsers();
+        await Promise.all([loadDuplicateUsers(), loadAdminTrashItems()]);
       }
     }
 
@@ -8220,6 +9681,19 @@
       };
     }
 
+    function syncMenuRevenueDraftEntrySummary(index) {
+      const entry = menuRevenueDraftEntries[index];
+      if (!entry) return;
+      const stats = getMenuRevenueDraftPricingStats(entry);
+      const hasAmount = stats.unitPrice > 0;
+      const amountNode = document.getElementById(`menuRevenueTotalAmount-${index}`);
+      const costNode = document.getElementById(`menuRevenueTotalCost-${index}`);
+      const profitNode = document.getElementById(`menuRevenueTotalProfit-${index}`);
+      if (amountNode) amountNode.textContent = hasAmount ? `¥${stats.totalAmount.toLocaleString()}` : 'ー';
+      if (costNode) costNode.textContent = hasAmount ? `¥${stats.totalCost.toLocaleString()}` : 'ー';
+      if (profitNode) profitNode.textContent = hasAmount ? `¥${stats.totalProfit.toLocaleString()}` : 'ー';
+    }
+
     function updateMenuRevenueFormModeUI() {
       const meta = document.getElementById('menuRevenueEditMeta');
       const submitBtn = document.getElementById('menuRevenueSubmitBtn');
@@ -8266,7 +9740,15 @@
       if (field === 'menuType' && value !== '母乳外来' && !menuRevenueDraftEntries[index].unitPrice) {
         menuRevenueDraftEntries[index].unitPrice = '';
       }
-      if (field !== 'note' && field !== 'otherMenuName') {
+      if (field === 'count' || field === 'unitPrice' || field === 'unitCost') {
+        syncMenuRevenueDraftEntrySummary(index);
+        return;
+      }
+      if (field === 'otherMenuName') {
+        updateMenuRevenueFormModeUI();
+        return;
+      }
+      if (field !== 'note') {
         renderMenuRevenueDraftEntries();
       }
     }
@@ -8316,7 +9798,7 @@
               </div>
               <div class="form-group" style="flex:1; min-width:180px;">
                 <label>合計金額</label>
-                <div style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold;">
+                <div id="menuRevenueTotalAmount-${index}" style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold;">
                   ${unitPrice > 0 ? '¥' + totalAmount.toLocaleString() : 'ー'}
                 </div>
               </div>
@@ -8324,13 +9806,13 @@
             <div class="flex" style="gap:12px; flex-wrap:wrap;">
               <div class="form-group" style="flex:1; min-width:180px;">
                 <label>原価合計</label>
-                <div style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold;">
+                <div id="menuRevenueTotalCost-${index}" style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold;">
                   ${unitPrice > 0 ? '¥' + totalCost.toLocaleString() : 'ー'}
                 </div>
               </div>
               <div class="form-group" style="flex:1; min-width:180px;">
                 <label>粗利合計</label>
-                <div style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold; color:var(--primary);">
+                <div id="menuRevenueTotalProfit-${index}" style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold; color:var(--primary);">
                   ${unitPrice > 0 ? '¥' + totalProfit.toLocaleString() : 'ー'}
                 </div>
               </div>
@@ -8651,6 +10133,13 @@
       };
     }
 
+    function formatProductRevenueUnitPriceInputValue(unitPrice) {
+      if (!(Number(unitPrice) > 0)) return '';
+      return Number.isInteger(unitPrice)
+        ? String(unitPrice)
+        : String(Number(Number(unitPrice).toFixed(2)));
+    }
+
     function updateProductRevenueFormModeUI() {
       const meta = document.getElementById('productRevenueEditMeta');
       const submitBtn = document.getElementById('productRevenueSubmitBtn');
@@ -8703,6 +10192,10 @@
         const pricing = calculateDashiPricing(productRevenueDraftEntries[index].qty);
         productRevenueDraftEntries[index].unitPrice = pricing.avgUnitPrice > 0 ? Number(pricing.avgUnitPrice.toFixed(2)) : '';
       }
+      if (field === 'qty' || field === 'unitPrice' || field === 'unitCost' || field === 'note') {
+        syncProductRevenueDraftEntrySummary(index);
+        return;
+      }
       renderProductRevenueDraftEntries();
     }
 
@@ -8736,6 +10229,34 @@
       };
     }
 
+    function syncProductRevenueDraftEntrySummary(index) {
+      const entry = productRevenueDraftEntries[index];
+      if (!entry) return;
+      const stats = getProductRevenueDraftPricingStats(entry);
+      const hasAmount = stats.unitPrice > 0;
+      const amountNode = document.getElementById(`productRevenueTotalAmount-${index}`);
+      const profitNode = document.getElementById(`productRevenueTotalProfit-${index}`);
+      const unitPriceInput = document.getElementById(`productRevenueUnitPrice-${index}`);
+      const breakdownNode = document.getElementById(`productRevenueDashiBreakdown-${index}`);
+
+      if (amountNode) amountNode.textContent = hasAmount ? `¥${stats.totalAmount.toLocaleString()}` : 'ー';
+      if (profitNode) profitNode.textContent = hasAmount ? `¥${stats.totalProfit.toLocaleString()}` : 'ー';
+
+      if (unitPriceInput && stats.isDashi) {
+        unitPriceInput.value = formatProductRevenueUnitPriceInputValue(stats.unitPrice);
+      }
+
+      if (breakdownNode) {
+        if (stats.isDashi && stats.priceBreakdownText) {
+          breakdownNode.style.display = 'block';
+          breakdownNode.textContent = `数量別価格を自動適用: ${stats.priceBreakdownText}`;
+        } else {
+          breakdownNode.style.display = 'none';
+          breakdownNode.textContent = '';
+        }
+      }
+    }
+
     function renderProductRevenueDraftEntries() {
       const container = document.getElementById('productRevenueEntriesEditor');
       if (!container) return;
@@ -8755,9 +10276,7 @@
         const totalAmount = stats.totalAmount;
         const totalProfit = stats.totalProfit;
         const isDashi = stats.isDashi;
-        const unitPriceInputValue = unitPrice > 0
-          ? escapeHtml(Number.isInteger(unitPrice) ? String(unitPrice) : String(Number(unitPrice.toFixed(2))))
-          : '';
+        const unitPriceInputValue = escapeHtml(formatProductRevenueUnitPriceInputValue(unitPrice));
         let productOptionsHtml = (allProducts || []).map(function (product) {
           const name = String(product && product.name || '').trim();
           if (!name) return '';
@@ -8789,7 +10308,7 @@
               </div>
               <div class="form-group" style="flex:1; min-width:140px;">
                 <label>${isDashi ? '実質単価 (自動)' : '販売単価 (円)'}</label>
-                <input type="number" min="1" placeholder="例：3000" value="${unitPriceInputValue}" onchange="updateProductRevenueDraftEntry(${index}, 'unitPrice', this.value)" ${isDashi ? 'readonly style="background:#f3f1ed; color:var(--text-mid);"' : ''}>
+                <input type="number" id="productRevenueUnitPrice-${index}" min="1" placeholder="例：3000" value="${unitPriceInputValue}" onchange="updateProductRevenueDraftEntry(${index}, 'unitPrice', this.value)" ${isDashi ? 'readonly style="background:#f3f1ed; color:var(--text-mid);"' : ''}>
               </div>
               <div class="form-group" style="flex:1; min-width:140px;">
                 <label>原価単価 (円)</label>
@@ -8799,18 +10318,18 @@
             <div class="flex" style="gap:12px; flex-wrap:wrap;">
               <div class="form-group" style="flex:1; min-width:180px;">
                 <label>売上合計</label>
-                <div style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold;">
+                <div id="productRevenueTotalAmount-${index}" style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold;">
                   ${unitPrice > 0 ? '¥' + totalAmount.toLocaleString() : 'ー'}
                 </div>
               </div>
               <div class="form-group" style="flex:1; min-width:180px;">
                 <label>利益合計</label>
-                <div style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold; color:var(--primary);">
+                <div id="productRevenueTotalProfit-${index}" style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:42px; display:flex; align-items:center; font-weight:bold; color:var(--primary);">
                   ${unitPrice > 0 ? '¥' + totalProfit.toLocaleString() : 'ー'}
                 </div>
               </div>
             </div>
-            ${dashiBreakdownHtml}
+            <div id="productRevenueDashiBreakdown-${index}" style="margin-top:10px; padding:10px 12px; border-radius:10px; background:rgba(138, 158, 126, .08); color:var(--text-mid); font-size:12px; line-height:1.7; ${isDashi && stats.priceBreakdownText ? '' : 'display:none;'}">${dashiBreakdownHtml ? `数量別価格を自動適用: ${escapeHtml(stats.priceBreakdownText)}` : ''}</div>
             <div class="form-group" style="margin-bottom:0;">
               <label>メモ (任意)</label>
               <input type="text" placeholder="例：店頭販売分" value="${escapeHtml(entry.note || '')}" oninput="updateProductRevenueDraftEntry(${index}, 'note', this.value)">
@@ -9674,6 +11193,7 @@
       }
       const cachedFallback = !isPost ? readAdminApiCache(action, data, ADMIN_API_CACHE_TTL_MS) : null;
       const requestKey = !isPost ? `${action}::${JSON.stringify(data || {})}` : null;
+      const postActionName = isPost ? String((data && data.type) || action || '').trim() : '';
       if (requestKey && pendingGetRequests.has(requestKey)) {
         return pendingGetRequests.get(requestKey);
       }
@@ -9736,6 +11256,20 @@
 
       const requestPromise = (async () => {
         const primaryResult = await performRequest(GAS_URL);
+        if (isPost && GAS_URL !== DEFAULT_GAS_URL && isUnsupportedPostActionResponse(primaryResult, postActionName)) {
+          console.warn('Current GAS endpoint does not support this POST action. Retrying with default endpoint.', {
+            action: postActionName,
+            currentGasUrl: GAS_URL,
+            defaultGasUrl: DEFAULT_GAS_URL
+          });
+          const fallbackResult = await performRequest(DEFAULT_GAS_URL);
+          if (fallbackResult && fallbackResult.status === 'ok') {
+            applyAdminGasUrl(DEFAULT_GAS_URL);
+            showToast('接続先を最新設定に戻しました');
+            return fallbackResult;
+          }
+          return primaryResult || fallbackResult;
+        }
         if (!isPost && GAS_URL !== DEFAULT_GAS_URL && (!primaryResult || primaryResult.status !== 'ok')) {
           const fallbackResult = await performRequest(DEFAULT_GAS_URL);
           if (fallbackResult && fallbackResult.status === 'ok') {
@@ -9846,9 +11380,12 @@
       const query = normalizeFilterText(document.getElementById('orderSearchInput') ? document.getElementById('orderSearchInput').value : '');
       const statusFilter = document.getElementById('orderStatusFilter') ? document.getElementById('orderStatusFilter').value : 'all';
       const productFilter = document.getElementById('orderProductFilter') ? document.getElementById('orderProductFilter').value : 'all';
+      const showAll = document.getElementById('showAllOrders') ? document.getElementById('showAllOrders').checked : false;
 
       const filteredOrders = allOrders.filter(order => {
         const normalizedStatus = normalizeAdminOrderStatus(order.status);
+        if (!showAll && shouldHideAdminOrderFromActiveList(order)) return false;
+        if (normalizedStatus === 'キャンセル済') return false;
         if (statusFilter === 'pending' && normalizedStatus !== '受付中') return false;
         if (statusFilter === 'received' && normalizedStatus !== '受取済') return false;
         const itemNames = getOrderItemNames(order);
@@ -10316,22 +11853,22 @@
 
           const rowHtml = `
             <tr>
-              <td><input type="checkbox" class="blog-sel" data-idx="${b.rowIdx}"></td>
-              <td style="text-align:center;">${iconHtml}</td>
-              <td>${b.date}</td>
-              <td><span class="badge" style="background:#f0f0f0;">${b.category}</span></td>
-              <td><span class="badge ${type === 'お知らせ' ? 'danger' : 'success'}" style="font-size:10px;">${type}</span></td>
-              <td>${b.title}</td>
-              <td>
+              <td data-label="選択"><input type="checkbox" class="blog-sel" data-idx="${b.rowIdx}"></td>
+              <td data-label="アイコン" style="text-align:center;">${iconHtml}</td>
+              <td data-label="日付">${b.date}</td>
+              <td data-label="カテゴリ"><span class="badge" style="background:#f0f0f0;">${b.category}</span></td>
+              <td data-label="分類"><span class="badge ${type === 'お知らせ' ? 'danger' : 'success'}" style="font-size:10px;">${type}</span></td>
+              <td data-label="タイトル">${b.title}</td>
+              <td data-label="公開状況">
                 <select id="b_status_${b.rowIdx}" onchange="updateBlogStatus(${b.rowIdx}, this.value)">
                   <option value="公開" ${b.status === '公開' ? 'selected' : ''}>公開</option>
                   <option value="非公開" ${b.status === '非公開' ? 'selected' : ''}>非公開</option>
                 </select>
               </td>
-              <td>
+              <td data-label="操作">
                 <div class="flex" style="gap:5px;">
-                  <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editBlog(${b.rowIdx})">📝</button>
-                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteBlog(${b.rowIdx}, '${b.title.replace(/'/g, "\\'")}')">🗑</button>
+                  <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="editBlog(${b.rowIdx})">📝 編集</button>
+                  <button class="btn" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="deleteBlog(${b.rowIdx}, '${b.title.replace(/'/g, "\\'")}')">🗑 削除</button>
                 </div>
               </td>
             </tr>
@@ -10900,13 +12437,391 @@
 
       const filtered = allCalendarEvents.filter(e => {
         if (!e.date) return true;
-        const [y, m, d] = e.date.split('-');
-        if (year !== 'all' && y !== year) return false;
-        if (month !== 'all' && m !== month) return false;
+        // 日付フォーマットを正規化してから判定 (YYYY/MM/DD などにも対応)
+        const normalized = (typeof normalizeCalendarDateStr === 'function')
+          ? normalizeCalendarDateStr(e.date)
+          : String(e.date);
+        if (!normalized) return year === 'all' && month === 'all';
+        const parts = normalized.split('-');
+        if (year !== 'all' && parts[0] !== year) return false;
+        if (month !== 'all' && parts[1] !== month) return false;
         return true;
       });
 
       renderCalendarList(filtered);
+      renderMonthCalendarFromFilters();
+    }
+
+    /* === 月間カレンダービュー === */
+    // 現在表示中の年月 (初期値: 今月)
+    let monthCalendarState = (function () {
+      const now = new Date();
+      return { year: now.getFullYear(), month: now.getMonth() + 1 };
+    })();
+
+    function renderMonthCalendarFromFilters() {
+      // フィルタで年・月が指定されていればそれに従う
+      const yearSel = document.getElementById('calYearFilter');
+      const monthSel = document.getElementById('calMonthFilter');
+      const yearVal = yearSel ? yearSel.value : 'all';
+      const monthVal = monthSel ? monthSel.value : 'all';
+
+      if (yearVal !== 'all') monthCalendarState.year = parseInt(yearVal, 10);
+      if (monthVal !== 'all') monthCalendarState.month = parseInt(monthVal, 10);
+
+      renderMonthCalendar(monthCalendarState.year, monthCalendarState.month);
+    }
+
+    function shiftMonthCalendar(delta) {
+      if (delta === 0) {
+        // 今月にジャンプ
+        const now = new Date();
+        monthCalendarState.year = now.getFullYear();
+        monthCalendarState.month = now.getMonth() + 1;
+      } else {
+        let y = monthCalendarState.year;
+        let m = monthCalendarState.month + delta;
+        while (m < 1) { m += 12; y -= 1; }
+        while (m > 12) { m -= 12; y += 1; }
+        monthCalendarState.year = y;
+        monthCalendarState.month = m;
+      }
+
+      // フィルタも同期させる
+      const yearSel = document.getElementById('calYearFilter');
+      const monthSel = document.getElementById('calMonthFilter');
+      if (yearSel) {
+        const yearStr = String(monthCalendarState.year);
+        // 選択肢になければ追加
+        if (![...yearSel.options].some(o => o.value === yearStr)) {
+          const opt = document.createElement('option');
+          opt.value = yearStr;
+          opt.textContent = yearStr + '年';
+          yearSel.appendChild(opt);
+        }
+        yearSel.value = yearStr;
+      }
+      if (monthSel) {
+        monthSel.value = String(monthCalendarState.month).padStart(2, '0');
+      }
+
+      applyCalendarFilters();
+    }
+
+    function classifyCalendarEvent(event) {
+      // 既存の判定関数を再利用
+      if (typeof isAdminNoticeCalendarHolidayEvent === 'function' && isAdminNoticeCalendarHolidayEvent(event)) {
+        return 'holiday';
+      }
+      if (typeof isAdminNoticeCalendarVisitEvent === 'function' && isAdminNoticeCalendarVisitEvent(event)) {
+        return 'visit';
+      }
+      return 'event';
+    }
+
+    /**
+     * 様々な日付形式を 'YYYY-MM-DD' に正規化する
+     * 受け付ける形式: 'YYYY-MM-DD', 'YYYY/MM/DD', 'YYYY-M-D', 'YYYY/M/D',
+     *                 'YYYY年M月D日', ISO文字列 ('2026-05-26T00:00:00Z' 等),
+     *                 Dateオブジェクト, Excelシリアル数値
+     */
+    function normalizeCalendarDateStr(input) {
+      if (input === null || input === undefined || input === '') return '';
+      // Date オブジェクト
+      if (input instanceof Date) {
+        if (isNaN(input.getTime())) return '';
+        return input.getFullYear() + '-' +
+          String(input.getMonth() + 1).padStart(2, '0') + '-' +
+          String(input.getDate()).padStart(2, '0');
+      }
+      const raw = String(input).trim();
+      if (!raw) return '';
+
+      // ISO文字列やタイムスタンプ (T を含むなら時刻部分を捨てる)
+      const tIdx = raw.indexOf('T');
+      const datePart = tIdx >= 0 ? raw.slice(0, tIdx) : raw;
+
+      // YYYY-MM-DD / YYYY/MM/DD / YYYY.MM.DD / YYYY年M月D日 を統一
+      const m = datePart.match(/^(\d{4})[\-\/.年](\d{1,2})[\-\/.月](\d{1,2})日?/);
+      if (m) {
+        return m[1] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[3]).padStart(2, '0');
+      }
+
+      // 数値 (Excelシリアル日付など) は Date 経由で
+      const asNum = Number(raw);
+      if (Number.isFinite(asNum) && asNum > 0 && asNum < 1e12) {
+        // Excelシリアルではなく ms タイムスタンプの可能性が高ければそちら優先
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) {
+          return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+      }
+
+      // Date.parse で解釈できる文字列
+      const d2 = new Date(raw);
+      if (!isNaN(d2.getTime())) {
+        return d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0') + '-' + String(d2.getDate()).padStart(2, '0');
+      }
+
+      return '';
+    }
+
+    function getCalIconHtml(type) {
+      if (type === 'holiday') return '<span class="cal-icon-badge icon-holiday" title="休診">休</span>';
+      if (type === 'visit') return '<span class="cal-icon-badge icon-visit" title="往診">往診</span>';
+      return '<span class="cal-icon-badge icon-event" title="イベント">イ</span>';
+    }
+
+    function getCalTypeLabel(type) {
+      if (type === 'holiday') return '休診';
+      if (type === 'visit') return '往診';
+      return 'イベント';
+    }
+
+    function renderMonthCalendar(year, month) {
+      const grid = document.getElementById('monthCalendarGrid');
+      const label = document.getElementById('monthCalendarLabel');
+      if (!grid) return;
+
+      if (label) label.textContent = year + '年 ' + month + '月';
+
+      // 公開済みイベントのみを対象 (非公開・下書きはカレンダーに表示しない)
+      const monthStr = String(month).padStart(2, '0');
+      const yearStr = String(year);
+      const eventsThisMonth = (allCalendarEvents || []).filter(e => {
+        if (!e || !e.date) return false;
+        const status = String(e.status || e.publishStatus || '公開').trim();
+        if (status === '非公開') return false;
+        // 日付フォーマットを正規化してから比較 (YYYY/MM/DD などにも対応)
+        const normalized = normalizeCalendarDateStr(e.date);
+        if (!normalized) return false;
+        const parts = normalized.split('-');
+        return parts[0] === yearStr && parts[1] === monthStr;
+      });
+
+      // 日付ごとにイベントをグルーピング
+      const byDay = {};
+      eventsThisMonth.forEach(e => {
+        const normalized = normalizeCalendarDateStr(e.date);
+        const parts = normalized.split('-');
+        const day = parseInt(parts[2], 10);
+        if (!byDay[day]) byDay[day] = [];
+        byDay[day].push(e);
+      });
+
+      // カレンダーグリッドを構築
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0);
+      const daysInMonth = lastDay.getDate();
+      const startDayOfWeek = firstDay.getDay(); // 0 = 日曜
+
+      // 前月の日数 (空白セル埋め用)
+      const prevLastDay = new Date(year, month - 1, 0).getDate();
+
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+      const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+      let html = '';
+
+      weekdays.forEach((w, i) => {
+        const cls = i === 0 ? 'sun' : (i === 6 ? 'sat' : '');
+        html += '<div class="month-calendar-weekday ' + cls + '">' + w + '</div>';
+      });
+
+      // 前月の埋めセル
+      for (let i = 0; i < startDayOfWeek; i++) {
+        const d = prevLastDay - startDayOfWeek + i + 1;
+        html += '<div class="month-calendar-day is-other-month"><span class="day-number">' + d + '</span></div>';
+      }
+
+      // 当月のセル
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dow = (startDayOfWeek + day - 1) % 7;
+        const dowCls = dow === 0 ? 'sun' : (dow === 6 ? 'sat' : '');
+        const dateStr = year + '-' + monthStr + '-' + String(day).padStart(2, '0');
+        const isToday = dateStr === todayStr;
+        const dayEvents = byDay[day] || [];
+
+        // 重複しないアイコンタイプを集める
+        const types = [...new Set(dayEvents.map(classifyCalendarEvent))];
+        // 順序: event → holiday → visit
+        const order = { event: 0, holiday: 1, visit: 2 };
+        types.sort((a, b) => order[a] - order[b]);
+
+        const iconsHtml = types.map(getCalIconHtml).join('');
+
+        // イベントチップ (最大2件まで、残りは "+N件")
+        let chipsHtml = '';
+        const maxChips = 2;
+        dayEvents.slice(0, maxChips).forEach(e => {
+          const color = e.color || '#8a9e7e';
+          const title = (e.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          chipsHtml += '<div class="day-event-chip" style="border-left-color:' + color + ';" title="' + title + '">' + title + '</div>';
+        });
+        if (dayEvents.length > maxChips) {
+          chipsHtml += '<div class="day-event-more">+' + (dayEvents.length - maxChips) + '件</div>';
+        }
+
+        const hasEvents = dayEvents.length > 0;
+        const classes = ['month-calendar-day', 'is-clickable'];
+        if (isToday) classes.push('is-today');
+        if (hasEvents) classes.push('has-events');
+
+        // どの日付もクリック可能 (空の日もタップしてOK)
+        const onclick = ' onclick="openDayDetailModal(\'' + dateStr + '\')"';
+
+        html += '<div class="' + classes.join(' ') + '"' + onclick + '>';
+        html += '<span class="day-number ' + dowCls + '">' + day + '</span>';
+        if (iconsHtml) html += '<div class="day-icons">' + iconsHtml + '</div>';
+        if (chipsHtml) html += '<div class="day-events">' + chipsHtml + '</div>';
+        html += '</div>';
+      }
+
+      // 翌月の埋めセル (合計が7の倍数になるまで)
+      const totalCells = startDayOfWeek + daysInMonth;
+      const trailing = (7 - (totalCells % 7)) % 7;
+      for (let i = 1; i <= trailing; i++) {
+        html += '<div class="month-calendar-day is-other-month"><span class="day-number">' + i + '</span></div>';
+      }
+
+      grid.innerHTML = html;
+    }
+
+    // 現在表示中の日付・イベントを保持(戻る操作のため)
+    let currentDayDetailState = { dateStr: '', view: 'list' };
+
+    function openDayDetailModal(dateStr) {
+      const modal = document.getElementById('dayDetailModal');
+      const dateLabel = document.getElementById('dayDetailDate');
+      const body = document.getElementById('dayDetailBody');
+      if (!modal || !body) return;
+
+      currentDayDetailState = { dateStr: dateStr, view: 'list' };
+
+      // 日付ラベル
+      updateDayDetailLabel(dateStr);
+
+      // 一覧表示
+      renderDayEventList(dateStr);
+
+      modal.classList.add('is-open');
+    }
+
+    function updateDayDetailLabel(dateStr, eventTitle) {
+      const dateLabel = document.getElementById('dayDetailDate');
+      const backBtn = document.getElementById('dayDetailBackBtn');
+      if (!dateLabel) return;
+      const parts = dateStr.split('-');
+      const dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+      const baseLabel = parts[0] + '年' + parseInt(parts[1], 10) + '月' + parseInt(parts[2], 10) + '日 (' + weekdays[dt.getDay()] + ')';
+      if (eventTitle) {
+        dateLabel.textContent = baseLabel + ' › 詳細';
+        if (backBtn) backBtn.style.display = 'inline-flex';
+      } else {
+        dateLabel.textContent = baseLabel;
+        if (backBtn) backBtn.style.display = 'none';
+      }
+    }
+
+    /** 指定日に該当する公開イベントを抽出する共通関数 (日付フォーマットを正規化して比較) */
+    function getCalendarEventsForDate(dateStr) {
+      const targetNormalized = normalizeCalendarDateStr(dateStr);
+      if (!targetNormalized) return [];
+      return (allCalendarEvents || []).filter(function (e) {
+        if (!e || !e.date) return false;
+        const status = String(e.status || e.publishStatus || '公開').trim();
+        if (status === '非公開') return false;
+        return normalizeCalendarDateStr(e.date) === targetNormalized;
+      });
+    }
+
+    /** その日のイベント一覧を表示 (ステップ1) */
+    function renderDayEventList(dateStr) {
+      const body = document.getElementById('dayDetailBody');
+      if (!body) return;
+
+      currentDayDetailState.view = 'list';
+      updateDayDetailLabel(dateStr);
+
+      const events = getCalendarEventsForDate(dateStr);
+
+      if (!events.length) {
+        body.innerHTML = '<div style="text-align:center; color:var(--text-light); padding:24px 12px;">この日にイベントはありません</div>';
+        return;
+      }
+
+      body.innerHTML =
+        '<div style="font-size:12px; color:var(--text-mid); margin-bottom:10px;">' + events.length + '件のイベント (タップで詳細を表示)</div>' +
+        events.map(function (e, idx) {
+          const type = classifyCalendarEvent(e);
+          const color = e.color || '#8a9e7e';
+          const title = (e.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const category = e.category ? '<span class="day-event-list-cat">' + (e.category || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>' : '';
+          return '<button type="button" class="day-event-list-item" style="border-left-color:' + color + ';" onclick="showDayEventDetail(\'' + dateStr + '\', ' + idx + ')">' +
+            '<span class="day-event-list-icon">' + getCalIconHtml(type) + '</span>' +
+            '<span class="day-event-list-body">' +
+              '<span class="day-event-list-title">' + title + '</span>' +
+              (category ? category : '') +
+            '</span>' +
+            '<span class="day-event-list-arrow">›</span>' +
+          '</button>';
+        }).join('');
+    }
+
+    /** 個別イベントの詳細を表示 (ステップ2) */
+    function showDayEventDetail(dateStr, eventIdx) {
+      const body = document.getElementById('dayDetailBody');
+      if (!body) return;
+
+      const events = getCalendarEventsForDate(dateStr);
+
+      const e = events[eventIdx];
+      if (!e) return;
+
+      currentDayDetailState = { dateStr: dateStr, view: 'detail' };
+      updateDayDetailLabel(dateStr, e.title || '');
+
+      const type = classifyCalendarEvent(e);
+      const color = e.color || '#8a9e7e';
+      const title = (e.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const category = e.category ? '<span style="margin-left:8px; font-size:11px; padding:2px 6px; background:var(--cream); border-radius:4px;">' + (e.category || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>' : '';
+      const descHtml = e.desc ? (typeof renderAdminFormattedTextHtml === 'function' ? renderAdminFormattedTextHtml(e.desc, { stripInlineImages: true }) : String(e.desc).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')) : '';
+      const editBtn = (typeof editCalendar === 'function' && e.rowIdx) ? '<button class="btn" style="padding:6px 14px; font-size:12px; margin-top:10px;" onclick="closeDayDetailModal(); editCalendar(' + e.rowIdx + ');">📝 編集</button>' : '';
+
+      let imgHtml = '';
+      if (e.image && (String(e.image).startsWith('http') || String(e.image).startsWith('data:'))) {
+        imgHtml = '<img src="' + e.image + '" style="width:100%; max-height:200px; object-fit:cover; border-radius:8px; margin-bottom:10px;">';
+      }
+
+      body.innerHTML =
+        '<div class="day-detail-event" style="border-left-color:' + color + ';">' +
+          imgHtml +
+          '<div class="day-detail-event-title">' +
+            getCalIconHtml(type) +
+            '<span>' + title + '</span>' +
+            category +
+          '</div>' +
+          '<div class="day-detail-event-meta">区分: ' + getCalTypeLabel(type) + '</div>' +
+          (descHtml ? '<div class="day-detail-event-desc" style="margin-top:8px;">' + descHtml + '</div>' : '') +
+          editBtn +
+        '</div>';
+    }
+
+    /** 詳細から一覧に戻る */
+    function backToDayEventList() {
+      if (currentDayDetailState && currentDayDetailState.dateStr) {
+        renderDayEventList(currentDayDetailState.dateStr);
+      }
+    }
+
+    function closeDayDetailModal(ev) {
+      // モーダル背景クリック・×ボタン・編集ボタンから呼ばれる
+      if (ev && ev.target && ev.currentTarget && ev.target !== ev.currentTarget) return;
+      const modal = document.getElementById('dayDetailModal');
+      if (modal) modal.classList.remove('is-open');
+      currentDayDetailState = { dateStr: '', view: 'list' };
     }
 
     function renderCalendarList(events) {
@@ -10935,14 +12850,16 @@
           imgHtml = `<span style="font-size:12px; color:var(--text-light);">なし</span>`;
         }
 
+        // 詳細を一部のみ表示（プレーンテキスト化して切り詰め）
+        const descSnippet = buildCalendarDescSnippet(c.desc || '');
+
         const rowHtml = `
           <tr>
             <td><input type="checkbox" class="cal-sel" data-idx="${c.rowIdx}"></td>
             <td style="text-align:center;">${imgHtml}</td>
-            <td>${c.date}</td>
             <td style="font-weight:bold;">${c.title}</td>
             <td>${escapeHtml(c.category || '未設定')}</td>
-            <td class="managed-rich-text" style="font-size:11px;">${renderAdminFormattedTextHtml(c.desc || '', { stripInlineImages: true })}</td>
+            <td style="font-size:11px; color:var(--text-mid); max-width:240px;" title="${escapeHtml(stripCalendarDescPlain(c.desc || ''))}">${descSnippet}</td>
             <td>
               <div style="width:20px; height:20px; border-radius:10px; background-color:${c.color};" title="${c.color}"></div>
             </td>
@@ -10970,10 +12887,30 @@
         }
       });
 
-      if (!hasDrafts) tbodyDraft.innerHTML = '<tr><td colspan="9" style="text-align:center;">下書き保存はありません</td></tr>';
-      if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="9" style="text-align:center;">投稿済みイベントはありません</td></tr>';
+      if (!hasDrafts) tbodyDraft.innerHTML = '<tr><td colspan="8" style="text-align:center;">下書き保存はありません</td></tr>';
+      if (!hasPublished) tbodyPub.innerHTML = '<tr><td colspan="8" style="text-align:center;">投稿済みイベントはありません</td></tr>';
 
       updateFilterMeta('calFilterMeta', events.length, allCalendarEvents.length, '表示条件に一致するイベントはありません');
+    }
+
+    // 詳細テキストをプレーン化（HTMLタグ・改行を除去）
+    function stripCalendarDescPlain(desc) {
+      if (!desc) return '';
+      // 改行を空白に、HTMLタグを除去
+      let text = String(desc).replace(/<br\s*\/?>/gi, ' ').replace(/<\/(p|div|li)>/gi, ' ').replace(/<[^>]+>/g, '');
+      // HTMLエンティティをデコード
+      text = text.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+      // 連続する空白を1つに
+      return text.replace(/\s+/g, ' ').trim();
+    }
+
+    // 一覧用の切り詰めスニペット
+    function buildCalendarDescSnippet(desc, maxChars) {
+      const max = maxChars || 60;
+      const plain = stripCalendarDescPlain(desc);
+      if (!plain) return '<span style="color:var(--text-light);">―</span>';
+      if (plain.length <= max) return escapeHtml(plain);
+      return escapeHtml(plain.slice(0, max)) + '…';
     }
 
     function updateRecentColorsHistory() {
