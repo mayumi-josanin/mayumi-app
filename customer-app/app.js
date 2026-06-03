@@ -4971,8 +4971,9 @@ function normalizeMilestoneRewardConfig(value) {
   (Array.isArray(value?.milestones) ? value.milestones : []).forEach((entry) => {
     const threshold = Math.floor(Number(entry?.threshold));
     const reward = normalizeText(entry?.reward);
+    const description = normalizeText(entry?.description);
     if (!Number.isFinite(threshold) || threshold <= 0 || !reward) return;
-    byThreshold.set(threshold, { threshold, reward });
+    byThreshold.set(threshold, { threshold, reward, description });
   });
   const milestones = Array.from(byThreshold.values())
     .sort((a, b) => a.threshold - b.threshold)
@@ -5041,10 +5042,14 @@ function renderHomeMilestoneReward() {
             const statusText = achieved
               ? `獲得済み: ${escapeHtml(milestone.reward)}`
               : `あと ${remaining}枚 で「${escapeHtml(milestone.reward)}」`;
+            const descriptionText = milestone.description
+              ? `<span class="milestone-reward-description">${escapeHtml(milestone.description)}</span>`
+              : "";
             return `
               <li class="milestone-reward-item ${achieved ? "achieved" : ""} ${isNext ? "next" : ""}">
                 <span class="milestone-reward-threshold">${milestone.threshold}枚</span>
                 <span class="milestone-reward-status">${statusText}</span>
+                ${descriptionText}
               </li>
             `;
           })
