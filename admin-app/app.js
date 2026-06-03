@@ -2616,16 +2616,66 @@ function formatResponseEntryTitle(response) {
   return response.surveyTitle || "回答詳細";
 }
 
+function getCompletedTicketCardBreakdown(customerName) {
+  const responses = (state.responses || []).filter(
+    (response) =>
+      response.customerName === customerName &&
+      normalizeStatus(response.status) !== "trash",
+  );
+  const maxRoundByCard = new Map();
+  responses.forEach((response) => {
+    const info = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
+    const plan = String(info.get("回数券") || "").trim();
+    const sheet = parseTicketLabelNumber(info.get("何枚目") || "");
+    const round = parseTicketStep(info.get("何回目") || "");
+    if (!plan || sheet <= 0 || round <= 0) return;
+    const key = `${plan}|${sheet}`;
+    const prev = maxRoundByCard.get(key);
+    if (!prev || round > prev.round) maxRoundByCard.set(key, { plan, round });
+  });
+  const byPlan = {};
+  let total = 0;
+  maxRoundByCard.forEach((card) => {
+    const cap = parseTicketCount(card.plan);
+    if (cap > 0 && card.round >= cap) {
+      total += 1;
+      byPlan[card.plan] = (byPlan[card.plan] || 0) + 1;
+    }
+  });
+  return { total, byPlan };
+}
+
 function renderCustomerMilestoneSection(customerName) {
   const config = getMilestoneRewardConfig(state.preferences);
   if (!config.enabled || !config.milestones.length) return "";
   const profile = getCustomerProfileByName(customerName);
   const completedCount = Math.max(0, Math.floor(Number(profile?.completedTicketCardCount) || 0));
   const redemptions = profile?.rewardRedemptions || {};
+  const achievedMilestones = config.milestones.filter((milestone) => completedCount >= milestone.threshold);
   return `
     <article class="answer-item">
       <strong>マイルストーン特典</strong>
       <div class="meta">完了枚数: ${completedCount}枚（回数券を使い切ったカードの通算枚数）</div>
+      ${
+        achievedMilestones.length
+          ? `<div class="milestone-history">
+              <div class="meta">獲得済み特典の履歴</div>
+              <ul class="milestone-history-list">
+                ${achievedMilestones
+                  .map((milestone) => {
+                    const redemption = redemptions[String(milestone.threshold)] || null;
+                    const handed = redemption?.handed === true;
+                    const handedAt = handed ? String(redemption.handedAt || "") : "";
+                    const handedLabel = handed
+                      ? `（渡し済み${handedAt ? " " + escapeHtml(formatDate(handedAt)) : ""}）`
+                      : "（未渡し）";
+                    return `<li>${milestone.threshold}枚目：${escapeHtml(milestone.reward)}<span class="meta">${handedLabel}</span></li>`;
+                  })
+                  .join("")}
+              </ul>
+            </div>`
+          : `<div class="meta">獲得済みの特典はまだありません。</div>`
+      }
       <div class="milestone-admin-list">
         ${config.milestones
           .map((milestone) => {
@@ -2702,6 +2752,7 @@ function renderCustomerSummaryCard(customerName, responses) {
   const ticketInfo = getCurrentTicketInfoForCustomer(customerName);
   const surveyCount = new Set(responses.map((response) => response.surveyId || response.surveyTitle || response.id)).size;
   const profile = getCustomerProfileByName(customerName);
+  const cardBreakdown = getCompletedTicketCardBreakdown(customerName);
   return `
     <article class="answer-item customer-summary-card">
       <strong>${escapeHtml(getCustomerNameWithMember(customerName))}</strong>
@@ -2709,6 +2760,7 @@ function renderCustomerSummaryCard(customerName, responses) {
         <div class="meta customer-summary-item">フリガナ: ${escapeHtml(profile?.nameKana || "-")}</div>
         ${renderCustomerPushStatus(profile?.pushStatus)}
         <div class="meta customer-summary-item">回答数: ${responses.length}件 / アンケート種類: ${surveyCount}件</div>
+        <div class="meta customer-summary-item customer-summary-item-wide">回数券 合計 ${cardBreakdown.total}枚：6回券 ${cardBreakdown.byPlan["6回券"] || 0}枚、10回券 ${cardBreakdown.byPlan["10回券"] || 0}枚</div>
         <div class="meta customer-summary-item">最新回答: ${latestResponse ? `${escapeHtml(latestResponse.surveyTitle)} / ${formatDate(latestResponse.submittedAt)}` : "-"}</div>
         <div class="meta customer-summary-item customer-summary-item-wide">最新測定: ${latestMeasurement ? `${escapeHtml(formatDateOnly(latestMeasurement.measuredAt))} / WHR ${escapeHtml(formatWhr(latestMeasurement.whr))}` : "-"}</div>
       </div>
