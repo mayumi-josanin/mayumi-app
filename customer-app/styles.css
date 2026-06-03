@@ -182,9 +182,52 @@ p {
 .history-list,
 .guide-list,
 .home-ticket-status,
+.home-milestone-reward,
 .measurement-panel {
   display: grid;
   gap: 12px;
+}
+
+.home-milestone-reward:empty {
+  display: none;
+}
+
+.milestone-reward-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.milestone-reward-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.milestone-reward-item.achieved {
+  background: #f1f6ed;
+  border-color: rgba(138, 158, 126, 0.5);
+}
+
+.milestone-reward-item.next {
+  border-color: var(--accent, #c0392b);
+  box-shadow: 0 0 0 1px var(--accent, #c0392b) inset;
+}
+
+.milestone-reward-threshold {
+  flex: 0 0 auto;
+  font-weight: 700;
+  min-width: 48px;
+}
+
+.milestone-reward-status {
+  flex: 1 1 auto;
 }
 
 label {
