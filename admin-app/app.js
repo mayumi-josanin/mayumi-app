@@ -732,8 +732,9 @@ function normalizeMilestoneRewardConfig(rawConfig) {
   (Array.isArray(rawConfig?.milestones) ? rawConfig.milestones : []).forEach((entry) => {
     const threshold = Math.floor(Number(entry?.threshold));
     const reward = String(entry?.reward || "").trim();
+    const description = String(entry?.description || "").trim();
     if (!Number.isFinite(threshold) || threshold <= 0 || !reward) return;
-    byThreshold.set(threshold, { threshold, reward });
+    byThreshold.set(threshold, { threshold, reward, description });
   });
   const milestones = Array.from(byThreshold.values())
     .sort((a, b) => a.threshold - b.threshold)
@@ -745,7 +746,7 @@ function getMilestoneRewardConfig(preferences = state.preferences) {
   return normalizeMilestoneRewardConfig(preferences?.milestoneRewardConfig);
 }
 
-function renderMilestoneRewardRow(milestone = { threshold: "", reward: "" }) {
+function renderMilestoneRewardRow(milestone = { threshold: "", reward: "", description: "" }) {
   return `
     <tr data-milestone-row>
       <td>
@@ -758,6 +759,12 @@ function renderMilestoneRewardRow(milestone = { threshold: "", reward: "" }) {
         <label>
           <span class="gacha-field-label">特典内容</span>
           <input type="text" value="${escapeHtml(milestone.reward || "")}" data-milestone-reward placeholder="例: ハンドクリームプレゼント" />
+        </label>
+      </td>
+      <td>
+        <label>
+          <span class="gacha-field-label">特典内容説明</span>
+          <textarea rows="2" data-milestone-description placeholder="例: 施術後にお渡しする保湿用ハンドクリーム1本">${escapeHtml(milestone.description || "")}</textarea>
         </label>
       </td>
       <td>
@@ -796,11 +803,12 @@ function renderMilestoneRewardManager() {
             <tr>
               <th>しきい値</th>
               <th>特典内容</th>
+              <th>特典内容説明</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="milestoneRewardTableBody">
-            ${(milestones.length ? milestones : [{ threshold: "", reward: "" }])
+            ${(milestones.length ? milestones : [{ threshold: "", reward: "", description: "" }])
               .map((milestone) => renderMilestoneRewardRow(milestone))
               .join("")}
           </tbody>
@@ -832,6 +840,7 @@ function collectMilestoneRewardConfigFromTable(form) {
     .map((row) => ({
       threshold: Math.floor(Number(row.querySelector("[data-milestone-threshold]")?.value)),
       reward: String(row.querySelector("[data-milestone-reward]")?.value || "").trim(),
+      description: String(row.querySelector("[data-milestone-description]")?.value || "").trim(),
     }))
     .filter((entry) => Number.isFinite(entry.threshold) && entry.threshold > 0 && entry.reward);
   return normalizeMilestoneRewardConfig({ enabled, milestones });
@@ -2631,6 +2640,11 @@ function renderCustomerMilestoneSection(customerName) {
                   <span class="milestone-admin-reward">${escapeHtml(milestone.reward)}</span>
                   <span class="badge ${achieved ? "open" : "draft"}">${achieved ? "達成" : "未達成"}</span>
                 </div>
+                ${
+                  milestone.description
+                    ? `<div class="meta milestone-admin-description">${escapeHtml(milestone.description)}</div>`
+                    : ""
+                }
                 ${
                   achieved
                     ? `

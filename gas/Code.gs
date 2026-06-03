@@ -1013,8 +1013,9 @@ function normalizeMilestoneRewardConfig_(value) {
   (Array.isArray(value && value.milestones) ? value.milestones : []).forEach(function (entry) {
     var threshold = Math.floor(Number(entry && entry.threshold));
     var reward = normalizeText_(entry && entry.reward);
+    var description = normalizeText_(entry && entry.description);
     if (!isFinite(threshold) || threshold <= 0 || !reward) return;
-    byThreshold[threshold] = { threshold: threshold, reward: reward };
+    byThreshold[threshold] = { threshold: threshold, reward: reward, description: description };
   });
   var milestones = Object.keys(byThreshold)
     .map(function (key) { return byThreshold[key]; })
