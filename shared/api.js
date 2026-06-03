@@ -63,6 +63,21 @@ window.MayumiSurveyApi = (() => {
     return Object.values(normalized).some((value) => value !== "") ? normalized : null;
   }
 
+  function normalizeMilestoneRewardConfig(value) {
+    const enabled = !(value && value.enabled === false);
+    const byThreshold = new Map();
+    (Array.isArray(value?.milestones) ? value.milestones : []).forEach((entry) => {
+      const threshold = Math.floor(Number(entry?.threshold));
+      const reward = normalizeText(entry?.reward);
+      if (!Number.isFinite(threshold) || threshold <= 0 || !reward) return;
+      byThreshold.set(threshold, { threshold, reward });
+    });
+    const milestones = Array.from(byThreshold.values())
+      .sort((a, b) => a.threshold - b.threshold)
+      .slice(0, 20);
+    return { enabled, milestones };
+  }
+
   function normalizePushPermission(value) {
     const normalized = normalizeText(value).toLowerCase();
     return ["granted", "denied", "default", "unsupported"].includes(normalized) ? normalized : "";
@@ -263,6 +278,7 @@ window.MayumiSurveyApi = (() => {
       twoFactorEnabled: preferences?.twoFactorEnabled === false ? false : true,
       bijirisCategoryConfig: normalizeBijirisCategoryConfigForSignature(preferences?.bijirisCategoryConfig),
       gachaPrizeConfig: normalizeGachaPrizeConfigForSignature(preferences?.gachaPrizeConfig),
+      milestoneRewardConfig: normalizeMilestoneRewardConfig(preferences?.milestoneRewardConfig),
     });
   }
 
@@ -653,6 +669,24 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
+  async function waitForAdminRewardRedemption(gasUrl, token, customerName, threshold, expectedHanded) {
+    const thresholdKey = String(Math.floor(Number(threshold) || 0));
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (attempt) await sleep(1000);
+      const info = await jsonp(gasUrl, "adminInfo", { token });
+      const profiles = Array.isArray(info.customerProfiles) ? info.customerProfiles : [];
+      const matchedProfile = profiles.find(
+        (profile) => normalizeText(profile.name) === normalizeText(customerName),
+      );
+      if (matchedProfile) {
+        const redemption = matchedProfile.rewardRedemptions?.[thresholdKey] || null;
+        const actualHanded = redemption?.handed === true;
+        if (actualHanded === expectedHanded) return matchedProfile;
+      }
+    }
+    return null;
+  }
+
   async function waitForAdminCustomerDeletion(gasUrl, token, customerName) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
@@ -698,6 +732,7 @@ window.MayumiSurveyApi = (() => {
               dataPolicyText: remoteData.dataPolicyText || "",
               requireConsent: remoteData.requireConsent === false ? false : true,
               consentText: remoteData.consentText || "",
+              milestoneRewardConfig: normalizeMilestoneRewardConfig(remoteData.milestoneRewardConfig),
               pushAppId: remoteData.pushAppId || "",
               version: remoteData.version || "",
             };
@@ -710,6 +745,7 @@ window.MayumiSurveyApi = (() => {
           dataPolicyText: "",
           requireConsent: true,
           consentText: "",
+          milestoneRewardConfig: normalizeMilestoneRewardConfig(null),
           pushAppId: window.MAYUMI_ONESIGNAL_APP_ID || "",
           version: "",
         };
@@ -1068,6 +1104,31 @@ window.MayumiSurveyApi = (() => {
         return { measurement };
       }
 
+      if (
+        path.startsWith("/api/admin/customers/") &&
+        path.endsWith("/reward-redemption") &&
+        method === "POST"
+      ) {
+        const customerName = getRouteId(path, "/api/admin/customers/").replace(/\/reward-redemption$/, "");
+        const threshold = Math.floor(Number(options.body?.threshold) || 0);
+        const handed = options.body?.handed === true;
+        await postToGas(gasUrl, "adminUpdateRewardRedemption", {
+          token: options.token,
+          customerName,
+          threshold,
+          handed,
+        });
+        const matchedProfile = await waitForAdminRewardRedemption(
+          gasUrl,
+          options.token,
+          customerName,
+          threshold,
+          handed,
+        );
+        if (!matchedProfile) throw new Error("マイルストーン特典の更新を確認できませんでした。");
+        return { customerProfile: matchedProfile };
+      }
+
       if (path.startsWith("/api/admin/customers/") && method === "DELETE") {
         const customerName = getRouteId(path, "/api/admin/customers/");
         await postToGas(gasUrl, "adminDeleteCustomer", {
@@ -1276,6 +1337,7 @@ window.MayumiSurveyApi = (() => {
       if (path === "/api/public/surveys") {
         return {
           surveys: getDefaultSurveys().filter((survey) => survey.status === "published"),
+          milestoneRewardConfig: normalizeMilestoneRewardConfig(null),
         };
       }
       if (path === "/api/public/bijiris-posts") {

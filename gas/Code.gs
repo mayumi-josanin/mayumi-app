@@ -352,6 +352,7 @@ function handleGet_(e) {
       dataPolicyText: getPreferences_().dataPolicyText,
       requireConsent: getPreferences_().requireConsent,
       consentText: getPreferences_().consentText,
+      milestoneRewardConfig: getPreferences_().milestoneRewardConfig,
       pushAppId: getPushAppId_(),
       version: VERSION,
     };
@@ -483,6 +484,10 @@ function handlePost_(body) {
   if (body.action === "adminDeleteCustomer") {
     requireAdmin_(body.token);
     return deleteCustomerProfile_(body.customerName);
+  }
+  if (body.action === "adminUpdateRewardRedemption") {
+    requireAdmin_(body.token);
+    return updateCustomerRewardRedemption_(body.customerName, body.threshold, body.handed === true);
   }
   if (body.action === "adminCreateMeasurement") {
     requireAdmin_(body.token);
@@ -893,6 +898,7 @@ function getPreferences_() {
     twoFactorEnabled: false,
     bijirisCategoryConfig: normalizeBijirisCategoryConfig_(stored && stored.bijirisCategoryConfig),
     gachaPrizeConfig: normalizeGachaPrizeConfig_(stored && stored.gachaPrizeConfig),
+    milestoneRewardConfig: normalizeMilestoneRewardConfig_(stored && stored.milestoneRewardConfig),
   };
   if (JSON.stringify(stored || {}) !== JSON.stringify(preferences)) {
     properties.setProperty(PREFERENCES_PROPERTY_KEY, JSON.stringify(preferences));
@@ -920,6 +926,9 @@ function updatePreferences_(payload) {
     ),
     gachaPrizeConfig: normalizeGachaPrizeConfig_(
       payload && payload.gachaPrizeConfig || current.gachaPrizeConfig
+    ),
+    milestoneRewardConfig: normalizeMilestoneRewardConfig_(
+      payload && payload.milestoneRewardConfig || current.milestoneRewardConfig
     ),
   };
 
@@ -995,6 +1004,25 @@ function normalizeGachaPrizeConfig_(value) {
   });
   return {
     monthlyPrizes: monthlyPrizes.length ? monthlyPrizes : [createDefaultGachaMonthlyPrize_(getCurrentMonthKey_())]
+  };
+}
+
+function normalizeMilestoneRewardConfig_(value) {
+  var enabled = !(value && value.enabled === false);
+  var byThreshold = {};
+  (Array.isArray(value && value.milestones) ? value.milestones : []).forEach(function (entry) {
+    var threshold = Math.floor(Number(entry && entry.threshold));
+    var reward = normalizeText_(entry && entry.reward);
+    if (!isFinite(threshold) || threshold <= 0 || !reward) return;
+    byThreshold[threshold] = { threshold: threshold, reward: reward };
+  });
+  var milestones = Object.keys(byThreshold)
+    .map(function (key) { return byThreshold[key]; })
+    .sort(function (a, b) { return a.threshold - b.threshold; })
+    .slice(0, 20);
+  return {
+    enabled: enabled,
+    milestones: milestones,
   };
 }
 
@@ -1572,6 +1600,26 @@ function normalizeMeasurementTargets_(value) {
   return hasAny ? targets : null;
 }
 
+function normalizeRewardRedemptions_(value) {
+  if (!value || typeof value !== "object") return null;
+  var result = {};
+  Object.keys(value).forEach(function (key) {
+    var threshold = Math.floor(Number(key));
+    if (!isFinite(threshold) || threshold <= 0) return;
+    var entry = value[key] || {};
+    if (entry.handed !== true) return;
+    result[String(threshold)] = {
+      handed: true,
+      handedAt: normalizeTicketCardAcquiredAt_(entry.handedAt) || new Date().toISOString(),
+    };
+  });
+  return Object.keys(result).length ? result : null;
+}
+
+function publicRewardRedemptions_(value) {
+  return normalizeRewardRedemptions_(value);
+}
+
 function normalizePushPermission_(value) {
   var normalized = normalizeText_(value).toLowerCase();
   if (["granted", "denied", "default", "unsupported"].indexOf(normalized) >= 0) {
@@ -1659,6 +1707,7 @@ function normalizeCustomerProfileRecord_(record, fallbackName) {
     ),
     measurementTargets: normalizeMeasurementTargets_(record && record.measurementTargets),
     pushStatus: normalizePushStatus_(record && record.pushStatus),
+    rewardRedemptions: normalizeRewardRedemptions_(record && record.rewardRedemptions),
     adminManaged: record && record.adminManaged === true,
     updatedAt: normalizeText_(record && record.updatedAt) || new Date().toISOString(),
   };
@@ -1698,6 +1747,7 @@ function publicCustomerProfile_(record) {
     lastTicketCardAcquiredAt: normalizeTicketCardAcquiredAt_(record.lastTicketCardAcquiredAt),
     measurementTargets: publicMeasurementTargets_(record.measurementTargets),
     pushStatus: publicPushStatus_(record.pushStatus),
+    rewardRedemptions: publicRewardRedemptions_(record.rewardRedemptions),
     updatedAt: normalizeText_(record.updatedAt),
   };
 }
@@ -1790,6 +1840,7 @@ function saveCustomerProfileRecord_(profiles, previousKey, record, options) {
   var replaceLastTicketCardAcquiredAt = options && options.replaceLastTicketCardAcquiredAt === true;
   var replaceMeasurementTargets = options && options.replaceMeasurementTargets === true;
   var replacePushStatus = options && options.replacePushStatus === true;
+  var replaceRewardRedemptions = options && options.replaceRewardRedemptions === true;
   var requestedActiveTicketCard = normalizeActiveTicketCard_(record && record.activeTicketCard);
   var requestedActiveTicketCardSource = normalizeActiveTicketCardSource_(
     record && (record.activeTicketCardSource || record.ticketCardSource)
@@ -1799,6 +1850,7 @@ function saveCustomerProfileRecord_(profiles, previousKey, record, options) {
   );
   var requestedMeasurementTargets = normalizeMeasurementTargets_(record && record.measurementTargets);
   var requestedPushStatus = normalizePushStatus_(record && record.pushStatus);
+  var requestedRewardRedemptions = normalizeRewardRedemptions_(record && record.rewardRedemptions);
   if (previousKey && previousKey !== normalized.name) {
     delete profiles[previousKey];
   }
@@ -1850,6 +1902,13 @@ function saveCustomerProfileRecord_(profiles, previousKey, record, options) {
     normalized.pushStatus = requestedPushStatus;
   } else if (existing && existing.pushStatus) {
     normalized.pushStatus = normalizePushStatus_(existing.pushStatus);
+  }
+  if (replaceRewardRedemptions) {
+    normalized.rewardRedemptions = requestedRewardRedemptions;
+  } else if (requestedRewardRedemptions) {
+    normalized.rewardRedemptions = requestedRewardRedemptions;
+  } else if (existing && existing.rewardRedemptions) {
+    normalized.rewardRedemptions = normalizeRewardRedemptions_(existing.rewardRedemptions);
   }
   if (!normalized.memberNumber) {
     var nextIndex = Math.max(getStoredNextMemberNumberIndex_(), getHighestMemberNumberIndex_(profiles) + 1, 1);
@@ -2029,9 +2088,13 @@ function updateAdminCustomerProfileRecord_(currentName, nextName, responses, opt
 
 function getAdminCustomerProfiles_() {
   var profiles = getCustomerProfiles_();
+  var completedCounts = getCompletedTicketCardCountsByCustomer_(getResponses_({}));
   return Object.keys(profiles || {})
     .map(function (key) {
-      return publicCustomerProfile_(profiles[key]);
+      var publicProfile = publicCustomerProfile_(profiles[key]);
+      if (!publicProfile) return null;
+      publicProfile.completedTicketCardCount = completedCounts[publicProfile.name] || 0;
+      return publicProfile;
     })
     .filter(Boolean)
     .sort(function (a, b) {
@@ -4667,6 +4730,95 @@ function normalizeKana_(value) {
 function parseTicketLabelNumber_(value) {
   var matched = normalizeText_(value).match(/\d+/);
   return matched ? Number(matched[0]) : 0;
+}
+
+function parseTicketPlanCount_(plan) {
+  var text = normalizeText_(plan);
+  if (text.indexOf("10") >= 0) return 10;
+  if (text.indexOf("6") >= 0) return 6;
+  return parseTicketLabelNumber_(text);
+}
+
+// 完了枚数: 種類(6回券/10回券)を問わず、使い切ったカードの通算枚数。
+// 1枚の完了 = あるカード(種類＋何枚目)について最終回(種類の上限)の回答が送信されていること。
+// 管理者の手動カード設定(activeTicketCard override)は含めず、履歴(回答)ベースで算出する。
+function getCompletedTicketCardCountsByCustomer_(responses) {
+  var list = Array.isArray(responses) ? responses : getResponses_({});
+  var maxRoundByCustomerCard = {};
+  list.forEach(function (response) {
+    var name = normalizeText_(response && response.customerName);
+    if (!name) return;
+    var answers = response && response.answers;
+    var plan = getAnswerValueByQuestionIds_(answers, CUSTOMER_TICKET_INFO_QUESTION_IDS.plan);
+    var sheet = parseTicketLabelNumber_(getAnswerValueByQuestionIds_(answers, CUSTOMER_TICKET_INFO_QUESTION_IDS.sheet));
+    var round = parseTicketLabelNumber_(getAnswerValueByQuestionIds_(answers, CUSTOMER_TICKET_INFO_QUESTION_IDS.round));
+    if (!plan || sheet <= 0 || round <= 0) return;
+    if (!maxRoundByCustomerCard[name]) maxRoundByCustomerCard[name] = {};
+    var cardKey = plan + "|" + sheet;
+    var prev = maxRoundByCustomerCard[name][cardKey];
+    if (!prev || round > prev.round) {
+      maxRoundByCustomerCard[name][cardKey] = { plan: plan, round: round };
+    }
+  });
+  var counts = {};
+  Object.keys(maxRoundByCustomerCard).forEach(function (name) {
+    var cards = maxRoundByCustomerCard[name];
+    var completed = 0;
+    Object.keys(cards).forEach(function (cardKey) {
+      var card = cards[cardKey];
+      var planCount = parseTicketPlanCount_(card.plan);
+      if (planCount > 0 && card.round >= planCount) completed += 1;
+    });
+    counts[name] = completed;
+  });
+  return counts;
+}
+
+function getCompletedTicketCardCountForCustomer_(customerName) {
+  var name = normalizeText_(customerName);
+  if (!name) return 0;
+  var counts = getCompletedTicketCardCountsByCustomer_(getResponses_({ customerName: name }));
+  return counts[name] || 0;
+}
+
+function updateCustomerRewardRedemption_(customerName, threshold, handed) {
+  var name = normalizeText_(customerName);
+  var thresholdNum = Math.floor(Number(threshold));
+  if (!name) throw new Error("お客様を指定してください。");
+  if (!isFinite(thresholdNum) || thresholdNum <= 0) throw new Error("しきい値が正しくありません。");
+
+  var profiles = getCustomerProfiles_();
+  var match = findCustomerProfileByName_(profiles, name, "");
+  var record = match ? normalizeCustomerProfileRecord_(match.profile, match.key) : null;
+  if (!record) throw new Error("お客様が見つかりません。");
+
+  var redemptions = record.rewardRedemptions
+    ? JSON.parse(JSON.stringify(record.rewardRedemptions))
+    : {};
+  if (handed === true) {
+    redemptions[String(thresholdNum)] = { handed: true, handedAt: new Date().toISOString() };
+  } else {
+    delete redemptions[String(thresholdNum)];
+  }
+  record.rewardRedemptions = normalizeRewardRedemptions_(redemptions);
+  record.updatedAt = new Date().toISOString();
+
+  var saved = saveCustomerProfileRecord_(profiles, match.key, record, {
+    replaceRewardRedemptions: true,
+  });
+  saveCustomerProfiles_(profiles);
+
+  appendAuditLog_("customer.reward_redemption.update", {
+    customerName: saved.name,
+    threshold: thresholdNum,
+    handed: handed === true,
+  });
+
+  var publicProfile = publicCustomerProfile_(saved);
+  if (publicProfile) {
+    publicProfile.completedTicketCardCount = getCompletedTicketCardCountForCustomer_(saved.name);
+  }
+  return { customerProfile: publicProfile };
 }
 
 function normalizeActiveTicketCard_(value) {

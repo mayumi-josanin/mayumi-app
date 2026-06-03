@@ -13,7 +13,7 @@ const RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TICKET_CARD_ACQUIRE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
-const APP_VERSION = "20260422-01";
+const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
 const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v98";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -365,6 +365,7 @@ const appState = {
     dataPolicyText: "",
     requireConsent: true,
     consentText: "",
+    milestoneRewardConfig: { enabled: true, milestones: [] },
     version: "",
     pushAppId: "",
   },
@@ -412,6 +413,7 @@ const historyList = document.querySelector("#historyList");
 const measurementPanel = document.querySelector("#measurementPanel");
 const bijirisPanel = document.querySelector("#bijirisPanel");
 const homeTicketStatus = document.querySelector("#homeTicketStatus");
+const homeMilestoneReward = document.querySelector("#homeMilestoneReward");
 const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
 const customerMemberInfo = document.querySelector("#customerMemberInfo");
@@ -1963,6 +1965,7 @@ async function loadSurveys() {
       dataPolicyText: result.dataPolicyText || "",
       requireConsent: result.requireConsent === false ? false : true,
       consentText: result.consentText || "",
+      milestoneRewardConfig: normalizeMilestoneRewardConfig(result.milestoneRewardConfig),
       version: result.version || APP_VERSION,
       pushAppId: result.pushAppId || getConfiguredPushAppId(),
     };
@@ -4962,7 +4965,97 @@ function renderTicketStampProgress(ticketCount, currentRound, stampDates = new M
   `;
 }
 
+function normalizeMilestoneRewardConfig(value) {
+  const enabled = !(value && value.enabled === false);
+  const byThreshold = new Map();
+  (Array.isArray(value?.milestones) ? value.milestones : []).forEach((entry) => {
+    const threshold = Math.floor(Number(entry?.threshold));
+    const reward = normalizeText(entry?.reward);
+    if (!Number.isFinite(threshold) || threshold <= 0 || !reward) return;
+    byThreshold.set(threshold, { threshold, reward });
+  });
+  const milestones = Array.from(byThreshold.values())
+    .sort((a, b) => a.threshold - b.threshold)
+    .slice(0, 20);
+  return { enabled, milestones };
+}
+
+function getMilestoneRewardConfig() {
+  return normalizeMilestoneRewardConfig(appState.publicInfo?.milestoneRewardConfig);
+}
+
+// 完了枚数: 種類(6回券/10回券)を問わず、最終回まで使い切ったカードのユニーク件数。
+// 管理者の手動カード設定(activeTicketCard override)は含めず、履歴ベースで算出する。
+function getCompletedTicketCardCount() {
+  const maxRoundByCard = new Map();
+  getVisibleHistoryResponses().forEach((response) => {
+    const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
+    const plan = normalizeText(ticketMap.get("回数券") || "");
+    const sheet = parseTicketSheet(ticketMap.get("何枚目") || "");
+    const round = parseTicketStep(ticketMap.get("何回目") || "");
+    if (!plan || sheet <= 0 || round <= 0) return;
+    const cardKey = `${plan}|${sheet}`;
+    const prev = maxRoundByCard.get(cardKey);
+    if (!prev || round > prev.round) {
+      maxRoundByCard.set(cardKey, { plan, round });
+    }
+  });
+  let completed = 0;
+  maxRoundByCard.forEach((card) => {
+    const ticketCount = parseTicketCount(card.plan);
+    if (ticketCount > 0 && card.round >= ticketCount) completed += 1;
+  });
+  return completed;
+}
+
+function renderHomeMilestoneReward() {
+  if (!homeMilestoneReward) return;
+  if (!hasCustomerSession() || appState.historyLoading || appState.historyLoadError) {
+    homeMilestoneReward.innerHTML = "";
+    return;
+  }
+  const config = getMilestoneRewardConfig();
+  if (!config.enabled || !config.milestones.length) {
+    homeMilestoneReward.innerHTML = "";
+    return;
+  }
+
+  const completedCount = getCompletedTicketCardCount();
+  const nextMilestone = config.milestones.find((milestone) => completedCount < milestone.threshold) || null;
+
+  homeMilestoneReward.innerHTML = `
+    <article class="ticket-home-card milestone-reward-card">
+      <div class="ticket-home-head">
+        <div>
+          <strong>マイルストーン特典</strong>
+          <div class="meta">回数券を使い切るほど特典がもらえます。</div>
+        </div>
+        <span class="badge open">完了 ${completedCount}枚</span>
+      </div>
+      <ul class="milestone-reward-list">
+        ${config.milestones
+          .map((milestone) => {
+            const achieved = completedCount >= milestone.threshold;
+            const isNext = nextMilestone && milestone.threshold === nextMilestone.threshold;
+            const remaining = Math.max(0, milestone.threshold - completedCount);
+            const statusText = achieved
+              ? `獲得済み: ${escapeHtml(milestone.reward)}`
+              : `あと ${remaining}枚 で「${escapeHtml(milestone.reward)}」`;
+            return `
+              <li class="milestone-reward-item ${achieved ? "achieved" : ""} ${isNext ? "next" : ""}">
+                <span class="milestone-reward-threshold">${milestone.threshold}枚</span>
+                <span class="milestone-reward-status">${statusText}</span>
+              </li>
+            `;
+          })
+          .join("")}
+      </ul>
+    </article>
+  `;
+}
+
 function renderHomeTicketStatus() {
+  renderHomeMilestoneReward();
   if (!homeTicketStatus) return;
   if (!hasCustomerSession()) {
     homeTicketStatus.innerHTML = `<div class="empty">ログインすると回数券スタンプを表示します。</div>`;
@@ -5941,7 +6034,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260422-01", { updateViaCache: "none" })
+        .register("./sw.js?v=20260603-01", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });

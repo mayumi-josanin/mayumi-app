@@ -726,6 +726,148 @@ async function saveGachaPrizeConfig(form) {
   }
 }
 
+function normalizeMilestoneRewardConfig(rawConfig) {
+  const enabled = !(rawConfig && rawConfig.enabled === false);
+  const byThreshold = new Map();
+  (Array.isArray(rawConfig?.milestones) ? rawConfig.milestones : []).forEach((entry) => {
+    const threshold = Math.floor(Number(entry?.threshold));
+    const reward = String(entry?.reward || "").trim();
+    if (!Number.isFinite(threshold) || threshold <= 0 || !reward) return;
+    byThreshold.set(threshold, { threshold, reward });
+  });
+  const milestones = Array.from(byThreshold.values())
+    .sort((a, b) => a.threshold - b.threshold)
+    .slice(0, 20);
+  return { enabled, milestones };
+}
+
+function getMilestoneRewardConfig(preferences = state.preferences) {
+  return normalizeMilestoneRewardConfig(preferences?.milestoneRewardConfig);
+}
+
+function renderMilestoneRewardRow(milestone = { threshold: "", reward: "" }) {
+  return `
+    <tr data-milestone-row>
+      <td>
+        <label>
+          <span class="gacha-field-label">しきい値(枚)</span>
+          <input type="number" min="1" step="1" value="${escapeHtml(milestone.threshold || "")}" data-milestone-threshold placeholder="例: 5" />
+        </label>
+      </td>
+      <td>
+        <label>
+          <span class="gacha-field-label">特典内容</span>
+          <input type="text" value="${escapeHtml(milestone.reward || "")}" data-milestone-reward placeholder="例: ハンドクリームプレゼント" />
+        </label>
+      </td>
+      <td>
+        <div class="gacha-cell-actions">
+          <button class="secondary-button danger-button" type="button" data-remove-milestone-row>削除</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function renderMilestoneRewardManager() {
+  const stage = document.querySelector("#milestoneRewardManagerStage");
+  if (!stage) return;
+  const config = getMilestoneRewardConfig(state.preferences);
+  const milestones = Array.isArray(config.milestones) ? config.milestones : [];
+  stage.innerHTML = `
+    <form id="milestoneRewardConfigForm" class="stack">
+      <div class="stage-head">
+        <div>
+          <div class="card-title">マイルストーン特典</div>
+          <p class="meta gacha-note">回数券を使い切った「完了枚数」がしきい値に達したお客様に渡す特典を設定できます。</p>
+        </div>
+        <div class="action-row">
+          <label class="milestone-enabled-toggle">
+            <input type="checkbox" data-milestone-enabled ${config.enabled ? "checked" : ""} />
+            お客様アプリに表示する
+          </label>
+          <button class="secondary-button" type="button" data-add-milestone-row>行を追加</button>
+          <button class="primary-button" type="submit">保存</button>
+        </div>
+      </div>
+      <div class="gacha-table-wrap">
+        <table class="gacha-config-table">
+          <thead>
+            <tr>
+              <th>しきい値</th>
+              <th>特典内容</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="milestoneRewardTableBody">
+            ${(milestones.length ? milestones : [{ threshold: "", reward: "" }])
+              .map((milestone) => renderMilestoneRewardRow(milestone))
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </form>
+  `;
+
+  const form = stage.querySelector("#milestoneRewardConfigForm");
+  const tableBody = stage.querySelector("#milestoneRewardTableBody");
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void saveMilestoneRewardConfig(event.currentTarget);
+  });
+  stage.querySelector("[data-add-milestone-row]")?.addEventListener("click", () => {
+    tableBody?.insertAdjacentHTML("beforeend", renderMilestoneRewardRow());
+  });
+  tableBody?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove-milestone-row]");
+    if (!removeButton) return;
+    removeButton.closest("[data-milestone-row]")?.remove();
+  });
+}
+
+function collectMilestoneRewardConfigFromTable(form) {
+  const tableBody = form.querySelector("#milestoneRewardTableBody");
+  const enabled = form.querySelector("[data-milestone-enabled]")?.checked !== false;
+  const milestones = Array.from(tableBody?.querySelectorAll("[data-milestone-row]") || [])
+    .map((row) => ({
+      threshold: Math.floor(Number(row.querySelector("[data-milestone-threshold]")?.value)),
+      reward: String(row.querySelector("[data-milestone-reward]")?.value || "").trim(),
+    }))
+    .filter((entry) => Number.isFinite(entry.threshold) && entry.threshold > 0 && entry.reward);
+  return normalizeMilestoneRewardConfig({ enabled, milestones });
+}
+
+async function saveMilestoneRewardConfig(form) {
+  const button = form.querySelector('button[type="submit"]');
+  if (button) {
+    button.disabled = true;
+    button.textContent = "保存中";
+  }
+  try {
+    const milestoneRewardConfig = collectMilestoneRewardConfigFromTable(form);
+    const payload = {
+      ...(state.preferences || {}),
+      milestoneRewardConfig,
+    };
+    const result = await api.request("/api/admin/preferences", {
+      method: "PUT",
+      token: state.token,
+      body: payload,
+    });
+    state.preferences = result.preferences || payload;
+    renderMilestoneRewardManager();
+    renderCustomerManagement();
+    showToast("マイルストーン特典設定を保存しました。");
+  } catch (error) {
+    showToast(error.message || "マイルストーン特典設定を保存できませんでした。");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "保存";
+    }
+  }
+}
+
 function renderBijirisGeneralCategorySettingRow(value = "") {
   return `
     <div class="bijiris-settings-input-row" data-bijiris-general-item>
@@ -1281,6 +1423,22 @@ function normalizeMeasurementTargets(value) {
   return Object.values(targets).some((item) => item !== "") ? targets : null;
 }
 
+function normalizeRewardRedemptions(value) {
+  if (!value || typeof value !== "object") return {};
+  const result = {};
+  Object.keys(value).forEach((key) => {
+    const threshold = Math.floor(Number(key));
+    if (!Number.isFinite(threshold) || threshold <= 0) return;
+    const entry = value[key] || {};
+    if (entry.handed !== true) return;
+    result[String(threshold)] = {
+      handed: true,
+      handedAt: String(entry.handedAt || "").trim(),
+    };
+  });
+  return result;
+}
+
 function normalizeCustomerProfile(value) {
   return {
     name: String(value?.name || "").trim(),
@@ -1290,6 +1448,8 @@ function normalizeCustomerProfile(value) {
     activeTicketCardSource: String(value?.activeTicketCardSource || "").trim().toLowerCase(),
     measurementTargets: normalizeMeasurementTargets(value?.measurementTargets),
     pushStatus: normalizePushStatus(value?.pushStatus),
+    rewardRedemptions: normalizeRewardRedemptions(value?.rewardRedemptions),
+    completedTicketCardCount: Math.max(0, Math.floor(Number(value?.completedTicketCardCount) || 0)),
     updatedAt: String(value?.updatedAt || "").trim(),
   };
 }
@@ -1681,6 +1841,7 @@ function renderAll() {
   renderNavigation();
   renderDashboard();
   renderGachaPrizeManager();
+  renderMilestoneRewardManager();
   renderBijirisManager();
   renderSurveyManager();
   renderFilters();
@@ -2444,6 +2605,81 @@ function formatResponseEntryTitle(response) {
       .join(" / ");
   }
   return response.surveyTitle || "回答詳細";
+}
+
+function renderCustomerMilestoneSection(customerName) {
+  const config = getMilestoneRewardConfig(state.preferences);
+  if (!config.enabled || !config.milestones.length) return "";
+  const profile = getCustomerProfileByName(customerName);
+  const completedCount = Math.max(0, Math.floor(Number(profile?.completedTicketCardCount) || 0));
+  const redemptions = profile?.rewardRedemptions || {};
+  return `
+    <article class="answer-item">
+      <strong>マイルストーン特典</strong>
+      <div class="meta">完了枚数: ${completedCount}枚（回数券を使い切ったカードの通算枚数）</div>
+      <div class="milestone-admin-list">
+        ${config.milestones
+          .map((milestone) => {
+            const achieved = completedCount >= milestone.threshold;
+            const redemption = redemptions[String(milestone.threshold)] || null;
+            const handed = redemption?.handed === true;
+            const handedAt = handed ? String(redemption.handedAt || "") : "";
+            return `
+              <div class="milestone-admin-item ${achieved ? "achieved" : ""}">
+                <div class="milestone-admin-info">
+                  <span class="milestone-reward-threshold">${milestone.threshold}枚</span>
+                  <span class="milestone-admin-reward">${escapeHtml(milestone.reward)}</span>
+                  <span class="badge ${achieved ? "open" : "draft"}">${achieved ? "達成" : "未達成"}</span>
+                </div>
+                ${
+                  achieved
+                    ? `
+                      <label class="milestone-handed-toggle">
+                        <input
+                          type="checkbox"
+                          data-milestone-handed
+                          data-customer="${escapeHtml(customerName)}"
+                          data-threshold="${milestone.threshold}"
+                          ${handed ? "checked" : ""}
+                        />
+                        <span>渡し済み</span>
+                        ${handedAt ? `<span class="meta">${escapeHtml(formatDate(handedAt))}</span>` : ""}
+                      </label>
+                    `
+                    : `<div class="meta">達成後に渡し済みの管理ができます。</div>`
+                }
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    </article>
+  `;
+}
+
+async function updateRewardRedemption(customerName, threshold, handed, checkbox) {
+  if (checkbox) checkbox.disabled = true;
+  try {
+    const result = await api.request(
+      `/api/admin/customers/${encodeURIComponent(customerName)}/reward-redemption`,
+      {
+        method: "POST",
+        token: state.token,
+        body: { threshold, handed },
+      },
+    );
+    if (result.customerProfile) {
+      const normalized = normalizeCustomerProfile(result.customerProfile);
+      if (normalized.name) {
+        state.customerProfiles[normalized.name] = normalized;
+      }
+    }
+    renderCustomerManagement();
+    showToast(handed ? "渡し済みにしました。" : "未渡しに戻しました。");
+  } catch (error) {
+    showToast(error.message || "マイルストーン特典を更新できませんでした。");
+    renderCustomerManagement();
+  }
 }
 
 function renderCustomerSummaryCard(customerName, responses) {
@@ -3921,6 +4157,7 @@ function renderCustomerManagement() {
         ${renderCustomerSummaryCard(selectedCustomer.name, customerResponses)}
         ${renderCustomerEditorCard(selectedCustomer.name)}
         ${renderCustomerMemoSection(selectedCustomer.name)}
+        ${renderCustomerMilestoneSection(selectedCustomer.name)}
         ${renderMeasurementSection(selectedCustomer.name)}
         <article class="answer-item">
           <strong>カルテ</strong>
@@ -4110,6 +4347,17 @@ function renderCustomerManagement() {
   stage.querySelector("#customerMemoForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     void saveCustomerMemo(event.currentTarget);
+  });
+
+  stage.querySelectorAll("[data-milestone-handed]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      void updateRewardRedemption(
+        checkbox.dataset.customer || "",
+        Math.floor(Number(checkbox.dataset.threshold) || 0),
+        checkbox.checked,
+        checkbox,
+      );
+    });
   });
 
   stage.querySelector("[data-cancel-measurement-edit]")?.addEventListener("click", () => {
@@ -7810,6 +8058,8 @@ async function restoreBackup(file) {
       ...(state.preferences || {}),
       ...payload.preferences,
       gachaPrizeConfig: payload.preferences.gachaPrizeConfig || getGachaPrizeConfig(state.preferences),
+      milestoneRewardConfig:
+        payload.preferences.milestoneRewardConfig || getMilestoneRewardConfig(state.preferences),
     };
     const preferencesResult = await api.request("/api/admin/preferences", {
       method: "PUT",
@@ -7893,6 +8143,7 @@ async function savePreferences() {
       twoFactorEnabled: false,
       bijirisCategoryConfig: collectBijirisCategoryConfigFromForm(form),
       gachaPrizeConfig: getGachaPrizeConfig(state.preferences),
+      milestoneRewardConfig: getMilestoneRewardConfig(state.preferences),
     };
     const result = await api.request("/api/admin/preferences", {
       method: "PUT",
@@ -8085,7 +8336,7 @@ function setupInstall() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("./sw.js?v=20260423-01", { updateViaCache: "none" })
+        .register("./sw.js?v=20260603-01", { updateViaCache: "none" })
         .then((registration) => {
           const activateWaiting = () => {
             registration.waiting?.postMessage({ type: "SKIP_WAITING" });
