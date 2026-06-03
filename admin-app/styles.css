@@ -321,6 +321,29 @@ header h1 {
   font-size: 13px;
 }
 
+.milestone-history {
+  margin: 4px 0 8px;
+}
+
+.milestone-history-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.milestone-history-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.milestone-history-list li .meta {
+  font-size: 12px;
+}
+
 h2 {
   margin: 0 0 18px;
   padding-bottom: 10px;
