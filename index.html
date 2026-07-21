@@ -101,14 +101,19 @@
 
       <div id="passcodeRestoreContent" style="display:none;">
         <div class="setup-title">データの引き継ぎ・復元</div>
-        <div class="setup-desc">引き継ぎコード、またはお名前と電話番号・生年月日・現在のパスコードのうち1つ以上で会員情報を復元できます。<br>復元後、この端末で使うパスコードも設定します。</div>
+        <div class="setup-desc">引き継ぎコード、または「お名前またはフリガナ」と生年月日で会員情報を復元できます。<br>復元後、この端末で使うパスコードも設定します。</div>
         <div class="setup-note-card" style="text-align:left;">
           引き継ぎコードがある方: 引き継ぎコードと新しいパスコードを入力してください。<br>
-          引き継ぎコードがない方: お名前は必須です。電話番号・生年月日・現在のパスコードのうち1つ以上を入力してください。
+          引き継ぎコードがない方: 生年月日は必須です。お名前・フリガナはどちらか一方が登録内容と一致すれば復元できます。
         </div>
         <div class="setup-field" style="margin-top:16px;">
-          <label class="setup-label">お名前（引き継ぎコードがない方は必須）</label>
+          <label class="setup-label">お名前（フリガナと合わせてどちらか必須）</label>
           <input class="setup-input" id="passcodeRestoreName" type="text" placeholder="登録したお名前" autocomplete="name">
+        </div>
+        <div class="setup-field">
+          <label class="setup-label">フリガナ（お名前と合わせてどちらか必須）</label>
+          <input class="setup-input" id="passcodeRestoreKana" type="text" placeholder="登録したフリガナ（カタカナ）"
+            autocomplete="off">
         </div>
         <div class="setup-field">
           <label class="setup-label">電話番号</label>
@@ -116,7 +121,7 @@
             autocomplete="tel">
         </div>
         <div class="setup-field">
-          <label class="setup-label">生年月日</label>
+          <label class="setup-label">生年月日 <span style="color:var(--danger)">*</span></label>
           <input class="setup-input" id="passcodeRestoreBirthday" type="date" autocomplete="bday">
         </div>
         <div class="setup-field">
@@ -1118,13 +1123,22 @@
           <div class="setup-err" id="setupNameErr">お名前を入力してください</div>
         </div>
         <div class="setup-field">
+          <label class="setup-label">フリガナ（カタカナ） <span style="color:var(--danger)">*</span></label>
+          <input class="setup-input" id="setupKana" type="text" placeholder="例：タナカ ハナコ" maxlength="30"
+            autocomplete="off" required aria-required="true">
+          <div style="font-size:10px; color:var(--text-light); margin-top:4px;">※データの復元に使用します。全角カタカナで入力してください。</div>
+          <div class="setup-err" id="setupKanaErr">フリガナは全角カタカナで入力してください</div>
+        </div>
+        <div class="setup-field">
           <label class="setup-label">電話番号（任意）</label>
           <input class="setup-input" id="setupPhone" type="tel" placeholder="例：090-1234-5678" maxlength="15"
             autocomplete="tel">
         </div>
         <div class="setup-field">
-          <label class="setup-label">生年月日</label>
-          <input class="setup-input" id="setupBirthday" type="date">
+          <label class="setup-label">生年月日 <span style="color:var(--danger)">*</span></label>
+          <input class="setup-input" id="setupBirthday" type="date" required aria-required="true">
+          <div style="font-size:10px; color:var(--text-light); margin-top:4px;">※データの復元に使用します。</div>
+          <div class="setup-err" id="setupBirthdayErr">生年月日を入力してください</div>
         </div>
         <div class="setup-field">
           <label class="setup-label">住所（市区町村）</label>
@@ -1150,15 +1164,19 @@
 
       <div id="restoreFormContent" style="display:none;">
         <div class="setup-title">ログイン・引き継ぎ</div>
-        <div class="setup-desc">引き継ぎコード、またはお名前と電話番号・生年月日・現在のパスコードのうち1つ以上で会員情報を復元できます。<br>復元後、この端末で使うパスコードも設定します。</div>
+        <div class="setup-desc">引き継ぎコード、または「お名前またはフリガナ」と生年月日で会員情報を復元できます。<br>復元後、この端末で使うパスコードも設定します。</div>
         <div class="setup-note-card" style="text-align:left;">
           引き継ぎコードがある方: 引き継ぎコードと新しいパスコードを入力してください。<br>
-          引き継ぎコードがない方: お名前は必須です。電話番号・生年月日・現在のパスコードのうち1つ以上を入力してください。
+          引き継ぎコードがない方: 生年月日は必須です。お名前・フリガナはどちらか一方が登録内容と一致すれば復元できます。
         </div>
 
         <div class="setup-field" style="margin-top:16px;">
-          <label class="setup-label">お名前（引き継ぎコードがない方は必須）</label>
+          <label class="setup-label">お名前（フリガナと合わせてどちらか必須）</label>
           <input class="setup-input" id="restoreName" type="text" placeholder="登録したお名前" autocomplete="name">
+        </div>
+        <div class="setup-field">
+          <label class="setup-label">フリガナ（お名前と合わせてどちらか必須）</label>
+          <input class="setup-input" id="restoreKana" type="text" placeholder="登録したフリガナ（カタカナ）" autocomplete="off">
         </div>
         <div class="setup-field">
           <label class="setup-label">電話番号</label>
@@ -1166,7 +1184,7 @@
             inputmode="numeric" autocomplete="tel">
         </div>
         <div class="setup-field">
-          <label class="setup-label">生年月日</label>
+          <label class="setup-label">生年月日 <span style="color:var(--danger)">*</span></label>
           <input class="setup-input" id="restoreBirthday" type="date" autocomplete="bday">
         </div>
         <div class="setup-field">
@@ -1274,7 +1292,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-  <script src="app.js?v=20260721-1"></script>
+  <script src="app.js?v=20260721-2"></script>
 </body>
 
 </html>
