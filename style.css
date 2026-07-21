@@ -1707,7 +1707,7 @@
       box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
 
-    .cal-holiday-tag, .cal-visit-tag {
+    .cal-holiday-tag, .cal-visit-tag, .cal-postpartum-tag {
       font-size: 9px;
       color: #fff;
       padding: 1px 4px;
@@ -1726,6 +1726,10 @@
     }
 
     .cal-visit-tag {
+      background: #f48fb1;
+    }
+
+    .cal-postpartum-tag {
       background: #f48fb1;
     }
 
