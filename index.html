@@ -901,7 +901,8 @@
       height: 18px;
       font-size: 10px;
     }
-    .legend-item .cal-icon-badge.icon-visit {
+    .legend-item .cal-icon-badge.icon-visit,
+    .legend-item .cal-icon-badge.icon-postpartum {
       width: auto;
       min-width: 32px;
       padding: 0 6px;
@@ -918,6 +919,9 @@
       background: #e57373;
     }
     .cal-icon-badge.icon-visit {
+      background: #f48fb1;
+    }
+    .cal-icon-badge.icon-postpartum {
       background: #f48fb1;
     }
 
@@ -1009,7 +1013,8 @@
       font-size: 10px;
     }
 
-    .day-icons .cal-icon-badge.icon-visit {
+    .day-icons .cal-icon-badge.icon-visit,
+    .day-icons .cal-icon-badge.icon-postpartum {
       width: auto;
       min-width: 30px;
       padding: 0 5px;
@@ -1145,7 +1150,8 @@
         height: 16px;
         font-size: 9px;
       }
-      .day-icons .cal-icon-badge.icon-visit {
+      .day-icons .cal-icon-badge.icon-visit,
+      .day-icons .cal-icon-badge.icon-postpartum {
         min-width: 26px;
         padding: 0 4px;
         height: 16px;
@@ -2171,6 +2177,7 @@
             <span class="legend-item"><span class="cal-icon-badge icon-event">イ</span>イベント</span>
             <span class="legend-item"><span class="cal-icon-badge icon-holiday">休</span>休診</span>
             <span class="legend-item"><span class="cal-icon-badge icon-visit">往診</span>往診</span>
+            <span class="legend-item"><span class="cal-icon-badge icon-postpartum">訪問</span>訪問産後ケア</span>
             <span style="margin-left:auto; font-size:11px; color:var(--text-light);">※日付をクリックすると詳細が表示されます</span>
           </div>
           <div id="monthCalendarGrid" class="month-calendar-grid"></div>
@@ -7746,6 +7753,11 @@
       return title.indexOf('往診') !== -1;
     }
 
+    function isAdminNoticeCalendarPostpartumCareEvent(event) {
+      const title = String(event && event.title || '');
+      return title.indexOf('訪問産後ケア') !== -1;
+    }
+
     function getAdminNoticeSourceLabel(kind) {
       const labels = {
         blog: 'NEWS',
@@ -12166,6 +12178,9 @@
       if (typeof isAdminNoticeCalendarHolidayEvent === 'function' && isAdminNoticeCalendarHolidayEvent(event)) {
         return 'holiday';
       }
+      if (typeof isAdminNoticeCalendarPostpartumCareEvent === 'function' && isAdminNoticeCalendarPostpartumCareEvent(event)) {
+        return 'postpartum';
+      }
       if (typeof isAdminNoticeCalendarVisitEvent === 'function' && isAdminNoticeCalendarVisitEvent(event)) {
         return 'visit';
       }
@@ -12175,12 +12190,14 @@
     function getCalIconHtml(type) {
       if (type === 'holiday') return '<span class="cal-icon-badge icon-holiday" title="休診">休</span>';
       if (type === 'visit') return '<span class="cal-icon-badge icon-visit" title="往診">往診</span>';
+      if (type === 'postpartum') return '<span class="cal-icon-badge icon-postpartum" title="訪問産後ケア">訪問</span>';
       return '<span class="cal-icon-badge icon-event" title="イベント">イ</span>';
     }
 
     function getCalTypeLabel(type) {
       if (type === 'holiday') return '休診';
       if (type === 'visit') return '往診';
+      if (type === 'postpartum') return '訪問産後ケア';
       return 'イベント';
     }
 
