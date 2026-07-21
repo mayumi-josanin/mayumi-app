@@ -420,6 +420,22 @@ function normalizeNameInput(value) {
   return String(value == null ? '' : value).replace(/[\s\u3000]+/g, ' ').trim();
 }
 
+// フリガナは半角カナ・濁点をNFKCで全角カタカナへ寄せてから空白を整える
+function normalizeKanaInput(value) {
+  let text = String(value == null ? '' : value);
+  try {
+    text = text.normalize('NFKC');
+  } catch (e) { }
+  return text.replace(/[\s　]+/g, ' ').trim();
+}
+
+// 全角カタカナ（ァ〜ヶ）と長音記号のみを許可する
+function isValidKanaValue(value) {
+  const kana = normalizeKanaInput(value);
+  if (!kana) return false;
+  return /^[ァ-ヶー]+(?: [ァ-ヶー]+)*$/.test(kana);
+}
+
 function normalizeDateOnlyInput(value) {
   return String(value == null ? '' : value).trim();
 }
@@ -2465,14 +2481,15 @@ const SUPPORT_FAQ_FALLBACK = [
   { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,全体', answer: 'このアプリでは、ホーム、ショップ、カレンダー、NEWS、マイページ、お知らせ一覧、スタンプQR読み取り、商品注文、注文履歴確認、特典確認、通知設定、起動時パスコード、データ引き継ぎ・復元、引き継ぎコード発行、使い方サポートが利用できます。予約確定や個別相談は公式LINEをご利用ください。', priority: 160 },
   { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,下部,上部', answer: '画面下部にはホーム、ショップ、カレンダー、NEWS、マイページがあります。画面上部からは、最新情報の更新、お知らせ一覧、カート、マイページショートカットを利用できます。', priority: 158 },
   { category: '会員登録', question: '初回起動時はどちらを選べばいいですか？', keywords: '初回,最初,はじめて,以前登録した方,はじめて登録する方,どちら', answer: 'アプリを開いた最初の選択画面で、以前に登録したことがある方は「以前登録した方はこちら ↺」、今回が初めての方は「はじめて登録する方はこちら」を選んでください。再インストール後、機種変更後、ブラウザ版からホーム画面追加した後も、以前登録したことがある方は復元側から進んでください。', priority: 156 },
-  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回登録', answer: '初回起動時は、まず「以前登録した方」と「はじめて登録する方」の選択画面が出ます。はじめて登録する方は、そのままプロフィール登録へ進み、お名前・電話番号・生年月日・住所を入力してください。保存すると会員IDが発行され、アプリを使い始められます。', priority: 154 },
+  { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回登録', answer: '初回起動時は、まず「以前登録した方」と「はじめて登録する方」の選択画面が出ます。はじめて登録する方は、そのままプロフィール登録へ進み、お名前・フリガナ・生年月日を入力してください（電話番号・住所は任意です）。保存すると会員IDが発行され、アプリを使い始められます。', priority: 154 },
+  { category: 'プロフィール', question: 'フリガナがエラーになるときはどうすればいいですか？', keywords: 'フリガナ,ふりがな,カタカナ,ひらがな,漢字,エラー,入力できない', answer: 'フリガナは全角カタカナで入力してください。ひらがな・漢字・アルファベット・記号が含まれているとエラーになります。例：「タナカ ハナコ」。姓と名の間の空白は入れても入れなくても大丈夫です。フリガナと生年月日は、機種変更や再インストールのときのデータ復元に使います。', priority: 152 },
   { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,名前,電話,住所,生年月日', answer: 'マイページを開き、「✏️ プロフィールを編集」を押してください。お名前、電話番号、生年月日、住所、アイコン画像、バナー画像を変更して保存できます。', priority: 152 },
   { category: 'プロフィール', question: '会員IDはどこで確認できますか？', keywords: '会員ID,会員番号,memberid,どこ,確認', answer: '会員IDはマイページ上部に表示されます。プロフィール登録または復元が完了すると発行されます。', priority: 150 },
   { category: 'ログイン', question: '起動時のパスコード設定について知りたい', keywords: 'パスコード,ログイン,起動時,4桁,6桁,設定', answer: '新しく登録する方も、すでに登録済みの方も、まずは4桁または6桁のパスコードを設定して使います。既存会員の方はアプリ起動時に設定画面が表示されます。', priority: 148 },
   { category: 'ログイン', question: 'ログイン時のパスコードを毎回入力したくないです', keywords: 'ログイン時のパスコード,毎回,入力したくない,オフ,省略', answer: 'パスコードを一度設定したあと、マイページの「ログイン時のパスコード」からオン・オフを切り替えられます。オフにすると、次回からアプリ起動時のパスコード入力を省略できます。', priority: 146 },
   { category: 'ログイン', question: 'パスコードの変更方法を知りたい', keywords: 'パスコード,変更,変える,ログイン,再設定', answer: 'マイページを開き、「🔐 パスコードを変更」を押してください。現在のパスコードを確認したあと、新しい4桁または6桁のパスコードへ変更できます。', priority: 144 },
   { category: 'ログイン', question: 'パスコードを忘れたときの再設定方法を知りたい', keywords: 'パスコード,忘れた,再設定,ログインできない', answer: 'ログイン画面、または「ログイン・引き継ぎ」画面にある「パスコードを忘れた場合の再設定はこちら」から再設定できます。登録したお名前・電話番号・生年月日を入力し、新しい4桁または6桁のパスコードを設定してください。', priority: 142 },
-  { category: '引き継ぎ', question: 'データの引き継ぎ・復元方法を知りたい', keywords: '引き継ぎ,復元,機種変更,データ移行,ログイン,再インストール', answer: 'ログイン画面、または初回画面で「以前登録した方はこちら ↺」を選ぶと復元画面へ進めます。引き継ぎコードがある場合は、引き継ぎコードと新しいパスコードを入力してください。引き継ぎコードがない場合は、お名前に加えて電話番号・生年月日・現在のパスコードのうち1つ以上を入力すると復元できます。', priority: 140 },
+  { category: '引き継ぎ', question: 'データの引き継ぎ・復元方法を知りたい', keywords: '引き継ぎ,復元,機種変更,データ移行,ログイン,再インストール', answer: 'ログイン画面、または初回画面で「以前登録した方はこちら ↺」を選ぶと復元画面へ進めます。引き継ぎコードがある場合は、引き継ぎコードと新しいパスコードを入力してください。引き継ぎコードがない場合は、お名前またはフリガナのどちらかと、生年月日を入力すると復元できます。', priority: 140 },
   { category: '引き継ぎ', question: '引き継ぎコードの発行方法を知りたい', keywords: '引き継ぎコード,発行,機種変更,再インストール,コード', answer: 'マイページの「↺ 引き継ぎコードの発行」から発行できます。機種変更や再インストールの前に発行しておくと、新しい端末の「データの引き継ぎ・復元」で使えます。', priority: 138 },
   { category: '引き継ぎ', question: '引き継ぎコードの有効期限を知りたい', keywords: '引き継ぎコード,有効期限,いつまで,何日,使えない', answer: '引き継ぎコードは1回限りで、発行から1週間有効です。期限切れ、または一度使用したコードは使えません。必要な場合はマイページから新しいコードを発行してください。', priority: 136 },
   { category: '会員登録', question: '会員登録が重複しないようにする方法を知りたい', keywords: '重複,二重,会員登録,同じ名前,会員ID,ブラウザ,ホーム画面', answer: '以前登録したことがある方は、新規登録へ進まず、必ず「以前登録した方はこちら ↺」から復元してください。ブラウザで先に登録したあとホーム画面に追加した方、再インストールした方、機種変更した方も同じです。新規登録をすると、同じお名前でも別の会員IDが作られることがあります。', priority: 134 },
@@ -2506,7 +2523,7 @@ const SUPPORT_FAQ_FALLBACK = [
   { category: 'NEWS', question: 'まゆみのブログとは何ですか？', keywords: 'まゆみのブログ,ブログ,外部ブログ', answer: '「まゆみのブログ」はマイページやホームの「🔗 公式サイト・SNS」から開ける外部ブログです。NEWS内の「まゆみのつぶやき」とは別の場所です。', priority: 78 },
   { category: 'リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'LINE,ライン,instagram,facebook,ホームページ,公式サイト,SNS,問い合わせ', answer: 'ホーム画面またはマイページの「🔗 公式サイト・SNS」を開くと、公式ホームページ、Instagram、Facebook、公式LINE、まゆみのブログを選んで開けます。', priority: 76 },
   { category: '使い方サポート', question: '使い方チャットでは何を質問できますか？', keywords: 'チャット,サポート,ボット,相談,何が聞ける', answer: '使い方チャットでは、登録、復元、パスコード、注文、注文履歴、スタンプ、特典、通知、NEWS、お知らせ一覧、カレンダー、メニュー一覧、更新方法など、アプリの使い方について質問できます。診療相談や個別予約は公式LINEをご利用ください。', priority: 74 },
-  { category: '引き継ぎ', question: '再インストールしたあとの入り方を知りたい', keywords: '再インストール,削除,アンインストール,復元,入り方', answer: 'アプリを入れ直したあとは、新規登録ではなく、初回画面またはログイン画面の「以前登録した方はこちら ↺」から復元してください。引き継ぎコードがある場合はコードで、ない場合はお名前と電話番号・生年月日・現在のパスコードのうち1つ以上で復元できます。', priority: 72 },
+  { category: '引き継ぎ', question: '再インストールしたあとの入り方を知りたい', keywords: '再インストール,削除,アンインストール,復元,入り方', answer: 'アプリを入れ直したあとは、新規登録ではなく、初回画面またはログイン画面の「以前登録した方はこちら ↺」から復元してください。引き継ぎコードがある場合はコードで、ない場合はお名前またはフリガナのどちらかと、生年月日で復元できます。', priority: 72 },
   { category: 'トラブル', question: '画面表示がおかしい・アプリが重いときはどうすればいいですか？', keywords: '表示されない,おかしい,崩れ,不具合,バグ,重い,遅い,フリーズ', answer: 'まず画面上部の🔄ボタンで最新情報を再取得してください。それでも改善しない場合は、アプリを一度閉じて再起動し、通信状態もご確認ください。再インストールが必要な場合は、先に引き継ぎコードを発行するか、復元方法を確認してから行ってください。', priority: 70 },
 ];
 /* SUPPORT_FAQ_FALLBACK_END */
@@ -6525,7 +6542,7 @@ function getBuiltInSupportReply(messageNorm) {
         '端末の引き継ぎについてです。',
         'ログイン画面、または初回画面の「以前登録した方はこちら ↺」から進めます。',
         '引き継ぎコードがある場合は、引き継ぎコードと新しいパスコードを入力してください。',
-        '引き継ぎコードがない場合は、お名前に加えて電話番号・生年月日・現在のパスコードのうち1つ以上を入力すると復元できます。',
+        '引き継ぎコードがない場合は、お名前またはフリガナのどちらかと、生年月日を入力すると復元できます。',
         '機種変更前は、マイページの「↺ 引き継ぎコードの発行」からコードを出しておくとスムーズです。'
       ],
       ['引き継ぎコードの発行方法を知りたい', 'パスコードを忘れたときの再設定方法を知りたい']
@@ -6537,7 +6554,7 @@ function getBuiltInSupportReply(messageNorm) {
       [
         'アプリの削除・復元についてです。',
         '再インストール後は、ログイン画面や初回画面で「以前登録した方はこちら ↺」を選ぶと会員情報を戻せます。',
-        '引き継ぎコードがある場合はコードで復元できます。ない場合も、お名前と電話番号・生年月日・現在のパスコードのうち1つ以上で復元できます。',
+        '引き継ぎコードがある場合はコードで復元できます。ない場合も、お名前またはフリガナのどちらかと、生年月日で復元できます。',
         '再インストール前にマイページで引き継ぎコードを発行しておくと、よりスムーズです。'
       ],
       ['データの引き継ぎ・復元方法を知りたい', '引き継ぎコードの発行方法を知りたい']
@@ -6928,16 +6945,19 @@ function prefillForgotPasscodeForm(fieldMap) {
 function prefillRestoreAccountForm(fieldMap) {
   const settings = fieldMap || {};
   const nameInput = document.getElementById(settings.nameId);
+  const kanaInput = document.getElementById(settings.kanaId);
   const phoneInput = document.getElementById(settings.phoneId);
   const birthdayInput = document.getElementById(settings.birthdayId);
   const passcodeInput = document.getElementById(settings.passcodeId);
   const transferCodeInput = document.getElementById(settings.transferCodeId);
   const newPasscodeInput = document.getElementById(settings.newPasscodeId);
   const profileName = _profile && _profile.name ? _profile.name : '';
+  const profileKana = _profile && _profile.kana ? _profile.kana : '';
   const profilePhone = _profile && _profile.phone ? _profile.phone : '';
   const profileBirthday = _profile && _profile.birthday ? _profile.birthday : '';
 
   if (nameInput) nameInput.value = normalizeNameInput(nameInput.value) || profileName;
+  if (kanaInput) kanaInput.value = normalizeKanaInput(kanaInput.value) || profileKana;
   if (phoneInput) phoneInput.value = normalizePhoneInput(phoneInput.value) || profilePhone;
   if (birthdayInput) birthdayInput.value = normalizeDateOnlyInput(birthdayInput.value) || profileBirthday;
   if (passcodeInput) passcodeInput.value = '';
@@ -7054,6 +7074,7 @@ function togglePasscodeOverlayView(view) {
   if (view === 'restore') {
     prefillRestoreAccountForm({
       nameId: 'passcodeRestoreName',
+      kanaId: 'passcodeRestoreKana',
       phoneId: 'passcodeRestorePhone',
       birthdayId: 'passcodeRestoreBirthday',
       passcodeId: 'passcodeRestorePasscode',
@@ -7084,6 +7105,7 @@ function openPasscodeOverlay() {
   if (input) input.value = '';
   prefillRestoreAccountForm({
     nameId: 'passcodeRestoreName',
+    kanaId: 'passcodeRestoreKana',
     phoneId: 'passcodeRestorePhone',
     birthdayId: 'passcodeRestoreBirthday',
     passcodeId: 'passcodeRestorePasscode',
@@ -7161,6 +7183,7 @@ async function unlockAppWithPasscode() {
 async function restoreAccountByForm(options) {
   const settings = options || {};
   const nameInput = document.getElementById(settings.nameId);
+  const kanaInput = document.getElementById(settings.kanaId);
   const phoneInput = document.getElementById(settings.phoneId);
   const birthdayInput = document.getElementById(settings.birthdayId);
   const passcodeInput = document.getElementById(settings.passcodeId);
@@ -7168,6 +7191,7 @@ async function restoreAccountByForm(options) {
   const newPasscodeInput = document.getElementById(settings.newPasscodeId);
   const btn = document.getElementById(settings.buttonId);
   const name = normalizeNameInput(nameInput ? nameInput.value : '');
+  const kana = normalizeKanaInput(kanaInput ? kanaInput.value : '');
   const phone = normalizePhoneInput(phoneInput ? phoneInput.value : '');
   const birthday = normalizeDateOnlyInput(birthdayInput ? birthdayInput.value : '');
   const passcode = normalizePasscodeInput(passcodeInput ? passcodeInput.value : '');
@@ -7175,12 +7199,16 @@ async function restoreAccountByForm(options) {
   const newPasscode = normalizePasscodeInput(newPasscodeInput ? newPasscodeInput.value : '');
   const finalPasscode = newPasscode || passcode;
 
-  if (!transferCode && !name) {
-    showToast('お名前を入力してください');
+  if (!transferCode && !name && !kana) {
+    showToast('お名前またはフリガナを入力してください');
     return;
   }
-  if (!transferCode && !phone && !birthday && !passcode) {
-    showToast('電話番号・生年月日・現在のパスコードのうち1つ以上を入力してください');
+  if (!transferCode && kana && !isValidKanaValue(kana)) {
+    showToast('フリガナは全角カタカナで入力してください');
+    return;
+  }
+  if (!transferCode && !birthday) {
+    showToast('生年月日を入力してください');
     return;
   }
   if (passcode && !isValidPasscodeValue(passcode)) {
@@ -7214,6 +7242,7 @@ async function restoreAccountByForm(options) {
     const res = await postToGAS({
       type: 'recoverAccount',
       name: name,
+      kana: kana,
       phone: phone,
       birthday: birthday,
       passcode: passcode,
@@ -7311,6 +7340,7 @@ async function resetForgottenPasscodeByForm(options) {
 function restoreAccountFromLockScreen() {
   return restoreAccountByForm({
     nameId: 'passcodeRestoreName',
+    kanaId: 'passcodeRestoreKana',
     phoneId: 'passcodeRestorePhone',
     birthdayId: 'passcodeRestoreBirthday',
     passcodeId: 'passcodeRestorePasscode',
@@ -7346,6 +7376,7 @@ function toggleSetupView(view) {
     if (forgot) forgot.style.display = 'none';
     prefillRestoreAccountForm({
       nameId: 'restoreName',
+      kanaId: 'restoreKana',
       phoneId: 'restorePhone',
       birthdayId: 'restoreBirthday',
       passcodeId: 'restorePasscode',
@@ -7493,6 +7524,7 @@ async function issueTransferCode() {
 async function restoreAccount() {
   return restoreAccountByForm({
     nameId: 'restoreName',
+    kanaId: 'restoreKana',
     phoneId: 'restorePhone',
     birthdayId: 'restoreBirthday',
     passcodeId: 'restorePasscode',
@@ -7515,9 +7547,14 @@ async function resetForgottenPasscode() {
 async function saveProfile() {
   const nameEl = document.getElementById('setupName');
   const nameErr = document.getElementById('setupNameErr');
+  const kanaEl = document.getElementById('setupKana');
+  const kanaErr = document.getElementById('setupKanaErr');
+  const birthdayEl = document.getElementById('setupBirthday');
+  const birthdayErr = document.getElementById('setupBirthdayErr');
   const name = normalizeNameInput(nameEl ? nameEl.value : '');
+  const kana = normalizeKanaInput(kanaEl ? kanaEl.value : '');
   const phone = document.getElementById('setupPhone').value.trim();
-  const birthday = document.getElementById('setupBirthday').value;
+  const birthday = birthdayEl ? birthdayEl.value : '';
   const address = document.getElementById('setupAddress').value.trim();
   const isNew = !_profile;
   let passcode = '';
@@ -7547,10 +7584,43 @@ async function saveProfile() {
   nameEl.classList.remove('error');
   nameErr.classList.remove('show');
 
+  // フリガナは全角カタカナのみ（復元時の照合に使うため）
+  if (!isValidKanaValue(kana)) {
+    if (kanaEl) {
+      kanaEl.classList.add('error');
+      kanaEl.focus();
+    }
+    if (kanaErr) {
+      kanaErr.textContent = kana
+        ? 'フリガナは全角カタカナで入力してください'
+        : 'フリガナを入力してください';
+      kanaErr.classList.add('show');
+    }
+    return;
+  }
+  if (kanaEl) {
+    kanaEl.value = kana;
+    kanaEl.classList.remove('error');
+  }
+  if (kanaErr) kanaErr.classList.remove('show');
+
+  // 生年月日は復元時の必須条件なので登録時にも必須
+  if (!birthday) {
+    if (birthdayEl) {
+      birthdayEl.classList.add('error');
+      birthdayEl.focus();
+    }
+    if (birthdayErr) birthdayErr.classList.add('show');
+    return;
+  }
+  if (birthdayEl) birthdayEl.classList.remove('error');
+  if (birthdayErr) birthdayErr.classList.remove('show');
+
   if (isNew) {
-    const candidates = await checkExistingMemberCandidates(name, phone, birthday);
+    const candidates = await checkExistingMemberCandidates(name, kana, phone, birthday);
     const movedToRestore = await promptRecoveryCandidates(candidates, {
       name: name,
+      kana: kana,
       phone: phone,
       birthday: birthday
     });
@@ -7565,7 +7635,7 @@ async function saveProfile() {
     ? 'MYM-' + String(Math.floor(Math.random() * 9000) + 1000)
     : (_profile.memberId || 'MYM-' + String(Math.floor(Math.random() * 9000) + 1000));
 
-  _profile = { name, phone, birthday, address, regDate, memberId };
+  _profile = { name, kana, phone, birthday, address, regDate, memberId };
   try {
     localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
     localStorage.setItem('member_id', memberId); // 互換性のため個別にも保存
@@ -7619,7 +7689,7 @@ async function saveProfile() {
       phone: phone,
       birthday: birthday,
       address: address,
-      kana: '',
+      kana: kana,
       memo: '',
       passcode: isNew ? passcode : undefined,
       pushSubscription: getCurrentPushSubscriptionValue(isPushEnabled())
@@ -7712,6 +7782,8 @@ function openEditProfile() {
   toggleSetupView('setup'); // Ensure setup view is visible and not restore or change
   // 編集モード：現在の値をセット
   document.getElementById('setupName').value = _profile.name || '';
+  const editKanaEl = document.getElementById('setupKana');
+  if (editKanaEl) editKanaEl.value = _profile.kana || '';
   document.getElementById('setupPhone').value = _profile.phone || '';
   document.getElementById('setupBirthday').value = _profile.birthday || '';
   document.getElementById('setupAddress').value = _profile.address || '';
@@ -7746,6 +7818,8 @@ function openSetupModal(isFirst) {
   const shouldShowChoice = !_profile;
   toggleSetupView(shouldShowChoice ? 'choice' : 'setup');
   document.getElementById('setupName').value = '';
+  const setupKanaEl = document.getElementById('setupKana');
+  if (setupKanaEl) setupKanaEl.value = '';
   document.getElementById('setupPhone').value = '';
   document.getElementById('setupPasscode').value = '';
   const defStatus = document.querySelector('input[name="setupStatus"][value="妊娠中"]');
@@ -7780,6 +7854,12 @@ function closeSetupModal() {
   // エラー状態リセット
   document.getElementById('setupName').classList.remove('error');
   document.getElementById('setupNameErr').classList.remove('show');
+  [['setupKana', 'setupKanaErr'], ['setupBirthday', 'setupBirthdayErr']].forEach(function (pair) {
+    const input = document.getElementById(pair[0]);
+    const err = document.getElementById(pair[1]);
+    if (input) input.classList.remove('error');
+    if (err) err.classList.remove('show');
+  });
   const passcodeEl = document.getElementById('setupPasscode');
   const passcodeErr = document.getElementById('setupPasscodeErr');
   if (passcodeEl) passcodeEl.classList.remove('error');
@@ -7950,10 +8030,11 @@ async function removeUserDeviceSession(deviceId) {
   }
 }
 
-async function checkExistingMemberCandidates(name, phone, birthday) {
-  if (!name && !phone && !birthday) return [];
+async function checkExistingMemberCandidates(name, kana, phone, birthday) {
+  if (!name && !kana && !phone && !birthday) return [];
   const response = await getFromGAS('getRecoveryCandidates', {
     name: name,
+    kana: kana,
     phone: phone,
     birthday: birthday
   });
@@ -7967,9 +8048,11 @@ function prefillRecoveryFormsFromProfile(values) {
   const payload = values || {};
   [
     ['restoreName', payload.name],
+    ['restoreKana', payload.kana],
     ['restorePhone', payload.phone],
     ['restoreBirthday', payload.birthday],
     ['passcodeRestoreName', payload.name],
+    ['passcodeRestoreKana', payload.kana],
     ['passcodeRestorePhone', payload.phone],
     ['passcodeRestoreBirthday', payload.birthday]
   ].forEach(function (pair) {

@@ -5757,6 +5757,15 @@ function normalizeNameForMatch_(value) {
   return String(value || '').trim().replace(/[\s\u3000]+/g, '');
 }
 
+// フリガナ照合用。半角カナ・濁点をNFKCで全角カタカナへ寄せ、空白を除去する
+function normalizeKanaForMatch_(value) {
+  let text = String(value || '');
+  try {
+    text = text.normalize('NFKC');
+  } catch (e) { }
+  return text.replace(/[\s　]+/g, '');
+}
+
 function normalizePasscodeForMatch_(value) {
   return String(value || '').trim();
 }
@@ -5953,23 +5962,26 @@ function getRecoveryCandidates(params) {
     if (lastRow < 2) return { status: 'ok', candidates: [] };
 
     const name = normalizeNameForMatch_(params && params.name);
+    const kana = normalizeKanaForMatch_(params && params.kana);
     const phone = normalizePhoneForMatch_(params && params.phone);
     const birthday = normalizeDateOnlyValue_(params && params.birthday);
-    if (!name && !phone && !birthday) return { status: 'ok', candidates: [] };
+    if (!name && !kana && !phone && !birthday) return { status: 'ok', candidates: [] };
 
     const values = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
     const candidates = values.map(function (row, index) {
       if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) return null;
       const rowName = normalizeNameForMatch_(row[USER_COL.NAME - 1]);
+      const rowKana = normalizeKanaForMatch_(row[USER_COL.KANA - 1]);
       const rowPhone = normalizePhoneForMatch_(row[USER_COL.PHONE - 1]);
       const rowBirthday = normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]);
       const reasons = [];
       if (name && rowName === name) reasons.push('氏名');
+      if (kana && rowKana && rowKana === kana) reasons.push('フリガナ');
       if (phone && rowPhone && rowPhone === phone) reasons.push('電話番号');
       if (birthday && rowBirthday && rowBirthday === birthday) reasons.push('生年月日');
       if (!reasons.length) return null;
       const score = reasons.reduce(function (sum, label) {
-        return sum + (label === '氏名' ? 2 : 3);
+        return sum + (label === '氏名' || label === 'フリガナ' ? 2 : 3);
       }, 0);
       return {
         rowIdx: index + 2,
@@ -6001,17 +6013,18 @@ function handleRecoverAccount(data) {
     if (lastRow < 2) return { status: 'error', message: '会員が見つかりません' };
 
     const name = normalizeNameForMatch_(data.name);
+    const kana = normalizeKanaForMatch_(data.kana);
     const phone = normalizePhoneForMatch_(data.phone);
     const birthday = normalizeDateOnlyValue_(data.birthday);
     const passcode = normalizePasscodeForMatch_(data.passcode);
     const newPasscode = normalizePasscodeForMatch_(data.newPasscode) || passcode;
     const transferCode = normalizeTransferCodeForMatch_(data.transferCode);
 
-    if (!transferCode && !name) {
-      return { status: 'error', message: 'お名前を入力してください。' };
+    if (!transferCode && !name && !kana) {
+      return { status: 'error', message: 'お名前またはフリガナを入力してください。' };
     }
-    if (!transferCode && !phone && !birthday && !passcode) {
-      return { status: 'error', message: '電話番号・生年月日・現在のパスコードのうち1つ以上を入力してください。' };
+    if (!transferCode && !birthday) {
+      return { status: 'error', message: '生年月日を入力してください。' };
     }
     if (!/^(?:\d{4}|\d{6})$/.test(newPasscode)) {
       return { status: 'error', message: 'この端末で使うパスコードを4桁または6桁の数字で入力してください。' };
@@ -6052,13 +6065,19 @@ function handleRecoverAccount(data) {
       for (let i = 0; i < values.length; i++) {
         const row = values[i];
         const rowName = normalizeNameForMatch_(row[USER_COL.NAME - 1]);
+        const rowKana = normalizeKanaForMatch_(row[USER_COL.KANA - 1]);
         const rowPhone = normalizePhoneForMatch_(row[USER_COL.PHONE - 1]);
         const rowBirthday = normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]);
         const rowPasscode = normalizePasscodeForMatch_(row[USER_COL.PASSCODE - 1]);
 
-        if (rowName !== name) continue;
+        // 生年月日は必須一致。氏名・フリガナはどちらか一方が一致すればよい
+        if (rowBirthday !== birthday) continue;
+        const nameMatched = !!name && rowName === name;
+        const kanaMatched = !!kana && !!rowKana && rowKana === kana;
+        if (!nameMatched && !kanaMatched) continue;
+
+        // 電話番号・現パスコードは任意。入力された場合のみ絞り込みに使う
         if (phone && rowPhone !== phone) continue;
-        if (birthday && rowBirthday !== birthday) continue;
         if (passcode && rowPasscode !== passcode) continue;
 
         candidates.push({
@@ -6071,7 +6090,7 @@ function handleRecoverAccount(data) {
         return { status: 'error', message: '一致する会員情報が見つかりませんでした。入力内容をご確認ください。' };
       }
       if (candidates.length > 1) {
-        return { status: 'error', message: '一致する会員情報が複数見つかりました。電話番号・生年月日・現在のパスコードをもう1つ追加するか、引き継ぎコードをご利用ください。' };
+        return { status: 'error', message: '一致する会員情報が複数見つかりました。電話番号または現在のパスコードを追加で入力するか、引き継ぎコードをご利用ください。' };
       }
 
       matchedRowIndex = candidates[0].rowIndex;
