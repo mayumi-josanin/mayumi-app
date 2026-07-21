@@ -512,6 +512,45 @@ function needsRequiredPasscodeSetup() {
   return !!(_profile && !hasConfiguredLocalPasscode());
 }
 
+// 復元に必要な項目（生年月日・フリガナ）のうち未登録のものを返す
+function getMissingProfileRecoveryFields() {
+  if (!_profile) return [];
+  const missing = [];
+  if (!normalizeDateOnlyInput(_profile.birthday || '')) missing.push('生年月日');
+  if (!isValidKanaValue(_profile.kana || '')) missing.push('フリガナ');
+  return missing;
+}
+
+// 起動ごとに1回だけ案内する（「あとで」を選んでも次回起動時にまた出す）
+let profileRecoveryPromptShown = false;
+
+async function promptProfileRecoveryInfo() {
+  if (profileRecoveryPromptShown) return;
+  const missing = getMissingProfileRecoveryFields();
+  if (!missing.length) return;
+  profileRecoveryPromptShown = true;
+
+  const shouldEdit = await showAppConfirm(
+    missing.join('と') + 'がまだご登録されていません。\n\n機種変更や再インストールのあとにデータを復元するために使いますので、ご登録をお願いします。',
+    {
+      title: 'ご登録のお願い',
+      confirmLabel: '今すぐ登録する',
+      cancelLabel: 'あとで'
+    }
+  );
+  if (shouldEdit) openEditProfile();
+}
+
+// 起動直後のUI描画と重ならないよう少し遅らせて案内する
+function scheduleProfileRecoveryPrompt() {
+  if (profileRecoveryPromptShown || !getMissingProfileRecoveryFields().length) return;
+  setTimeout(function () {
+    promptProfileRecoveryInfo().catch(function (e) {
+      console.error('promptProfileRecoveryInfo error:', e);
+    });
+  }, 900);
+}
+
 function fallbackHashString(text) {
   let hash = 2166136261;
   for (let i = 0; i < text.length; i++) {
@@ -7172,6 +7211,7 @@ async function unlockAppWithPasscode() {
     closePasscodeOverlay();
     flushPendingIncomingStampAction();
     showToast('ログインしました🌿');
+    scheduleProfileRecoveryPrompt();
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -8099,12 +8139,14 @@ function checkFirstLaunch() {
 
     if (consumePasscodeUnlockSkippedOnce()) {
       isPasscodeAuthenticated = true;
+      scheduleProfileRecoveryPrompt();
       return;
     }
 
     if (!isPasscodeLoginEnabled()) {
       isPasscodeAuthenticated = true;
       closePasscodeOverlay();
+      scheduleProfileRecoveryPrompt();
       return;
     }
 
