@@ -2498,7 +2498,7 @@ const SUPPORT_FAQ_FALLBACK = [
   { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,最新,再読み込み,リロード,refresh,最新情報', answer: '画面上部の「🔄」ボタンを押すと、最新のNEWS、商品、カレンダー、メニュー、FAQ、注文履歴などを更新できます。通常の情報更新は再インストール不要です。', priority: 94 },
   { category: '更新', question: 'アップデートが必要と表示されたらどうすればいいですか？', keywords: 'アップデート,更新が必要,app store,最新版,バージョン', answer: '「アップデートが必要です」と表示された場合は、案内の「アップデートする」から最新版へ更新してください。画面上部の🔄は情報更新用で、必須アップデートの代わりにはなりません。', priority: 92 },
   { category: 'カレンダー', question: 'イベントカレンダーの見方を知りたい', keywords: 'カレンダー,イベント,予定,日程', answer: '下部メニューの「カレンダー」で予定を確認できます。左右の矢印で別の月に切り替えられ、日付を押すと詳細を確認できます。下部には今月のイベント一覧も表示されます。', priority: 90 },
-  { category: 'カレンダー', question: 'カレンダーの記号の意味を知りたい', keywords: 'カレンダー,記号,意味,休,往,イ', answer: 'カレンダーでは、休＝休診日、往＝往診日、イ＝イベントを表しています。日付を押すと、その日の詳しい内容を確認できます。', priority: 88 },
+  { category: 'カレンダー', question: 'カレンダーの記号の意味を知りたい', keywords: 'カレンダー,記号,意味,休,往診,訪問,産後ケア,イ', answer: 'カレンダーでは、休＝休診日、往診＝往診日、訪問＝訪問産後ケア、イ＝イベントを表しています。日付を押すと、その日の詳しい内容を確認できます。', priority: 88 },
   { category: 'NEWS', question: 'NEWSページの使い方を知りたい', keywords: 'NEWS,ニュース,お知らせ,記事,カテゴリ', answer: '下部メニューの「NEWS」を開くと記事一覧を確認できます。記事をタップすると詳細が開き、右上のカテゴリ選択で絞り込みもできます。', priority: 86 },
   { category: 'NEWS', question: 'お知らせ一覧の見方を知りたい', keywords: 'お知らせ一覧,通知一覧,拡声器,📢', answer: '画面上部の📢ボタンを押すと「お知らせ一覧」を開けます。ここでは NEWS、カレンダー、ショップ、ホームの更新情報を新しい順で確認できます。カテゴリの絞り込みもできます。', priority: 84 },
   { category: 'NEWS', question: 'NEWSのカテゴリ切り替え方法を知りたい', keywords: 'NEWS,カテゴリ,切り替え,絞り込み,全て', answer: 'NEWSページ右上のカテゴリ選択を押すと、カテゴリごとに絞り込みできます。「全て」を選ぶとすべての記事が表示されます。', priority: 82 },
@@ -3172,19 +3172,25 @@ function isCalendarVisitEvent(event) {
   return title.indexOf('往診') !== -1;
 }
 
-function getCalendarSafeColor(colorValue) {
+function isCalendarPostpartumCareEvent(event) {
+  const title = String(event && event.title || '');
+  return title.indexOf('訪問産後ケア') !== -1;
+}
+
+function getCalendarSafeColor(colorValue, fallbackColor) {
   const color = String(colorValue || '').trim();
   if (/^#[0-9a-fA-F]{3,8}$/.test(color)) return color;
   if (/^[a-zA-Z]+$/.test(color)) return color;
-  return '#e57373';
+  return fallbackColor || '#e57373';
 }
 
 function buildCalendarDayMarkers(dayEvents) {
   if (!dayEvents || !dayEvents.length) return '';
   const holidayEvents = dayEvents.filter(isCalendarHolidayEvent);
   const visitEvents = dayEvents.filter(isCalendarVisitEvent);
+  const postpartumEvents = dayEvents.filter(isCalendarPostpartumCareEvent);
   const normalEvents = dayEvents.filter(function (event) {
-    return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event);
+    return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event) && !isCalendarPostpartumCareEvent(event);
   });
 
   let html = '';
@@ -3195,6 +3201,12 @@ function buildCalendarDayMarkers(dayEvents) {
     visitEvents.forEach(function (ev) {
       const color = getCalendarSafeColor(ev.color);
       html += `<div class="cal-visit-tag" style="background:${color}">往診</div>`;
+    });
+  }
+  if (postpartumEvents.length) {
+    postpartumEvents.forEach(function (ev) {
+      const color = getCalendarSafeColor(ev.color, '#f48fb1');
+      html += `<div class="cal-postpartum-tag" style="background:${color}">訪問</div>`;
     });
   }
 
@@ -5846,7 +5858,7 @@ function getFeatureSupportReply(messageNorm) {
         '1. 下部メニューの「📅 カレンダー」を開きます。',
         '2. 左右の矢印で月を切り替えます。',
         '3. 日付を押すと、その日の予定やイベントを確認できます。',
-        '4. 休＝休診日、往＝往診日、イ＝イベントです。'
+        '4. 休＝休診日、往診＝往診日、訪問＝訪問産後ケア、イ＝イベントです。'
       ],
       ['イベントカレンダーの見方を知りたい', '最新のお知らせの見方を知りたい']
     );
