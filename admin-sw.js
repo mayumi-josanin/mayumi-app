@@ -1,4 +1,4 @@
-const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v30';
+const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v31';
 const ADMIN_ENTRY_CANDIDATES = [
   './mayumi-admin.html',
   './index.html'
