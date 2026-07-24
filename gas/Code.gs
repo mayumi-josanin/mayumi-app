@@ -269,10 +269,10 @@ function getBijirisSessionConcernOptions_() {
 var SURVEYS = [
   {
     id: "survey_bijiris_session",
-    title: "ビジリス施術アンケート",
+    title: "施術後アンケート",
     description: "ビジリス施術後の体感やお悩みをお聞かせください。",
     introMessage: "施術内容を選択後、本日の体感や気になることをご回答ください。",
-    completionMessage: "ビジリス施術アンケートのご回答ありがとうございました。",
+    completionMessage: "施術後アンケートのご回答ありがとうございました。",
     status: "published",
     questions: [
       { id: "q_bijiris_session_type", label: "施術内容", type: "choice", required: true, options: ["初回お試し", "回数券", "単発", "トライアル"] },
@@ -284,10 +284,21 @@ var SURVEYS = [
       { id: "q_bijiris_session_concern_other", label: "気になること・知りたいこと（その他・長文）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_bijiris_session_concern", value: "その他（長文）" } },
       { id: "q_bijiris_session_life_changes", label: "日常生活にどのような変化がありましたか？（複数選択可）", type: "checkbox", required: false, options: BIJIRIS_SESSION_LIFE_CHANGE_OPTIONS },
       { id: "q_bijiris_session_life_changes_other", label: "日常生活の変化（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_bijiris_session_life_changes", value: "その他（自由記述）" } },
-      { id: "q_bijiris_session_monitor_photos_6", label: "モニター時の写真2枚", type: "photo", required: true, options: [], visibilityConditions: [{ questionId: "q_bijiris_session_type", value: "回数券" }, { questionId: "q_bijiris_session_ticket_plan", value: "6回券" }, { questionId: "q_bijiris_session_ticket_round", value: "6回目" }], visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" } },
-      { id: "q_bijiris_session_ticket_end_photos_6", label: "回数券終了時の写真2枚", type: "photo", required: true, options: [], visibilityConditions: [{ questionId: "q_bijiris_session_type", value: "回数券" }, { questionId: "q_bijiris_session_ticket_plan", value: "6回券" }, { questionId: "q_bijiris_session_ticket_round", value: "6回目" }], visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" } },
-      { id: "q_bijiris_session_monitor_photos_10", label: "モニター時の写真2枚", type: "photo", required: true, options: [], visibilityConditions: [{ questionId: "q_bijiris_session_type", value: "回数券" }, { questionId: "q_bijiris_session_ticket_plan", value: "10回券" }, { questionId: "q_bijiris_session_ticket_round", value: "10回目" }], visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" } },
-      { id: "q_bijiris_session_ticket_end_photos_10", label: "回数券終了時の写真2枚", type: "photo", required: true, options: [], visibilityConditions: [{ questionId: "q_bijiris_session_type", value: "回数券" }, { questionId: "q_bijiris_session_ticket_plan", value: "10回券" }, { questionId: "q_bijiris_session_ticket_round", value: "10回目" }], visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" } },
+    ],
+  },
+  {
+    id: "survey_measurement",
+    title: "計測時アンケート",
+    description: "計測を行ったとき（モニター時・回数券終了時・キャンペーン終了時）に、計測写真と数値をご提出ください。",
+    introMessage: "計測のタイミングを選び、全身写真と計測値をご入力ください。",
+    completionMessage: "計測時アンケートのご回答ありがとうございました。",
+    status: "published",
+    questions: [
+      { id: "q_measure_timing", label: "計測のタイミング", type: "choice", required: true, options: ["モニター時（初回）", "回数券終了時", "キャンペーン終了時"] },
+      { id: "q_measure_photos", label: "計測写真（全身2枚）", type: "photo", required: true, options: [] },
+      { id: "q_measure_waist", label: "ウエスト（cm）", type: "text", required: false, options: [] },
+      { id: "q_measure_hip", label: "ヒップ（cm）", type: "text", required: false, options: [] },
+      { id: "q_measure_thigh", label: "太もも（cm）", type: "text", required: false, options: [] },
     ],
   },
 ];
@@ -5280,6 +5291,10 @@ var TICKET_SURVEY_AFTER_PHOTO_QUESTION_IDS = [
   "q_ticket_end_photo_last",
 ];
 
+// 新・計測時アンケートの質問ID（写真は共通で、タイミングの回答でビフォー/アフターを判別する）
+var MEASURE_TIMING_QUESTION_ID = "q_measure_timing";
+var MEASURE_PHOTO_QUESTION_ID = "q_measure_photos";
+
 // モニター基準画像ストア（josanin の Drive: Bijiris/モニター写真/顧客名/）
 var MONITOR_REFERENCE_ROOT_NAME = "モニター写真";
 // 回数券終了時（アフター）写真の保存先（josanin の Drive: Bijiris/計測時/顧客名/、日付_名前 でファイル名保存）
@@ -5458,6 +5473,38 @@ function normalizePhotoRef_(file) {
   };
 }
 
+// 計測時アンケートのタイミング回答から "monitor"（ビフォー）/ "after"（アフター）/ "" を判定
+function measureTimingOf_(response) {
+  var answers = Array.isArray(response && response.answers) ? response.answers : [];
+  var timing = "";
+  answers.forEach(function (answer) {
+    if (answer && answer.questionId === MEASURE_TIMING_QUESTION_ID) {
+      var value = answer.value;
+      if (Array.isArray(value)) value = value.join("");
+      timing = normalizeText_(value);
+    }
+  });
+  if (timing.indexOf("モニター") >= 0) return "monitor";
+  if (timing.indexOf("終了") >= 0) return "after"; // 回数券終了時 / キャンペーン終了時
+  return "";
+}
+
+// 回答からビフォー（モニター時）写真を取り出す。新アンケートはタイミング＝モニター時のときの写真、旧アンケートは従来のID。
+function getMonitorPhotosOf_(response) {
+  if (measureTimingOf_(response) === "monitor") {
+    return extractPhotosFromAnswers_(response, [MEASURE_PHOTO_QUESTION_ID]);
+  }
+  return extractPhotosFromAnswers_(response, TICKET_SURVEY_BEFORE_PHOTO_QUESTION_IDS);
+}
+
+// 回答からアフター（回数券終了時・キャンペーン終了時）写真を取り出す。
+function getAfterPhotosOf_(response) {
+  if (measureTimingOf_(response) === "after") {
+    return extractPhotosFromAnswers_(response, [MEASURE_PHOTO_QUESTION_ID]);
+  }
+  return extractPhotosFromAnswers_(response, TICKET_SURVEY_AFTER_PHOTO_QUESTION_IDS);
+}
+
 function extractPhotosFromAnswers_(response, questionIds) {
   var answers = Array.isArray(response && response.answers) ? response.answers : [];
   var byId = {};
@@ -5574,11 +5621,18 @@ function resolveBeforePhotos_(response) {
   var seeded = tryCopyLegacyMonitor_(customerName);
   if (seeded.length) return seeded;
 
-  // 3. 提出されたモニター写真を基準ストアに保存して使う
-  var submitted = extractPhotosFromAnswers_(response, TICKET_SURVEY_BEFORE_PHOTO_QUESTION_IDS);
-  if (submitted.length) {
+  // 3. この回答自身のモニター写真（旧・施術アンケートの場合）を保存して使う
+  var own = getMonitorPhotosOf_(response);
+  if (own.length) {
     var store = getOrCreateMonitorReferenceFolder_(customerName);
-    return copyPhotosIntoFolder_(submitted, store, "monitor");
+    return copyPhotosIntoFolder_(own, store, "monitor");
+  }
+
+  // 4. お客様の「モニター時」計測回答（新アンケートで別提出）から取得して保存
+  var fromMonitorResponse = findLatestCustomerMonitorPhotos_(customerName);
+  if (fromMonitorResponse.length) {
+    var store2 = getOrCreateMonitorReferenceFolder_(customerName);
+    return copyPhotosIntoFolder_(fromMonitorResponse, store2, "monitor");
   }
 
   return [];
@@ -5600,7 +5654,7 @@ function getMeasurementFolderForCustomer_(customerName) {
 // 提出されたアフター写真を 計測時/顧客名/ に 日付_名前 で保存し、その参照を返す。
 // 同名ファイルが既にあれば再コピーせず既存を使う（再分析でも重複しない）。
 function resolveAfterPhotos_(response) {
-  var submitted = extractPhotosFromAnswers_(response, TICKET_SURVEY_AFTER_PHOTO_QUESTION_IDS);
+  var submitted = getAfterPhotosOf_(response);
   if (!submitted.length) return [];
   var customerName = normalizeText_(response.customerName) || "お名前未設定";
   var folder = getMeasurementFolderForCustomer_(customerName);
@@ -5636,7 +5690,35 @@ function previewBeforePhotos_(response) {
       if (stored.length) return stored;
     }
   }
-  return extractPhotosFromAnswers_(response, TICKET_SURVEY_BEFORE_PHOTO_QUESTION_IDS);
+  return getMonitorPhotosOf_(response);
+}
+
+// モニター時の計測回答の写真を基準ストア（Bijiris/モニター写真/顧客名/）へ反映する。
+// 既に基準画像があれば上書きしない（毎回同じ画像を使う方針）。
+function ensureMonitorStoredFromResponse_(response) {
+  var customerName = normalizeText_(response.customerName);
+  if (!customerName) return;
+  if (measureTimingOf_(response) !== "monitor") return;
+  var existing = findMonitorReferenceFolder_(customerName);
+  if (existing && listImageFilesInFolder_(existing).length) return;
+  var photos = extractPhotosFromAnswers_(response, [MEASURE_PHOTO_QUESTION_ID]);
+  if (!photos.length) return;
+  var store = getOrCreateMonitorReferenceFolder_(customerName);
+  copyPhotosIntoFolder_(photos, store, "monitor");
+}
+
+// お客様の「モニター時」計測回答から最新の写真を取り出す（新アンケートで別回答としてビフォーが提出された場合）。
+function findLatestCustomerMonitorPhotos_(customerName) {
+  var name = normalizeText_(customerName);
+  if (!name) return [];
+  var responses = getResponses_({ includeTrashed: false }).filter(function (response) {
+    return normalizeText_(response.customerName) === name && measureTimingOf_(response) === "monitor";
+  });
+  for (var i = 0; i < responses.length; i += 1) {
+    var photos = extractPhotosFromAnswers_(responses[i], [MEASURE_PHOTO_QUESTION_ID]);
+    if (photos.length) return photos;
+  }
+  return [];
 }
 
 // 計測写真(1回目) の全顧客フォルダを josanin の基準ストアへ一括コピー（初回のみ）
@@ -5685,7 +5767,7 @@ function seedMonitorReferenceImages_() {
 
 function readAnalyzableResponses_() {
   return getResponses_({ includeTrashed: false }).filter(function (response) {
-    return extractPhotosFromAnswers_(response, TICKET_SURVEY_AFTER_PHOTO_QUESTION_IDS).length > 0;
+    return getAfterPhotosOf_(response).length > 0;
   });
 }
 
@@ -5946,7 +6028,7 @@ function getTicketSurveyPayload_() {
       var record = recordByResponseId[response.id];
       var after = record && record.afterPhotos && record.afterPhotos.length
         ? record.afterPhotos
-        : extractPhotosFromAnswers_(response, TICKET_SURVEY_AFTER_PHOTO_QUESTION_IDS);
+        : getAfterPhotosOf_(response);
       var before = record && record.beforePhotos && record.beforePhotos.length
         ? record.beforePhotos
         : previewBeforePhotos_(response);
@@ -5992,12 +6074,27 @@ function runTicketSurveyAutoProcess() {
       return;
     }
 
+    var allResponses = getResponses_({ includeTrashed: false });
+
+    // 1. モニター時の計測回答をビフォー基準ストアに反映
+    allResponses.forEach(function (response) {
+      try {
+        ensureMonitorStoredFromResponse_(response);
+      } catch (error) {
+        // 個別失敗は無視して継続
+      }
+    });
+
     var recordByResponseId = {};
     readTicketSurveyRecords_().forEach(function (record) {
       recordByResponseId[record.responseId] = record;
     });
 
-    var pendingIds = readAnalyzableResponses_()
+    // 2. アフター写真がある未分析の回答を分析
+    var pendingIds = allResponses
+      .filter(function (response) {
+        return getAfterPhotosOf_(response).length > 0;
+      })
       .filter(function (response) {
         var record = recordByResponseId[response.id];
         // 未分析（レコードなし or 状態 none）のみ自動対象。error は手動再試行に任せる。
@@ -6096,4 +6193,50 @@ function createMeasurementTimeFolders() {
   Logger.log("新規作成(" + created.length + "): " + created.join("、"));
   Logger.log("既存のまま(" + existed.length + "): " + existed.join("、"));
   return { ok: true, folderUrl: root.getUrl(), created: created, existed: existed };
+}
+
+// ============================================================
+// 一度きりの移行: 本番の SURVEYS_JSON を「施術後アンケート＋計測時アンケート」に更新する。
+// Apps Script エディタで関数 migrateToSplitSurveys を選んで「実行」する。
+//  - survey_bijiris_session: 写真質問を削除し、タイトルを「施術後アンケート」に
+//  - survey_measurement: 計測時アンケートを追加（無ければ）
+// 他のアンケートや管理アプリでの編集は保持する。
+// ============================================================
+function migrateToSplitSurveys() {
+  var surveys = loadSurveys_();
+
+  surveys.forEach(function (survey) {
+    if (survey.id === "survey_bijiris_session") {
+      survey.title = "施術後アンケート";
+      survey.completionMessage = "施術後アンケートのご回答ありがとうございました。";
+      survey.questions = (survey.questions || []).filter(function (question) {
+        return question && question.type !== "photo";
+      });
+    }
+  });
+
+  var hasMeasurement = surveys.some(function (survey) {
+    return survey.id === "survey_measurement";
+  });
+  if (!hasMeasurement) {
+    for (var i = 0; i < SURVEYS.length; i += 1) {
+      if (SURVEYS[i].id === "survey_measurement") {
+        surveys.push(cloneSurvey_(SURVEYS[i]));
+        break;
+      }
+    }
+  }
+
+  var normalized = surveys.map(function (survey, index) {
+    var validated = validateSurveyPayload_(mergeDefaultSurveyFields_(survey), survey);
+    validated.sortOrder = index;
+    return validated;
+  });
+  saveSurveys_(normalizeSurveyOrder_(normalized));
+
+  var titles = normalized.map(function (survey) {
+    return survey.title;
+  });
+  Logger.log("アンケート移行完了(" + titles.length + "): " + titles.join(" / "));
+  return { ok: true, surveys: titles };
 }
