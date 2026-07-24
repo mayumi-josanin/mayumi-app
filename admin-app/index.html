@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260724-01" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260724-01" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260724-01" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260724-01" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260724-02" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260724-02" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260724-02" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260724-02" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -278,15 +278,12 @@
             <section class="card">
               <div class="stage-head">
                 <div>
-                  <div class="card-title">スプレッドシートから写真を取り込む</div>
-                  <div id="ticketSurveySyncMeta" class="meta"></div>
+                  <div class="card-title">モニター基準画像の一括取り込み（初回のみ）</div>
+                  <div id="ticketSurveySeedMeta" class="meta"></div>
                 </div>
-                <div class="action-row">
-                  <a id="ticketSurveySourceLink" class="secondary-button" target="_blank" rel="noopener">アンケートを開く</a>
-                  <button id="ticketSurveySyncButton" class="primary-button" type="button">写真を取り込む</button>
-                </div>
+                <button id="ticketSurveySeedButton" class="primary-button" type="button">モニター画像を一括取り込み</button>
               </div>
-              <div id="ticketSurveySyncStatus" class="stack"></div>
+              <div id="ticketSurveySeedStatus" class="stack"></div>
             </section>
 
             <section class="card">
@@ -455,9 +452,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260724-01"></script>
+    <script src="../default-surveys.js?v=20260724-02"></script>
     <script src="../shared/gas-config.js?v=20260417-12"></script>
-    <script src="../shared/api.js?v=20260724-01"></script>
-    <script src="./app.js?v=20260724-01"></script>
+    <script src="../shared/api.js?v=20260724-02"></script>
+    <script src="./app.js?v=20260724-02"></script>
   </body>
 </html>
