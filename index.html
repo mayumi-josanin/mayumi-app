@@ -1137,6 +1137,23 @@
       line-height: 1.5;
     }
 
+    .day-detail-event-images {
+      display: grid;
+      gap: 8px;
+      margin: 8px 0;
+    }
+
+    .day-detail-event-images img {
+      display: block;
+      width: 100%;
+      max-height: 320px;
+      object-fit: contain;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #fff;
+      cursor: pointer;
+    }
+
     @media (max-width: 720px) {
       .month-calendar-day {
         min-height: 70px;
@@ -12346,6 +12363,17 @@
           const title = (e.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
           const category = e.category ? '<span style="margin-left:8px; font-size:11px; padding:2px 6px; background:var(--cream); border-radius:4px;">' + (e.category || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>' : '';
           const descHtml = e.desc ? (typeof renderAdminFormattedTextHtml === 'function' ? renderAdminFormattedTextHtml(e.desc, { stripInlineImages: true }) : String(e.desc).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')) : '';
+
+          // フライヤー等の画像（image / imageUrls）を表示。サーバはDriveのthumbnail URLをそのまま返す
+          const imageUrls = (typeof normalizeAdminImageUrls === 'function')
+            ? normalizeAdminImageUrls(e.imageUrls || e.image || '')
+            : (e.image ? [String(e.image)] : []);
+          const imagesHtml = imageUrls.length
+            ? '<div class="day-detail-event-images">' + imageUrls.map(function (u) {
+                return '<img src="' + escapeHtml(u) + '" alt="' + title + '" loading="lazy" onclick="window.open(this.src, \'_blank\')">';
+              }).join('') + '</div>'
+            : '';
+
           const editBtn = (typeof editCalendar === 'function' && e.rowIdx) ? '<button class="btn" style="padding:4px 10px; font-size:11px; margin-top:8px;" onclick="closeDayDetailModal(); editCalendar(' + e.rowIdx + ');">📝 編集</button>' : '';
 
           return '<div class="day-detail-event" style="border-left-color:' + color + ';">' +
@@ -12355,6 +12383,7 @@
               category +
             '</div>' +
             '<div class="day-detail-event-meta">区分: ' + getCalTypeLabel(type) + '</div>' +
+            imagesHtml +
             (descHtml ? '<div class="day-detail-event-desc">' + descHtml + '</div>' : '') +
             editBtn +
           '</div>';
