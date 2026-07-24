@@ -5282,6 +5282,8 @@ var TICKET_SURVEY_AFTER_PHOTO_QUESTION_IDS = [
 
 // モニター基準画像ストア（josanin の Drive: Bijiris/モニター写真/顧客名/）
 var MONITOR_REFERENCE_ROOT_NAME = "モニター写真";
+// 回数券終了時（アフター）写真の保存先（josanin の Drive: Bijiris/計測時/顧客名/、日付_名前 でファイル名保存）
+var MEASUREMENT_TIME_ROOT_NAME = "計測時";
 // 既存の整理済みモニター画像の元フォルダ（e225408 所有・計測写真(1回目)。読み取りのみ）
 var LEGACY_MONITOR_SOURCE_FOLDER_ID = "1Y_nOMqms6TGrP-OA7sVNzIa1FuXMOFZoX0ufs-CYk1h3xLEQNF3kRlZbwo396sj-nrwtIuof";
 
@@ -5582,6 +5584,48 @@ function resolveBeforePhotos_(response) {
   return [];
 }
 
+// ---------- アフター写真（回数券終了時）を Bijiris/計測時/顧客名/ に 日付_名前 で保存 ----------
+
+function compactDate_(value) {
+  var date = value instanceof Date ? value : new Date(String(value || ""));
+  if (isNaN(date.getTime())) date = new Date();
+  return Utilities.formatDate(date, "Asia/Tokyo", "yyyyMMdd");
+}
+
+function getMeasurementFolderForCustomer_(customerName) {
+  var root = getChildFolderByName_(getRootPhotoFolder_(), MEASUREMENT_TIME_ROOT_NAME);
+  return getChildFolderByName_(root, normalizeText_(customerName) || "お名前未設定");
+}
+
+// 提出されたアフター写真を 計測時/顧客名/ に 日付_名前 で保存し、その参照を返す。
+// 同名ファイルが既にあれば再コピーせず既存を使う（再分析でも重複しない）。
+function resolveAfterPhotos_(response) {
+  var submitted = extractPhotosFromAnswers_(response, TICKET_SURVEY_AFTER_PHOTO_QUESTION_IDS);
+  if (!submitted.length) return [];
+  var customerName = normalizeText_(response.customerName) || "お名前未設定";
+  var folder = getMeasurementFolderForCustomer_(customerName);
+  var baseName = compactDate_(response.submittedAt) + "_" + customerName;
+  return submitted.map(function (photo, index) {
+    var extension = (String(photo.name || "").match(/\.[^.]+$/) || [".jpg"])[0];
+    var targetName = sanitizeFileName_(baseName + "_" + ("0" + (index + 1)).slice(-2)) + extension;
+    var existing = folder.getFilesByName(targetName);
+    var file = existing.hasNext() ? existing.next() : DriveApp.getFileById(photo.fileId).makeCopy(targetName, folder);
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (error) {
+      // ignore
+    }
+    var fileId = file.getId();
+    return {
+      fileId: fileId,
+      name: file.getName(),
+      url: file.getUrl(),
+      previewUrl: "https://drive.google.com/uc?export=view&id=" + fileId,
+      thumbnailUrl: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1200",
+    };
+  });
+}
+
 // 表示用（GET）: 書き込みせずにビフォー写真の候補を返す
 function previewBeforePhotos_(response) {
   var customerName = normalizeText_(response.customerName);
@@ -5822,7 +5866,8 @@ function analyzeTicketSurveyResponse_(responseId) {
 
   try {
     var before = resolveBeforePhotos_(response);
-    var after = extractPhotosFromAnswers_(response, TICKET_SURVEY_AFTER_PHOTO_QUESTION_IDS);
+    // アフター写真は 計測時/顧客名/ に 日付_名前 で保存し、その最新画像を分析に使う。
+    var after = resolveAfterPhotos_(response);
     if (!after.length) throw new Error("アフター写真（回数券終了時の写真）がありません。");
     record.beforePhotos = before;
     record.afterPhotos = after;
@@ -5899,7 +5944,9 @@ function getTicketSurveyPayload_() {
   var entries = readAnalyzableResponses_()
     .map(function (response) {
       var record = recordByResponseId[response.id];
-      var after = extractPhotosFromAnswers_(response, TICKET_SURVEY_AFTER_PHOTO_QUESTION_IDS);
+      var after = record && record.afterPhotos && record.afterPhotos.length
+        ? record.afterPhotos
+        : extractPhotosFromAnswers_(response, TICKET_SURVEY_AFTER_PHOTO_QUESTION_IDS);
       var before = record && record.beforePhotos && record.beforePhotos.length
         ? record.beforePhotos
         : previewBeforePhotos_(response);
