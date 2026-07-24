@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260603-01" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260603-01" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260603-01" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260603-01" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260724-01" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260724-01" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260724-01" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260724-01" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -52,6 +52,7 @@
           <button class="nav-item" type="button" data-page="surveys">📝 アンケート管理</button>
           <button class="nav-item" type="button" data-page="customers">🧾 顧客管理</button>
           <button class="nav-item" type="button" data-page="responses">👥 回答管理</button>
+          <button class="nav-item" type="button" data-page="ticket-survey">📸 回数券分析</button>
           <button class="nav-item" type="button" data-page="settings">🔐 設定</button>
           <button class="nav-item" type="button" data-page="install">📲 追加案内</button>
         </aside>
@@ -258,6 +259,83 @@
             <section id="customerManagementStage" class="card response-stage"></section>
           </section>
 
+          <section id="page-ticket-survey" class="page">
+            <h2>回数券終了アンケート 写真分析</h2>
+            <section class="card">
+              <div class="stage-head">
+                <div>
+                  <div class="card-title">自動処理</div>
+                  <div id="ticketSurveyAutoMeta" class="meta"></div>
+                </div>
+                <label class="milestone-enabled-toggle">
+                  <input type="checkbox" id="ticketSurveyAutoToggle" />
+                  自動で取り込み・分析する
+                </label>
+              </div>
+              <div id="ticketSurveyAutoStatus" class="stack"></div>
+            </section>
+
+            <section class="card">
+              <div class="stage-head">
+                <div>
+                  <div class="card-title">スプレッドシートから写真を取り込む</div>
+                  <div id="ticketSurveySyncMeta" class="meta"></div>
+                </div>
+                <div class="action-row">
+                  <a id="ticketSurveySourceLink" class="secondary-button" target="_blank" rel="noopener">アンケートを開く</a>
+                  <button id="ticketSurveySyncButton" class="primary-button" type="button">写真を取り込む</button>
+                </div>
+              </div>
+              <div id="ticketSurveySyncStatus" class="stack"></div>
+            </section>
+
+            <section class="card">
+              <div class="stage-head">
+                <div>
+                  <div class="card-title">分析の設定</div>
+                  <div id="ticketSurveyModelMeta" class="meta"></div>
+                </div>
+                <button id="ticketSurveyPromptResetButton" class="secondary-button" type="button">初期値に戻す</button>
+              </div>
+              <form id="ticketSurveyPromptForm" class="stack">
+                <label>
+                  分析プロンプト（この指示文をもとに写真を比較します）
+                  <textarea id="ticketSurveyPromptInput" rows="14"></textarea>
+                </label>
+                <button class="primary-button" type="submit">プロンプトを保存</button>
+              </form>
+              <form id="ticketSurveyApiKeyForm" class="stack">
+                <label>
+                  Claude API キー
+                  <input id="ticketSurveyApiKeyInput" type="password" autocomplete="off" placeholder="sk-ant-..." />
+                </label>
+                <div id="ticketSurveyApiKeyStatus" class="meta"></div>
+                <button class="secondary-button" type="submit">API キーを保存</button>
+              </form>
+            </section>
+
+            <div class="card">
+              <div class="filter-grid">
+                <label>
+                  検索
+                  <input id="ticketSurveyKeywordFilter" type="search" placeholder="お名前で絞り込み" />
+                </label>
+                <label>
+                  分析状態
+                  <select id="ticketSurveyStatusFilter">
+                    <option value="">すべて</option>
+                    <option value="none">未分析</option>
+                    <option value="done">分析済み</option>
+                    <option value="error">エラー</option>
+                  </select>
+                </label>
+                <button id="ticketSurveyAnalyzeAllButton" class="secondary-button" type="button">未分析をまとめて分析</button>
+              </div>
+            </div>
+
+            <section id="ticketSurveyStage" class="card response-stage"></section>
+          </section>
+
           <section id="page-settings" class="page">
             <h2>設定</h2>
             <div class="grid-two settings-grid">
@@ -339,6 +417,7 @@
         <button class="bottom-nav-item" type="button" data-page="surveys">📝<span>アンケート</span></button>
         <button class="bottom-nav-item" type="button" data-page="customers">🧾<span>顧客</span></button>
         <button class="bottom-nav-item" type="button" data-page="responses">👥<span>回答</span></button>
+        <button class="bottom-nav-item" type="button" data-page="ticket-survey">📸<span>回数券分析</span></button>
         <button class="bottom-nav-item" type="button" data-page="settings">🔐<span>設定</span></button>
         <button class="bottom-nav-item" type="button" data-page="install">📲<span>追加</span></button>
       </nav>
@@ -376,9 +455,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260603-01"></script>
+    <script src="../default-surveys.js?v=20260724-01"></script>
     <script src="../shared/gas-config.js?v=20260417-12"></script>
-    <script src="../shared/api.js?v=20260603-01"></script>
-    <script src="./app.js?v=20260603-01"></script>
+    <script src="../shared/api.js?v=20260724-01"></script>
+    <script src="./app.js?v=20260724-01"></script>
   </body>
 </html>
