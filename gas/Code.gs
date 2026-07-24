@@ -383,6 +383,7 @@ function handleGet_(e) {
   if (action === "adminResponses") return { responses: getResponses_({ includeTrashed: true }) };
   if (action === "adminMeasurements") return { measurements: getMeasurements_({}) };
   if (action === "adminBijirisPosts") return { posts: getBijirisPosts_({ includeDrafts: true }) };
+  if (action === "adminTicketSurvey") return getTicketSurveyPayload_();
   if (action === "adminUpdate") {
     return {
       response: updateResponse_(params.responseId, params.status, params.adminMemo),
@@ -522,6 +523,27 @@ function handlePost_(body) {
     return {
       post: createBijirisPost_(body.payload || {}),
     };
+  }
+  if (body.action === "adminSyncTicketSurvey") {
+    requireAdmin_(body.token);
+    return syncTicketSurveyPhotos_();
+  }
+  if (body.action === "adminAnalyzeTicketSurvey") {
+    requireAdmin_(body.token);
+    var analyzeIds = (body.payload && body.payload.entryIds) || (body.payload && body.payload.entryId ? [body.payload.entryId] : []);
+    return analyzeTicketSurveyEntries_(analyzeIds);
+  }
+  if (body.action === "adminSaveTicketSurveyPrompt") {
+    requireAdmin_(body.token);
+    return saveTicketSurveyPrompt_(body.payload && body.payload.prompt);
+  }
+  if (body.action === "adminSaveTicketSurveyApiKey") {
+    requireAdmin_(body.token);
+    return saveTicketSurveyApiKey_(body.payload && body.payload.apiKey);
+  }
+  if (body.action === "adminSetTicketSurveyAuto") {
+    requireAdmin_(body.token);
+    return setTicketSurveyAuto_(body.payload && body.payload.enabled);
   }
   if (body.action === "adminUpdateBijirisPost") {
     requireAdmin_(body.token);
@@ -5203,4 +5225,773 @@ function parseJson_(value, fallback) {
 function stringifyDate_(value) {
   if (!value) return "";
   return value instanceof Date ? value.toISOString() : String(value);
+}
+
+// ============================================================
+// 回数券終了アンケート 写真取り込み & ビフォーアフター分析
+// 外部スプレッドシート「SNS投稿」の「ビジリス回数券終了アンケート」シートを読み、
+// 計測写真(1回目) / 計測写真(6回目or10回目) を Drive に整理保存し、
+// Claude API で比較分析した文章を保存する。
+// ============================================================
+
+var TICKET_SURVEY_SOURCE_SPREADSHEET_ID = "1-dBYtQmUuKlTWV-Db10Bv7---KfTTsz7mPObf2dst84";
+var TICKET_SURVEY_SOURCE_SHEET_GID = 2103045293;
+var TICKET_SURVEY_SHEET_NAME = "回数券終了分析";
+var TICKET_SURVEY_HEADERS = [
+  "作成日時",
+  "更新日時",
+  "ID",
+  "お名前",
+  "提出日時",
+  "フォルダURL",
+  "1回目写真JSON",
+  "6回目写真JSON",
+  "取り込み状態",
+  "取り込み日時",
+  "分析状態",
+  "分析結果",
+  "分析日時",
+  "エラー",
+  "回答JSON",
+];
+var TICKET_SURVEY_PROMPT_PROPERTY_KEY = "TICKET_SURVEY_PROMPT";
+var TICKET_SURVEY_META_PROPERTY_KEY = "TICKET_SURVEY_META_JSON";
+var TICKET_SURVEY_AUTO_TRIGGER_IDS_PROPERTY_KEY = "TICKET_SURVEY_AUTO_TRIGGER_IDS_JSON";
+var TICKET_SURVEY_AUTO_INTERVAL_MINUTES = 10; // 定期ポーリングの間隔（1/5/10/15/30 のいずれか）
+var ANTHROPIC_API_KEY_PROPERTY_KEY = "ANTHROPIC_API_KEY";
+var ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+var ANTHROPIC_API_VERSION = "2023-06-01";
+var ANTHROPIC_MODEL = "claude-opus-4-8";
+var ANTHROPIC_MAX_TOKENS = 3000;
+var ANTHROPIC_EFFORT = "medium";
+var TICKET_SURVEY_MAX_PHOTOS_PER_SIDE = 4;
+var TICKET_SURVEY_ANALYZE_BATCH_SIZE = 5;
+var TICKET_SURVEY_ANALYZE_TIME_BUDGET_MS = 4 * 60 * 1000;
+var TICKET_SURVEY_IMAGE_WIDTH = 1600;
+var TICKET_SURVEY_ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+var TICKET_SURVEY_DEFAULT_PROMPT = [
+  "あなたはまゆみ助産院の EMS トレーニング「ビジリス」の施術者です。",
+  "同一のお客様の「1回目（ビフォー）」と「6回目または10回目（アフター）」の全身写真を比較し、",
+  "身体の変化をお客様にお伝えするための分析文を日本語で作成してください。",
+  "",
+  "【観察してほしい観点】",
+  "1. 姿勢（骨盤の前後傾・反り腰・猫背・肩の高さ・頭の位置）",
+  "2. お腹まわり（下腹のふくらみ、ウエストのくびれ）",
+  "3. ヒップの位置と丸み、太もものライン",
+  "4. 全体のシルエットと立ち姿の安定感",
+  "",
+  "【出力形式】",
+  "■ 変化のポイント（3つ、それぞれ2〜3文）",
+  "■ 特に良くなった点（1〜2文）",
+  "■ これから伸ばせる点とおすすめの続け方（2〜3文）",
+  "",
+  "【注意】",
+  "・医学的な診断や断定は避け、見た目の変化の範囲で書いてください。",
+  "・お客様ご本人が読んで前向きになれる、やさしく丁寧な敬体で書いてください。",
+  "・写真から読み取れないことは推測で断定せず、書かないでください。",
+].join("\n");
+
+function getTicketSurveySheet_() {
+  return ensureSheet_(getSpreadsheet_(), TICKET_SURVEY_SHEET_NAME, TICKET_SURVEY_HEADERS);
+}
+
+function getTicketSurveyPrompt_() {
+  var saved = normalizeText_(PropertiesService.getScriptProperties().getProperty(TICKET_SURVEY_PROMPT_PROPERTY_KEY));
+  return saved || TICKET_SURVEY_DEFAULT_PROMPT;
+}
+
+function saveTicketSurveyPrompt_(prompt) {
+  var text = String(prompt == null ? "" : prompt).trim();
+  var properties = PropertiesService.getScriptProperties();
+  if (text) {
+    properties.setProperty(TICKET_SURVEY_PROMPT_PROPERTY_KEY, text);
+  } else {
+    properties.deleteProperty(TICKET_SURVEY_PROMPT_PROPERTY_KEY);
+  }
+  appendAuditLog_("ticketSurvey.prompt_updated", { length: text.length });
+  return { ok: true, prompt: getTicketSurveyPrompt_() };
+}
+
+function saveTicketSurveyApiKey_(apiKey) {
+  var key = normalizeText_(apiKey);
+  var properties = PropertiesService.getScriptProperties();
+  if (key) {
+    properties.setProperty(ANTHROPIC_API_KEY_PROPERTY_KEY, key);
+  } else {
+    properties.deleteProperty(ANTHROPIC_API_KEY_PROPERTY_KEY);
+  }
+  appendAuditLog_("ticketSurvey.api_key_updated", { configured: !!key });
+  return { ok: true, apiKeyConfigured: !!key };
+}
+
+function getTicketSurveyMeta_() {
+  return parseJson_(PropertiesService.getScriptProperties().getProperty(TICKET_SURVEY_META_PROPERTY_KEY), {}) || {};
+}
+
+function saveTicketSurveyMeta_(meta) {
+  PropertiesService.getScriptProperties().setProperty(
+    TICKET_SURVEY_META_PROPERTY_KEY,
+    JSON.stringify(meta || {})
+  );
+}
+
+function updateTicketSurveyMeta_(patch) {
+  var meta = getTicketSurveyMeta_();
+  Object.keys(patch || {}).forEach(function (key) {
+    meta[key] = patch[key];
+  });
+  saveTicketSurveyMeta_(meta);
+  return meta;
+}
+
+// ---------- 外部スプレッドシートの読み取り ----------
+
+function openTicketSurveySourceSheet_() {
+  var spreadsheet;
+  try {
+    spreadsheet = SpreadsheetApp.openById(TICKET_SURVEY_SOURCE_SPREADSHEET_ID);
+  } catch (error) {
+    throw new Error(
+      "アンケートのスプレッドシートを開けませんでした。このスクリプトを実行する Google アカウントに閲覧権限があるか確認してください。"
+    );
+  }
+  var sheets = spreadsheet.getSheets();
+  for (var i = 0; i < sheets.length; i += 1) {
+    if (sheets[i].getSheetId() === TICKET_SURVEY_SOURCE_SHEET_GID) return sheets[i];
+  }
+  throw new Error("「ビジリス回数券終了アンケート」シートが見つかりませんでした。");
+}
+
+function makeTicketSurveyId_(customerName, submittedAt) {
+  var seed = normalizeTicketSurveyName_(customerName) + "|" + normalizeText_(submittedAt);
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed, Utilities.Charset.UTF_8);
+  var hex = digest
+    .map(function (byte) {
+      return ("0" + (byte & 0xff).toString(16)).slice(-2);
+    })
+    .join("");
+  return "tsv_" + hex.slice(0, 24);
+}
+
+function normalizeTicketSurveyName_(value) {
+  // 「廣田　沙織」と「廣田沙織」を同一人物として扱うため、空白を除去して比較する。
+  return String(value || "")
+    .replace(/[\s　]+/g, "")
+    .trim();
+}
+
+function formatTicketSurveyDate_(value) {
+  var date = value instanceof Date ? value : new Date(String(value || ""));
+  if (isNaN(date.getTime())) return "";
+  return Utilities.formatDate(date, "Asia/Tokyo", "yyyy-MM-dd");
+}
+
+function extractDriveFileIds_(cellValue) {
+  var raw = String(cellValue == null ? "" : cellValue);
+  if (!raw.trim()) return { fileIds: [], unresolved: [] };
+  var fileIds = [];
+  var unresolved = [];
+  var seen = {};
+  raw
+    .split(/[,\n]/)
+    .map(function (part) {
+      return part.trim();
+    })
+    .filter(function (part) {
+      return !!part;
+    })
+    .forEach(function (part) {
+      var match = part.match(/[?&]id=([A-Za-z0-9_-]{20,})/) || part.match(/\/d\/([A-Za-z0-9_-]{20,})/);
+      if (!match) {
+        match = part.match(/^([A-Za-z0-9_-]{25,})$/);
+      }
+      if (match) {
+        var id = match[1];
+        if (!seen[id]) {
+          seen[id] = true;
+          fileIds.push(id);
+        }
+        return;
+      }
+      unresolved.push(part);
+    });
+  return { fileIds: fileIds, unresolved: unresolved };
+}
+
+function readTicketSurveySourceResponses_() {
+  var sheet = openTicketSurveySourceSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var values = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  var responses = [];
+  values.forEach(function (row, index) {
+    var customerName = normalizeText_(row[1]);
+    var submittedAt = stringifyDate_(row[0]);
+    if (!customerName && !submittedAt) return;
+    var before = extractDriveFileIds_(row[5]);
+    var after = extractDriveFileIds_(row[6]);
+    responses.push({
+      id: makeTicketSurveyId_(customerName, submittedAt),
+      sourceRow: index + 2,
+      customerName: customerName,
+      submittedAt: submittedAt,
+      submittedDate: formatTicketSurveyDate_(row[0]),
+      answers: {
+        feel: normalizeText_(row[2]),
+        lifeChanges: normalizeText_(row[3]),
+        improve: normalizeText_(row[4]),
+        comment: normalizeText_(row[7]),
+      },
+      beforeFileIds: before.fileIds,
+      beforeUnresolved: before.unresolved,
+      afterFileIds: after.fileIds,
+      afterUnresolved: after.unresolved,
+    });
+  });
+  return responses;
+}
+
+// ---------- 保存シートの読み書き ----------
+
+function readTicketSurveyRecords_() {
+  var sheet = getTicketSurveySheet_();
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, TICKET_SURVEY_HEADERS.length).getValues();
+  return values
+    .map(function (row) {
+      var id = normalizeText_(row[2]);
+      if (!id) return null;
+      return {
+        createdAt: stringifyDate_(row[0]),
+        updatedAt: stringifyDate_(row[1]),
+        id: id,
+        customerName: normalizeText_(row[3]),
+        submittedAt: stringifyDate_(row[4]),
+        folderUrl: normalizeText_(row[5]),
+        beforePhotos: parseJson_(row[6], []) || [],
+        afterPhotos: parseJson_(row[7], []) || [],
+        syncStatus: normalizeText_(row[8]) || "pending",
+        syncedAt: stringifyDate_(row[9]),
+        analysisStatus: normalizeText_(row[10]) || "none",
+        analysisText: String(row[11] == null ? "" : row[11]),
+        analyzedAt: stringifyDate_(row[12]),
+        errorMessage: normalizeText_(row[13]),
+        answers: parseJson_(row[14], {}) || {},
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildTicketSurveyRowValues_(record) {
+  return [
+    record.createdAt || new Date().toISOString(),
+    record.updatedAt || new Date().toISOString(),
+    record.id,
+    record.customerName || "",
+    record.submittedAt || "",
+    record.folderUrl || "",
+    JSON.stringify(record.beforePhotos || []),
+    JSON.stringify(record.afterPhotos || []),
+    record.syncStatus || "pending",
+    record.syncedAt || "",
+    record.analysisStatus || "none",
+    record.analysisText || "",
+    record.analyzedAt || "",
+    record.errorMessage || "",
+    JSON.stringify(record.answers || {}),
+  ];
+}
+
+function writeTicketSurveyRecord_(record) {
+  var sheet = getTicketSurveySheet_();
+  record.updatedAt = new Date().toISOString();
+  var rowIndex = findRowIndexByColumn_(sheet, 3, record.id);
+  var values = buildTicketSurveyRowValues_(record);
+  if (rowIndex) {
+    sheet.getRange(rowIndex, 1, 1, TICKET_SURVEY_HEADERS.length).setValues([values]);
+  } else {
+    sheet.appendRow(values);
+  }
+  return record;
+}
+
+function getTicketSurveyRecordById_(entryId) {
+  var id = normalizeText_(entryId);
+  if (!id) return null;
+  var records = readTicketSurveyRecords_();
+  for (var i = 0; i < records.length; i += 1) {
+    if (records[i].id === id) return records[i];
+  }
+  return null;
+}
+
+// ---------- Drive への取り込み ----------
+
+function getTicketSurveyEntryFolder_(customerName, submittedDate) {
+  var displayName = normalizeText_(customerName) || "お名前未設定";
+  var customerFolder = getCustomerPhotoFolder_(displayName);
+  var childName = sanitizeFolderName_(displayName + "_" + (submittedDate || "日付不明"));
+  return getChildFolderByName_(customerFolder, childName);
+}
+
+function getFileExtension_(fileName, mimeType) {
+  var nameMatch = String(fileName || "").match(/\.([A-Za-z0-9]{1,5})$/);
+  if (nameMatch) return nameMatch[1].toLowerCase().replace("jpeg", "jpg");
+  var type = String(mimeType || "").toLowerCase();
+  if (type.indexOf("png") >= 0) return "png";
+  if (type.indexOf("gif") >= 0) return "gif";
+  if (type.indexOf("webp") >= 0) return "webp";
+  if (type.indexOf("heic") >= 0) return "heic";
+  return "jpg";
+}
+
+function copyTicketSurveyPhoto_(sourceFileId, folder, baseName, index) {
+  var sourceFile;
+  try {
+    sourceFile = DriveApp.getFileById(sourceFileId);
+  } catch (error) {
+    throw new Error("写真を開けませんでした（" + sourceFileId + "）。共有設定を確認してください。");
+  }
+  var extension = getFileExtension_(sourceFile.getName(), sourceFile.getMimeType());
+  var fileName = sanitizeFileName_(baseName + "_" + ("0" + (index + 1)).slice(-2) + "." + extension);
+
+  var existing = folder.getFilesByName(fileName);
+  var driveFile = existing.hasNext() ? existing.next() : sourceFile.makeCopy(fileName, folder);
+  try {
+    driveFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (error) {
+    // 共有設定を変更できない環境ではサムネイル表示のみ諦める。
+  }
+  var fileId = driveFile.getId();
+  return {
+    sourceFileId: sourceFileId,
+    fileId: fileId,
+    name: fileName,
+    url: driveFile.getUrl(),
+    previewUrl: "https://drive.google.com/uc?export=view&id=" + fileId,
+    thumbnailUrl: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1200",
+  };
+}
+
+function syncTicketSurveyPhotosForResponse_(response, existingRecord) {
+  var record = existingRecord || {
+    createdAt: new Date().toISOString(),
+    id: response.id,
+    beforePhotos: [],
+    afterPhotos: [],
+  };
+  record.id = response.id;
+  record.customerName = response.customerName;
+  record.submittedAt = response.submittedAt;
+  record.answers = response.answers;
+
+  var folder = getTicketSurveyEntryFolder_(response.customerName, response.submittedDate);
+  record.folderUrl = folder.getUrl();
+
+  var baseName = (normalizeText_(response.customerName) || "お名前未設定") + "_" + (response.submittedDate || "日付不明");
+  var copiedBefore = {};
+  (record.beforePhotos || []).forEach(function (photo) {
+    if (photo && photo.sourceFileId) copiedBefore[photo.sourceFileId] = photo;
+  });
+  var copiedAfter = {};
+  (record.afterPhotos || []).forEach(function (photo) {
+    if (photo && photo.sourceFileId) copiedAfter[photo.sourceFileId] = photo;
+  });
+
+  var warnings = [];
+  record.beforePhotos = response.beforeFileIds.map(function (fileId, index) {
+    if (copiedBefore[fileId]) return copiedBefore[fileId];
+    return copyTicketSurveyPhoto_(fileId, folder, baseName + "_1回目", index);
+  });
+  record.afterPhotos = response.afterFileIds.map(function (fileId, index) {
+    if (copiedAfter[fileId]) return copiedAfter[fileId];
+    return copyTicketSurveyPhoto_(fileId, folder, baseName + "_6回目or10回目", index);
+  });
+
+  if (response.beforeUnresolved.length) {
+    warnings.push("1回目の写真にリンクではないデータがあります: " + response.beforeUnresolved.join(" / "));
+  }
+  if (response.afterUnresolved.length) {
+    warnings.push("6回目の写真にリンクではないデータがあります: " + response.afterUnresolved.join(" / "));
+  }
+
+  record.syncStatus = "synced";
+  record.syncedAt = new Date().toISOString();
+  record.errorMessage = warnings.join(" / ");
+  record.analysisStatus = record.analysisStatus || "none";
+  record.analysisText = record.analysisText || "";
+  return writeTicketSurveyRecord_(record);
+}
+
+function syncTicketSurveyPhotos_() {
+  updateTicketSurveyMeta_({ syncStatus: "running", syncStartedAt: new Date().toISOString(), syncError: "" });
+  try {
+    var responses = readTicketSurveySourceResponses_();
+    var recordsById = {};
+    readTicketSurveyRecords_().forEach(function (record) {
+      recordsById[record.id] = record;
+    });
+
+    var created = 0;
+    var updated = 0;
+    var failures = [];
+    responses.forEach(function (response) {
+      try {
+        var existing = recordsById[response.id];
+        syncTicketSurveyPhotosForResponse_(response, existing);
+        if (existing) {
+          updated += 1;
+        } else {
+          created += 1;
+        }
+      } catch (error) {
+        failures.push((response.customerName || response.id) + ": " + (error.message || error));
+      }
+    });
+
+    updateTicketSurveyMeta_({
+      syncStatus: "idle",
+      lastSyncedAt: new Date().toISOString(),
+      lastSyncSummary: { total: responses.length, created: created, updated: updated, failed: failures.length },
+      syncError: failures.join(" / "),
+    });
+    appendAuditLog_("ticketSurvey.sync", { total: responses.length, created: created, updated: updated, failed: failures.length });
+    return { ok: true, total: responses.length, created: created, updated: updated, failures: failures };
+  } catch (error) {
+    updateTicketSurveyMeta_({ syncStatus: "error", syncError: error.message || String(error) });
+    appendErrorLog_("ticketSurvey.sync", error.message || String(error), {});
+    throw error;
+  }
+}
+
+// ---------- Claude API による比較分析 ----------
+
+function getAnthropicApiKey_() {
+  return normalizeText_(PropertiesService.getScriptProperties().getProperty(ANTHROPIC_API_KEY_PROPERTY_KEY));
+}
+
+function fetchTicketSurveyImageBlob_(photo) {
+  var blob = null;
+  try {
+    var response = UrlFetchApp.fetch(
+      "https://drive.google.com/thumbnail?id=" + encodeURIComponent(photo.fileId) + "&sz=w" + TICKET_SURVEY_IMAGE_WIDTH,
+      { muteHttpExceptions: true, followRedirects: true }
+    );
+    if (response.getResponseCode() === 200) {
+      var candidate = response.getBlob();
+      if (/^image\//i.test(candidate.getContentType() || "")) blob = candidate;
+    }
+  } catch (error) {
+    // サムネイルが取れない場合は元ファイルにフォールバックする。
+  }
+  if (!blob) blob = DriveApp.getFileById(photo.fileId).getBlob();
+
+  var mimeType = String(blob.getContentType() || "").toLowerCase().split(";")[0];
+  if (TICKET_SURVEY_ALLOWED_IMAGE_TYPES.indexOf(mimeType) < 0) {
+    blob = blob.getAs("image/jpeg");
+    mimeType = "image/jpeg";
+  }
+  var bytes = blob.getBytes();
+  if (bytes.length > 4500000) {
+    throw new Error(photo.name + " の画像サイズが大きすぎます。");
+  }
+  return { mimeType: mimeType, data: Utilities.base64Encode(bytes) };
+}
+
+function buildTicketSurveyMeasurementContext_(customerName) {
+  var name = normalizeTicketSurveyName_(customerName);
+  if (!name) return "";
+  var rows = readMeasurementRows_().filter(function (measurement) {
+    return normalizeTicketSurveyName_(measurement.customerName) === name;
+  });
+  if (!rows.length) return "";
+  rows.sort(function (a, b) {
+    return new Date(a.measuredAt).getTime() - new Date(b.measuredAt).getTime();
+  });
+  var lines = rows.slice(-6).map(function (measurement) {
+    return [
+      formatTicketSurveyDate_(measurement.measuredAt),
+      "ウエスト " + (measurement.waist || "-"),
+      "ヒップ " + (measurement.hip || "-"),
+      "太もも右 " + (measurement.thighRight || "-"),
+      "太もも左 " + (measurement.thighLeft || "-"),
+    ].join(" / ");
+  });
+  return "【計測記録（参考）】\n" + lines.join("\n");
+}
+
+function buildTicketSurveyMessageContent_(record, prompt) {
+  var content = [];
+  var answers = record.answers || {};
+  var contextLines = [
+    "【お客様】" + (record.customerName || "お名前未設定"),
+    "【アンケート提出日】" + (formatTicketSurveyDate_(record.submittedAt) || "不明"),
+  ];
+  if (answers.feel) contextLines.push("【本日のビジリスの体感】" + answers.feel);
+  if (answers.lifeChanges) contextLines.push("【日常生活で感じた変化】" + answers.lifeChanges);
+  if (answers.improve) contextLines.push("【今後もっと改善したい部分】" + answers.improve);
+  if (answers.comment) contextLines.push("【ご質問・ご相談】" + answers.comment);
+  var measurementContext = buildTicketSurveyMeasurementContext_(record.customerName);
+  if (measurementContext) contextLines.push(measurementContext);
+  content.push({ type: "text", text: contextLines.join("\n") });
+
+  var before = (record.beforePhotos || []).slice(0, TICKET_SURVEY_MAX_PHOTOS_PER_SIDE);
+  var after = (record.afterPhotos || []).slice(0, TICKET_SURVEY_MAX_PHOTOS_PER_SIDE);
+  if (!after.length) {
+    throw new Error("6回目or10回目の写真がありません。先に「写真を取り込む」を実行してください。");
+  }
+
+  content.push({ type: "text", text: before.length ? "以下は【1回目（ビフォー）】の写真です。" : "【1回目（ビフォー）】の写真は提出されていません。" });
+  before.forEach(function (photo) {
+    var image = fetchTicketSurveyImageBlob_(photo);
+    content.push({ type: "image", source: { type: "base64", media_type: image.mimeType, data: image.data } });
+  });
+
+  content.push({ type: "text", text: "以下は【6回目または10回目（アフター）】の写真です。" });
+  after.forEach(function (photo) {
+    var image = fetchTicketSurveyImageBlob_(photo);
+    content.push({ type: "image", source: { type: "base64", media_type: image.mimeType, data: image.data } });
+  });
+
+  content.push({ type: "text", text: prompt });
+  return content;
+}
+
+function callAnthropicMessages_(apiKey, content) {
+  var payload = {
+    model: ANTHROPIC_MODEL,
+    max_tokens: ANTHROPIC_MAX_TOKENS,
+    thinking: { type: "disabled" },
+    output_config: { effort: ANTHROPIC_EFFORT },
+    system:
+      "あなたは日本語で回答するアシスタントです。指示された出力形式のみを出力し、" +
+      "考察の途中経過や前置き・後書きは書かないでください。",
+    messages: [{ role: "user", content: content }],
+  };
+
+  var response = UrlFetchApp.fetch(ANTHROPIC_API_URL, {
+    method: "post",
+    contentType: "application/json",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": ANTHROPIC_API_VERSION,
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true,
+  });
+
+  var status = response.getResponseCode();
+  var body = parseJson_(response.getContentText(), null);
+  if (status !== 200 || !body) {
+    var detail = body && body.error && body.error.message ? body.error.message : response.getContentText().slice(0, 300);
+    throw new Error("Claude API エラー (" + status + "): " + detail);
+  }
+  if (body.stop_reason === "refusal") {
+    throw new Error("Claude API が回答を拒否しました。写真や指示文の内容を確認してください。");
+  }
+  var text = (body.content || [])
+    .filter(function (block) {
+      return block && block.type === "text";
+    })
+    .map(function (block) {
+      return block.text;
+    })
+    .join("\n")
+    .trim();
+  if (!text) throw new Error("分析結果が空でした。もう一度お試しください。");
+  return text;
+}
+
+function analyzeTicketSurveyEntry_(entryId) {
+  var record = getTicketSurveyRecordById_(entryId);
+  if (!record) throw new Error("対象のアンケートが見つかりませんでした。");
+
+  var apiKey = getAnthropicApiKey_();
+  if (!apiKey) {
+    throw new Error("Claude API キーが設定されていません。設定画面から登録してください。");
+  }
+
+  record.analysisStatus = "running";
+  record.errorMessage = "";
+  writeTicketSurveyRecord_(record);
+
+  try {
+    var content = buildTicketSurveyMessageContent_(record, getTicketSurveyPrompt_());
+    var text = callAnthropicMessages_(apiKey, content);
+    record.analysisStatus = "done";
+    record.analysisText = text;
+    record.analyzedAt = new Date().toISOString();
+    record.errorMessage = "";
+    writeTicketSurveyRecord_(record);
+    appendAuditLog_("ticketSurvey.analyze", { id: record.id, customerName: record.customerName });
+    return { ok: true, entry: publicTicketSurveyEntry_(record) };
+  } catch (error) {
+    record.analysisStatus = "error";
+    record.errorMessage = error.message || String(error);
+    writeTicketSurveyRecord_(record);
+    appendErrorLog_("ticketSurvey.analyze", record.errorMessage, { id: record.id });
+    throw error;
+  }
+}
+
+function analyzeTicketSurveyEntries_(entryIds) {
+  var ids = (Array.isArray(entryIds) ? entryIds : []).map(normalizeText_).filter(Boolean);
+  if (!ids.length) throw new Error("分析するアンケートを選んでください。");
+
+  // Apps Script は1回の実行が6分で打ち切られるため、1回あたりの件数を絞る。
+  var batch = ids.slice(0, TICKET_SURVEY_ANALYZE_BATCH_SIZE);
+  var deferred = ids.slice(TICKET_SURVEY_ANALYZE_BATCH_SIZE);
+  var deadline = new Date().getTime() + TICKET_SURVEY_ANALYZE_TIME_BUDGET_MS;
+
+  var succeeded = 0;
+  var failures = [];
+  batch.forEach(function (id) {
+    if (new Date().getTime() > deadline) {
+      deferred.push(id);
+      return;
+    }
+    try {
+      analyzeTicketSurveyEntry_(id);
+      succeeded += 1;
+    } catch (error) {
+      failures.push(id + ": " + (error.message || error));
+    }
+  });
+
+  // 積み残しは「未分析」に戻し、もう一度実行すれば続きから処理できるようにする。
+  deferred.forEach(function (id) {
+    var record = getTicketSurveyRecordById_(id);
+    if (!record || record.analysisStatus === "done") return;
+    record.analysisStatus = record.analysisText ? "done" : "none";
+    record.errorMessage = "1回の実行上限を超えたため未処理です。もう一度「分析する」を押してください。";
+    writeTicketSurveyRecord_(record);
+  });
+
+  return { ok: true, succeeded: succeeded, failures: failures, deferred: deferred.length };
+}
+
+// ---------- API ペイロード ----------
+
+function publicTicketSurveyEntry_(record) {
+  return {
+    id: record.id,
+    customerName: record.customerName,
+    submittedAt: record.submittedAt,
+    submittedDate: formatTicketSurveyDate_(record.submittedAt),
+    folderUrl: record.folderUrl,
+    beforePhotos: record.beforePhotos || [],
+    afterPhotos: record.afterPhotos || [],
+    syncStatus: record.syncStatus,
+    syncedAt: record.syncedAt,
+    analysisStatus: record.analysisStatus,
+    analysisText: record.analysisText,
+    analyzedAt: record.analyzedAt,
+    errorMessage: record.errorMessage,
+    answers: record.answers || {},
+  };
+}
+
+function getTicketSurveyPayload_() {
+  var meta = getTicketSurveyMeta_();
+  var entries = readTicketSurveyRecords_()
+    .map(publicTicketSurveyEntry_)
+    .sort(function (a, b) {
+      return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+    });
+  return {
+    entries: entries,
+    prompt: getTicketSurveyPrompt_(),
+    defaultPrompt: TICKET_SURVEY_DEFAULT_PROMPT,
+    apiKeyConfigured: !!getAnthropicApiKey_(),
+    model: ANTHROPIC_MODEL,
+    sourceSpreadsheetUrl:
+      "https://docs.google.com/spreadsheets/d/" + TICKET_SURVEY_SOURCE_SPREADSHEET_ID + "/edit#gid=" + TICKET_SURVEY_SOURCE_SHEET_GID,
+    syncStatus: meta.syncStatus || "idle",
+    lastSyncedAt: meta.lastSyncedAt || "",
+    lastSyncSummary: meta.lastSyncSummary || null,
+    syncError: meta.syncError || "",
+    autoEnabled: meta.autoEnabled === true,
+    autoIntervalMinutes: TICKET_SURVEY_AUTO_INTERVAL_MINUTES,
+    lastAutoRunAt: meta.lastAutoRunAt || "",
+  };
+}
+
+// ---------- 定期ポーリング自動処理 ----------
+
+// 時間主導トリガーから呼ばれる。新しい行を取り込み → 未分析（写真あり）を1バッチ分だけ分析する。
+// 1回あたりの件数は analyzeTicketSurveyEntries_ 内のバッチ制限・時間予算で抑えられ、残りは次回の起動で処理される。
+function runTicketSurveyAutoProcess() {
+  try {
+    if (!getAnthropicApiKey_()) {
+      updateTicketSurveyMeta_({ lastAutoRunAt: new Date().toISOString(), autoError: "APIキー未設定のためスキップ" });
+      return;
+    }
+
+    try {
+      syncTicketSurveyPhotos_();
+    } catch (syncError) {
+      appendErrorLog_("ticketSurvey.auto.sync", syncError.message || String(syncError), {});
+    }
+
+    var pending = readTicketSurveyRecords_()
+      .filter(function (record) {
+        // 自動処理の対象は「未分析かつアフター写真あり」のみ。error は無限リトライを避けるため手動再試行に任せる。
+        return (record.analysisStatus === "none" || !record.analysisStatus) && (record.afterPhotos || []).length > 0;
+      })
+      .map(function (record) {
+        return record.id;
+      });
+
+    var summary = null;
+    if (pending.length) {
+      summary = analyzeTicketSurveyEntries_(pending);
+    }
+
+    updateTicketSurveyMeta_({
+      lastAutoRunAt: new Date().toISOString(),
+      lastAutoSummary: summary ? { picked: pending.length, succeeded: summary.succeeded, failed: (summary.failures || []).length, deferred: summary.deferred || 0 } : { picked: 0 },
+      autoError: "",
+    });
+  } catch (error) {
+    appendErrorLog_("ticketSurvey.auto", error.message || String(error), {});
+    updateTicketSurveyMeta_({ lastAutoRunAt: new Date().toISOString(), autoError: error.message || String(error) });
+  }
+}
+
+function getTicketSurveyAutoTriggerIds_() {
+  return parseJson_(PropertiesService.getScriptProperties().getProperty(TICKET_SURVEY_AUTO_TRIGGER_IDS_PROPERTY_KEY), []);
+}
+
+function saveTicketSurveyAutoTriggerIds_(ids) {
+  PropertiesService.getScriptProperties().setProperty(
+    TICKET_SURVEY_AUTO_TRIGGER_IDS_PROPERTY_KEY,
+    JSON.stringify(ids || [])
+  );
+}
+
+function syncTicketSurveyAutoTrigger_(enabled) {
+  // 既存の自動処理トリガーを一旦すべて削除（ハンドラ名でも照合し、取りこぼしを防ぐ）
+  var savedIds = getTicketSurveyAutoTriggerIds_();
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (savedIds.indexOf(trigger.getUniqueId()) >= 0 || trigger.getHandlerFunction() === "runTicketSurveyAutoProcess") {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+  saveTicketSurveyAutoTriggerIds_([]);
+  if (!enabled) return;
+
+  var trigger = ScriptApp.newTrigger("runTicketSurveyAutoProcess")
+    .timeBased()
+    .everyMinutes(TICKET_SURVEY_AUTO_INTERVAL_MINUTES)
+    .create();
+  saveTicketSurveyAutoTriggerIds_([trigger.getUniqueId()]);
+}
+
+function setTicketSurveyAuto_(enabled) {
+  var on = enabled === true || enabled === "true" || enabled === 1;
+  syncTicketSurveyAutoTrigger_(on);
+  updateTicketSurveyMeta_({ autoEnabled: on });
+  appendAuditLog_("ticketSurvey.auto_toggle", { enabled: on, intervalMinutes: TICKET_SURVEY_AUTO_INTERVAL_MINUTES });
+  return { ok: true, autoEnabled: on, autoIntervalMinutes: TICKET_SURVEY_AUTO_INTERVAL_MINUTES };
 }

@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v87";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v92";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -1174,6 +1174,11 @@ const state = {
   bijirisPendingTaskCount: 0,
   selectedMeasurementPeriod: "6m",
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
+  ticketSurvey: null,
+  ticketSurveyKeyword: "",
+  ticketSurveyStatusFilter: "",
+  ticketSurveyBusy: false,
+  ticketSurveyAutoBusy: false,
   installPrompt: null,
 };
 
@@ -1807,6 +1812,7 @@ async function loadAdminData() {
     bijirisPostsResult,
     preferencesResult,
     customerMemosResult,
+    ticketSurveyResult,
   ] = await Promise.all([
     api.request("/api/admin/info", { token: state.token }),
     api.request("/api/admin/surveys", { token: state.token }),
@@ -1815,7 +1821,10 @@ async function loadAdminData() {
     api.request("/api/admin/bijiris-posts", { token: state.token }),
     api.request("/api/admin/preferences", { token: state.token }),
     api.request("/api/admin/customer-memos", { token: state.token }),
+    // 回数券分析は補助機能なので、取得に失敗しても他の画面は表示できるようにする。
+    api.request("/api/admin/ticket-survey", { token: state.token }).catch(() => null),
   ]);
+  state.ticketSurvey = ticketSurveyResult || state.ticketSurvey;
   state.adminInfo = adminInfoResult || null;
   state.customerProfiles = indexCustomerProfiles(state.adminInfo?.customerProfiles);
   state.surveys = (surveysResult.surveys || []).length
@@ -1856,6 +1865,7 @@ function renderAll() {
   renderFilters();
   renderCustomerManagement();
   renderResponses();
+  renderTicketSurvey();
   renderSettings();
   document.querySelector("#adminUrlBox").textContent = window.location.href;
 }
@@ -8590,3 +8600,428 @@ if (state.token) {
     showToast(error.message || "再ログインしてください。");
   });
 }
+
+// ============================================================
+// 回数券終了アンケート 写真分析
+// ============================================================
+
+const TICKET_SURVEY_ANALYZE_BATCH_SIZE = 5;
+const TICKET_SURVEY_ANALYSIS_LABELS = {
+  none: "未分析",
+  running: "分析中",
+  done: "分析済み",
+  error: "エラー",
+};
+
+function getTicketSurveyEntries() {
+  const entries = state.ticketSurvey?.entries;
+  return Array.isArray(entries) ? entries : [];
+}
+
+function getFilteredTicketSurveyEntries() {
+  const keyword = normalizeLabel(state.ticketSurveyKeyword).toLowerCase();
+  const status = state.ticketSurveyStatusFilter;
+  return getTicketSurveyEntries().filter((entry) => {
+    if (status && normalizeLabel(entry.analysisStatus || "none") !== status) return false;
+    if (!keyword) return true;
+    return normalizeLabel(entry.customerName).toLowerCase().includes(keyword);
+  });
+}
+
+function renderTicketSurveyPhotoGrid(photos, label) {
+  const list = Array.isArray(photos) ? photos : [];
+  if (!list.length) {
+    return `<div class="ticket-survey-photo-column">
+      <div class="meta">${escapeHtml(label)}</div>
+      <div class="empty">写真なし</div>
+    </div>`;
+  }
+  return `<div class="ticket-survey-photo-column">
+    <div class="meta">${escapeHtml(label)}（${list.length}枚）</div>
+    <div class="ticket-survey-photo-grid">
+      ${list
+        .map(
+          (photo) => `<button class="ticket-survey-photo" type="button"
+            data-ticket-survey-photo="${escapeHtml(photo.previewUrl || photo.thumbnailUrl || "")}"
+            data-ticket-survey-photo-name="${escapeHtml(photo.name || "")}">
+            <img loading="lazy" src="${escapeHtml(photo.thumbnailUrl || photo.previewUrl || "")}" alt="${escapeHtml(photo.name || label)}" />
+          </button>`,
+        )
+        .join("")}
+    </div>
+  </div>`;
+}
+
+function renderTicketSurveyEntry(entry) {
+  const status = normalizeLabel(entry.analysisStatus) || "none";
+  const statusLabel = TICKET_SURVEY_ANALYSIS_LABELS[status] || status;
+  const analysisBlock = entry.analysisText
+    ? `<div class="ticket-survey-analysis">${escapeHtml(entry.analysisText).replace(/\n/g, "<br />")}</div>`
+    : `<div class="empty">まだ分析していません。</div>`;
+
+  return `<article class="ticket-survey-entry" data-ticket-survey-entry="${escapeHtml(entry.id)}">
+    <div class="stage-head">
+      <div>
+        <div class="card-title">${escapeHtml(entry.customerName || "お名前未設定")}</div>
+        <div class="meta">
+          提出日 ${escapeHtml(entry.submittedDate || "-")}
+          ・<span class="ticket-survey-status ${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
+          ${entry.analyzedAt ? `・分析 ${escapeHtml(formatDate(entry.analyzedAt))}` : ""}
+        </div>
+      </div>
+      <div class="action-row">
+        ${entry.folderUrl ? `<a class="secondary-button" href="${escapeHtml(entry.folderUrl)}" target="_blank" rel="noopener">保存先フォルダ</a>` : ""}
+        ${entry.analysisText ? `<button class="secondary-button" type="button" data-ticket-survey-copy="${escapeHtml(entry.id)}">分析結果をコピー</button>` : ""}
+        <button class="primary-button" type="button" data-ticket-survey-analyze="${escapeHtml(entry.id)}">
+          ${entry.analysisText ? "再分析する" : "分析する"}
+        </button>
+      </div>
+    </div>
+    ${entry.errorMessage ? `<div class="ticket-survey-error">${escapeHtml(entry.errorMessage)}</div>` : ""}
+    <div class="ticket-survey-photos">
+      ${renderTicketSurveyPhotoGrid(entry.beforePhotos, "計測写真(1回目)")}
+      ${renderTicketSurveyPhotoGrid(entry.afterPhotos, "計測写真(6回目or10回目)")}
+    </div>
+    ${analysisBlock}
+  </article>`;
+}
+
+function renderTicketSurvey() {
+  const stage = document.querySelector("#ticketSurveyStage");
+  if (!stage) return;
+  const data = state.ticketSurvey;
+
+  const sourceLink = document.querySelector("#ticketSurveySourceLink");
+  if (sourceLink) {
+    sourceLink.href = data?.sourceSpreadsheetUrl || "#";
+    sourceLink.hidden = !data?.sourceSpreadsheetUrl;
+  }
+
+  const syncMeta = document.querySelector("#ticketSurveySyncMeta");
+  if (syncMeta) {
+    syncMeta.textContent = data
+      ? `スプレッドシートの写真を Drive の「Bijiris / お名前 / お名前_日付」に保存します。${
+          data.lastSyncedAt ? `最終取り込み ${formatDate(data.lastSyncedAt)}` : "まだ取り込んでいません。"
+        }`
+      : "読み込み中です。";
+  }
+
+  const syncStatus = document.querySelector("#ticketSurveySyncStatus");
+  if (syncStatus) {
+    const summary = data?.lastSyncSummary;
+    const lines = [];
+    if (summary) {
+      lines.push(
+        `<div class="meta">対象 ${summary.total} 件 / 新規 ${summary.created} 件 / 更新 ${summary.updated} 件${
+          summary.failed ? ` / 失敗 ${summary.failed} 件` : ""
+        }</div>`,
+      );
+    }
+    if (data?.syncError) {
+      lines.push(`<div class="ticket-survey-error">${escapeHtml(data.syncError)}</div>`);
+    }
+    syncStatus.innerHTML = lines.join("") || `<div class="meta">「写真を取り込む」を押すと最新の回答を読み込みます。</div>`;
+  }
+
+  const modelMeta = document.querySelector("#ticketSurveyModelMeta");
+  if (modelMeta) {
+    modelMeta.textContent = data?.model ? `分析モデル: ${data.model}` : "";
+  }
+
+  const autoToggle = document.querySelector("#ticketSurveyAutoToggle");
+  if (autoToggle && !state.ticketSurveyAutoBusy) {
+    autoToggle.checked = data?.autoEnabled === true;
+  }
+  const autoMeta = document.querySelector("#ticketSurveyAutoMeta");
+  if (autoMeta) {
+    autoMeta.textContent = data?.autoEnabled
+      ? `ON：約${data.autoIntervalMinutes || 10}分ごとに新しい回答を自動で取り込み・分析します。`
+      : "OFF：手動で「写真を取り込む」「分析する」を実行します。";
+  }
+  const autoStatus = document.querySelector("#ticketSurveyAutoStatus");
+  if (autoStatus) {
+    const lines = [];
+    if (!data?.apiKeyConfigured) {
+      lines.push(`<div class="meta">自動処理には Claude API キーの設定が必要です。</div>`);
+    }
+    if (data?.lastAutoRunAt) {
+      lines.push(`<div class="meta">最終自動実行 ${formatDate(data.lastAutoRunAt)}</div>`);
+    }
+    if (data?.autoError) {
+      lines.push(`<div class="ticket-survey-error">${escapeHtml(data.autoError)}</div>`);
+    }
+    autoStatus.innerHTML = lines.join("");
+  }
+
+  const promptInput = document.querySelector("#ticketSurveyPromptInput");
+  // 入力中の内容を保存前に消さないよう、フォーカス中は上書きしない。
+  if (promptInput && document.activeElement !== promptInput) {
+    promptInput.value = data?.prompt || "";
+  }
+
+  const apiKeyStatus = document.querySelector("#ticketSurveyApiKeyStatus");
+  if (apiKeyStatus) {
+    apiKeyStatus.textContent = data?.apiKeyConfigured
+      ? "設定済みです。変更するときだけ入力してください。"
+      : "未設定です。分析するには Claude API キーが必要です。";
+  }
+
+  const keywordInput = document.querySelector("#ticketSurveyKeywordFilter");
+  if (keywordInput && keywordInput.value !== state.ticketSurveyKeyword) {
+    keywordInput.value = state.ticketSurveyKeyword;
+  }
+  const statusSelect = document.querySelector("#ticketSurveyStatusFilter");
+  if (statusSelect && statusSelect.value !== state.ticketSurveyStatusFilter) {
+    statusSelect.value = state.ticketSurveyStatusFilter;
+  }
+
+  if (!data) {
+    stage.innerHTML = `<div class="empty">回数券分析データを読み込めませんでした。「更新」を押してください。</div>`;
+    return;
+  }
+
+  const entries = getFilteredTicketSurveyEntries();
+  stage.innerHTML = entries.length
+    ? entries.map(renderTicketSurveyEntry).join("")
+    : `<div class="empty">${
+        getTicketSurveyEntries().length
+          ? "条件に合うアンケートがありません。"
+          : "まだ取り込んでいません。「写真を取り込む」を押してください。"
+      }</div>`;
+
+  stage.querySelectorAll("[data-ticket-survey-photo]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openLightbox(button.dataset.ticketSurveyPhoto, button.dataset.ticketSurveyPhotoName);
+    });
+  });
+  stage.querySelectorAll("[data-ticket-survey-analyze]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void analyzeTicketSurveyEntries([button.dataset.ticketSurveyAnalyze]);
+    });
+  });
+  stage.querySelectorAll("[data-ticket-survey-copy]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const entry = getTicketSurveyEntries().find((item) => item.id === button.dataset.ticketSurveyCopy);
+      if (!entry?.analysisText) return;
+      void navigator.clipboard
+        ?.writeText(entry.analysisText)
+        .then(() => showToast("分析結果をコピーしました。"))
+        .catch(() => showToast("コピーできませんでした。"));
+    });
+  });
+}
+
+async function reloadTicketSurvey() {
+  const result = await api.request("/api/admin/ticket-survey", { token: state.token });
+  state.ticketSurvey = result;
+  renderTicketSurvey();
+  return result;
+}
+
+// GAS の処理は投げっぱなしになるので、完了するまで一覧を取り直して待つ。
+async function waitForTicketSurveyChange(isSettled, { attempts = 40, intervalMs = 3000 } = {}) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
+    let data;
+    try {
+      data = await reloadTicketSurvey();
+    } catch {
+      continue;
+    }
+    if (isSettled(data)) return data;
+  }
+  return null;
+}
+
+async function syncTicketSurveyPhotos() {
+  if (state.ticketSurveyBusy) return;
+  state.ticketSurveyBusy = true;
+  showBusyToast("写真を取り込んでいます…");
+  try {
+    const before = state.ticketSurvey?.lastSyncedAt || "";
+    await api.request("/api/admin/ticket-survey/sync", { method: "POST", token: state.token });
+    const settled = await waitForTicketSurveyChange(
+      (data) => data?.syncStatus !== "running" && (data?.lastSyncedAt || "") !== before,
+    );
+    if (!settled) {
+      showToast("取り込みに時間がかかっています。しばらくしてから「更新」を押してください。");
+      return;
+    }
+    const summary = settled.lastSyncSummary;
+    showToast(
+      summary
+        ? `取り込み完了：新規 ${summary.created} 件 / 更新 ${summary.updated} 件`
+        : "取り込みが完了しました。",
+    );
+  } catch (error) {
+    showToast(error.message || "取り込みに失敗しました。");
+    reportClientError("ticketSurvey.sync", error);
+  } finally {
+    state.ticketSurveyBusy = false;
+    renderTicketSurvey();
+  }
+}
+
+async function analyzeTicketSurveyEntries(entryIds) {
+  const ids = (Array.isArray(entryIds) ? entryIds : []).filter(Boolean);
+  if (!ids.length) {
+    showToast("分析するアンケートがありません。");
+    return;
+  }
+  if (state.ticketSurveyBusy) return;
+  if (!state.ticketSurvey?.apiKeyConfigured) {
+    showToast("先に Claude API キーを設定してください。");
+    return;
+  }
+  const confirmed = await openConfirmDialog({
+    title: "写真を分析します",
+    message: `${ids.length} 件のアンケートについて、1回目と6回目or10回目の写真を Claude API で比較分析します。よろしいですか？`,
+    confirmLabel: "分析する",
+  });
+  if (!confirmed) return;
+
+  state.ticketSurveyBusy = true;
+  showBusyToast(`分析しています…（${ids.length} 件）`);
+  try {
+    await api.request("/api/admin/ticket-survey/analyze", {
+      method: "POST",
+      token: state.token,
+      body: { entryIds: ids },
+    });
+    const settled = await waitForTicketSurveyChange(
+      (data) => {
+        const targets = (data?.entries || []).filter((entry) => ids.includes(entry.id));
+        return targets.length === ids.length && targets.every((entry) => entry.analysisStatus !== "running");
+      },
+      { attempts: 60, intervalMs: 4000 },
+    );
+    if (!settled) {
+      showToast("分析に時間がかかっています。しばらくしてから「更新」を押してください。");
+      return;
+    }
+    const targets = (settled.entries || []).filter((entry) => ids.includes(entry.id));
+    const failed = targets.filter((entry) => entry.analysisStatus === "error");
+    showToast(
+      failed.length
+        ? `分析完了：成功 ${targets.length - failed.length} 件 / 失敗 ${failed.length} 件`
+        : "分析が完了しました。",
+    );
+  } catch (error) {
+    showToast(error.message || "分析に失敗しました。");
+    reportClientError("ticketSurvey.analyze", error);
+  } finally {
+    state.ticketSurveyBusy = false;
+    renderTicketSurvey();
+  }
+}
+
+async function saveTicketSurveyPrompt(prompt) {
+  showBusyToast("プロンプトを保存しています…");
+  try {
+    const result = await api.request("/api/admin/ticket-survey/prompt", {
+      method: "PUT",
+      token: state.token,
+      body: { prompt },
+    });
+    state.ticketSurvey = result;
+    renderTicketSurvey();
+    showToast("プロンプトを保存しました。");
+  } catch (error) {
+    showToast(error.message || "プロンプトを保存できませんでした。");
+    reportClientError("ticketSurvey.prompt", error);
+  }
+}
+
+async function saveTicketSurveyApiKey(apiKey) {
+  showBusyToast("API キーを保存しています…");
+  try {
+    const result = await api.request("/api/admin/ticket-survey/api-key", {
+      method: "PUT",
+      token: state.token,
+      body: { apiKey },
+    });
+    state.ticketSurvey = result;
+    renderTicketSurvey();
+    showToast("API キーを保存しました。");
+  } catch (error) {
+    showToast(error.message || "API キーを保存できませんでした。");
+    reportClientError("ticketSurvey.apiKey", error);
+  }
+}
+
+async function saveTicketSurveyAuto(enabled) {
+  if (enabled && !state.ticketSurvey?.apiKeyConfigured) {
+    showToast("先に Claude API キーを設定してください。");
+    renderTicketSurvey();
+    return;
+  }
+  state.ticketSurveyAutoBusy = true;
+  showBusyToast(enabled ? "自動処理を有効にしています…" : "自動処理を停止しています…");
+  try {
+    const result = await api.request("/api/admin/ticket-survey/auto", {
+      method: "PUT",
+      token: state.token,
+      body: { enabled },
+    });
+    state.ticketSurvey = result;
+    showToast(enabled ? "自動処理を有効にしました。" : "自動処理を停止しました。");
+  } catch (error) {
+    showToast(error.message || "自動処理設定を変更できませんでした。");
+    reportClientError("ticketSurvey.auto", error);
+  } finally {
+    state.ticketSurveyAutoBusy = false;
+    renderTicketSurvey();
+  }
+}
+
+document.querySelector("#ticketSurveyAutoToggle")?.addEventListener("change", (event) => {
+  void saveTicketSurveyAuto(event.target.checked === true);
+});
+
+document.querySelector("#ticketSurveySyncButton")?.addEventListener("click", () => {
+  void syncTicketSurveyPhotos();
+});
+
+document.querySelector("#ticketSurveyAnalyzeAllButton")?.addEventListener("click", () => {
+  // GAS の実行時間制限に合わせて、1回あたりの件数をサーバー側と揃える。
+  const pending = getFilteredTicketSurveyEntries()
+    .filter((entry) => entry.analysisStatus !== "done" && (entry.afterPhotos || []).length)
+    .slice(0, TICKET_SURVEY_ANALYZE_BATCH_SIZE)
+    .map((entry) => entry.id);
+  void analyzeTicketSurveyEntries(pending);
+});
+
+document.querySelector("#ticketSurveyPromptForm")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = document.querySelector("#ticketSurveyPromptInput");
+  void saveTicketSurveyPrompt(input?.value || "");
+});
+
+document.querySelector("#ticketSurveyPromptResetButton")?.addEventListener("click", () => {
+  const input = document.querySelector("#ticketSurveyPromptInput");
+  if (!input || !state.ticketSurvey?.defaultPrompt) return;
+  input.value = state.ticketSurvey.defaultPrompt;
+  showToast("初期値に戻しました。保存を押すと反映されます。");
+});
+
+document.querySelector("#ticketSurveyApiKeyForm")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = document.querySelector("#ticketSurveyApiKeyInput");
+  const value = input?.value || "";
+  if (!value.trim()) {
+    showToast("API キーを入力してください。");
+    return;
+  }
+  if (input) input.value = "";
+  void saveTicketSurveyApiKey(value.trim());
+});
+
+document.querySelector("#ticketSurveyKeywordFilter")?.addEventListener("input", (event) => {
+  state.ticketSurveyKeyword = event.target.value;
+  renderTicketSurvey();
+});
+
+document.querySelector("#ticketSurveyStatusFilter")?.addEventListener("change", (event) => {
+  state.ticketSurveyStatusFilter = event.target.value;
+  renderTicketSurvey();
+});

@@ -2096,3 +2096,89 @@ textarea {
     min-width: 860px;
   }
 }
+
+/* ===== 回数券終了アンケート 写真分析 ===== */
+.ticket-survey-entry {
+  border: 1px solid var(--border, #e2e0d8);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: #fff;
+}
+
+.ticket-survey-status {
+  font-weight: 600;
+}
+
+.ticket-survey-status.done {
+  color: #3f7a3f;
+}
+
+.ticket-survey-status.error {
+  color: #b3453a;
+}
+
+.ticket-survey-status.running {
+  color: #a97a1f;
+}
+
+.ticket-survey-error {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fbeae8;
+  color: #8f3229;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+.ticket-survey-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin: 12px 0;
+}
+
+.ticket-survey-photo-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ticket-survey-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.ticket-survey-photo {
+  padding: 0;
+  border: 1px solid var(--border, #e2e0d8);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f6f5f1;
+  cursor: pointer;
+  aspect-ratio: 3 / 4;
+}
+
+.ticket-survey-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ticket-survey-analysis {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f6f7f2;
+  line-height: 1.8;
+  white-space: normal;
+}
+
+#ticketSurveyPromptInput {
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}

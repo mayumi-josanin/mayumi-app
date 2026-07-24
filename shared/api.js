@@ -594,6 +594,16 @@ window.MayumiSurveyApi = (() => {
     return null;
   }
 
+  async function waitForTicketSurvey(gasUrl, token, matcher) {
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      if (attempt) await sleep(1500);
+      const data = await jsonp(gasUrl, "adminTicketSurvey", { token });
+      const matched = matcher(data);
+      if (matched !== undefined) return matched;
+    }
+    return null;
+  }
+
   async function waitForUpdatedAdminBijirisPost(gasUrl, token, postId, expected) {
     const previousUpdatedAt = normalizeText(expected?.updatedAt);
     const strictMatch = await waitForAdminBijirisPosts(gasUrl, token, (posts) => {
@@ -1021,6 +1031,68 @@ window.MayumiSurveyApi = (() => {
 
       if (path === "/api/admin/bijiris-posts" && method === "GET") {
         return jsonp(gasUrl, "adminBijirisPosts", { token: options.token });
+      }
+
+      if (path === "/api/admin/ticket-survey" && method === "GET") {
+        return jsonp(gasUrl, "adminTicketSurvey", { token: options.token });
+      }
+
+      // 取り込み・分析は GAS 側で時間がかかるため、投げっぱなしにして完了をポーリングする。
+      if (path === "/api/admin/ticket-survey/sync" && method === "POST") {
+        await postToGas(gasUrl, "adminSyncTicketSurvey", { token: options.token });
+        return { ok: true };
+      }
+
+      if (path === "/api/admin/ticket-survey/analyze" && method === "POST") {
+        await postToGas(gasUrl, "adminAnalyzeTicketSurvey", {
+          token: options.token,
+          payload: { entryIds: options.body?.entryIds || [] },
+        });
+        return { ok: true };
+      }
+
+      if (path === "/api/admin/ticket-survey/prompt" && method === "PUT") {
+        await postToGas(gasUrl, "adminSaveTicketSurveyPrompt", {
+          token: options.token,
+          payload: { prompt: options.body?.prompt || "" },
+        });
+        const saved = await waitForTicketSurvey(
+          gasUrl,
+          options.token,
+          (data) => (normalizeText(data?.prompt) === normalizeText(options.body?.prompt) ? data : undefined),
+        );
+        if (!saved) throw new Error("分析プロンプトの保存を確認できませんでした。");
+        return saved;
+      }
+
+      if (path === "/api/admin/ticket-survey/api-key" && method === "PUT") {
+        await postToGas(gasUrl, "adminSaveTicketSurveyApiKey", {
+          token: options.token,
+          payload: { apiKey: options.body?.apiKey || "" },
+        });
+        const expected = Boolean(normalizeText(options.body?.apiKey));
+        const saved = await waitForTicketSurvey(
+          gasUrl,
+          options.token,
+          (data) => (data?.apiKeyConfigured === expected ? data : undefined),
+        );
+        if (!saved) throw new Error("API キーの保存を確認できませんでした。");
+        return saved;
+      }
+
+      if (path === "/api/admin/ticket-survey/auto" && method === "PUT") {
+        const enabled = options.body?.enabled === true;
+        await postToGas(gasUrl, "adminSetTicketSurveyAuto", {
+          token: options.token,
+          payload: { enabled },
+        });
+        const saved = await waitForTicketSurvey(
+          gasUrl,
+          options.token,
+          (data) => (data?.autoEnabled === enabled ? data : undefined),
+        );
+        if (!saved) throw new Error("自動処理設定の保存を確認できませんでした。");
+        return saved;
       }
 
       if (path === "/api/admin/bijiris-posts" && method === "POST") {
