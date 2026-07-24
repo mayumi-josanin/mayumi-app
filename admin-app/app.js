@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v92";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v93";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -8679,8 +8679,8 @@ function renderTicketSurveyEntry(entry) {
     </div>
     ${entry.errorMessage ? `<div class="ticket-survey-error">${escapeHtml(entry.errorMessage)}</div>` : ""}
     <div class="ticket-survey-photos">
-      ${renderTicketSurveyPhotoGrid(entry.beforePhotos, "計測写真(1回目)")}
-      ${renderTicketSurveyPhotoGrid(entry.afterPhotos, "計測写真(6回目or10回目)")}
+      ${renderTicketSurveyPhotoGrid(entry.beforePhotos, "モニター時（ビフォー）")}
+      ${renderTicketSurveyPhotoGrid(entry.afterPhotos, "回数券終了時（アフター）")}
     </div>
     ${analysisBlock}
   </article>`;
@@ -8691,36 +8691,21 @@ function renderTicketSurvey() {
   if (!stage) return;
   const data = state.ticketSurvey;
 
-  const sourceLink = document.querySelector("#ticketSurveySourceLink");
-  if (sourceLink) {
-    sourceLink.href = data?.sourceSpreadsheetUrl || "#";
-    sourceLink.hidden = !data?.sourceSpreadsheetUrl;
+  const seedMeta = document.querySelector("#ticketSurveySeedMeta");
+  if (seedMeta) {
+    seedMeta.textContent = data?.monitorSeededAt
+      ? `既存のモニター画像を josanin の「Bijiris / モニター写真 / お名前」に取り込み済みです（最終 ${formatDate(data.monitorSeededAt)}）。`
+      : "既存のモニター画像（計測写真(1回目)）を josanin の Drive に一度だけコピーします。初回のみ実行してください。";
   }
 
-  const syncMeta = document.querySelector("#ticketSurveySyncMeta");
-  if (syncMeta) {
-    syncMeta.textContent = data
-      ? `スプレッドシートの写真を Drive の「Bijiris / お名前 / お名前_日付」に保存します。${
-          data.lastSyncedAt ? `最終取り込み ${formatDate(data.lastSyncedAt)}` : "まだ取り込んでいません。"
-        }`
-      : "読み込み中です。";
-  }
-
-  const syncStatus = document.querySelector("#ticketSurveySyncStatus");
-  if (syncStatus) {
-    const summary = data?.lastSyncSummary;
-    const lines = [];
-    if (summary) {
-      lines.push(
-        `<div class="meta">対象 ${summary.total} 件 / 新規 ${summary.created} 件 / 更新 ${summary.updated} 件${
-          summary.failed ? ` / 失敗 ${summary.failed} 件` : ""
-        }</div>`,
-      );
-    }
-    if (data?.syncError) {
-      lines.push(`<div class="ticket-survey-error">${escapeHtml(data.syncError)}</div>`);
-    }
-    syncStatus.innerHTML = lines.join("") || `<div class="meta">「写真を取り込む」を押すと最新の回答を読み込みます。</div>`;
+  const seedStatus = document.querySelector("#ticketSurveySeedStatus");
+  if (seedStatus) {
+    const summary = data?.monitorSeedSummary;
+    seedStatus.innerHTML = summary
+      ? `<div class="meta">取り込み済み: ${summary.folders} 名分 / 画像 ${summary.copied} 枚${
+          summary.skipped ? ` / スキップ ${summary.skipped} 名（既に取り込み済み）` : ""
+        }</div>`
+      : "";
   }
 
   const modelMeta = document.querySelector("#ticketSurveyModelMeta");
@@ -8833,29 +8818,36 @@ async function waitForTicketSurveyChange(isSettled, { attempts = 40, intervalMs 
   return null;
 }
 
-async function syncTicketSurveyPhotos() {
+async function seedMonitorReferenceImages() {
   if (state.ticketSurveyBusy) return;
+  const confirmed = await openConfirmDialog({
+    title: "モニター画像を一括取り込み",
+    message: "既存のモニター画像（計測写真(1回目)）を josanin の Drive にコピーします。初回のみ実行してください。よろしいですか？",
+    confirmLabel: "取り込む",
+  });
+  if (!confirmed) return;
+
   state.ticketSurveyBusy = true;
-  showBusyToast("写真を取り込んでいます…");
+  showBusyToast("モニター画像を取り込んでいます…");
   try {
-    const before = state.ticketSurvey?.lastSyncedAt || "";
-    await api.request("/api/admin/ticket-survey/sync", { method: "POST", token: state.token });
+    const before = state.ticketSurvey?.monitorSeededAt || "";
+    await api.request("/api/admin/ticket-survey/seed-monitor", { method: "POST", token: state.token });
     const settled = await waitForTicketSurveyChange(
-      (data) => data?.syncStatus !== "running" && (data?.lastSyncedAt || "") !== before,
+      (data) => (data?.monitorSeededAt || "") !== before,
     );
     if (!settled) {
       showToast("取り込みに時間がかかっています。しばらくしてから「更新」を押してください。");
       return;
     }
-    const summary = settled.lastSyncSummary;
+    const summary = settled.monitorSeedSummary;
     showToast(
       summary
-        ? `取り込み完了：新規 ${summary.created} 件 / 更新 ${summary.updated} 件`
+        ? `取り込み完了：${summary.folders} 名分 / 画像 ${summary.copied} 枚`
         : "取り込みが完了しました。",
     );
   } catch (error) {
     showToast(error.message || "取り込みに失敗しました。");
-    reportClientError("ticketSurvey.sync", error);
+    reportClientError("ticketSurvey.seedMonitor", error);
   } finally {
     state.ticketSurveyBusy = false;
     renderTicketSurvey();
@@ -8978,8 +8970,8 @@ document.querySelector("#ticketSurveyAutoToggle")?.addEventListener("change", (e
   void saveTicketSurveyAuto(event.target.checked === true);
 });
 
-document.querySelector("#ticketSurveySyncButton")?.addEventListener("click", () => {
-  void syncTicketSurveyPhotos();
+document.querySelector("#ticketSurveySeedButton")?.addEventListener("click", () => {
+  void seedMonitorReferenceImages();
 });
 
 document.querySelector("#ticketSurveyAnalyzeAllButton")?.addEventListener("click", () => {

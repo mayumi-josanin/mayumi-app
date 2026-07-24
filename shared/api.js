@@ -1037,9 +1037,9 @@ window.MayumiSurveyApi = (() => {
         return jsonp(gasUrl, "adminTicketSurvey", { token: options.token });
       }
 
-      // 取り込み・分析は GAS 側で時間がかかるため、投げっぱなしにして完了をポーリングする。
-      if (path === "/api/admin/ticket-survey/sync" && method === "POST") {
-        await postToGas(gasUrl, "adminSyncTicketSurvey", { token: options.token });
+      // 一括取り込み・分析は GAS 側で時間がかかるため、投げっぱなしにして完了をポーリングする。
+      if (path === "/api/admin/ticket-survey/seed-monitor" && method === "POST") {
+        await postToGas(gasUrl, "adminSeedMonitorReference", { token: options.token });
         return { ok: true };
       }
 
