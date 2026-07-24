@@ -12201,6 +12201,17 @@
       return 'イベント';
     }
 
+    // GASは 'YYYY-MM-DDThh:mm:ss+09:00' 形式で日付を返すため、YYYY-MM-DD(ゼロ埋め)へ正規化して比較する
+    function normalizeCalendarDateKey(v) {
+      const parts = String(v || '').split('-');
+      if (parts.length < 3) return '';
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const d = parseInt(parts[2], 10);
+      if (!y || !m || !d) return '';
+      return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    }
+
     function renderMonthCalendar(year, month) {
       const grid = document.getElementById('monthCalendarGrid');
       const label = document.getElementById('monthCalendarLabel');
@@ -12315,7 +12326,7 @@
         if (!e || !e.date) return false;
         const status = e.status || e.publishStatus || '公開';
         if (status === '非公開') return false;
-        return e.date === dateStr;
+        return normalizeCalendarDateKey(e.date) === dateStr;
       });
 
       // 日付ラベル
