@@ -6013,3 +6013,40 @@ function setTicketSurveyAuto_(enabled) {
   appendAuditLog_("ticketSurvey.auto_toggle", { enabled: on, intervalMinutes: TICKET_SURVEY_AUTO_INTERVAL_MINUTES });
   return { ok: true, autoEnabled: on, autoIntervalMinutes: TICKET_SURVEY_AUTO_INTERVAL_MINUTES };
 }
+
+// ============================================================
+// 一度きりのユーティリティ: Bijiris/計測時/<顧客名> フォルダを作成する。
+// Apps Script エディタで関数 createMeasurementTimeFolders を選んで「実行」する。
+// 既存フォルダはそのまま（重複作成しない）。
+// ============================================================
+function createMeasurementTimeFolders() {
+  var names = [
+    "前多洋子",
+    "岩谷梨奈",
+    "廣田沙織",
+    "小瀬村真理子",
+    "木原真理",
+    "小澤美奈子",
+    "宮村綾子",
+    "藤田茉衣",
+    "國分彩子",
+    "山谷未央",
+    "尾形あゆみ",
+  ];
+  var root = getChildFolderByName_(getRootPhotoFolder_(), "計測時"); // Bijiris/計測時
+  var created = [];
+  var existed = [];
+  names.forEach(function (name) {
+    var folders = root.getFoldersByName(name);
+    if (folders.hasNext()) {
+      existed.push(name);
+    } else {
+      root.createFolder(name);
+      created.push(name);
+    }
+  });
+  Logger.log("計測時フォルダ: " + root.getUrl());
+  Logger.log("新規作成(" + created.length + "): " + created.join("、"));
+  Logger.log("既存のまま(" + existed.length + "): " + existed.join("、"));
+  return { ok: true, folderUrl: root.getUrl(), created: created, existed: existed };
+}
