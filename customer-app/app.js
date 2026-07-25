@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v98";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v101";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -26,6 +26,7 @@ const SESSION_TYPE_QUESTION_ID = "q_bijiris_session_type";
 const SESSION_TICKET_PLAN_QUESTION_ID = "q_bijiris_session_ticket_plan";
 const SESSION_TICKET_SHEET_QUESTION_ID = "q_bijiris_session_ticket_sheet";
 const SESSION_TICKET_ROUND_QUESTION_ID = "q_bijiris_session_ticket_round";
+const SESSION_TREATMENT_COUNT_QUESTION_ID = "q_bijiris_session_treatment_count";
 const LEGACY_SESSION_MONITOR_PHOTOS_QUESTION_ID = "q_bijiris_session_monitor_photos";
 const LEGACY_SESSION_TICKET_END_PHOTOS_QUESTION_ID = "q_bijiris_session_ticket_end_photos";
 const SESSION_MONITOR_PHOTOS_QUESTION_IDS = [
@@ -1857,6 +1858,12 @@ function buildDraftAnswerMap(survey, draft) {
 }
 
 function isQuestionVisible(question, answerMap, surveyId = appState.selectedSurveyId) {
+  if (question?.id === SESSION_TREATMENT_COUNT_QUESTION_ID) {
+    const typeValues = Array.isArray(answerMap[SESSION_TYPE_QUESTION_ID])
+      ? answerMap[SESSION_TYPE_QUESTION_ID]
+      : [];
+    return typeValues.includes("単発") || typeValues.includes("キャンペーン");
+  }
   if (surveyId === SESSION_SURVEY_ID && isLegacyBijirisSessionPhotoQuestion(question)) {
     return isBijirisSessionFinalPhotoVisible(answerMap);
   }

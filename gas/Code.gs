@@ -275,10 +275,11 @@ var SURVEYS = [
     completionMessage: "施術後アンケートのご回答ありがとうございました。",
     status: "published",
     questions: [
-      { id: "q_bijiris_session_type", label: "施術内容", type: "choice", required: true, options: ["初回お試し", "回数券", "単発", "トライアル"] },
+      { id: "q_bijiris_session_type", label: "施術内容", type: "choice", required: true, options: ["初回お試し", "回数券", "単発", "キャンペーン", "トライアル"] },
       { id: "q_bijiris_session_ticket_plan", label: "回数券の種類", type: "choice", required: true, options: ["6回券", "10回券"], visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" } },
       { id: "q_bijiris_session_ticket_sheet", label: "回数券の何枚目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_SHEET_OPTIONS, visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" } },
       { id: "q_bijiris_session_ticket_round", label: "回数券の何回目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS, visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" } },
+      { id: "q_bijiris_session_treatment_count", label: "施術回数（何回目ですか？）", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS },
       { id: "q_bijiris_session_feeling", label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください", type: "textarea", required: true, options: [] },
       { id: "q_bijiris_session_concern", label: "普段のお身体のお悩みや、ビジリス（骨盤底筋ケア）について気になること・知りたいことはありますか？（複数選択可）", type: "checkbox", required: false, options: getBijirisSessionConcernOptions_() },
       { id: "q_bijiris_session_concern_other", label: "気になること・知りたいこと（その他・長文）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_bijiris_session_concern", value: "その他（長文）" } },
@@ -5132,7 +5133,19 @@ function getPhotoQuestionRequiredCount_(question, visible, survey) {
   return question && question.required === false ? 0 : 1;
 }
 
+function isSessionTreatmentCountVisible_(rawAnswerMap) {
+  var values = rawAnswerMap && rawAnswerMap["q_bijiris_session_type"];
+  if (!Array.isArray(values) || !values.length) return false;
+  return values.some(function (value) {
+    var v = normalizeText_(value);
+    return v === "単発" || v === "キャンペーン";
+  });
+}
+
 function isQuestionVisible_(question, rawAnswerMap, survey) {
+  if (question && question.id === "q_bijiris_session_treatment_count") {
+    return isSessionTreatmentCountVisible_(rawAnswerMap || {});
+  }
   if (isLegacyBijirisSessionPhotoQuestion_(question, survey)) {
     return isBijirisSessionFinalPhotoVisible_(rawAnswerMap || {});
   }
@@ -6223,9 +6236,48 @@ function migrateToSplitSurveys() {
     if (survey.id === "survey_bijiris_session") {
       survey.title = "施術後アンケート";
       survey.completionMessage = "施術後アンケートのご回答ありがとうございました。";
+      survey.status = "published";
       survey.questions = (survey.questions || []).filter(function (question) {
         return question && question.type !== "photo";
       });
+
+      // 施術内容に「キャンペーン」を追加（未追加なら）
+      var typeQuestion = null;
+      var roundIndex = -1;
+      var hasTreatmentCount = false;
+      for (var qi = 0; qi < survey.questions.length; qi += 1) {
+        var q = survey.questions[qi];
+        if (q.id === "q_bijiris_session_type") typeQuestion = q;
+        if (q.id === "q_bijiris_session_ticket_round") roundIndex = qi;
+        if (q.id === "q_bijiris_session_treatment_count") hasTreatmentCount = true;
+      }
+      if (typeQuestion) {
+        var opts = Array.isArray(typeQuestion.options) ? typeQuestion.options.slice() : [];
+        if (opts.indexOf("キャンペーン") === -1) {
+          var tanIndex = opts.indexOf("単発");
+          if (tanIndex >= 0) {
+            opts.splice(tanIndex + 1, 0, "キャンペーン");
+          } else {
+            opts.push("キャンペーン");
+          }
+          typeQuestion.options = opts;
+        }
+      }
+      // 施術回数の質問を追加（未追加なら、回数券の何回目の直後に挿入）
+      if (!hasTreatmentCount) {
+        var treatmentCountQuestion = {
+          id: "q_bijiris_session_treatment_count",
+          label: "施術回数（何回目ですか？）",
+          type: "choice",
+          required: true,
+          options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS.slice(),
+        };
+        if (roundIndex >= 0) {
+          survey.questions.splice(roundIndex + 1, 0, treatmentCountQuestion);
+        } else {
+          survey.questions.push(treatmentCountQuestion);
+        }
+      }
     }
   });
 
