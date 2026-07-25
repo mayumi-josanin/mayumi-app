@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v108";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v109";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1864,14 +1864,14 @@ function isQuestionVisible(question, answerMap, surveyId = appState.selectedSurv
       : [];
     return typeValues.includes("単発") || typeValues.includes("キャンペーン");
   }
-  // 計測時アンケート：モニター時のみの分岐
+  // 計測時アンケート：初回計測時のみの分岐
   if (
     question?.id === "q_measure_m_treatment_count" ||
     question?.id === "q_measure_life_changes" ||
     question?.id === "q_measure_improve"
   ) {
     const timingValues = Array.isArray(answerMap["q_measure_timing"]) ? answerMap["q_measure_timing"] : [];
-    const isMonitor = timingValues.some((v) => String(v).includes("モニター"));
+    const isMonitor = timingValues.some((v) => String(v).includes("初回計測") || String(v).includes("モニター"));
     if (question.id === "q_measure_m_treatment_count") {
       const typeValues = Array.isArray(answerMap["q_measure_m_type"]) ? answerMap["q_measure_m_type"] : [];
       return isMonitor && (typeValues.includes("単発") || typeValues.includes("キャンペーン"));
