@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v94";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v95";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -2756,6 +2756,15 @@ async function updateRewardRedemption(customerName, threshold, handed, checkbox)
   }
 }
 
+function getCampaignVisitCount(responses) {
+  return (Array.isArray(responses) ? responses : []).filter((response) => {
+    const answer = (response.answers || []).find((item) => item.questionId === "q_bijiris_session_type");
+    if (!answer) return false;
+    const value = Array.isArray(answer.value) ? answer.value.join("") : String(answer.value || "");
+    return value.trim() === "キャンペーン";
+  }).length;
+}
+
 function renderCustomerSummaryCard(customerName, responses) {
   const latestResponse = responses[0] || null;
   const latestMeasurement = getCustomerMeasurements(customerName)[0] || null;
@@ -2763,6 +2772,7 @@ function renderCustomerSummaryCard(customerName, responses) {
   const surveyCount = new Set(responses.map((response) => response.surveyId || response.surveyTitle || response.id)).size;
   const profile = getCustomerProfileByName(customerName);
   const cardBreakdown = getCompletedTicketCardBreakdown(customerName);
+  const campaignCount = getCampaignVisitCount(responses);
   return `
     <article class="answer-item customer-summary-card">
       <strong>${escapeHtml(getCustomerNameWithMember(customerName))}</strong>
@@ -2771,6 +2781,7 @@ function renderCustomerSummaryCard(customerName, responses) {
         ${renderCustomerPushStatus(profile?.pushStatus)}
         <div class="meta customer-summary-item">回答数: ${responses.length}件 / アンケート種類: ${surveyCount}件</div>
         <div class="meta customer-summary-item customer-summary-item-wide">回数券 合計 ${cardBreakdown.total}枚：6回券 ${cardBreakdown.byPlan["6回券"] || 0}枚、10回券 ${cardBreakdown.byPlan["10回券"] || 0}枚</div>
+        <div class="meta customer-summary-item">キャンペーン 累計: ${campaignCount}回</div>
         <div class="meta customer-summary-item">最新回答: ${latestResponse ? `${escapeHtml(latestResponse.surveyTitle)} / ${formatDate(latestResponse.submittedAt)}` : "-"}</div>
         <div class="meta customer-summary-item customer-summary-item-wide">最新測定: ${latestMeasurement ? `${escapeHtml(formatDateOnly(latestMeasurement.measuredAt))} / WHR ${escapeHtml(formatWhr(latestMeasurement.whr))}` : "-"}</div>
       </div>

@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v112";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v113";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -414,6 +414,7 @@ const historyList = document.querySelector("#historyList");
 const measurementPanel = document.querySelector("#measurementPanel");
 const bijirisPanel = document.querySelector("#bijirisPanel");
 const homeTicketStatus = document.querySelector("#homeTicketStatus");
+const homeCampaignStatus = document.querySelector("#homeCampaignStatus");
 const homeMilestoneReward = document.querySelector("#homeMilestoneReward");
 const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
@@ -5080,8 +5081,61 @@ function renderHomeMilestoneReward() {
   `;
 }
 
+function getCampaignResponsesAsc() {
+  return getVisibleHistoryResponses()
+    .filter((response) => {
+      const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
+      return getAnswerValueFromQuestionIds(answerMap, [SESSION_TYPE_QUESTION_ID]) === "キャンペーン";
+    })
+    .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+}
+
+function renderHomeCampaignStatus() {
+  if (!homeCampaignStatus) return;
+  if (!hasCustomerSession() || appState.historyLoading || appState.historyLoadError) {
+    homeCampaignStatus.innerHTML = "";
+    return;
+  }
+  const responses = getCampaignResponsesAsc();
+  const count = responses.length;
+  if (count <= 0) {
+    homeCampaignStatus.innerHTML = "";
+    return;
+  }
+  const perSheet = 10;
+  const sheetNumber = Math.floor((count - 1) / perSheet) + 1;
+  const inSheet = ((count - 1) % perSheet) + 1;
+  const base = (sheetNumber - 1) * perSheet;
+  const stampDates = new Map();
+  for (let step = 1; step <= inSheet; step += 1) {
+    const resp = responses[base + step - 1];
+    if (resp) stampDates.set(step, resp.submittedAt);
+  }
+  const latest = responses[count - 1];
+  homeCampaignStatus.innerHTML = `
+    <article class="ticket-home-card">
+      <div class="ticket-home-head">
+        <div>
+          <strong>キャンペーン</strong>
+          <div class="meta">来店（施術）ごとに自動でカウントされます</div>
+          <div class="meta">最新更新: ${formatDate(latest.submittedAt)}</div>
+        </div>
+        <span class="badge open">${escapeHtml(`${count}回目`)}</span>
+      </div>
+      <div class="ticket-progress-card">
+        <div class="ticket-progress-head">
+          <strong>${escapeHtml(`${sheetNumber}枚目`)}</strong>
+          <span>${inSheet} / ${perSheet}</span>
+        </div>
+        ${renderTicketStampProgress(perSheet, inSheet, stampDates)}
+      </div>
+    </article>
+  `;
+}
+
 function renderHomeTicketStatus() {
   renderHomeMilestoneReward();
+  renderHomeCampaignStatus();
   if (!homeTicketStatus) return;
   if (!hasCustomerSession()) {
     homeTicketStatus.innerHTML = `<div class="empty">ログインすると回数券スタンプを表示します。</div>`;
