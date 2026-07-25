@@ -196,6 +196,31 @@ var BIJIRIS_SESSION_LIFE_CHANGE_OPTIONS = [
   "その他（自由記述）",
 ];
 
+var MEASURE_LIFE_CHANGE_OPTIONS = [
+  "立っている時や座っている時の姿勢が楽になった",
+  "長時間歩いても疲れにくくなった",
+  "尿漏れや頻尿が気にならなくなった",
+  "ズボンやスカートが緩くなった気がする",
+  "冷え性が良くなった（体がポカポカする）",
+  "便通が良くなった",
+  "腰痛・股関節痛が軽くなった",
+  "睡眠の質が良くなった",
+  "階段の上り下りが楽になった",
+  "特に変化は感じなかった",
+  "その他（自由記述）",
+];
+
+var MEASURE_IMPROVE_OPTIONS = [
+  "もっとお腹周りを引き締めたい",
+  "痛みのない生活を送りたい",
+  "姿勢をもっと良くしたい",
+  "今の良い状態をキープしたい",
+  "睡眠の質を高めたい",
+  "妊娠しやすい体づくりをしたい",
+  "トイレトラブルを改善したい",
+  "その他（自由記述）",
+];
+
 var MASTER_HEADERS = [
   "送信日時",
   "回答ID",
@@ -301,6 +326,11 @@ var SURVEYS = [
       { id: "q_measure_hip", label: "ヒップ（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
       { id: "q_measure_thigh_right", label: "太もも右（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
       { id: "q_measure_thigh_left", label: "太もも左（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
+      { id: "q_measure_life_changes", label: "日常生活で変化を感じたことはありますか？（複数回答可）", type: "checkbox", required: true, options: MEASURE_LIFE_CHANGE_OPTIONS },
+      { id: "q_measure_life_changes_other", label: "日常生活の変化（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_life_changes", value: "その他（自由記述）" } },
+      { id: "q_measure_improve", label: "今後もっと改善したい部分はありますか？（複数回答可）", type: "checkbox", required: true, options: MEASURE_IMPROVE_OPTIONS },
+      { id: "q_measure_improve_other", label: "改善したい部分（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_improve", value: "その他（自由記述）" } },
+      { id: "q_measure_question", label: "ご質問・ご相談（自由記述）", type: "textarea", required: false, options: [] },
     ],
   },
 ];
@@ -6275,44 +6305,42 @@ function migrateToSplitSurveys() {
 
       survey.questions = questions;
     } else if (survey.id === "survey_measurement") {
-      // 旧・太もも（単一）を除去し、右/左を取り出す
-      var rightQ = null;
-      var leftQ = null;
-      var mQuestions = (survey.questions || []).filter(function (q) {
-        if (!q) return false;
-        if (q.id === "q_measure_thigh") return false;
-        if (q.id === "q_measure_thigh_right") { rightQ = q; return false; }
-        if (q.id === "q_measure_thigh_left") { leftQ = q; return false; }
-        return true;
+      // 計測時アンケートの質問を正準の順序で再構成する（既存の質問オブジェクトは温存、
+      // 旧・太もも(単一)などspecに無いidは自動的に除外、記入例ラベル・新規3問を反映）。
+      var existingById = {};
+      (survey.questions || []).forEach(function (q) {
+        if (q && q.id) existingById[q.id] = q;
       });
-      // ウエスト・ヒップに記入例ラベルと記入例を設定
-      mQuestions.forEach(function (q) {
-        if (q.id === "q_measure_waist") q.label = "ウエスト（cm）　記入例：22.5（数値のみ）";
-        if (q.id === "q_measure_hip") q.label = "ヒップ（cm）　記入例：22.5（数値のみ）";
-        if (q.id === "q_measure_waist" || q.id === "q_measure_hip") q.placeholder = "22.5";
+      var measureSpec = [
+        { id: "q_measure_timing" },
+        { id: "q_measure_photos" },
+        { id: "q_measure_waist", label: "ウエスト（cm）　記入例：22.5（数値のみ）", placeholder: "22.5" },
+        { id: "q_measure_hip", label: "ヒップ（cm）　記入例：22.5（数値のみ）", placeholder: "22.5" },
+        { id: "q_measure_thigh_right", label: "太もも右（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
+        { id: "q_measure_thigh_left", label: "太もも左（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
+        { id: "q_measure_life_changes", label: "日常生活で変化を感じたことはありますか？（複数回答可）", type: "checkbox", required: true, options: MEASURE_LIFE_CHANGE_OPTIONS.slice() },
+        { id: "q_measure_life_changes_other", label: "日常生活の変化（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_life_changes", value: "その他（自由記述）" } },
+        { id: "q_measure_improve", label: "今後もっと改善したい部分はありますか？（複数回答可）", type: "checkbox", required: true, options: MEASURE_IMPROVE_OPTIONS.slice() },
+        { id: "q_measure_improve_other", label: "改善したい部分（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_improve", value: "その他（自由記述）" } },
+        { id: "q_measure_question", label: "ご質問・ご相談（自由記述）", type: "textarea", required: false, options: [] },
+      ];
+      survey.questions = measureSpec.map(function (spec) {
+        var base = existingById[spec.id] || { id: spec.id };
+        var merged = {};
+        for (var k in base) {
+          if (Object.prototype.hasOwnProperty.call(base, k)) merged[k] = base[k];
+        }
+        if (spec.label !== undefined) merged.label = spec.label;
+        if (spec.type !== undefined) merged.type = spec.type;
+        if (spec.required !== undefined) merged.required = spec.required;
+        if (spec.options !== undefined) merged.options = spec.options;
+        if (spec.placeholder !== undefined) merged.placeholder = spec.placeholder;
+        if (spec.visibleWhen !== undefined) {
+          merged.visibleWhen = spec.visibleWhen;
+          merged.visibilityConditions = [spec.visibleWhen];
+        }
+        return merged;
       });
-      if (!rightQ) {
-        rightQ = { id: "q_measure_thigh_right", label: "太もも右（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" };
-      } else {
-        rightQ.label = "太もも右（cm）　記入例：22.5（数値のみ）";
-        rightQ.type = "text";
-        rightQ.placeholder = "22.5";
-      }
-      if (!leftQ) {
-        leftQ = { id: "q_measure_thigh_left", label: "太もも左（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" };
-      } else {
-        leftQ.label = "太もも左（cm）　記入例：22.5（数値のみ）";
-        leftQ.type = "text";
-        leftQ.placeholder = "22.5";
-      }
-      // ヒップの直後に 右→左 を配置（無ければ末尾）
-      var hipIndex = -1;
-      for (var mj = 0; mj < mQuestions.length; mj += 1) {
-        if (mQuestions[mj].id === "q_measure_hip") hipIndex = mj;
-      }
-      var atIndex = hipIndex >= 0 ? hipIndex + 1 : mQuestions.length;
-      mQuestions.splice(atIndex, 0, rightQ, leftQ);
-      survey.questions = mQuestions;
     }
   });
 

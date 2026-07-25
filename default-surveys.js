@@ -152,6 +152,31 @@ const BIJIRIS_SESSION_LIFE_CHANGE_OPTIONS = [
   "その他（自由記述）",
 ];
 
+const MEASURE_LIFE_CHANGE_OPTIONS = [
+  "立っている時や座っている時の姿勢が楽になった",
+  "長時間歩いても疲れにくくなった",
+  "尿漏れや頻尿が気にならなくなった",
+  "ズボンやスカートが緩くなった気がする",
+  "冷え性が良くなった（体がポカポカする）",
+  "便通が良くなった",
+  "腰痛・股関節痛が軽くなった",
+  "睡眠の質が良くなった",
+  "階段の上り下りが楽になった",
+  "特に変化は感じなかった",
+  "その他（自由記述）",
+];
+
+const MEASURE_IMPROVE_OPTIONS = [
+  "もっとお腹周りを引き締めたい",
+  "痛みのない生活を送りたい",
+  "姿勢をもっと良くしたい",
+  "今の良い状態をキープしたい",
+  "睡眠の質を高めたい",
+  "妊娠しやすい体づくりをしたい",
+  "トイレトラブルを改善したい",
+  "その他（自由記述）",
+];
+
 const BIJIRIS_SESSION_CONCERN_OTHER_OPTION = "その他（長文）";
 
 function getBijirisSessionConcernOptions() {
@@ -312,6 +337,43 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           required: false,
           options: [],
           placeholder: "22.5",
+        },
+        {
+          id: "q_measure_life_changes",
+          label: "日常生活で変化を感じたことはありますか？（複数回答可）",
+          type: "checkbox",
+          required: true,
+          options: MEASURE_LIFE_CHANGE_OPTIONS,
+        },
+        {
+          id: "q_measure_life_changes_other",
+          label: "日常生活の変化（その他）",
+          type: "textarea",
+          required: false,
+          options: [],
+          visibleWhen: { questionId: "q_measure_life_changes", value: "その他（自由記述）" },
+        },
+        {
+          id: "q_measure_improve",
+          label: "今後もっと改善したい部分はありますか？（複数回答可）",
+          type: "checkbox",
+          required: true,
+          options: MEASURE_IMPROVE_OPTIONS,
+        },
+        {
+          id: "q_measure_improve_other",
+          label: "改善したい部分（その他）",
+          type: "textarea",
+          required: false,
+          options: [],
+          visibleWhen: { questionId: "q_measure_improve", value: "その他（自由記述）" },
+        },
+        {
+          id: "q_measure_question",
+          label: "ご質問・ご相談（自由記述）",
+          type: "textarea",
+          required: false,
+          options: [],
         },
       ],
     },
