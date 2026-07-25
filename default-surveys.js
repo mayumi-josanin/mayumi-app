@@ -177,7 +177,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           label: "施術内容",
           type: "choice",
           required: true,
-          options: ["初回お試し", "回数券", "単発", "トライアル"],
+          options: ["初回お試し", "回数券", "単発", "キャンペーン", "トライアル"],
         },
         {
           id: "q_bijiris_session_ticket_plan",
@@ -202,6 +202,13 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           required: true,
           options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS,
           visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" },
+        },
+        {
+          id: "q_bijiris_session_treatment_count",
+          label: "施術回数（何回目ですか？）",
+          type: "choice",
+          required: true,
+          options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS,
         },
         {
           id: "q_bijiris_session_feeling",
