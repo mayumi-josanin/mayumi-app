@@ -34,7 +34,7 @@ var BACKUP_META_PROPERTY_KEY = "BACKUP_META_JSON";
 var LAST_MAINTENANCE_META_PROPERTY_KEY = "LAST_MAINTENANCE_META_JSON";
 var VERSION = "20260415-03";
 var RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-var RESPONSE_RESUBMIT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+var RESPONSE_RESUBMIT_COOLDOWN_MS = 0; // 0 = 再送信クールダウン無効（いつでも再送信可）
 var TICKET_CARD_ACQUIRE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 var DUPLICATE_RESPONSE_WINDOW_MS = 10 * 60 * 1000;
 var LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
@@ -2836,6 +2836,7 @@ function findDuplicateResponse_(survey, customerName, customerClientId, answers)
 }
 
 function findLatestSurveyResponseWithinCooldown_(surveyId, customerName) {
+  if (RESPONSE_RESUBMIT_COOLDOWN_MS <= 0) return null; // クールダウン無効時は常に再送信可
   var normalizedSurveyId = normalizeText_(surveyId);
   var normalizedCustomerName = normalizeText_(customerName);
   if (!normalizedSurveyId || !normalizedCustomerName) return null;
