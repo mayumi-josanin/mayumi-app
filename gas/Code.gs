@@ -310,6 +310,7 @@ var SURVEYS = [
       { id: "q_bijiris_session_concern_other", label: "気になること・知りたいこと（その他・長文）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_bijiris_session_concern", value: "その他（長文）" } },
       { id: "q_bijiris_session_life_changes", label: "日常生活にどのような変化がありましたか？（複数選択可）", type: "checkbox", required: false, options: BIJIRIS_SESSION_LIFE_CHANGE_OPTIONS },
       { id: "q_bijiris_session_life_changes_other", label: "日常生活の変化（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_bijiris_session_life_changes", value: "その他（自由記述）" } },
+      { id: "q_bijiris_session_question", label: "ご質問・ご相談（自由記述）", type: "textarea", required: false, options: [] },
     ],
   },
   {
