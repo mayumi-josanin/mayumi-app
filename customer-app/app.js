@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v114";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v115";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1488,6 +1488,46 @@ function ensureSessionTicketSheetSelection(surveyId) {
   const resolvedSheet = resolveCurrentSessionTicketSheetLabel(ticketPlan) || "1枚目";
   updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, resolvedSheet);
   return resolvedSheet;
+}
+
+// 回数券の「何枚目・何回目」を自動計算する。
+// 直近の回数券提出を基準に、同じ種類なら+1（総数に達したら次の枚＝A案）、種類が変わったら新しいカードとして扱う。
+function computeSessionTicketPosition(ticketPlan) {
+  const plan = normalizeText(ticketPlan);
+  const total = parseTicketCount(plan) || 0;
+  const latest =
+    getVisibleHistoryResponses()
+      .filter((response) => {
+        const map = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
+        return Boolean(normalizeText(map.get("回数券")));
+      })
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null;
+  if (!latest) return { sheetLabel: "1枚目", round: 1 };
+  const map = new Map(getResponseTicketInfo(latest).map((item) => [item.label, item.value]));
+  const prevPlan = normalizeText(map.get("回数券"));
+  const prevSheet = parseInt((normalizeText(map.get("何枚目")).match(/\d+/) || ["1"])[0], 10) || 1;
+  const prevRound = parseTicketStep(map.get("何回目") || "") || 0;
+  if (prevPlan !== plan) {
+    // 種類が変わった → 新しいカード
+    return { sheetLabel: `${prevSheet + 1}枚目`, round: 1 };
+  }
+  const nextRound = prevRound + 1;
+  if (total && nextRound > total) {
+    // 総数に達したので自動で次の枚へ（A案）
+    return { sheetLabel: `${prevSheet + 1}枚目`, round: 1 };
+  }
+  return { sheetLabel: `${prevSheet}枚目`, round: nextRound };
+}
+
+function ensureSessionTicketPositionSelection(surveyId) {
+  if (getSessionTicketRoundSelection(surveyId)) return true;
+  const ticketPlan = getSessionTicketPlanSelection(surveyId);
+  if (!ticketPlan) return false;
+  if (hasCustomerSession() && appState.historyLoading) return false;
+  const position = computeSessionTicketPosition(ticketPlan);
+  updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, position.sheetLabel);
+  updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, `${position.round}回目`);
+  return true;
 }
 
 function getTicketResponsesByPlanAndSheet(ticketPlan, ticketSheetLabel, options = {}) {
@@ -4302,8 +4342,7 @@ function renderAnswerPanel() {
     getSessionTypeSelection(surveyId) === "回数券" &&
     !getSessionTicketRoundSelection(surveyId)
   ) {
-    const selectedSheet = ensureSessionTicketSheetSelection(surveyId);
-    if (!selectedSheet && hasCustomerSession() && appState.historyLoading) {
+    if (hasCustomerSession() && appState.historyLoading) {
       answerPanel.innerHTML = `
         ${renderPendingNotice()}
         <div class="section-head survey-toolbar">
@@ -4324,8 +4363,9 @@ function renderAnswerPanel() {
       attachCommonButtons();
       return;
     }
-    renderSessionTicketRoundStep(survey, surveyId);
-    return;
+    // 何枚目・何回目は自動計算（お客様の入力は不要）
+    ensureSessionTicketPositionSelection(surveyId);
+    // フォームへ進む
   }
 
   renderFormPanel(survey, draft);
