@@ -275,7 +275,7 @@ var SURVEYS = [
     completionMessage: "施術後アンケートのご回答ありがとうございました。",
     status: "published",
     questions: [
-      { id: "q_bijiris_session_type", label: "施術内容", type: "choice", required: true, options: ["初回お試し", "回数券", "単発", "キャンペーン", "トライアル"] },
+      { id: "q_bijiris_session_type", label: "施術内容", type: "choice", required: true, options: ["初回お試し", "回数券", "単発", "キャンペーン"] },
       { id: "q_bijiris_session_ticket_plan", label: "回数券の種類", type: "choice", required: true, options: ["6回券", "10回券"], visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" } },
       { id: "q_bijiris_session_ticket_sheet", label: "回数券の何枚目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_SHEET_OPTIONS, visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" } },
       { id: "q_bijiris_session_ticket_round", label: "回数券の何回目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS, visibleWhen: { questionId: "q_bijiris_session_type", value: "回数券" } },
@@ -6223,47 +6223,55 @@ function migrateToSplitSurveys() {
       survey.title = "施術後アンケート";
       survey.completionMessage = "施術後アンケートのご回答ありがとうございました。";
       survey.status = "published";
-      survey.questions = (survey.questions || []).filter(function (question) {
+      var questions = (survey.questions || []).filter(function (question) {
         return question && question.type !== "photo";
       });
 
-      // 施術内容に「キャンペーン」を追加（未追加なら）
-      var typeQuestion = null;
-      var roundIndex = -1;
-      var hasTreatmentCount = false;
-      for (var qi = 0; qi < survey.questions.length; qi += 1) {
-        var q = survey.questions[qi];
-        if (q.id === "q_bijiris_session_type") typeQuestion = q;
-        if (q.id === "q_bijiris_session_ticket_round") roundIndex = qi;
-        if (q.id === "q_bijiris_session_treatment_count") hasTreatmentCount = true;
-      }
-      if (typeQuestion) {
-        var opts = Array.isArray(typeQuestion.options) ? typeQuestion.options.slice() : [];
-        if (opts.indexOf("キャンペーン") === -1) {
-          var tanIndex = opts.indexOf("単発");
-          if (tanIndex >= 0) {
-            opts.splice(tanIndex + 1, 0, "キャンペーン");
-          } else {
-            opts.push("キャンペーン");
-          }
-          typeQuestion.options = opts;
+      // 施術内容の選択肢を整える（トライアル削除・キャンペーン追加・順序固定）
+      questions.forEach(function (q) {
+        if (q.id === "q_bijiris_session_type") {
+          var current = Array.isArray(q.options) ? q.options : [];
+          var desired = ["初回お試し", "回数券", "単発", "キャンペーン"];
+          q.options = desired.filter(function (o) {
+            return o === "キャンペーン" || current.indexOf(o) >= 0;
+          });
         }
-      }
-      // 施術回数の質問を追加（未追加なら、回数券の何回目の直後に挿入）
-      if (!hasTreatmentCount) {
-        var treatmentCountQuestion = {
+      });
+
+      // 施術回数の質問を取り出す（無ければ生成）→ 回数券の何回目の直後に配置
+      var treatmentCountQuestion = null;
+      questions = questions.filter(function (q) {
+        if (q.id === "q_bijiris_session_treatment_count") {
+          treatmentCountQuestion = q;
+          return false;
+        }
+        return true;
+      });
+      if (!treatmentCountQuestion) {
+        treatmentCountQuestion = {
           id: "q_bijiris_session_treatment_count",
           label: "施術回数（何回目ですか？）",
           type: "choice",
           required: true,
           options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS.slice(),
         };
-        if (roundIndex >= 0) {
-          survey.questions.splice(roundIndex + 1, 0, treatmentCountQuestion);
-        } else {
-          survey.questions.push(treatmentCountQuestion);
-        }
+      } else {
+        treatmentCountQuestion.label = "施術回数（何回目ですか？）";
+        treatmentCountQuestion.type = "choice";
+        treatmentCountQuestion.options = BIJIRIS_SESSION_TICKET_ROUND_OPTIONS.slice();
+        treatmentCountQuestion.visibleWhen = null;
+        treatmentCountQuestion.visibilityConditions = [];
       }
+      var roundIndex = -1;
+      var typeIndex = -1;
+      for (var qi = 0; qi < questions.length; qi += 1) {
+        if (questions[qi].id === "q_bijiris_session_ticket_round") roundIndex = qi;
+        if (questions[qi].id === "q_bijiris_session_type") typeIndex = qi;
+      }
+      var insertAt = roundIndex >= 0 ? roundIndex + 1 : (typeIndex >= 0 ? typeIndex + 1 : 0);
+      questions.splice(insertAt, 0, treatmentCountQuestion);
+
+      survey.questions = questions;
     }
   });
 
