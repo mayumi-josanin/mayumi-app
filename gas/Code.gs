@@ -369,20 +369,6 @@ function handleGet_(e) {
       version: VERSION,
     };
   }
-  if (action === "surveysDiag") {
-    // TEMP diagnostic: list all surveys' id/title/status (no PII). Remove after use.
-    return {
-      surveys: loadSurveys_().map(function (survey) {
-        return {
-          id: survey.id,
-          title: survey.title,
-          status: survey.status,
-          normalizedStatus: normalizeSurveyStatus_(survey.status),
-          questionCount: (survey.questions || []).length,
-        };
-      }),
-    };
-  }
   if (action === "bijirisPosts") return { posts: getBijirisPosts_({ publishedOnly: true }) };
   if (action === "history") {
     return getCustomerHistoryPayload_({
