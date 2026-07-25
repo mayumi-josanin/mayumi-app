@@ -329,20 +329,23 @@ var SURVEYS = [
 function buildMeasurementQuestions_() {
   var monitor = { questionId: "q_measure_timing", value: "初回計測時" };
   return [
-    { id: "q_measure_feeling", label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください", type: "textarea", required: false, options: [] },
     { id: "q_measure_timing", label: "計測のタイミング", type: "choice", required: true, options: ["初回計測時", "回数券終了時", "キャンペーン終了時"] },
+
+    // ▼ 初回計測時のみ表示：施術後アンケートの内容（施術内容を最初に聞く）
+    { id: "q_measure_m_type", label: "施術内容", type: "choice", required: true, options: ["初回お試し", "回数券", "単発", "キャンペーン"], visibleWhen: monitor },
+    { id: "q_measure_m_ticket_plan", label: "回数券の種類", type: "choice", required: true, options: ["6回券", "10回券"], visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
+    { id: "q_measure_m_ticket_sheet", label: "回数券の何枚目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_SHEET_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
+    { id: "q_measure_m_ticket_round", label: "回数券の何回目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
+    { id: "q_measure_m_treatment_count", label: "施術回数（何回目ですか？）", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS },
+
+    { id: "q_measure_feeling", label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください", type: "textarea", required: false, options: [] },
     { id: "q_measure_photos", label: "計測写真（全身2枚）", type: "photo", required: true, options: [] },
     { id: "q_measure_waist", label: "ウエスト（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
     { id: "q_measure_hip", label: "ヒップ（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
     { id: "q_measure_thigh_right", label: "太もも右（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
     { id: "q_measure_thigh_left", label: "太もも左（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
 
-    // ▼ 初回計測時のみ表示：施術後アンケートの内容
-    { id: "q_measure_m_type", label: "施術内容", type: "choice", required: true, options: ["初回お試し", "回数券", "単発", "キャンペーン"], visibleWhen: monitor },
-    { id: "q_measure_m_ticket_plan", label: "回数券の種類", type: "choice", required: true, options: ["6回券", "10回券"], visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
-    { id: "q_measure_m_ticket_sheet", label: "回数券の何枚目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_SHEET_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
-    { id: "q_measure_m_ticket_round", label: "回数券の何回目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
-    { id: "q_measure_m_treatment_count", label: "施術回数（何回目ですか？）", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS },
+    // ▼ 初回計測時のみ表示：お悩み・日常の変化（施術後アンケート由来）
     { id: "q_bijiris_session_concern", label: "普段のお身体のお悩みや、ビジリス（骨盤底筋ケア）について気になること・知りたいことはありますか？（複数選択可）", type: "checkbox", required: false, options: getBijirisSessionConcernOptions_(), visibleWhen: monitor },
     { id: "q_bijiris_session_concern_other", label: "気になること・知りたいこと（その他・長文）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_bijiris_session_concern", value: "その他（長文）" } },
     { id: "q_measure_m_life_changes", label: "日常生活にどのような変化がありましたか？（複数選択可）", type: "checkbox", required: false, options: BIJIRIS_SESSION_LIFE_CHANGE_OPTIONS, visibleWhen: monitor },
