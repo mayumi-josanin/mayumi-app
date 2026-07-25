@@ -2552,6 +2552,8 @@ function saveResponse_(body) {
       surveyId: response.surveyId,
       customerName: response.customerName,
     });
+    // 計測時アンケート（アフター写真あり）なら、提出時点で「分析中」にして自動分析を予約する。
+    scheduleImmediateTicketSurveyAnalysis_(response);
     return { response: response };
   } catch (error) {
     appendErrorLog_("saveResponse", error.message || "保存エラー", {
@@ -6195,6 +6197,53 @@ function getTicketSurveyPayload_() {
   };
 }
 
+// ---------- 提出時の自動分析（即時トリガー） ----------
+
+// 計測時アンケート（アフター写真あり）の提出時に呼ぶ。
+// pending レコードを作り、約1分後に分析する単発トリガーを予約する（重複防止・実行後に自己削除）。
+function scheduleImmediateTicketSurveyAnalysis_(response) {
+  try {
+    if (!response || !getAfterPhotosOf_(response).length) return;
+
+    var existing = getTicketSurveyRecordByResponseId_(response.id);
+    if (!existing || !existing.analysisStatus || existing.analysisStatus === "none") {
+      writeTicketSurveyRecord_({
+        responseId: response.id,
+        customerName: response.customerName,
+        submittedAt: response.submittedAt,
+        analysisStatus: "pending",
+        analysisText: existing && existing.analysisText ? existing.analysisText : "",
+        errorMessage: "",
+      });
+    }
+
+    var hasPendingTrigger = ScriptApp.getProjectTriggers().some(function (trigger) {
+      return trigger.getHandlerFunction() === "runTicketSurveyAnalysisOnce";
+    });
+    if (!hasPendingTrigger) {
+      ScriptApp.newTrigger("runTicketSurveyAnalysisOnce").timeBased().after(60 * 1000).create();
+    }
+  } catch (error) {
+    appendErrorLog_("ticketSurvey.schedule", error.message || String(error), {
+      responseId: response && response.id,
+    });
+  }
+}
+
+// 単発トリガーの実体。自分（と余った単発トリガー）を掃除してから通常の自動処理を回す。
+function runTicketSurveyAnalysisOnce() {
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === "runTicketSurveyAnalysisOnce") {
+      try {
+        ScriptApp.deleteTrigger(trigger);
+      } catch (error) {
+        // 削除失敗は無視
+      }
+    }
+  });
+  runTicketSurveyAutoProcess();
+}
+
 // ---------- 定期ポーリング自動処理 ----------
 
 function runTicketSurveyAutoProcess() {
@@ -6227,8 +6276,8 @@ function runTicketSurveyAutoProcess() {
       })
       .filter(function (response) {
         var record = recordByResponseId[response.id];
-        // 未分析（レコードなし or 状態 none）のみ自動対象。error は手動再試行に任せる。
-        return !record || !record.analysisStatus || record.analysisStatus === "none";
+        // 未分析（レコードなし / none / pending）を自動対象。error は手動再試行に任せる。
+        return !record || !record.analysisStatus || record.analysisStatus === "none" || record.analysisStatus === "pending";
       })
       .map(function (response) {
         return response.id;
