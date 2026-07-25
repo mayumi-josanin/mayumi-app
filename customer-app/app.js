@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v113";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v114";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1859,24 +1859,16 @@ function buildDraftAnswerMap(survey, draft) {
 
 function isQuestionVisible(question, answerMap, surveyId = appState.selectedSurveyId) {
   if (question?.id === SESSION_TREATMENT_COUNT_QUESTION_ID) {
+    // 施術回数は単発のときのみ（キャンペーンは自動カウントするため不要）
     const typeValues = Array.isArray(answerMap[SESSION_TYPE_QUESTION_ID])
       ? answerMap[SESSION_TYPE_QUESTION_ID]
       : [];
-    return typeValues.includes("単発") || typeValues.includes("キャンペーン");
+    return typeValues.includes("単発");
   }
-  // 計測時アンケート：初回計測時のみの分岐
-  if (
-    question?.id === "q_measure_m_treatment_count" ||
-    question?.id === "q_measure_life_changes" ||
-    question?.id === "q_measure_improve"
-  ) {
+  // 計測時アンケート：従来の計測時項目（変化を感じたこと・改善したい部分）は初回計測時は非表示
+  if (question?.id === "q_measure_life_changes" || question?.id === "q_measure_improve") {
     const timingValues = Array.isArray(answerMap["q_measure_timing"]) ? answerMap["q_measure_timing"] : [];
     const isMonitor = timingValues.some((v) => String(v).includes("初回計測") || String(v).includes("モニター"));
-    if (question.id === "q_measure_m_treatment_count") {
-      const typeValues = Array.isArray(answerMap["q_measure_m_type"]) ? answerMap["q_measure_m_type"] : [];
-      return isMonitor && (typeValues.includes("単発") || typeValues.includes("キャンペーン"));
-    }
-    // 従来の計測時項目（変化を感じたこと・改善したい部分）はモニター時は非表示
     return !isMonitor;
   }
   if (surveyId === SESSION_SURVEY_ID && isLegacyBijirisSessionPhotoQuestion(question)) {

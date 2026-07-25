@@ -348,13 +348,6 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           ],
         },
         {
-          id: "q_measure_m_treatment_count",
-          label: "施術回数（何回目ですか？）",
-          type: "choice",
-          required: true,
-          options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS,
-        },
-        {
           id: "q_measure_feeling",
           label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください",
           type: "textarea",

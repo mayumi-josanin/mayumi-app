@@ -336,7 +336,6 @@ function buildMeasurementQuestions_() {
     { id: "q_measure_m_ticket_plan", label: "回数券の種類", type: "choice", required: true, options: ["6回券", "10回券"], visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
     { id: "q_measure_m_ticket_sheet", label: "回数券の何枚目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_SHEET_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
     { id: "q_measure_m_ticket_round", label: "回数券の何回目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
-    { id: "q_measure_m_treatment_count", label: "施術回数（何回目ですか？）", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS },
 
     { id: "q_measure_feeling", label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください", type: "textarea", required: false, options: [] },
     { id: "q_measure_photos", label: "計測写真（全身2枚）", type: "photo", required: true, options: [] },
@@ -5181,11 +5180,11 @@ function getPhotoQuestionRequiredCount_(question, visible, survey) {
 }
 
 function isSessionTreatmentCountVisible_(rawAnswerMap) {
+  // 施術回数は単発のときのみ（キャンペーンは自動カウントするため不要）
   var values = rawAnswerMap && rawAnswerMap["q_bijiris_session_type"];
   if (!Array.isArray(values) || !values.length) return false;
   return values.some(function (value) {
-    var v = normalizeText_(value);
-    return v === "単発" || v === "キャンペーン";
+    return normalizeText_(value) === "単発";
   });
 }
 
@@ -5202,15 +5201,7 @@ function isQuestionVisible_(question, rawAnswerMap, survey) {
   if (question && question.id === "q_bijiris_session_treatment_count") {
     return isSessionTreatmentCountVisible_(rawAnswerMap || {});
   }
-  // 計測時アンケート（モニター時）専用：施術回数は単発/キャンペーン時のみ
-  if (question && question.id === "q_measure_m_treatment_count") {
-    var map = rawAnswerMap || {};
-    if (!isMeasureTimingMonitor_(map)) return false;
-    var types = map["q_measure_m_type"];
-    if (!Array.isArray(types)) return false;
-    return types.indexOf("単発") >= 0 || types.indexOf("キャンペーン") >= 0;
-  }
-  // 従来の計測時項目（変化を感じたこと・改善したい部分）はモニター時は非表示
+  // 従来の計測時項目（変化を感じたこと・改善したい部分）は初回計測時は非表示
   if (question && (question.id === "q_measure_life_changes" || question.id === "q_measure_improve")) {
     return !isMeasureTimingMonitor_(rawAnswerMap || {});
   }
