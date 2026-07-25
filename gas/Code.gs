@@ -297,9 +297,10 @@ var SURVEYS = [
     questions: [
       { id: "q_measure_timing", label: "計測のタイミング", type: "choice", required: true, options: ["モニター時（初回）", "回数券終了時", "キャンペーン終了時"] },
       { id: "q_measure_photos", label: "計測写真（全身2枚）", type: "photo", required: true, options: [] },
-      { id: "q_measure_waist", label: "ウエスト（cm）", type: "text", required: false, options: [] },
-      { id: "q_measure_hip", label: "ヒップ（cm）", type: "text", required: false, options: [] },
-      { id: "q_measure_thigh", label: "太もも（cm）", type: "text", required: false, options: [] },
+      { id: "q_measure_waist", label: "ウエスト（cm）", type: "text", required: false, options: [], placeholder: "22.5" },
+      { id: "q_measure_hip", label: "ヒップ（cm）", type: "text", required: false, options: [], placeholder: "22.5" },
+      { id: "q_measure_thigh_right", label: "太もも右（cm）", type: "text", required: false, options: [], placeholder: "22.5" },
+      { id: "q_measure_thigh_left", label: "太もも左（cm）", type: "text", required: false, options: [], placeholder: "22.5" },
     ],
   },
 ];
@@ -768,6 +769,7 @@ function validateSurveyPayload_(payload, existing) {
       type: type,
       required: question && question.required === false ? false : true,
       options: isChoiceType_(type) ? options : [],
+      placeholder: normalizeText_(question && question.placeholder),
       visibilityConditions: visibilityConditions,
       visibleWhen: visibilityConditions.length ? visibilityConditions[0] : null,
     };
@@ -6272,6 +6274,43 @@ function migrateToSplitSurveys() {
       questions.splice(insertAt, 0, treatmentCountQuestion);
 
       survey.questions = questions;
+    } else if (survey.id === "survey_measurement") {
+      // 旧・太もも（単一）を除去し、右/左を取り出す
+      var rightQ = null;
+      var leftQ = null;
+      var mQuestions = (survey.questions || []).filter(function (q) {
+        if (!q) return false;
+        if (q.id === "q_measure_thigh") return false;
+        if (q.id === "q_measure_thigh_right") { rightQ = q; return false; }
+        if (q.id === "q_measure_thigh_left") { leftQ = q; return false; }
+        return true;
+      });
+      // ウエスト・ヒップに記入例を設定
+      mQuestions.forEach(function (q) {
+        if (q.id === "q_measure_waist" || q.id === "q_measure_hip") q.placeholder = "22.5";
+      });
+      if (!rightQ) {
+        rightQ = { id: "q_measure_thigh_right", label: "太もも右（cm）", type: "text", required: false, options: [], placeholder: "22.5" };
+      } else {
+        rightQ.label = "太もも右（cm）";
+        rightQ.type = "text";
+        rightQ.placeholder = "22.5";
+      }
+      if (!leftQ) {
+        leftQ = { id: "q_measure_thigh_left", label: "太もも左（cm）", type: "text", required: false, options: [], placeholder: "22.5" };
+      } else {
+        leftQ.label = "太もも左（cm）";
+        leftQ.type = "text";
+        leftQ.placeholder = "22.5";
+      }
+      // ヒップの直後に 右→左 を配置（無ければ末尾）
+      var hipIndex = -1;
+      for (var mj = 0; mj < mQuestions.length; mj += 1) {
+        if (mQuestions[mj].id === "q_measure_hip") hipIndex = mj;
+      }
+      var atIndex = hipIndex >= 0 ? hipIndex + 1 : mQuestions.length;
+      mQuestions.splice(atIndex, 0, rightQ, leftQ);
+      survey.questions = mQuestions;
     }
   });
 
