@@ -311,7 +311,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           label: "施術内容",
           type: "choice",
           required: true,
-          options: ["初回お試し", "回数券", "単発", "キャンペーン"],
+          options: ["回数券", "キャンペーン"],
           visibleWhen: { questionId: "q_measure_timing", value: "初回計測時" },
         },
         {

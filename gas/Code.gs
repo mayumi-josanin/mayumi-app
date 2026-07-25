@@ -332,7 +332,7 @@ function buildMeasurementQuestions_() {
     { id: "q_measure_timing", label: "計測のタイミング", type: "choice", required: true, options: ["初回計測時", "回数券終了時", "キャンペーン終了時"] },
 
     // ▼ 初回計測時のみ表示：施術後アンケートの内容（施術内容を最初に聞く）
-    { id: "q_measure_m_type", label: "施術内容", type: "choice", required: true, options: ["初回お試し", "回数券", "単発", "キャンペーン"], visibleWhen: monitor },
+    { id: "q_measure_m_type", label: "施術内容", type: "choice", required: true, options: ["回数券", "キャンペーン"], visibleWhen: monitor },
     { id: "q_measure_m_ticket_plan", label: "回数券の種類", type: "choice", required: true, options: ["6回券", "10回券"], visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
     { id: "q_measure_m_ticket_sheet", label: "回数券の何枚目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_SHEET_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
     { id: "q_measure_m_ticket_round", label: "回数券の何回目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
