@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v93";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v94";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -8607,10 +8607,11 @@ if (state.token) {
 
 const TICKET_SURVEY_ANALYZE_BATCH_SIZE = 5;
 const TICKET_SURVEY_ANALYSIS_LABELS = {
-  none: "未分析",
-  running: "分析中",
-  done: "分析済み",
-  error: "エラー",
+  none: "分析待ち",
+  pending: "分析中です",
+  running: "分析中です",
+  done: "分析完了",
+  error: "分析エラー",
 };
 
 function getTicketSurveyEntries() {

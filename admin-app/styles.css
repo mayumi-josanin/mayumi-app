@@ -2118,7 +2118,8 @@ textarea {
   color: #b3453a;
 }
 
-.ticket-survey-status.running {
+.ticket-survey-status.running,
+.ticket-survey-status.pending {
   color: #a97a1f;
 }
 
