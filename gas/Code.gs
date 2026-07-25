@@ -316,7 +316,7 @@ var SURVEYS = [
   {
     id: "survey_measurement",
     title: "計測時アンケート",
-    description: "計測を行ったとき（モニター時・回数券終了時・キャンペーン終了時）に、計測写真と数値をご提出ください。",
+    description: "計測を行ったとき（初回計測時・回数券終了時・キャンペーン終了時）に、計測写真と数値をご提出ください。",
     introMessage: "計測のタイミングを選び、全身写真と計測値をご入力ください。",
     completionMessage: "計測時アンケートのご回答ありがとうございました。",
     status: "published",
@@ -325,19 +325,19 @@ var SURVEYS = [
 ];
 
 // 計測時アンケートの質問定義（計測タイミングで表示分岐）。
-// モニター時（初回）= 施術後アンケート全項目＋写真＋計測値。回数券終了時/キャンペーン終了時 = 従来の計測時項目。
+// 初回計測時= 施術後アンケート全項目＋写真＋計測値。回数券終了時/キャンペーン終了時 = 従来の計測時項目。
 function buildMeasurementQuestions_() {
-  var monitor = { questionId: "q_measure_timing", value: "モニター時（初回）" };
+  var monitor = { questionId: "q_measure_timing", value: "初回計測時" };
   return [
     { id: "q_measure_feeling", label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください", type: "textarea", required: false, options: [] },
-    { id: "q_measure_timing", label: "計測のタイミング", type: "choice", required: true, options: ["モニター時（初回）", "回数券終了時", "キャンペーン終了時"] },
+    { id: "q_measure_timing", label: "計測のタイミング", type: "choice", required: true, options: ["初回計測時", "回数券終了時", "キャンペーン終了時"] },
     { id: "q_measure_photos", label: "計測写真（全身2枚）", type: "photo", required: true, options: [] },
     { id: "q_measure_waist", label: "ウエスト（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
     { id: "q_measure_hip", label: "ヒップ（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
     { id: "q_measure_thigh_right", label: "太もも右（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
     { id: "q_measure_thigh_left", label: "太もも左（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
 
-    // ▼ モニター時（初回）のみ表示：施術後アンケートの内容
+    // ▼ 初回計測時のみ表示：施術後アンケートの内容
     { id: "q_measure_m_type", label: "施術内容", type: "choice", required: true, options: ["初回お試し", "回数券", "単発", "キャンペーン"], visibleWhen: monitor },
     { id: "q_measure_m_ticket_plan", label: "回数券の種類", type: "choice", required: true, options: ["6回券", "10回券"], visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
     { id: "q_measure_m_ticket_sheet", label: "回数券の何枚目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_SHEET_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
@@ -5189,7 +5189,8 @@ function isMeasureTimingMonitor_(rawAnswerMap) {
   var values = rawAnswerMap && rawAnswerMap["q_measure_timing"];
   if (!Array.isArray(values) || !values.length) return false;
   return values.some(function (value) {
-    return normalizeText_(value).indexOf("モニター") >= 0;
+    var v = normalizeText_(value);
+    return v.indexOf("初回計測") >= 0 || v.indexOf("モニター") >= 0;
   });
 }
 
@@ -5574,7 +5575,7 @@ function measureTimingOf_(response) {
       timing = normalizeText_(value);
     }
   });
-  if (timing.indexOf("モニター") >= 0) return "monitor";
+  if (timing.indexOf("初回計測") >= 0 || timing.indexOf("モニター") >= 0) return "monitor";
   if (timing.indexOf("終了") >= 0) return "after"; // 回数券終了時 / キャンペーン終了時
   return "";
 }
@@ -6036,7 +6037,7 @@ function buildTicketSurveyMessageContent_(record, response, prompt) {
     throw new Error("アフター写真（回数券終了時の写真）がありません。");
   }
 
-  content.push({ type: "text", text: before.length ? "以下は【モニター時（ビフォー）】の写真です。" : "【モニター時（ビフォー）】の写真はありません。" });
+  content.push({ type: "text", text: before.length ? "以下は【初回計測時（ビフォー）】の写真です。" : "【初回計測時（ビフォー）】の写真はありません。" });
   before.forEach(function (photo) {
     var image = fetchTicketSurveyImageBlob_(photo);
     content.push({ type: "image", source: { type: "base64", media_type: image.mimeType, data: image.data } });

@@ -292,7 +292,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
       id: "survey_measurement",
       title: "計測時アンケート",
       description:
-        "計測を行ったとき（モニター時・回数券終了時・キャンペーン終了時）に、計測写真と数値をご提出ください。",
+        "計測を行ったとき（初回計測時・回数券終了時・キャンペーン終了時）に、計測写真と数値をご提出ください。",
       introMessage: "計測のタイミングを選び、全身写真と計測値をご入力ください。",
       completionMessage: "計測時アンケートのご回答ありがとうございました。",
       status: "published",
@@ -311,7 +311,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           label: "計測のタイミング",
           type: "choice",
           required: true,
-          options: ["モニター時（初回）", "回数券終了時", "キャンペーン終了時"],
+          options: ["初回計測時", "回数券終了時", "キャンペーン終了時"],
         },
         {
           id: "q_measure_photos",
@@ -358,7 +358,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           type: "choice",
           required: true,
           options: ["初回お試し", "回数券", "単発", "キャンペーン"],
-          visibleWhen: { questionId: "q_measure_timing", value: "モニター時（初回）" },
+          visibleWhen: { questionId: "q_measure_timing", value: "初回計測時" },
         },
         {
           id: "q_measure_m_ticket_plan",
@@ -367,7 +367,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           required: true,
           options: ["6回券", "10回券"],
           visibilityConditions: [
-            { questionId: "q_measure_timing", value: "モニター時（初回）" },
+            { questionId: "q_measure_timing", value: "初回計測時" },
             { questionId: "q_measure_m_type", value: "回数券" },
           ],
         },
@@ -378,7 +378,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           required: true,
           options: BIJIRIS_SESSION_TICKET_SHEET_OPTIONS,
           visibilityConditions: [
-            { questionId: "q_measure_timing", value: "モニター時（初回）" },
+            { questionId: "q_measure_timing", value: "初回計測時" },
             { questionId: "q_measure_m_type", value: "回数券" },
           ],
         },
@@ -389,7 +389,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           required: true,
           options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS,
           visibilityConditions: [
-            { questionId: "q_measure_timing", value: "モニター時（初回）" },
+            { questionId: "q_measure_timing", value: "初回計測時" },
             { questionId: "q_measure_m_type", value: "回数券" },
           ],
         },
@@ -407,7 +407,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           type: "checkbox",
           required: false,
           options: getBijirisSessionConcernOptions(),
-          visibleWhen: { questionId: "q_measure_timing", value: "モニター時（初回）" },
+          visibleWhen: { questionId: "q_measure_timing", value: "初回計測時" },
         },
         {
           id: "q_bijiris_session_concern_other",
@@ -423,7 +423,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
           type: "checkbox",
           required: false,
           options: BIJIRIS_SESSION_LIFE_CHANGE_OPTIONS,
-          visibleWhen: { questionId: "q_measure_timing", value: "モニター時（初回）" },
+          visibleWhen: { questionId: "q_measure_timing", value: "初回計測時" },
         },
         {
           id: "q_measure_m_life_changes_other",
