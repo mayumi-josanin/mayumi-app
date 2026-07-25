@@ -320,22 +320,43 @@ var SURVEYS = [
     introMessage: "計測のタイミングを選び、全身写真と計測値をご入力ください。",
     completionMessage: "計測時アンケートのご回答ありがとうございました。",
     status: "published",
-    questions: [
-      { id: "q_measure_feeling", label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください", type: "textarea", required: false, options: [] },
-      { id: "q_measure_timing", label: "計測のタイミング", type: "choice", required: true, options: ["モニター時（初回）", "回数券終了時", "キャンペーン終了時"] },
-      { id: "q_measure_photos", label: "計測写真（全身2枚）", type: "photo", required: true, options: [] },
-      { id: "q_measure_waist", label: "ウエスト（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
-      { id: "q_measure_hip", label: "ヒップ（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
-      { id: "q_measure_thigh_right", label: "太もも右（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
-      { id: "q_measure_thigh_left", label: "太もも左（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
-      { id: "q_measure_life_changes", label: "日常生活で変化を感じたことはありますか？（複数回答可）", type: "checkbox", required: true, options: MEASURE_LIFE_CHANGE_OPTIONS },
-      { id: "q_measure_life_changes_other", label: "日常生活の変化（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_life_changes", value: "その他（自由記述）" } },
-      { id: "q_measure_improve", label: "今後もっと改善したい部分はありますか？（複数回答可）", type: "checkbox", required: true, options: MEASURE_IMPROVE_OPTIONS },
-      { id: "q_measure_improve_other", label: "改善したい部分（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_improve", value: "その他（自由記述）" } },
-      { id: "q_measure_question", label: "ご質問・ご相談（自由記述）", type: "textarea", required: false, options: [] },
-    ],
+    questions: buildMeasurementQuestions_(),
   },
 ];
+
+// 計測時アンケートの質問定義（計測タイミングで表示分岐）。
+// モニター時（初回）= 施術後アンケート全項目＋写真＋計測値。回数券終了時/キャンペーン終了時 = 従来の計測時項目。
+function buildMeasurementQuestions_() {
+  var monitor = { questionId: "q_measure_timing", value: "モニター時（初回）" };
+  return [
+    { id: "q_measure_feeling", label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください", type: "textarea", required: false, options: [] },
+    { id: "q_measure_timing", label: "計測のタイミング", type: "choice", required: true, options: ["モニター時（初回）", "回数券終了時", "キャンペーン終了時"] },
+    { id: "q_measure_photos", label: "計測写真（全身2枚）", type: "photo", required: true, options: [] },
+    { id: "q_measure_waist", label: "ウエスト（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
+    { id: "q_measure_hip", label: "ヒップ（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
+    { id: "q_measure_thigh_right", label: "太もも右（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
+    { id: "q_measure_thigh_left", label: "太もも左（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
+
+    // ▼ モニター時（初回）のみ表示：施術後アンケートの内容
+    { id: "q_measure_m_type", label: "施術内容", type: "choice", required: true, options: ["初回お試し", "回数券", "単発", "キャンペーン"], visibleWhen: monitor },
+    { id: "q_measure_m_ticket_plan", label: "回数券の種類", type: "choice", required: true, options: ["6回券", "10回券"], visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
+    { id: "q_measure_m_ticket_sheet", label: "回数券の何枚目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_SHEET_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
+    { id: "q_measure_m_ticket_round", label: "回数券の何回目ですか？", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS, visibilityConditions: [monitor, { questionId: "q_measure_m_type", value: "回数券" }] },
+    { id: "q_measure_m_treatment_count", label: "施術回数（何回目ですか？）", type: "choice", required: true, options: BIJIRIS_SESSION_TICKET_ROUND_OPTIONS },
+    { id: "q_bijiris_session_concern", label: "普段のお身体のお悩みや、ビジリス（骨盤底筋ケア）について気になること・知りたいことはありますか？（複数選択可）", type: "checkbox", required: false, options: getBijirisSessionConcernOptions_(), visibleWhen: monitor },
+    { id: "q_bijiris_session_concern_other", label: "気になること・知りたいこと（その他・長文）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_bijiris_session_concern", value: "その他（長文）" } },
+    { id: "q_measure_m_life_changes", label: "日常生活にどのような変化がありましたか？（複数選択可）", type: "checkbox", required: false, options: BIJIRIS_SESSION_LIFE_CHANGE_OPTIONS, visibleWhen: monitor },
+    { id: "q_measure_m_life_changes_other", label: "日常生活の変化（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_m_life_changes", value: "その他（自由記述）" } },
+
+    // ▼ 回数券終了時／キャンペーン終了時のみ表示：従来の計測時項目
+    { id: "q_measure_life_changes", label: "日常生活で変化を感じたことはありますか？（複数回答可）", type: "checkbox", required: true, options: MEASURE_LIFE_CHANGE_OPTIONS },
+    { id: "q_measure_life_changes_other", label: "日常生活の変化（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_life_changes", value: "その他（自由記述）" } },
+    { id: "q_measure_improve", label: "今後もっと改善したい部分はありますか？（複数回答可）", type: "checkbox", required: true, options: MEASURE_IMPROVE_OPTIONS },
+    { id: "q_measure_improve_other", label: "改善したい部分（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_improve", value: "その他（自由記述）" } },
+
+    { id: "q_measure_question", label: "ご質問・ご相談（自由記述）", type: "textarea", required: false, options: [] },
+  ];
+}
 
 function doGet(e) {
   try {
@@ -5164,9 +5185,29 @@ function isSessionTreatmentCountVisible_(rawAnswerMap) {
   });
 }
 
+function isMeasureTimingMonitor_(rawAnswerMap) {
+  var values = rawAnswerMap && rawAnswerMap["q_measure_timing"];
+  if (!Array.isArray(values) || !values.length) return false;
+  return values.some(function (value) {
+    return normalizeText_(value).indexOf("モニター") >= 0;
+  });
+}
+
 function isQuestionVisible_(question, rawAnswerMap, survey) {
   if (question && question.id === "q_bijiris_session_treatment_count") {
     return isSessionTreatmentCountVisible_(rawAnswerMap || {});
+  }
+  // 計測時アンケート（モニター時）専用：施術回数は単発/キャンペーン時のみ
+  if (question && question.id === "q_measure_m_treatment_count") {
+    var map = rawAnswerMap || {};
+    if (!isMeasureTimingMonitor_(map)) return false;
+    var types = map["q_measure_m_type"];
+    if (!Array.isArray(types)) return false;
+    return types.indexOf("単発") >= 0 || types.indexOf("キャンペーン") >= 0;
+  }
+  // 従来の計測時項目（変化を感じたこと・改善したい部分）はモニター時は非表示
+  if (question && (question.id === "q_measure_life_changes" || question.id === "q_measure_improve")) {
+    return !isMeasureTimingMonitor_(rawAnswerMap || {});
   }
   if (isLegacyBijirisSessionPhotoQuestion_(question, survey)) {
     return isBijirisSessionFinalPhotoVisible_(rawAnswerMap || {});
@@ -6439,43 +6480,8 @@ function migrateToSplitSurveys() {
 
       survey.questions = questions;
     } else if (survey.id === "survey_measurement") {
-      // 計測時アンケートの質問を正準の順序で再構成する（既存の質問オブジェクトは温存、
-      // 旧・太もも(単一)などspecに無いidは自動的に除外、記入例ラベル・新規3問を反映）。
-      var existingById = {};
-      (survey.questions || []).forEach(function (q) {
-        if (q && q.id) existingById[q.id] = q;
-      });
-      var measureSpec = [
-        { id: "q_measure_feeling", label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください", type: "textarea", required: false, options: [] },
-        { id: "q_measure_timing" },
-        { id: "q_measure_photos" },
-        { id: "q_measure_waist", label: "ウエスト（cm）　記入例：22.5（数値のみ）", placeholder: "22.5" },
-        { id: "q_measure_hip", label: "ヒップ（cm）　記入例：22.5（数値のみ）", placeholder: "22.5" },
-        { id: "q_measure_thigh_right", label: "太もも右（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
-        { id: "q_measure_thigh_left", label: "太もも左（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
-        { id: "q_measure_life_changes", label: "日常生活で変化を感じたことはありますか？（複数回答可）", type: "checkbox", required: true, options: MEASURE_LIFE_CHANGE_OPTIONS.slice() },
-        { id: "q_measure_life_changes_other", label: "日常生活の変化（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_life_changes", value: "その他（自由記述）" } },
-        { id: "q_measure_improve", label: "今後もっと改善したい部分はありますか？（複数回答可）", type: "checkbox", required: true, options: MEASURE_IMPROVE_OPTIONS.slice() },
-        { id: "q_measure_improve_other", label: "改善したい部分（その他）", type: "textarea", required: false, options: [], visibleWhen: { questionId: "q_measure_improve", value: "その他（自由記述）" } },
-        { id: "q_measure_question", label: "ご質問・ご相談（自由記述）", type: "textarea", required: false, options: [] },
-      ];
-      survey.questions = measureSpec.map(function (spec) {
-        var base = existingById[spec.id] || { id: spec.id };
-        var merged = {};
-        for (var k in base) {
-          if (Object.prototype.hasOwnProperty.call(base, k)) merged[k] = base[k];
-        }
-        if (spec.label !== undefined) merged.label = spec.label;
-        if (spec.type !== undefined) merged.type = spec.type;
-        if (spec.required !== undefined) merged.required = spec.required;
-        if (spec.options !== undefined) merged.options = spec.options;
-        if (spec.placeholder !== undefined) merged.placeholder = spec.placeholder;
-        if (spec.visibleWhen !== undefined) {
-          merged.visibleWhen = spec.visibleWhen;
-          merged.visibilityConditions = [spec.visibleWhen];
-        }
-        return merged;
-      });
+      // 計測時アンケートの質問を正準の定義で再構成（旧項目は除外・タイミング分岐を反映）。
+      survey.questions = buildMeasurementQuestions_();
     }
   });
 
