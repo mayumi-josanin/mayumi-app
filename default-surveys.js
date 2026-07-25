@@ -279,6 +279,13 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
             value: "その他（自由記述）",
           },
         },
+        {
+          id: "q_bijiris_session_question",
+          label: "ご質問・ご相談（自由記述）",
+          type: "textarea",
+          required: false,
+          options: [],
+        },
       ],
     },
     {
