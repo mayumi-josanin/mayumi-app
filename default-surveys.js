@@ -283,7 +283,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
         },
         {
           id: "q_measure_waist",
-          label: "ウエスト（cm）",
+          label: "ウエスト（cm）　記入例：22.5（数値のみ）",
           type: "text",
           required: false,
           options: [],
@@ -291,7 +291,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
         },
         {
           id: "q_measure_hip",
-          label: "ヒップ（cm）",
+          label: "ヒップ（cm）　記入例：22.5（数値のみ）",
           type: "text",
           required: false,
           options: [],
@@ -299,7 +299,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
         },
         {
           id: "q_measure_thigh_right",
-          label: "太もも右（cm）",
+          label: "太もも右（cm）　記入例：22.5（数値のみ）",
           type: "text",
           required: false,
           options: [],
@@ -307,7 +307,7 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
         },
         {
           id: "q_measure_thigh_left",
-          label: "太もも左（cm）",
+          label: "太もも左（cm）　記入例：22.5（数値のみ）",
           type: "text",
           required: false,
           options: [],
