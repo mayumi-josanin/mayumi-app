@@ -297,10 +297,10 @@ var SURVEYS = [
     questions: [
       { id: "q_measure_timing", label: "計測のタイミング", type: "choice", required: true, options: ["モニター時（初回）", "回数券終了時", "キャンペーン終了時"] },
       { id: "q_measure_photos", label: "計測写真（全身2枚）", type: "photo", required: true, options: [] },
-      { id: "q_measure_waist", label: "ウエスト（cm）", type: "text", required: false, options: [], placeholder: "22.5" },
-      { id: "q_measure_hip", label: "ヒップ（cm）", type: "text", required: false, options: [], placeholder: "22.5" },
-      { id: "q_measure_thigh_right", label: "太もも右（cm）", type: "text", required: false, options: [], placeholder: "22.5" },
-      { id: "q_measure_thigh_left", label: "太もも左（cm）", type: "text", required: false, options: [], placeholder: "22.5" },
+      { id: "q_measure_waist", label: "ウエスト（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
+      { id: "q_measure_hip", label: "ヒップ（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
+      { id: "q_measure_thigh_right", label: "太もも右（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
+      { id: "q_measure_thigh_left", label: "太もも左（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
     ],
   },
 ];
@@ -6285,21 +6285,23 @@ function migrateToSplitSurveys() {
         if (q.id === "q_measure_thigh_left") { leftQ = q; return false; }
         return true;
       });
-      // ウエスト・ヒップに記入例を設定
+      // ウエスト・ヒップに記入例ラベルと記入例を設定
       mQuestions.forEach(function (q) {
+        if (q.id === "q_measure_waist") q.label = "ウエスト（cm）　記入例：22.5（数値のみ）";
+        if (q.id === "q_measure_hip") q.label = "ヒップ（cm）　記入例：22.5（数値のみ）";
         if (q.id === "q_measure_waist" || q.id === "q_measure_hip") q.placeholder = "22.5";
       });
       if (!rightQ) {
-        rightQ = { id: "q_measure_thigh_right", label: "太もも右（cm）", type: "text", required: false, options: [], placeholder: "22.5" };
+        rightQ = { id: "q_measure_thigh_right", label: "太もも右（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" };
       } else {
-        rightQ.label = "太もも右（cm）";
+        rightQ.label = "太もも右（cm）　記入例：22.5（数値のみ）";
         rightQ.type = "text";
         rightQ.placeholder = "22.5";
       }
       if (!leftQ) {
-        leftQ = { id: "q_measure_thigh_left", label: "太もも左（cm）", type: "text", required: false, options: [], placeholder: "22.5" };
+        leftQ = { id: "q_measure_thigh_left", label: "太もも左（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" };
       } else {
-        leftQ.label = "太もも左（cm）";
+        leftQ.label = "太もも左（cm）　記入例：22.5（数値のみ）";
         leftQ.type = "text";
         leftQ.placeholder = "22.5";
       }
