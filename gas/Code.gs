@@ -423,30 +423,6 @@ function handleGet_(e) {
       version: VERSION,
     };
   }
-  if (action === "folderDiag") {
-    // TEMP diagnostic: 保存先ルートと モニター写真/計測時 サブフォルダの実体を返す（PIIなし）。確認後に削除。
-    var root = getRootPhotoFolder_();
-    function childInfo(name) {
-      var it = root.getFoldersByName(name);
-      if (!it.hasNext()) return { exists: false };
-      var f = it.next();
-      var subs = [];
-      var subIt = f.getFolders();
-      var count = 0;
-      while (subIt.hasNext() && count < 60) {
-        subs.push(subIt.next().getName());
-        count += 1;
-      }
-      return { exists: true, id: f.getId(), customerFolders: subs.length, sample: subs.slice(0, 30) };
-    }
-    return {
-      rootId: root.getId(),
-      rootName: root.getName(),
-      rootUrl: root.getUrl(),
-      monitor: childInfo(MONITOR_REFERENCE_ROOT_NAME),
-      measurement: childInfo(MEASUREMENT_TIME_ROOT_NAME),
-    };
-  }
   if (action === "bijirisPosts") return { posts: getBijirisPosts_({ publishedOnly: true }) };
   if (action === "history") {
     return getCustomerHistoryPayload_({
