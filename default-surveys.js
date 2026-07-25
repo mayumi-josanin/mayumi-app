@@ -293,6 +293,13 @@ function makeDefaultSurveys(timestamp = new Date().toISOString()) {
       updatedAt: timestamp,
       questions: [
         {
+          id: "q_measure_feeling",
+          label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください",
+          type: "textarea",
+          required: false,
+          options: [],
+        },
+        {
           id: "q_measure_timing",
           label: "計測のタイミング",
           type: "choice",

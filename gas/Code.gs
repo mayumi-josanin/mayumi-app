@@ -320,6 +320,7 @@ var SURVEYS = [
     completionMessage: "計測時アンケートのご回答ありがとうございました。",
     status: "published",
     questions: [
+      { id: "q_measure_feeling", label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください", type: "textarea", required: false, options: [] },
       { id: "q_measure_timing", label: "計測のタイミング", type: "choice", required: true, options: ["モニター時（初回）", "回数券終了時", "キャンペーン終了時"] },
       { id: "q_measure_photos", label: "計測写真（全身2枚）", type: "photo", required: true, options: [] },
       { id: "q_measure_waist", label: "ウエスト（cm）　記入例：22.5（数値のみ）", type: "text", required: false, options: [], placeholder: "22.5" },
@@ -6312,6 +6313,7 @@ function migrateToSplitSurveys() {
         if (q && q.id) existingById[q.id] = q;
       });
       var measureSpec = [
+        { id: "q_measure_feeling", label: "本日のビジリスの体感はいかがでしたか？　以前と比べて変化したことなどがあればご記載ください", type: "textarea", required: false, options: [] },
         { id: "q_measure_timing" },
         { id: "q_measure_photos" },
         { id: "q_measure_waist", label: "ウエスト（cm）　記入例：22.5（数値のみ）", placeholder: "22.5" },
