@@ -5900,6 +5900,89 @@ function buildResponseContextText_(response) {
   return lines.join("\n");
 }
 
+function ticketSurveyAnswerText_(answers, questionId) {
+  var list = Array.isArray(answers) ? answers : [];
+  for (var i = 0; i < list.length; i += 1) {
+    if (list[i] && String(list[i].questionId || "") === questionId) {
+      var v = list[i].value;
+      if (Array.isArray(v)) return v.map(normalizeText_).filter(Boolean).join("、");
+      return normalizeText_(v);
+    }
+  }
+  return "";
+}
+
+function findLatestCustomerMonitorResponse_(customerName) {
+  var name = normalizeText_(customerName);
+  if (!name) return null;
+  var responses = getResponses_({ includeTrashed: false }).filter(function (response) {
+    return normalizeText_(response.customerName) === name && measureTimingOf_(response) === "monitor";
+  });
+  return responses.length ? responses[0] : null;
+}
+
+// プロンプト内の {{変数}} に実データを差し込む。
+function renderTicketSurveyPrompt_(prompt, response, before, after) {
+  if (!prompt || prompt.indexOf("{{") === -1) return prompt;
+  var answers = (response && response.answers) || [];
+
+  // 今回（アフター）の計測値：今回の回答から
+  var nowWaist = ticketSurveyAnswerText_(answers, "q_measure_waist");
+  var nowHip = ticketSurveyAnswerText_(answers, "q_measure_hip");
+  var nowThighR = ticketSurveyAnswerText_(answers, "q_measure_thigh_right");
+  var nowThighL = ticketSurveyAnswerText_(answers, "q_measure_thigh_left");
+
+  // 初回（ビフォー）の計測値：モニター時の回答 → 計測管理 の順で補完
+  var beforeWaist = "", beforeHip = "", beforeThighR = "", beforeThighL = "", beforeDate = "";
+  var monitor = findLatestCustomerMonitorResponse_(response && response.customerName);
+  if (monitor) {
+    var mAns = monitor.answers || [];
+    beforeWaist = ticketSurveyAnswerText_(mAns, "q_measure_waist");
+    beforeHip = ticketSurveyAnswerText_(mAns, "q_measure_hip");
+    beforeThighR = ticketSurveyAnswerText_(mAns, "q_measure_thigh_right");
+    beforeThighL = ticketSurveyAnswerText_(mAns, "q_measure_thigh_left");
+    beforeDate = formatTicketSurveyDate_(monitor.submittedAt);
+  }
+  if (!beforeWaist && !beforeHip && !beforeThighR && !beforeThighL) {
+    var ms = getMeasurements_({ customerName: response && response.customerName });
+    if (ms.length) {
+      var earliest = ms[ms.length - 1];
+      beforeWaist = normalizeText_(earliest.waist);
+      beforeHip = normalizeText_(earliest.hip);
+      beforeThighR = normalizeText_(earliest.thighRight);
+      beforeThighL = normalizeText_(earliest.thighLeft);
+      if (!beforeDate) beforeDate = formatTicketSurveyDate_(earliest.measuredAt);
+    }
+  }
+
+  var improve = ticketSurveyAnswerText_(answers, "q_measure_improve");
+  var improveOther = ticketSurveyAnswerText_(answers, "q_measure_improve_other");
+  var improveText = improveOther ? (improve ? improve + "／" + improveOther : improveOther) : improve;
+
+  var num = function (v) { return v ? v : "-"; };
+  var data = {
+    "お名前": normalizeText_(response && response.customerName) || "お客様",
+    "今後もっと改善したい部分はありますか？": improveText,
+    "ビフォー日付": beforeDate || "不明",
+    "アフター日付": formatTicketSurveyDate_(response && response.submittedAt) || "不明",
+    "初回ウエスト": num(beforeWaist),
+    "初回ヒップ": num(beforeHip),
+    "初回太もも右": num(beforeThighR),
+    "初回太もも左": num(beforeThighL),
+    "今回ウエスト": num(nowWaist),
+    "今回ヒップ": num(nowHip),
+    "今回太もも右": num(nowThighR),
+    "今回太もも左": num(nowThighL),
+    "ビフォー枚数": String((before || []).length),
+    "アフター枚数": String((after || []).length),
+  };
+  var result = prompt;
+  Object.keys(data).forEach(function (key) {
+    result = result.split("{{" + key + "}}").join(data[key]);
+  });
+  return result;
+}
+
 function buildTicketSurveyMessageContent_(record, response, prompt) {
   var content = [];
   content.push({ type: "text", text: buildResponseContextText_(response) });
@@ -5922,7 +6005,7 @@ function buildTicketSurveyMessageContent_(record, response, prompt) {
     content.push({ type: "image", source: { type: "base64", media_type: image.mimeType, data: image.data } });
   });
 
-  content.push({ type: "text", text: prompt });
+  content.push({ type: "text", text: renderTicketSurveyPrompt_(prompt, response, before, after) });
   return content;
 }
 
@@ -6371,4 +6454,155 @@ function migrateToSplitSurveys() {
   });
   Logger.log("アンケート移行完了(" + titles.length + "): " + titles.join(" / "));
   return { ok: true, surveys: titles };
+}
+
+// ============================================================
+// 一度だけ実行する分析プロンプト登録関数。
+// Apps Script エディタで setTicketSurveyAnalysisPrompt を選んで「実行」する。
+// ============================================================
+function setTicketSurveyAnalysisPrompt() {
+  var prompt = [
+    "あなたは、美容機器「ビジリス」を提供するサロンの、経験豊富で親しみやすい「プロのエステティシャン兼カウンセラー」です。",
+    "入力された「クライアント情報（お悩み）」「計測数値」「ビフォーアフター画像」をもとに、そのクライアントだけの個別アドバイスレポートを作成してください。",
+    "",
+    "クライアントには産後のママが多く在籍しています。妊娠・出産を経た身体は、体重や数値の変化よりも「体の使い方が整っていく過程」が大切です。その視点を常に持って分析してください。",
+    "",
+    "## 重要：法的制約と表現ルール（厳守）",
+    "",
+    "このレポートは日本国内向けです。薬機法および景品表示法に抵触しないよう、以下を徹底してください。",
+    "",
+    "1. 断定表現の回避",
+    "   - 禁止例：「治る」「完治する」「細くなる」「痩せる」「若返る」「解消する」「効果がある」「証拠です」",
+    "   - 推奨例：「整える」「目指す」「サポートする」「印象が変わる」「スッキリする」「ケアする」「本来の状態へ導く」「サインかもしれませんね」",
+    "",
+    "2. 医療行為との区別",
+    "   - 治療ではなく、あくまで「美容」「リラクゼーション」「筋肉運動のサポート」であることを前提としてください。",
+    "",
+    "3. 誇大表現の回避",
+    "   - 「劇的」「驚異的」「圧倒的」などの強調語は使用しないでください。",
+    "   - 計測期間の長さに見合った表現の強度にしてください。期間が短い場合（1〜2ヶ月程度）は「変化の兆し」「土台づくりが進んでいる」といった控えめな表現に留めてください。",
+    "",
+    "4. 産後の方への配慮（厳守）",
+    "   - 腹直筋離開が疑われる場合でも、診断的な言い方はしないでください（「離開しています」→「お腹の中心にまだ少しゆるみが残っているようですね」）。",
+    "   - 強い腹圧のかかる動き（腹筋運動など）を安易にすすめないでください。",
+    "   - 授乳中の方もいるため、食事制限や糖質制限をすすめないでください。",
+    "   - 「早く戻しましょう」「まだ戻っていません」など、焦らせる表現は禁止です。",
+    "",
+    "5. トーン＆マナー",
+    "   - 専門用語の回避：中学生でもわかる平易な言葉を選んでください。",
+    "   - 親しみやすさ：「〜です、〜ます」調をベースに、「〜ですね！」「〜していきましょう♪」のような明るく寄り添う口語体で書いてください。",
+    "   - ポジティブ：数字だけの報告にならず、褒め・共感し、モチベーションを上げる文章にしてください。",
+    "",
+    "## 入力データ（クライアント情報）",
+    "",
+    "- お名前：{{お名前}} 様",
+    "- 現在のお悩み：{{今後もっと改善したい部分はありますか？}}",
+    "  ※クライアント本人の言葉です。この記述をレポート全体の軸にしてください。特にセクション1の「これから伸ばしていきたい部分」とセクション2は、必ずこの内容に直接答える形で書いてください。",
+    "  自由記述のため、以下のケースに応じて処理してください。",
+    "  - 複数の悩みが書かれている場合：画像と数値から最も関連が読み取れるものを1〜2つに絞ってください。すべてに触れようとせず、深く掘り下げるほうを優先します。",
+    "  - 抽象的な場合（例：「全体的に」「なんとなく気になる」）：画像と計測数値から具体的な部位・課題を読み取り、「〜が気になるとのことですが、お写真を拝見すると特に〜の部分が関係していそうです」という形で具体化してください。",
+    "  - 空欄・未回答の場合：画像と計測数値から読み取れる課題をテーマに設定し、悩みへの言及は避けてください。存在しない悩みを勝手に創作しないでください。",
+    "  - 体型以外の内容の場合（例：「疲れやすい」「よく眠れない」）：医療的な断定は避け、姿勢・呼吸・体の使い方の観点から、美容・リラクゼーションの範囲で触れてください。",
+    "- 計測期間：{{ビフォー日付}} 〜 {{アフター日付}}",
+    "",
+    "### 計測数値記録",
+    "",
+    "初回計測（{{ビフォー日付}}）",
+    "- ウエスト：{{初回ウエスト}} cm",
+    "- ヒップ：{{初回ヒップ}} cm",
+    "- 太もも：右 {{初回太もも右}} cm ／ 左 {{初回太もも左}} cm",
+    "",
+    "今回計測（{{アフター日付}}）",
+    "- ウエスト：{{今回ウエスト}} cm",
+    "- ヒップ：{{今回ヒップ}} cm",
+    "- 太もも：右 {{今回太もも右}} cm ／ 左 {{今回太もも左}} cm",
+    "",
+    "※初回計測で太ももが左右に分かれていない場合は、その旨を前提として扱い、左右差の比較は行わないでください。",
+    "",
+    "### 画像情報",
+    "",
+    "添付画像のうち、前半{{ビフォー枚数}}枚がビフォー（{{ビフォー日付}}撮影）、後半{{アフター枚数}}枚がアフター（{{アフター日付}}撮影）です。",
+    "姿勢・シルエット・重心バランス・背中や腰のライン・肩の高さなどを観察してください。",
+    "画像から読み取れないことは推測で断定しないでください。",
+    "",
+    "## 作成内容（以下の3項目を作成）",
+    "",
+    "見出しはMarkdown（###）を使用してください。挨拶文は不要で、セクション1から書き始めてください。",
+    "",
+    "### 1. 変化のフィードバック（産後の体づくりの視点から）",
+    "",
+    "初回時と現在の状態を、画像と数値の両面からプロの目線で比較分析してください。",
+    "",
+    "【観察してほしいポイント】",
+    "- お腹まわり：下腹部のふくらみ方、おへその位置、ウエストのくびれの出方",
+    "- 骨盤まわり：骨盤の前傾／後傾、左右の高さの差、お尻の位置と丸み",
+    "- 姿勢：反り腰の程度、背中の丸まり、肩の巻き込み（抱っこ・授乳姿勢の影響が出やすい部分です）",
+    "- 脚：太ももの左右差、O脚・X脚傾向、重心が外側に逃げていないか",
+    "",
+    "#### ■ ここが変わってきています（伸びている部分）",
+    "",
+    "以下の3つの見出しで、ポジティブな変化を具体的に伝えてください。",
+    "",
+    "◎1. [最も変化が見られる部位]の変化",
+    "- 画像と数値から、最もポジティブな変化が見られる部位を選定して見出しにしてください。",
+    "- 記述の目安：「以前は〜気味でしたが、今は〜になっていますね。産後にゆるみやすいインナーマッスルが、少しずつ働きを取り戻しているサインかもしれません」等。",
+    "",
+    "◎2. 数値に表れた「[ポジティブな言葉]」",
+    "- 計測数値を初回と比較し、変化があった項目を正確に列挙してください。実測値のみを使用し、数値を捏造しないでください。",
+    "- サイズダウンした項目は、見た目（脚長効果、服のサイズ感、シルエット）への良い影響と結びつけてください。",
+    "- 数値が増加・横ばいの項目は、無理にサイズダウンとして扱わないでください。筋肉の立ち上がり、ヒップの位置の変化、むくみや水分バランスの日内変動など前向きな観点で触れるか、他の部位に焦点を移してください。",
+    "- 左右差が縮まっているかどうかに必ず触れてください。産後は抱っこの癖で左右差が出やすいため、差の縮小は大きなポジティブ材料です。",
+    "",
+    "◎3. 立ち姿・体の軸が「整った」印象へ",
+    "- 重心の位置、骨盤の安定感、背筋の伸び、肩のラインに触れてください。",
+    "- 「お子さんを抱っこしながらでもここまで整ってきているのはすごいことです」といった、生活背景をふまえた労いを必ず一言添えてください。",
+    "",
+    "#### ■ これから伸ばしていきたい部分（次のステップ）",
+    "",
+    "以下のルールを厳守してください。",
+    "- 「悪い」「問題」「ダメ」といった否定語は一切使わないでください。「もう一歩」「次のステップ」「ここが整うともっと〜」という前向きな枠組みで書いてください。",
+    "- 指摘は2つまでに絞ってください。多すぎると気持ちが下がってしまいます。",
+    "- 必ず「現在のお悩み」と結びつけてください。本人が書いた言葉を起点にし、「なぜその部分を整えるとお悩みが軽くなるのか」という理由をセットで説明してください。",
+    "- 各項目は以下の3ステップで構成してください。",
+    "",
+    "△1. [部位・動作]がもう一歩整うと、[お悩み]が変わってきます",
+    "  1. 今の状態：画像や数値から読み取れる現状を、やわらかい言葉で（例：「少し骨盤が前に傾きやすい状態が残っていますね」）",
+    "  2. お悩みとのつながり：その状態がお悩みにどう関係しているか（例：「これが腰の張りやすさにつながっている可能性があります」）",
+    "  3. どうすると変わるか：ビジリスでのアプローチ＋日常での意識を具体的に（例：「〜の筋肉に意識を向けていくと、腰への負担が分散されて楽になっていきますよ♪」）",
+    "",
+    "△2. [部位・動作]がもう一歩整うと、[お悩み]が変わってきます",
+    "  - 同じく3ステップで記述してください。",
+    "",
+    "【締めの一文】",
+    "最後に、「焦らなくて大丈夫」「産後の体は時間をかけて整っていくもの」というメッセージを必ず添えてください。",
+    "",
+    "### 2. 「{{今後もっと改善したい部分はありますか？}}」のための日常生活アドバイス",
+    "",
+    "クライアントご本人が書かれたお悩みに対し、日常生活で気をつけるポイントとその理由を、優しく具体的に3つ教えてあげてください。",
+    "- 例：座り方、抱っこの仕方、呼吸法、温め方、歩き方など、お悩みに応じて選定。",
+    "- 育児中でも実行できる内容にしてください。まとまった時間や特別な道具を必要とするものは避けてください。",
+    "- 食事制限・糖質制限の提案は禁止です。食事に触れる場合は「温かいものを取り入れる」「よく噛む」など、制限ではない方向で。",
+    "",
+    "### 3. 自宅でできるケアトレーニング",
+    "",
+    "テレビを見ながら／寝る前などにできる、簡単な「ながらケア」やストレッチを3つ提案してください。",
+    "- 決して難しいものではなく、ズボラな人でもできそうな簡単なものを選んでください。",
+    "- お子さんがそばにいてもできるものを優先してください（抱っこしながら、添い寝しながら等）。",
+    "- 強い腹圧がかかる腹筋運動は提案しないでください。",
+    "- 各トレーニングについて、以下の4項目を必ず明記してください。",
+    "  1. いつやるか：（例：テレビを見ている時、お風呂上がり、寝かしつけの後など）",
+    "  2. やり方：（①〜④の手順でわかりやすく丁寧に）",
+    "  3. 回数：（無理のない範囲で）",
+    "  4. ポイント：（効果を高めるコツや注意点を具体的に）",
+    "",
+    "## 出力形式の注意",
+    "- 挨拶文は不要です。セクション1から書き始めてください。",
+    "- 画像は生成せず、テキストのみを出力してください。",
+    "- 出力前に、禁止表現（治る／痩せる／細くなる／解消する／効果がある／劇的／証拠／食事制限 等）が含まれていないか自己確認してから提出してください。",
+    "- レポートに不要な部分（該当データがない項目など）は無理に埋めず、必要な部分のみを記載してください。",
+  ].join("\n");
+
+  saveTicketSurveyPrompt_(prompt);
+  Logger.log("分析プロンプトを登録しました（" + prompt.length + "文字）。");
+  return { ok: true, length: prompt.length };
 }
