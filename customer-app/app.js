@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v109";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v110";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1821,10 +1821,9 @@ function getSurveyResubmissionAvailableAt(surveyId) {
   return new Date(submittedAt.getTime() + RESPONSE_EDIT_WINDOW_MS).toISOString();
 }
 
-function getSurveyResubmissionCooldownRemainingMs(surveyId) {
-  const availableAt = getSurveyResubmissionAvailableAt(surveyId);
-  if (!availableAt) return 0;
-  return Math.max(0, new Date(availableAt).getTime() - Date.now());
+function getSurveyResubmissionCooldownRemainingMs() {
+  // 再送信クールダウンは廃止：いつでも再送信できる
+  return 0;
 }
 
 function canSubmitNewResponseForSurvey(surveyId) {
