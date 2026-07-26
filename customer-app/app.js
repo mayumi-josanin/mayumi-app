@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v117";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v118";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1496,8 +1496,29 @@ function ensureSessionTicketSheetSelection(surveyId) {
   return resolvedSheet;
 }
 
+// 計測時アンケートの「回数券終了時」の最新提出を取得（回数券カードの完成イベント）。
+function getLatestTicketEndMeasureResponse() {
+  return (
+    getVisibleHistoryResponses()
+      .filter((response) => {
+        const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
+        return getAnswerValueFromQuestionIds(answerMap, ["q_measure_timing"]).includes("回数券終了");
+      })
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null
+  );
+}
+
+// 直近の施術後・回数券提出より後に「回数券終了時」提出があれば、そのカードは完成扱い。
+function isTicketCardEndedByMeasureAfter(sessionResponse) {
+  const endResponse = getLatestTicketEndMeasureResponse();
+  if (!endResponse) return false;
+  if (!sessionResponse) return true;
+  return new Date(endResponse.submittedAt).getTime() >= new Date(sessionResponse.submittedAt).getTime();
+}
+
 // 回数券の「何枚目・何回目」を自動計算する。
 // 直近の回数券提出を基準に、同じ種類なら+1（総数に達したら次の枚＝A案）、種類が変わったら新しいカードとして扱う。
+// 「回数券終了時」提出でカードが締められている場合も、次の施術後は新しいカードから始める。
 function computeSessionTicketPosition(ticketPlan) {
   const plan = normalizeText(ticketPlan);
   const total = parseTicketCount(plan) || 0;
@@ -1518,8 +1539,8 @@ function computeSessionTicketPosition(ticketPlan) {
     return { sheetLabel: `${prevSheet + 1}枚目`, round: 1 };
   }
   const nextRound = prevRound + 1;
-  if (total && nextRound > total) {
-    // 総数に達したので自動で次の枚へ（A案）
+  if (isTicketCardEndedByMeasureAfter(latest) || (total && nextRound > total)) {
+    // 回数券終了時で締め済み、または総数に達した → 自動で次の枚へ
     return { sheetLabel: `${prevSheet + 1}枚目`, round: 1 };
   }
   return { sheetLabel: `${prevSheet}枚目`, round: nextRound };
@@ -4917,8 +4938,11 @@ function getActiveTicketCardState() {
   const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
   const ticketPlan = normalizeText(ticketMap.get("回数券") || "");
   const currentSheetLabel = normalizeText(ticketMap.get("何枚目") || "");
-  const currentRound = parseTicketStep(ticketMap.get("何回目") || "");
+  const rawRound = parseTicketStep(ticketMap.get("何回目") || "");
   const ticketCount = parseTicketCount(ticketPlan);
+  // 計測時アンケートの「回数券終了時」が提出されていれば、最後のスタンプ（6回券=6/10回券=10）まで押す。
+  const endedByMeasure = Boolean(ticketPlan && ticketCount && isTicketCardEndedByMeasureAfter(response));
+  const currentRound = endedByMeasure ? ticketCount : rawRound;
   const activeOverride = getActiveTicketCardOverride();
   const isCurrentCardComplete = Boolean(ticketPlan && ticketCount && currentRound >= ticketCount);
   const ticketAcquireCooldownRemainingMs = getTicketCardAcquireCooldownRemainingMs();
