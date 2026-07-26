@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v115";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v116";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1418,6 +1418,11 @@ function getVisibleHistoryResponses() {
 
 function isSessionSurvey(survey) {
   return survey?.id === SESSION_SURVEY_ID;
+}
+
+// 施術後アンケートは写真提出がないため、同意確認・取り扱い文は表示せず、同意も必須としない。
+function surveyRequiresConsent(survey) {
+  return Boolean(appState.publicInfo.requireConsent) && !isSessionSurvey(survey);
 }
 
 function getSessionTypeSelection(surveyId) {
@@ -4250,7 +4255,7 @@ function renderFormPanel(survey) {
     <form id="answerForm" class="question-list">
       ${renderableQuestions.map((question, index) => renderQuestion(question, index, surveyId)).join("")}
       ${
-        appState.publicInfo.requireConsent
+        surveyRequiresConsent(survey)
           ? `
             <div class="question-block consent-block" data-question-wrap="${getAgreementDraftKey(surveyId)}">
               <span>同意確認</span>
@@ -4273,11 +4278,17 @@ function renderFormPanel(survey) {
           : `<div class="empty">表示できる質問がありません。</div>`
       }
     </form>
-    <article class="policy-card">
-      <strong>取り扱いについて</strong>
-      <p>${escapeHtml(appState.publicInfo.dataPolicyText || "ご回答内容は院内管理のために利用します。")}</p>
-      <div class="meta">Version ${escapeHtml(appState.publicInfo.version || APP_VERSION)}</div>
-    </article>
+    ${
+      isSessionSurvey(survey)
+        ? ""
+        : `
+          <article class="policy-card">
+            <strong>取り扱いについて</strong>
+            <p>${escapeHtml(appState.publicInfo.dataPolicyText || "ご回答内容は院内管理のために利用します。")}</p>
+            <div class="meta">Version ${escapeHtml(appState.publicInfo.version || APP_VERSION)}</div>
+          </article>
+        `
+    }
   `;
 
   document.querySelector("#backToHomeButton").addEventListener("click", () => setPage("home"));
@@ -4564,7 +4575,7 @@ function prepareSubmissionFromDraft(survey, draft) {
     }
   }
 
-  if (appState.publicInfo.requireConsent && !isAgreementAccepted(survey.id)) {
+  if (surveyRequiresConsent(survey) && !isAgreementAccepted(survey.id)) {
     throw makeValidationError(
       getAgreementDraftKey(survey.id),
       "同意確認にチェックを入れてください。",
