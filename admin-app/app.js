@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v95";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v96";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -2756,13 +2756,32 @@ async function updateRewardRedemption(customerName, threshold, handed, checkbox)
   }
 }
 
-function getCampaignVisitCount(responses) {
-  return (Array.isArray(responses) ? responses : []).filter((response) => {
-    const answer = (response.answers || []).find((item) => item.questionId === "q_bijiris_session_type");
-    if (!answer) return false;
-    const value = Array.isArray(answer.value) ? answer.value.join("") : String(answer.value || "");
-    return value.trim() === "キャンペーン";
-  }).length;
+function computeCampaignCards(responses) {
+  const answerText = (response, questionId) => {
+    const answer = (response.answers || []).find((item) => item.questionId === questionId);
+    if (!answer) return "";
+    return (Array.isArray(answer.value) ? answer.value.join("") : String(answer.value || "")).trim();
+  };
+  const events = (Array.isArray(responses) ? responses : [])
+    .map((response) => {
+      const sessionType = answerText(response, "q_bijiris_session_type");
+      const timing = answerText(response, "q_measure_timing");
+      if (sessionType === "キャンペーン") return { kind: "visit", at: response.submittedAt };
+      if (timing.includes("キャンペーン終了")) return { kind: "close", at: response.submittedAt };
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.at) - new Date(b.at));
+  let completedCount = 0;
+  let currentVisits = 0;
+  events.forEach((event) => {
+    if (event.kind === "visit") currentVisits += 1;
+    else if (event.kind === "close") {
+      completedCount += 1;
+      currentVisits = 0;
+    }
+  });
+  return { completedCount, currentVisits };
 }
 
 function renderCustomerSummaryCard(customerName, responses) {
@@ -2772,7 +2791,7 @@ function renderCustomerSummaryCard(customerName, responses) {
   const surveyCount = new Set(responses.map((response) => response.surveyId || response.surveyTitle || response.id)).size;
   const profile = getCustomerProfileByName(customerName);
   const cardBreakdown = getCompletedTicketCardBreakdown(customerName);
-  const campaignCount = getCampaignVisitCount(responses);
+  const campaign = computeCampaignCards(responses);
   return `
     <article class="answer-item customer-summary-card">
       <strong>${escapeHtml(getCustomerNameWithMember(customerName))}</strong>
@@ -2781,7 +2800,7 @@ function renderCustomerSummaryCard(customerName, responses) {
         ${renderCustomerPushStatus(profile?.pushStatus)}
         <div class="meta customer-summary-item">回答数: ${responses.length}件 / アンケート種類: ${surveyCount}件</div>
         <div class="meta customer-summary-item customer-summary-item-wide">回数券 合計 ${cardBreakdown.total}枚：6回券 ${cardBreakdown.byPlan["6回券"] || 0}枚、10回券 ${cardBreakdown.byPlan["10回券"] || 0}枚</div>
-        <div class="meta customer-summary-item">キャンペーン 累計: ${campaignCount}回</div>
+        <div class="meta customer-summary-item">キャンペーン: 完了 ${campaign.completedCount}回 / 進行中 ${campaign.currentVisits}回</div>
         <div class="meta customer-summary-item">最新回答: ${latestResponse ? `${escapeHtml(latestResponse.surveyTitle)} / ${formatDate(latestResponse.submittedAt)}` : "-"}</div>
         <div class="meta customer-summary-item customer-summary-item-wide">最新測定: ${latestMeasurement ? `${escapeHtml(formatDateOnly(latestMeasurement.measuredAt))} / WHR ${escapeHtml(formatWhr(latestMeasurement.whr))}` : "-"}</div>
       </div>
@@ -5936,6 +5955,7 @@ function renderSettings() {
       dataPolicyText: "",
       requireConsent: true,
       consentText: "",
+      campaignStampEnabled: true,
       autoBackupEnabled: true,
       backupHour: 3,
       retentionDays: 365,
@@ -5973,6 +5993,10 @@ function renderSettings() {
         <label>
           同意文言
           <textarea name="consentText">${escapeHtml(preferences.consentText || "")}</textarea>
+        </label>
+        <label class="inline-toggle">
+          <input name="campaignStampEnabled" type="checkbox" ${preferences.campaignStampEnabled === false ? "" : "checked"} />
+          お客様アプリにキャンペーンスタンプを表示する（キャンペーン実施月のみONなど）
         </label>
         <label class="inline-toggle">
           <input name="autoBackupEnabled" type="checkbox" ${preferences.autoBackupEnabled === false ? "" : "checked"} />
@@ -8223,6 +8247,7 @@ async function savePreferences() {
       dataPolicyText: String(formData.get("dataPolicyText") || "").trim(),
       requireConsent: formData.get("requireConsent") === "on",
       consentText: String(formData.get("consentText") || "").trim(),
+      campaignStampEnabled: formData.get("campaignStampEnabled") === "on",
       autoBackupEnabled: formData.get("autoBackupEnabled") === "on",
       backupHour: Number(formData.get("backupHour") || 0),
       retentionDays: Number(formData.get("retentionDays") || 0),
