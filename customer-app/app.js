@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v118";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v119";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1546,14 +1546,17 @@ function computeSessionTicketPosition(ticketPlan) {
   return { sheetLabel: `${prevSheet}枚目`, round: nextRound };
 }
 
+// 現在の回数券カード（種類・何枚目・何回目）を施術後アンケートに自動反映する。
+// カードが無い／すでに満了している場合は false（→「新規カードを追加してください」を案内）。
 function ensureSessionTicketPositionSelection(surveyId) {
   if (getSessionTicketRoundSelection(surveyId)) return true;
-  const ticketPlan = getSessionTicketPlanSelection(surveyId);
-  if (!ticketPlan) return false;
   if (hasCustomerSession() && appState.historyLoading) return false;
-  const position = computeSessionTicketPosition(ticketPlan);
-  updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, position.sheetLabel);
-  updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, `${position.round}回目`);
+  const card = getActiveTicketCardState();
+  if (!card || !card.ticketPlan || !card.ticketCount) return false;
+  if (card.currentRound >= card.ticketCount) return false;
+  updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, card.ticketPlan);
+  updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, card.ticketSheetLabel);
+  updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, `${card.currentRound + 1}回目`);
   return true;
 }
 
@@ -3466,6 +3469,32 @@ function refreshDraftStatusDisplay(surveyId) {
   }
 }
 
+function renderTicketCardNeededStep(survey, surveyId) {
+  answerPanel.innerHTML = `
+    ${renderPendingNotice()}
+    <div class="section-head survey-toolbar">
+      <div>
+        <h2>${escapeHtml(survey.title)}</h2>
+        <p>回数券のスタンプカードがありません。</p>
+      </div>
+      <button id="backToSessionTypeFromCardNeeded" class="ghost-button" type="button">施術内容を変更</button>
+    </div>
+    <div class="question-list">
+      <div class="question-block">
+        <strong>先に回数券カードを追加してください</strong>
+        <p class="meta">ホーム画面の「新規カードを追加」から 6回券／10回券 を選んでカードを作成してください。作成後にこの施術後アンケートを回答すると、スタンプが1つ押されます。</p>
+        <button id="goHomeForTicketCard" class="primary-button" type="button">ホームでカードを追加する</button>
+      </div>
+    </div>
+  `;
+  document.querySelector("#backToSessionTypeFromCardNeeded").addEventListener("click", () => {
+    clearSessionSelections(surveyId);
+    renderAnswerPanel();
+  });
+  document.querySelector("#goHomeForTicketCard").addEventListener("click", () => setPage("home"));
+  attachCommonButtons();
+}
+
 function renderSessionTypeStep(survey, surveyId) {
   const sessionTypeQuestion = getSessionTypeQuestion(survey);
   const selectedType = getSessionTypeSelection(surveyId);
@@ -4366,14 +4395,6 @@ function renderAnswerPanel() {
   if (
     isSessionSurvey(survey) &&
     getSessionTypeSelection(surveyId) === "回数券" &&
-    !getSessionTicketPlanSelection(surveyId)
-  ) {
-    renderSessionTicketPlanStep(survey, surveyId);
-    return;
-  }
-  if (
-    isSessionSurvey(survey) &&
-    getSessionTypeSelection(surveyId) === "回数券" &&
     !getSessionTicketRoundSelection(surveyId)
   ) {
     if (hasCustomerSession() && appState.historyLoading) {
@@ -4382,23 +4403,19 @@ function renderAnswerPanel() {
         <div class="section-head survey-toolbar">
           <div>
             <h2>${escapeHtml(survey.title)}</h2>
-            <p>ホーム画面の枚数記録を確認しています。</p>
+            <p>ホーム画面のスタンプカードを確認しています。</p>
           </div>
-          <button id="backToSessionPlanLoadingButton" class="ghost-button" type="button">戻る</button>
         </div>
-        <div class="empty">回数券の現在の枚数を読み込み中です。</div>
+        <div class="empty">回数券カードを読み込み中です。</div>
       `;
-      document.querySelector("#backToSessionPlanLoadingButton").addEventListener("click", () => {
-        updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, "");
-        updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, "");
-        updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, "");
-        renderAnswerPanel();
-      });
       attachCommonButtons();
       return;
     }
-    // 何枚目・何回目は自動計算（お客様の入力は不要）
-    ensureSessionTicketPositionSelection(surveyId);
+    // 種類・何枚目・何回目は現在のカードから自動反映（お客様の入力は不要）
+    if (!ensureSessionTicketPositionSelection(surveyId)) {
+      renderTicketCardNeededStep(survey, surveyId);
+      return;
+    }
     // フォームへ進む
   }
 
@@ -4933,6 +4950,21 @@ function getLatestTicketResponse() {
 
 function getActiveTicketCardState() {
   const response = getLatestTicketResponse();
+  const earlyOverride = getActiveTicketCardOverride();
+  // 「新規カードを追加」で発行されたカード（まだ提出前）は、現在のカードとして表示する。
+  if (earlyOverride) {
+    return {
+      response: response || null,
+      ticketPlan: earlyOverride.plan,
+      ticketSheetLabel: `${earlyOverride.sheetNumber}枚目`,
+      currentRound: 0,
+      ticketCount: parseTicketCount(earlyOverride.plan),
+      ticketInfo: buildTicketInfoFromValues(earlyOverride.plan, `${earlyOverride.sheetNumber}枚目`, "0回目"),
+      showAcquireButtons: false,
+      acquirePlans: [],
+      acquireStatusMessage: "",
+    };
+  }
   if (!response) return null;
 
   const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
@@ -4943,7 +4975,6 @@ function getActiveTicketCardState() {
   // 計測時アンケートの「回数券終了時」が提出されていれば、最後のスタンプ（6回券=6/10回券=10）まで押す。
   const endedByMeasure = Boolean(ticketPlan && ticketCount && isTicketCardEndedByMeasureAfter(response));
   const currentRound = endedByMeasure ? ticketCount : rawRound;
-  const activeOverride = getActiveTicketCardOverride();
   const isCurrentCardComplete = Boolean(ticketPlan && ticketCount && currentRound >= ticketCount);
   const ticketAcquireCooldownRemainingMs = getTicketCardAcquireCooldownRemainingMs();
   const ticketAcquireAvailableAt = getTicketCardAcquireAvailableAt();
@@ -4953,23 +4984,6 @@ function getActiveTicketCardState() {
       ? `次の取得は ${formatDate(ticketAcquireAvailableAt)} 以降です。`
       : "";
 
-  if (
-    activeOverride &&
-    isCurrentCardComplete
-  ) {
-    return {
-      response,
-      ticketPlan: activeOverride.plan,
-      ticketSheetLabel: `${activeOverride.sheetNumber}枚目`,
-      currentRound: 0,
-      ticketCount: parseTicketCount(activeOverride.plan),
-      ticketInfo: buildTicketInfoFromValues(activeOverride.plan, `${activeOverride.sheetNumber}枚目`, "0回目"),
-      showAcquireButtons: false,
-      acquirePlans: [],
-      acquireStatusMessage,
-    };
-  }
-
   return {
     response,
     ticketPlan,
@@ -4977,8 +4991,8 @@ function getActiveTicketCardState() {
     currentRound,
     ticketCount,
     ticketInfo: buildTicketInfoFromValues(ticketPlan, currentSheetLabel, ticketMap.get("何回目") || ""),
-    showAcquireButtons: isCurrentCardComplete && !appState.ticketAcquirePending && ticketAcquireCooldownRemainingMs <= 0,
-    acquirePlans: isCurrentCardComplete ? ["6回券", "10回券"] : [],
+    showAcquireButtons: false,
+    acquirePlans: [],
     acquireStatusMessage,
   };
 }
@@ -5239,9 +5253,25 @@ function renderHomeTicketStatus() {
     return;
   }
 
+  const addCardControl = `
+    <div class="ticket-next-sheet-action">
+      <div class="meta">新規カードを追加（種類を選ぶと新しいスタンプカードを作成します）</div>
+      <div class="action-row">
+        <button class="secondary-button" type="button" data-add-ticket-card="6回券">6回券を追加</button>
+        <button class="secondary-button" type="button" data-add-ticket-card="10回券">10回券を追加</button>
+      </div>
+    </div>
+  `;
+
   const activeTicketCard = getActiveTicketCardState();
   if (!activeTicketCard) {
-    homeTicketStatus.innerHTML = `<div class="empty">回数券情報のある回答がまだありません。</div>`;
+    homeTicketStatus.innerHTML = `
+      <article class="ticket-home-card">
+        <div class="empty">回数券カードがまだありません。下のボタンから追加してください。</div>
+        ${addCardControl}
+      </article>
+    `;
+    attachAddTicketCardHandlers();
     return;
   }
 
@@ -5257,7 +5287,7 @@ function renderHomeTicketStatus() {
         <div>
           <strong>${escapeHtml(getCustomerDisplayName())}</strong>
           <div class="meta">会員番号: ${escapeHtml(getCustomerMemberNumber() || "未発行")}</div>
-          <div class="meta">最新更新: ${formatDate(activeTicketCard.response.submittedAt)}</div>
+          ${activeTicketCard.response ? `<div class="meta">最新更新: ${formatDate(activeTicketCard.response.submittedAt)}</div>` : ""}
         </div>
         <span class="badge open">${escapeHtml(`${activeTicketCard.currentRound}回目`)}</span>
       </div>
@@ -5271,44 +5301,33 @@ function renderHomeTicketStatus() {
                 <span>${activeTicketCard.currentRound} / ${activeTicketCard.ticketCount}</span>
               </div>
               ${renderTicketStampProgress(activeTicketCard.ticketCount, activeTicketCard.currentRound, stampDates)}
-              ${
-                activeTicketCard.showAcquireButtons
-                  ? `
-                    <div class="ticket-next-sheet-action">
-                      <div class="meta">新しいスタンプカードを取得</div>
-                      <div class="action-row">
-                        ${activeTicketCard.acquirePlans
-                          .map(
-                            (plan) => `
-                              <button
-                                class="secondary-button"
-                                type="button"
-                                data-acquire-ticket-plan="${escapeHtml(plan)}"
-                              >
-                                ${escapeHtml(plan)}を取得
-                              </button>
-                            `,
-                          )
-                          .join("")}
-                      </div>
-                    </div>
-                  `
-                  : activeTicketCard.acquireStatusMessage
-                    ? `<div class="meta">${escapeHtml(activeTicketCard.acquireStatusMessage)}</div>`
-                    : ""
-              }
             </div>
           `
           : ""
       }
+      ${addCardControl}
     </article>
   `;
 
-  homeTicketStatus.querySelectorAll("[data-acquire-ticket-plan]").forEach((button) => {
-    button.addEventListener("click", () => {
-      void acquireNextTicketSheet(button.dataset.acquireTicketPlan || "");
-    });
+  attachAddTicketCardHandlers();
+}
+
+function attachAddTicketCardHandlers() {
+  if (!homeTicketStatus) return;
+  homeTicketStatus.querySelectorAll("[data-add-ticket-card]").forEach((button) => {
+    button.addEventListener("click", () => addNewTicketCard(button.dataset.addTicketCard || ""));
   });
+}
+
+function addNewTicketCard(plan) {
+  const normalizedPlan = normalizeText(plan);
+  if (normalizedPlan !== "6回券" && normalizedPlan !== "10回券") return;
+  const current = getActiveTicketCardState();
+  const currentSheet = current ? parseTicketSheet(current.ticketSheetLabel) : 0;
+  setActiveTicketCardOverride(normalizedPlan, (currentSheet || 0) + 1);
+  showToast(`${normalizedPlan}の新しいカードを追加しました。`);
+  renderHomeTicketStatus();
+  renderAnswerPanel();
 }
 
 function renderResponseTicketInfo(response) {
