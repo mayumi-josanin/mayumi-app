@@ -421,6 +421,7 @@ function handleGet_(e) {
       requireConsent: getPreferences_().requireConsent,
       consentText: getPreferences_().consentText,
       milestoneRewardConfig: getPreferences_().milestoneRewardConfig,
+      campaignStampEnabled: getPreferences_().campaignStampEnabled,
       pushAppId: getPushAppId_(),
       version: VERSION,
     };
@@ -990,6 +991,7 @@ function getPreferences_() {
     bijirisCategoryConfig: normalizeBijirisCategoryConfig_(stored && stored.bijirisCategoryConfig),
     gachaPrizeConfig: normalizeGachaPrizeConfig_(stored && stored.gachaPrizeConfig),
     milestoneRewardConfig: normalizeMilestoneRewardConfig_(stored && stored.milestoneRewardConfig),
+    campaignStampEnabled: stored && stored.campaignStampEnabled === false ? false : true,
   };
   if (JSON.stringify(stored || {}) !== JSON.stringify(preferences)) {
     properties.setProperty(PREFERENCES_PROPERTY_KEY, JSON.stringify(preferences));
@@ -1021,6 +1023,7 @@ function updatePreferences_(payload) {
     milestoneRewardConfig: normalizeMilestoneRewardConfig_(
       payload && payload.milestoneRewardConfig || current.milestoneRewardConfig
     ),
+    campaignStampEnabled: payload && payload.campaignStampEnabled === false ? false : true,
   };
 
   if (next.notificationEnabled && !next.notificationEmail) {

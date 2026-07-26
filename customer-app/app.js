@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v116";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v117";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -367,6 +367,7 @@ const appState = {
     requireConsent: true,
     consentText: "",
     milestoneRewardConfig: { enabled: true, milestones: [] },
+    campaignStampEnabled: true,
     version: "",
     pushAppId: "",
   },
@@ -2025,6 +2026,7 @@ async function loadSurveys() {
       requireConsent: result.requireConsent === false ? false : true,
       consentText: result.consentText || "",
       milestoneRewardConfig: normalizeMilestoneRewardConfig(result.milestoneRewardConfig),
+      campaignStampEnabled: result.campaignStampEnabled === false ? false : true,
       version: result.version || APP_VERSION,
       pushAppId: result.pushAppId || getConfiguredPushAppId(),
     };
@@ -5124,53 +5126,73 @@ function renderHomeMilestoneReward() {
   `;
 }
 
-function getCampaignResponsesAsc() {
-  return getVisibleHistoryResponses()
-    .filter((response) => {
+function isCampaignStampEnabled() {
+  return appState.publicInfo.campaignStampEnabled !== false;
+}
+
+// キャンペーンの来店（施術後アンケート＝キャンペーン）を1個ずつ数え、
+// 計測時アンケートの「キャンペーン終了時」提出でカードを締めて次のカードへ切り替える。
+function computeCampaignCards() {
+  const events = getVisibleHistoryResponses()
+    .map((response) => {
       const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
-      return getAnswerValueFromQuestionIds(answerMap, [SESSION_TYPE_QUESTION_ID]) === "キャンペーン";
+      const sessionType = getAnswerValueFromQuestionIds(answerMap, [SESSION_TYPE_QUESTION_ID]);
+      const timing = getAnswerValueFromQuestionIds(answerMap, ["q_measure_timing"]);
+      if (sessionType === "キャンペーン") return { kind: "visit", at: response.submittedAt };
+      if (timing.includes("キャンペーン終了")) return { kind: "close", at: response.submittedAt };
+      return null;
     })
-    .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.at) - new Date(b.at));
+
+  const completed = [];
+  let current = [];
+  events.forEach((event) => {
+    if (event.kind === "visit") {
+      current.push(event.at);
+    } else if (event.kind === "close") {
+      completed.push(current);
+      current = [];
+    }
+  });
+  return { completedCount: completed.length, current };
 }
 
 function renderHomeCampaignStatus() {
   if (!homeCampaignStatus) return;
-  if (!hasCustomerSession() || appState.historyLoading || appState.historyLoadError) {
+  if (!isCampaignStampEnabled() || !hasCustomerSession() || appState.historyLoading || appState.historyLoadError) {
     homeCampaignStatus.innerHTML = "";
     return;
   }
-  const responses = getCampaignResponsesAsc();
-  const count = responses.length;
-  if (count <= 0) {
+  const { completedCount, current } = computeCampaignCards();
+  const currentVisits = current.length;
+  if (completedCount <= 0 && currentVisits <= 0) {
     homeCampaignStatus.innerHTML = "";
     return;
   }
-  const perSheet = 10;
-  const sheetNumber = Math.floor((count - 1) / perSheet) + 1;
-  const inSheet = ((count - 1) % perSheet) + 1;
-  const base = (sheetNumber - 1) * perSheet;
+  const cardNumber = completedCount + 1;
   const stampDates = new Map();
-  for (let step = 1; step <= inSheet; step += 1) {
-    const resp = responses[base + step - 1];
-    if (resp) stampDates.set(step, resp.submittedAt);
-  }
-  const latest = responses[count - 1];
+  current.forEach((at, index) => stampDates.set(index + 1, at));
   homeCampaignStatus.innerHTML = `
     <article class="ticket-home-card">
       <div class="ticket-home-head">
         <div>
           <strong>キャンペーン</strong>
-          <div class="meta">来店（施術）ごとに自動でカウントされます</div>
-          <div class="meta">最新更新: ${formatDate(latest.submittedAt)}</div>
+          <div class="meta">来店ごとにスタンプがたまります（キャンペーン終了で新しいカードへ）</div>
+          <div class="meta">完了したキャンペーン: ${completedCount}回</div>
         </div>
-        <span class="badge open">${escapeHtml(`${count}回目`)}</span>
+        <span class="badge open">${escapeHtml(`${cardNumber}枚目`)}</span>
       </div>
       <div class="ticket-progress-card">
         <div class="ticket-progress-head">
-          <strong>${escapeHtml(`${sheetNumber}枚目`)}</strong>
-          <span>${inSheet} / ${perSheet}</span>
+          <strong>${escapeHtml(`${cardNumber}枚目のキャンペーン`)}</strong>
+          <span>${currentVisits}回</span>
         </div>
-        ${renderTicketStampProgress(perSheet, inSheet, stampDates)}
+        ${
+          currentVisits > 0
+            ? renderTicketStampProgress(currentVisits, currentVisits, stampDates)
+            : `<div class="meta">これからのキャンペーンです。来店するとスタンプがたまります。</div>`
+        }
       </div>
     </article>
   `;
