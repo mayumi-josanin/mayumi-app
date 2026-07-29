@@ -20,6 +20,16 @@ var CUSTOMER_TICKET_INFO_QUESTION_IDS = {
   sheet: ["q_bijiris_session_ticket_sheet", "q_ticket_end_ticket_sheet"],
   round: ["q_bijiris_session_ticket_round", "q_ticket_end_ticket_round"],
 };
+// 計測時アンケートの計測値（cm）を測定履歴に自動登録するための質問ID対応表。
+var MEASUREMENT_ANSWER_QUESTION_IDS = {
+  waist: ["q_measure_waist"],
+  hip: ["q_measure_hip"],
+  thighRight: ["q_measure_thigh_right"],
+  thighLeft: ["q_measure_thigh_left"],
+};
+var MEASUREMENT_TIMING_QUESTION_IDS = ["q_measure_timing"];
+var AUTO_MEASUREMENT_ID_PREFIX = "auto-";
+var AUTO_MEASUREMENT_MEMO_PREFIX = "計測時アンケートから自動登録";
 var PREFERENCES_PROPERTY_KEY = "ADMIN_PREFERENCES_JSON";
 var CUSTOMER_MEMOS_PROPERTY_KEY = "CUSTOMER_MEMOS_JSON";
 var CUSTOMER_PROFILES_PROPERTY_KEY = "CUSTOMER_PROFILES_JSON";
@@ -2578,6 +2588,8 @@ function saveResponse_(body) {
       surveyId: response.surveyId,
       customerName: response.customerName,
     });
+    // 計測値が入力されていれば、管理アプリの測定履歴にも自動で追加する。
+    syncMeasurementFromResponseSafely_(response);
     // 計測時アンケート（アフター写真あり）なら、提出時点で「分析中」にして自動分析を予約する。
     scheduleImmediateTicketSurveyAnalysis_(response);
     return { response: response };
@@ -2677,6 +2689,8 @@ function updatePublicResponse_(body) {
     sheet.getRange(rowIndex, 12).setValue(new Date().toISOString());
     updateSurveySheetResponse_(survey, updated);
     syncCustomerProfileTicketCardFromResponse_(updated);
+    // お客様が計測値を修正したら、自動登録した測定履歴も同じ内容に更新する。
+    syncMeasurementFromResponseSafely_(getResponseById_(responseId) || updated);
     appendAuditLog_("response.public_edit", {
       responseId: existing.id,
       surveyId: existing.surveyId,
@@ -3970,6 +3984,138 @@ function createMeasurement_(customerName, payload) {
     return decorateMeasurementWithCustomerProfile_(record, getCustomerProfiles_());
   } finally {
     lock.releaseLock();
+  }
+}
+
+// ---- 計測時アンケート → 測定履歴の自動登録 --------------------------------
+// お客様アプリの計測時アンケートで計測値が送られてきたら、管理アプリの「測定履歴」に
+// 同じ数値の行を自動で追加する。回答1件につき1行（id = auto-<responseId>）で、
+// 回答の修正時は同じ行を更新するので二重登録にはならない。
+
+function buildMeasurementValuesFromAnswers_(answers) {
+  var values = {};
+  var hasAny = false;
+  Object.keys(MEASUREMENT_ANSWER_QUESTION_IDS).forEach(function (key) {
+    var value = normalizeMeasurementValue_(
+      getAnswerValueByQuestionIds_(answers, MEASUREMENT_ANSWER_QUESTION_IDS[key])
+    );
+    values[key] = value;
+    if (value !== "") hasAny = true;
+  });
+  return hasAny ? values : null;
+}
+
+function buildAutoMeasurementId_(responseId) {
+  var normalized = normalizeText_(responseId);
+  return normalized ? AUTO_MEASUREMENT_ID_PREFIX + normalized : "";
+}
+
+function buildAutoMeasurementMemo_(response) {
+  var timing = getAnswerValueByQuestionIds_(response && response.answers, MEASUREMENT_TIMING_QUESTION_IDS);
+  return timing ? AUTO_MEASUREMENT_MEMO_PREFIX + "（" + timing + "）" : AUTO_MEASUREMENT_MEMO_PREFIX;
+}
+
+function isSameMeasurementValues_(a, b) {
+  return ["waist", "hip", "thighRight", "thighLeft"].every(function (key) {
+    return String(a && a[key] !== undefined ? a[key] : "") === String(b && b[key] !== undefined ? b[key] : "");
+  });
+}
+
+// 手入力などで同じ顧客・同じ測定日・同じ数値の行が既にあるなら、それを返して二重登録を避ける。
+function findEquivalentMeasurement_(list, record) {
+  for (var i = 0; i < list.length; i += 1) {
+    if (list[i].id === record.id) continue;
+    if (list[i].customerName !== record.customerName) continue;
+    if (list[i].measuredAt !== record.measuredAt) continue;
+    if (isSameMeasurementValues_(list[i], record)) return list[i];
+  }
+  return null;
+}
+
+// saveResponse_ / updatePublicResponse_ など、スクリプトロックを取得済みの箇所から呼ぶ前提。
+function syncMeasurementFromResponse_(response) {
+  if (!response) return null;
+  var values = buildMeasurementValuesFromAnswers_(response.answers);
+  if (!values) return null;
+  var measurementId = buildAutoMeasurementId_(response.id);
+  var customerName = normalizeText_(response.customerName);
+  if (!measurementId || !customerName) return null;
+
+  var profileMatch = findCustomerProfileByName_(getCustomerProfiles_(), customerName, "");
+  var profile = profileMatch && profileMatch.profile
+    ? normalizeCustomerProfileRecord_(profileMatch.profile, profileMatch.key)
+    : null;
+  var existingList = readMeasurementRows_();
+  var existing = null;
+  for (var i = 0; i < existingList.length; i += 1) {
+    if (existingList[i].id === measurementId) {
+      existing = existingList[i];
+      break;
+    }
+  }
+
+  var autoMemo = buildAutoMeasurementMemo_(response);
+  // 管理側でメモを書き換えていたらそれを尊重し、自動生成のままなら最新の内容に更新する。
+  var memo = existing && existing.memo && existing.memo.indexOf(AUTO_MEASUREMENT_MEMO_PREFIX) !== 0
+    ? existing.memo
+    : autoMemo;
+  var record = normalizeMeasurementRecord_({
+    id: measurementId,
+    customerName: profile && profile.name || customerName,
+    memberNumber: normalizeMemberNumber_(profile && profile.memberNumber) ||
+      normalizeMemberNumber_(existing && existing.memberNumber),
+    measuredAt: response.submittedAt || new Date().toISOString(),
+    waist: values.waist,
+    hip: values.hip,
+    thighRight: values.thighRight,
+    thighLeft: values.thighLeft,
+    memo: memo,
+    createdAt: existing && existing.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  if (!record || !hasMeasurementValues_(record)) return null;
+
+  if (existing) {
+    if (isSameMeasurementValues_(existing, record) &&
+      existing.measuredAt === record.measuredAt &&
+      existing.memo === record.memo) {
+      return existing;
+    }
+    writeMeasurementRow_(findMeasurementRowIndex_(measurementId), record);
+    touchCustomerProfileUpdatedAt_(record.customerName);
+    appendAuditLog_("measurement.auto_update", {
+      measurementId: record.id,
+      responseId: response.id,
+      customerName: record.customerName,
+      measuredAt: record.measuredAt,
+    });
+    return record;
+  }
+
+  var equivalent = findEquivalentMeasurement_(existingList, record);
+  if (equivalent) return equivalent;
+
+  appendMeasurementRow_(record);
+  touchCustomerProfileUpdatedAt_(record.customerName);
+  appendAuditLog_("measurement.auto_create", {
+    measurementId: record.id,
+    responseId: response.id,
+    customerName: record.customerName,
+    measuredAt: record.measuredAt,
+  });
+  return record;
+}
+
+// 測定履歴の自動登録に失敗しても、アンケートの保存自体は成功させる。
+function syncMeasurementFromResponseSafely_(response) {
+  try {
+    return syncMeasurementFromResponse_(response);
+  } catch (error) {
+    appendErrorLog_("syncMeasurementFromResponse", error.message || "測定履歴の自動登録に失敗しました", {
+      responseId: response && response.id,
+      customerName: response && response.customerName,
+    });
+    return null;
   }
 }
 
@@ -6659,4 +6805,38 @@ function setTicketSurveyAnalysisPrompt() {
   saveTicketSurveyPrompt_(prompt);
   Logger.log("分析プロンプトを登録しました（" + prompt.length + "文字）。");
   return { ok: true, length: prompt.length };
+}
+
+// ============================================================
+// 任意実行のユーティリティ: 過去の計測時アンケート回答を測定履歴に取り込む。
+// Apps Script エディタで関数 backfillMeasurementsFromResponses を選んで「実行」する。
+// 自動登録済み（id が auto- で始まる行）や、同じ顧客・同じ日・同じ数値の手入力行は
+// 二重登録しないので、何度実行しても安全。
+// ============================================================
+function backfillMeasurementsFromResponses() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    ensureSpreadsheet_();
+    var responses = getResponses_({}).slice().sort(function (a, b) {
+      return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+    });
+    var created = [];
+    var skipped = 0;
+    responses.forEach(function (response) {
+      if (!buildMeasurementValuesFromAnswers_(response.answers)) return;
+      var before = getMeasurementById_(buildAutoMeasurementId_(response.id));
+      var record = syncMeasurementFromResponse_(response);
+      if (record && !before && record.id === buildAutoMeasurementId_(response.id)) {
+        created.push(record.customerName + " " + record.measuredAt);
+      } else {
+        skipped += 1;
+      }
+    });
+    Logger.log("測定履歴に追加(" + created.length + "): " + created.join("、"));
+    Logger.log("既に登録済み・重複でスキップ: " + skipped + "件");
+    return { ok: true, created: created.length, skipped: skipped, details: created };
+  } finally {
+    lock.releaseLock();
+  }
 }
