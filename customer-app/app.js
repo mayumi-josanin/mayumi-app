@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v120";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v121";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -5350,17 +5350,35 @@ function renderHomeTicketStatus() {
 function attachAddTicketCardHandlers() {
   if (!homeTicketStatus) return;
   homeTicketStatus.querySelectorAll("[data-add-ticket-card]").forEach((button) => {
-    button.addEventListener("click", () => addNewTicketCard(button.dataset.addTicketCard || ""));
+    button.addEventListener("click", () => {
+      void addNewTicketCard(button.dataset.addTicketCard || "");
+    });
   });
 }
 
-function addNewTicketCard(plan) {
+// 新規カードを追加（サーバの顧客プロフィールにも保存 → 管理アプリでも同じカードが見える）。
+async function addNewTicketCard(plan) {
   const normalizedPlan = normalizeText(plan);
   if (normalizedPlan !== "6回券" && normalizedPlan !== "10回券") return;
   const current = getActiveTicketCardState();
   const currentSheet = current ? parseTicketSheet(current.ticketSheetLabel) : 0;
-  setActiveTicketCardOverride(normalizedPlan, (currentSheet || 0) + 1);
-  showToast(`${normalizedPlan}の新しいカードを追加しました。`);
+  const nextSheetNumber = (currentSheet || 0) + 1;
+  try {
+    const result = await api.request("/api/public/customer-profile/ticket-card", {
+      method: "POST",
+      body: {
+        customer: appState.customer,
+        ticketCard: { plan: normalizedPlan, sheetNumber: nextSheetNumber, round: 0 },
+      },
+    });
+    setActiveTicketCardOverride(normalizedPlan, nextSheetNumber);
+    syncCustomerProfileFromServer(result.customerProfile);
+    syncActiveTicketCardOverrideFromServer(result.customerProfile);
+    showToast(`${normalizedPlan}の新しいカードを追加しました。`);
+  } catch (error) {
+    reportClientError("customer.addTicketCard", error, { plan: normalizedPlan, sheetNumber: nextSheetNumber });
+    showToast(error.message || "カードを追加できませんでした。");
+  }
   renderHomeTicketStatus();
   renderAnswerPanel();
 }

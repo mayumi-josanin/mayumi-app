@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v97";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v98";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -2530,10 +2530,11 @@ function getLatestTicketEndMeasureResponseForCustomer(customerName) {
 
 function getCurrentTicketInfoForCustomer(customerName) {
   const profile = getCustomerProfileByName(customerName);
-  const profileTicketInfo = buildTicketInfoFromActiveTicketCard(profile?.activeTicketCard);
-  if (profileTicketInfo.length && profile?.activeTicketCardSource === "admin") {
-    return profileTicketInfo;
-  }
+  const profileCard = profile?.activeTicketCard;
+  const profileTicketInfo = buildTicketInfoFromActiveTicketCard(profileCard);
+  const profileSheet = profileCard ? Math.floor(Number(profileCard.sheetNumber) || 0) : 0;
+
+  // 回答ベースの現在カード（+ 計測時アンケート「回数券終了時」での満了）
   const latestTicketResponse = state.responses
     .filter(
       (response) =>
@@ -2542,19 +2543,28 @@ function getCurrentTicketInfoForCustomer(customerName) {
         getResponseTicketInfo(response).length,
     )
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
+  let responseInfo = null;
+  let responseSheet = 0;
   if (latestTicketResponse) {
-    const info = getResponseTicketInfo(latestTicketResponse);
-    // お客様アプリと同様、計測時アンケートの「回数券終了時」が後に提出されていれば満了（何回目=総数）にする。
+    let info = getResponseTicketInfo(latestTicketResponse);
     const endMeasure = getLatestTicketEndMeasureResponseForCustomer(customerName);
     if (endMeasure && new Date(endMeasure.submittedAt).getTime() >= new Date(latestTicketResponse.submittedAt).getTime()) {
       const planItem = info.find((item) => item.label === "回数券");
       const total = parseTicketCount(planItem ? planItem.value : "");
       if (total > 0) {
-        return info.map((item) => (item.label === "何回目" ? { label: "何回目", value: `${total}回目` } : item));
+        info = info.map((item) => (item.label === "何回目" ? { label: "何回目", value: `${total}回目` } : item));
       }
     }
-    return info;
+    responseInfo = info;
+    const sheetItem = info.find((item) => item.label === "何枚目");
+    responseSheet = parseTicketLabelNumber(sheetItem ? sheetItem.value : "");
   }
+
+  // お客様アプリと同様、新しい枚のカード（新規追加された空カード等）がプロフィールにあれば、それを優先表示。
+  if (profileTicketInfo.length && (!responseInfo || profileSheet > responseSheet)) {
+    return profileTicketInfo;
+  }
+  if (responseInfo) return responseInfo;
   return profileTicketInfo;
 }
 
