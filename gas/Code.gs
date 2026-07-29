@@ -426,6 +426,50 @@ function handleGet_(e) {
       version: VERSION,
     };
   }
+  if (action === "ticketDiag") {
+    // TEMP diagnostic: 顧客ごとに「回答ベースの回数券カード」と「プロフィールの活性カード」を比較（顧客名は匿名化）。
+    var responses = getResponses_({ includeTrashed: false });
+    var byCustomer = {};
+    responses.forEach(function (r) {
+      var n = normalizeText_(r.customerName);
+      if (!n) return;
+      if (!byCustomer[n]) byCustomer[n] = [];
+      byCustomer[n].push(r);
+    });
+    var profiles = getCustomerProfiles_();
+    var profileByName = {};
+    Object.keys(profiles || {}).forEach(function (k) {
+      var p = normalizeCustomerProfileRecord_(profiles[k], k);
+      if (p && p.name) profileByName[normalizeText_(p.name)] = p;
+    });
+    var out = [];
+    Object.keys(byCustomer).forEach(function (n, idx) {
+      var list = byCustomer[n];
+      var ticketResps = list.filter(function (r) {
+        return getAnswerValueByQuestionIds_(r.answers, ["q_bijiris_session_ticket_plan", "q_ticket_end_ticket_size"]);
+      }).sort(function (a, b) { return new Date(b.submittedAt) - new Date(a.submittedAt); });
+      if (!ticketResps.length) return;
+      var latest = ticketResps[0];
+      var plan = getAnswerValueByQuestionIds_(latest.answers, ["q_bijiris_session_ticket_plan", "q_ticket_end_ticket_size"]);
+      var sheet = getAnswerValueByQuestionIds_(latest.answers, ["q_bijiris_session_ticket_sheet", "q_ticket_end_ticket_sheet"]);
+      var round = getAnswerValueByQuestionIds_(latest.answers, ["q_bijiris_session_ticket_round", "q_ticket_end_ticket_round"]);
+      var endMeasure = list.filter(function (r) {
+        var t = getAnswerValueByQuestionIds_(r.answers, ["q_measure_timing"]);
+        return t.indexOf("回数券終了") >= 0;
+      }).sort(function (a, b) { return new Date(b.submittedAt) - new Date(a.submittedAt); })[0];
+      var ended = endMeasure && new Date(endMeasure.submittedAt).getTime() >= new Date(latest.submittedAt).getTime();
+      var p = profileByName[n];
+      var pc = p && p.activeTicketCard;
+      out.push({
+        i: idx,
+        respCard: { plan: plan, sheet: sheet, round: round },
+        endedByMeasure: !!ended,
+        profileCard: pc ? { plan: pc.plan, sheet: pc.sheetNumber, round: pc.round } : null,
+        source: p ? p.activeTicketCardSource : "",
+      });
+    });
+    return { count: out.length, customers: out };
+  }
   if (action === "bijirisPosts") return { posts: getBijirisPosts_({ publishedOnly: true }) };
   if (action === "history") {
     return getCustomerHistoryPayload_({
