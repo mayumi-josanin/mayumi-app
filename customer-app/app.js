@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v119";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v120";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -1547,17 +1547,19 @@ function computeSessionTicketPosition(ticketPlan) {
 }
 
 // 現在の回数券カード（種類・何枚目・何回目）を施術後アンケートに自動反映する。
-// カードが無い／すでに満了している場合は false（→「新規カードを追加してください」を案内）。
+// 施術後アンケートで押せるのは total-1 個まで。最後の1つ（6回券=6個目/10回券=10個目）は
+// 計測時アンケート（回数券終了時）で押す仕様。
+// 戻り値: "ok" / "no-card"（カード無し）/ "complete"（満了）/ "final-measurement"（最後は計測時で）
 function ensureSessionTicketPositionSelection(surveyId) {
-  if (getSessionTicketRoundSelection(surveyId)) return true;
-  if (hasCustomerSession() && appState.historyLoading) return false;
+  if (getSessionTicketRoundSelection(surveyId)) return "ok";
   const card = getActiveTicketCardState();
-  if (!card || !card.ticketPlan || !card.ticketCount) return false;
-  if (card.currentRound >= card.ticketCount) return false;
+  if (!card || !card.ticketPlan || !card.ticketCount) return "no-card";
+  if (card.currentRound >= card.ticketCount) return "complete";
+  if (card.currentRound >= card.ticketCount - 1) return "final-measurement";
   updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, card.ticketPlan);
   updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, card.ticketSheetLabel);
   updateDraftValue(surveyId, SESSION_TICKET_ROUND_QUESTION_ID, `${card.currentRound + 1}回目`);
-  return true;
+  return "ok";
 }
 
 function getTicketResponsesByPlanAndSheet(ticketPlan, ticketSheetLabel, options = {}) {
@@ -3495,6 +3497,30 @@ function renderTicketCardNeededStep(survey, surveyId) {
   attachCommonButtons();
 }
 
+function renderTicketFinalMeasurementStep(survey, surveyId) {
+  answerPanel.innerHTML = `
+    ${renderPendingNotice()}
+    <div class="section-head survey-toolbar">
+      <div>
+        <h2>${escapeHtml(survey.title)}</h2>
+        <p>回数券の最後の1回です。</p>
+      </div>
+      <button id="backToSessionTypeFromFinal" class="ghost-button" type="button">施術内容を変更</button>
+    </div>
+    <div class="question-list">
+      <div class="question-block">
+        <strong>最後のスタンプは計測時アンケートで押されます</strong>
+        <p class="meta">回数券の最終回（6回券は6回目／10回券は10回目）は、<strong>計測時アンケートの「回数券終了時」</strong>にご回答いただくと最後のスタンプが押されて満了になります。ホームに戻って計測時アンケートを選んでください。</p>
+      </div>
+    </div>
+  `;
+  document.querySelector("#backToSessionTypeFromFinal").addEventListener("click", () => {
+    clearSessionSelections(surveyId);
+    renderAnswerPanel();
+  });
+  attachCommonButtons();
+}
+
 function renderSessionTypeStep(survey, surveyId) {
   const sessionTypeQuestion = getSessionTypeQuestion(survey);
   const selectedType = getSessionTypeSelection(surveyId);
@@ -4412,7 +4438,12 @@ function renderAnswerPanel() {
       return;
     }
     // 種類・何枚目・何回目は現在のカードから自動反映（お客様の入力は不要）
-    if (!ensureSessionTicketPositionSelection(surveyId)) {
+    const ticketFillStatus = ensureSessionTicketPositionSelection(surveyId);
+    if (ticketFillStatus === "final-measurement") {
+      renderTicketFinalMeasurementStep(survey, surveyId);
+      return;
+    }
+    if (ticketFillStatus !== "ok") {
       renderTicketCardNeededStep(survey, surveyId);
       return;
     }
@@ -5305,7 +5336,11 @@ function renderHomeTicketStatus() {
           `
           : ""
       }
-      ${addCardControl}
+      ${
+        activeTicketCard.ticketCount && activeTicketCard.currentRound >= activeTicketCard.ticketCount
+          ? addCardControl
+          : `<div class="meta">スタンプが全て埋まると「新規カードを追加」が表示されます。</div>`
+      }
     </article>
   `;
 
