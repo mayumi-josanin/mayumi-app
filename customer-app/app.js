@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v121";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v122";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -356,6 +356,7 @@ const appState = {
   drafts: loadLocal(DRAFTS_KEY, {}),
   pendingSubmission: loadLocal(PENDING_KEY, null),
   ticketCardOverride: normalizeActiveTicketCardOverride(loadLocal(TICKET_CARD_OVERRIDE_KEY, null)),
+  serverTicketCard: null,
   bijirisFavoritesByCustomer: loadLocal(BIJIRIS_FAVORITES_KEY, {}),
   bijirisReaderStateByCustomer: loadLocal(BIJIRIS_READER_STATE_KEY, {}),
   surveys: [],
@@ -3195,8 +3196,7 @@ async function loadHistory() {
       ? result.measurements.map(normalizeMeasurementRecord)
       : [];
     syncCustomerProfileFromServer(result.customerProfile);
-    syncActiveTicketCardOverrideFromServer(result.customerProfile);
-    syncActiveTicketCardOverrideWithHistory();
+    appState.serverTicketCard = normalizeServerCustomerProfile(result.customerProfile).activeTicketCard || null;
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
@@ -4979,52 +4979,50 @@ function getLatestTicketResponse() {
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null;
 }
 
+// 現在の回数券カード。サーバの活性カード（顧客プロフィール）を唯一の正とし、
+// 無い場合のみ回答履歴から算出する。管理アプリと必ず一致させるため。
 function getActiveTicketCardState() {
   const response = getLatestTicketResponse();
-  const earlyOverride = getActiveTicketCardOverride();
-  // 「新規カードを追加」で発行されたカード（まだ提出前）は、現在のカードとして表示する。
-  if (earlyOverride) {
-    return {
-      response: response || null,
-      ticketPlan: earlyOverride.plan,
-      ticketSheetLabel: `${earlyOverride.sheetNumber}枚目`,
-      currentRound: 0,
-      ticketCount: parseTicketCount(earlyOverride.plan),
-      ticketInfo: buildTicketInfoFromValues(earlyOverride.plan, `${earlyOverride.sheetNumber}枚目`, "0回目"),
-      showAcquireButtons: false,
-      acquirePlans: [],
-      acquireStatusMessage: "",
-    };
+  const serverCard = appState.serverTicketCard;
+
+  let ticketPlan = "";
+  let sheetNumber = 0;
+  let round = 0;
+  if (serverCard && normalizeText(serverCard.plan)) {
+    ticketPlan = normalizeText(serverCard.plan);
+    sheetNumber = Math.max(1, Math.floor(Number(serverCard.sheetNumber) || 0));
+    round = Math.max(0, Math.floor(Number(serverCard.round) || 0));
+  } else if (response) {
+    const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
+    ticketPlan = normalizeText(ticketMap.get("回数券") || "");
+    if (!ticketPlan) return null;
+    sheetNumber = parseTicketSheet(ticketMap.get("何枚目") || "") || 1;
+    round = parseTicketStep(ticketMap.get("何回目") || "");
+  } else {
+    return null;
   }
-  if (!response) return null;
 
-  const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
-  const ticketPlan = normalizeText(ticketMap.get("回数券") || "");
-  const currentSheetLabel = normalizeText(ticketMap.get("何枚目") || "");
-  const rawRound = parseTicketStep(ticketMap.get("何回目") || "");
   const ticketCount = parseTicketCount(ticketPlan);
+  const responseSheet = response
+    ? parseTicketSheet(new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value])).get("何枚目") || "")
+    : 0;
   // 計測時アンケートの「回数券終了時」が提出されていれば、最後のスタンプ（6回券=6/10回券=10）まで押す。
-  const endedByMeasure = Boolean(ticketPlan && ticketCount && isTicketCardEndedByMeasureAfter(response));
-  const currentRound = endedByMeasure ? ticketCount : rawRound;
-  const isCurrentCardComplete = Boolean(ticketPlan && ticketCount && currentRound >= ticketCount);
-  const ticketAcquireCooldownRemainingMs = getTicketCardAcquireCooldownRemainingMs();
-  const ticketAcquireAvailableAt = getTicketCardAcquireAvailableAt();
-  const acquireStatusMessage = appState.ticketAcquirePending
-    ? "スタンプカードを取得中です。"
-    : ticketAcquireCooldownRemainingMs > 0 && ticketAcquireAvailableAt
-      ? `次の取得は ${formatDate(ticketAcquireAvailableAt)} 以降です。`
-      : "";
+  // ただし新規追加した新しい枚のカード（回答より先の枚）には適用しない。
+  if (ticketCount && sheetNumber === responseSheet && isTicketCardEndedByMeasureAfter(response)) {
+    round = ticketCount;
+  }
 
+  const sheetLabel = `${sheetNumber}枚目`;
   return {
     response,
     ticketPlan,
-    ticketSheetLabel: currentSheetLabel,
-    currentRound,
+    ticketSheetLabel: sheetLabel,
+    currentRound: round,
     ticketCount,
-    ticketInfo: buildTicketInfoFromValues(ticketPlan, currentSheetLabel, ticketMap.get("何回目") || ""),
+    ticketInfo: buildTicketInfoFromValues(ticketPlan, sheetLabel, `${round}回目`),
     showAcquireButtons: false,
     acquirePlans: [],
-    acquireStatusMessage,
+    acquireStatusMessage: "",
   };
 }
 
@@ -5371,9 +5369,13 @@ async function addNewTicketCard(plan) {
         ticketCard: { plan: normalizedPlan, sheetNumber: nextSheetNumber, round: 0 },
       },
     });
-    setActiveTicketCardOverride(normalizedPlan, nextSheetNumber);
     syncCustomerProfileFromServer(result.customerProfile);
-    syncActiveTicketCardOverrideFromServer(result.customerProfile);
+    appState.serverTicketCard = normalizeServerCustomerProfile(result.customerProfile).activeTicketCard || {
+      plan: normalizedPlan,
+      sheetNumber: nextSheetNumber,
+      round: 0,
+    };
+    clearActiveTicketCardOverride();
     showToast(`${normalizedPlan}の新しいカードを追加しました。`);
   } catch (error) {
     reportClientError("customer.addTicketCard", error, { plan: normalizedPlan, sheetNumber: nextSheetNumber });

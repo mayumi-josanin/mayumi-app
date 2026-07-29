@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v98";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v99";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -2528,13 +2528,11 @@ function getLatestTicketEndMeasureResponseForCustomer(customerName) {
   );
 }
 
+// 現在の回数券カード。お客様アプリと同じく、サーバの活性カード（プロフィール）を唯一の正とし、
+// 無い場合のみ回答履歴から算出する。
 function getCurrentTicketInfoForCustomer(customerName) {
   const profile = getCustomerProfileByName(customerName);
-  const profileCard = profile?.activeTicketCard;
-  const profileTicketInfo = buildTicketInfoFromActiveTicketCard(profileCard);
-  const profileSheet = profileCard ? Math.floor(Number(profileCard.sheetNumber) || 0) : 0;
-
-  // 回答ベースの現在カード（+ 計測時アンケート「回数券終了時」での満了）
+  const card = profile?.activeTicketCard;
   const latestTicketResponse = state.responses
     .filter(
       (response) =>
@@ -2543,29 +2541,42 @@ function getCurrentTicketInfoForCustomer(customerName) {
         getResponseTicketInfo(response).length,
     )
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
-  let responseInfo = null;
-  let responseSheet = 0;
-  if (latestTicketResponse) {
-    let info = getResponseTicketInfo(latestTicketResponse);
-    const endMeasure = getLatestTicketEndMeasureResponseForCustomer(customerName);
-    if (endMeasure && new Date(endMeasure.submittedAt).getTime() >= new Date(latestTicketResponse.submittedAt).getTime()) {
-      const planItem = info.find((item) => item.label === "回数券");
-      const total = parseTicketCount(planItem ? planItem.value : "");
-      if (total > 0) {
-        info = info.map((item) => (item.label === "何回目" ? { label: "何回目", value: `${total}回目` } : item));
-      }
-    }
-    responseInfo = info;
-    const sheetItem = info.find((item) => item.label === "何枚目");
-    responseSheet = parseTicketLabelNumber(sheetItem ? sheetItem.value : "");
+
+  let plan = "";
+  let sheetNumber = 0;
+  let round = 0;
+  if (card && String(card.plan || "").trim()) {
+    plan = String(card.plan || "").trim();
+    sheetNumber = Math.max(1, Math.floor(Number(card.sheetNumber) || 0));
+    round = Math.max(0, Math.floor(Number(card.round) || 0));
+  } else if (latestTicketResponse) {
+    const m = new Map(getResponseTicketInfo(latestTicketResponse).map((item) => [item.label, item.value]));
+    plan = String(m.get("回数券") || "").trim();
+    if (!plan) return [];
+    sheetNumber = parseTicketLabelNumber(m.get("何枚目") || "") || 1;
+    round = parseTicketStep(m.get("何回目") || "");
+  } else {
+    return [];
   }
 
-  // お客様アプリと同様、新しい枚のカード（新規追加された空カード等）がプロフィールにあれば、それを優先表示。
-  if (profileTicketInfo.length && (!responseInfo || profileSheet > responseSheet)) {
-    return profileTicketInfo;
+  const total = parseTicketCount(plan);
+  const responseSheet = latestTicketResponse
+    ? parseTicketLabelNumber(
+        new Map(getResponseTicketInfo(latestTicketResponse).map((item) => [item.label, item.value])).get("何枚目") || "",
+      )
+    : 0;
+  // 計測時「回数券終了時」での満了（新しい枚のカードには適用しない）
+  if (total && sheetNumber === responseSheet && latestTicketResponse) {
+    const endMeasure = getLatestTicketEndMeasureResponseForCustomer(customerName);
+    if (endMeasure && new Date(endMeasure.submittedAt).getTime() >= new Date(latestTicketResponse.submittedAt).getTime()) {
+      round = total;
+    }
   }
-  if (responseInfo) return responseInfo;
-  return profileTicketInfo;
+  return [
+    { label: "回数券", value: plan },
+    { label: "何枚目", value: `${sheetNumber}枚目` },
+    { label: "何回目", value: `${round}回目` },
+  ];
 }
 
 function getActiveResponses() {
