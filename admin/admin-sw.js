@@ -1,6 +1,5 @@
-const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v31';
+const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v32';
 const ADMIN_ENTRY_CANDIDATES = [
-  './mayumi-admin.html',
   './index.html'
 ];
 const ADMIN_SHELL_ASSETS = [
@@ -65,7 +64,7 @@ self.addEventListener('fetch', function (event) {
   if (requestUrl.origin !== self.location.origin) return;
 
   if (event.request.mode === 'navigate') {
-    const fallbackKey = requestUrl.pathname.endsWith('/mayumi-admin.html') ? './mayumi-admin.html' : './index.html';
+    const fallbackKey = './index.html';
     event.respondWith(
       fetch(event.request)
         .then(function (response) {
@@ -76,10 +75,7 @@ self.addEventListener('fetch', function (event) {
           return response;
         })
         .catch(function () {
-          return caches.match(fallbackKey)
-            .then(function (cached) {
-              return cached || caches.match('./mayumi-admin.html') || caches.match('./index.html');
-            });
+          return caches.match(fallbackKey);
         })
     );
     return;
