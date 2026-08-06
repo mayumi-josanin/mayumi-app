@@ -3605,10 +3605,10 @@
     const REWARD_GACHA_RANK_KEYS = ['A', 'B', 'C', 'D'];
     const DEFAULT_REWARD_GACHA_PROBABILITIES = { A: 5, B: 15, C: 30, D: 50 };
     const ADMIN_NOTICE_FEED_START_DATE = '2026-04-01';
-    const API_GET_TIMEOUT_MS = 45000;
-    const API_POST_TIMEOUT_MS = 45000;
+    const API_GET_TIMEOUT_MS = 60000;
+    const API_POST_TIMEOUT_MS = 60000;
     const API_IMAGE_UPLOAD_TIMEOUT_MS = 120000;
-    const API_GET_RETRY_COUNT = 1;
+    const API_GET_RETRY_COUNT = 2;
     const API_RETRY_DELAY_MS = 1200;
     const pendingGetRequests = new Map();
     const ADMIN_API_CACHE_PREFIX = 'mayumi-admin-api-cache:';
