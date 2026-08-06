@@ -1,4 +1,7 @@
-const CACHE_NAME = 'mayumi-app-v49';
+const CACHE_NAME = 'mayumi-app-v50';
+// 同一オリジンに管理者アプリ (/admin/) の Service Worker も同居しているため、
+// 後片付けはお客様アプリ自身のキャッシュだけに限定する。
+const CACHE_PREFIX = 'mayumi-app-';
 const ASSETS = [
   './',
   './index.html',
@@ -104,7 +107,11 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+    await Promise.all(
+      keys
+        .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+        .map((key) => caches.delete(key))
+    );
     await self.clients.claim();
   })());
 });

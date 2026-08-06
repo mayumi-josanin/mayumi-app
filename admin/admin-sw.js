@@ -1,4 +1,7 @@
-const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v32';
+const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v33';
+// 同一オリジンにお客様アプリの Service Worker も同居しているため、
+// 後片付けは管理者アプリ自身のキャッシュだけに限定する。
+const ADMIN_CACHE_PREFIX = 'mayumi-admin-';
 const ADMIN_ENTRY_CANDIDATES = [
   './index.html'
 ];
@@ -46,7 +49,7 @@ self.addEventListener('activate', function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
       return Promise.all(keys.map(function (key) {
-        if (key !== ADMIN_CACHE_NAME) {
+        if (key.indexOf(ADMIN_CACHE_PREFIX) === 0 && key !== ADMIN_CACHE_NAME) {
           return caches.delete(key);
         }
         return null;
