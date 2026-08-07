@@ -40,7 +40,8 @@ const SHEETS = {
   BACKUP_LOG: 'BACKUP_LOG',
   ADMIN_AUDIT_LOG: 'ADMIN_AUDIT_LOG',
   SUPPORT_CHAT_LOG: 'SUPPORT_CHAT_LOG',
-  ADMIN_TEMPLATES: 'ADMIN_TEMPLATES'
+  ADMIN_TEMPLATES: 'ADMIN_TEMPLATES',
+  DASHBOARD_SNAPSHOT: 'DASHBOARD_SNAPSHOT'
 };
 
 const USER_HEADERS = [
@@ -128,6 +129,12 @@ const LAST_BACKUP_URL_PROPERTY = 'LAST_BACKUP_URL';
 const LAST_BACKUP_FILE_ID_PROPERTY = 'LAST_BACKUP_FILE_ID';
 const DAILY_MAINTENANCE_TRIGGER_HANDLER = 'runDailyMaintenance';
 const SCHEDULED_PUSH_TRIGGER_HANDLER = 'processScheduledPushQueue';
+const DASHBOARD_SNAPSHOT_TRIGGER_HANDLER = 'refreshAdminDashboardSnapshot';
+// ダッシュボードは注文・会員・バックアップ状態など重い集計を8種まとめて行うため、
+// その場で組み立てると2分以上かかり管理者アプリのタイムアウトに必ず引っかかる。
+// 定期トリガーで作り置きし、リクエスト時は保存済みの結果を返すだけにする。
+const DASHBOARD_SNAPSHOT_INTERVAL_MIN = 10;
+const DASHBOARD_SNAPSHOT_MAX_AGE_MS = 60 * 60 * 1000;
 const PUSH_STATUS_SENT = '送信済み';
 const PUSH_STATUS_AUTO_SENT = '自動送信済み';
 const PUSH_STATUS_DRAFT = '下書き';
@@ -815,7 +822,11 @@ function ensureMaintenanceTriggers_() {
   const pushReady = ensureTimeTriggerExists_(SCHEDULED_PUSH_TRIGGER_HANDLER, function () {
     ScriptApp.newTrigger(SCHEDULED_PUSH_TRIGGER_HANDLER).timeBased().everyMinutes(5).create();
   });
-  return { dailyReady: !!dailyReady, pushReady: !!pushReady };
+  const dashboardReady = ensureTimeTriggerExists_(DASHBOARD_SNAPSHOT_TRIGGER_HANDLER, function () {
+    ScriptApp.newTrigger(DASHBOARD_SNAPSHOT_TRIGGER_HANDLER)
+      .timeBased().everyMinutes(DASHBOARD_SNAPSHOT_INTERVAL_MIN).create();
+  });
+  return { dailyReady: !!dailyReady, pushReady: !!pushReady, dashboardReady: !!dashboardReady };
 }
 
 function getProjectTriggersSafe_() {
@@ -940,6 +951,7 @@ function runDailyMaintenance() {
   ensureMaintenanceTriggers_();
   createSpreadsheetBackup_('daily');
   processScheduledPushQueue();
+  refreshAdminDashboardSnapshot();
 }
 
 function getPendingOrderSummary_() {
@@ -1068,7 +1080,71 @@ function getOverdueScheduledPublishes_(hours) {
     .concat(collectOverduePublishItemsFromSheet_(ensureMenusSheetStructure_(ss.getSheetByName(SHEETS.MENUS)), 'ホーム', 2, 6, overdueBeforeTs));
 }
 
+function ensureAdminDashboardSnapshotSheet_() {
+  const ss = getOrCreateSpreadsheet();
+  let sheet = ss.getSheetByName(SHEETS.DASHBOARD_SNAPSHOT);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.DASHBOARD_SNAPSHOT);
+    sheet.getRange(1, 1).setValue('自動生成されるダッシュボードの集計結果です。手動で編集しないでください。');
+    try { sheet.hideSheet(); } catch (err) { /* 最後の1シートは非表示にできない */ }
+  }
+  return sheet;
+}
+
+function writeAdminDashboardSnapshot_(data) {
+  try {
+    const text = JSON.stringify(data);
+    // セルの上限は5万文字。万一超えたら保存を諦める（保存できないだけで表示は続く）
+    if (!text || text.length > 45000) {
+      Logger.log('writeAdminDashboardSnapshot_ skipped: too large (' + (text ? text.length : 0) + ')');
+      return false;
+    }
+    ensureAdminDashboardSnapshotSheet_().getRange(2, 1).setValue(text);
+    return true;
+  } catch (err) {
+    Logger.log('writeAdminDashboardSnapshot_ error: ' + err.toString());
+    return false;
+  }
+}
+
+function readAdminDashboardSnapshot_() {
+  try {
+    const ss = getOrCreateSpreadsheet();
+    const sheet = ss.getSheetByName(SHEETS.DASHBOARD_SNAPSHOT);
+    if (!sheet) return null;
+    const text = String(sheet.getRange(2, 1).getValue() || '').trim();
+    if (!text) return null;
+    const data = JSON.parse(text);
+    if (!data || data.status !== 'ok') return null;
+    const generatedTs = Date.parse(data.generatedAt || '');
+    // 作り置きが極端に古いときは、トリガーが止まっている可能性がある。
+    // 古いまま出し続けるより作り直す。
+    if (!generatedTs || Date.now() - generatedTs > DASHBOARD_SNAPSHOT_MAX_AGE_MS) return null;
+    return data;
+  } catch (err) {
+    Logger.log('readAdminDashboardSnapshot_ error: ' + err.toString());
+    return null;
+  }
+}
+
+// 定期トリガーから呼ばれる。手動実行で作り置きを即座に更新することもできる。
+function refreshAdminDashboardSnapshot() {
+  const data = buildAdminDashboardData_();
+  if (data && data.status === 'ok') {
+    writeAdminDashboardSnapshot_(data);
+  }
+  return data;
+}
+
 function getAdminDashboardData() {
+  const snapshot = readAdminDashboardSnapshot_();
+  if (snapshot) return snapshot;
+  // 作り置きが無いのは初回だけ。ここだけは実測どおり時間がかかる。
+  return refreshAdminDashboardSnapshot();
+}
+
+// 重い集計の本体。リクエスト中ではなく定期トリガーから呼ぶ。
+function buildAdminDashboardData_() {
   try {
     const ordersRes = getAdminOrders({ showAll: true });
     const orderList = ordersRes && ordersRes.status === 'ok' ? (ordersRes.orders || []) : [];
@@ -1173,6 +1249,7 @@ function getAdminDashboardData() {
     }
     return {
       status: 'ok',
+      generatedAt: new Date().toISOString(),
       summary: {
         users: userList.length,
         ordersPending: orders.pending,

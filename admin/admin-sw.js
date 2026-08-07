@@ -1,4 +1,4 @@
-const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v33';
+const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v34';
 // 同一オリジンにお客様アプリの Service Worker も同居しているため、
 // 後片付けは管理者アプリ自身のキャッシュだけに限定する。
 const ADMIN_CACHE_PREFIX = 'mayumi-admin-';

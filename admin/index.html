@@ -7076,6 +7076,16 @@
       boxes.forEach(box => { box.innerHTML = html; });
     }
 
+    // ダッシュボードはGAS側の定期トリガーで作り置きした集計を返すため、
+    // 表示内容は最大10分前の状態になる。いつ時点かを必ず添える。
+    function formatDashboardGeneratedAt(iso) {
+      const ts = Date.parse(iso || '');
+      if (!ts) return '';
+      const d = new Date(ts);
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
     async function loadAdminDashboardData() {
       const res = await apiRequest('getAdminDashboardData');
       adminDashboardData = res && res.status === 'ok' ? res : null;
@@ -7119,7 +7129,11 @@
             </div>
           `);
         }
-        alerts.innerHTML = alertCards + detailSections.join('');
+        const generatedLabel = formatDashboardGeneratedAt(adminDashboardData.generatedAt);
+        const generatedNote = generatedLabel
+          ? `<div style="font-size:12px; color:var(--text-mid); margin-bottom:10px;">集計時点: ${escapeHtml(generatedLabel)}（10分ごとに自動更新）</div>`
+          : '';
+        alerts.innerHTML = generatedNote + alertCards + detailSections.join('');
       }
       const schedule = document.getElementById('publishScheduleList');
       if (schedule) {
