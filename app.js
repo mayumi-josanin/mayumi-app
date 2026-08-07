@@ -1350,16 +1350,130 @@ async function ensureSupportedAppVersion() {
   return { blocked: false, needsWebUpdate: needsWebUpdate, config: config, appInfo: appInfo };
 }
 
+// ===== GET応答のクライアントキャッシュ =====
+// 狙いは2つ。
+//  1. 通信が失敗・遅延したときに画面を空にせず、前回取得した内容を出す
+//  2. 短時間に同じ画面を開き直したとき、通信を待たずに即描画する
+// キャッシュしてよいのは、管理側が更新するまで内容が変わらない共通データだけ。
+// 会員ごとの状態（注文・特典・端末）は古い内容を出すと誤解を招くので必ず通信する。
+const API_CACHE_SHARED_ACTIONS = {
+  getNews: true,
+  getProducts: true,
+  getCalendar: true,
+  getPushNotices: true,
+  getMenus: true,
+  getSupportFaq: true,
+  getCategories: true
+};
+const API_CACHE_PREFIX = 'mayumi-app-api-cache:';
+const API_CACHE_FRESH_MS = 60 * 1000;               // これ以内なら通信を待たずキャッシュを返す
+const API_CACHE_FALLBACK_MS = 24 * 60 * 60 * 1000;  // 通信失敗時に許容する最大の古さ
+const API_GET_TIMEOUT_MS = 20000;
+const apiGetInflight = new Map();
+const apiRevalidatedAt = new Map();
+
+function buildApiCacheKey(action, params) {
+  return API_CACHE_PREFIX + action + '::' + JSON.stringify(params || {});
+}
+
+function readApiCache(key) {
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (!entry || typeof entry.savedAt !== 'number' || !entry.payload) return null;
+    return entry;
+  } catch (e) { return null; }
+}
+
+function listApiCacheKeysOldestFirst(exceptKey) {
+  const entries = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || key.indexOf(API_CACHE_PREFIX) !== 0 || key === exceptKey) continue;
+    const entry = readApiCache(key);
+    entries.push({ key: key, savedAt: entry ? entry.savedAt : 0 });
+  }
+  entries.sort(function (a, b) { return a.savedAt - b.savedAt; });
+  return entries;
+}
+
+// 同一オリジンに管理者アプリの localStorage も同居しているため、容量は共有。
+// 保存しきれないときは自分の古いキャッシュから捨てる（他の保存を巻き添えにしない）。
+function writeApiCache(key, payload) {
+  const record = JSON.stringify({ savedAt: Date.now(), payload: payload });
+  try {
+    localStorage.setItem(key, record);
+    return;
+  } catch (e) { /* 容量超過。古いものを捨てて空きを作る */ }
+  const older = listApiCacheKeysOldestFirst(key);
+  for (let i = 0; i < older.length; i++) {
+    try {
+      localStorage.removeItem(older[i].key);
+      localStorage.setItem(key, record);
+      return;
+    } catch (e2) { /* まだ足りない。次を捨てる */ }
+  }
+  try { localStorage.removeItem(key); } catch (e3) { }
+}
+
+function fetchFromGAS(action, params) {
+  let url = GAS_URL + '?action=' + action + '&t=' + Date.now();
+  if (params) url += '&data=' + encodeURIComponent(JSON.stringify(params));
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId = controller
+    ? setTimeout(function () { controller.abort(); }, API_GET_TIMEOUT_MS)
+    : null;
+  return fetch(url, controller ? { signal: controller.signal } : undefined)
+    .then(function (res) { return res.json(); })
+    .finally(function () { if (timeoutId) clearTimeout(timeoutId); });
+}
+
+// 同じ action/params の通信が重ならないようにまとめる
+function requestFromGAS(action, params, cacheKey) {
+  const inflight = cacheKey ? apiGetInflight.get(cacheKey) : null;
+  if (inflight) return inflight;
+  const promise = fetchFromGAS(action, params).then(function (json) {
+    if (cacheKey && json && json.status === 'ok') {
+      apiRevalidatedAt.set(cacheKey, Date.now());
+      writeApiCache(cacheKey, json);
+    }
+    return json;
+  }).finally(function () {
+    if (cacheKey) apiGetInflight.delete(cacheKey);
+  });
+  if (cacheKey) apiGetInflight.set(cacheKey, promise);
+  return promise;
+}
+
 // GASからデータ取得（doGet対応）
 // action: 'getNews' | 'getProducts'
 async function getFromGAS(action, params) {
   if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return null;
+  const cacheKey = API_CACHE_SHARED_ACTIONS[action] ? buildApiCacheKey(action, params) : null;
+  const cached = cacheKey ? readApiCache(cacheKey) : null;
+  const now = Date.now();
+
+  // 直近に取得済みなら待たずに返し、裏で取り直してキャッシュを新しくしておく
+  if (cached && now - cached.savedAt < API_CACHE_FRESH_MS) {
+    if (now - (apiRevalidatedAt.get(cacheKey) || 0) >= API_CACHE_FRESH_MS) {
+      apiRevalidatedAt.set(cacheKey, now);
+      requestFromGAS(action, params, cacheKey).catch(function () { });
+    }
+    return cached.payload;
+  }
+
   try {
-    let url = GAS_URL + '?action=' + action + '&t=' + Date.now();
-    if (params) url += '&data=' + encodeURIComponent(JSON.stringify(params));
-    const res = await fetch(url);
-    return await res.json();
-  } catch (e) { return null; }
+    return await requestFromGAS(action, params, cacheKey);
+  } catch (e) {
+    console.log('getFromGAS error:', action, e);
+    if (cached && now - cached.savedAt < API_CACHE_FALLBACK_MS) {
+      console.log('getFromGAS: 前回取得した内容で代替します:', action);
+      return cached.payload;
+    }
+    return null;
+  }
 }
 
 // GASへデータ送信（GET/POST自動切り替え）
