@@ -207,6 +207,25 @@ function bumpDataCacheVersion_() {
   PropertiesService.getScriptProperties().setProperty(DATA_CACHE_VERSION_PROPERTY, String(Date.now()));
 }
 
+// キャッシュキーの材料にするクエリパラメータ。
+// doGet が実際に読むのは action と data だけで、お客様アプリが付けてくる `t` は
+// ブラウザのHTTPキャッシュ避けのため毎回変わる。`t` をキーに含めると
+// リクエストごとにキーが変わり、CacheService が一度もヒットしなくなる。
+// action は buildDataCacheKey_ の scope 側で区別しているのでここには含めない。
+// ★ 応答内容を左右するパラメータを新たに増やしたときは、必ずここに追加すること。
+const CACHE_KEY_PARAMS = ['data'];
+
+function buildCachePayload_(params) {
+  const source = params || {};
+  const normalized = {};
+  CACHE_KEY_PARAMS.forEach(function (key) {
+    if (source[key] !== undefined && source[key] !== null) {
+      normalized[key] = String(source[key]);
+    }
+  });
+  return JSON.stringify(normalized);
+}
+
 function buildDataCacheKey_(scope, payload) {
   const raw = [getDataCacheVersion_(), scope || '', payload || ''].join('::');
   const digest = Utilities.base64EncodeWebSafe(
@@ -1551,7 +1570,7 @@ function processScheduledPushQueue() {
 
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
-  const cachePayload = JSON.stringify((e && e.parameter) || {});
+  const cachePayload = buildCachePayload_(e && e.parameter);
   const isMutatingAction = !!MUTATING_GET_ACTIONS[action];
   const canUseCache = !!action && !isMutatingAction;
 
