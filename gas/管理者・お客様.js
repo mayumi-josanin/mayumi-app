@@ -164,8 +164,44 @@ const REWARD_GACHA_PRIZE_POOL = [
 const REWARD_GACHA_RANK_KEYS = ['A', 'B', 'C', 'D'];
 const FALLBACK_SPREADSHEET_ID = '1gIcUGxg2PEuFoU5a_IgQ6lDWgghceJ7v2dgqo9iPe4w';
 const DATA_CACHE_VERSION_PROPERTY = 'DATA_CACHE_VERSION';
-const DATA_CACHE_TTL_SEC = 120;
+const DATA_CACHE_TTL_SEC = 600;
 const DATA_CACHE_MAX_CHARS = 90000;
+
+// キャッシュの版数はデータ領域ごとに持つ。
+// 以前は版数が1つしかなく、doPost が成功するたびに全領域を無効化していたため、
+// 会員1人が端末情報を同期しただけでお知らせ・商品・カレンダーのキャッシュまで消えていた。
+const CACHE_DOMAINS = ['content', 'catalog', 'calendar', 'orders', 'users', 'config', 'system'];
+
+// 読み取りアクションが依存する領域。
+// ここに無いアクションは全領域に依存する扱いになり、どの書き込みでも無効化される（従来どおり）。
+// 追加してよいのは「その領域のデータしか読まない」と確認できたものだけ。
+const ACTION_CACHE_DOMAINS = {
+  getNews: ['content'],
+  getAdminBlogs: ['content'],
+  getPushNotices: ['content'],
+  getSupportFaq: ['content'],
+  getAdminSupportFaq: ['content'],
+  getCategories: ['content'],
+  getProducts: ['catalog'],
+  getAdminProducts: ['catalog'],
+  getMenus: ['catalog'],
+  getAdminMenus: ['catalog'],
+  getCalendar: ['calendar'],
+  getAdminCalendar: ['calendar'],
+  getInitialData: ['content', 'catalog', 'calendar']
+};
+
+// 書き込みが無効化する領域。
+// ここに無い type は全領域を無効化する（安全側）。
+// 追加してよいのは「その領域のデータしか変えない」と確認できたものだけ。
+const MUTATION_CACHE_DOMAINS = {
+  updateUser: ['users'],
+  syncUserDeviceSession: ['users'],
+  removeUserDeviceSession: ['users'],
+  unsubscribePush: ['users'],
+  syncUserRewardStatus: ['users'],
+  drawRewardGacha: ['users']
+};
 const APP_RUNTIME_CONFIG_PROPERTY = 'APP_RUNTIME_CONFIG';
 const ADMIN_SECURITY_CONFIG_PROPERTY = 'ADMIN_SECURITY_CONFIG';
 const REWARD_GACHA_CONFIG_PROPERTY = 'REWARD_GACHA_CONFIG';
@@ -200,18 +236,43 @@ const NON_INVALIDATING_POST_TYPES = {
 
 let spreadsheetCache_ = null;
 
-function getDataCacheVersion_() {
+let cacheDomainVersions_ = null;
+
+function getDomainCacheVersions_() {
+  if (cacheDomainVersions_) return cacheDomainVersions_;
   const props = PropertiesService.getScriptProperties();
-  let version = props.getProperty(DATA_CACHE_VERSION_PROPERTY);
-  if (!version) {
-    version = String(Date.now());
-    props.setProperty(DATA_CACHE_VERSION_PROPERTY, version);
-  }
-  return version;
+  const stored = props.getProperties();
+  const versions = {};
+  let missing = null;
+  CACHE_DOMAINS.forEach(function (domain) {
+    const key = DATA_CACHE_VERSION_PROPERTY + ':' + domain;
+    let version = stored[key];
+    if (!version) {
+      version = String(Date.now());
+      missing = missing || {};
+      missing[key] = version;
+    }
+    versions[domain] = version;
+  });
+  if (missing) props.setProperties(missing, false);
+  cacheDomainVersions_ = versions;
+  return versions;
 }
 
-function bumpDataCacheVersion_() {
-  PropertiesService.getScriptProperties().setProperty(DATA_CACHE_VERSION_PROPERTY, String(Date.now()));
+function bumpCacheDomains_(domains) {
+  const targets = (domains && domains.length) ? domains : CACHE_DOMAINS;
+  const stamp = String(Date.now());
+  const updates = {};
+  targets.forEach(function (domain) {
+    updates[DATA_CACHE_VERSION_PROPERTY + ':' + domain] = stamp;
+  });
+  PropertiesService.getScriptProperties().setProperties(updates, false);
+  cacheDomainVersions_ = null;
+}
+
+// type を渡さない呼び出しは全領域を無効化する（安全側の既定）。
+function bumpDataCacheVersion_(type) {
+  bumpCacheDomains_(type ? MUTATION_CACHE_DOMAINS[type] : null);
 }
 
 // キャッシュキーの材料にするクエリパラメータ。
@@ -234,7 +295,10 @@ function buildCachePayload_(params) {
 }
 
 function buildDataCacheKey_(scope, payload) {
-  const raw = [getDataCacheVersion_(), scope || '', payload || ''].join('::');
+  const versions = getDomainCacheVersions_();
+  const domains = ACTION_CACHE_DOMAINS[scope] || CACHE_DOMAINS;
+  const stamp = domains.map(function (domain) { return versions[domain]; }).join('|');
+  const raw = [stamp, scope || '', payload || ''].join('::');
   const digest = Utilities.base64EncodeWebSafe(
     Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, raw)
   ).replace(/=+$/g, '');
@@ -1999,7 +2063,7 @@ function doPost(e) {
         result = { status: 'error', message: '未定義のPOSTアクションです: ' + type };
     }
     if (result && result.status === 'ok' && !NON_INVALIDATING_POST_TYPES[type]) {
-      bumpDataCacheVersion_();
+      bumpDataCacheVersion_(type);
     }
     if (type !== 'askSupportChat' && type !== 'uploadImage' && type !== 'postGoogleReviewReply') {
       appendAdminAuditLog_(type, data, result);
