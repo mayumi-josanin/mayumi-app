@@ -165,7 +165,11 @@ const REWARD_GACHA_RANK_KEYS = ['A', 'B', 'C', 'D'];
 const FALLBACK_SPREADSHEET_ID = '1gIcUGxg2PEuFoU5a_IgQ6lDWgghceJ7v2dgqo9iPe4w';
 const DATA_CACHE_VERSION_PROPERTY = 'DATA_CACHE_VERSION';
 const DATA_CACHE_TTL_SEC = 600;
-const DATA_CACHE_MAX_CHARS = 90000;
+// CacheService は1キーあたり100KB。日本語はUTF-8で1文字3バイトなので、
+// 25,000文字なら最大でも約75KBに収まる。これを超える応答は分割して保存する。
+const DATA_CACHE_CHUNK_CHARS = 25000;
+const DATA_CACHE_MAX_CHUNKS = 20;
+const DATA_CACHE_CHUNK_MARKER = '__cacheChunks';
 
 // キャッシュの版数はデータ領域ごとに持つ。
 // 以前は版数が1つしかなく、doPost が成功するたびに全領域を無効化していたため、
@@ -305,10 +309,46 @@ function buildDataCacheKey_(scope, payload) {
   return 'mayumi-cache:' + digest;
 }
 
+// CacheService は1キーあたり100KBまで。getNews(約200KB)や getAdminUsers(約240KB)は
+// そのままでは入らず、以前は保存を諦めていたので毎回シートを読み直していた。
+// 収まらないものは分割して保存し、読み出し時に連結する。
+function splitCacheText_(text) {
+  const chunks = [];
+  let index = 0;
+  while (index < text.length) {
+    let end = Math.min(index + DATA_CACHE_CHUNK_CHARS, text.length);
+    if (end < text.length) {
+      // サロゲートペア（絵文字など）の途中で切ると文字が壊れるため1つ手前に戻す
+      const code = text.charCodeAt(end - 1);
+      if (code >= 0xD800 && code <= 0xDBFF) end -= 1;
+    }
+    chunks.push(text.slice(index, end));
+    index = end;
+  }
+  return chunks;
+}
+
 function getCachedData_(scope, payload) {
   try {
-    const cached = CacheService.getScriptCache().get(buildDataCacheKey_(scope, payload));
-    return cached ? JSON.parse(cached) : null;
+    const baseKey = buildDataCacheKey_(scope, payload);
+    const cache = CacheService.getScriptCache();
+    const head = cache.get(baseKey);
+    if (!head) return null;
+    const parsed = JSON.parse(head);
+    const chunkCount = parsed && parsed[DATA_CACHE_CHUNK_MARKER];
+    if (typeof chunkCount !== 'number') return parsed;
+
+    const keys = [];
+    for (let i = 0; i < chunkCount; i++) keys.push(baseKey + ':' + i);
+    const found = cache.getAll(keys);
+    let text = '';
+    for (let i = 0; i < keys.length; i++) {
+      const part = found[keys[i]];
+      // 断片が1つでも失効していたら、繋ぎ合わせても壊れたJSONになるので使わない
+      if (typeof part !== 'string') return null;
+      text += part;
+    }
+    return JSON.parse(text);
   } catch (err) {
     Logger.log('getCachedData_ error: ' + err.toString());
     return null;
@@ -318,8 +358,30 @@ function getCachedData_(scope, payload) {
 function putCachedData_(scope, payload, data, ttlSec) {
   try {
     const text = JSON.stringify(data);
-    if (!text || text.length > DATA_CACHE_MAX_CHARS) return;
-    CacheService.getScriptCache().put(buildDataCacheKey_(scope, payload), text, ttlSec || DATA_CACHE_TTL_SEC);
+    if (!text) return;
+    const baseKey = buildDataCacheKey_(scope, payload);
+    const cache = CacheService.getScriptCache();
+    const ttl = ttlSec || DATA_CACHE_TTL_SEC;
+
+    if (text.length <= DATA_CACHE_CHUNK_CHARS) {
+      cache.put(baseKey, text, ttl);
+      return;
+    }
+
+    const chunks = splitCacheText_(text);
+    if (chunks.length > DATA_CACHE_MAX_CHUNKS) {
+      Logger.log('putCachedData_ skipped: too many chunks (' + chunks.length + ') for ' + scope);
+      return;
+    }
+    const entries = {};
+    chunks.forEach(function (chunk, index) {
+      entries[baseKey + ':' + index] = chunk;
+    });
+    cache.putAll(entries, ttl);
+    // 索引は断片を書き終えてから置く。逆順だと索引だけ存在して中身が無い状態になりうる。
+    const head = {};
+    head[DATA_CACHE_CHUNK_MARKER] = chunks.length;
+    cache.put(baseKey, JSON.stringify(head), ttl);
   } catch (err) {
     Logger.log('putCachedData_ error: ' + err.toString());
   }
