@@ -3244,6 +3244,24 @@ function openGoogleCalendarEvent(idx) {
   }
 }
 
+// 「どこでまゆみ助産院を知ったか」を尋ねるアンケート（Googleフォーム）。
+// 会員IDを差し込んでおくと、回答一覧から誰にスタンプをお付けすればよいか分かる。
+const AWARENESS_SURVEY_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc4-waljb2FnucFuNjsyuijhJ7UFgX6WWT2dMpLW-F6yZvanA/viewform';
+const AWARENESS_SURVEY_MEMBER_ID_ENTRY = 'entry.819858940';
+
+function openAwarenessSurvey() {
+  let url = AWARENESS_SURVEY_URL;
+  const memberId = String((_profile && _profile.memberId) || '').trim();
+  if (memberId) {
+    url += '?usp=pp_url&' + AWARENESS_SURVEY_MEMBER_ID_ENTRY + '=' + encodeURIComponent(memberId);
+  }
+  const opened = window.open(url, '_blank', 'noopener');
+  if (!opened) {
+    // ポップアップがブロックされたときは同じタブで開く
+    window.location.href = url;
+  }
+}
+
 function downloadCalendarEventIcs(idx) {
   const event = calendarData[idx];
   if (!event) return;

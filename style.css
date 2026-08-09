@@ -589,6 +589,38 @@
       border: 1px solid var(--border);
     }
 
+    .survey-card {
+      background: var(--warm-white);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 4px 20px var(--shadow-soft);
+      border: 1px solid var(--border);
+    }
+
+    .survey-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 8px;
+    }
+
+    .survey-card-text {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text-mid);
+      margin: 0 0 10px;
+    }
+
+    .survey-card-note {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--sage-dark);
+      background: rgba(138, 158, 126, 0.1);
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin: 0 0 14px;
+    }
+
     .stamp-head {
       display: flex;
       justify-content: space-between;
