@@ -1793,7 +1793,20 @@
         <div class="card compact-card">
           <div class="summary-grid" id="usersSummaryCards"></div>
           <div class="filter-toolbar" style="margin-top:14px;">
-            <input type="search" id="userSearchInput" placeholder="会員ID・氏名・電話番号・住所で検索" oninput="applyUserFilters()">
+            <input type="search" id="userSearchInput" placeholder="会員ID・氏名・フリガナ・電話番号・住所・メモで検索" oninput="applyUserFilters()">
+            <select id="userCityFilter" onchange="applyUserFilters()" style="width:200px;">
+              <option value="all">市区町村: 全て</option>
+            </select>
+            <input type="number" id="userAgeMin" min="0" max="130" placeholder="年齢 下限" oninput="applyUserFilters()" style="width:110px;">
+            <input type="number" id="userAgeMax" min="0" max="130" placeholder="年齢 上限" oninput="applyUserFilters()" style="width:110px;">
+            <select id="userSortSelect" onchange="applyUserFilters()" style="width:190px;">
+              <option value="registered_desc">並び替え: 登録が新しい順</option>
+              <option value="registered_asc">並び替え: 登録が古い順</option>
+              <option value="age_desc">並び替え: 年齢が高い順</option>
+              <option value="age_asc">並び替え: 年齢が低い順</option>
+              <option value="city_asc">並び替え: 市区町村順</option>
+              <option value="kana_asc">並び替え: フリガナ順</option>
+            </select>
             <select id="userPushFilter" onchange="applyUserFilters()" style="width:180px;">
               <option value="all">Push状態: 全て</option>
               <option value="enabled">Push許可あり</option>
@@ -1814,6 +1827,7 @@
                 <th>氏名</th>
                 <th>電話番号</th>
                 <th>生年月日</th>
+                <th style="width:70px;">年齢</th>
                 <th>住所</th>
                 <th>Push</th>
                 <th>メモ</th>
@@ -1822,7 +1836,7 @@
             </thead>
             <tbody id="usersList">
               <tr>
-                <td colspan="10" style="text-align:center;">読み込み中...</td>
+                <td colspan="11" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -5404,10 +5418,11 @@
       const cachedRes = readAdminApiCache('getAdminUsers');
       if (cachedRes && cachedRes.status === 'ok' && loadVersion === adminUsersLoadVersion) {
         allUsers = cachedRes.users || [];
+        refreshUserCityFilterOptions();
         applyUserFilters();
         applyRewardStatusFilters();
       } else {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">読み込み中...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">読み込み中...</td></tr>';
         if (rewardTbody) {
           rewardTbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">読み込み中...</td></tr>';
         }
@@ -5417,10 +5432,11 @@
       if (loadVersion !== adminUsersLoadVersion) return;
       if (res && res.status === 'ok') {
         allUsers = res.users || [];
+        refreshUserCityFilterOptions();
         applyUserFilters();
         applyRewardStatusFilters();
       } else {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:red;">会員情報の取得に失敗しました</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:red;">会員情報の取得に失敗しました</td></tr>';
         if (rewardTbody) {
           rewardTbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:red;">スタンプ・特典状況の取得に失敗しました</td></tr>';
         }
@@ -5594,7 +5610,7 @@
 
       if (users.length === 0) {
         const message = allUsers.length === 0 ? '登録されている会員はいません' : '条件に一致する会員はいません';
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;">${message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;">${message}</td></tr>`;
         return;
       }
 
@@ -5604,6 +5620,8 @@
         const deleteName = JSON.stringify(u.name || '');
         const presenceMeta = getAdminUserPresenceMeta(u);
         const deviceCount = getAdminUserDeviceCount(u);
+        const userAge = getUserAge(u);
+        const userCity = getUserCity(u);
         return `
         <tr>
           <td style="text-align:center;">
@@ -5623,7 +5641,11 @@
           </td>
           <td>${escapeHtml(u.phone || '')}</td>
           <td>${escapeHtml(u.birthday || '')}</td>
-          <td>${escapeHtml(u.address || '')}</td>
+          <td style="text-align:center;">${userAge === null ? '<span style="color:var(--text-light);">ー</span>' : escapeHtml(String(userAge)) + '歳'}</td>
+          <td>
+            <div>${escapeHtml(u.address || '')}</div>
+            ${userCity ? `<div style="font-size:11px; color:var(--text-light); margin-top:4px;">${escapeHtml(userCity)}</div>` : ''}
+          </td>
           <td style="text-align:center;">${u.pushEnabled ? '🔔' : 'ー'}</td>
           <td>
             <div>${escapeHtml(u.memo || '')}</div>
@@ -5652,13 +5674,137 @@
       updateFilterMeta('usersFilterMeta', filteredUsers.length, allUsers.length, '会員データはありません');
     }
 
+    // 生年月日は '1988/4/22' 形式で入るが、'1988-04-22' も許容する。
+    function parseUserBirthday(value) {
+      const raw = String(value || '').trim();
+      if (!raw) return null;
+      const m = raw.match(/^(\d{4})[\/\-年](\d{1,2})[\/\-月](\d{1,2})/);
+      if (!m) return null;
+      const year = Number(m[1]);
+      const month = Number(m[2]);
+      const day = Number(m[3]);
+      const date = new Date(year, month - 1, day);
+      // 2月30日のような存在しない日付を弾く
+      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+      return date;
+    }
+
+    function getUserAge(user) {
+      const birth = parseUserBirthday(user && user.birthday);
+      if (!birth) return null;
+      const now = new Date();
+      let age = now.getFullYear() - birth.getFullYear();
+      const monthDiff = now.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age -= 1;
+      return (age >= 0 && age <= 130) ? age : null;
+    }
+
+    // 住所の表記ゆれを吸収して市区町村だけを取り出す。
+    // 「厚木市…」「神奈川県厚木市…」を同じ扱いにし、郡がある場合は町村名を採る。
+    // 「神」が欠けた「奈川県…」のような入力もあるため、都道府県の判定はゆるめにしている。
+    function getUserCity(user) {
+      const raw = String(user && user.address || '').trim();
+      if (!raw) return '';
+      let text = raw.replace(/[\s　]+/g, '');
+      text = text.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '');
+      const gun = text.match(/^.{1,6}郡(.{1,6}?[町村])/);
+      if (gun) return gun[1];
+      const city = text.match(/^(.{1,8}?[市区町村])/);
+      return city ? city[1] : '';
+    }
+
+    const USER_CITY_UNKNOWN = '__unknown__';
+
+    function refreshUserCityFilterOptions() {
+      const select = document.getElementById('userCityFilter');
+      if (!select) return;
+      const counts = new Map();
+      let unknown = 0;
+      allUsers.forEach(user => {
+        const city = getUserCity(user);
+        if (!city) { unknown += 1; return; }
+        counts.set(city, (counts.get(city) || 0) + 1);
+      });
+      const sorted = [...counts.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0], 'ja'));
+      const previous = select.value;
+      const options = ['<option value="all">市区町村: 全て</option>'];
+      sorted.forEach(([city, count]) => {
+        options.push(`<option value="${escapeHtml(city)}">${escapeHtml(city)}（${count}）</option>`);
+      });
+      if (unknown) {
+        options.push(`<option value="${USER_CITY_UNKNOWN}">市区町村が不明（${unknown}）</option>`);
+      }
+      select.innerHTML = options.join('');
+      // 再読み込み後も選んでいた市区町村を保つ
+      if (previous && [...select.options].some(option => option.value === previous)) {
+        select.value = previous;
+      }
+    }
+
+    function sortFilteredUsers(users, mode) {
+      const sorted = users.slice();
+      const byAge = (direction) => (a, b) => {
+        const ageA = getUserAge(a);
+        const ageB = getUserAge(b);
+        // 生年月日が未登録の会員は、並び順に関わらず末尾にまとめる
+        if (ageA === null && ageB === null) return 0;
+        if (ageA === null) return 1;
+        if (ageB === null) return -1;
+        return (ageA - ageB) * direction;
+      };
+      switch (mode) {
+        case 'age_desc': sorted.sort(byAge(-1)); break;
+        case 'age_asc': sorted.sort(byAge(1)); break;
+        case 'city_asc':
+          sorted.sort((a, b) => {
+            const cityA = getUserCity(a);
+            const cityB = getUserCity(b);
+            if (!cityA && !cityB) return 0;
+            if (!cityA) return 1;
+            if (!cityB) return -1;
+            return cityA.localeCompare(cityB, 'ja');
+          });
+          break;
+        case 'kana_asc':
+          sorted.sort((a, b) => String(a.kana || a.name || '').localeCompare(String(b.kana || b.name || ''), 'ja'));
+          break;
+        case 'registered_asc': sorted.reverse(); break;
+        default: break; // registered_desc: getAdminUsers が新しい順で返す
+      }
+      return sorted;
+    }
+
     function applyUserFilters() {
       const query = normalizeFilterText(document.getElementById('userSearchInput') ? document.getElementById('userSearchInput').value : '');
       const pushFilter = document.getElementById('userPushFilter') ? document.getElementById('userPushFilter').value : 'all';
+      const cityFilter = document.getElementById('userCityFilter') ? document.getElementById('userCityFilter').value : 'all';
+      const ageMinRaw = document.getElementById('userAgeMin') ? document.getElementById('userAgeMin').value : '';
+      const ageMaxRaw = document.getElementById('userAgeMax') ? document.getElementById('userAgeMax').value : '';
+      const ageMin = ageMinRaw === '' ? null : Number(ageMinRaw);
+      const ageMax = ageMaxRaw === '' ? null : Number(ageMaxRaw);
+      const sortMode = document.getElementById('userSortSelect') ? document.getElementById('userSortSelect').value : 'registered_desc';
 
       const filteredUsers = allUsers.filter(user => {
         if (pushFilter === 'enabled' && !user.pushEnabled) return false;
         if (pushFilter === 'disabled' && user.pushEnabled) return false;
+
+        if (cityFilter !== 'all') {
+          const city = getUserCity(user);
+          if (cityFilter === USER_CITY_UNKNOWN) {
+            if (city) return false;
+          } else if (city !== cityFilter) {
+            return false;
+          }
+        }
+
+        if (ageMin !== null || ageMax !== null) {
+          const age = getUserAge(user);
+          // 生年月日が未登録だと年齢を判定できないため、年齢で絞る間は除外する
+          if (age === null) return false;
+          if (ageMin !== null && !Number.isNaN(ageMin) && age < ageMin) return false;
+          if (ageMax !== null && !Number.isNaN(ageMax) && age > ageMax) return false;
+        }
+
         if (!query) return true;
 
         const haystack = normalizeFilterText([
@@ -5674,12 +5820,16 @@
       });
 
       updateUsersSummary(filteredUsers);
-      renderUsers(filteredUsers);
+      renderUsers(sortFilteredUsers(filteredUsers, sortMode));
     }
 
     function resetUserFilters() {
       if (document.getElementById('userSearchInput')) document.getElementById('userSearchInput').value = '';
       if (document.getElementById('userPushFilter')) document.getElementById('userPushFilter').value = 'all';
+      if (document.getElementById('userCityFilter')) document.getElementById('userCityFilter').value = 'all';
+      if (document.getElementById('userAgeMin')) document.getElementById('userAgeMin').value = '';
+      if (document.getElementById('userAgeMax')) document.getElementById('userAgeMax').value = '';
+      if (document.getElementById('userSortSelect')) document.getElementById('userSortSelect').value = 'registered_desc';
       applyUserFilters();
     }
 
