@@ -3004,6 +3004,9 @@ async function loadStampRewards() {
   const localStatus = getLocalRewardStatus();
   if (_profile && _profile.memberId) {
     const remote = await getFromGAS('getUserRewardStatus', { memberId: _profile.memberId });
+    if (remote && remote.status === 'ok') {
+      applyAwarenessSurveyAnswered(remote.surveyAnswered === true);
+    }
     if (remote && remote.status === 'ok' && remote.rewardStatus) {
       const remoteStatus = getComparableRewardStatus(remote.rewardStatus);
       if (hasMeaningfulRewardStatus(remoteStatus)) {
@@ -3248,6 +3251,13 @@ function openGoogleCalendarEvent(idx) {
 // 会員IDを差し込んでおくと、回答一覧から誰にスタンプをお付けすればよいか分かる。
 const AWARENESS_SURVEY_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc4-waljb2FnucFuNjsyuijhJ7UFgX6WWT2dMpLW-F6yZvanA/viewform';
 const AWARENESS_SURVEY_MEMBER_ID_ENTRY = 'entry.819858940';
+
+// 回答済みかどうかはサーバーが持っているため、機種変更しても判定が引き継がれる。
+function applyAwarenessSurveyAnswered(answered) {
+  const card = document.getElementById('awarenessSurveyCard');
+  if (!card) return;
+  card.style.display = answered ? 'none' : '';
+}
 
 function openAwarenessSurvey() {
   let url = AWARENESS_SURVEY_URL;

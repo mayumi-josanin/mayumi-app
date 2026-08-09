@@ -3618,8 +3618,35 @@ function findUserRowByMemberId_(sheet, memberId) {
 }
 
 // 「知ったきっかけアンケート」に回答した方へのお礼スタンプ。
-// フォームの送信トリガーから呼ばれる。同じ会員に何度も付けないよう記録を残す。
+// ANSWERED は回答した事実（アプリでボタンを隠す判定に使う）。
+// GRANTED はスタンプを実際に付けた記録（二重付与の防止）。
+// PENDING はカードが10個で満杯だったため付けられず、空き待ちにしている記録。
+const SURVEY_ANSWERED_PREFIX = 'SURVEY_ANSWERED:';
 const SURVEY_STAMP_GRANTED_PREFIX = 'SURVEY_STAMP:';
+const SURVEY_STAMP_PENDING_PREFIX = 'SURVEY_STAMP_PENDING:';
+
+// スタンプを1個足す。空きが無ければ何もしない。
+// 呼び出し側が行の読み書きをまとめられるよう、更新後の状態を返す。
+function addSurveyStampToRow_(sheet, rowIdx, row) {
+  const current = getRewardStatusFromRow_(row);
+  if (Number(current.stampCount || 0) >= 10) return null;
+
+  const now = new Date();
+  const history = (current.stampHistory || []).slice();
+  history.unshift({ acquiredDate: formatDateTime_(now), note: 'アンケート回答のお礼' });
+
+  const updated = sanitizeRewardStatus_({
+    stampCount: Number(current.stampCount || 0) + 1,
+    stampCardNum: current.stampCardNum,
+    rewards: current.rewards,
+    stampHistory: history,
+    lastStampDate: formatDateTime_(now),
+    lastStampAt: formatDateTime_(now),
+    stampAchievedDate: current.stampAchievedDate
+  });
+  sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).setValues([applyRewardStatusToRow_(row, updated)]);
+  return updated;
+}
 
 function handleGrantSurveyStamp(data) {
   try {
@@ -3627,9 +3654,12 @@ function handleGrantSurveyStamp(data) {
     if (!memberId) return { status: 'error', message: '会員IDが指定されていません' };
 
     const props = PropertiesService.getScriptProperties();
-    const grantedKey = SURVEY_STAMP_GRANTED_PREFIX + memberId;
-    if (props.getProperty(grantedKey)) {
-      return { status: 'ok', granted: false, reason: 'already_granted' };
+    const stamped = formatDateTime_(new Date());
+    // 回答した事実は、スタンプを付けられたかに関わらず必ず残す
+    props.setProperty(SURVEY_ANSWERED_PREFIX + memberId, stamped);
+
+    if (props.getProperty(SURVEY_STAMP_GRANTED_PREFIX + memberId)) {
+      return { status: 'ok', answered: true, granted: false, reason: 'already_granted' };
     }
 
     const ss = getOrCreateSpreadsheet();
@@ -3637,38 +3667,35 @@ function handleGrantSurveyStamp(data) {
     const rowIdx = findUserRowByMemberId_(sheet, memberId);
     if (rowIdx < 2) return { status: 'error', message: '会員が見つかりません: ' + memberId };
 
-    const range = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length);
-    const row = range.getValues()[0];
-    const current = getRewardStatusFromRow_(row);
-
-    // カードは10個で満了。満了状態のときは加算せず、記録も残さない
-    // （次のカードを開始したあとに改めて付けられるようにするため）。
-    if (Number(current.stampCount || 0) >= 10) {
-      return { status: 'ok', granted: false, reason: 'card_full' };
+    const row = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).getValues()[0];
+    const updated = addSurveyStampToRow_(sheet, rowIdx, row);
+    if (!updated) {
+      // カードが満杯。ここで新しいカードへ進めると、まだ引いていない特典ガチャを
+      // 飛ばしてしまうため進めない。空きができ次第、自動で付けられるよう保留にする。
+      props.setProperty(SURVEY_STAMP_PENDING_PREFIX + memberId, stamped);
+      return { status: 'ok', answered: true, granted: false, reason: 'card_full_pending' };
     }
 
-    const now = new Date();
-    const history = (current.stampHistory || []).slice();
-    history.unshift({ acquiredDate: formatDateTime_(now), note: 'アンケート回答のお礼' });
-
-    const updated = sanitizeRewardStatus_({
-      stampCount: Number(current.stampCount || 0) + 1,
-      stampCardNum: current.stampCardNum,
-      rewards: current.rewards,
-      stampHistory: history,
-      lastStampDate: formatDateTime_(now),
-      lastStampAt: formatDateTime_(now),
-      stampAchievedDate: current.stampAchievedDate
-    });
-    range.setValues([applyRewardStatusToRow_(row, updated)]);
-    props.setProperty(grantedKey, formatDateTime_(now));
-    // キャッシュの無効化は doPost がまとめて行う
-
-    return { status: 'ok', granted: true, stampCount: updated.stampCount };
+    props.setProperty(SURVEY_STAMP_GRANTED_PREFIX + memberId, stamped);
+    props.deleteProperty(SURVEY_STAMP_PENDING_PREFIX + memberId);
+    return { status: 'ok', answered: true, granted: true, stampCount: updated.stampCount };
   } catch (err) {
     Logger.log('handleGrantSurveyStamp error: ' + err.toString());
     return { status: 'error', message: err.toString() };
   }
+}
+
+// 満杯で保留になっていたお礼スタンプを、空きができていれば付ける。
+// 会員がガチャを回して新しいカードを始めたあとに自然と回収される。
+function redeemPendingSurveyStamp_(sheet, rowIdx, row, memberId) {
+  const props = PropertiesService.getScriptProperties();
+  const pendingKey = SURVEY_STAMP_PENDING_PREFIX + memberId;
+  if (!props.getProperty(pendingKey)) return null;
+  const updated = addSurveyStampToRow_(sheet, rowIdx, row);
+  if (!updated) return null;
+  props.setProperty(SURVEY_STAMP_GRANTED_PREFIX + memberId, formatDateTime_(new Date()));
+  props.deleteProperty(pendingKey);
+  return updated;
 }
 
 function isSoftDeletedUserRow_(row) {
@@ -6750,12 +6777,21 @@ function getUserRewardStatus(params) {
     }
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
-    const rowIdx = findUserRowByMemberId_(sheet, params.memberId);
+    const memberId = String(params.memberId).trim();
+    const rowIdx = findUserRowByMemberId_(sheet, memberId);
+    const surveyAnswered = !!PropertiesService.getScriptProperties()
+      .getProperty(SURVEY_ANSWERED_PREFIX + memberId);
     if (rowIdx === -1) {
-      return { status: 'ok', rewardStatus: getDefaultRewardStatus_() };
+      return { status: 'ok', rewardStatus: getDefaultRewardStatus_(), surveyAnswered: surveyAnswered };
     }
     const row = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).getValues()[0];
-    return { status: 'ok', rewardStatus: getRewardStatusFromRow_(row) };
+    // 満杯で保留になっていたお礼スタンプがあれば、ここで回収する
+    const redeemed = redeemPendingSurveyStamp_(sheet, rowIdx, row, memberId);
+    return {
+      status: 'ok',
+      rewardStatus: redeemed || getRewardStatusFromRow_(row),
+      surveyAnswered: surveyAnswered
+    };
   } catch (err) {
     Logger.log('getUserRewardStatus error: ' + err.toString());
     return { status: 'error', message: err.toString() };
