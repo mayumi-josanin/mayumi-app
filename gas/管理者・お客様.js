@@ -204,7 +204,8 @@ const MUTATION_CACHE_DOMAINS = {
   removeUserDeviceSession: ['users'],
   unsubscribePush: ['users'],
   syncUserRewardStatus: ['users'],
-  drawRewardGacha: ['users']
+  drawRewardGacha: ['users'],
+  grantSurveyStamp: ['users']
 };
 const APP_RUNTIME_CONFIG_PROPERTY = 'APP_RUNTIME_CONFIG';
 const ADMIN_SECURITY_CONFIG_PROPERTY = 'ADMIN_SECURITY_CONFIG';
@@ -2084,6 +2085,9 @@ function doPost(e) {
       case 'runManualBackup':
         result = handleRunManualBackup(data);
         break;
+      case 'grantSurveyStamp':
+        result = handleGrantSurveyStamp(data);
+        break;
       case 'saveMenuRevenueRecord':
         result = handleSaveMenuRevenueRecord(data);
         break;
@@ -3611,6 +3615,60 @@ function buildRewardGachaResult_(reward, alreadyDrawn) {
 function findUserRowByMemberId_(sheet, memberId) {
   const result = consolidateDuplicateUserRowsByMemberId_(sheet, memberId);
   return result && result.rowIdx > 1 ? result.rowIdx : -1;
+}
+
+// 「知ったきっかけアンケート」に回答した方へのお礼スタンプ。
+// フォームの送信トリガーから呼ばれる。同じ会員に何度も付けないよう記録を残す。
+const SURVEY_STAMP_GRANTED_PREFIX = 'SURVEY_STAMP:';
+
+function handleGrantSurveyStamp(data) {
+  try {
+    const memberId = String((data && data.memberId) || '').trim();
+    if (!memberId) return { status: 'error', message: '会員IDが指定されていません' };
+
+    const props = PropertiesService.getScriptProperties();
+    const grantedKey = SURVEY_STAMP_GRANTED_PREFIX + memberId;
+    if (props.getProperty(grantedKey)) {
+      return { status: 'ok', granted: false, reason: 'already_granted' };
+    }
+
+    const ss = getOrCreateSpreadsheet();
+    const sheet = getOrCreateUsersSheet_(ss);
+    const rowIdx = findUserRowByMemberId_(sheet, memberId);
+    if (rowIdx < 2) return { status: 'error', message: '会員が見つかりません: ' + memberId };
+
+    const range = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length);
+    const row = range.getValues()[0];
+    const current = getRewardStatusFromRow_(row);
+
+    // カードは10個で満了。満了状態のときは加算せず、記録も残さない
+    // （次のカードを開始したあとに改めて付けられるようにするため）。
+    if (Number(current.stampCount || 0) >= 10) {
+      return { status: 'ok', granted: false, reason: 'card_full' };
+    }
+
+    const now = new Date();
+    const history = (current.stampHistory || []).slice();
+    history.unshift({ acquiredDate: formatDateTime_(now), note: 'アンケート回答のお礼' });
+
+    const updated = sanitizeRewardStatus_({
+      stampCount: Number(current.stampCount || 0) + 1,
+      stampCardNum: current.stampCardNum,
+      rewards: current.rewards,
+      stampHistory: history,
+      lastStampDate: formatDateTime_(now),
+      lastStampAt: formatDateTime_(now),
+      stampAchievedDate: current.stampAchievedDate
+    });
+    range.setValues([applyRewardStatusToRow_(row, updated)]);
+    props.setProperty(grantedKey, formatDateTime_(now));
+    // キャッシュの無効化は doPost がまとめて行う
+
+    return { status: 'ok', granted: true, stampCount: updated.stampCount };
+  } catch (err) {
+    Logger.log('handleGrantSurveyStamp error: ' + err.toString());
+    return { status: 'error', message: err.toString() };
+  }
 }
 
 function isSoftDeletedUserRow_(row) {
