@@ -589,6 +589,39 @@
       border: 1px solid var(--border);
     }
 
+    .menu-group-heading {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin: 4px 0 12px;
+      padding-left: 10px;
+      border-left: 3px solid var(--sage);
+    }
+
+    .menu-schedule {
+      flex-shrink: 0;
+      text-align: right;
+      margin-left: 8px;
+    }
+
+    .menu-schedule-date {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--sage-dark);
+      white-space: nowrap;
+    }
+
+    .menu-schedule-status {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #fff;
+      background: var(--sage);
+      border-radius: 10px;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+
     .survey-card {
       background: var(--warm-white);
       border-radius: 16px;
