@@ -3621,6 +3621,12 @@ function findUserRowByMemberId_(sheet, memberId) {
 // ANSWERED は回答した事実（アプリでボタンを隠す判定に使う）。
 // GRANTED はスタンプを実際に付けた記録（二重付与の防止）。
 // PENDING はカードが10個で満杯だったため付けられず、空き待ちにしている記録。
+// カレンダーの予定がどのメニューの開催回かを示す列。
+// メニュー名ではなく MENUS シートの行番号を入れるので、名前を変えても紐づけが切れない。
+const CALENDAR_MENU_REF_HEADER = '対象メニュー行';
+
+// 管理者がスタンプ・特典を直接編集した時刻。アプリ側で「サーバーを正とする」判定に使う。
+const REWARD_ADMIN_SET_PREFIX = 'REWARD_ADMIN_SET:';
 const SURVEY_ANSWERED_PREFIX = 'SURVEY_ANSWERED:';
 const SURVEY_STAMP_GRANTED_PREFIX = 'SURVEY_STAMP:';
 const SURVEY_STAMP_PENDING_PREFIX = 'SURVEY_STAMP_PENDING:';
@@ -5818,6 +5824,7 @@ function handleAddCalendar(data) {
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
     const linkCols = ensureManagedLinkColumns_(sheet);
+    const menuRefCol = ensureNamedColumn_(sheet, CALENDAR_MENU_REF_HEADER, 120);
 
     const rowsToAdd = [];
     const updatedAt = formatDateTime_(new Date());
@@ -5858,6 +5865,12 @@ function handleAddCalendar(data) {
           return [String(data.category || '').trim()];
         });
         sheet.getRange(startRow, categoryCol, categoryValues.length, 1).setValues(categoryValues);
+      }
+      if (menuRefCol) {
+        const menuRefValues = rowsToAdd.map(function () {
+          return [Number(data.menuRowIdx || 0) || ''];
+        });
+        sheet.getRange(startRow, menuRefCol, menuRefValues.length, 1).setValues(menuRefValues);
       }
       if (publishAtCol) {
         const publishValues = rowsToAdd.map(function () {
@@ -5905,6 +5918,7 @@ function handleUpdateCalendar(data) {
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
     const linkCols = ensureManagedLinkColumns_(sheet);
+    const menuRefCol = ensureNamedColumn_(sheet, CALENDAR_MENU_REF_HEADER, 120);
 
     const rowIdx = Number(data.rowIdx);
     if (rowIdx < 2) return { status: 'error', message: '更新対象が見つかりません' };
@@ -5926,6 +5940,9 @@ function handleUpdateCalendar(data) {
     }
     if (publishAtCol && data.publishAt !== undefined) {
       sheet.getRange(rowIdx, publishAtCol).setValue(normalizePublishAtValue_(data.publishAt));
+    }
+    if (menuRefCol && data.menuRowIdx !== undefined) {
+      sheet.getRange(rowIdx, menuRefCol).setValue(Number(data.menuRowIdx || 0) || '');
     }
     if (linkCols.urlCol && data.linkUrl !== undefined) {
       sheet.getRange(rowIdx, linkCols.urlCol).setValue(String(data.linkUrl || '').trim());
@@ -6779,10 +6796,16 @@ function getUserRewardStatus(params) {
     const sheet = getOrCreateUsersSheet_(ss);
     const memberId = String(params.memberId).trim();
     const rowIdx = findUserRowByMemberId_(sheet, memberId);
-    const surveyAnswered = !!PropertiesService.getScriptProperties()
-      .getProperty(SURVEY_ANSWERED_PREFIX + memberId);
+    const props = PropertiesService.getScriptProperties();
+    const surveyAnswered = !!props.getProperty(SURVEY_ANSWERED_PREFIX + memberId);
+    const adminSetAt = String(props.getProperty(REWARD_ADMIN_SET_PREFIX + memberId) || '');
     if (rowIdx === -1) {
-      return { status: 'ok', rewardStatus: getDefaultRewardStatus_(), surveyAnswered: surveyAnswered };
+      return {
+        status: 'ok',
+        rewardStatus: getDefaultRewardStatus_(),
+        surveyAnswered: surveyAnswered,
+        adminSetAt: adminSetAt
+      };
     }
     const row = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).getValues()[0];
     // 満杯で保留になっていたお礼スタンプがあれば、ここで回収する
@@ -6790,7 +6813,8 @@ function getUserRewardStatus(params) {
     return {
       status: 'ok',
       rewardStatus: redeemed || getRewardStatusFromRow_(row),
-      surveyAnswered: surveyAnswered
+      surveyAnswered: surveyAnswered,
+      adminSetAt: adminSetAt
     };
   } catch (err) {
     Logger.log('getUserRewardStatus error: ' + err.toString());
@@ -6887,6 +6911,16 @@ function handleUpdateAdminRewardStatus(data) {
     }
     
     range.setValues([applyRewardStatusToRow_(currentRow, nextStatus)]);
+
+    // お客様アプリはスタンプ数を max(サーバー, 端末) で統合するため、
+    // 何もしないと管理者による減算・取り消しが端末の古い値で戻されてしまう。
+    // 管理者が設定した時刻を残し、アプリ側にサーバーの値を優先させる。
+    const memberId = String(data.memberId || currentRow[USER_COL.MEMBER_ID - 1] || '').trim();
+    if (memberId) {
+      PropertiesService.getScriptProperties()
+        .setProperty(REWARD_ADMIN_SET_PREFIX + memberId, formatDateTime_(new Date()));
+    }
+
     return { status: 'ok', rewardStatus: nextStatus };
   } catch (err) {
     Logger.log('handleUpdateAdminRewardStatus error: ' + err.toString());
@@ -6945,6 +6979,9 @@ function getAdminUsers() {
     if (lastRow < 2) return { status: 'ok', users: [] };
 
     const data = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
+    // アンケートの回答・付与の記録はスクリプトプロパティにある。
+    // 会員ごとに読むと178回の呼び出しになるため、ここで一度だけまとめて取る。
+    const scriptProps = PropertiesService.getScriptProperties().getProperties();
     const users = data.map((row, index) => {
       if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) return null;
       const rewardStatus = getRewardStatusFromRow_(row);
@@ -6985,7 +7022,10 @@ function getAdminUsers() {
         orderCount: userOrderStats.orderCount,
         pendingOrderCount: userOrderStats.pendingOrderCount,
         lastOrderAt: userOrderStats.lastOrderAt,
-        orderTotal: userOrderStats.orderTotal
+        orderTotal: userOrderStats.orderTotal,
+        surveyAnsweredAt: String(scriptProps[SURVEY_ANSWERED_PREFIX + memberId] || ''),
+        surveyStampGrantedAt: String(scriptProps[SURVEY_STAMP_GRANTED_PREFIX + memberId] || ''),
+        surveyStampPendingAt: String(scriptProps[SURVEY_STAMP_PENDING_PREFIX + memberId] || '')
       };
     }).filter(Boolean).reverse(); // 最新を上に
 
@@ -7334,6 +7374,9 @@ function getCalendarEvents() {
     const deleteCols = ensureSoftDeleteColumns_(sheet);
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const linkCols = ensureManagedLinkColumns_(sheet);
+    // どのメニューの開催回かを保持する。名前ではなくメニューの行番号を持つので、
+    // メニュー名を変更しても紐づけが切れない。
+    const menuRefCol = ensureNamedColumn_(sheet, CALENDAR_MENU_REF_HEADER, 120);
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', events: [] };
@@ -7362,6 +7405,7 @@ function getCalendarEvents() {
         publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
         linkUrl: linkCols.urlCol ? String(row[linkCols.urlCol - 1] || '').trim() : '',
         linkButtonText: linkCols.buttonTextCol ? String(row[linkCols.buttonTextCol - 1] || '').trim() : '',
+        menuRowIdx: Number(row[menuRefCol - 1] || 0) || 0,
         noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[4] || '公開'),
         sortOrder: sortCol > 0 ? Number(row[sortCol - 1] || 0) : 0
       };
@@ -7386,6 +7430,7 @@ function getAdminCalendar() {
     const deleteCols = ensureSoftDeleteColumns_(sheet);
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const linkCols = ensureManagedLinkColumns_(sheet);
+    const menuRefCol = ensureNamedColumn_(sheet, CALENDAR_MENU_REF_HEADER, 120);
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', events: [] };
@@ -7410,6 +7455,7 @@ function getAdminCalendar() {
         publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
         linkUrl: linkCols.urlCol ? String(row[linkCols.urlCol - 1] || '').trim() : '',
         linkButtonText: linkCols.buttonTextCol ? String(row[linkCols.buttonTextCol - 1] || '').trim() : '',
+        menuRowIdx: Number(row[menuRefCol - 1] || 0) || 0,
         noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[4] || '公開'),
         noticeDeletedAt: formatMaybeDateTime_(row[deletedAtCol - 1]) || String(row[deletedAtCol - 1] || ''),
         sortOrder: sortCol > 0 ? Number(row[sortCol - 1] || 0) : 0

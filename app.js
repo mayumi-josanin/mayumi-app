@@ -1697,6 +1697,21 @@ function mergeRewardLists(leftRewards, rightRewards) {
   return normalizeRewardList([].concat(leftRewards || [], rightRewards || []));
 }
 
+// 管理者がスタンプ・特典を直接編集した時刻。端末ごとに「どこまで反映したか」を覚えておく。
+const ADMIN_REWARD_EDIT_STORAGE_KEY = 'mayumi_admin_reward_edit_at';
+
+function hasUnappliedAdminRewardEdit(adminSetAt) {
+  const stamp = String(adminSetAt || '').trim();
+  if (!stamp) return false;
+  let applied = '';
+  try { applied = localStorage.getItem(ADMIN_REWARD_EDIT_STORAGE_KEY) || ''; } catch (e) { }
+  return stamp !== applied;
+}
+
+function markAdminRewardEditApplied(adminSetAt) {
+  try { localStorage.setItem(ADMIN_REWARD_EDIT_STORAGE_KEY, String(adminSetAt || '')); } catch (e) { }
+}
+
 function mergeRewardStatuses(primaryStatus, secondaryStatus) {
   const primary = getComparableRewardStatus(primaryStatus);
   const secondary = getComparableRewardStatus(secondaryStatus);
@@ -3006,6 +3021,17 @@ async function loadStampRewards() {
     const remote = await getFromGAS('getUserRewardStatus', { memberId: _profile.memberId });
     if (remote && remote.status === 'ok') {
       applyAwarenessSurveyAnswered(remote.surveyAnswered === true);
+    }
+    // 通常はスタンプ数を max(サーバー, 端末) で統合し、圏外で押した分が消えないようにしている。
+    // ただし管理者が訂正した直後だけは、その max のせいで減算が端末の古い値に戻されてしまう。
+    // 未反映の管理者設定があるときに限り、サーバーの値をそのまま採用する。
+    if (remote && remote.status === 'ok' && remote.rewardStatus && hasUnappliedAdminRewardEdit(remote.adminSetAt)) {
+      const adminStatus = getComparableRewardStatus(remote.rewardStatus);
+      applyRewardStatusLocally(adminStatus);
+      lastSyncedRewardStatus = adminStatus;
+      markAdminRewardEditApplied(remote.adminSetAt);
+      renderEarnedRewards();
+      return;
     }
     if (remote && remote.status === 'ok' && remote.rewardStatus) {
       const remoteStatus = getComparableRewardStatus(remote.rewardStatus);
@@ -9333,6 +9359,46 @@ function normalizeUserMenus(items) {
   });
 }
 
+const MENU_EVENT_CATEGORY = 'イベント';
+const MENU_REGULAR_CATEGORY = '通常メニュー';
+
+// カテゴリ未設定のメニューは通常メニュー扱いにする。
+function getMenuGroup(menu) {
+  return String(menu && menu.category || '').trim() === MENU_EVENT_CATEGORY
+    ? MENU_EVENT_CATEGORY
+    : MENU_REGULAR_CATEGORY;
+}
+
+// 管理画面のカレンダー登録で選ばれた「対象メニュー」で結び付ける。
+// メニュー名ではなく行番号を持つので、メニュー名を変えても紐づけは切れない。
+function findNextMenuEventDate(menu) {
+  const menuRowIdx = Number(menu && menu.rowIdx || 0);
+  if (!menuRowIdx) return '';
+  const todayKey = formatCalendarDateKey(new Date());
+  let best = '';
+  (calendarData || []).forEach(function (event) {
+    if (Number(event && event.menuRowIdx || 0) !== menuRowIdx) return;
+    const dateKey = String(event && event.date || '').slice(0, 10);
+    if (!dateKey || dateKey < todayKey) return;
+    if (!best || dateKey < best) best = dateKey;
+  });
+  return best;
+}
+
+function buildMenuScheduleMarkup(menu) {
+  if (getMenuGroup(menu) !== MENU_EVENT_CATEGORY) return '';
+  const dateKey = findNextMenuEventDate(menu);
+  if (!dateKey) return '';
+  const parts = dateKey.split('-');
+  const label = `${Number(parts[1])}月${Number(parts[2])}日開催予定`;
+  const accepting = String(menu && menu.reservationStatus || '').trim() === '予約受付中';
+  return `
+            <div class="menu-schedule">
+              <div class="menu-schedule-date">${escapeHtml(label)}</div>
+              ${accepting ? '<div class="menu-schedule-status">予約受付中</div>' : ''}
+            </div>`;
+}
+
 function renderMenus() {
   const container = document.getElementById('menuListContainer');
   if (!container) return;
@@ -9351,8 +9417,19 @@ function renderMenus() {
     return;
   }
 
+  // イベントを先に、通常メニューを後に並べ、それぞれ見出しを付ける
+  const groups = [MENU_EVENT_CATEGORY, MENU_REGULAR_CATEGORY]
+    .map(function (groupName) {
+      return { name: groupName, items: filteredMenus.filter(function (m) { return getMenuGroup(m) === groupName; }) };
+    })
+    .filter(function (group) { return group.items.length > 0; });
+
   let html = '';
-  filteredMenus.forEach(m => {
+  groups.forEach(group => {
+    if (groups.length > 1) {
+      html += `<h3 class="menu-group-heading">${escapeHtml(group.name)}</h3>`;
+    }
+    group.items.forEach(m => {
     html += `
           <div class="news-item" onclick="openMenuDetail(${m.originalIndex})" style="padding:15px; border-radius:16px; margin-bottom:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); background:#fff; border:1px solid #f0ede8; cursor:pointer; display:flex; align-items:center; gap:15px;">
             ${m.imageUrl ?
@@ -9365,9 +9442,11 @@ function renderMenus() {
                 <h3 style="margin:0; font-size:1.2rem; color:var(--text-main); font-weight:700; line-height:1.4; flex:1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${escapeHtml(m.name || '')} ${buildUnreadBadgeHtml('menu', m)} ${isFavoriteKey(buildContentItemKey('menu', m)) ? '<span class="item-favorite-badge inline">★</span>' : ''}</h3>
               </div>
             </div>
+            ${buildMenuScheduleMarkup(m)}
             <div style="color:var(--text-light); font-size:18px; margin-left:5px; flex-shrink:0;">›</div>
           </div>
         `;
+    });
   });
   container.innerHTML = html;
 }

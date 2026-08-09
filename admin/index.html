@@ -1830,13 +1830,14 @@
                 <th style="width:70px;">年齢</th>
                 <th>住所</th>
                 <th>Push</th>
+                <th style="width:190px;">アンケート</th>
                 <th>メモ</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody id="usersList">
               <tr>
-                <td colspan="11" style="text-align:center;">読み込み中...</td>
+                <td colspan="12" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -2035,9 +2036,20 @@
                 <input type="text" id="calTitle" placeholder="例：産後ヨガ教室" required>
               </div>
             </div>
-            <div class="form-group" style="margin-bottom: 20px;">
-              <label>カテゴリ</label>
-              <input type="text" id="calCategory" placeholder="例：教室 / 休診 / イベント">
+            <div class="flex mb-2">
+              <div class="form-group" style="flex:1;">
+                <label>カテゴリ</label>
+                <input type="text" id="calCategory" placeholder="例：教室 / 休診 / イベント">
+              </div>
+              <div class="form-group" style="flex:1; margin-left:10px;">
+                <label>対象メニュー</label>
+                <select id="calMenuRef">
+                  <option value="">なし（休診・往診など）</option>
+                </select>
+                <div style="font-size:11px; color:var(--text-light); margin-top:4px;">
+                  選ぶと、お客様アプリのメニュー一覧に「◯月◯日開催予定」と表示されます
+                </div>
+              </div>
             </div>
             <div class="form-group" style="margin-bottom: 20px;">
               <label>詳細</label>
@@ -5422,7 +5434,7 @@
         applyUserFilters();
         applyRewardStatusFilters();
       } else {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">読み込み中...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">読み込み中...</td></tr>';
         if (rewardTbody) {
           rewardTbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">読み込み中...</td></tr>';
         }
@@ -5436,7 +5448,7 @@
         applyUserFilters();
         applyRewardStatusFilters();
       } else {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:red;">会員情報の取得に失敗しました</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:red;">会員情報の取得に失敗しました</td></tr>';
         if (rewardTbody) {
           rewardTbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:red;">スタンプ・特典状況の取得に失敗しました</td></tr>';
         }
@@ -5610,7 +5622,7 @@
 
       if (users.length === 0) {
         const message = allUsers.length === 0 ? '登録されている会員はいません' : '条件に一致する会員はいません';
-        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;">${message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;">${message}</td></tr>`;
         return;
       }
 
@@ -5647,6 +5659,7 @@
             ${userCity ? `<div style="font-size:11px; color:var(--text-light); margin-top:4px;">${escapeHtml(userCity)}</div>` : ''}
           </td>
           <td style="text-align:center;">${u.pushEnabled ? '🔔' : 'ー'}</td>
+          <td>${buildSurveyHistoryMarkup(u)}</td>
           <td>
             <div>${escapeHtml(u.memo || '')}</div>
             <div style="font-size:11px; color:var(--text-light); margin-top:4px;">最終注文: ${escapeHtml(formatDisplayDate(u.lastOrderAt || '') || '---')}</div>
@@ -7224,6 +7237,41 @@
       }
       const html = lines.map(line => `<div style="margin-bottom:6px;">${line}</div>`).join('');
       boxes.forEach(box => { box.innerHTML = html; });
+    }
+
+    // アンケートの記録は '2026-08-09T16:26:38+09:00' 形式で入る。
+    function formatSurveyTimestamp(value) {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      const ts = Date.parse(raw.replace(/\//g, '-'));
+      if (!ts) return raw;
+      const d = new Date(ts);
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    // 回答とスタンプ付与はそれぞれ別に記録される。
+    // 満杯で付けられなかった場合は保留として残り、空きができた時点で付与される。
+    function buildSurveyHistoryMarkup(user) {
+      const answered = formatSurveyTimestamp(user && user.surveyAnsweredAt);
+      const granted = formatSurveyTimestamp(user && user.surveyStampGrantedAt);
+      const pending = formatSurveyTimestamp(user && user.surveyStampPendingAt);
+
+      if (!answered && !granted && !pending) {
+        return '<span style="font-size:11px; color:var(--text-light);">未回答</span>';
+      }
+      const lines = [];
+      lines.push(answered
+        ? `<div style="font-size:11px;"><span style="color:var(--text-mid);">回答</span> ${escapeHtml(answered)}</div>`
+        : '<div style="font-size:11px; color:var(--text-light);">回答 記録なし</div>');
+      if (granted) {
+        lines.push(`<div style="font-size:11px;"><span style="color:var(--text-mid);">スタンプ</span> ${escapeHtml(granted)}</div>`);
+      } else if (pending) {
+        lines.push(`<div style="font-size:11px; color:#b26a00;">スタンプ 保留中（${escapeHtml(pending)}）</div>`);
+      } else {
+        lines.push('<div style="font-size:11px; color:var(--text-light);">スタンプ 未付与</div>');
+      }
+      return lines.join('');
     }
 
     // ダッシュボードはGAS側の定期トリガーで作り置きした集計を返すため、
@@ -12183,6 +12231,28 @@
       `).join('');
     }
 
+    // カレンダーの「対象メニュー」プルダウン。メニュー名ではなく行番号で保存するため、
+    // メニュー名を変更しても既存の紐づけは保たれる。
+    function refreshCalendarMenuOptions(selectedRowIdx) {
+      const select = document.getElementById('calMenuRef');
+      if (!select) return;
+      const current = Number(selectedRowIdx || select.value || 0) || 0;
+      const options = ['<option value="">なし（休診・往診など）</option>'];
+      (allMenus || []).forEach(function (menu) {
+        const rowIdx = Number(menu && menu.rowIdx || 0);
+        if (!rowIdx) return;
+        // 開催予定を出すのはイベントだけなので、通常メニューは選ばせない。
+        // ただし既に紐づいているものは、外して選び直せるよう残す。
+        if (String(menu.category || '').trim() !== 'イベント' && rowIdx !== current) return;
+        const name = String(menu.name || '').trim() || ('（無題 行' + rowIdx + '）');
+        options.push('<option value="' + rowIdx + '">' + escapeHtml(name) + '</option>');
+      });
+      select.innerHTML = options.join('');
+      select.value = current ? String(current) : '';
+      // 選択していたメニューが削除された場合は「なし」に戻す
+      if (current && select.value !== String(current)) select.value = '';
+    }
+
     async function submitCalendar(e) {
       e.preventDefault();
       const status = document.getElementById('calStatus').value;
@@ -12215,6 +12285,7 @@
         dates: rowIdx ? [] : selectedDates,
         title: document.getElementById('calTitle').value,
         category: document.getElementById('calCategory').value,
+        menuRowIdx: Number(document.getElementById('calMenuRef') ? document.getElementById('calMenuRef').value : 0) || 0,
         desc: document.getElementById('calDesc').value,
         color: document.getElementById('calColor').value,
         image: finalCalendarImageUrls[0] || '',
@@ -12694,6 +12765,7 @@
       document.getElementById('selectedDatesArea').style.display = 'none'; // 編集時はリスト非表示
       document.getElementById('calTitle').value = c.title;
       document.getElementById('calCategory').value = c.category || '';
+      refreshCalendarMenuOptions(c.menuRowIdx || 0);
       document.getElementById('calDesc').value = c.desc;
       document.getElementById('calColor').value = c.color;
       document.getElementById('calPublishAt').value = formatDateForDateTimeLocal(c.publishAt || '');
@@ -12724,6 +12796,7 @@
       document.getElementById('calDate').value = formatNowForDateTimeLocal();
       document.getElementById('calColor').value = '#e57373';
       document.getElementById('calCategory').value = '';
+      refreshCalendarMenuOptions(0);
       document.getElementById('calPublishAt').value = '';
       document.getElementById('calLinkUrl').value = '';
       document.getElementById('calLinkText').value = '';
