@@ -3070,10 +3070,11 @@ function renderCalendarEventLists() {
   const selectedKey = formatCalendarDateKey(selectedDate);
   const selectedEvents = getCalendarEventsByDate(selectedKey);
   const monthYearStr = currentMonthDate.getFullYear() + '-' + String(currentMonthDate.getMonth() + 1).padStart(2, '0');
+  // 今月の一覧は「イベント」として登録されたものだけを載せる。
+  // 休診・往診・訪問産後ケアはカレンダーの日付には出るが、この一覧には並べない。
   const monthlyEvents = calendarData.filter(function (event) {
     return String(event.date || '').slice(0, 7) === monthYearStr &&
-      !isCalendarHolidayEvent(event) &&
-      !isCalendarVisitEvent(event);
+      String(event.category || '').trim() === CALENDAR_EVENT_CATEGORY;
   }).sort(compareCalendarEventsByDateAsc);
 
   const displayDate = formatCalendarDisplayDate(selectedKey);
@@ -9368,6 +9369,8 @@ function normalizeUserMenus(items) {
 
 const MENU_EVENT_CATEGORY = 'イベント';
 const MENU_REGULAR_CATEGORY = '通常メニュー';
+// カレンダー側で「イベント」として登録された予定を指すカテゴリ名
+const CALENDAR_EVENT_CATEGORY = 'イベント';
 
 // カテゴリ未設定のメニューは通常メニュー扱いにする。
 function getMenuGroup(menu) {
@@ -9390,6 +9393,33 @@ function findNextMenuEventDate(menu) {
     if (!best || dateKey < best) best = dateKey;
   });
   return best;
+}
+
+// 予約は公式LINEで受け付ける。アプリからは確定できない。
+const RESERVATION_LINE_URL = 'https://lin.ee/o2XfGzp';
+
+function openReservationLine(event) {
+  // カード全体が詳細を開くようになっているため、ボタンのタップを伝えない
+  if (event) { event.stopPropagation(); event.preventDefault(); }
+  const opened = window.open(RESERVATION_LINE_URL, '_blank', 'noopener');
+  if (!opened) {
+    window.location.href = RESERVATION_LINE_URL;
+  }
+}
+
+// 予約ボタンを出すかどうか。
+// イベントは受付中のときだけ、通常メニューは常に出す。
+function shouldShowMenuReservationButton(menu) {
+  if (getMenuGroup(menu) === MENU_EVENT_CATEGORY) {
+    return isMenuAcceptingReservation(menu);
+  }
+  return true;
+}
+
+function buildMenuReservationButtonMarkup(menu) {
+  if (!shouldShowMenuReservationButton(menu)) return '';
+  return `
+                <button type="button" class="menu-book-btn" onclick="openReservationLine(event)">予約する</button>`;
 }
 
 // 受付中かどうかの判定は表示と絞り込みで共通にする。
@@ -9470,7 +9500,10 @@ function renderMenus() {
             <div class="menu-card-body">
               ${m.category ? `<div class="menu-card-category">${escapeHtml(m.category)}</div>` : ''}
               <h3 class="menu-card-name">${escapeHtml(m.name || '')} ${buildUnreadBadgeHtml('menu', m)} ${isFavoriteKey(buildContentItemKey('menu', m)) ? '<span class="item-favorite-badge inline">★</span>' : ''}</h3>
-              ${buildMenuScheduleMarkup(m)}
+              <div class="menu-card-meta">
+                ${buildMenuScheduleMarkup(m)}
+                ${buildMenuReservationButtonMarkup(m)}
+              </div>
             </div>
             <div style="color:var(--text-light); font-size:18px; margin-left:5px; flex-shrink:0;">›</div>
           </div>
