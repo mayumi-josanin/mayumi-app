@@ -622,6 +622,12 @@
       white-space: nowrap;
     }
 
+    .menu-schedule-status.closed {
+      margin-top: 0;
+      color: var(--text-light);
+      background: rgba(122, 92, 62, 0.09);
+    }
+
     .survey-card {
       background: var(--warm-white);
       border-radius: 16px;

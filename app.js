@@ -3342,6 +3342,11 @@ async function loadCalendar() {
     calendarData = [];
   }
   renderCalendar();
+  // メニュー一覧はカレンダーの開催予定を参照する。両者は並行して読み込まれるため、
+  // メニューが先に描かれていた場合に備えてここで描き直す。
+  if (USER_MENUS && USER_MENUS.length && document.getElementById('menuListContainer')) {
+    renderMenus();
+  }
   if (document.getElementById('page-notices').classList.contains('active')) {
     renderPushNotices();
   }
@@ -4118,6 +4123,8 @@ function normalizeCalendarEventEntry(item) {
     publishAt: String(event.publishAt || ''),
     linkUrl: String(event.linkUrl || event.link_url || '').trim(),
     linkButtonText: String(event.linkButtonText || event.link_button_text || '').trim(),
+    // どのメニューの開催回か。メニュー一覧に「◯月◯日開催予定」を出すのに使う。
+    menuRowIdx: Number(event.menuRowIdx || 0) || 0,
     noticeStatus: normalizeNoticeVisibilityStatus(event.noticeStatus),
     sortOrder: Number(event.sortOrder || 0)
   };
@@ -9385,17 +9392,23 @@ function findNextMenuEventDate(menu) {
   return best;
 }
 
+// イベントの受付状況はカレンダーの予定から決まる。
+// 開催予定があれば「◯月◯日開催予定／予約受付中」、無ければ「予約対象外」。
 function buildMenuScheduleMarkup(menu) {
   if (getMenuGroup(menu) !== MENU_EVENT_CATEGORY) return '';
   const dateKey = findNextMenuEventDate(menu);
-  if (!dateKey) return '';
+  if (!dateKey) {
+    return `
+            <div class="menu-schedule">
+              <div class="menu-schedule-status closed">予約対象外</div>
+            </div>`;
+  }
   const parts = dateKey.split('-');
   const label = `${Number(parts[1])}月${Number(parts[2])}日開催予定`;
-  const accepting = String(menu && menu.reservationStatus || '').trim() === '予約受付中';
   return `
             <div class="menu-schedule">
               <div class="menu-schedule-date">${escapeHtml(label)}</div>
-              ${accepting ? '<div class="menu-schedule-status">予約受付中</div>' : ''}
+              <div class="menu-schedule-status">予約受付中</div>
             </div>`;
 }
 
