@@ -12231,6 +12231,25 @@
       `).join('');
     }
 
+    // カレンダー画面で対象メニューを選べるように、メニュー一覧を用意する。
+    // 既に読み込み済みなら何もしない。
+    async function ensureMenusForCalendarForm() {
+      if (allMenus && allMenus.length) {
+        refreshCalendarMenuOptions();
+        return;
+      }
+      const cached = readAdminApiCache('getAdminMenus');
+      if (cached && cached.status === 'ok') {
+        allMenus = cached.menus || [];
+        refreshCalendarMenuOptions();
+      }
+      const res = await apiRequest('getAdminMenus');
+      if (res && res.status === 'ok') {
+        allMenus = res.menus || [];
+        refreshCalendarMenuOptions();
+      }
+    }
+
     // カレンダーの「対象メニュー」プルダウン。メニュー名ではなく行番号で保存するため、
     // メニュー名を変更しても既存の紐づけは保たれる。
     function refreshCalendarMenuOptions(selectedRowIdx) {
@@ -12333,6 +12352,10 @@
         tbodyPub.innerHTML = '<tr><td colspan="9" style="text-align:center;">読み込み中...</td></tr>';
         if (tbodyDraft) tbodyDraft.innerHTML = '<tr><td colspan="9" style="text-align:center;">読み込み中...</td></tr>';
       }
+
+      // 「対象メニュー」プルダウンにはメニュー一覧が要る。
+      // allMenus はメニュー管理やお知らせ一覧を開かないと埋まらないため、ここでも読む。
+      ensureMenusForCalendarForm();
 
       const res = await apiRequest('getAdminCalendar');
       const targetRes = (res && res.status === 'ok') ? res : cachedRes;
