@@ -651,14 +651,41 @@
       text-overflow: ellipsis;
     }
 
-    /* 開催予定はメニュー名の下（2行目）に横並びで置く */
+    /* 2行目。左に開催予定、右に予約ボタン。 */
+    .menu-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 5px;
+      min-width: 0;
+    }
+
     .menu-schedule {
       display: flex;
       align-items: center;
       flex-wrap: nowrap;
       gap: 6px;
-      margin-top: 5px;
+      min-width: 0;
       overflow: hidden;
+    }
+
+    .menu-book-btn {
+      margin-left: auto;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      background: #06c755;
+      border: none;
+      border-radius: 999px;
+      padding: 6px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(6, 199, 85, 0.28);
+    }
+
+    .menu-book-btn:active {
+      transform: translateY(1px);
     }
 
     .menu-schedule-date {
@@ -794,6 +821,29 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+    }
+
+    /* QR読み取りはカードの中に置く。押した直後にスタンプが増えたことが見える。 */
+    .stamp-scan {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .stamp-scan-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .stamp-scan-note {
+      margin-top: 8px;
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text-light);
+      text-align: center;
     }
 
     .stamp-count {
