@@ -9408,12 +9408,13 @@ function openReservationLine(event) {
 }
 
 // 予約ボタンを出すかどうか。
-// イベントは受付中のときだけ、通常メニューは常に出す。
+// イベントは開催予定があるときだけ。通常メニューは管理画面で
+// 「予約対象外」にした場合だけ隠す。未設定の古いメニューは出したままにする。
 function shouldShowMenuReservationButton(menu) {
   if (getMenuGroup(menu) === MENU_EVENT_CATEGORY) {
     return isMenuAcceptingReservation(menu);
   }
-  return true;
+  return String(menu && menu.reservationStatus || '').trim() !== '予約対象外';
 }
 
 function buildMenuReservationButtonMarkup(menu) {
