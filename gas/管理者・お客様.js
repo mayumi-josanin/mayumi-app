@@ -127,6 +127,12 @@ const BACKUP_FOLDER_NAME = 'まゆみ助産院_バックアップ';
 const LAST_BACKUP_AT_PROPERTY = 'LAST_BACKUP_AT';
 const LAST_BACKUP_URL_PROPERTY = 'LAST_BACKUP_URL';
 const LAST_BACKUP_FILE_ID_PROPERTY = 'LAST_BACKUP_FILE_ID';
+// 操作履歴もバックアップも、放っておくと際限なく増える。
+// 日次メンテナンスのついでに古いものを片付ける。
+const AUDIT_LOG_RETENTION_DAYS = 92;
+const AUDIT_LOG_TRIM_MAX_ROWS = 5000;
+const BACKUP_KEEP_RECENT_COUNT = 30;
+const BACKUP_TRIM_MAX_FILES = 20;
 const DAILY_MAINTENANCE_TRIGGER_HANDLER = 'runDailyMaintenance';
 const SCHEDULED_PUSH_TRIGGER_HANDLER = 'processScheduledPushQueue';
 const DASHBOARD_SNAPSHOT_TRIGGER_HANDLER = 'refreshAdminDashboardSnapshot';
@@ -1074,9 +1080,84 @@ function handleRunManualBackup(data) {
   }
 }
 
+// 保持期間を過ぎた操作履歴を削除する。
+// 直前の日次バックアップに全件が残っているので、ここでは別途退避しない。
+function trimAuditLogByRetention_() {
+  const sheet = getOrCreateSpreadsheet().getSheetByName(SHEETS.ADMIN_AUDIT_LOG);
+  if (!sheet || sheet.getLastRow() <= 1) return 0;
+
+  const limit = new Date();
+  limit.setDate(limit.getDate() - AUDIT_LOG_RETENTION_DAYS);
+  const limitKey = Utilities.formatDate(limit, 'Asia/Tokyo', 'yyyy-MM-dd');
+
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  let lastOldRow = 1;
+  let firstKeptRow = 0;
+  for (let i = 0; i < values.length; i++) {
+    const raw = values[i][0];
+    const key = (raw instanceof Date)
+      ? Utilities.formatDate(raw, 'Asia/Tokyo', 'yyyy-MM-dd')
+      : String(raw).slice(0, 10);
+    if (key < limitKey) lastOldRow = i + 2;
+    else if (!firstKeptRow) firstKeptRow = i + 2;
+  }
+
+  // 古い記録と残す記録が入り混じっている場合、まとめて消すと新しい分まで失う。
+  if (firstKeptRow && lastOldRow >= firstKeptRow) return 0;
+  if (lastOldRow < 2) return 0;
+
+  const removeCount = Math.min(lastOldRow - 1, AUDIT_LOG_TRIM_MAX_ROWS);
+  sheet.deleteRows(2, removeCount);
+  return removeCount;
+}
+
+// 記録の日時は、シートの書式次第で文字列にも日付にもなる。どちらでも同じ形に揃える。
+function normalizeBackupLogKey_(raw) {
+  if (raw instanceof Date) return Utilities.formatDate(raw, 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+  return String(raw || '').trim();
+}
+
+// 古いバックアップをドライブのゴミ箱へ移す。
+// 直近ぶんに加えて、各月の最新1件は月次の控えとして残す。完全削除はしない。
+function trimOldBackups_() {
+  const sheet = getOrCreateSpreadsheet().getSheetByName(SHEETS.BACKUP_LOG);
+  if (!sheet || sheet.getLastRow() <= 1) return 0;
+
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
+    .map(function (row) {
+      return { createdAt: normalizeBackupLogKey_(row[0]), fileId: String(row[3] || '').trim() };
+    })
+    .filter(function (row) { return row.fileId && row.createdAt.slice(0, 4).match(/^[0-9]{4}$/); })
+    .sort(function (a, b) { return b.createdAt.localeCompare(a.createdAt); });
+
+  const monthSeen = {};
+  let trashed = 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (trashed >= BACKUP_TRIM_MAX_FILES) break;
+    const month = rows[i].createdAt.slice(0, 7);
+    const isNewestOfMonth = !monthSeen[month];
+    monthSeen[month] = true;
+    if (i < BACKUP_KEEP_RECENT_COUNT) continue;
+    if (isNewestOfMonth) continue;
+    try {
+      const file = DriveApp.getFileById(rows[i].fileId);
+      if (!file.isTrashed()) {
+        file.setTrashed(true);
+        trashed++;
+      }
+    } catch (err) {
+      // すでに消えているファイルは黙って飛ばす
+    }
+  }
+  return trashed;
+}
+
 function runDailyMaintenance() {
   ensureMaintenanceTriggers_();
   createSpreadsheetBackup_('daily');
+  // 片付けが転んでも、送信やダッシュボードの更新は止めない。
+  try { trimAuditLogByRetention_(); } catch (err) { Logger.log('操作履歴の整理に失敗: ' + err); }
+  try { trimOldBackups_(); } catch (err) { Logger.log('バックアップの整理に失敗: ' + err); }
   processScheduledPushQueue();
   refreshAdminDashboardSnapshot();
 }
