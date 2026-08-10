@@ -9392,6 +9392,15 @@ function findNextMenuEventDate(menu) {
   return best;
 }
 
+// 受付中かどうかの判定は表示と絞り込みで共通にする。
+// イベントはカレンダーの予定があるかで決まり、通常メニューは管理画面の設定に従う。
+function isMenuAcceptingReservation(menu) {
+  if (getMenuGroup(menu) === MENU_EVENT_CATEGORY) {
+    return !!findNextMenuEventDate(menu);
+  }
+  return String(menu && menu.reservationStatus || '').trim() === '予約受付中';
+}
+
 // イベントの受付状況はカレンダーの予定から決まる。
 // 開催予定があれば「◯月◯日開催予定／予約受付中」、無ければ「予約対象外」。
 function buildMenuScheduleMarkup(menu) {
@@ -9399,17 +9408,17 @@ function buildMenuScheduleMarkup(menu) {
   const dateKey = findNextMenuEventDate(menu);
   if (!dateKey) {
     return `
-            <div class="menu-schedule">
-              <div class="menu-schedule-status closed">予約対象外</div>
-            </div>`;
+              <div class="menu-schedule">
+                <span class="menu-schedule-status closed">予約対象外</span>
+              </div>`;
   }
   const parts = dateKey.split('-');
   const label = `${Number(parts[1])}月${Number(parts[2])}日開催予定`;
   return `
-            <div class="menu-schedule">
-              <div class="menu-schedule-date">${escapeHtml(label)}</div>
-              <div class="menu-schedule-status">予約受付中</div>
-            </div>`;
+              <div class="menu-schedule">
+                <span class="menu-schedule-date">${escapeHtml(label)}</span>
+                <span class="menu-schedule-status">予約受付中</span>
+              </div>`;
 }
 
 function renderMenus() {
@@ -9418,15 +9427,24 @@ function renderMenus() {
 
   const filterVal = document.getElementById('menuCategoryFilter') ? document.getElementById('menuCategoryFilter').value : '全て';
 
+  const acceptingOnlyEl = document.getElementById('menuAcceptingOnly');
+  const acceptingOnly = !!(acceptingOnlyEl && acceptingOnlyEl.checked);
+
   let filteredMenus = USER_MENUS;
   if (filterVal !== '全て') {
-    filteredMenus = USER_MENUS.filter(function (m) {
+    filteredMenus = filteredMenus.filter(function (m) {
       return String(m.category || '').trim() === filterVal;
     });
   }
+  if (acceptingOnly) {
+    filteredMenus = filteredMenus.filter(isMenuAcceptingReservation);
+  }
 
   if (filteredMenus.length === 0) {
-    container.innerHTML = '<div class="empty-state">該当するメニューはありません</div>';
+    const message = acceptingOnly
+      ? '現在ご予約を受け付けているメニューはありません'
+      : '該当するメニューはありません';
+    container.innerHTML = `<div class="empty-state">${message}</div>`;
     return;
   }
 
@@ -9449,13 +9467,11 @@ function renderMenus() {
         `<img src="${getContentDisplayImageUrl(m.imageUrl)}" class="menu-list-thumb" alt="${escapeHtml(m.name || 'メニュー画像')}">` :
         `<div style="width:80px; height:80px; background:var(--bg-gray); border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text-light); font-size:24px;">🍴</div>`
       }
-            <div style="flex:1; display:flex; align-items:center; min-width:0;">
-              <div style="flex:1; min-width:0;">
-                ${m.category ? `<div style="font-size:11px; color:var(--sage-dark); font-weight:700; margin-bottom:6px;">${escapeHtml(m.category)}</div>` : ''}
-                <h3 style="margin:0; font-size:1.2rem; color:var(--text-main); font-weight:700; line-height:1.4; flex:1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${escapeHtml(m.name || '')} ${buildUnreadBadgeHtml('menu', m)} ${isFavoriteKey(buildContentItemKey('menu', m)) ? '<span class="item-favorite-badge inline">★</span>' : ''}</h3>
-              </div>
+            <div class="menu-card-body">
+              ${m.category ? `<div class="menu-card-category">${escapeHtml(m.category)}</div>` : ''}
+              <h3 class="menu-card-name">${escapeHtml(m.name || '')} ${buildUnreadBadgeHtml('menu', m)} ${isFavoriteKey(buildContentItemKey('menu', m)) ? '<span class="item-favorite-badge inline">★</span>' : ''}</h3>
+              ${buildMenuScheduleMarkup(m)}
             </div>
-            ${buildMenuScheduleMarkup(m)}
             <div style="color:var(--text-light); font-size:18px; margin-left:5px; flex-shrink:0;">›</div>
           </div>
         `;
