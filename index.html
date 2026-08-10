@@ -419,7 +419,11 @@
         </div>
       </div>
       <div class="p-content" style="padding-top:70px">
-        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+        <div class="menu-filter-bar">
+          <label class="menu-accepting-toggle">
+            <input type="checkbox" id="menuAcceptingOnly" onchange="renderMenus()">
+            <span>予約受付中のみ</span>
+          </label>
           <select id="menuCategoryFilter" onchange="renderMenus()"
             style="width:150px; font-size:12px; padding:6px; border-radius:8px; border:1px solid var(--border);">
             <option value="全て">カテゴリ: 全て</option>

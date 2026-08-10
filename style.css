@@ -589,6 +589,35 @@
       border: 1px solid var(--border);
     }
 
+    .menu-filter-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .menu-accepting-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-mid);
+      background: var(--warm-white);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .menu-accepting-toggle input {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--sage);
+      margin: 0;
+    }
+
     .menu-group-heading {
       font-size: 14px;
       font-weight: 700;
@@ -598,10 +627,38 @@
       border-left: 3px solid var(--sage);
     }
 
+    .menu-card-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .menu-card-category {
+      font-size: 11px;
+      color: var(--sage-dark);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    /* メニュー名は必ず1行。カード幅に収まるよう、狭い画面では字を詰める。 */
+    .menu-card-name {
+      margin: 0;
+      font-size: 1.05rem;
+      color: var(--text-main);
+      font-weight: 700;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 開催予定はメニュー名の下（2行目）に横並びで置く */
     .menu-schedule {
-      flex-shrink: 0;
-      text-align: right;
-      margin-left: 8px;
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 6px;
+      margin-top: 5px;
+      overflow: hidden;
     }
 
     .menu-schedule-date {
@@ -612,20 +669,28 @@
     }
 
     .menu-schedule-status {
-      display: inline-block;
-      margin-top: 4px;
       font-size: 11px;
       color: #fff;
       background: var(--sage);
       border-radius: 10px;
       padding: 2px 8px;
       white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .menu-schedule-status.closed {
-      margin-top: 0;
       color: var(--text-light);
       background: rgba(122, 92, 62, 0.09);
+    }
+
+    @media (max-width: 400px) {
+      .menu-card-name {
+        font-size: 0.95rem;
+      }
+
+      .menu-schedule-date {
+        font-size: 11px;
+      }
     }
 
     .survey-card {
