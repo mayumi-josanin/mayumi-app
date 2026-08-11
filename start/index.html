@@ -141,6 +141,28 @@
     </div>
     <div id="appList"></div>
     <p class="note" id="appsNote"></p>
+
+    <!-- ビジリスをご利用の方の初回登録。登録済みの方には出さない。 -->
+    <div id="bijirisSignup" hidden style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line);">
+      <strong style="font-size:15px;">ビジリスをご利用の方へ</strong>
+      <p class="note" style="margin-top:4px;">
+        初回のみ登録が必要です。登録すると、次回からログインするだけで
+        ビジリスが一覧に表示されます。
+      </p>
+      <form id="bijirisForm">
+        <label>お名前（漢字・フルネーム）
+          <input name="name" type="text" autocomplete="name" required />
+        </label>
+        <label>フリガナ（カタカナ）
+          <input name="kana" type="text" autocapitalize="characters" required />
+        </label>
+        <label>パスワード（ログインと同じもの）
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <p class="error" id="bijirisError"></p>
+        <button class="primary" type="submit">ビジリスを登録する</button>
+      </form>
+    </div>
   </section>
 
 </div>
@@ -158,11 +180,16 @@
   var MEMBER_TOKEN_KEY = 'mayumi_member_auth_token';
   var SESSION_KEY = 'mayumi_launcher_session';
 
+  // ビジリスは別リポジトリなので絶対URLにする。
+  // 相対パス（../../）だと、確認用サーバーのように mayumi-app だけを配信している
+  // 環境では配信範囲の外に出てしまい、リンクが切れる。
+  var BIJIRIS_BASE = 'https://mayumi-josanin.github.io/mayumi_bijiris/';
+
   var APPS = {
-    mayumiCustomer: { name: 'まゆみ助産院',      desc: '予約・お知らせ・ショップ',  url: '../' },
-    bijiris:        { name: 'ビジリス',          desc: 'アンケート・計測の記録',    url: '../../mayumi_bijiris/customer-app/' },
-    mayumiAdmin:    { name: 'まゆみ助産院 管理', desc: '会員・注文・売上の管理',    url: '../admin/' },
-    bijirisAdmin:   { name: 'ビジリス 管理',     desc: '回答・計測の管理',          url: '../../mayumi_bijiris/admin-app/' }
+    mayumiCustomer: { name: 'まゆみ助産院',      desc: '予約・お知らせ・ショップ', url: '../' },
+    bijiris:        { name: 'ビジリス',          desc: 'アンケート・計測の記録',   url: BIJIRIS_BASE + 'customer-app/' },
+    mayumiAdmin:    { name: 'まゆみ助産院 管理', desc: '会員・注文・売上の管理',   url: '../admin/' },
+    bijirisAdmin:   { name: 'ビジリス 管理',     desc: '回答・計測の管理',         url: BIJIRIS_BASE + 'admin-app/' }
   };
 
   function $(id) { return document.getElementById(id); }
@@ -189,9 +216,10 @@
     $('whoName').textContent = session.role === 'admin' ? session.name : session.name + ' 様';
     $('whoRole').textContent = session.role === 'admin' ? 'スタッフとしてログイン中' : 'ログイン中';
 
+    // ビジリスは、登録済みの方にだけ出す。
     var keys = session.role === 'admin'
       ? ['mayumiCustomer', 'bijiris', 'mayumiAdmin', 'bijirisAdmin']
-      : ['mayumiCustomer', 'bijiris'];
+      : (session.bijiris ? ['mayumiCustomer', 'bijiris'] : ['mayumiCustomer']);
 
     var html = '';
     keys.forEach(function (key) {
@@ -201,6 +229,13 @@
               '<div class="desc">' + app.desc + '</div></a>';
     });
     $('appList').innerHTML = html;
+
+    // 未登録の一般会員にだけ、ビジリスの初回登録を出す。
+    var needsBijiris = session.role !== 'admin' && !session.bijiris;
+    $('bijirisSignup').hidden = !needsBijiris;
+    if (needsBijiris) {
+      $('bijirisForm').elements.name.value = session.name || '';
+    }
 
     // できていないことを、できている風に見せない。
     $('appsNote').textContent = session.role === 'admin'
@@ -222,7 +257,12 @@
   }
 
   function applySession(json) {
-    var session = { role: json.role, name: json.name, memberId: json.memberId };
+    var session = {
+      role: json.role,
+      name: json.name,
+      memberId: json.memberId,
+      bijiris: json.bijiris === true
+    };
     if (json.role === 'admin') {
       store(ADMIN_TOKEN_KEY, json.token);
       store(MEMBER_TOKEN_KEY, '');
@@ -276,6 +316,17 @@
       address: form.address.value,
       password: form.password.value
     }, form.querySelector('button'), $('registerError'));
+  });
+
+  $('bijirisForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    post({
+      type: 'registerBijirisUse',
+      name: form.name.value,
+      kana: form.kana.value,
+      password: form.password.value
+    }, form.querySelector('button'), $('bijirisError'));
   });
 
   $('tabLogin').addEventListener('click', function () { showTab('login'); });

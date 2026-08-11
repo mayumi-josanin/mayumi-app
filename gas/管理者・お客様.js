@@ -78,7 +78,11 @@ const USER_HEADERS = [
   // 「権限」に「管理者」と入れた方だけが管理アプリに入れる。
   'パスワードハッシュ',
   'パスワードソルト',
-  '権限'
+  '権限',
+  // アプリを最後に開いた日時。ログイン時に更新する。
+  '最終オンライン日時',
+  // ビジリスをご利用の方に「登録済み」が入る。どなたが利用中かを把握するため。
+  'ビジリス'
 ];
 
 const USER_COL = {
@@ -112,9 +116,12 @@ const USER_COL = {
   LAST_STAMP_AT: 28,
   PASSWORD_HASH: 29,
   PASSWORD_SALT: 30,
-  ROLE: 31
+  ROLE: 31,
+  LAST_ONLINE_AT: 32,
+  BIJIRIS: 33
 };
 const ACCOUNT_ADMIN_ROLE = '管理者';
+const ACCOUNT_BIJIRIS_REGISTERED = '登録済み';
 const TRANSFER_CODE_LENGTH = 8;
 const TRANSFER_CODE_TTL_HOURS = 168; // 1週間 (24*7)
 const MAX_DEVICE_SESSIONS = 8;
@@ -2086,10 +2093,22 @@ function buildAccountSession_(row) {
     role: isAdmin ? 'admin' : 'member',
     memberId: memberId,
     name: String(row[USER_COL.NAME - 1] || ''),
+    // ビジリスの登録有無で、アプリ一覧に出すかどうかが決まる。
+    bijiris: String(row[USER_COL.BIJIRIS - 1] || '').trim() === ACCOUNT_BIJIRIS_REGISTERED,
     // 管理者には既存形式の管理者トークンを返す。管理アプリを変えずに済む。
     token: isAdmin ? makeAdminToken_(expiresAt) : makeMemberToken_(memberId, expiresAt),
     expiresAt: new Date(expiresAt).toISOString()
   };
+}
+
+// アプリを開いた記録。管理側で「最近使っている方」が分かるようにする。
+function touchLastOnline_(sheet, rowIdx) {
+  try {
+    sheet.getRange(rowIdx, USER_COL.LAST_ONLINE_AT)
+      .setValue(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/M/d H:mm'));
+  } catch (err) {
+    // 記録に失敗してもログイン自体は通す
+  }
 }
 
 function registerAccount(data) {
@@ -2136,6 +2155,7 @@ function registerAccount(data) {
       row[USER_COL.PASSWORD_HASH - 1] = hash;
       row[USER_COL.PASSWORD_SALT - 1] = salt;
       store.sheet.getRange(target.rowIdx, 1, 1, USER_HEADERS.length).setValues([row]);
+      touchLastOnline_(store.sheet, target.rowIdx);
       return buildAccountSession_(row);
     }
 
@@ -2162,6 +2182,7 @@ function registerAccount(data) {
     row[USER_COL.DEVICE_SESSIONS - 1] = '[]';
     setUserRegistrationSource_(row, '新規登録', 'ランチャー', timestamp);
     store.sheet.appendRow(row);
+    touchLastOnline_(store.sheet, store.sheet.getLastRow());
     return buildAccountSession_(row);
   } catch (err) {
     return { status: 'error', message: err.toString() };
@@ -2210,7 +2231,45 @@ function loginAccount(data) {
 
     delete attempts[key];
     properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
+    touchLastOnline_(store.sheet, hits[0].rowIdx);
     return buildAccountSession_(hits[0].values);
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+// ビジリスをご利用の方の初回登録。
+// 本人であることをパスワードで確認したうえで「ビジリス」列に印を付ける。
+// 以後、ログインするとアプリ一覧にビジリスが並ぶ。
+function registerBijirisUse(data) {
+  try {
+    const name = normalizeNameForMatch_(data && data.name);
+    const kana = String((data && data.kana) || '').trim();
+    const password = String((data && data.password) || '');
+    if (!name || !kana || !password) {
+      return { status: 'error', message: 'お名前・フリガナ・パスワードを入力してください。' };
+    }
+
+    const store = readAccountRows_();
+    const hits = store.rows.filter(function (item) {
+      if (normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) !== name) return false;
+      const salt = String(item.values[USER_COL.PASSWORD_SALT - 1] || '');
+      const hash = String(item.values[USER_COL.PASSWORD_HASH - 1] || '');
+      if (!salt || !hash) return false;
+      return hashAccountPassword_(password, salt) === hash;
+    });
+    if (hits.length !== 1) {
+      return { status: 'error', message: 'お名前またはパスワードが違います。' };
+    }
+
+    const target = hits[0];
+    const row = target.values.slice();
+    row[USER_COL.BIJIRIS - 1] = ACCOUNT_BIJIRIS_REGISTERED;
+    // フリガナが未登録の会員は、この機会に埋めておく。
+    if (!String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = kana;
+    store.sheet.getRange(target.rowIdx, 1, 1, USER_HEADERS.length).setValues([row]);
+    touchLastOnline_(store.sheet, target.rowIdx);
+    return buildAccountSession_(row);
   } catch (err) {
     return { status: 'error', message: err.toString() };
   }
@@ -2403,6 +2462,9 @@ function doPost(e) {
     }
     if (type === 'loginAccount') {
       return createJsonResponse(loginAccount(data));
+    }
+    if (type === 'registerBijirisUse') {
+      return createJsonResponse(registerBijirisUse(data));
     }
     requireAdminAccess_(type, data);
 
