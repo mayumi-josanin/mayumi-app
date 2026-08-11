@@ -1771,6 +1771,170 @@ function processScheduledPushQueue() {
 
 // ========== GET：アプリからのデータ取得 ==========
 
+// ==========================================================================
+// 管理者認証
+//
+// 以前はこのGASに認証が一切無く、URLを知っていれば誰でも全会員の氏名・
+// 電話番号・生年月日・住所を取得できる状態だった（2026-08-11 に発覚）。
+//
+// 方針は「拒否が既定」。下の公開リストに載っているアクションだけ素通りさせ、
+// それ以外は管理者トークンの検証を必須とする。新しい管理機能を足したときに
+// 守り忘れる事故を防ぐため、リストは公開側だけを列挙している。
+// ==========================================================================
+const ADMIN_TOKEN_SECRET_KEY = 'ADMIN_TOKEN_SECRET';
+const ADMIN_PASSWORD_HASH_KEY = 'ADMIN_PASSWORD_HASH';
+const ADMIN_PASSWORD_SALT_KEY = 'ADMIN_PASSWORD_SALT';
+const ADMIN_LOGIN_ATTEMPTS_KEY = 'ADMIN_LOGIN_ATTEMPTS_JSON';
+const ADMIN_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+const ADMIN_LOGIN_MAX_ATTEMPTS = 10;
+const ADMIN_LOGIN_LOCK_WINDOW_MS = 10 * 60 * 1000;
+
+// お客様アプリが実際に呼んでいるアクション（app.js から抽出）。
+// ここに載っていないものは全て管理者専用として扱う。
+const PUBLIC_ACTIONS = {
+  // 公開コンテンツ
+  getNews: true, getProducts: true, getCalendar: true, getMenus: true,
+  getCategories: true, getInitialData: true, getSupportFaq: true,
+  getAppRuntimeConfig: true, getRewardGachaConfig: true, getPushNotices: true,
+  // お客様ご自身に関するもの
+  getCustomerOrders: true, getUserRewardStatus: true, getUserDevices: true,
+  getRecoveryCandidates: true,
+  // お客様の操作
+  order: true, cancel: true, confirmReceipt: true, updateUser: true,
+  recoverAccount: true, issueTransferCode: true, resetForgottenPasscode: true,
+  syncUserDeviceSession: true, removeUserDeviceSession: true,
+  unsubscribePush: true, syncUserRewardStatus: true, drawRewardGacha: true,
+  uploadImage: true, askSupportChat: true
+};
+
+function getAdminAuthSecret_() {
+  const secret = PropertiesService.getScriptProperties().getProperty(ADMIN_TOKEN_SECRET_KEY);
+  // 既定値へ落とさない。未設定なら管理機能を止める（安全側に倒す）。
+  if (!secret) {
+    throw new Error('管理者認証が未設定です。スクリプトプロパティに ADMIN_TOKEN_SECRET を設定してください。');
+  }
+  return secret;
+}
+
+function adminSign_(value) {
+  return Utilities.base64EncodeWebSafe(
+    Utilities.computeHmacSha256Signature(String(value), getAdminAuthSecret_())
+  );
+}
+
+function makeAdminToken_(expiresAt) {
+  return Utilities.base64EncodeWebSafe(JSON.stringify({
+    t: 'admin',
+    exp: expiresAt,
+    sig: adminSign_('admin|' + expiresAt)
+  }));
+}
+
+function verifyAdminToken_(token) {
+  try {
+    const raw = Utilities.newBlob(Utilities.base64DecodeWebSafe(String(token || ''))).getDataAsString();
+    const payload = JSON.parse(raw);
+    if (payload.t !== 'admin') return false;
+    if (!payload.exp || Number(payload.exp) < Date.now()) return false;
+    return payload.sig === adminSign_('admin|' + payload.exp);
+  } catch (err) {
+    return false;
+  }
+}
+
+function hashAdminPassword_(password, salt) {
+  const material = String(salt || '') + '|' + String(password || '') + '|' + getAdminAuthSecret_();
+  return Utilities.base64EncodeWebSafe(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, material, Utilities.Charset.UTF_8)
+  );
+}
+
+// パスワードは平文で保存しない。スタッフも管理者も中身を読めない。
+function setAdminPassword(password) {
+  const text = String(password || '');
+  if (text.length < 12) {
+    throw new Error('パスワードは12文字以上にしてください。');
+  }
+  const salt = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  const properties = PropertiesService.getScriptProperties();
+  properties.setProperty(ADMIN_PASSWORD_SALT_KEY, salt);
+  properties.setProperty(ADMIN_PASSWORD_HASH_KEY, hashAdminPassword_(text, salt));
+  return '管理パスワードを設定しました。';
+}
+
+// 初回セットアップ用。エディタの「実行」ボタンは引数を渡せないので、
+// パスワードはスクリプトプロパティ経由で受け取る。
+//
+// 手順:
+//   1. プロジェクトの設定 → スクリプト プロパティに
+//      ADMIN_PASSWORD_INIT を追加し、12文字以上のパスワードを入れる
+//   2. エディタでこの関数を選んで実行する
+//   3. 設定が終わると ADMIN_PASSWORD_INIT は自動で削除される
+//
+// コードにパスワードを書かないので、消し忘れる事故が起きない。
+function initAdminPasswordFromProperty() {
+  const properties = PropertiesService.getScriptProperties();
+  const password = properties.getProperty('ADMIN_PASSWORD_INIT');
+  if (!password) {
+    throw new Error('スクリプト プロパティ ADMIN_PASSWORD_INIT にパスワードを入れてから実行してください。');
+  }
+  const message = setAdminPassword(password);
+  properties.deleteProperty('ADMIN_PASSWORD_INIT');
+  return message + ' ADMIN_PASSWORD_INIT は削除しました。';
+}
+
+function getAdminLoginAttempts_() {
+  try {
+    return JSON.parse(PropertiesService.getScriptProperties().getProperty(ADMIN_LOGIN_ATTEMPTS_KEY) || '{}');
+  } catch (err) {
+    return {};
+  }
+}
+
+function adminLogin_(data) {
+  const properties = PropertiesService.getScriptProperties();
+  const hash = properties.getProperty(ADMIN_PASSWORD_HASH_KEY);
+  const salt = properties.getProperty(ADMIN_PASSWORD_SALT_KEY);
+  if (!hash || !salt) {
+    throw new Error('管理パスワードが未設定です。setAdminPassword を実行してください。');
+  }
+
+  const attempts = getAdminLoginAttempts_();
+  const record = attempts.admin;
+  const now = Date.now();
+  if (record && now - Number(record.lastAt || 0) > ADMIN_LOGIN_LOCK_WINDOW_MS) {
+    delete attempts.admin;
+  }
+  if (attempts.admin && Number(attempts.admin.count || 0) >= ADMIN_LOGIN_MAX_ATTEMPTS) {
+    throw new Error('ログイン失敗が続いたため、一時的に停止しています。10分後に再試行してください。');
+  }
+
+  if (hashAdminPassword_(data && data.password, salt) !== hash) {
+    const current = attempts.admin || { count: 0, firstAt: now };
+    current.count = Number(current.count || 0) + 1;
+    current.lastAt = now;
+    attempts.admin = current;
+    properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
+    throw new Error('パスワードが違います。');
+  }
+
+  delete attempts.admin;
+  properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
+  const expiresAt = now + ADMIN_TOKEN_TTL_MS;
+  return {
+    status: 'ok',
+    token: makeAdminToken_(expiresAt),
+    expiresAt: new Date(expiresAt).toISOString()
+  };
+}
+
+function requireAdminAccess_(action, params) {
+  if (PUBLIC_ACTIONS[action]) return;
+  if (!verifyAdminToken_(params && params.token)) {
+    throw new Error('管理者ログインが必要です。');
+  }
+}
+
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
   const cachePayload = buildCachePayload_(e && e.parameter);
@@ -1778,6 +1942,10 @@ function doGet(e) {
   const canUseCache = !!action && !isMutatingAction;
 
   try {
+    // キャッシュより先に検証する。順序を逆にすると、認証なしで
+    // キャッシュ済みの管理者データが返ってしまう。
+    requireAdminAccess_(action, e && e.parameter);
+
     if (canUseCache) {
       const cached = getCachedData_(action, cachePayload);
       if (cached) {
@@ -1937,6 +2105,11 @@ function doPost(e) {
     const data = JSON.parse(e.postData.contents);
     const type = data.type;
     let result = {};
+
+    if (type === 'adminLogin') {
+      return createJsonResponse(adminLogin_(data));
+    }
+    requireAdminAccess_(type, data);
 
     switch (type) {
       case 'order':
