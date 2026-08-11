@@ -627,8 +627,22 @@
       border-left: 3px solid var(--sage);
     }
 
+    /* 2行とも上下の中央に来るように、本文をカードの高さいっぱいに広げて中央寄せする。 */
     .menu-card-body {
       flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    /* 1行目はカテゴリと開催予定、2行目はメニュー名と予約ボタン。
+       いずれも左の文字と右の要素を同じ横のラインに揃える。 */
+    .menu-card-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       min-width: 0;
     }
 
@@ -636,7 +650,9 @@
       font-size: 11px;
       color: var(--sage-dark);
       font-weight: 700;
-      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /* メニュー名は必ず1行。カード幅に収まるよう、狭い画面では字を詰める。 */
@@ -651,22 +667,14 @@
       text-overflow: ellipsis;
     }
 
-    /* 2行目。左に開催予定、右に予約ボタン。 */
-    .menu-card-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 5px;
-      min-width: 0;
-    }
-
+    /* 開催予定は1行目の右端に寄せる。 */
     .menu-schedule {
       display: flex;
       align-items: center;
       flex-wrap: nowrap;
       gap: 6px;
-      min-width: 0;
-      overflow: hidden;
+      margin-left: auto;
+      flex-shrink: 0;
     }
 
     .menu-book-btn {
@@ -710,13 +718,19 @@
       background: rgba(122, 92, 62, 0.09);
     }
 
+    /* 狭い画面では予約ボタンが名前の場所を奪うので、両方を少しずつ詰める。 */
     @media (max-width: 400px) {
       .menu-card-name {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
       }
 
       .menu-schedule-date {
         font-size: 11px;
+      }
+
+      .menu-book-btn {
+        font-size: 11px;
+        padding: 5px 11px;
       }
     }
 
@@ -2219,6 +2233,23 @@
       padding: 6px;
       box-sizing: border-box;
       display: block;
+    }
+
+    /* 画像が無いメニューの代わりの枠。写真と同じ大きさに揃える。 */
+    .menu-list-thumb-empty {
+      width: 80px;
+      height: 80px;
+    }
+
+    /* 狭い画面ではメニュー名の場所を確保するため、写真を少し小さくする。
+       .menu-list-thumb の指定より後ろに置かないと打ち消されるので、ここに書く。 */
+    @media (max-width: 400px) {
+
+      .menu-list-thumb,
+      .menu-list-thumb-empty {
+        width: 68px;
+        height: 68px;
+      }
     }
 
     .prod-name {
