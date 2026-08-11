@@ -8246,6 +8246,38 @@ async function removeUserDeviceSession(deviceId) {
   }
 }
 
+// ===== ログアウト =====
+// 端末に残っている記録には触らない。共通のログイン状態だけを解いて入口へ戻す。
+// 同じ人が入り直したときに、ログアウト前の続きからそのまま使えるようにするため。
+
+// ランチャー（入口）が管理しているログイン状態。アプリごとの記録とは別物。
+const SHARED_SESSION_STORAGE_KEYS = [
+  'mayumi_launcher_session',
+  'mayumi_member_auth_token'
+];
+
+const LAUNCHER_PAGE_URL = 'start/';
+
+function clearSharedSession() {
+  SHARED_SESSION_STORAGE_KEYS.forEach(function (key) {
+    try { localStorage.removeItem(key); } catch (e) { /* プライベートモードでは触れない */ }
+  });
+}
+
+async function logoutFromApp() {
+  const confirmed = await showAppConfirm(
+    'ログアウトして入口の画面に戻ります。\nこの端末の記録は消えないので、入り直せば続きから使えます。',
+    {
+      title: 'ログアウト',
+      confirmLabel: 'ログアウトする',
+      cancelLabel: 'やめる'
+    }
+  );
+  if (!confirmed) return;
+  clearSharedSession();
+  location.href = LAUNCHER_PAGE_URL;
+}
+
 async function checkExistingMemberCandidates(name, kana, phone, birthday) {
   if (!name && !kana && !phone && !birthday) return [];
   const response = await getFromGAS('getRecoveryCandidates', {

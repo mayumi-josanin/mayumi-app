@@ -76,6 +76,12 @@
       font-size: 12px;
     }
 
+    /* 初期設定と押し間違えないよう、ログアウトだけ枠線で区別する。 */
+    .settings-btn.logout-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+    }
+
     .header-actions {
       display: flex;
       align-items: center;
@@ -1254,6 +1260,7 @@
     <div class="header-actions">
       <button id="installAdminBtn" class="settings-btn install-btn" onclick="openAdminInstallGuide()">📲 追加</button>
       <button class="settings-btn" onclick="openSettings()">⚙ 初期設定</button>
+      <button class="settings-btn logout-btn" onclick="adminLogout()">ログアウト</button>
     </div>
   </header>
 
@@ -11093,6 +11100,20 @@
         if (token) localStorage.setItem(ADMIN_AUTH_TOKEN_KEY, token);
         else localStorage.removeItem(ADMIN_AUTH_TOKEN_KEY);
       } catch (e) { /* プライベートモード等では保存できない */ }
+    }
+
+    // 入口へ戻ってアプリを切り替えるための出口。
+    // 保存している設定や表示内容には触らず、ログイン状態だけを解く。
+    function adminLogout() {
+      const ok = window.confirm('ログアウトして入口の画面に戻ります。\n設定や表示の内容は消えません。');
+      if (!ok) return;
+      setAdminAuthToken('');
+      // 入口が持っている共通のログイン状態も解いておく
+      try {
+        localStorage.removeItem('mayumi_launcher_session');
+        localStorage.removeItem('mayumi_member_auth_token');
+      } catch (e) { /* プライベートモードでは触れない */ }
+      location.href = '../start/';
     }
 
     function isAdminAuthError(json) {
