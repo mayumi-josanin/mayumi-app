@@ -9417,6 +9417,17 @@ function shouldShowMenuReservationButton(menu) {
   return String(menu && menu.reservationStatus || '').trim() !== '予約対象外';
 }
 
+// メニュー名の後ろに付く印。空のときに余白だけ残ると、その分だけ名前が入らなくなる。
+function buildMenuNameBadgeMarkup(menu) {
+  const parts = [];
+  const unread = buildUnreadBadgeHtml('menu', menu);
+  if (unread) parts.push(unread);
+  if (isFavoriteKey(buildContentItemKey('menu', menu))) {
+    parts.push('<span class="item-favorite-badge inline">★</span>');
+  }
+  return parts.length ? ' ' + parts.join(' ') : '';
+}
+
 function buildMenuReservationButtonMarkup(menu) {
   if (!shouldShowMenuReservationButton(menu)) return '';
   return `
@@ -9496,13 +9507,15 @@ function renderMenus() {
           <div class="news-item" onclick="openMenuDetail(${m.originalIndex})" style="padding:15px; border-radius:16px; margin-bottom:15px; box-shadow:0 4px 12px rgba(0,0,0,0.05); background:#fff; border:1px solid #f0ede8; cursor:pointer; display:flex; align-items:center; gap:15px;">
             ${m.imageUrl ?
         `<img src="${getContentDisplayImageUrl(m.imageUrl)}" class="menu-list-thumb" alt="${escapeHtml(m.name || 'メニュー画像')}">` :
-        `<div style="width:80px; height:80px; background:var(--bg-gray); border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text-light); font-size:24px;">🍴</div>`
+        `<div class="menu-list-thumb-empty" style="background:var(--bg-gray); border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text-light); font-size:24px;">🍴</div>`
       }
             <div class="menu-card-body">
-              ${m.category ? `<div class="menu-card-category">${escapeHtml(m.category)}</div>` : ''}
-              <h3 class="menu-card-name">${escapeHtml(m.name || '')} ${buildUnreadBadgeHtml('menu', m)} ${isFavoriteKey(buildContentItemKey('menu', m)) ? '<span class="item-favorite-badge inline">★</span>' : ''}</h3>
-              <div class="menu-card-meta">
+              <div class="menu-card-line">
+                <span class="menu-card-category">${escapeHtml(m.category || '')}</span>
                 ${buildMenuScheduleMarkup(m)}
+              </div>
+              <div class="menu-card-line">
+                <h3 class="menu-card-name">${escapeHtml(m.name || '')}${buildMenuNameBadgeMarkup(m)}</h3>
                 ${buildMenuReservationButtonMarkup(m)}
               </div>
             </div>
