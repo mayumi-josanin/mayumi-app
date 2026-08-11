@@ -1,0 +1,26 @@
+{
+  "name": "まゆみ助産院 アンケート管理",
+  "short_name": "まゆみ管理",
+  "description": "まゆみ助産院のアンケート回答管理アプリ",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f5",
+  "theme_color": "#5a7a4e",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png?v=20260416-06",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png?v=20260416-06",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
