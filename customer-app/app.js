@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v122";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v123";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -516,9 +516,17 @@ function normalizeKana(value) {
   return String(value ?? "").replace(/\s+/g, "").trim();
 }
 
+// 全角で入力された数字・小数点も受け付ける（「２２．５」を未記入扱いにしない）。
+function toHalfWidthNumberText(value) {
+  return String(value)
+    .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
+    .replace(/[．。]/g, ".")
+    .replace(/[－ー−―‐]/g, "-");
+}
+
 function normalizeMeasurementValue(value) {
   if (value === null || value === undefined || value === "") return "";
-  const normalized = String(value).replace(/[^\d.-]/g, "");
+  const normalized = toHalfWidthNumberText(value).replace(/[^\d.-]/g, "");
   if (!normalized) return "";
   const parsed = Number(normalized);
   if (!Number.isFinite(parsed)) return "";
@@ -3182,6 +3190,21 @@ async function loadHistory() {
     return;
   }
 
+  // 履歴・計測値・写真はパスコードで保護されている。トークンが無い場合は
+  // エラーにせず、設定の入口を案内する（新規のお客様はまだ持っていないため）。
+  if (!api.getCustomerToken()) {
+    appState.history = [];
+    appState.measurements = [];
+    appState.historyLoading = false;
+    appState.historyLoadError = "";
+    renderHomeTicketStatus();
+    historyList.innerHTML =
+      `<div class="empty">履歴・計測値・お写真をご覧いただくには、パスコードの設定が必要です。<br />` +
+      `ログイン画面の「パスコードを忘れた方・初めて設定する方」からお進みください。</div>`;
+    renderMeasurements();
+    return;
+  }
+
   appState.historyLoading = true;
   appState.historyLoadError = "";
   renderHomeTicketStatus();
@@ -3215,6 +3238,10 @@ async function loadHistory() {
       renderAnswerPanel();
     }
   } catch (error) {
+    // トークンの期限切れ・無効化。捨てて、設定し直してもらう。
+    if (String(error?.message || "").indexOf("お客様のログインが必要です") >= 0) {
+      api.clearCustomerToken();
+    }
     appState.history = [];
     appState.measurements = [];
     appState.historyLoading = false;
@@ -4791,28 +4818,136 @@ function renderAnswerValue(answer) {
   return escapeHtml(answer.value || "未回答");
 }
 
+// 計測写真は1枚ずつ大きく見せるスライド形式。左右の矢印・ドット・枚数表示で送り、
+// スワイプ（横スクロール）でも同じように動く。写真をタップすると元画像を開く。
 function renderMeasurementPhotoSwipe(files) {
   if (!Array.isArray(files) || !files.length) return "";
+  const multiple = files.length > 1;
   return `
-    ${files.length > 1 ? '<div class="meta">左右にスワイプして計測写真を確認できます。</div>' : ""}
-    <div class="measurement-photo-swipe-shell" aria-label="計測写真一覧">
-      <div class="measurement-photo-swipe-track">
-        ${files
-          .map((file, index) => {
-            const href = getPhotoOpenHref(file);
-            const preview = getPhotoPreviewSrc(file);
-            return `
-              <a class="photo-thumb measurement-photo-swipe-slide" href="${escapeHtml(href)}" target="_blank" rel="noopener">
-                ${preview ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || `photo-${index + 1}`)}" />` : ""}
-                <span>${escapeHtml(file.name || `写真${index + 1}`)}</span>
-                ${formatPhotoCapturedAt(file.capturedAt) ? `<span class="meta">撮影日: ${escapeHtml(formatPhotoCapturedAt(file.capturedAt))}</span>` : ""}
-              </a>
-            `;
-          })
-          .join("")}
+    <div class="measurement-photo-carousel" data-photo-carousel aria-roledescription="カルーセル" aria-label="計測写真">
+      <div class="measurement-photo-carousel-stage">
+        ${
+          multiple
+            ? `
+              <button class="measurement-photo-carousel-nav is-prev" type="button" data-carousel-prev aria-label="前の写真">‹</button>
+              <button class="measurement-photo-carousel-nav is-next" type="button" data-carousel-next aria-label="次の写真">›</button>
+            `
+            : ""
+        }
+        <div class="measurement-photo-carousel-viewport" data-carousel-viewport>
+          <div class="measurement-photo-carousel-track">
+            ${files
+              .map((file, index) => {
+                const href = getPhotoOpenHref(file);
+                const preview = getPhotoPreviewSrc(file);
+                const capturedAt = formatPhotoCapturedAt(file.capturedAt);
+                return `
+                  <figure class="measurement-photo-carousel-slide" data-carousel-slide="${index}" aria-label="${index + 1} / ${files.length}">
+                    <a class="measurement-photo-carousel-frame" href="${escapeHtml(href)}" target="_blank" rel="noopener">
+                      ${
+                        preview
+                          ? `<img src="${escapeHtml(preview)}" alt="${escapeHtml(file.name || `計測写真${index + 1}`)}" loading="lazy" />`
+                          : `<span class="measurement-photo-carousel-noimage">画像を表示できません</span>`
+                      }
+                    </a>
+                    <figcaption>
+                      <span>${escapeHtml(file.name || `写真${index + 1}`)}</span>
+                      ${capturedAt ? `<span class="meta">撮影日: ${escapeHtml(capturedAt)}</span>` : ""}
+                    </figcaption>
+                  </figure>
+                `;
+              })
+              .join("")}
+          </div>
+        </div>
+        ${multiple ? `<div class="measurement-photo-carousel-counter" data-carousel-counter>1 / ${files.length}</div>` : ""}
       </div>
+      ${
+        multiple
+          ? `
+            <div class="measurement-photo-carousel-dots" role="tablist" aria-label="計測写真の切り替え">
+              ${files
+                .map(
+                  (_file, index) => `
+                    <button
+                      class="measurement-photo-carousel-dot ${index === 0 ? "is-active" : ""}"
+                      type="button"
+                      role="tab"
+                      data-carousel-dot="${index}"
+                      aria-label="${index + 1}枚目を表示"
+                    ></button>
+                  `,
+                )
+                .join("")}
+            </div>
+            <div class="meta measurement-photo-carousel-hint">左右にスワイプ、または矢印で写真を切り替えられます。</div>
+          `
+          : ""
+      }
     </div>
   `;
+}
+
+// カルーセルの矢印・ドット・枚数表示を、実際のスクロール位置に同期させる。
+function setupMeasurementPhotoCarousels(root) {
+  if (!root) return;
+  root.querySelectorAll("[data-photo-carousel]").forEach((carousel) => {
+    const viewport = carousel.querySelector("[data-carousel-viewport]");
+    if (!viewport) return;
+    const slides = Array.from(carousel.querySelectorAll("[data-carousel-slide]"));
+    if (slides.length < 2) return;
+    const prevButton = carousel.querySelector("[data-carousel-prev]");
+    const nextButton = carousel.querySelector("[data-carousel-next]");
+    const counter = carousel.querySelector("[data-carousel-counter]");
+    const dots = Array.from(carousel.querySelectorAll("[data-carousel-dot]"));
+
+    const getCurrentIndex = () => {
+      const width = viewport.clientWidth || 1;
+      const index = Math.round(viewport.scrollLeft / width);
+      return Math.min(Math.max(index, 0), slides.length - 1);
+    };
+
+    const syncControls = () => {
+      const index = getCurrentIndex();
+      if (counter) counter.textContent = `${index + 1} / ${slides.length}`;
+      dots.forEach((dot, dotIndex) => {
+        dot.classList.toggle("is-active", dotIndex === index);
+        dot.setAttribute("aria-selected", dotIndex === index ? "true" : "false");
+      });
+      if (prevButton) prevButton.disabled = index <= 0;
+      if (nextButton) nextButton.disabled = index >= slides.length - 1;
+    };
+
+    const scrollToIndex = (index) => {
+      const target = Math.min(Math.max(index, 0), slides.length - 1);
+      const left = target * viewport.clientWidth;
+      try {
+        viewport.scrollTo({ left: left, behavior: "smooth" });
+      } catch (error) {
+        viewport.scrollLeft = left;
+      }
+      // なめらかスクロールが効かない端末・設定では矢印が無反応に見えるので、
+      // 少し待っても動いていなければ確実に移動させる。
+      window.setTimeout(() => {
+        if (Math.abs(viewport.scrollLeft - left) > 4) viewport.scrollLeft = left;
+        syncControls();
+      }, 260);
+    };
+
+    prevButton?.addEventListener("click", () => scrollToIndex(getCurrentIndex() - 1));
+    nextButton?.addEventListener("click", () => scrollToIndex(getCurrentIndex() + 1));
+    dots.forEach((dot, index) => {
+      dot.addEventListener("click", () => scrollToIndex(index));
+    });
+
+    let scrollTimer = 0;
+    viewport.addEventListener("scroll", () => {
+      window.clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(syncControls, 80);
+    });
+    window.addEventListener("resize", syncControls);
+    syncControls();
+  });
 }
 
 function renderTicketStampList(ticketInfo) {
@@ -6151,6 +6286,7 @@ function renderMeasurements() {
       renderMeasurements();
     });
   });
+  setupMeasurementPhotoCarousels(measurementPanel);
 }
 
 async function retryPendingSubmission() {
@@ -6316,21 +6452,71 @@ customerLoginForm.addEventListener("submit", async (event) => {
     return;
   }
   try {
-    await applyCustomerSession(readCustomerProfileFromForm(event.currentTarget));
+    const profile = readCustomerProfileFromForm(event.currentTarget);
+    const passcode = String(new FormData(event.currentTarget).get("passcode") || "").trim();
+    if (passcode) {
+      // パスコードをお持ちの方はサーバー側で本人確認する。成功するとトークンが
+      // 保存され、履歴・計測値・写真が見られるようになる。
+      await api.customerLogin({
+        name: profile.name,
+        nameKana: profile.nameKana,
+        passcode,
+      });
+    }
+    await applyCustomerSession(profile);
   } catch (error) {
     reportClientError("customer.login", error);
     showToast(error.message || "ログインできませんでした。");
   }
 });
 
-recoverAccountButton?.addEventListener("click", async () => {
+recoverAccountButton?.addEventListener("click", () => {
+  const panel = document.querySelector("#passcodeRecoveryPanel");
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  if (panel.hidden) return;
+  // ログイン欄に入力済みの内容を引き継いで、二度手間にしない。
+  const loginData = new FormData(customerLoginForm);
+  const recoveryForm = panel.querySelector("#passcodeRecoveryForm");
+  if (recoveryForm) {
+    const nameField = recoveryForm.elements.name;
+    const kanaField = recoveryForm.elements.nameKana;
+    if (nameField && !nameField.value) nameField.value = String(loginData.get("name") || "");
+    if (kanaField && !kanaField.value) kanaField.value = String(loginData.get("nameKana") || "");
+  }
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+
+document.querySelector("#passcodeRecoveryForm")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const name = String(formData.get("name") || "").trim();
+  const nameKana = String(formData.get("nameKana") || "").trim();
+  const birthday = String(formData.get("birthday") || "").trim();
+  const newPasscode = String(formData.get("newPasscode") || "").trim();
   try {
-    await applyCustomerSession(readCustomerProfileFromForm(customerLoginForm), {
-      recovery: true,
-    });
+    if (!name && !nameKana) {
+      throw new Error("お名前またはフリガナを入力してください。");
+    }
+    if (!/^(?:\d{4}|\d{6})$/.test(newPasscode)) {
+      throw new Error("パスコードは4桁または6桁の数字で入力してください。");
+    }
+    // 生年月日の入力があれば会員情報との照合、無ければ
+    // スタッフが許可した「期限つきの再設定」として扱う。
+    const result = birthday
+      ? await api.customerRecover({ name, nameKana, birthday, newPasscode })
+      : await api.customerSetPasscode({ name, nameKana, newPasscode });
+    await applyCustomerSession(
+      normalizeCustomerProfile({
+        name: result?.customerProfile?.name || name,
+        nameKana: result?.customerProfile?.nameKana || nameKana,
+        memberNumber: result?.customerProfile?.memberNumber || "",
+      })
+    );
+    showToast("パスコードを設定しました。");
   } catch (error) {
-    reportClientError("customer.recover", error);
-    showToast(error.message || "アカウントを復旧できませんでした。");
+    reportClientError("customer.passcodeRecover", error);
+    showToast(error.message || "設定できませんでした。");
   }
 });
 
@@ -6374,6 +6560,28 @@ document.querySelector("#refreshButton").addEventListener("click", () => {
   void loadSurveys();
   void loadBijirisPosts();
   if (hasCustomerSession()) void loadHistory();
+});
+
+// ログアウトは端末の記録に触らない。ログイン状態だけを解いて入口の画面へ戻す。
+// 下書きもお気に入りも残るので、同じ人が入り直せば続きからそのまま使える。
+// まゆみ助産院アプリとは配信元が別なので、行き先は絶対URLで指定する。
+const LAUNCHER_PAGE_URL = "https://mayumi-josanin.github.io/mayumi-app/start/";
+const SHARED_SESSION_STORAGE_KEYS = ["mayumi_launcher_session", "mayumi_member_auth_token"];
+
+document.querySelector("#logoutButton")?.addEventListener("click", () => {
+  const confirmed = window.confirm(
+    "ログアウトして入口の画面に戻ります。\nこの端末の記録は消えないので、入り直せば続きから使えます。",
+  );
+  if (!confirmed) return;
+  api.clearCustomerToken?.();
+  SHARED_SESSION_STORAGE_KEYS.forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // プライベートモード等では触れない
+    }
+  });
+  location.href = LAUNCHER_PAGE_URL;
 });
 
 document.querySelector("#historyRefreshButton").addEventListener("click", () => {

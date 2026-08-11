@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v99";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v100";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -1418,9 +1418,17 @@ function normalizeActiveTicketCard(value) {
   };
 }
 
+// 全角で入力された数字・小数点も受け付ける（「２２．５」を未記入扱いにしない）。
+function toHalfWidthNumberText(value) {
+  return String(value)
+    .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
+    .replace(/[．。]/g, ".")
+    .replace(/[－ー−―‐]/g, "-");
+}
+
 function normalizeMeasurementValue(value) {
   if (value === null || value === undefined || value === "") return "";
-  const normalized = String(value).replace(/[^\d.-]/g, "");
+  const normalized = toHalfWidthNumberText(value).replace(/[^\d.-]/g, "");
   if (!normalized) return "";
   const parsed = Number(normalized);
   if (!Number.isFinite(parsed)) return "";
@@ -2896,6 +2904,18 @@ function renderCustomerEditorCard(customerName) {
   return `
     <article class="answer-item">
       <strong>顧客情報を編集</strong>
+      <div class="stack">
+        <button
+          type="button"
+          class="secondary-button"
+          data-allow-passcode-setup="${escapeHtml(customerName)}"
+        >パスコードを再設定できるようにする</button>
+        <p class="hint">
+          お客様がご本人であることを対面で確認してから押してください。今のパスコードは無効になり、
+          30分間だけ、お客様ご自身が新しいパスコードを設定できるようになります。
+          パスコードの中身はスタッフにも表示されません。
+        </p>
+      </div>
       <form id="customerProfileForm" class="stack" data-customer-name="${escapeHtml(customerName)}">
         <div class="customer-editor-grid">
           <label>
@@ -3995,6 +4015,30 @@ async function saveCustomerProfile(form) {
   }
 }
 
+// パスコードの再設定を許可する。スタッフはパスコードを見られない。
+// 今のパスコードを無効化し、30分間だけお客様本人が設定できる状態にする。
+async function allowPasscodeSetup(customerName) {
+  if (!customerName) return;
+  if (!(await openConfirmDialog({
+    title: "パスコードの再設定を許可",
+    message:
+      `${customerName} 様のパスコードを再設定できるようにしますか？\n\n` +
+      "今のパスコードは使えなくなり、30分以内にお客様ご自身で新しいパスコードを設定していただきます。\n" +
+      "ご本人が受付にいることを確認してから実行してください。",
+    confirmLabel: "許可する",
+  }))) return;
+  try {
+    showBusyToast("設定中です。");
+    await api.request("/api/admin/passcode-setup", {
+      token: state.token,
+      query: { customerName },
+    });
+    showToast("30分間、お客様がパスコードを設定できます。アプリの「パスコードを忘れた方」からお進みください。");
+  } catch (error) {
+    showToast(error.message || "許可できませんでした。");
+  }
+}
+
 async function deleteCustomerProfile(customerName) {
   if (!customerName) return;
   if (!(await openConfirmDialog({
@@ -4509,6 +4553,12 @@ function renderCustomerManagement() {
   stage.querySelectorAll("[data-delete-customer], [data-delete-customer-card]").forEach((button) => {
     button.addEventListener("click", () => {
       void deleteCustomerProfile(button.dataset.deleteCustomer || button.dataset.deleteCustomerCard || "");
+    });
+  });
+
+  stage.querySelectorAll("[data-allow-passcode-setup]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void allowPasscodeSetup(button.dataset.allowPasscodeSetup || "");
     });
   });
 
