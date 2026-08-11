@@ -38,43 +38,43 @@
     margin-bottom: 16px;
   }
 
-  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; }
   .tab {
     flex: 1; padding: 12px; font-size: 15px; text-align: center; cursor: pointer;
     border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--muted);
   }
-  .tab[aria-selected="true"] { background: var(--sage); border-color: var(--sage); color: #fff; font-weight: 700; }
+  .tab[aria-selected="true"] {
+    background: var(--sage); border-color: var(--sage); color: #fff; font-weight: 700;
+  }
 
-  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 4px; }
   input {
     width: 100%; padding: 14px; font-size: 16px;
     border: 1px solid var(--line); border-radius: 10px; background: #fff;
   }
   button.primary {
-    width: 100%; margin-top: 18px; padding: 15px; font-size: 16px; font-weight: 700;
+    width: 100%; margin-top: 20px; padding: 15px; font-size: 16px; font-weight: 700;
     color: #fff; background: var(--sage); border: 0; border-radius: 10px; cursor: pointer;
   }
   button.primary:disabled { opacity: .6; cursor: default; }
-  button.link {
-    width: 100%; margin-top: 10px; padding: 12px; font-size: 14px;
-    color: var(--muted); background: none; border: 0; cursor: pointer; text-decoration: underline;
-  }
-  .error { color: var(--danger); font-size: 13px; min-height: 20px; margin: 10px 0 0; }
-  .note { font-size: 12px; color: var(--muted); margin-top: 12px; }
+  .error { color: var(--danger); font-size: 13px; min-height: 20px; margin: 12px 0 0; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
 
-  .who { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .who strong { font-size: 15px; }
+  .who { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+  .who strong { font-size: 16px; }
+  .who .role { font-size: 12px; color: var(--muted); }
+  .who button {
+    flex-shrink: 0; padding: 8px 14px; font-size: 13px; color: var(--muted);
+    background: #fff; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+  }
 
   a.app {
     display: block; text-decoration: none; color: inherit;
-    border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 12px;
-    background: #fff;
+    border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 12px; background: #fff;
   }
   a.app:active { background: #f2f0e8; }
   a.app .name { font-size: 16px; font-weight: 700; color: var(--sage-dark); }
   a.app .desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
-  .locked { opacity: .5; }
-  .locked .desc { color: var(--danger); }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -86,41 +86,58 @@
     <p>ログインすると、ご利用いただけるアプリが表示されます</p>
   </header>
 
-  <!-- ================= ログイン ================= -->
   <section id="loginView" class="card">
     <div class="tabs" role="tablist">
-      <div class="tab" id="tabCustomer" role="tab" aria-selected="true">お客様</div>
-      <div class="tab" id="tabAdmin" role="tab" aria-selected="false">スタッフ</div>
+      <div class="tab" id="tabLogin" role="tab" aria-selected="true">ログイン</div>
+      <div class="tab" id="tabRegister" role="tab" aria-selected="false">はじめての方</div>
     </div>
 
-    <form id="customerForm">
+    <form id="loginForm">
+      <label>お名前（漢字・フルネーム）
+        <input name="name" type="text" autocomplete="name" required />
+      </label>
+      <label>パスワード
+        <input name="password" type="password" autocomplete="current-password" required />
+      </label>
+      <p class="error" id="loginError"></p>
+      <button class="primary" type="submit">ログイン</button>
+    </form>
+
+    <form id="registerForm" hidden>
       <label>お名前（漢字・フルネーム）
         <input name="name" type="text" autocomplete="name" required />
       </label>
       <label>フリガナ（カタカナ）
-        <input name="nameKana" type="text" autocapitalize="characters" required />
+        <input name="kana" type="text" autocapitalize="characters" required />
       </label>
-      <label>パスコード（4桁または6桁の数字）
-        <input name="passcode" type="password" inputmode="numeric" autocomplete="current-password" required />
+      <label>生年月日
+        <input name="birthday" type="date" required />
       </label>
-      <p class="error" id="customerError"></p>
-      <button class="primary" type="submit">ログイン</button>
-    </form>
-
-    <form id="adminForm" hidden>
-      <label>管理パスワード
-        <input name="password" type="password" autocomplete="current-password" required />
+      <label>電話番号
+        <input name="phone" type="tel" autocomplete="tel" required />
       </label>
-      <p class="error" id="adminError"></p>
-      <button class="primary" type="submit">ログイン</button>
+      <label>ご住所
+        <input name="address" type="text" autocomplete="street-address" required />
+      </label>
+      <label>パスワード（8文字以上）
+        <input name="password" type="password" autocomplete="new-password" required />
+      </label>
+      <p class="error" id="registerError"></p>
+      <button class="primary" type="submit">登録する</button>
+      <p class="note">
+        すでに当院をご利用の方は、お名前と生年月日が一致すれば、
+        これまでの記録を引き継いでパスワードだけ設定します。
+      </p>
     </form>
   </section>
 
-  <!-- ================= アプリ選択 ================= -->
   <section id="appsView" class="card" hidden>
     <div class="who">
-      <div><strong id="whoName"></strong><div class="desc" id="whoRole"></div></div>
-      <button class="link" id="logoutButton" style="width:auto;margin:0;">ログアウト</button>
+      <div>
+        <strong id="whoName"></strong>
+        <div class="role" id="whoRole"></div>
+      </div>
+      <button type="button" id="logoutButton">ログアウト</button>
     </div>
     <div id="appList"></div>
     <p class="note" id="appsNote"></p>
@@ -135,18 +152,17 @@
   // 4つのアプリは同じ origin（mayumi-josanin.github.io）にあるため、
   // ここで保存したトークンを各アプリがそのまま読める。これがSSOの土台。
   var MAYUMI_GAS = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
-  var BIJIRIS_GAS = 'https://script.google.com/macros/s/AKfycbyZfGreoBxYYaB5i0NX1Hw_9eAMD5Q1YTfzKORYyLc2-TQt6R6xblkUNyW8SlEih4QW/exec';
 
-  // 各アプリが読みに来るキー。名前を変えると再ログインを求められてしまう。
+  // 管理アプリが読みに来るキー。変えると再ログインを求められてしまう。
   var ADMIN_TOKEN_KEY = 'mayumi_admin_auth_token';
-  var CUSTOMER_TOKEN_KEY = 'mayumi_bijiris_customer_token';
+  var MEMBER_TOKEN_KEY = 'mayumi_member_auth_token';
   var SESSION_KEY = 'mayumi_launcher_session';
 
   var APPS = {
-    mayumiCustomer: { name: 'まゆみ助産院', desc: '予約・お知らせ・ショップ', url: '../' },
-    bijiris:        { name: 'ビジリス',     desc: 'アンケート・計測の記録',   url: '../../mayumi_bijiris/customer-app/' },
-    mayumiAdmin:    { name: 'まゆみ助産院 管理', desc: '会員・注文・売上の管理', url: '../admin/' },
-    bijirisAdmin:   { name: 'ビジリス 管理',     desc: '回答・計測の管理',       url: '../../mayumi_bijiris/admin-app/' }
+    mayumiCustomer: { name: 'まゆみ助産院',      desc: '予約・お知らせ・ショップ',  url: '../' },
+    bijiris:        { name: 'ビジリス',          desc: 'アンケート・計測の記録',    url: '../../mayumi_bijiris/customer-app/' },
+    mayumiAdmin:    { name: 'まゆみ助産院 管理', desc: '会員・注文・売上の管理',    url: '../admin/' },
+    bijirisAdmin:   { name: 'ビジリス 管理',     desc: '回答・計測の管理',          url: '../../mayumi_bijiris/admin-app/' }
   };
 
   function $(id) { return document.getElementById(id); }
@@ -159,148 +175,113 @@
     try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
   }
 
-  // ---- 画面の切り替え ----
   function showTab(which) {
-    var isAdmin = which === 'admin';
-    $('tabAdmin').setAttribute('aria-selected', String(isAdmin));
-    $('tabCustomer').setAttribute('aria-selected', String(!isAdmin));
-    $('adminForm').hidden = !isAdmin;
-    $('customerForm').hidden = isAdmin;
+    var isRegister = which === 'register';
+    $('tabRegister').setAttribute('aria-selected', String(isRegister));
+    $('tabLogin').setAttribute('aria-selected', String(!isRegister));
+    $('registerForm').hidden = !isRegister;
+    $('loginForm').hidden = isRegister;
   }
 
   function renderApps(session) {
     $('loginView').hidden = true;
     $('appsView').hidden = false;
-    $('whoName').textContent = session.label;
-    $('whoRole').textContent = session.role === 'admin' ? 'スタッフとしてログイン中' : 'お客様としてログイン中';
+    $('whoName').textContent = session.role === 'admin' ? session.name : session.name + ' 様';
+    $('whoRole').textContent = session.role === 'admin' ? 'スタッフとしてログイン中' : 'ログイン中';
 
     var keys = session.role === 'admin'
       ? ['mayumiCustomer', 'bijiris', 'mayumiAdmin', 'bijirisAdmin']
-      : session.apps;
+      : ['mayumiCustomer', 'bijiris'];
 
     var html = '';
     keys.forEach(function (key) {
       var app = APPS[key];
-      if (!app) return;
       html += '<a class="app" href="' + app.url + '">' +
               '<div class="name">' + app.name + '</div>' +
               '<div class="desc">' + app.desc + '</div></a>';
     });
     $('appList').innerHTML = html;
 
-    // 正直に書く。まだ再ログインを求めてくるアプリがある。
+    // できていないことを、できている風に見せない。
     $('appsNote').textContent = session.role === 'admin'
       ? 'まゆみ助産院の管理アプリは、そのままお使いいただけます。ビジリスの管理アプリは、現在まだ個別のログインが必要です。'
-      : 'ビジリスはそのままお使いいただけます。';
+      : 'まゆみ助産院アプリはそのままお使いいただけます。ビジリスは現在まだ個別のログインが必要です。';
   }
 
   function logout() {
     store(ADMIN_TOKEN_KEY, '');
-    store(CUSTOMER_TOKEN_KEY, '');
+    store(MEMBER_TOKEN_KEY, '');
     store(SESSION_KEY, '');
     $('appsView').hidden = true;
     $('loginView').hidden = false;
-    $('adminError').textContent = '';
-    $('customerError').textContent = '';
-    $('adminForm').reset();
-    $('customerForm').reset();
+    $('loginError').textContent = '';
+    $('registerError').textContent = '';
+    $('loginForm').reset();
+    $('registerForm').reset();
+    showTab('login');
   }
 
-  // ---- 通信 ----
-  // GAS の /exec は JSONP でないと応答を読めない場面があるため、
-  // 読み取りが必要なものは script タグ経由で取得する。
-  function jsonp(baseUrl, action, params) {
-    return new Promise(function (resolve, reject) {
-      var name = 'launcherCb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
-      var script = document.createElement('script');
-      var timer = setTimeout(function () { cleanup(); reject(new Error('応答がありません。')); }, 20000);
-
-      function cleanup() {
-        clearTimeout(timer);
-        try { delete window[name]; } catch (e) { window[name] = undefined; }
-        if (script.parentNode) script.parentNode.removeChild(script);
-      }
-
-      window[name] = function (data) {
-        cleanup();
-        if (data && data.error) { reject(new Error(data.error)); return; }
-        resolve(data);
-      };
-
-      var url = new URL(baseUrl);
-      url.searchParams.set('action', action);
-      url.searchParams.set('callback', name);
-      Object.keys(params || {}).forEach(function (k) {
-        if (params[k] !== undefined && params[k] !== null) url.searchParams.set(k, params[k]);
-      });
-      script.src = url.toString();
-      script.onerror = function () { cleanup(); reject(new Error('接続できませんでした。')); };
-      document.head.appendChild(script);
-    });
+  function applySession(json) {
+    var session = { role: json.role, name: json.name, memberId: json.memberId };
+    if (json.role === 'admin') {
+      store(ADMIN_TOKEN_KEY, json.token);
+      store(MEMBER_TOKEN_KEY, '');
+    } else {
+      store(MEMBER_TOKEN_KEY, json.token);
+      store(ADMIN_TOKEN_KEY, '');
+    }
+    store(SESSION_KEY, JSON.stringify(session));
+    renderApps(session);
   }
 
-  // ---- スタッフのログイン ----
-  $('adminForm').addEventListener('submit', function (event) {
-    event.preventDefault();
-    var button = event.currentTarget.querySelector('button');
-    var password = event.currentTarget.password.value;
-    $('adminError').textContent = '';
+  function post(payload, button, errorEl) {
     button.disabled = true;
-
-    fetch(MAYUMI_GAS, {
+    errorEl.textContent = '';
+    return fetch(MAYUMI_GAS, {
       method: 'POST',
       redirect: 'follow',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ type: 'adminLogin', password: password })
+      body: JSON.stringify(payload)
     })
       .then(function (res) { return res.json(); })
       .then(function (json) {
         if (!json || json.status !== 'ok' || !json.token) {
-          throw new Error((json && json.message) || 'ログインできませんでした。');
+          throw new Error((json && json.message) || 'うまくいきませんでした。');
         }
-        store(ADMIN_TOKEN_KEY, json.token);
-        var session = { role: 'admin', label: 'スタッフ' };
-        store(SESSION_KEY, JSON.stringify(session));
-        renderApps(session);
+        applySession(json);
       })
-      .catch(function (error) { $('adminError').textContent = error.message; })
+      .catch(function (error) { errorEl.textContent = error.message; })
       .then(function () { button.disabled = false; });
-  });
+  }
 
-  // ---- お客様のログイン ----
-  $('customerForm').addEventListener('submit', function (event) {
+  $('loginForm').addEventListener('submit', function (event) {
     event.preventDefault();
     var form = event.currentTarget;
-    var button = form.querySelector('button');
-    $('customerError').textContent = '';
-    button.disabled = true;
-
-    jsonp(BIJIRIS_GAS, 'customerLogin', {
+    post({
+      type: 'loginAccount',
       name: form.name.value,
-      nameKana: form.nameKana.value,
-      passcode: form.passcode.value
-    })
-      .then(function (data) {
-        if (!data || !data.token) throw new Error('ログインできませんでした。');
-        store(CUSTOMER_TOKEN_KEY, data.token);
-
-        // どのアプリを出すかは、その方の登録状況で決める。
-        // ビジリスにログインできた時点でビジリスは利用者。
-        // まゆみ助産院アプリは会員登録が無くても使える案内用アプリなので常に出す。
-        var label = (data.customerProfile && data.customerProfile.name) || form.name.value;
-        var session = { role: 'customer', label: label + ' 様', apps: ['mayumiCustomer', 'bijiris'] };
-        store(SESSION_KEY, JSON.stringify(session));
-        renderApps(session);
-      })
-      .catch(function (error) { $('customerError').textContent = error.message; })
-      .then(function () { button.disabled = false; });
+      password: form.password.value
+    }, form.querySelector('button'), $('loginError'));
   });
 
-  $('tabAdmin').addEventListener('click', function () { showTab('admin'); });
-  $('tabCustomer').addEventListener('click', function () { showTab('customer'); });
+  $('registerForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    post({
+      type: 'registerAccount',
+      name: form.name.value,
+      kana: form.kana.value,
+      birthday: form.birthday.value,
+      phone: form.phone.value,
+      address: form.address.value,
+      password: form.password.value
+    }, form.querySelector('button'), $('registerError'));
+  });
+
+  $('tabLogin').addEventListener('click', function () { showTab('login'); });
+  $('tabRegister').addEventListener('click', function () { showTab('register'); });
   $('logoutButton').addEventListener('click', logout);
 
-  // ---- 起動時 ----
   // 前回のログインが残っていれば、そのままアプリ選択を表示する。
   (function restore() {
     var raw = read(SESSION_KEY);
@@ -308,7 +289,7 @@
     var session;
     try { session = JSON.parse(raw); } catch (e) { return; }
     if (!session || !session.role) return;
-    var token = session.role === 'admin' ? read(ADMIN_TOKEN_KEY) : read(CUSTOMER_TOKEN_KEY);
+    var token = session.role === 'admin' ? read(ADMIN_TOKEN_KEY) : read(MEMBER_TOKEN_KEY);
     if (!token) { store(SESSION_KEY, ''); return; }
     renderApps(session);
   })();

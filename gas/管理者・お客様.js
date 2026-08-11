@@ -72,7 +72,13 @@ const USER_HEADERS = [
   '登録経路詳細',
   '登録経路更新日時',
   'スタンプ履歴JSON',
-  '最終スタンプ取得日時'
+  '最終スタンプ取得日時',
+  // 2026-08-12 追加。ログインを氏名＋パスワードに統一するため。
+  // パスワードは平文で持たない（ハッシュとソルトのみ）。
+  // 「権限」に「管理者」と入れた方だけが管理アプリに入れる。
+  'パスワードハッシュ',
+  'パスワードソルト',
+  '権限'
 ];
 
 const USER_COL = {
@@ -103,8 +109,12 @@ const USER_COL = {
   REGISTRATION_SOURCE_DETAIL: 25,
   REGISTRATION_SOURCE_UPDATED_AT: 26,
   STAMP_HISTORY_JSON: 27,
-  LAST_STAMP_AT: 28
+  LAST_STAMP_AT: 28,
+  PASSWORD_HASH: 29,
+  PASSWORD_SALT: 30,
+  ROLE: 31
 };
+const ACCOUNT_ADMIN_ROLE = '管理者';
 const TRANSFER_CODE_LENGTH = 8;
 const TRANSFER_CODE_TTL_HOURS = 168; // 1週間 (24*7)
 const MAX_DEVICE_SESSIONS = 8;
@@ -2010,6 +2020,202 @@ function adminLogin_(data) {
   };
 }
 
+// ==========================================================================
+// 会員アカウント（氏名＋パスワードでログイン）
+//
+// 会員データシートをそのままアカウント台帳として使う。氏名・フリガナ・
+// 生年月日・電話番号・住所は既に列があるので、新しいDBは作らない。
+//
+// 氏名は一意ではない（同姓同名や重複登録が実在する）。そのため
+// 「氏名で候補を集め、パスワードが合う行がちょうど1つ」を成立条件にする。
+// ==========================================================================
+const ACCOUNT_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30日
+
+function makeAccountSalt_() {
+  return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+}
+
+function hashAccountPassword_(password, salt) {
+  const material = String(salt || '') + '|' + String(password || '') + '|' + getAdminAuthSecret_();
+  return Utilities.base64EncodeWebSafe(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, material, Utilities.Charset.UTF_8)
+  );
+}
+
+function makeMemberToken_(memberId, expiresAt) {
+  return Utilities.base64EncodeWebSafe(JSON.stringify({
+    t: 'member',
+    u: String(memberId),
+    exp: expiresAt,
+    sig: adminSign_('member|' + memberId + '|' + expiresAt)
+  }));
+}
+
+function verifyMemberToken_(token) {
+  try {
+    const raw = Utilities.newBlob(Utilities.base64DecodeWebSafe(String(token || ''))).getDataAsString();
+    const payload = JSON.parse(raw);
+    if (payload.t !== 'member') return '';
+    if (!payload.u || !payload.exp || Number(payload.exp) < Date.now()) return '';
+    if (payload.sig !== adminSign_('member|' + payload.u + '|' + payload.exp)) return '';
+    return String(payload.u);
+  } catch (err) {
+    return '';
+  }
+}
+
+function readAccountRows_() {
+  const sheet = getOrCreateUsersSheet_(getOrCreateSpreadsheet());
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { sheet: sheet, rows: [] };
+  const values = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
+  const rows = [];
+  values.forEach(function (row, index) {
+    if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) return;
+    rows.push({ rowIdx: index + 2, values: row });
+  });
+  return { sheet: sheet, rows: rows };
+}
+
+function buildAccountSession_(row) {
+  const isAdmin = String(row[USER_COL.ROLE - 1] || '').trim() === ACCOUNT_ADMIN_ROLE;
+  const memberId = String(row[USER_COL.MEMBER_ID - 1] || '');
+  const expiresAt = Date.now() + ACCOUNT_TOKEN_TTL_MS;
+  return {
+    status: 'ok',
+    role: isAdmin ? 'admin' : 'member',
+    memberId: memberId,
+    name: String(row[USER_COL.NAME - 1] || ''),
+    // 管理者には既存形式の管理者トークンを返す。管理アプリを変えずに済む。
+    token: isAdmin ? makeAdminToken_(expiresAt) : makeMemberToken_(memberId, expiresAt),
+    expiresAt: new Date(expiresAt).toISOString()
+  };
+}
+
+function registerAccount(data) {
+  try {
+    const rawName = String((data && data.name) || '').trim();
+    const name = normalizeNameForMatch_(rawName);
+    const kana = String((data && data.kana) || '').trim();
+    const birthday = normalizeDateOnlyValue_(data && data.birthday);
+    const phone = String((data && data.phone) || '').trim();
+    const address = String((data && data.address) || '').trim();
+    const password = String((data && data.password) || '');
+
+    if (!name) return { status: 'error', message: 'お名前を入力してください。' };
+    if (!kana) return { status: 'error', message: 'フリガナを入力してください。' };
+    if (!birthday) return { status: 'error', message: '生年月日を入力してください。' };
+    if (!phone) return { status: 'error', message: '電話番号を入力してください。' };
+    if (!address) return { status: 'error', message: 'ご住所を入力してください。' };
+    if (password.length < 8) return { status: 'error', message: 'パスワードは8文字以上にしてください。' };
+
+    const store = readAccountRows_();
+
+    // 既存会員かどうかは「氏名＋生年月日」で判定する。重複行を増やさないため。
+    const matched = store.rows.filter(function (item) {
+      return normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) === name &&
+             normalizeDateOnlyValue_(item.values[USER_COL.BIRTHDAY - 1]) === birthday;
+    });
+    if (matched.length > 1) {
+      return { status: 'error', message: '同じお名前と生年月日の登録が複数あります。受付にお申し出ください。' };
+    }
+
+    const salt = makeAccountSalt_();
+    const hash = hashAccountPassword_(password, salt);
+    const timestamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/M/d H:mm');
+
+    if (matched.length === 1) {
+      const target = matched[0];
+      if (String(target.values[USER_COL.PASSWORD_HASH - 1] || '').trim()) {
+        return { status: 'error', message: 'すでに登録済みです。ログインしてください。' };
+      }
+      const row = target.values.slice();
+      row[USER_COL.KANA - 1] = kana;
+      row[USER_COL.PHONE - 1] = phone;
+      row[USER_COL.ADDRESS - 1] = address;
+      row[USER_COL.PASSWORD_HASH - 1] = hash;
+      row[USER_COL.PASSWORD_SALT - 1] = salt;
+      store.sheet.getRange(target.rowIdx, 1, 1, USER_HEADERS.length).setValues([row]);
+      return buildAccountSession_(row);
+    }
+
+    // 新規。会員番号は既存と衝突しないものを採番する。
+    const used = {};
+    store.rows.forEach(function (item) { used[String(item.values[USER_COL.MEMBER_ID - 1] || '')] = true; });
+    let memberId = '';
+    for (let i = 0; i < 200 && !memberId; i += 1) {
+      const candidate = 'MYM-' + String(Math.floor(1000 + Math.random() * 9000));
+      if (!used[candidate]) memberId = candidate;
+    }
+    if (!memberId) return { status: 'error', message: '会員番号を採番できませんでした。受付にお申し出ください。' };
+
+    const row = new Array(USER_HEADERS.length).fill('');
+    row[USER_COL.MEMBER_ID - 1] = memberId;
+    row[USER_COL.TIMESTAMP - 1] = timestamp;
+    row[USER_COL.NAME - 1] = rawName;
+    row[USER_COL.KANA - 1] = kana;
+    row[USER_COL.PHONE - 1] = phone;
+    row[USER_COL.BIRTHDAY - 1] = birthday;
+    row[USER_COL.ADDRESS - 1] = address;
+    row[USER_COL.PASSWORD_HASH - 1] = hash;
+    row[USER_COL.PASSWORD_SALT - 1] = salt;
+    row[USER_COL.DEVICE_SESSIONS - 1] = '[]';
+    setUserRegistrationSource_(row, '新規登録', 'ランチャー', timestamp);
+    store.sheet.appendRow(row);
+    return buildAccountSession_(row);
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function loginAccount(data) {
+  try {
+    const name = normalizeNameForMatch_(data && data.name);
+    const password = String((data && data.password) || '');
+    if (!name || !password) {
+      return { status: 'error', message: 'お名前とパスワードを入力してください。' };
+    }
+
+    // 総当たり対策。管理者ログインと同じ入れ物を使う。
+    const properties = PropertiesService.getScriptProperties();
+    const attempts = getAdminLoginAttempts_();
+    const key = 'account:' + name;
+    const now = Date.now();
+    if (attempts[key] && now - Number(attempts[key].lastAt || 0) > ADMIN_LOGIN_LOCK_WINDOW_MS) {
+      delete attempts[key];
+    }
+    if (attempts[key] && Number(attempts[key].count || 0) >= ADMIN_LOGIN_MAX_ATTEMPTS) {
+      return { status: 'error', message: 'ログイン失敗が続いたため、一時的に停止しています。10分後に再試行してください。' };
+    }
+
+    // 氏名は一意でないため、パスワードで絞り込む。
+    const store = readAccountRows_();
+    const hits = store.rows.filter(function (item) {
+      if (normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) !== name) return false;
+      const salt = String(item.values[USER_COL.PASSWORD_SALT - 1] || '');
+      const hash = String(item.values[USER_COL.PASSWORD_HASH - 1] || '');
+      if (!salt || !hash) return false;
+      return hashAccountPassword_(password, salt) === hash;
+    });
+
+    if (hits.length !== 1) {
+      const current = attempts[key] || { count: 0, firstAt: now };
+      current.count = Number(current.count || 0) + 1;
+      current.lastAt = now;
+      attempts[key] = current;
+      properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
+      // 該当が2件以上でも「違います」で統一する。存在を推測させないため。
+      return { status: 'error', message: 'お名前またはパスワードが違います。' };
+    }
+
+    delete attempts[key];
+    properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
+    return buildAccountSession_(hits[0].values);
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
 function requireAdminAccess_(action, params) {
   if (PUBLIC_ACTIONS[action]) return;
   if (!verifyAdminToken_(params && params.token)) {
@@ -2190,6 +2396,13 @@ function doPost(e) {
 
     if (type === 'adminLogin') {
       return createJsonResponse(adminLogin_(data));
+    }
+    // ログインの入口。ここを通らないと誰もトークンを得られないので公開する。
+    if (type === 'registerAccount') {
+      return createJsonResponse(registerAccount(data));
+    }
+    if (type === 'loginAccount') {
+      return createJsonResponse(loginAccount(data));
     }
     requireAdminAccess_(type, data);
 
