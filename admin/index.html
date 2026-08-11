@@ -11031,6 +11031,85 @@
       return API_POST_TIMEOUT_MS;
     }
 
+    // ===== 管理者ログイン =====
+    // このアプリは以前ログインが無く、URLを開いた誰もが全会員の情報を見られた。
+    // GAS側で認証を必須にしたため、ここでトークンを取得して毎回付与する。
+    const ADMIN_AUTH_TOKEN_KEY = 'mayumi_admin_auth_token';
+
+    function getAdminAuthToken() {
+      try { return localStorage.getItem(ADMIN_AUTH_TOKEN_KEY) || ''; } catch (e) { return ''; }
+    }
+
+    function setAdminAuthToken(token) {
+      try {
+        if (token) localStorage.setItem(ADMIN_AUTH_TOKEN_KEY, token);
+        else localStorage.removeItem(ADMIN_AUTH_TOKEN_KEY);
+      } catch (e) { /* プライベートモード等では保存できない */ }
+    }
+
+    function isAdminAuthError(json) {
+      const message = String((json && json.message) || '');
+      return message.indexOf('管理者ログインが必要です') >= 0 ||
+             message.indexOf('管理者認証が未設定') >= 0;
+    }
+
+    // トークンが無い／切れたときに出すログイン画面。
+    // 解決するまで待たせることで、後続の処理が壊れないようにする。
+    function showAdminLogin(note) {
+      const existing = document.getElementById('adminAuthOverlay');
+      if (existing) return existing.__promise;
+
+      const overlay = document.createElement('div');
+      overlay.id = 'adminAuthOverlay';
+      overlay.style.cssText =
+        'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;' +
+        'justify-content:center;z-index:99999;padding:20px;';
+      overlay.innerHTML =
+        '<form style="background:#fff;border-radius:14px;padding:24px;max-width:360px;width:100%;">' +
+        '<h2 style="margin:0 0 8px;font-size:18px;">管理者ログイン</h2>' +
+        '<p style="margin:0 0 16px;font-size:13px;color:#555;">' +
+        (note || 'パスワードを入力してください。') + '</p>' +
+        '<input type="password" id="adminAuthPassword" autocomplete="current-password" ' +
+        'style="width:100%;padding:12px;font-size:16px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;" />' +
+        '<p id="adminAuthError" style="color:#c0392b;font-size:13px;min-height:18px;margin:8px 0 0;"></p>' +
+        '<button type="submit" style="margin-top:8px;width:100%;padding:12px;font-size:16px;border:0;' +
+        'border-radius:8px;background:#5b8c5a;color:#fff;">ログイン</button>' +
+        '</form>';
+      document.body.appendChild(overlay);
+
+      overlay.__promise = new Promise((resolve) => {
+        const form = overlay.querySelector('form');
+        const errorEl = overlay.querySelector('#adminAuthError');
+        const input = overlay.querySelector('#adminAuthPassword');
+        input.focus();
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          errorEl.textContent = '';
+          try {
+            const res = await fetch(GAS_URL, {
+              method: 'POST',
+              redirect: 'follow',
+              headers: { 'Content-Type': 'text/plain' },
+              body: JSON.stringify({ type: 'adminLogin', password: input.value })
+            });
+            const json = await res.json();
+            if (json && json.status === 'ok' && json.token) {
+              setAdminAuthToken(json.token);
+              overlay.remove();
+              resolve(true);
+              return;
+            }
+            errorEl.textContent = (json && json.message) || 'ログインできませんでした。';
+          } catch (e) {
+            errorEl.textContent = '通信に失敗しました。';
+          }
+          input.value = '';
+          input.focus();
+        });
+      });
+      return overlay.__promise;
+    }
+
     async function apiRequest(action, data = null, isPost = false) {
       if (!GAS_URL) {
         showToast('⚙ 初期設定からGASのURLを設定してください');
@@ -11061,17 +11140,38 @@
             let options = { redirect: "follow" }; // GASのリダイレクト対応
             if (controller) options.signal = controller.signal;
 
+            const adminToken = getAdminAuthToken();
             if (isPost) {
               options.method = 'POST';
-              options.body = JSON.stringify(data);
+              options.body = JSON.stringify(Object.assign({}, data, { token: adminToken }));
               options.headers = { 'Content-Type': 'text/plain' }; // CORSエラー回避
             } else {
               url += '?action=' + action;
               if (data) url += '&data=' + encodeURIComponent(JSON.stringify(data));
+              if (adminToken) url += '&token=' + encodeURIComponent(adminToken);
             }
 
             const res = await fetch(url, options);
-            const json = await res.json();
+            let json = await res.json();
+
+            // トークンが無い／期限切れならログインしてもらい、一度だけやり直す。
+            if (isAdminAuthError(json)) {
+              setAdminAuthToken('');
+              await showAdminLogin('セッションが切れました。パスワードを入力してください。');
+              const retryToken = getAdminAuthToken();
+              let retryUrl = baseUrl;
+              const retryOptions = { redirect: 'follow' };
+              if (isPost) {
+                retryOptions.method = 'POST';
+                retryOptions.body = JSON.stringify(Object.assign({}, data, { token: retryToken }));
+                retryOptions.headers = { 'Content-Type': 'text/plain' };
+              } else {
+                retryUrl += '?action=' + action;
+                if (data) retryUrl += '&data=' + encodeURIComponent(JSON.stringify(data));
+                if (retryToken) retryUrl += '&token=' + encodeURIComponent(retryToken);
+              }
+              json = await (await fetch(retryUrl, retryOptions)).json();
+            }
             if (!isPost && json && json.status === 'ok') {
               writeAdminApiCache(action, data, json);
             }
