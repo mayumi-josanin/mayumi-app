@@ -2,6 +2,9 @@ window.MayumiSurveyApi = (() => {
   const API_BASE_STORAGE_KEY = "mayumi_bijiris_api_base";
   const GAS_URL_STORAGE_KEY = "mayumi_bijiris_gas_web_app_url";
   const CLIENT_ID_STORAGE_KEY = "mayumi_survey_client_id";
+  const CUSTOMER_TOKEN_STORAGE_KEY = "mayumi_bijiris_customer_token";
+  // このアクションはお客様トークンが必須。付け忘れを防ぐため jsonp で自動的に付ける。
+  const CUSTOMER_TOKEN_ACTIONS = ["history", "photoData"];
   const DEFAULT_PUBLIC_API_BASE = "https://mayumi-bijiris.onrender.com";
 
   function safeGetLocal(key) {
@@ -412,7 +415,33 @@ window.MayumiSurveyApi = (() => {
     };
   }
 
+  function getCustomerToken() {
+    return normalizeText(safeGetLocal(CUSTOMER_TOKEN_STORAGE_KEY));
+  }
+
+  function setCustomerToken(token) {
+    const value = normalizeText(token);
+    if (value) {
+      safeSetLocal(CUSTOMER_TOKEN_STORAGE_KEY, value);
+    } else {
+      try {
+        localStorage.removeItem(CUSTOMER_TOKEN_STORAGE_KEY);
+      } catch {
+        // プライベートモード等で localStorage が使えない場合は何もしない
+      }
+    }
+  }
+
+  function clearCustomerToken() {
+    setCustomerToken("");
+  }
+
   function jsonp(gasUrl, action, params = {}) {
+    // トークンが必要なアクションには、呼び出し側が忘れていても必ず付ける。
+    if (CUSTOMER_TOKEN_ACTIONS.indexOf(action) >= 0 && !normalizeText(params.token)) {
+      const customerToken = getCustomerToken();
+      if (customerToken) params = { ...params, token: customerToken };
+    }
     return new Promise((resolve, reject) => {
       const callbackName = `mayumiGasCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       const timeout = setTimeout(() => {
@@ -730,6 +759,31 @@ window.MayumiSurveyApi = (() => {
 
       if (path === "/api/health") {
         return jsonp(gasUrl, "health");
+      }
+
+      // 非公開の写真を認証付きで取り出す。options.query に fileId と
+      // 認証情報（管理者は token、お客様は name + nameKana）を入れる。
+      if (path === "/api/photo-data") {
+        return jsonp(gasUrl, "photoData", options.query || {});
+      }
+
+      if (path === "/api/customer/login") {
+        return jsonp(gasUrl, "customerLogin", options.query || {});
+      }
+
+      if (path === "/api/customer/recover") {
+        return jsonp(gasUrl, "customerRecover", options.query || {});
+      }
+
+      if (path === "/api/customer/set-passcode") {
+        return jsonp(gasUrl, "customerSetPasscode", options.query || {});
+      }
+
+      if (path === "/api/admin/passcode-setup") {
+        return jsonp(gasUrl, "adminAllowPasscodeSetup", {
+          token: options.token,
+          customerName: (options.query || {}).customerName,
+        });
       }
 
       if (path === "/api/public/surveys") {
@@ -1468,11 +1522,47 @@ window.MayumiSurveyApi = (() => {
     }
   }
 
+  // お客様のログイン。成功したらトークンを端末に保存し、以後の
+  // history / photoData に自動で付与される。
+  async function customerLogin({ name, nameKana, passcode }) {
+    const data = await request("/api/customer/login", {
+      query: { name, nameKana, passcode },
+    });
+    if (data && data.token) setCustomerToken(data.token);
+    return data;
+  }
+
+  // パスコードを忘れた場合のデータ復旧。まゆみ助産院の会員情報と照合し、
+  // 一致すれば新しいパスコードを設定してログイン状態にする。
+  async function customerRecover({ name, nameKana, birthday, newPasscode }) {
+    const data = await request("/api/customer/recover", {
+      query: { name, nameKana, birthday, newPasscode },
+    });
+    if (data && data.token) setCustomerToken(data.token);
+    return data;
+  }
+
+  // スタッフが受付で再設定を許可したお客様が、自分でパスコードを決めるための経路。
+  // 許可には期限があり、期限切れならサーバー側で弾かれる。
+  async function customerSetPasscode({ name, nameKana, newPasscode }) {
+    const data = await request("/api/customer/set-passcode", {
+      query: { name, nameKana, newPasscode },
+    });
+    if (data && data.token) setCustomerToken(data.token);
+    return data;
+  }
+
   return {
     request,
     logout,
     logError,
     mode: gasApi ? "gas" : "rest",
     getClientId,
+    customerLogin,
+    customerRecover,
+    customerSetPasscode,
+    getCustomerToken,
+    setCustomerToken,
+    clearCustomerToken,
   };
 })();

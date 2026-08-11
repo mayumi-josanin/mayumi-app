@@ -27,6 +27,7 @@
       <div class="header-actions">
         <button id="appUpdateButton" class="header-button" type="button">更新</button>
         <button id="installButton" class="header-button" type="button" hidden>追加</button>
+        <button id="logoutButton" class="header-button" type="button">ログアウト</button>
       </div>
     </header>
 
@@ -49,9 +50,54 @@
               フリガナ(カタカナ)
               <input name="nameKana" type="text" autocapitalize="characters" required />
             </label>
-            <button class="primary-button" type="submit" id="customerRegisterButton">会員登録する</button>
-            <button class="secondary-button" type="button" id="recoverAccountButton">登録済みの方 / 名前一致で復旧</button>
+            <label>
+              パスコード(4桁または6桁の数字)
+              <input
+                name="passcode"
+                type="password"
+                inputmode="numeric"
+                autocomplete="current-password"
+                placeholder="お持ちの方のみ"
+              />
+            </label>
+            <button class="primary-button" type="submit" id="customerRegisterButton">会員登録 / ログイン</button>
+            <button class="secondary-button" type="button" id="recoverAccountButton">パスコードを忘れた方・初めて設定する方</button>
           </form>
+
+          <div id="passcodeRecoveryPanel" hidden>
+            <h3>パスコードの設定・再設定</h3>
+            <p class="hint">
+              ご登録の会員情報と照合します。生年月日と、お名前またはフリガナが一致すると、
+              新しいパスコードを設定できます。<br />
+              照合できない場合は、受付でスタッフにお申し出ください。スタッフが再設定を許可すると、
+              生年月日なしでこの画面から設定できます。
+            </p>
+            <form id="passcodeRecoveryForm" class="form-grid">
+              <label>
+                お名前(漢字・フルネーム)
+                <input name="name" type="text" autocomplete="name" />
+              </label>
+              <label>
+                フリガナ(カタカナ)
+                <input name="nameKana" type="text" autocapitalize="characters" />
+              </label>
+              <label>
+                生年月日
+                <input name="birthday" type="date" />
+              </label>
+              <label>
+                新しいパスコード(4桁または6桁の数字)
+                <input
+                  name="newPasscode"
+                  type="password"
+                  inputmode="numeric"
+                  autocomplete="new-password"
+                  required
+                />
+              </label>
+              <button class="primary-button" type="submit">設定する</button>
+            </form>
+          </div>
         </section>
       </section>
 

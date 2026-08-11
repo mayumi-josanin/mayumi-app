@@ -47,8 +47,11 @@ var RESPONSE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 var RESPONSE_RESUBMIT_COOLDOWN_MS = 0; // 0 = 再送信クールダウン無効（いつでも再送信可）
 var TICKET_CARD_ACQUIRE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 var DUPLICATE_RESPONSE_WINDOW_MS = 10 * 60 * 1000;
-var LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
-var LOGIN_MAX_ATTEMPTS = 5;
+// 総当たり対策。ここを緩めすぎると、生年月日による復旧（候補は1〜2万通り）が
+// 機械的に破られる。10回/10分なら、全通り試すのに10日以上かかる計算。
+// 撤廃してはいけない。
+var LOGIN_LOCK_WINDOW_MS = 10 * 60 * 1000;
+var LOGIN_MAX_ATTEMPTS = 10;
 var MAX_LOG_ENTRIES = 200;
 var OTP_TTL_MS = 10 * 60 * 1000;
 
@@ -438,14 +441,21 @@ function handleGet_(e) {
   }
   if (action === "bijirisPosts") return { posts: getBijirisPosts_({ publishedOnly: true }) };
   if (action === "history") {
+    // お客様トークンの検証を必須にする。氏名を名乗るだけでは取得できない。
+    // 対象のお客様はトークンから決める（params.name は信用しない）ため、
+    // 他人の氏名を指定しても自分の履歴しか返らない。
+    var historyCustomerName = requireCustomer_(params.token);
     return getCustomerHistoryPayload_({
-      clientId: params.clientId,
-      customerName: params.name,
+      customerName: historyCustomerName,
       customerNameKana: params.nameKana,
-      matchByNameOnly: params.recoverByName === "1",
+      matchByNameOnly: true,
       includeTrashed: false,
     });
   }
+  if (action === "photoData") return getPhotoData_(params);
+  if (action === "customerLogin") return customerLogin_(params);
+  if (action === "customerRecover") return customerRecover_(params);
+  if (action === "customerSetPasscode") return customerSetPasscode_(params);
   if (action === "adminLogin") return adminLogin_(params.loginId, params.password);
   if (action === "adminVerifyOtp") return verifyAdminOtp_(params.sessionId, params.code);
 
@@ -458,6 +468,9 @@ function handleGet_(e) {
   if (action === "adminSurveys") return { surveys: getSurveys_() };
   if (action === "adminPreferences") return { preferences: getPreferences_() };
   if (action === "adminLogs") return getLogs_();
+  if (action === "adminAllowPasscodeSetup") {
+    return { setup: allowPasscodeSetup_(params.customerName) };
+  }
   if (action === "adminCustomerMemos") return { memos: getCustomerMemos_() };
   if (action === "adminResponses") return { responses: getResponses_({ includeTrashed: true }) };
   if (action === "adminMeasurements") return { measurements: getMeasurements_({}) };
@@ -1668,9 +1681,19 @@ function updateCustomerMemo_(customerName, memo, at) {
   return memos;
 }
 
+// 全角で入力された数字・小数点も受け付ける（「２２．５」を未記入扱いにしない）。
+function toHalfWidthNumberText_(value) {
+  return String(value)
+    .replace(/[０-９]/g, function (char) {
+      return String.fromCharCode(char.charCodeAt(0) - 0xfee0);
+    })
+    .replace(/[．。]/g, ".")
+    .replace(/[－ー−―‐]/g, "-");
+}
+
 function normalizeMeasurementValue_(value) {
   if (value === null || value === undefined || value === "") return "";
-  var normalized = String(value).replace(/[^\d.-]/g, "");
+  var normalized = toHalfWidthNumberText_(value).replace(/[^\d.-]/g, "");
   if (!normalized) return "";
   var parsed = Number(normalized);
   if (!isFinite(parsed)) return "";
@@ -1814,7 +1837,53 @@ function normalizeCustomerProfileRecord_(record, fallbackName) {
     pushStatus: normalizePushStatus_(record && record.pushStatus),
     rewardRedemptions: normalizeRewardRedemptions_(record && record.rewardRedemptions),
     adminManaged: record && record.adminManaged === true,
+    // パスコードは平文で持たない。ハッシュとソルトだけを保存するので、
+    // 管理者もスタッフも中身を読めない（忘れた場合は再設定してもらう）。
+    passcodeHash: normalizeText_(record && record.passcodeHash),
+    passcodeSalt: normalizeText_(record && record.passcodeSalt),
+    passcodeUpdatedAt: normalizeText_(record && record.passcodeUpdatedAt),
+    // スタッフが対面確認したときだけ立てる、期限つきの再設定許可。
+    passcodeSetupUntil: normalizeText_(record && record.passcodeSetupUntil),
     updatedAt: normalizeText_(record && record.updatedAt) || new Date().toISOString(),
+  };
+}
+
+// --------------------------------------------------------------------------
+// お客様のパスコード
+// --------------------------------------------------------------------------
+function isValidPasscodeFormat_(passcode) {
+  return /^(?:\d{4}|\d{6})$/.test(String(passcode || ""));
+}
+
+function makePasscodeSalt_() {
+  return Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
+}
+
+function hashPasscode_(passcode, salt) {
+  // ソルトに加えて TOKEN_SECRET も混ぜる。スプレッドシートやプロパティが
+  // 流出しても、署名鍵を知らなければ総当たりを組み立てにくくする。
+  var material = String(salt || "") + "|" + String(passcode || "") + "|" +
+    getConfig_("TOKEN_SECRET", DEFAULT_TOKEN_SECRET);
+  return Utilities.base64EncodeWebSafe(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, material, Utilities.Charset.UTF_8)
+  );
+}
+
+function verifyPasscode_(profile, passcode) {
+  if (!profile || !profile.passcodeHash || !profile.passcodeSalt) return false;
+  if (!isValidPasscodeFormat_(passcode)) return false;
+  return hashPasscode_(passcode, profile.passcodeSalt) === profile.passcodeHash;
+}
+
+function buildPasscodeFields_(passcode) {
+  if (!isValidPasscodeFormat_(passcode)) {
+    throw new Error("パスコードは4桁または6桁の数字で入力してください。");
+  }
+  var salt = makePasscodeSalt_();
+  return {
+    passcodeHash: hashPasscode_(passcode, salt),
+    passcodeSalt: salt,
+    passcodeUpdatedAt: new Date().toISOString(),
   };
 }
 
@@ -4826,6 +4895,401 @@ function updateAdminCredentials_(loginId, password) {
     ok: true,
     adminInfo: getAdminInfo_(),
   };
+}
+
+// --------------------------------------------------------------------------
+// お客様のログイン
+//
+// 管理者トークンは sign_("<ユーザー名>|<期限>") で署名している。お客様用も
+// 同じ材料で署名すると、お客様のトークンが管理者トークンとして通ってしまう。
+// 署名の材料に "customer" を混ぜ、種別も検証して相互に使えないようにする。
+// --------------------------------------------------------------------------
+var CUSTOMER_TOKEN_TTL_MS = 60 * 24 * 60 * 60 * 1000; // 60日（端末に記憶させる想定）
+
+function makeCustomerToken_(customerName, expiresAt) {
+  var name = normalizeText_(customerName);
+  return Utilities.base64EncodeWebSafe(JSON.stringify({
+    t: "customer",
+    u: name,
+    exp: expiresAt,
+    sig: sign_("customer|" + name + "|" + expiresAt),
+  }));
+}
+
+function verifyCustomerToken_(token) {
+  try {
+    var raw = Utilities.newBlob(Utilities.base64DecodeWebSafe(String(token || ""))).getDataAsString();
+    var payload = JSON.parse(raw);
+    if (payload.t !== "customer") return "";
+    if (!payload.u || !payload.exp || Number(payload.exp) < Date.now()) return "";
+    if (payload.sig !== sign_("customer|" + payload.u + "|" + payload.exp)) return "";
+    return normalizeText_(payload.u);
+  } catch (error) {
+    return "";
+  }
+}
+
+function requireCustomer_(token) {
+  var name = verifyCustomerToken_(token);
+  if (!name) throw new Error("お客様のログインが必要です。");
+  return name;
+}
+
+// 氏名とフリガナの「両方」の完全一致を必須とする。
+// findCustomerProfileByName_ は候補が1件ならフリガナ不一致でも返すため使わない。
+function findCustomerProfileStrict_(customerName, customerNameKana) {
+  var name = normalizeText_(customerName);
+  var kana = normalizeKana_(customerNameKana);
+  if (!name || !kana) return null;
+  var profiles = getCustomerProfiles_();
+  var matched = null;
+  Object.keys(profiles || {}).forEach(function (key) {
+    if (matched) return;
+    var profile = normalizeCustomerProfileRecord_(profiles[key], key);
+    if (!profile || profile.name !== name) return;
+    if (normalizeKana_(profile.nameKana) !== kana) return;
+    matched = profile;
+  });
+  return matched;
+}
+
+function customerLogin_(params) {
+  var name = normalizeText_(params && params.name);
+  var kana = normalizeKana_(params && params.nameKana);
+  var passcode = String((params && params.passcode) || "");
+  if (!name || !kana) throw new Error("お名前とフリガナを入力してください。");
+
+  // 総当たり対策。管理者ログインと同じ仕組みを、お客様ごとの鍵で使う。
+  var attemptKey = "customer:" + name;
+  ensureLoginAllowed_(attemptKey);
+
+  var profile = findCustomerProfileStrict_(name, kana);
+  if (!profile || !verifyPasscode_(profile, passcode)) {
+    recordLoginFailure_(attemptKey);
+    // どれが違うかは知らせない（総当たりの手がかりを与えないため）。
+    throw new Error("お名前・フリガナ・パスコードのいずれかが違います。");
+  }
+  clearLoginFailures_(attemptKey);
+
+  var expiresAt = Date.now() + CUSTOMER_TOKEN_TTL_MS;
+  appendAuditLog_("customer.login", { name: profile.name });
+  return {
+    token: makeCustomerToken_(profile.name, expiresAt),
+    expiresAt: new Date(expiresAt).toISOString(),
+    customerProfile: publicCustomerProfile_(profile),
+  };
+}
+
+function hasPasscode_(profile) {
+  return Boolean(profile && profile.passcodeHash && profile.passcodeSalt);
+}
+
+function setCustomerPasscode_(customerName, passcode) {
+  var fields = buildPasscodeFields_(passcode);
+  var target = normalizeText_(customerName);
+  var profiles = getCustomerProfiles_();
+  var key = "";
+  Object.keys(profiles || {}).forEach(function (candidate) {
+    if (key) return;
+    if (normalizeText_(profiles[candidate] && profiles[candidate].name) === target) key = candidate;
+  });
+  if (!key) throw new Error("お客様情報が見つかりませんでした。");
+
+  var merged = {};
+  Object.keys(profiles[key] || {}).forEach(function (field) { merged[field] = profiles[key][field]; });
+  Object.keys(fields).forEach(function (field) { merged[field] = fields[field]; });
+  merged.passcodeSetupUntil = ""; // 使い切りの許可なので、設定できたら必ず消す
+  merged.updatedAt = new Date().toISOString();
+
+  var next = normalizeCustomerProfileRecord_(merged, merged.name);
+  profiles[key] = next;
+  saveCustomerProfiles_(profiles);
+  return next;
+}
+
+// --------------------------------------------------------------------------
+// スタッフによるパスコードのリセット
+//
+// スタッフはパスコードを「読めない」が「再設定を許可できる」。
+// 許可の有効期間を短くしてあるので、お客様が受付にいる間だけ有効。
+// まゆみ助産院アプリに会員登録がなく、自力で復旧できない方のための経路。
+// --------------------------------------------------------------------------
+var PASSCODE_SETUP_WINDOW_MS = 30 * 60 * 1000; // 30分
+
+function allowPasscodeSetup_(customerName) {
+  var target = normalizeText_(customerName);
+  if (!target) throw new Error("お客様を指定してください。");
+  var profiles = getCustomerProfiles_();
+  var key = "";
+  Object.keys(profiles || {}).forEach(function (candidate) {
+    if (key) return;
+    if (normalizeText_(profiles[candidate] && profiles[candidate].name) === target) key = candidate;
+  });
+  if (!key) throw new Error("お客様が見つかりませんでした。");
+
+  var merged = {};
+  Object.keys(profiles[key] || {}).forEach(function (field) { merged[field] = profiles[key][field]; });
+  merged.passcodeHash = "";  // 今のパスコードは無効化する
+  merged.passcodeSalt = "";
+  merged.passcodeSetupUntil = new Date(Date.now() + PASSCODE_SETUP_WINDOW_MS).toISOString();
+  merged.updatedAt = new Date().toISOString();
+
+  var next = normalizeCustomerProfileRecord_(merged, merged.name);
+  profiles[key] = next;
+  saveCustomerProfiles_(profiles);
+  appendAuditLog_("customer.passcodeSetupAllowed", { name: next.name });
+  return { name: next.name, until: next.passcodeSetupUntil };
+}
+
+function customerSetPasscode_(params) {
+  var name = normalizeText_(params && params.name);
+  var kana = normalizeKana_(params && params.nameKana);
+  var newPasscode = String((params && params.newPasscode) || "");
+  if (!name || !kana) throw new Error("お名前とフリガナを入力してください。");
+  if (!isValidPasscodeFormat_(newPasscode)) {
+    throw new Error("パスコードは4桁または6桁の数字で入力してください。");
+  }
+
+  var attemptKey = "setup:" + name;
+  ensureLoginAllowed_(attemptKey);
+
+  var profile = findCustomerProfileStrict_(name, kana);
+  var until = profile ? Date.parse(profile.passcodeSetupUntil || "") : NaN;
+  if (!profile || isNaN(until) || until < Date.now()) {
+    recordLoginFailure_(attemptKey);
+    throw new Error("設定の許可がありません。受付にお申し出ください。");
+  }
+  clearLoginFailures_(attemptKey);
+
+  var saved = setCustomerPasscode_(profile.name, newPasscode);
+  appendAuditLog_("customer.passcodeSetupCompleted", { name: saved.name });
+
+  var expiresAt = Date.now() + CUSTOMER_TOKEN_TTL_MS;
+  return {
+    token: makeCustomerToken_(saved.name, expiresAt),
+    expiresAt: new Date(expiresAt).toISOString(),
+    customerProfile: publicCustomerProfile_(saved),
+  };
+}
+
+// --------------------------------------------------------------------------
+// パスコードの復旧（まゆみ助産院アプリの会員データと照合する）
+//
+// 照合ルールはまゆみ側の handleRecoverAccount() と揃えてある:
+//   「生年月日が一致」かつ「氏名またはフリガナのいずれかが一致」
+// 2つのアプリで結果が食い違うとお客様が混乱するため、意図的に同じにしている。
+// フリガナ側を OR にしているのは、フリガナ未登録の既存会員を締め出さないため。
+// --------------------------------------------------------------------------
+var MEMBER_SPREADSHEET_ID_PROPERTY_KEY = "MEMBER_SPREADSHEET_ID";
+var DEFAULT_MEMBER_SPREADSHEET_ID = "1gIcUGxg2PEuFoU5a_IgQ6lDWgghceJ7v2dgqo9iPe4w";
+var MEMBER_SHEET_NAME = "会員データ";
+var MEMBER_SOFT_DELETE_STATUS = "削除済み";
+
+function normalizeNameForMatch_(value) {
+  return String(value || "").trim().replace(/[\s　]+/g, "");
+}
+
+function normalizeKanaForMatch_(value) {
+  var text = String(value || "");
+  try { text = text.normalize("NFKC"); } catch (error) { /* 古い実行環境では素通り */ }
+  return text.replace(/[\s　]+/g, "");
+}
+
+function normalizeBirthdayForMatch_(value) {
+  if (!value) return "";
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  var text = String(value).trim();
+  if (!text) return "";
+  var matched = text.match(/^(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})$/);
+  if (matched) {
+    return matched[1] + "-" + ("0" + matched[2]).slice(-2) + "-" + ("0" + matched[3]).slice(-2);
+  }
+  var parsed = new Date(text);
+  if (isNaN(parsed.getTime())) return "";
+  return Utilities.formatDate(parsed, Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+
+function getMemberSheet_() {
+  var id = normalizeText_(getConfig_(MEMBER_SPREADSHEET_ID_PROPERTY_KEY, DEFAULT_MEMBER_SPREADSHEET_ID));
+  var book;
+  try {
+    book = SpreadsheetApp.openById(id);
+  } catch (error) {
+    throw new Error(
+      "会員データを参照できませんでした。まゆみ助産院アプリのスプレッドシート（" + id +
+      "）へのアクセス権を確認してください。"
+    );
+  }
+  var sheet = book.getSheetByName(MEMBER_SHEET_NAME);
+  if (!sheet) throw new Error("会員データのシート「" + MEMBER_SHEET_NAME + "」が見つかりません。");
+  return sheet;
+}
+
+// 列は見出しの名前で探す。まゆみ側が列を増減しても壊れないようにするため、
+// 「何列目か」を前提にしない。
+function findMemberMatches_(name, kana, birthday) {
+  var sheet = getMemberSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var values = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues();
+  var headers = values[0].map(function (cell) { return normalizeText_(cell); });
+  var nameIdx = headers.indexOf("氏名");
+  var kanaIdx = headers.indexOf("フリガナ");
+  var birthdayIdx = headers.indexOf("生年月日");
+  var deleteIdx = headers.indexOf("削除状態");
+  if (nameIdx < 0 || birthdayIdx < 0) {
+    throw new Error("会員データに「氏名」または「生年月日」の列が見つかりません。");
+  }
+
+  var matches = [];
+  for (var i = 1; i < values.length; i += 1) {
+    var row = values[i];
+    if (deleteIdx >= 0 && normalizeText_(row[deleteIdx]) === MEMBER_SOFT_DELETE_STATUS) continue;
+    if (normalizeBirthdayForMatch_(row[birthdayIdx]) !== birthday) continue; // 生年月日は必須条件
+    var rowName = normalizeNameForMatch_(row[nameIdx]);
+    var rowKana = kanaIdx >= 0 ? normalizeKanaForMatch_(row[kanaIdx]) : "";
+    var nameHit = Boolean(name) && rowName === name;
+    var kanaHit = Boolean(kana) && Boolean(rowKana) && rowKana === kana;
+    if (!nameHit && !kanaHit) continue;                                      // 氏名 or フリガナ
+    matches.push({
+      name: normalizeText_(row[nameIdx]),
+      kana: kanaIdx >= 0 ? normalizeText_(row[kanaIdx]) : "",
+    });
+  }
+  return matches;
+}
+
+function findBijirisProfileForMember_(member) {
+  var name = normalizeNameForMatch_(member && member.name);
+  var kana = normalizeKanaForMatch_(member && member.kana);
+  var profiles = getCustomerProfiles_();
+  var matched = null;
+  Object.keys(profiles || {}).forEach(function (key) {
+    if (matched) return;
+    var profile = normalizeCustomerProfileRecord_(profiles[key], key);
+    if (!profile) return;
+    if (name && normalizeNameForMatch_(profile.name) === name) { matched = profile; return; }
+    if (kana && normalizeKanaForMatch_(profile.nameKana) === kana) { matched = profile; }
+  });
+  return matched;
+}
+
+// 初回のパスコード設定も、この復旧と同じ入口を通す。
+// 「氏名とフリガナだけで設定できる」入口を作ると、早い者勝ちで他人の
+// アカウントを乗っ取れてしまうため、あえて経路を1本にしている。
+function customerRecover_(params) {
+  var name = normalizeNameForMatch_(params && params.name);
+  var kana = normalizeKanaForMatch_(params && params.nameKana);
+  var birthday = normalizeBirthdayForMatch_(params && params.birthday);
+  var newPasscode = String((params && params.newPasscode) || "");
+
+  if (!name && !kana) throw new Error("お名前またはフリガナを入力してください。");
+  if (!birthday) throw new Error("生年月日を入力してください。");
+  if (!isValidPasscodeFormat_(newPasscode)) {
+    throw new Error("新しいパスコードは4桁または6桁の数字で入力してください。");
+  }
+
+  // 生年月日は総当たりが可能な範囲なので、試行回数の制限は必須。
+  var attemptKey = "recover:" + (name || kana);
+  ensureLoginAllowed_(attemptKey);
+
+  var matches = findMemberMatches_(name, kana, birthday);
+  if (!matches.length) {
+    recordLoginFailure_(attemptKey);
+    appendErrorLog_("customerRecover", "会員データと一致しませんでした", { name: name, kana: kana });
+    throw new Error("ご登録の情報と一致しませんでした。院にお問い合わせください。");
+  }
+  if (matches.length > 1) {
+    // 同姓同名などで絞り切れないときは、勝手に選ばずに止める。
+    recordLoginFailure_(attemptKey);
+    throw new Error("複数の会員情報が該当しました。院にお問い合わせください。");
+  }
+
+  var profile = findBijirisProfileForMember_(matches[0]);
+  if (!profile) {
+    recordLoginFailure_(attemptKey);
+    throw new Error("ビジリスのご利用記録が見つかりませんでした。院にお問い合わせください。");
+  }
+
+  clearLoginFailures_(attemptKey);
+  var saved = setCustomerPasscode_(profile.name, newPasscode);
+  // 身に覚えのない復旧に気づけるよう、必ず記録を残す。
+  appendAuditLog_("customer.recover", {
+    name: saved.name,
+    matchedBy: name ? "氏名" : "フリガナ",
+  });
+
+  var expiresAt = Date.now() + CUSTOMER_TOKEN_TTL_MS;
+  return {
+    token: makeCustomerToken_(saved.name, expiresAt),
+    expiresAt: new Date(expiresAt).toISOString(),
+    customerProfile: publicCustomerProfile_(saved),
+  };
+}
+
+// --------------------------------------------------------------------------
+// 認証付きの写真配信
+//
+// 写真は Drive 上で非公開のまま保持し、この API を通してのみ取り出す。
+// Apps Script の Web アプリは画像バイナリを返せない（ContentService が
+// image/* を扱えない）ため、base64 で返し、呼び出し側で data: URL にする。
+// --------------------------------------------------------------------------
+function getPhotoData_(params) {
+  var fileId = normalizeText_(params && params.fileId);
+  if (!fileId) throw new Error("fileId が指定されていません。");
+
+  var token = normalizeText_(params && params.token);
+  var authorized = false;
+  if (verifyToken_(token)) {
+    authorized = true; // 管理者はすべての写真を参照できる
+  } else {
+    var customerName = verifyCustomerToken_(token);
+    authorized = Boolean(customerName) && customerOwnsPhoto_(customerName, fileId);
+  }
+
+  if (!authorized) throw new Error("この写真を閲覧する権限がありません。");
+
+  var blob = DriveApp.getFileById(fileId).getBlob();
+  var mimeType = normalizeText_(blob.getContentType()) || "image/jpeg";
+  if (mimeType.indexOf("image/") !== 0) throw new Error("画像ファイルではありません。");
+
+  return {
+    fileId: fileId,
+    mimeType: mimeType,
+    base64: Utilities.base64Encode(blob.getBytes()),
+  };
+}
+
+// 指定の写真が、そのお客様の回答に含まれているかを確認する。
+// 本人確認はお客様トークン（customerLogin_ が発行）で済んでいる前提。
+function customerOwnsPhoto_(customerName, fileId) {
+  var name = normalizeText_(customerName);
+  var targetFileId = normalizeText_(fileId);
+  if (!name || !targetFileId) return false;
+
+  var responses = getResponses_({ customerName: name, includeTrashed: true });
+  for (var i = 0; i < responses.length; i += 1) {
+    if (responseContainsFileId_(responses[i], targetFileId)) return true;
+  }
+  return false;
+}
+
+function responseContainsFileId_(response, fileId) {
+  if (!response) return false;
+  var lists = [];
+  if (Array.isArray(response.files)) lists.push(response.files);
+  (Array.isArray(response.answers) ? response.answers : []).forEach(function (answer) {
+    if (answer && Array.isArray(answer.files)) lists.push(answer.files);
+  });
+  for (var i = 0; i < lists.length; i += 1) {
+    for (var j = 0; j < lists[i].length; j += 1) {
+      var file = lists[i][j];
+      if (file && normalizeText_(file.fileId) === fileId) return true;
+    }
+  }
+  return false;
 }
 
 function requireAdmin_(token) {
