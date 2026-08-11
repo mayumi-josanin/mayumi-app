@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>まゆみ助産院 アンケート管理</title>
+    <meta name="theme-color" content="#5a7a4e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260729-03" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260729-03" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260729-03" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260729-03" />
+  </head>
+  <body>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <section id="loginView" class="login-view">
+      <form id="loginForm" class="login-card">
+        <img src="./icons/icon-192.png" alt="まゆみ助産院" />
+        <h1>管理者認証</h1>
+        <p>アンケート回答を確認・管理します。</p>
+        <label>
+          ログインID
+          <input name="loginId" type="text" autocomplete="username" required />
+        </label>
+        <label>
+          パスワード
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <button id="loginSubmitButton" class="primary-button" type="submit">ログイン</button>
+      </form>
+    </section>
+
+    <section id="adminView" class="admin-view" hidden>
+      <header>
+        <h1>まゆみ助産院 アンケート管理</h1>
+        <div class="header-actions">
+          <button id="appUpdateButton" class="header-button" type="button">アプリ更新</button>
+          <button id="installButton" class="header-button" type="button" hidden>追加</button>
+          <button id="refreshButton" class="header-button" type="button">更新</button>
+          <button id="logoutButton" class="header-button" type="button">ログアウト</button>
+        </div>
+      </header>
+
+      <div class="app-container">
+        <aside class="sidebar">
+          <button class="nav-item active" type="button" data-page="dashboard">📊 集計</button>
+          <button class="nav-item" type="button" data-page="gacha">🎁 特典</button>
+          <button class="nav-item" type="button" data-page="bijiris">💡 豆知識</button>
+          <button class="nav-item" type="button" data-page="surveys">📝 アンケート管理</button>
+          <button class="nav-item" type="button" data-page="customers">🧾 顧客管理</button>
+          <button class="nav-item" type="button" data-page="responses">👥 回答管理</button>
+          <button class="nav-item" type="button" data-page="ticket-survey">📸 回数券分析</button>
+          <button class="nav-item" type="button" data-page="settings">🔐 設定</button>
+          <button class="nav-item" type="button" data-page="install">📲 追加案内</button>
+        </aside>
+
+        <main class="main-content">
+          <section id="page-dashboard" class="page active">
+            <h2>集計</h2>
+            <div id="statsGrid" class="stats-grid"></div>
+            <div class="grid-two">
+              <section class="card">
+                <div class="card-title">最新の回答</div>
+                <div id="latestResponses" class="stack"></div>
+              </section>
+              <section class="card">
+                <div class="card-title">アンケート別回答数</div>
+                <div id="surveySummary" class="stack"></div>
+              </section>
+            </div>
+            <section class="card">
+              <div class="stage-head">
+                <div>
+                  <div class="card-title">質問別分析</div>
+                  <div class="meta">アンケートごとに回答傾向を確認できます。</div>
+                </div>
+                <label>
+                  アンケート
+                  <select id="analyticsSurveyFilter"></select>
+                </label>
+              </div>
+              <div id="surveyAnalytics" class="stack"></div>
+            </section>
+            <section class="card">
+              <div class="stage-head">
+                <div>
+                  <div class="card-title">月別回答件数</div>
+                  <div class="meta">アンケートごとの月別件数です。</div>
+                </div>
+              </div>
+              <div id="monthlySurveyChart" class="stack"></div>
+            </section>
+          </section>
+
+          <section id="page-gacha" class="page">
+            <h2>特典管理</h2>
+            <section id="milestoneRewardManagerStage" class="card response-stage"></section>
+          </section>
+
+          <section id="page-surveys" class="page">
+            <h2>アンケート管理</h2>
+            <div class="survey-manager-grid bijiris-manager-grid">
+              <section class="card">
+                <div class="stage-head">
+                  <div>
+                    <div class="card-title">アンケート一覧</div>
+                    <div class="meta">新規作成、編集、削除ができます。</div>
+                  </div>
+                  <button id="createSurveyButton" class="primary-button" type="button">新規作成</button>
+                </div>
+                <div id="surveyManagerList" class="survey-manager-list"></div>
+              </section>
+
+              <section class="card">
+                <div id="surveyEditorCard"></div>
+              </section>
+            </div>
+          </section>
+
+          <section id="page-bijiris" class="page">
+            <h2>豆知識管理</h2>
+            <div class="survey-manager-grid bijiris-manager-grid">
+              <section id="bijirisListSection" class="card">
+                <div class="stage-head">
+                  <div>
+                    <div id="bijirisStageTitle" class="card-title">投稿一覧</div>
+                    <div class="meta">顧客アプリに表示する豆知識、アドバイス、PDF資料を管理します。</div>
+                  </div>
+                  <div class="action-row">
+                    <button id="openBijirisCategorySettingsButton" class="secondary-button" type="button">カテゴリ設定</button>
+                    <button id="createBijirisPostButton" class="primary-button" type="button">新規作成</button>
+                  </div>
+                </div>
+                <div id="bijirisPostList" class="survey-manager-list"></div>
+              </section>
+
+              <section id="bijirisEditorSection" class="card">
+                <div id="bijirisEditorCard"></div>
+              </section>
+            </div>
+          </section>
+
+          <section id="page-responses" class="page">
+            <h2>回答管理</h2>
+            <div class="card">
+              <div class="filter-grid">
+                <label>
+                  アンケート
+                  <select id="surveyFilter"></select>
+                </label>
+                <label>
+                  対応状況
+                  <select id="statusFilter">
+                    <option value="">すべて</option>
+                    <option value="new">未対応</option>
+                    <option value="checked">確認済み</option>
+                    <option value="done">対応済み</option>
+                    <option value="trash">ゴミ箱</option>
+                  </select>
+                </label>
+                <label>
+                  検索
+                  <input id="keywordFilter" type="search" placeholder="会員番号・氏名・アンケート・回答内容" />
+                </label>
+                <label>
+                  会員番号
+                  <input id="memberNumberFilter" type="search" placeholder="会員番号で絞り込み" />
+                </label>
+                <label>
+                  フリガナ
+                  <input id="nameKanaFilter" type="search" placeholder="カタカナで絞り込み" />
+                </label>
+                <label>
+                  管理メモ
+                  <select id="memoPresenceFilter">
+                    <option value="">すべて</option>
+                    <option value="with">メモあり</option>
+                    <option value="without">メモなし</option>
+                  </select>
+                </label>
+                <label>
+                  お悩みカテゴリ
+                  <select id="concernCategoryFilter"></select>
+                </label>
+                <label>
+                  回数券
+                  <select id="ticketPlanFilter"></select>
+                </label>
+                <label>
+                  何枚目
+                  <select id="ticketSheetFilter"></select>
+                </label>
+                <label>
+                  何回目
+                  <select id="ticketRoundFilter"></select>
+                </label>
+                <label>
+                  写真
+                  <select id="photoFilter">
+                    <option value="">すべて</option>
+                    <option value="with">写真あり</option>
+                    <option value="without">写真なし</option>
+                  </select>
+                </label>
+                <label>
+                  写真枚数
+                  <select id="photoCountFilter">
+                    <option value="">すべて</option>
+                    <option value="1-2">1-2枚</option>
+                    <option value="3-4">3-4枚</option>
+                    <option value="5plus">5枚以上</option>
+                  </select>
+                </label>
+                <label>
+                  開始日
+                  <input id="dateFromFilter" type="date" />
+                </label>
+                <label>
+                  終了日
+                  <input id="dateToFilter" type="date" />
+                </label>
+                <button id="onlyUnreadButton" class="secondary-button" type="button">未対応のみ</button>
+                <button id="exportCsvButton" class="secondary-button" type="button">CSV出力</button>
+                <button id="exportPdfButton" class="secondary-button" type="button">PDF出力</button>
+              </div>
+            </div>
+            <section id="responseStage" class="card response-stage"></section>
+          </section>
+
+          <section id="page-customers" class="page">
+            <h2>顧客管理</h2>
+            <div class="card">
+              <div class="filter-grid">
+                <label>
+                  検索
+                  <input id="customerKeywordFilter" type="search" placeholder="会員番号・氏名・フリガナ" />
+                </label>
+                <label>
+                  回数券
+                  <select id="customerTicketPlanFilter">
+                    <option value="">すべて</option>
+                    <option value="6回券">6回券</option>
+                    <option value="10回券">10回券</option>
+                  </select>
+                </label>
+                <label>
+                  回答状態
+                  <select id="customerResponseStateFilter">
+                    <option value="">すべて</option>
+                    <option value="with">回答あり</option>
+                    <option value="without">回答なし</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <section id="customerManagementStage" class="card response-stage"></section>
+          </section>
+
+          <section id="page-ticket-survey" class="page">
+            <h2>回数券終了アンケート 写真分析</h2>
+            <section class="card">
+              <div class="stage-head">
+                <div>
+                  <div class="card-title">自動処理</div>
+                  <div id="ticketSurveyAutoMeta" class="meta"></div>
+                </div>
+                <label class="milestone-enabled-toggle">
+                  <input type="checkbox" id="ticketSurveyAutoToggle" />
+                  自動で取り込み・分析する
+                </label>
+              </div>
+              <div id="ticketSurveyAutoStatus" class="stack"></div>
+            </section>
+
+            <section class="card">
+              <div class="stage-head">
+                <div>
+                  <div class="card-title">モニター基準画像の一括取り込み（初回のみ）</div>
+                  <div id="ticketSurveySeedMeta" class="meta"></div>
+                </div>
+                <button id="ticketSurveySeedButton" class="primary-button" type="button">モニター画像を一括取り込み</button>
+              </div>
+              <div id="ticketSurveySeedStatus" class="stack"></div>
+            </section>
+
+            <section class="card">
+              <div class="stage-head">
+                <div>
+                  <div class="card-title">分析の設定</div>
+                  <div id="ticketSurveyModelMeta" class="meta"></div>
+                </div>
+                <button id="ticketSurveyPromptResetButton" class="secondary-button" type="button">初期値に戻す</button>
+              </div>
+              <form id="ticketSurveyPromptForm" class="stack">
+                <label>
+                  分析プロンプト（この指示文をもとに写真を比較します）
+                  <textarea id="ticketSurveyPromptInput" rows="14"></textarea>
+                </label>
+                <button class="primary-button" type="submit">プロンプトを保存</button>
+              </form>
+              <form id="ticketSurveyApiKeyForm" class="stack">
+                <label>
+                  Claude API キー
+                  <input id="ticketSurveyApiKeyInput" type="password" autocomplete="off" placeholder="sk-ant-..." />
+                </label>
+                <div id="ticketSurveyApiKeyStatus" class="meta"></div>
+                <button class="secondary-button" type="submit">API キーを保存</button>
+              </form>
+            </section>
+
+            <div class="card">
+              <div class="filter-grid">
+                <label>
+                  検索
+                  <input id="ticketSurveyKeywordFilter" type="search" placeholder="お名前で絞り込み" />
+                </label>
+                <label>
+                  分析状態
+                  <select id="ticketSurveyStatusFilter">
+                    <option value="">すべて</option>
+                    <option value="none">分析待ち</option>
+                    <option value="pending">分析中です</option>
+                    <option value="running">分析中です</option>
+                    <option value="done">分析完了</option>
+                    <option value="error">分析エラー</option>
+                  </select>
+                </label>
+                <button id="ticketSurveyAnalyzeAllButton" class="secondary-button" type="button">未分析をまとめて分析</button>
+              </div>
+            </div>
+
+            <section id="ticketSurveyStage" class="card response-stage"></section>
+          </section>
+
+          <section id="page-settings" class="page">
+            <h2>設定</h2>
+            <div class="grid-two settings-grid">
+              <section class="card">
+                <div class="card-title">管理者ログイン</div>
+                <p>ログインIDは現在値を読み込みます。パスワードは入力した場合のみ更新します。</p>
+                <form id="credentialForm" class="stack">
+                  <label>
+                    ログインID
+                    <input name="loginId" type="text" autocomplete="username" required />
+                  </label>
+                  <label>
+                    新しいパスワード
+                    <input
+                      name="password"
+                      type="password"
+                      autocomplete="new-password"
+                      placeholder="変更時のみ入力"
+                    />
+                  </label>
+                  <button class="primary-button" type="submit">保存</button>
+                </form>
+                <div id="credentialInfo" class="url-box"></div>
+              </section>
+
+              <section class="card">
+                <div class="card-title">保存先情報</div>
+                <div id="storageInfo" class="stack"></div>
+                <div id="versionInfo" class="stack"></div>
+              </section>
+            </div>
+            <div class="grid-two settings-grid">
+              <section class="card">
+                <div class="card-title">管理者アカウント一覧</div>
+                <div id="adminUsersCard"></div>
+              </section>
+              <section class="card">
+                <div class="card-title">豆知識通知設定</div>
+                <div id="pushStatusInfo" class="stack"></div>
+              </section>
+              <section class="card">
+                <div class="card-title">通知・データ方針</div>
+                <div id="preferencesCard"></div>
+              </section>
+              <section class="card">
+                <div class="card-title">バックアップ / 復元</div>
+                <div class="stack">
+                  <div id="backupMetaInfo" class="stack"></div>
+                  <button id="backupExportButton" class="secondary-button" type="button">バックアップを保存</button>
+                  <button id="runMaintenanceButton" class="secondary-button" type="button">定期メンテナンスを実行</button>
+                  <label>
+                    復元ファイル
+                    <input id="backupImportInput" type="file" accept="application/json" />
+                  </label>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section id="page-install" class="page">
+            <h2>管理アプリをホーム画面に追加</h2>
+            <div class="card">
+              <p>この管理画面もホーム画面へ追加できます。管理者の MacBook やスマホだけで使ってください。</p>
+              <div class="url-box" id="adminUrlBox"></div>
+              <ol>
+                <li>Safari または Chrome で管理アプリを開きます。</li>
+                <li>共有メニュー、またはブラウザメニューからホーム画面に追加します。</li>
+                <li>追加後はアイコンから管理画面を直接開けます。</li>
+              </ol>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <nav class="bottom-nav" aria-label="管理アプリメニュー">
+        <button class="bottom-nav-item active" type="button" data-page="dashboard">📊<span>集計</span></button>
+        <button class="bottom-nav-item" type="button" data-page="gacha">🎁<span>特典</span></button>
+        <button class="bottom-nav-item" type="button" data-page="bijiris">💡<span>豆知識</span></button>
+        <button class="bottom-nav-item" type="button" data-page="surveys">📝<span>アンケート</span></button>
+        <button class="bottom-nav-item" type="button" data-page="customers">🧾<span>顧客</span></button>
+        <button class="bottom-nav-item" type="button" data-page="responses">👥<span>回答</span></button>
+        <button class="bottom-nav-item" type="button" data-page="ticket-survey">📸<span>回数券分析</span></button>
+        <button class="bottom-nav-item" type="button" data-page="settings">🔐<span>設定</span></button>
+        <button class="bottom-nav-item" type="button" data-page="install">📲<span>追加</span></button>
+      </nav>
+    </section>
+
+    <div id="lightboxModal" class="lightbox-modal" hidden>
+      <div class="lightbox-dialog">
+        <button class="ghost-button lightbox-close" type="button" data-close-lightbox>閉じる</button>
+        <img src="" alt="拡大画像" />
+        <div class="lightbox-caption"></div>
+      </div>
+    </div>
+
+    <div id="confirmModal" class="confirm-modal" hidden>
+      <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle">
+        <div id="confirmDialogTitle" class="card-title">確認</div>
+        <div id="confirmDialogMessage" class="confirm-message"></div>
+        <div class="confirm-actions">
+          <button id="confirmDialogCancel" class="secondary-button" type="button">キャンセル</button>
+          <button id="confirmDialogConfirm" class="primary-button danger-button" type="button">実行する</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="measurementPhotoModal" class="confirm-modal" hidden>
+      <div class="measurement-photo-dialog" role="dialog" aria-modal="true" aria-labelledby="measurementPhotoDialogTitle">
+        <div class="stage-head">
+          <div>
+            <div id="measurementPhotoDialogTitle" class="card-title">計測写真</div>
+            <div id="measurementPhotoDialogMeta" class="meta"></div>
+          </div>
+          <button class="secondary-button" type="button" data-close-measurement-photo>閉じる</button>
+        </div>
+        <div id="measurementPhotoDialogBody" class="measurement-photo-dialog-body"></div>
+      </div>
+    </div>
+
+    <script src="../default-surveys.js?v=20260729-03"></script>
+    <script src="../shared/gas-config.js?v=20260417-12"></script>
+    <script src="../shared/api.js?v=20260729-03"></script>
+    <script src="./app.js?v=20260729-03"></script>
+  </body>
+</html>
