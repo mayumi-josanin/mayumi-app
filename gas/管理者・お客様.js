@@ -2038,6 +2038,31 @@ function adminLogin_(data) {
 // ==========================================================================
 const ACCOUNT_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30日
 
+// 会員はもともと「パスコード（数字4桁または6桁）」を持っている。
+// 新しくパスワードを覚えていただくのではなく、これをそのままログインに使う。
+function normalizePasscodeValue_(value) {
+  return String(value == null ? '' : value).replace(/[^0-9]/g, '');
+}
+
+function isValidPasscodeValue_(value) {
+  const digits = normalizePasscodeValue_(value);
+  return digits.length === 4 || digits.length === 6;
+}
+
+// 行に記録されたパスコードと一致するか。
+// 先頭の 0 が数値として保存されて消えることがあるため、桁を揃えてから比べる。
+function matchesRowPasscode_(row, passcode) {
+  const input = normalizePasscodeValue_(passcode);
+  if (!input) return false;
+  const stored = normalizePasscodeValue_(row[USER_COL.PASSCODE - 1]);
+  if (!stored) return false;
+  if (stored === input) return true;
+  if (stored.length < input.length) {
+    return stored.padStart(input.length, '0') === input;
+  }
+  return false;
+}
+
 function makeAccountSalt_() {
   return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
 }
@@ -2095,8 +2120,10 @@ function buildAccountSession_(row) {
     name: String(row[USER_COL.NAME - 1] || ''),
     // ビジリスの登録有無で、アプリ一覧に出すかどうかが決まる。
     bijiris: String(row[USER_COL.BIJIRIS - 1] || '').trim() === ACCOUNT_BIJIRIS_REGISTERED,
-    // 管理者には既存形式の管理者トークンを返す。管理アプリを変えずに済む。
-    token: isAdmin ? makeAdminToken_(expiresAt) : makeMemberToken_(memberId, expiresAt),
+    // 管理者でも、ここでは管理者トークンを渡さない。
+    // ログインはパスコード（数字4桁または6桁）なので、これだけで全会員の情報が
+    // 開くのは危うい。管理アプリ側で管理者パスワードをもう一度確かめてもらう。
+    token: makeMemberToken_(memberId, expiresAt),
     expiresAt: new Date(expiresAt).toISOString()
   };
 }
@@ -2119,14 +2146,15 @@ function registerAccount(data) {
     const birthday = normalizeDateOnlyValue_(data && data.birthday);
     const phone = String((data && data.phone) || '').trim();
     const address = String((data && data.address) || '').trim();
-    const password = String((data && data.password) || '');
+    const passcode = normalizePasscodeValue_((data && (data.passcode || data.password)) || '');
 
+    // 氏名・生年月日・パスコードは、既存の方も新しい方も必ず要る。
+    // フリガナ・電話・住所は、記録がまだ無い方にだけ求める（下で確かめる）。
     if (!name) return { status: 'error', message: 'お名前を入力してください。' };
-    if (!kana) return { status: 'error', message: 'フリガナを入力してください。' };
     if (!birthday) return { status: 'error', message: '生年月日を入力してください。' };
-    if (!phone) return { status: 'error', message: '電話番号を入力してください。' };
-    if (!address) return { status: 'error', message: 'ご住所を入力してください。' };
-    if (password.length < 8) return { status: 'error', message: 'パスワードは8文字以上にしてください。' };
+    if (!isValidPasscodeValue_(passcode)) {
+      return { status: 'error', message: 'パスコードは数字4桁または6桁で入力してください。' };
+    }
 
     const store = readAccountRows_();
 
@@ -2139,25 +2167,29 @@ function registerAccount(data) {
       return { status: 'error', message: '同じお名前と生年月日の登録が複数あります。受付にお申し出ください。' };
     }
 
-    const salt = makeAccountSalt_();
-    const hash = hashAccountPassword_(password, salt);
     const timestamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/M/d H:mm');
 
     if (matched.length === 1) {
       const target = matched[0];
-      if (String(target.values[USER_COL.PASSWORD_HASH - 1] || '').trim()) {
-        return { status: 'error', message: 'すでに登録済みです。ログインしてください。' };
+      // すでにパスコードをお持ちの方は、登録ではなくログインしていただく。
+      if (normalizePasscodeValue_(target.values[USER_COL.PASSCODE - 1])) {
+        return { status: 'error', message: 'すでに登録済みです。パスコードでログインしてください。' };
       }
+      // すでにある記録には触らない。空いている欄だけ、入力があれば埋める。
       const row = target.values.slice();
-      row[USER_COL.KANA - 1] = kana;
-      row[USER_COL.PHONE - 1] = phone;
-      row[USER_COL.ADDRESS - 1] = address;
-      row[USER_COL.PASSWORD_HASH - 1] = hash;
-      row[USER_COL.PASSWORD_SALT - 1] = salt;
+      if (kana && !String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = kana;
+      if (phone && !String(row[USER_COL.PHONE - 1] || '').trim()) row[USER_COL.PHONE - 1] = phone;
+      if (address && !String(row[USER_COL.ADDRESS - 1] || '').trim()) row[USER_COL.ADDRESS - 1] = address;
+      row[USER_COL.PASSCODE - 1] = passcode;
       store.sheet.getRange(target.rowIdx, 1, 1, USER_HEADERS.length).setValues([row]);
       touchLastOnline_(store.sheet, target.rowIdx);
       return buildAccountSession_(row);
     }
+
+    // ここから先は記録が見つからなかった方。連絡先まで揃えていただく。
+    if (!kana) return { status: 'error', message: 'フリガナを入力してください。' };
+    if (!phone) return { status: 'error', message: '電話番号を入力してください。' };
+    if (!address) return { status: 'error', message: 'ご住所を入力してください。' };
 
     // 新規。会員番号は既存と衝突しないものを採番する。
     const used = {};
@@ -2177,8 +2209,7 @@ function registerAccount(data) {
     row[USER_COL.PHONE - 1] = phone;
     row[USER_COL.BIRTHDAY - 1] = birthday;
     row[USER_COL.ADDRESS - 1] = address;
-    row[USER_COL.PASSWORD_HASH - 1] = hash;
-    row[USER_COL.PASSWORD_SALT - 1] = salt;
+    row[USER_COL.PASSCODE - 1] = passcode;
     row[USER_COL.DEVICE_SESSIONS - 1] = '[]';
     setUserRegistrationSource_(row, '新規登録', 'ランチャー', timestamp);
     store.sheet.appendRow(row);
@@ -2192,9 +2223,10 @@ function registerAccount(data) {
 function loginAccount(data) {
   try {
     const name = normalizeNameForMatch_(data && data.name);
-    const password = String((data && data.password) || '');
-    if (!name || !password) {
-      return { status: 'error', message: 'お名前とパスワードを入力してください。' };
+    // 入口の入力欄はパスコードに統一した。古い呼び出しのために password も受ける。
+    const passcode = String((data && (data.passcode || data.password)) || '');
+    if (!name || !passcode) {
+      return { status: 'error', message: 'お名前とパスコードを入力してください。' };
     }
 
     // 総当たり対策。管理者ログインと同じ入れ物を使う。
@@ -2213,10 +2245,12 @@ function loginAccount(data) {
     const store = readAccountRows_();
     const hits = store.rows.filter(function (item) {
       if (normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) !== name) return false;
+      if (matchesRowPasscode_(item.values, passcode)) return true;
+      // 以前パスワードで登録した方も、そのまま入れるようにしておく。
       const salt = String(item.values[USER_COL.PASSWORD_SALT - 1] || '');
       const hash = String(item.values[USER_COL.PASSWORD_HASH - 1] || '');
       if (!salt || !hash) return false;
-      return hashAccountPassword_(password, salt) === hash;
+      return hashAccountPassword_(passcode, salt) === hash;
     });
 
     if (hits.length !== 1) {
@@ -2226,7 +2260,7 @@ function loginAccount(data) {
       attempts[key] = current;
       properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
       // 該当が2件以上でも「違います」で統一する。存在を推測させないため。
-      return { status: 'error', message: 'お名前またはパスワードが違います。' };
+      return { status: 'error', message: 'お名前またはパスコードが違います。' };
     }
 
     delete attempts[key];
@@ -2245,21 +2279,22 @@ function registerBijirisUse(data) {
   try {
     const name = normalizeNameForMatch_(data && data.name);
     const kana = String((data && data.kana) || '').trim();
-    const password = String((data && data.password) || '');
-    if (!name || !kana || !password) {
-      return { status: 'error', message: 'お名前・フリガナ・パスワードを入力してください。' };
+    const passcode = String((data && (data.passcode || data.password)) || '');
+    if (!name || !kana || !passcode) {
+      return { status: 'error', message: 'お名前・フリガナ・パスコードを入力してください。' };
     }
 
     const store = readAccountRows_();
     const hits = store.rows.filter(function (item) {
       if (normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) !== name) return false;
+      if (matchesRowPasscode_(item.values, passcode)) return true;
       const salt = String(item.values[USER_COL.PASSWORD_SALT - 1] || '');
       const hash = String(item.values[USER_COL.PASSWORD_HASH - 1] || '');
       if (!salt || !hash) return false;
-      return hashAccountPassword_(password, salt) === hash;
+      return hashAccountPassword_(passcode, salt) === hash;
     });
     if (hits.length !== 1) {
-      return { status: 'error', message: 'お名前またはパスワードが違います。' };
+      return { status: 'error', message: 'お名前またはパスコードが違います。' };
     }
 
     const target = hits[0];
