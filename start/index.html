@@ -187,6 +187,10 @@
   var ADMIN_TOKEN_KEY = 'mayumi_admin_auth_token';
   var MEMBER_TOKEN_KEY = 'mayumi_member_auth_token';
   var SESSION_KEY = 'mayumi_launcher_session';
+  // ビジリス管理アプリが読みに来るキー。ビジリスのGASが発行したトークンを置く。
+  var BIJIRIS_ADMIN_TOKEN_KEY = 'mayumi_survey_admin_token';
+  var BIJIRIS_ADMIN_EXPIRES_KEY = 'mayumi_survey_admin_token_expires';
+  var BIJIRIS_GAS = 'https://script.google.com/macros/s/AKfycbyZfGreoBxYYaB5i0NX1Hw_9eAMD5Q1YTfzKORYyLc2-TQt6R6xblkUNyW8SlEih4QW/exec';
 
   // ビジリスは同じリポジトリの bijiris/ に入っているので相対パスで指す。
   // こうしておくと、確認用サーバーでも公開先でも同じリンクで通る。
@@ -217,6 +221,66 @@
     $('loginForm').hidden = isRegister;
   }
 
+  // ビジリス管理のトークンは8時間で切れる。期限が近ければ取り直してから開く。
+  // 取り直しはビジリスのGASに直接お願いする。あちらがまゆみに
+  // 「このトークンは有効か」を確かめてから発行する仕組み。
+  function bijirisTokenIsFresh() {
+    var token = read(BIJIRIS_ADMIN_TOKEN_KEY);
+    if (!token) return false;
+    var until = Number(read(BIJIRIS_ADMIN_EXPIRES_KEY) || 0);
+    // 残り10分を切っていたら取り直す
+    return until > Date.now() + 10 * 60 * 1000;
+  }
+
+  function fetchBijirisAdminToken() {
+    var mayumiToken = read(ADMIN_TOKEN_KEY);
+    if (!mayumiToken) {
+      return Promise.reject(new Error('管理者としてログインし直してください。'));
+    }
+    return fetch(BIJIRIS_GAS, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'adminLoginWithMayumi', mayumiToken: mayumiToken })
+    })
+      .then(function (res) { return res.text(); })
+      .then(function (text) {
+        var json;
+        try {
+          json = JSON.parse(text);
+        } catch (e) {
+          throw new Error('ビジリスからの応答を読み取れませんでした。');
+        }
+        if (!json || !json.token) {
+          throw new Error(String((json && json.error) || 'トークンを受け取れませんでした。'));
+        }
+        store(BIJIRIS_ADMIN_TOKEN_KEY, json.token);
+        store(BIJIRIS_ADMIN_EXPIRES_KEY, String(Date.parse(json.expiresAt) || 0));
+      });
+  }
+
+  function bindBijirisAdminLink() {
+    var link = document.querySelector('a.app[data-app="bijirisAdmin"]');
+    if (!link) return;
+    link.addEventListener('click', function (event) {
+      if (bijirisTokenIsFresh()) return;   // そのまま開く
+      event.preventDefault();
+      var name = link.querySelector('.name');
+      var label = name.textContent;
+      name.textContent = '準備しています…';
+      var failed = '';
+      fetchBijirisAdminToken()
+        .catch(function (error) { failed = (error && error.message) || '取得に失敗しました。'; })
+        .then(function () {
+          name.textContent = label;
+          if (failed) {
+            $('appsNote').textContent = 'ビジリス管理の自動ログインに失敗しました：' + failed;
+          }
+          location.href = link.getAttribute('href');
+        });
+    });
+  }
+
   function renderApps(session) {
     $('loginView').hidden = true;
     $('appsView').hidden = false;
@@ -231,11 +295,12 @@
     var html = '';
     keys.forEach(function (key) {
       var app = APPS[key];
-      html += '<a class="app" href="' + app.url + '">' +
+      html += '<a class="app" href="' + app.url + '" data-app="' + key + '">' +
               '<div class="name">' + app.name + '</div>' +
               '<div class="desc">' + app.desc + '</div></a>';
     });
     $('appList').innerHTML = html;
+    bindBijirisAdminLink();
 
     // 未登録の一般会員にだけ、ビジリスの初回登録を出す。
     var needsBijiris = session.role !== 'admin' && !session.bijiris;
@@ -254,6 +319,9 @@
     store(ADMIN_TOKEN_KEY, '');
     store(MEMBER_TOKEN_KEY, '');
     store(SESSION_KEY, '');
+    // ビジリス管理のトークンも一緒に手放す。残すと次の人がそのまま入れてしまう。
+    store(BIJIRIS_ADMIN_TOKEN_KEY, '');
+    store(BIJIRIS_ADMIN_EXPIRES_KEY, '');
     $('appsView').hidden = true;
     $('loginView').hidden = false;
     $('loginError').textContent = '';

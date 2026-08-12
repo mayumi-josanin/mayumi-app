@@ -256,6 +256,13 @@ const MUTATING_GET_ACTIONS = {
   confirmReceipt: true
 };
 
+// キャッシュに載せてはいけないもの。
+// キャッシュの鍵は data だけで作られ token を見ないため、
+// トークンごとに違うはずの答えが使い回されてしまう。
+const NEVER_CACHE_ACTIONS = {
+  checkAdminToken: true
+};
+
 const NON_INVALIDATING_POST_TYPES = {
   askSupportChat: true,
   uploadImage: true,
@@ -1891,6 +1898,9 @@ const ADMIN_LOGIN_LOCK_WINDOW_MS = 10 * 60 * 1000;
 // お客様アプリが実際に呼んでいるアクション（app.js から抽出）。
 // ここに載っていないものは全て管理者専用として扱う。
 const PUBLIC_ACTIONS = {
+  // ビジリスのGASが、こちらのトークンの有効性を確かめに来る窓口。
+  // 有効か否かしか返さないので、公開しても手がかりにならない。
+  checkAdminToken: true,
   // 公開コンテンツ
   getNews: true, getProducts: true, getCalendar: true, getMenus: true,
   getCategories: true, getInitialData: true, getSupportFaq: true,
@@ -2123,6 +2133,22 @@ function readAccountRows_() {
   return { sheet: sheet, rows: rows };
 }
 
+// ビジリスは別のGASで動いており、トークンの署名鍵もこちらとは違う。
+// そのため向こうはこちらのトークンを検証できない。代わりに「このトークンは
+// 有効か」だけを答える窓口を用意し、ビジリス側から確かめてもらう。
+//
+// パスワードをどこにも複製しないための作り。
+// 答えるのは有効か否かだけで、誰のものかも、何ができるかも返さない。
+// トークンを持っていない相手には何の手がかりにもならない。
+function checkAdminToken(params) {
+  try {
+    const token = String((params && params.token) || '').trim();
+    return { status: 'ok', valid: !!token && !!verifyAdminToken_(token) };
+  } catch (err) {
+    return { status: 'ok', valid: false };
+  }
+}
+
 function buildAccountSession_(row) {
   const isAdmin = String(row[USER_COL.ROLE - 1] || '').trim() === ACCOUNT_ADMIN_ROLE;
   const memberId = String(row[USER_COL.MEMBER_ID - 1] || '');
@@ -2134,10 +2160,10 @@ function buildAccountSession_(row) {
     name: String(row[USER_COL.NAME - 1] || ''),
     // ビジリスの登録有無で、アプリ一覧に出すかどうかが決まる。
     bijiris: String(row[USER_COL.BIJIRIS - 1] || '').trim() === ACCOUNT_BIJIRIS_REGISTERED,
-    // 管理者でも、ここでは管理者トークンを渡さない。
-    // ログインはパスコード（数字4桁または6桁）なので、これだけで全会員の情報が
-    // 開くのは危うい。管理アプリ側で管理者パスワードをもう一度確かめてもらう。
-    token: makeMemberToken_(memberId, expiresAt),
+    // 権限が管理者なら、管理アプリ用のトークンをここで渡す。
+    // 入口で一度ログインすれば管理画面まで開ける（二重に聞かない）という方針。
+    // その代わり、管理画面へ入れるのはパスコード4桁または6桁だけになる。
+    token: isAdmin ? makeAdminToken_(expiresAt) : makeMemberToken_(memberId, expiresAt),
     expiresAt: new Date(expiresAt).toISOString()
   };
 }
@@ -2382,7 +2408,7 @@ function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
   const cachePayload = buildCachePayload_(e && e.parameter);
   const isMutatingAction = !!MUTATING_GET_ACTIONS[action];
-  const canUseCache = !!action && !isMutatingAction;
+  const canUseCache = !!action && !isMutatingAction && !NEVER_CACHE_ACTIONS[action];
 
   try {
     // キャッシュより先に検証する。順序を逆にすると、認証なしで
@@ -2398,6 +2424,9 @@ function doGet(e) {
 
     let result;
     switch (action) {
+      case 'checkAdminToken':
+        result = checkAdminToken(e.parameter);
+        break;
       case 'getNews':
         result = getBlogNews();
         break;
@@ -2563,6 +2592,8 @@ function doPost(e) {
       return createJsonResponse(registerBijirisUse(data));
     }
     requireAdminAccess_(type, data);
+
+
 
     switch (type) {
       case 'order':

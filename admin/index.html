@@ -11112,6 +11112,7 @@
       try {
         localStorage.removeItem('mayumi_launcher_session');
         localStorage.removeItem('mayumi_member_auth_token');
+        localStorage.removeItem('mayumi_survey_admin_token');
       } catch (e) { /* プライベートモードでは触れない */ }
       location.href = '../start/';
     }
@@ -11141,6 +11142,17 @@
         }
         throw new Error('通信がうまくいきませんでした。少し待ってから、もう一度お試しください。');
       }
+    }
+
+    // 入口の画面（start/）でログインすると、権限が管理者の方には
+    // 管理アプリ用のトークンが渡される。通常はここを通らない。
+    // トークンが無いまま直接開かれたときだけ、入口へ戻っていただく。
+    function goToLauncherForAdmin() {
+      const ok = window.confirm(
+        '管理画面を開くには、入口の画面でログインしてください。\n入口へ移動します。'
+      );
+      if (ok) location.href = '../start/';
+      return ok;
     }
 
     // トークンが無い／切れたときに出すログイン画面。
@@ -11248,10 +11260,14 @@
             const res = await fetch(url, options);
             let json = await res.json();
 
-            // トークンが無い／期限切れならログインしてもらい、一度だけやり直す。
+            // トークンが無い／期限切れのとき。
+            // 一度も入口を通っていない場合は、そちらへ案内する（二重に聞かない）。
+            // 期限切れなど、すでにトークンを持っていた場合だけパスワードで入り直せる。
             if (isAdminAuthError(json)) {
+              const hadToken = !!adminToken;
               setAdminAuthToken('');
-              await showAdminLogin('セッションが切れました。パスワードを入力してください。');
+              if (!hadToken && goToLauncherForAdmin()) return null;
+              await showAdminLogin('入口の画面でログインし直すか、パスワードを入力してください。');
               const retryToken = getAdminAuthToken();
               let retryUrl = baseUrl;
               const retryOptions = { redirect: 'follow' };
