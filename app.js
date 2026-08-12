@@ -8753,9 +8753,34 @@ async function handleNativeNotificationFallback() {
 // ※ 重複定義のため削除（3180行目付近に集約）
 
 // ===== 初期化 (並列実行で高速化) =====
+// ===== 入口を経由してから使っていただく設定 =====
+// true にすると、ログインしていない方はアプリを開いた時点で入口へ移る。
+// 公開しただけで切り替わらないよう、既定は false にしてある。
+// 確認用で試すときは、その端末で次を実行すると有効になる:
+//   localStorage.setItem('mayumi_require_login', 'true')
+const REQUIRE_LAUNCHER_LOGIN = false;
+
+function shouldSendToLauncher() {
+  let enabled = REQUIRE_LAUNCHER_LOGIN;
+  try {
+    if (localStorage.getItem('mayumi_require_login') === 'true') enabled = true;
+  } catch (e) { /* プライベートモードでは読めない */ }
+  if (!enabled) return false;
+  try {
+    const session = localStorage.getItem('mayumi_launcher_session');
+    if (session && JSON.parse(session).role) return false;   // ログイン済み
+  } catch (e) { /* 壊れていれば未ログイン扱い */ }
+  return true;
+}
+
 async function initApp() {
   if (initAppStarted) return;
   initAppStarted = true;
+  // 入口を通っていない方には、まずログインしていただく。
+  if (shouldSendToLauncher()) {
+    location.replace('start/');
+    return;
+  }
   await initSecureLocalStore();
   applyAccessibilitySettings();
   renderRetryQueueStatus();
