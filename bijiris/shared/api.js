@@ -495,13 +495,26 @@ window.MayumiSurveyApi = (() => {
     });
   }
 
+  // 履歴の取得はお客様トークンが必要になった。パスコードをまだ設定していない
+  // 方はここを読めないが、送信そのもの（POST）は成功している。
+  // 「確認できなかった」を「失敗した」と扱わないよう、null を返して呼び出し側に委ねる。
+  function canReadHistory() {
+    return Boolean(getCustomerToken());
+  }
+
   async function waitForSavedResponse(gasUrl, responseId, customerName = "") {
+    if (!canReadHistory()) return null;
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
-      const data = await jsonp(gasUrl, "history", {
-        clientId: getClientId(),
-        name: customerName || undefined,
-      });
+      let data;
+      try {
+        data = await jsonp(gasUrl, "history", {
+          clientId: getClientId(),
+          name: customerName || undefined,
+        });
+      } catch (error) {
+        return null; // 確認できないだけ。送信は済んでいる
+      }
       const saved = (data.responses || []).find((response) => response.id === responseId);
       if (saved) return saved;
     }
@@ -509,12 +522,18 @@ window.MayumiSurveyApi = (() => {
   }
 
   async function waitForPublicResponse(gasUrl, customerName, matcher) {
+    if (!canReadHistory()) return null;
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
-      const data = await jsonp(gasUrl, "history", {
-        clientId: getClientId(),
-        name: normalizeText(customerName),
-      });
+      let data;
+      try {
+        data = await jsonp(gasUrl, "history", {
+          clientId: getClientId(),
+          name: normalizeText(customerName),
+        });
+      } catch (error) {
+        return null;
+      }
       const responses = Array.isArray(data.responses) ? data.responses : [];
       const matched = matcher(responses);
       if (matched !== undefined) return matched;
@@ -523,14 +542,19 @@ window.MayumiSurveyApi = (() => {
   }
 
   async function waitForCustomerProfile(gasUrl, customer, matcher) {
+    if (!canReadHistory()) return null;
     for (let attempt = 0; attempt < 6; attempt += 1) {
       if (attempt) await sleep(1000);
-      const data = await jsonp(gasUrl, "history", {
-        clientId: getClientId(),
-        name: normalizeText(customer?.name),
-        nameKana: normalizeText(customer?.nameKana),
-        recoverByName: customer?.historyMatchMode === "name" ? "1" : "",
-      });
+      let data;
+      try {
+        data = await jsonp(gasUrl, "history", {
+          clientId: getClientId(),
+          name: normalizeText(customer?.name),
+          nameKana: normalizeText(customer?.nameKana),
+        });
+      } catch (error) {
+        return null;
+      }
       if (!matcher || matcher(data.customerProfile || null, data.responses || [], data)) {
         return data;
       }
@@ -842,7 +866,9 @@ window.MayumiSurveyApi = (() => {
           responseId,
           normalizeText(options.body?.customer?.name),
         );
-        if (!savedResponse) {
+        // 確認できるはずなのに取れなかったときだけ失敗として扱う。
+        // パスコード未設定でそもそも履歴を読めない場合は、送信は成功しているので通す。
+        if (!savedResponse && canReadHistory()) {
           throw new Error(
             "回答保存を確認できませんでした。通信状態を確認して、履歴に表示されない場合は再送信してください。",
           );
@@ -870,9 +896,11 @@ window.MayumiSurveyApi = (() => {
           );
         });
         if (!updated) {
-          throw new Error("スタンプカード情報の保存を確認できませんでした。");
+          if (canReadHistory()) {
+            throw new Error("スタンプカード情報の保存を確認できませんでした。");
+          }
         }
-        return { customerProfile: updated.customerProfile || null };
+        return { customerProfile: (updated && updated.customerProfile) || null };
       }
 
       if (path === "/api/public/customer-profile/push" && method === "POST") {
@@ -892,9 +920,11 @@ window.MayumiSurveyApi = (() => {
           return JSON.stringify(actual || null) === JSON.stringify(expectedPushStatus || null);
         });
         if (!updated) {
-          throw new Error("通知設定の保存を確認できませんでした。");
+          if (canReadHistory()) {
+            throw new Error("通知設定の保存を確認できませんでした。");
+          }
         }
-        return { customerProfile: updated.customerProfile || null };
+        return { customerProfile: (updated && updated.customerProfile) || null };
       }
 
       if (path.startsWith("/api/public/responses/") && method === "PUT") {
@@ -911,7 +941,9 @@ window.MayumiSurveyApi = (() => {
           (responses) => responses.find((response) => response.id === responseId),
         );
         if (!updated) {
-          throw new Error("回答更新を確認できませんでした。通信状態を確認して、もう一度お試しください。");
+          if (canReadHistory()) {
+            throw new Error("回答更新を確認できませんでした。通信状態を確認して、もう一度お試しください。");
+          }
         }
         return { response: updated };
       }

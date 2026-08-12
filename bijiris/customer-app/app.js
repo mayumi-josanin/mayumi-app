@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v123";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v124";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -420,7 +420,6 @@ const homeCampaignStatus = document.querySelector("#homeCampaignStatus");
 const homeMilestoneReward = document.querySelector("#homeMilestoneReward");
 const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
-const customerMemberInfo = document.querySelector("#customerMemberInfo");
 const appUpdateButton = document.querySelector("#appUpdateButton");
 const installButton = document.querySelector("#installButton");
 const registrationLead = document.querySelector("#registrationLead");
@@ -3270,21 +3269,6 @@ function syncCustomerForms() {
     customerForm.elements.name.value = appState.customer.name || "";
     customerForm.elements.nameKana.value = appState.customer.nameKana || "";
   }
-  renderCustomerMemberInfo();
-}
-
-function renderCustomerMemberInfo() {
-  if (!customerMemberInfo) return;
-  const memberNumber = getCustomerMemberNumber();
-  customerMemberInfo.innerHTML = memberNumber
-    ? `
-        <strong>会員番号</strong>
-        <div>${escapeHtml(memberNumber)}</div>
-      `
-    : `
-        <strong>会員番号</strong>
-        <div class="meta">会員登録後に自動発行されます。</div>
-      `;
 }
 
 function readCustomerProfileFromForm(form) {

@@ -849,14 +849,17 @@ textarea {
   background: #faf7f2;
 }
 
-.member-info-card {
-  display: grid;
-  gap: 6px;
+/* お客様情報の下に置く出口。保存ボタンと間違えないよう控えめにする。 */
+.logout-button {
+  width: 100%;
   margin-top: 12px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #faf7f2;
+}
+
+.logout-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-light);
 }
 
 .notification-status-card {
