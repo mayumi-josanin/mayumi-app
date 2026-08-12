@@ -72,7 +72,17 @@ const USER_HEADERS = [
   '登録経路詳細',
   '登録経路更新日時',
   'スタンプ履歴JSON',
-  '最終スタンプ取得日時'
+  '最終スタンプ取得日時',
+  // 2026-08-12 追加。ログインを氏名＋パスワードに統一するため。
+  // パスワードは平文で持たない（ハッシュとソルトのみ）。
+  // 「権限」に「管理者」と入れた方だけが管理アプリに入れる。
+  'パスワードハッシュ',
+  'パスワードソルト',
+  '権限',
+  // アプリを最後に開いた日時。ログイン時に更新する。
+  '最終オンライン日時',
+  // ビジリスをご利用の方に「登録済み」が入る。どなたが利用中かを把握するため。
+  'ビジリス'
 ];
 
 const USER_COL = {
@@ -103,8 +113,15 @@ const USER_COL = {
   REGISTRATION_SOURCE_DETAIL: 25,
   REGISTRATION_SOURCE_UPDATED_AT: 26,
   STAMP_HISTORY_JSON: 27,
-  LAST_STAMP_AT: 28
+  LAST_STAMP_AT: 28,
+  PASSWORD_HASH: 29,
+  PASSWORD_SALT: 30,
+  ROLE: 31,
+  LAST_ONLINE_AT: 32,
+  BIJIRIS: 33
 };
+const ACCOUNT_ADMIN_ROLE = '管理者';
+const ACCOUNT_BIJIRIS_REGISTERED = '登録済み';
 const TRANSFER_CODE_LENGTH = 8;
 const TRANSFER_CODE_TTL_HOURS = 168; // 1週間 (24*7)
 const MAX_DEVICE_SESSIONS = 8;
@@ -127,6 +144,12 @@ const BACKUP_FOLDER_NAME = 'まゆみ助産院_バックアップ';
 const LAST_BACKUP_AT_PROPERTY = 'LAST_BACKUP_AT';
 const LAST_BACKUP_URL_PROPERTY = 'LAST_BACKUP_URL';
 const LAST_BACKUP_FILE_ID_PROPERTY = 'LAST_BACKUP_FILE_ID';
+// 操作履歴もバックアップも、放っておくと際限なく増える。
+// 日次メンテナンスのついでに古いものを片付ける。
+const AUDIT_LOG_RETENTION_DAYS = 92;
+const AUDIT_LOG_TRIM_MAX_ROWS = 5000;
+const BACKUP_KEEP_RECENT_COUNT = 30;
+const BACKUP_TRIM_MAX_FILES = 20;
 const DAILY_MAINTENANCE_TRIGGER_HANDLER = 'runDailyMaintenance';
 const SCHEDULED_PUSH_TRIGGER_HANDLER = 'processScheduledPushQueue';
 const DASHBOARD_SNAPSHOT_TRIGGER_HANDLER = 'refreshAdminDashboardSnapshot';
@@ -204,7 +227,8 @@ const MUTATION_CACHE_DOMAINS = {
   removeUserDeviceSession: ['users'],
   unsubscribePush: ['users'],
   syncUserRewardStatus: ['users'],
-  drawRewardGacha: ['users']
+  drawRewardGacha: ['users'],
+  grantSurveyStamp: ['users']
 };
 const APP_RUNTIME_CONFIG_PROPERTY = 'APP_RUNTIME_CONFIG';
 const ADMIN_SECURITY_CONFIG_PROPERTY = 'ADMIN_SECURITY_CONFIG';
@@ -1073,9 +1097,84 @@ function handleRunManualBackup(data) {
   }
 }
 
+// 保持期間を過ぎた操作履歴を削除する。
+// 直前の日次バックアップに全件が残っているので、ここでは別途退避しない。
+function trimAuditLogByRetention_() {
+  const sheet = getOrCreateSpreadsheet().getSheetByName(SHEETS.ADMIN_AUDIT_LOG);
+  if (!sheet || sheet.getLastRow() <= 1) return 0;
+
+  const limit = new Date();
+  limit.setDate(limit.getDate() - AUDIT_LOG_RETENTION_DAYS);
+  const limitKey = Utilities.formatDate(limit, 'Asia/Tokyo', 'yyyy-MM-dd');
+
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  let lastOldRow = 1;
+  let firstKeptRow = 0;
+  for (let i = 0; i < values.length; i++) {
+    const raw = values[i][0];
+    const key = (raw instanceof Date)
+      ? Utilities.formatDate(raw, 'Asia/Tokyo', 'yyyy-MM-dd')
+      : String(raw).slice(0, 10);
+    if (key < limitKey) lastOldRow = i + 2;
+    else if (!firstKeptRow) firstKeptRow = i + 2;
+  }
+
+  // 古い記録と残す記録が入り混じっている場合、まとめて消すと新しい分まで失う。
+  if (firstKeptRow && lastOldRow >= firstKeptRow) return 0;
+  if (lastOldRow < 2) return 0;
+
+  const removeCount = Math.min(lastOldRow - 1, AUDIT_LOG_TRIM_MAX_ROWS);
+  sheet.deleteRows(2, removeCount);
+  return removeCount;
+}
+
+// 記録の日時は、シートの書式次第で文字列にも日付にもなる。どちらでも同じ形に揃える。
+function normalizeBackupLogKey_(raw) {
+  if (raw instanceof Date) return Utilities.formatDate(raw, 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+  return String(raw || '').trim();
+}
+
+// 古いバックアップをドライブのゴミ箱へ移す。
+// 直近ぶんに加えて、各月の最新1件は月次の控えとして残す。完全削除はしない。
+function trimOldBackups_() {
+  const sheet = getOrCreateSpreadsheet().getSheetByName(SHEETS.BACKUP_LOG);
+  if (!sheet || sheet.getLastRow() <= 1) return 0;
+
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
+    .map(function (row) {
+      return { createdAt: normalizeBackupLogKey_(row[0]), fileId: String(row[3] || '').trim() };
+    })
+    .filter(function (row) { return row.fileId && row.createdAt.slice(0, 4).match(/^[0-9]{4}$/); })
+    .sort(function (a, b) { return b.createdAt.localeCompare(a.createdAt); });
+
+  const monthSeen = {};
+  let trashed = 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (trashed >= BACKUP_TRIM_MAX_FILES) break;
+    const month = rows[i].createdAt.slice(0, 7);
+    const isNewestOfMonth = !monthSeen[month];
+    monthSeen[month] = true;
+    if (i < BACKUP_KEEP_RECENT_COUNT) continue;
+    if (isNewestOfMonth) continue;
+    try {
+      const file = DriveApp.getFileById(rows[i].fileId);
+      if (!file.isTrashed()) {
+        file.setTrashed(true);
+        trashed++;
+      }
+    } catch (err) {
+      // すでに消えているファイルは黙って飛ばす
+    }
+  }
+  return trashed;
+}
+
 function runDailyMaintenance() {
   ensureMaintenanceTriggers_();
   createSpreadsheetBackup_('daily');
+  // 片付けが転んでも、送信やダッシュボードの更新は止めない。
+  try { trimAuditLogByRetention_(); } catch (err) { Logger.log('操作履歴の整理に失敗: ' + err); }
+  try { trimOldBackups_(); } catch (err) { Logger.log('バックアップの整理に失敗: ' + err); }
   processScheduledPushQueue();
   refreshAdminDashboardSnapshot();
 }
@@ -1928,6 +2027,254 @@ function adminLogin_(data) {
   };
 }
 
+// ==========================================================================
+// 会員アカウント（氏名＋パスワードでログイン）
+//
+// 会員データシートをそのままアカウント台帳として使う。氏名・フリガナ・
+// 生年月日・電話番号・住所は既に列があるので、新しいDBは作らない。
+//
+// 氏名は一意ではない（同姓同名や重複登録が実在する）。そのため
+// 「氏名で候補を集め、パスワードが合う行がちょうど1つ」を成立条件にする。
+// ==========================================================================
+const ACCOUNT_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30日
+
+function makeAccountSalt_() {
+  return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+}
+
+function hashAccountPassword_(password, salt) {
+  const material = String(salt || '') + '|' + String(password || '') + '|' + getAdminAuthSecret_();
+  return Utilities.base64EncodeWebSafe(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, material, Utilities.Charset.UTF_8)
+  );
+}
+
+function makeMemberToken_(memberId, expiresAt) {
+  return Utilities.base64EncodeWebSafe(JSON.stringify({
+    t: 'member',
+    u: String(memberId),
+    exp: expiresAt,
+    sig: adminSign_('member|' + memberId + '|' + expiresAt)
+  }));
+}
+
+function verifyMemberToken_(token) {
+  try {
+    const raw = Utilities.newBlob(Utilities.base64DecodeWebSafe(String(token || ''))).getDataAsString();
+    const payload = JSON.parse(raw);
+    if (payload.t !== 'member') return '';
+    if (!payload.u || !payload.exp || Number(payload.exp) < Date.now()) return '';
+    if (payload.sig !== adminSign_('member|' + payload.u + '|' + payload.exp)) return '';
+    return String(payload.u);
+  } catch (err) {
+    return '';
+  }
+}
+
+function readAccountRows_() {
+  const sheet = getOrCreateUsersSheet_(getOrCreateSpreadsheet());
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { sheet: sheet, rows: [] };
+  const values = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
+  const rows = [];
+  values.forEach(function (row, index) {
+    if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) return;
+    rows.push({ rowIdx: index + 2, values: row });
+  });
+  return { sheet: sheet, rows: rows };
+}
+
+function buildAccountSession_(row) {
+  const isAdmin = String(row[USER_COL.ROLE - 1] || '').trim() === ACCOUNT_ADMIN_ROLE;
+  const memberId = String(row[USER_COL.MEMBER_ID - 1] || '');
+  const expiresAt = Date.now() + ACCOUNT_TOKEN_TTL_MS;
+  return {
+    status: 'ok',
+    role: isAdmin ? 'admin' : 'member',
+    memberId: memberId,
+    name: String(row[USER_COL.NAME - 1] || ''),
+    // ビジリスの登録有無で、アプリ一覧に出すかどうかが決まる。
+    bijiris: String(row[USER_COL.BIJIRIS - 1] || '').trim() === ACCOUNT_BIJIRIS_REGISTERED,
+    // 管理者には既存形式の管理者トークンを返す。管理アプリを変えずに済む。
+    token: isAdmin ? makeAdminToken_(expiresAt) : makeMemberToken_(memberId, expiresAt),
+    expiresAt: new Date(expiresAt).toISOString()
+  };
+}
+
+// アプリを開いた記録。管理側で「最近使っている方」が分かるようにする。
+function touchLastOnline_(sheet, rowIdx) {
+  try {
+    sheet.getRange(rowIdx, USER_COL.LAST_ONLINE_AT)
+      .setValue(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/M/d H:mm'));
+  } catch (err) {
+    // 記録に失敗してもログイン自体は通す
+  }
+}
+
+function registerAccount(data) {
+  try {
+    const rawName = String((data && data.name) || '').trim();
+    const name = normalizeNameForMatch_(rawName);
+    const kana = String((data && data.kana) || '').trim();
+    const birthday = normalizeDateOnlyValue_(data && data.birthday);
+    const phone = String((data && data.phone) || '').trim();
+    const address = String((data && data.address) || '').trim();
+    const password = String((data && data.password) || '');
+
+    if (!name) return { status: 'error', message: 'お名前を入力してください。' };
+    if (!kana) return { status: 'error', message: 'フリガナを入力してください。' };
+    if (!birthday) return { status: 'error', message: '生年月日を入力してください。' };
+    if (!phone) return { status: 'error', message: '電話番号を入力してください。' };
+    if (!address) return { status: 'error', message: 'ご住所を入力してください。' };
+    if (password.length < 8) return { status: 'error', message: 'パスワードは8文字以上にしてください。' };
+
+    const store = readAccountRows_();
+
+    // 既存会員かどうかは「氏名＋生年月日」で判定する。重複行を増やさないため。
+    const matched = store.rows.filter(function (item) {
+      return normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) === name &&
+             normalizeDateOnlyValue_(item.values[USER_COL.BIRTHDAY - 1]) === birthday;
+    });
+    if (matched.length > 1) {
+      return { status: 'error', message: '同じお名前と生年月日の登録が複数あります。受付にお申し出ください。' };
+    }
+
+    const salt = makeAccountSalt_();
+    const hash = hashAccountPassword_(password, salt);
+    const timestamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/M/d H:mm');
+
+    if (matched.length === 1) {
+      const target = matched[0];
+      if (String(target.values[USER_COL.PASSWORD_HASH - 1] || '').trim()) {
+        return { status: 'error', message: 'すでに登録済みです。ログインしてください。' };
+      }
+      const row = target.values.slice();
+      row[USER_COL.KANA - 1] = kana;
+      row[USER_COL.PHONE - 1] = phone;
+      row[USER_COL.ADDRESS - 1] = address;
+      row[USER_COL.PASSWORD_HASH - 1] = hash;
+      row[USER_COL.PASSWORD_SALT - 1] = salt;
+      store.sheet.getRange(target.rowIdx, 1, 1, USER_HEADERS.length).setValues([row]);
+      touchLastOnline_(store.sheet, target.rowIdx);
+      return buildAccountSession_(row);
+    }
+
+    // 新規。会員番号は既存と衝突しないものを採番する。
+    const used = {};
+    store.rows.forEach(function (item) { used[String(item.values[USER_COL.MEMBER_ID - 1] || '')] = true; });
+    let memberId = '';
+    for (let i = 0; i < 200 && !memberId; i += 1) {
+      const candidate = 'MYM-' + String(Math.floor(1000 + Math.random() * 9000));
+      if (!used[candidate]) memberId = candidate;
+    }
+    if (!memberId) return { status: 'error', message: '会員番号を採番できませんでした。受付にお申し出ください。' };
+
+    const row = new Array(USER_HEADERS.length).fill('');
+    row[USER_COL.MEMBER_ID - 1] = memberId;
+    row[USER_COL.TIMESTAMP - 1] = timestamp;
+    row[USER_COL.NAME - 1] = rawName;
+    row[USER_COL.KANA - 1] = kana;
+    row[USER_COL.PHONE - 1] = phone;
+    row[USER_COL.BIRTHDAY - 1] = birthday;
+    row[USER_COL.ADDRESS - 1] = address;
+    row[USER_COL.PASSWORD_HASH - 1] = hash;
+    row[USER_COL.PASSWORD_SALT - 1] = salt;
+    row[USER_COL.DEVICE_SESSIONS - 1] = '[]';
+    setUserRegistrationSource_(row, '新規登録', 'ランチャー', timestamp);
+    store.sheet.appendRow(row);
+    touchLastOnline_(store.sheet, store.sheet.getLastRow());
+    return buildAccountSession_(row);
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+function loginAccount(data) {
+  try {
+    const name = normalizeNameForMatch_(data && data.name);
+    const password = String((data && data.password) || '');
+    if (!name || !password) {
+      return { status: 'error', message: 'お名前とパスワードを入力してください。' };
+    }
+
+    // 総当たり対策。管理者ログインと同じ入れ物を使う。
+    const properties = PropertiesService.getScriptProperties();
+    const attempts = getAdminLoginAttempts_();
+    const key = 'account:' + name;
+    const now = Date.now();
+    if (attempts[key] && now - Number(attempts[key].lastAt || 0) > ADMIN_LOGIN_LOCK_WINDOW_MS) {
+      delete attempts[key];
+    }
+    if (attempts[key] && Number(attempts[key].count || 0) >= ADMIN_LOGIN_MAX_ATTEMPTS) {
+      return { status: 'error', message: 'ログイン失敗が続いたため、一時的に停止しています。10分後に再試行してください。' };
+    }
+
+    // 氏名は一意でないため、パスワードで絞り込む。
+    const store = readAccountRows_();
+    const hits = store.rows.filter(function (item) {
+      if (normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) !== name) return false;
+      const salt = String(item.values[USER_COL.PASSWORD_SALT - 1] || '');
+      const hash = String(item.values[USER_COL.PASSWORD_HASH - 1] || '');
+      if (!salt || !hash) return false;
+      return hashAccountPassword_(password, salt) === hash;
+    });
+
+    if (hits.length !== 1) {
+      const current = attempts[key] || { count: 0, firstAt: now };
+      current.count = Number(current.count || 0) + 1;
+      current.lastAt = now;
+      attempts[key] = current;
+      properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
+      // 該当が2件以上でも「違います」で統一する。存在を推測させないため。
+      return { status: 'error', message: 'お名前またはパスワードが違います。' };
+    }
+
+    delete attempts[key];
+    properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
+    touchLastOnline_(store.sheet, hits[0].rowIdx);
+    return buildAccountSession_(hits[0].values);
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+// ビジリスをご利用の方の初回登録。
+// 本人であることをパスワードで確認したうえで「ビジリス」列に印を付ける。
+// 以後、ログインするとアプリ一覧にビジリスが並ぶ。
+function registerBijirisUse(data) {
+  try {
+    const name = normalizeNameForMatch_(data && data.name);
+    const kana = String((data && data.kana) || '').trim();
+    const password = String((data && data.password) || '');
+    if (!name || !kana || !password) {
+      return { status: 'error', message: 'お名前・フリガナ・パスワードを入力してください。' };
+    }
+
+    const store = readAccountRows_();
+    const hits = store.rows.filter(function (item) {
+      if (normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) !== name) return false;
+      const salt = String(item.values[USER_COL.PASSWORD_SALT - 1] || '');
+      const hash = String(item.values[USER_COL.PASSWORD_HASH - 1] || '');
+      if (!salt || !hash) return false;
+      return hashAccountPassword_(password, salt) === hash;
+    });
+    if (hits.length !== 1) {
+      return { status: 'error', message: 'お名前またはパスワードが違います。' };
+    }
+
+    const target = hits[0];
+    const row = target.values.slice();
+    row[USER_COL.BIJIRIS - 1] = ACCOUNT_BIJIRIS_REGISTERED;
+    // フリガナが未登録の会員は、この機会に埋めておく。
+    if (!String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = kana;
+    store.sheet.getRange(target.rowIdx, 1, 1, USER_HEADERS.length).setValues([row]);
+    touchLastOnline_(store.sheet, target.rowIdx);
+    return buildAccountSession_(row);
+  } catch (err) {
+    return { status: 'error', message: err.toString() };
+  }
+}
+
 function requireAdminAccess_(action, params) {
   if (PUBLIC_ACTIONS[action]) return;
   if (!verifyAdminToken_(params && params.token)) {
@@ -2109,6 +2456,16 @@ function doPost(e) {
     if (type === 'adminLogin') {
       return createJsonResponse(adminLogin_(data));
     }
+    // ログインの入口。ここを通らないと誰もトークンを得られないので公開する。
+    if (type === 'registerAccount') {
+      return createJsonResponse(registerAccount(data));
+    }
+    if (type === 'loginAccount') {
+      return createJsonResponse(loginAccount(data));
+    }
+    if (type === 'registerBijirisUse') {
+      return createJsonResponse(registerBijirisUse(data));
+    }
     requireAdminAccess_(type, data);
 
     switch (type) {
@@ -2256,6 +2613,9 @@ function doPost(e) {
         break;
       case 'runManualBackup':
         result = handleRunManualBackup(data);
+        break;
+      case 'grantSurveyStamp':
+        result = handleGrantSurveyStamp(data);
         break;
       case 'saveMenuRevenueRecord':
         result = handleSaveMenuRevenueRecord(data);
@@ -3784,6 +4144,93 @@ function buildRewardGachaResult_(reward, alreadyDrawn) {
 function findUserRowByMemberId_(sheet, memberId) {
   const result = consolidateDuplicateUserRowsByMemberId_(sheet, memberId);
   return result && result.rowIdx > 1 ? result.rowIdx : -1;
+}
+
+// 「知ったきっかけアンケート」に回答した方へのお礼スタンプ。
+// ANSWERED は回答した事実（アプリでボタンを隠す判定に使う）。
+// GRANTED はスタンプを実際に付けた記録（二重付与の防止）。
+// PENDING はカードが10個で満杯だったため付けられず、空き待ちにしている記録。
+// カレンダーの予定がどのメニューの開催回かを示す列。
+// メニュー名ではなく MENUS シートの行番号を入れるので、名前を変えても紐づけが切れない。
+const CALENDAR_MENU_REF_HEADER = '対象メニュー行';
+
+// 管理者がスタンプ・特典を直接編集した時刻。アプリ側で「サーバーを正とする」判定に使う。
+const REWARD_ADMIN_SET_PREFIX = 'REWARD_ADMIN_SET:';
+const SURVEY_ANSWERED_PREFIX = 'SURVEY_ANSWERED:';
+const SURVEY_STAMP_GRANTED_PREFIX = 'SURVEY_STAMP:';
+const SURVEY_STAMP_PENDING_PREFIX = 'SURVEY_STAMP_PENDING:';
+
+// スタンプを1個足す。空きが無ければ何もしない。
+// 呼び出し側が行の読み書きをまとめられるよう、更新後の状態を返す。
+function addSurveyStampToRow_(sheet, rowIdx, row) {
+  const current = getRewardStatusFromRow_(row);
+  if (Number(current.stampCount || 0) >= 10) return null;
+
+  const now = new Date();
+  const history = (current.stampHistory || []).slice();
+  history.unshift({ acquiredDate: formatDateTime_(now), note: 'アンケート回答のお礼' });
+
+  const updated = sanitizeRewardStatus_({
+    stampCount: Number(current.stampCount || 0) + 1,
+    stampCardNum: current.stampCardNum,
+    rewards: current.rewards,
+    stampHistory: history,
+    lastStampDate: formatDateTime_(now),
+    lastStampAt: formatDateTime_(now),
+    stampAchievedDate: current.stampAchievedDate
+  });
+  sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).setValues([applyRewardStatusToRow_(row, updated)]);
+  return updated;
+}
+
+function handleGrantSurveyStamp(data) {
+  try {
+    const memberId = String((data && data.memberId) || '').trim();
+    if (!memberId) return { status: 'error', message: '会員IDが指定されていません' };
+
+    const props = PropertiesService.getScriptProperties();
+    const stamped = formatDateTime_(new Date());
+    // 回答した事実は、スタンプを付けられたかに関わらず必ず残す
+    props.setProperty(SURVEY_ANSWERED_PREFIX + memberId, stamped);
+
+    if (props.getProperty(SURVEY_STAMP_GRANTED_PREFIX + memberId)) {
+      return { status: 'ok', answered: true, granted: false, reason: 'already_granted' };
+    }
+
+    const ss = getOrCreateSpreadsheet();
+    const sheet = getOrCreateUsersSheet_(ss);
+    const rowIdx = findUserRowByMemberId_(sheet, memberId);
+    if (rowIdx < 2) return { status: 'error', message: '会員が見つかりません: ' + memberId };
+
+    const row = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).getValues()[0];
+    const updated = addSurveyStampToRow_(sheet, rowIdx, row);
+    if (!updated) {
+      // カードが満杯。ここで新しいカードへ進めると、まだ引いていない特典ガチャを
+      // 飛ばしてしまうため進めない。空きができ次第、自動で付けられるよう保留にする。
+      props.setProperty(SURVEY_STAMP_PENDING_PREFIX + memberId, stamped);
+      return { status: 'ok', answered: true, granted: false, reason: 'card_full_pending' };
+    }
+
+    props.setProperty(SURVEY_STAMP_GRANTED_PREFIX + memberId, stamped);
+    props.deleteProperty(SURVEY_STAMP_PENDING_PREFIX + memberId);
+    return { status: 'ok', answered: true, granted: true, stampCount: updated.stampCount };
+  } catch (err) {
+    Logger.log('handleGrantSurveyStamp error: ' + err.toString());
+    return { status: 'error', message: err.toString() };
+  }
+}
+
+// 満杯で保留になっていたお礼スタンプを、空きができていれば付ける。
+// 会員がガチャを回して新しいカードを始めたあとに自然と回収される。
+function redeemPendingSurveyStamp_(sheet, rowIdx, row, memberId) {
+  const props = PropertiesService.getScriptProperties();
+  const pendingKey = SURVEY_STAMP_PENDING_PREFIX + memberId;
+  if (!props.getProperty(pendingKey)) return null;
+  const updated = addSurveyStampToRow_(sheet, rowIdx, row);
+  if (!updated) return null;
+  props.setProperty(SURVEY_STAMP_GRANTED_PREFIX + memberId, formatDateTime_(new Date()));
+  props.deleteProperty(pendingKey);
+  return updated;
 }
 
 function isSoftDeletedUserRow_(row) {
@@ -5906,6 +6353,7 @@ function handleAddCalendar(data) {
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
     const linkCols = ensureManagedLinkColumns_(sheet);
+    const menuRefCol = ensureNamedColumn_(sheet, CALENDAR_MENU_REF_HEADER, 120);
 
     const rowsToAdd = [];
     const updatedAt = formatDateTime_(new Date());
@@ -5946,6 +6394,12 @@ function handleAddCalendar(data) {
           return [String(data.category || '').trim()];
         });
         sheet.getRange(startRow, categoryCol, categoryValues.length, 1).setValues(categoryValues);
+      }
+      if (menuRefCol) {
+        const menuRefValues = rowsToAdd.map(function () {
+          return [Number(data.menuRowIdx || 0) || ''];
+        });
+        sheet.getRange(startRow, menuRefCol, menuRefValues.length, 1).setValues(menuRefValues);
       }
       if (publishAtCol) {
         const publishValues = rowsToAdd.map(function () {
@@ -5993,6 +6447,7 @@ function handleUpdateCalendar(data) {
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const categoryCol = ensureNamedColumn_(sheet, 'カテゴリ', 140);
     const linkCols = ensureManagedLinkColumns_(sheet);
+    const menuRefCol = ensureNamedColumn_(sheet, CALENDAR_MENU_REF_HEADER, 120);
 
     const rowIdx = Number(data.rowIdx);
     if (rowIdx < 2) return { status: 'error', message: '更新対象が見つかりません' };
@@ -6014,6 +6469,9 @@ function handleUpdateCalendar(data) {
     }
     if (publishAtCol && data.publishAt !== undefined) {
       sheet.getRange(rowIdx, publishAtCol).setValue(normalizePublishAtValue_(data.publishAt));
+    }
+    if (menuRefCol && data.menuRowIdx !== undefined) {
+      sheet.getRange(rowIdx, menuRefCol).setValue(Number(data.menuRowIdx || 0) || '');
     }
     if (linkCols.urlCol && data.linkUrl !== undefined) {
       sheet.getRange(rowIdx, linkCols.urlCol).setValue(String(data.linkUrl || '').trim());
@@ -6865,12 +7323,28 @@ function getUserRewardStatus(params) {
     }
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
-    const rowIdx = findUserRowByMemberId_(sheet, params.memberId);
+    const memberId = String(params.memberId).trim();
+    const rowIdx = findUserRowByMemberId_(sheet, memberId);
+    const props = PropertiesService.getScriptProperties();
+    const surveyAnswered = !!props.getProperty(SURVEY_ANSWERED_PREFIX + memberId);
+    const adminSetAt = String(props.getProperty(REWARD_ADMIN_SET_PREFIX + memberId) || '');
     if (rowIdx === -1) {
-      return { status: 'ok', rewardStatus: getDefaultRewardStatus_() };
+      return {
+        status: 'ok',
+        rewardStatus: getDefaultRewardStatus_(),
+        surveyAnswered: surveyAnswered,
+        adminSetAt: adminSetAt
+      };
     }
     const row = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).getValues()[0];
-    return { status: 'ok', rewardStatus: getRewardStatusFromRow_(row) };
+    // 満杯で保留になっていたお礼スタンプがあれば、ここで回収する
+    const redeemed = redeemPendingSurveyStamp_(sheet, rowIdx, row, memberId);
+    return {
+      status: 'ok',
+      rewardStatus: redeemed || getRewardStatusFromRow_(row),
+      surveyAnswered: surveyAnswered,
+      adminSetAt: adminSetAt
+    };
   } catch (err) {
     Logger.log('getUserRewardStatus error: ' + err.toString());
     return { status: 'error', message: err.toString() };
@@ -6966,6 +7440,16 @@ function handleUpdateAdminRewardStatus(data) {
     }
     
     range.setValues([applyRewardStatusToRow_(currentRow, nextStatus)]);
+
+    // お客様アプリはスタンプ数を max(サーバー, 端末) で統合するため、
+    // 何もしないと管理者による減算・取り消しが端末の古い値で戻されてしまう。
+    // 管理者が設定した時刻を残し、アプリ側にサーバーの値を優先させる。
+    const memberId = String(data.memberId || currentRow[USER_COL.MEMBER_ID - 1] || '').trim();
+    if (memberId) {
+      PropertiesService.getScriptProperties()
+        .setProperty(REWARD_ADMIN_SET_PREFIX + memberId, formatDateTime_(new Date()));
+    }
+
     return { status: 'ok', rewardStatus: nextStatus };
   } catch (err) {
     Logger.log('handleUpdateAdminRewardStatus error: ' + err.toString());
@@ -7024,6 +7508,9 @@ function getAdminUsers() {
     if (lastRow < 2) return { status: 'ok', users: [] };
 
     const data = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
+    // アンケートの回答・付与の記録はスクリプトプロパティにある。
+    // 会員ごとに読むと178回の呼び出しになるため、ここで一度だけまとめて取る。
+    const scriptProps = PropertiesService.getScriptProperties().getProperties();
     const users = data.map((row, index) => {
       if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) return null;
       const rewardStatus = getRewardStatusFromRow_(row);
@@ -7064,7 +7551,10 @@ function getAdminUsers() {
         orderCount: userOrderStats.orderCount,
         pendingOrderCount: userOrderStats.pendingOrderCount,
         lastOrderAt: userOrderStats.lastOrderAt,
-        orderTotal: userOrderStats.orderTotal
+        orderTotal: userOrderStats.orderTotal,
+        surveyAnsweredAt: String(scriptProps[SURVEY_ANSWERED_PREFIX + memberId] || ''),
+        surveyStampGrantedAt: String(scriptProps[SURVEY_STAMP_GRANTED_PREFIX + memberId] || ''),
+        surveyStampPendingAt: String(scriptProps[SURVEY_STAMP_PENDING_PREFIX + memberId] || '')
       };
     }).filter(Boolean).reverse(); // 最新を上に
 
@@ -7413,6 +7903,9 @@ function getCalendarEvents() {
     const deleteCols = ensureSoftDeleteColumns_(sheet);
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const linkCols = ensureManagedLinkColumns_(sheet);
+    // どのメニューの開催回かを保持する。名前ではなくメニューの行番号を持つので、
+    // メニュー名を変更しても紐づけが切れない。
+    const menuRefCol = ensureNamedColumn_(sheet, CALENDAR_MENU_REF_HEADER, 120);
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', events: [] };
@@ -7441,6 +7934,7 @@ function getCalendarEvents() {
         publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
         linkUrl: linkCols.urlCol ? String(row[linkCols.urlCol - 1] || '').trim() : '',
         linkButtonText: linkCols.buttonTextCol ? String(row[linkCols.buttonTextCol - 1] || '').trim() : '',
+        menuRowIdx: Number(row[menuRefCol - 1] || 0) || 0,
         noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[4] || '公開'),
         sortOrder: sortCol > 0 ? Number(row[sortCol - 1] || 0) : 0
       };
@@ -7465,6 +7959,7 @@ function getAdminCalendar() {
     const deleteCols = ensureSoftDeleteColumns_(sheet);
     const publishAtCol = ensurePublishAtColumn_(sheet);
     const linkCols = ensureManagedLinkColumns_(sheet);
+    const menuRefCol = ensureNamedColumn_(sheet, CALENDAR_MENU_REF_HEADER, 120);
 
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { status: 'ok', events: [] };
@@ -7489,6 +7984,7 @@ function getAdminCalendar() {
         publishAt: formatMaybeDateTime_(row[publishAtCol - 1]),
         linkUrl: linkCols.urlCol ? String(row[linkCols.urlCol - 1] || '').trim() : '',
         linkButtonText: linkCols.buttonTextCol ? String(row[linkCols.buttonTextCol - 1] || '').trim() : '',
+        menuRowIdx: Number(row[menuRefCol - 1] || 0) || 0,
         noticeStatus: normalizePublishVisibilityStatus_(row[noticeCol - 1] || row[4] || '公開'),
         noticeDeletedAt: formatMaybeDateTime_(row[deletedAtCol - 1]) || String(row[deletedAtCol - 1] || ''),
         sortOrder: sortCol > 0 ? Number(row[sortCol - 1] || 0) : 0

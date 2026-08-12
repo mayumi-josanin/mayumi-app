@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>まゆみ助産院 アンケート</title>
+    <meta name="theme-color" content="#8a9e7e" />
+    <style>
+      :root {
+        --cream: #fdf8f0;
+        --warm-white: #fefcf8;
+        --sage: #8a9e7e;
+        --sage-dark: #5a7a4e;
+        --blush: #e8c9b5;
+        --text-dark: #3d2e1e;
+        --text-mid: #6b5040;
+        --border: rgba(122, 92, 62, 0.15);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--cream);
+        color: var(--text-dark);
+        font-family: "Noto Serif JP", serif, system-ui, sans-serif;
+        letter-spacing: 0;
+      }
+
+      main {
+        width: min(920px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 40px 0;
+      }
+
+      .hero {
+        padding: 30px 24px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--warm-white);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 54px;
+        height: 54px;
+        border-radius: 8px;
+        background: var(--sage);
+        color: #fff;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 25px;
+        color: var(--sage-dark);
+      }
+
+      p {
+        color: var(--text-mid);
+        line-height: 1.8;
+      }
+
+      .links {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 22px;
+      }
+
+      a {
+        display: block;
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--text-dark);
+        text-decoration: none;
+      }
+
+      a strong {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--sage-dark);
+        font-size: 17px;
+      }
+
+      code {
+        word-break: break-all;
+      }
+
+      @media (max-width: 720px) {
+        .links {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="brand">
+          <div class="mark">ま</div>
+          <div>
+            <h1>まゆみ助産院 アンケート</h1>
+            <p>お客様用アプリと管理者用アプリを分けています。</p>
+          </div>
+        </div>
+        <p>
+          お客様には <code>/customer-app/</code> の URL を共有してください。管理者は
+          <code>/admin-app/</code> から回答を確認・管理します。公開APIへ接続するため、院内Wi-Fi以外からも利用できます。
+        </p>
+        <div class="links">
+          <a href="./customer-app/index.html">
+            <strong>お客様アプリ</strong>
+            アンケート回答と回答履歴の確認
+          </a>
+          <a href="./admin-app/index.html">
+            <strong>管理アプリ</strong>
+            回答一覧、集計、対応状況、管理メモ
+          </a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

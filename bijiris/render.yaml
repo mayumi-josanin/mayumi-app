@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: mayumi-bijiris
+    env: node
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /api/health
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: survey-data
+      mountPath: /var/data
+      sizeGB: 1
