@@ -189,6 +189,8 @@
   var SESSION_KEY = 'mayumi_launcher_session';
   // ビジリス管理アプリが読みに来るキー。ビジリスのGASが発行したトークンを置く。
   var BIJIRIS_ADMIN_TOKEN_KEY = 'mayumi_survey_admin_token';
+  // ビジリスのお客様アプリが本人を覚えている場所
+  var BIJIRIS_CUSTOMER_KEY = 'mayumi_survey_customer';
   var BIJIRIS_ADMIN_EXPIRES_KEY = 'mayumi_survey_admin_token_expires';
   var BIJIRIS_GAS = 'https://script.google.com/macros/s/AKfycbyZfGreoBxYYaB5i0NX1Hw_9eAMD5Q1YTfzKORYyLc2-TQt6R6xblkUNyW8SlEih4QW/exec';
 
@@ -331,13 +333,30 @@
     showTab('login');
   }
 
+  // ビジリスのお客様アプリは、氏名とフリガナが揃っていれば本人と分かる。
+  // 入口で分かっているので、あちらで入力し直さなくて済むよう先に置いておく。
+  function seedBijirisCustomer(session) {
+    if (!session.name || !session.kana) return;
+    try {
+      var current = JSON.parse(localStorage.getItem(BIJIRIS_CUSTOMER_KEY) || '{}');
+      if (current && current.name && current.nameKana) return;   // すでにある分は触らない
+      localStorage.setItem(BIJIRIS_CUSTOMER_KEY, JSON.stringify({
+        name: session.name,
+        nameKana: session.kana,
+        historyMatchMode: 'device'
+      }));
+    } catch (e) { /* プライベートモードでは保存できない */ }
+  }
+
   function applySession(json) {
     var session = {
       role: json.role,
       name: json.name,
+      kana: json.kana || '',
       memberId: json.memberId,
       bijiris: json.bijiris === true
     };
+    seedBijirisCustomer(session);
     if (json.role === 'admin') {
       store(ADMIN_TOKEN_KEY, json.token);
       store(MEMBER_TOKEN_KEY, '');

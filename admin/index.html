@@ -11114,98 +11114,6 @@
              message.indexOf('管理者認証が未設定') >= 0;
     }
 
-    // Google のスクリプトは、混み合っていると JSON ではなくエラーのHTMLを返すことがある。
-    // ログインは待てないので、その場で数回まで自動的にやり直す。
-    async function requestAdminLogin(password, attempt) {
-      const res = await fetch(GAS_URL, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ type: 'adminLogin', password: password })
-      });
-      const text = await res.text();
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        if (attempt < 3) {
-          await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
-          return requestAdminLogin(password, attempt + 1);
-        }
-        throw new Error('通信がうまくいきませんでした。少し待ってから、もう一度お試しください。');
-      }
-    }
-
-    // 入口の画面（start/）でログインすると、権限が管理者の方には
-    // 管理アプリ用のトークンが渡される。通常はここを通らない。
-    // トークンが無いまま直接開かれたときだけ、入口へ戻っていただく。
-    function goToLauncherForAdmin() {
-      const ok = window.confirm(
-        '管理画面を開くには、入口の画面でログインしてください。\n入口へ移動します。'
-      );
-      if (ok) location.href = '../start/';
-      return ok;
-    }
-
-    // トークンが無い／切れたときに出すログイン画面。
-    // 解決するまで待たせることで、後続の処理が壊れないようにする。
-    function showAdminLogin(note) {
-      const existing = document.getElementById('adminAuthOverlay');
-      if (existing) return existing.__promise;
-
-      const overlay = document.createElement('div');
-      overlay.id = 'adminAuthOverlay';
-      overlay.style.cssText =
-        'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;' +
-        'justify-content:center;z-index:99999;padding:20px;';
-      overlay.innerHTML =
-        '<form style="background:#fff;border-radius:14px;padding:24px;max-width:360px;width:100%;">' +
-        '<h2 style="margin:0 0 8px;font-size:18px;">管理者ログイン</h2>' +
-        '<p style="margin:0 0 16px;font-size:13px;color:#555;">' +
-        (note || 'パスワードを入力してください。') + '</p>' +
-        '<input type="password" id="adminAuthPassword" autocomplete="current-password" ' +
-        'style="width:100%;padding:12px;font-size:16px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;" />' +
-        '<p id="adminAuthError" style="color:#c0392b;font-size:13px;min-height:18px;margin:8px 0 0;"></p>' +
-        '<button type="submit" style="margin-top:8px;width:100%;padding:12px;font-size:16px;border:0;' +
-        'border-radius:8px;background:#5b8c5a;color:#fff;">ログイン</button>' +
-        '</form>';
-      document.body.appendChild(overlay);
-
-      overlay.__promise = new Promise((resolve) => {
-        const form = overlay.querySelector('form');
-        const errorEl = overlay.querySelector('#adminAuthError');
-        const input = overlay.querySelector('#adminAuthPassword');
-        input.focus();
-        form.addEventListener('submit', async (event) => {
-          event.preventDefault();
-          errorEl.textContent = '';
-          const submitButton = form.querySelector('button[type="submit"]');
-          const submitLabel = submitButton ? submitButton.textContent : '';
-          if (submitButton) {
-            submitButton.disabled = true;
-            submitButton.textContent = '確認しています…';
-          }
-          try {
-            const json = await requestAdminLogin(input.value, 1);
-            if (json && json.status === 'ok' && json.token) {
-              setAdminAuthToken(json.token);
-              overlay.remove();
-              resolve(true);
-              return;
-            }
-            errorEl.textContent = (json && json.message) || 'ログインできませんでした。';
-          } catch (e) {
-            errorEl.textContent = e && e.message ? e.message : '通信に失敗しました。';
-          }
-          if (submitButton) {
-            submitButton.disabled = false;
-            submitButton.textContent = submitLabel;
-          }
-          input.value = '';
-          input.focus();
-        });
-      });
-      return overlay.__promise;
-    }
 
     async function apiRequest(action, data = null, isPost = false) {
       if (!GAS_URL) {
@@ -11254,24 +11162,12 @@
             // トークンが無い／期限切れのとき。
             // 一度も入口を通っていない場合は、そちらへ案内する（二重に聞かない）。
             // 期限切れなど、すでにトークンを持っていた場合だけパスワードで入り直せる。
+            // 認証は入口の画面に一本化した。ここではパスワードを聞かず、
+            // 入口へ戻っていただく。
             if (isAdminAuthError(json)) {
-              const hadToken = !!adminToken;
               setAdminAuthToken('');
-              if (!hadToken && goToLauncherForAdmin()) return null;
-              await showAdminLogin('入口の画面でログインし直すか、パスワードを入力してください。');
-              const retryToken = getAdminAuthToken();
-              let retryUrl = baseUrl;
-              const retryOptions = { redirect: 'follow' };
-              if (isPost) {
-                retryOptions.method = 'POST';
-                retryOptions.body = JSON.stringify(Object.assign({}, data, { token: retryToken }));
-                retryOptions.headers = { 'Content-Type': 'text/plain' };
-              } else {
-                retryUrl += '?action=' + action;
-                if (data) retryUrl += '&data=' + encodeURIComponent(JSON.stringify(data));
-                if (retryToken) retryUrl += '&token=' + encodeURIComponent(retryToken);
-              }
-              json = await (await fetch(retryUrl, retryOptions)).json();
+              showLauncherRequired();
+              return null;
             }
             if (!isPost && json && json.status === 'ok') {
               writeAdminApiCache(action, data, json);

@@ -7345,16 +7345,11 @@ function closePasscodeOverlay() {
 }
 
 function shouldRequirePasscodeLock() {
-  if (!_profile || !hasConfiguredLocalPasscode()) return false;
-  if (!isPasscodeLoginEnabled()) return false;
-  const onboarding = document.getElementById('onboardingScreen');
-  const setupOverlay = document.getElementById('setupOverlay');
-  const migrationOverlay = document.getElementById('migrationOverlay');
-  if (onboarding && onboarding.classList.contains('show')) return false;
-  if (setupOverlay && setupOverlay.classList.contains('open')) return false;
-  if (migrationOverlay && migrationOverlay.classList.contains('open')) return false;
-  return true;
+  // 入口の画面でパスコードを入れていただくので、開くたびに同じものは聞かない。
+  // パスコードの設定・再設定の画面はマイページに残してある。
+  return false;
 }
+
 
 async function unlockAppWithPasscode() {
   const input = document.getElementById('lockPasscode');
