@@ -180,10 +180,9 @@
   var MEMBER_TOKEN_KEY = 'mayumi_member_auth_token';
   var SESSION_KEY = 'mayumi_launcher_session';
 
-  // ビジリスは別リポジトリなので絶対URLにする。
-  // 相対パス（../../）だと、確認用サーバーのように mayumi-app だけを配信している
-  // 環境では配信範囲の外に出てしまい、リンクが切れる。
-  var BIJIRIS_BASE = 'https://mayumi-josanin.github.io/mayumi_bijiris/';
+  // ビジリスは同じリポジトリの bijiris/ に入っているので相対パスで指す。
+  // こうしておくと、確認用サーバーでも公開先でも同じリンクで通る。
+  var BIJIRIS_BASE = '../bijiris/';
 
   var APPS = {
     mayumiCustomer: { name: 'まゆみ助産院',      desc: '予約・お知らせ・ショップ', url: '../' },
