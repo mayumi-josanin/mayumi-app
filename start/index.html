@@ -281,6 +281,44 @@
     renderApps(session);
   }
 
+  function wait(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  // Google のスクリプトは、混み合っていると JSON ではなくエラーのHTMLを返すことがある。
+  // お客様アプリはこれを送信待ちに回して隠しているが、ログインは待てないので
+  // ここで数回まで自動的にやり直す。
+  function requestGas(payload, attempt) {
+    return fetch(MAYUMI_GAS, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    })
+      .then(function (res) { return res.text(); })
+      .then(function (text) {
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          if (attempt < 3) {
+            return wait(1500 * attempt).then(function () {
+              return requestGas(payload, attempt + 1);
+            });
+          }
+          throw new Error('通信がうまくいきませんでした。少し待ってから、もう一度お試しください。');
+        }
+      })
+      .catch(function (error) {
+        // 通信そのものが失敗した場合も同じように試し直す。
+        if (attempt < 3 && error && error.name === 'TypeError') {
+          return wait(1500 * attempt).then(function () {
+            return requestGas(payload, attempt + 1);
+          });
+        }
+        throw error;
+      });
+  }
+
   function post(payload, button, errorEl) {
     // Google のスクリプトは応答まで2〜3秒かかる。
     // 何も出ないと止まって見えるので、待っていることを伝える。
@@ -288,13 +326,7 @@
     button.disabled = true;
     button.textContent = '確認しています…';
     errorEl.textContent = '';
-    return fetch(MAYUMI_GAS, {
-      method: 'POST',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload)
-    })
-      .then(function (res) { return res.json(); })
+    return requestGas(payload, 1)
       .then(function (json) {
         if (!json || json.status !== 'ok' || !json.token) {
           throw new Error((json && json.message) || 'うまくいきませんでした。');
