@@ -2040,6 +2040,20 @@ const ACCOUNT_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30日
 
 // 会員はもともと「パスコード（数字4桁または6桁）」を持っている。
 // 新しくパスワードを覚えていただくのではなく、これをそのままログインに使う。
+// パスコードは数字に見えるが、0505 のような値は数値として扱われると
+// 先頭の 0 が落ちて 505 になってしまう。列ごと「書式なしテキスト」にして防ぐ。
+function ensurePasscodeColumnIsText_(sheet) {
+  if (!sheet) return;
+  try {
+    const rows = Math.max(sheet.getMaxRows() - 1, 1);
+    const range = sheet.getRange(2, USER_COL.PASSCODE, rows, 1);
+    if (range.getNumberFormat() === '@') return;
+    range.setNumberFormat('@');
+  } catch (err) {
+    // 書式を変えられなくても、照合側で桁を揃えるので致命的ではない
+  }
+}
+
 function normalizePasscodeValue_(value) {
   return String(value == null ? '' : value).replace(/[^0-9]/g, '');
 }
@@ -2220,6 +2234,52 @@ function registerAccount(data) {
   }
 }
 
+// 記録されているパスコードが入力より短ければ、先頭の 0 が落ちている。
+// 本人が入力できた値なので、そのまま書き戻して直す。
+function repairStoredPasscode_(sheet, hit, passcode) {
+  try {
+    const input = normalizePasscodeValue_(passcode);
+    const stored = normalizePasscodeValue_(hit.values[USER_COL.PASSCODE - 1]);
+    if (!input || !stored || stored === input) return;
+    if (stored.length >= input.length) return;
+    const cell = sheet.getRange(hit.rowIdx, USER_COL.PASSCODE);
+    cell.setNumberFormat('@');
+    cell.setValue(input);
+    hit.values[USER_COL.PASSCODE - 1] = input;
+  } catch (err) {
+    // 直せなくてもログイン自体は成立している
+  }
+}
+
+// ログインは待たされると使ってもらえない。
+// 照合に要る列だけを先に読み、当てはまった行だけを丸ごと読む。
+// 全行×全列（約9,000セル）を毎回読むのに比べて、やり取りがずっと軽い。
+function findAccountRowsByName_(name) {
+  const sheet = getOrCreateUsersSheet_(getOrCreateSpreadsheet());
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { sheet: sheet, rows: [] };
+
+  const count = lastRow - 1;
+  const names = sheet.getRange(2, USER_COL.NAME, count, 1).getValues();
+  const deleted = sheet.getRange(2, USER_COL.DELETE_STATUS, count, 1).getValues();
+
+  const rowIdxList = [];
+  for (let i = 0; i < count; i += 1) {
+    if (String(deleted[i][0] || '').trim() === SOFT_DELETE_STATUS) continue;
+    if (normalizeNameForMatch_(names[i][0]) !== name) continue;
+    rowIdxList.push(i + 2);
+  }
+
+  // 同姓同名は多くても数人。ここだけ全列を読む。
+  const rows = rowIdxList.map(function (rowIdx) {
+    return {
+      rowIdx: rowIdx,
+      values: sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).getValues()[0]
+    };
+  });
+  return { sheet: sheet, rows: rows };
+}
+
 function loginAccount(data) {
   try {
     const name = normalizeNameForMatch_(data && data.name);
@@ -2241,10 +2301,9 @@ function loginAccount(data) {
       return { status: 'error', message: 'ログイン失敗が続いたため、一時的に停止しています。10分後に再試行してください。' };
     }
 
-    // 氏名は一意でないため、パスワードで絞り込む。
-    const store = readAccountRows_();
+    // 氏名は一意でないため、パスコードで絞り込む。
+    const store = findAccountRowsByName_(name);
     const hits = store.rows.filter(function (item) {
-      if (normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) !== name) return false;
       if (matchesRowPasscode_(item.values, passcode)) return true;
       // 以前パスワードで登録した方も、そのまま入れるようにしておく。
       const salt = String(item.values[USER_COL.PASSWORD_SALT - 1] || '');
@@ -2265,6 +2324,9 @@ function loginAccount(data) {
 
     delete attempts[key];
     properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
+    // 先頭の 0 が落ちて記録されていた場合、ここで正しい桁に直しておく。
+    // 入力が通った時点で本来の値が分かるので、次からは桁を揃えずに一致する。
+    repairStoredPasscode_(store.sheet, hits[0], passcode);
     touchLastOnline_(store.sheet, hits[0].rowIdx);
     return buildAccountSession_(hits[0].values);
   } catch (err) {
@@ -2284,9 +2346,8 @@ function registerBijirisUse(data) {
       return { status: 'error', message: 'お名前・フリガナ・パスコードを入力してください。' };
     }
 
-    const store = readAccountRows_();
+    const store = findAccountRowsByName_(name);
     const hits = store.rows.filter(function (item) {
-      if (normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) !== name) return false;
       if (matchesRowPasscode_(item.values, passcode)) return true;
       const salt = String(item.values[USER_COL.PASSWORD_SALT - 1] || '');
       const hash = String(item.values[USER_COL.PASSWORD_HASH - 1] || '');
@@ -3611,6 +3672,7 @@ function ensureUsersSheetStructure_(sheet) {
     styleHeader(sheet, USER_HEADERS.length, '#0288d1');
     configureUsersSheet_(sheet);
   }
+  ensurePasscodeColumnIsText_(sheet);
   return sheet;
 }
 
