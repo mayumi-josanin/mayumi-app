@@ -503,6 +503,9 @@ function handleGet_(e) {
 }
 
 function handlePost_(body) {
+  if (body.action === "adminLoginWithMayumi") {
+    return adminLoginWithMayumi_(body.mayumiToken);
+  }
   if (body.action === "submitResponse") {
     return saveResponse_(body);
   }
@@ -4832,6 +4835,57 @@ function uniqueValues_(values) {
     seen[normalized] = true;
     return true;
   });
+}
+
+var MAYUMI_GAS_URL_DEFAULT =
+  "https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec";
+
+// まゆみ助産院アプリの入口でログインした管理者を、こちらでも管理者として扱う。
+//
+// まゆみのトークンはあちらの鍵で署名されているので、こちらでは検証できない。
+// 代わりに「このトークンは有効か」をまゆみのGASに問い合わせ、有効なときだけ
+// こちらのトークンを発行する。こうすると管理パスワードをどこにも複製せずに済む。
+//
+// 必要な設定（スクリプトプロパティ）: MAYUMI_GAS_URL
+function adminLoginWithMayumi_(mayumiToken) {
+  var token = normalizeText_(mayumiToken);
+  if (!token) throw new Error("ログイン情報がありません。");
+
+  // 接続先は秘密ではない（まゆみ側のアプリにも同じURLが書かれている）。
+  // 設定を必須にすると登録漏れで動かなくなるため、既定値を持たせておく。
+  // スクリプトプロパティ MAYUMI_GAS_URL があれば、そちらを優先する。
+  var url = normalizeText_(
+    PropertiesService.getScriptProperties().getProperty("MAYUMI_GAS_URL")
+  ) || MAYUMI_GAS_URL_DEFAULT;
+  if (!url) throw new Error("まゆみ助産院アプリの接続先が設定されていません。");
+
+  var endpoint = url + "?action=checkAdminToken&token=" + encodeURIComponent(token);
+  var res = UrlFetchApp.fetch(endpoint, {
+    method: "get",
+    muteHttpExceptions: true,
+    followRedirects: true,
+  });
+
+  var parsed;
+  try {
+    parsed = JSON.parse(res.getContentText());
+  } catch (error) {
+    throw new Error("まゆみ助産院アプリからの応答を読み取れませんでした。");
+  }
+  if (!parsed || parsed.valid !== true) {
+    appendErrorLog_("adminLoginWithMayumi", "まゆみ側で無効と判定", {});
+    throw new Error("ログインの確認が取れませんでした。");
+  }
+
+  var user = getAdminUsers_()[0];
+  if (!user) throw new Error("管理者アカウントが登録されていません。");
+
+  var expiresAt = Date.now() + 8 * 60 * 60 * 1000;
+  appendAuditLog_("admin.login", { loginId: user.username, via: "mayumi" });
+  return {
+    token: makeToken_(user.username, expiresAt),
+    expiresAt: new Date(expiresAt).toISOString(),
+  };
 }
 
 function adminLogin_(loginId, password) {
