@@ -59,6 +59,11 @@
   button.primary:disabled { opacity: .6; cursor: default; }
   .error { color: var(--danger); font-size: 13px; min-height: 20px; margin: 12px 0 0; }
   .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+  /* すでにご利用の方は空欄で構わない欄につける印。 */
+  .optional {
+    margin-left: 6px; padding: 1px 6px; font-size: 11px;
+    color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 999px;
+  }
 
   .who { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
   .who strong { font-size: 16px; }
@@ -93,11 +98,14 @@
     </div>
 
     <form id="loginForm">
+      <p class="note">
+        すでにアプリをお使いの方は、これまでと同じお名前とパスコードでお入りいただけます。
+      </p>
       <label>お名前（漢字・フルネーム）
         <input name="name" type="text" autocomplete="name" required />
       </label>
-      <label>パスワード
-        <input name="password" type="password" autocomplete="current-password" required />
+      <label>パスコード
+        <input name="passcode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" placeholder="例：1234" required />
       </label>
       <p class="error" id="loginError"></p>
       <button class="primary" type="submit">ログイン</button>
@@ -107,26 +115,26 @@
       <label>お名前（漢字・フルネーム）
         <input name="name" type="text" autocomplete="name" required />
       </label>
-      <label>フリガナ（カタカナ）
-        <input name="kana" type="text" autocapitalize="characters" required />
-      </label>
       <label>生年月日
         <input name="birthday" type="date" required />
       </label>
-      <label>電話番号
-        <input name="phone" type="tel" autocomplete="tel" required />
+      <label>フリガナ（カタカナ）<span class="optional">はじめての方のみ</span>
+        <input name="kana" type="text" autocapitalize="characters" />
       </label>
-      <label>ご住所
-        <input name="address" type="text" autocomplete="street-address" required />
+      <label>電話番号<span class="optional">はじめての方のみ</span>
+        <input name="phone" type="tel" autocomplete="tel" />
       </label>
-      <label>パスワード（8文字以上）
-        <input name="password" type="password" autocomplete="new-password" required />
+      <label>ご住所<span class="optional">はじめての方のみ</span>
+        <input name="address" type="text" autocomplete="street-address" />
+      </label>
+      <label>パスコード（数字4桁または6桁）
+        <input name="passcode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" placeholder="例：1234" required />
       </label>
       <p class="error" id="registerError"></p>
       <button class="primary" type="submit">登録する</button>
       <p class="note">
-        すでに当院をご利用の方は、お名前と生年月日が一致すれば、
-        これまでの記録を引き継いでパスワードだけ設定します。
+        すでに当院をご利用の方は、お名前・生年月日・パスコードの3つだけで結構です。
+        これまでの記録を引き継いで、パスコードだけを設定します。
       </p>
     </form>
   </section>
@@ -156,8 +164,8 @@
         <label>フリガナ（カタカナ）
           <input name="kana" type="text" autocapitalize="characters" required />
         </label>
-        <label>パスワード（ログインと同じもの）
-          <input name="password" type="password" autocomplete="current-password" required />
+        <label>パスコード（アプリと同じもの）
+          <input name="passcode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" placeholder="例：1234" required />
         </label>
         <p class="error" id="bijirisError"></p>
         <button class="primary" type="submit">ビジリスを登録する</button>
@@ -299,7 +307,7 @@
     post({
       type: 'loginAccount',
       name: form.name.value,
-      password: form.password.value
+      passcode: form.passcode.value
     }, form.querySelector('button'), $('loginError'));
   });
 
@@ -313,7 +321,7 @@
       birthday: form.birthday.value,
       phone: form.phone.value,
       address: form.address.value,
-      password: form.password.value
+      passcode: form.passcode.value
     }, form.querySelector('button'), $('registerError'));
   });
 
@@ -324,7 +332,7 @@
       type: 'registerBijirisUse',
       name: form.name.value,
       kana: form.kana.value,
-      password: form.password.value
+      passcode: form.passcode.value
     }, form.querySelector('button'), $('bijirisError'));
   });
 
