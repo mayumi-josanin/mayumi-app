@@ -2046,7 +2046,7 @@ function adminLogin_(data) {
 // 氏名は一意ではない（同姓同名や重複登録が実在する）。そのため
 // 「氏名で候補を集め、パスワードが合う行がちょうど1つ」を成立条件にする。
 // ==========================================================================
-const ACCOUNT_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30日
+const ACCOUNT_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90日
 
 // 会員はもともと「パスコード（数字4桁または6桁）」を持っている。
 // 新しくパスワードを覚えていただくのではなく、これをそのままログインに使う。
@@ -2158,6 +2158,8 @@ function buildAccountSession_(row) {
     role: isAdmin ? 'admin' : 'member',
     memberId: memberId,
     name: String(row[USER_COL.NAME - 1] || ''),
+    // ビジリスは氏名とフリガナで本人を見分けるので、入口から引き継げるよう返す。
+    kana: String(row[USER_COL.KANA - 1] || ''),
     // ビジリスの登録有無で、アプリ一覧に出すかどうかが決まる。
     bijiris: String(row[USER_COL.BIJIRIS - 1] || '').trim() === ACCOUNT_BIJIRIS_REGISTERED,
     // 権限が管理者なら、管理アプリ用のトークンをここで渡す。
