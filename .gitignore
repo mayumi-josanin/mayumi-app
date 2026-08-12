@@ -1,3 +1,6 @@
 .DS_Store
 .idea/
 .vscode/
+
+# clasp の手元設定。GAS のスクリプトIDを含むので共有しない。
+.clasp.json

@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>まゆみ助産院 アンケート</title>
+    <meta name="theme-color" content="#8a9e7e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="まゆみアンケート" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260729-03" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20260729-03" sizes="180x180" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260729-03" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260729-03" />
+  </head>
+  <body>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <header class="app-header">
+      <div class="brand">
+        <img src="./icons/apple-touch-icon.png?v=20260729-03" alt="まゆみ助産院" />
+        <div>
+          <div class="brand-name">まゆみ助産院</div>
+          <div class="brand-sub">アンケート回答アプリ</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="appUpdateButton" class="header-button" type="button">更新</button>
+        <button id="installButton" class="header-button" type="button" hidden>追加</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="page-login" class="page active">
+        <section class="welcome-card">
+          <p class="eyebrow">Member</p>
+          <h1>初めての方は会員登録してください</h1>
+          <p id="registrationLead">ホーム画面に追加したアプリから会員登録してください。</p>
+        </section>
+
+        <section class="section-card">
+          <h2>会員登録 / 復旧</h2>
+          <form id="customerLoginForm" class="form-grid">
+            <label>
+              お名前(漢字・フルネーム)
+              <input name="name" type="text" autocomplete="name" required />
+            </label>
+            <label>
+              フリガナ(カタカナ)
+              <input name="nameKana" type="text" autocapitalize="characters" required />
+            </label>
+            <label>
+              パスコード(4桁または6桁の数字)
+              <input
+                name="passcode"
+                type="password"
+                inputmode="numeric"
+                autocomplete="current-password"
+                placeholder="お持ちの方のみ"
+              />
+            </label>
+            <button class="primary-button" type="submit" id="customerRegisterButton">会員登録 / ログイン</button>
+            <button class="secondary-button" type="button" id="recoverAccountButton">パスコードを忘れた方・初めて設定する方</button>
+          </form>
+
+          <div id="passcodeRecoveryPanel" hidden>
+            <h3>パスコードの設定・再設定</h3>
+            <p class="hint">
+              ご登録の会員情報と照合します。生年月日と、お名前またはフリガナが一致すると、
+              新しいパスコードを設定できます。<br />
+              照合できない場合は、受付でスタッフにお申し出ください。スタッフが再設定を許可すると、
+              生年月日なしでこの画面から設定できます。
+            </p>
+            <form id="passcodeRecoveryForm" class="form-grid">
+              <label>
+                お名前(漢字・フルネーム)
+                <input name="name" type="text" autocomplete="name" />
+              </label>
+              <label>
+                フリガナ(カタカナ)
+                <input name="nameKana" type="text" autocapitalize="characters" />
+              </label>
+              <label>
+                生年月日
+                <input name="birthday" type="date" />
+              </label>
+              <label>
+                新しいパスコード(4桁または6桁の数字)
+                <input
+                  name="newPasscode"
+                  type="password"
+                  inputmode="numeric"
+                  autocomplete="new-password"
+                  required
+                />
+              </label>
+              <button class="primary-button" type="submit">設定する</button>
+            </form>
+          </div>
+        </section>
+      </section>
+
+      <section id="page-home" class="page">
+        <section class="welcome-card">
+          <p class="eyebrow">Survey</p>
+          <h1>アンケートを選択してください</h1>
+          <p>ログイン後、回答したいアンケートを押してください。</p>
+        </section>
+
+        <section class="section-card">
+          <h2>お客様情報</h2>
+          <form id="customerForm" class="form-grid">
+            <label>
+              お名前(漢字・フルネーム)
+              <input name="name" type="text" autocomplete="name" required />
+            </label>
+            <label>
+              フリガナ(カタカナ)
+              <input name="nameKana" type="text" autocapitalize="characters" required />
+            </label>
+            <button class="primary-button" type="submit">保存する</button>
+          </form>
+          <button id="logoutButton" class="secondary-button logout-button" type="button">ログアウト</button>
+          <p class="logout-note">入口の画面に戻り、他のアプリに切り替えられます。この端末の記録は消えません。</p>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h2>回数券スタンプ</h2>
+              <p>最新の回答内容から現在の回数券状況を表示します。</p>
+            </div>
+          </div>
+          <div id="homeTicketStatus" class="home-ticket-status"></div>
+          <div id="homeCampaignStatus" class="home-ticket-status"></div>
+          <div id="homeMilestoneReward" class="home-milestone-reward"></div>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h2>アンケート</h2>
+              <p>回答するアンケートを選んでください。</p>
+            </div>
+            <button id="refreshButton" class="ghost-button" type="button">更新</button>
+          </div>
+          <div id="surveyList" class="survey-list"></div>
+        </section>
+
+      </section>
+
+      <section id="page-survey" class="page">
+        <section id="answerPanel" class="section-card"></section>
+      </section>
+
+      <section id="page-history" class="page">
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h1>回答履歴</h1>
+              <p>この端末から送信した回答履歴を表示します。</p>
+            </div>
+            <button id="historyRefreshButton" class="ghost-button" type="button">更新</button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+      </section>
+
+      <section id="page-measurements" class="page">
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h1>計測記録</h1>
+              <p>計測履歴、グラフ、写真履歴を確認できます。</p>
+            </div>
+            <button id="measurementRefreshButton" class="ghost-button" type="button">更新</button>
+          </div>
+          <div id="measurementPanel" class="measurement-panel"></div>
+        </section>
+      </section>
+
+      <section id="page-bijiris" class="page">
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h2>通知設定</h2>
+              <p id="pushHelpText">豆知識の追加や更新を通知で受け取れます。</p>
+            </div>
+            <button id="pushToggleButton" class="ghost-button" type="button">通知オフ</button>
+          </div>
+          <div id="pushStatusText" class="member-info-card notification-status-card"></div>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h1>豆知識</h1>
+              <p>豆知識やアドバイス、資料を確認できます。</p>
+            </div>
+            <button id="bijirisRefreshButton" class="ghost-button" type="button">更新</button>
+          </div>
+          <div id="bijirisPanel" class="bijiris-panel"></div>
+        </section>
+      </section>
+
+    </main>
+
+    <nav id="bottomNav" class="bottom-nav" aria-label="お客様アプリメニュー" hidden>
+      <button class="nav-button active" type="button" data-page="home">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">ホーム</span>
+      </button>
+      <button class="nav-button" type="button" data-page="history">
+        <span class="nav-icon">🕒</span>
+        <span class="nav-label">履歴</span>
+      </button>
+      <button class="nav-button" type="button" data-page="measurements">
+        <span class="nav-icon">📏</span>
+        <span class="nav-label">計測</span>
+      </button>
+      <button class="nav-button" type="button" data-page="bijiris">
+        <span class="nav-icon">💡</span>
+        <span class="nav-label">豆知識</span>
+        <span id="bijirisNavBadge" class="nav-badge" hidden></span>
+      </button>
+    </nav>
+
+    <script src="../default-surveys.js?v=20260729-03"></script>
+    <script src="../shared/gas-config.js?v=20260417-13"></script>
+    <script src="../shared/api.js?v=20260729-03"></script>
+    <script src="./app.js?v=20260729-03"></script>
+  </body>
+</html>
