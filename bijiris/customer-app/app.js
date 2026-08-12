@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v125";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v126";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -6546,26 +6546,13 @@ document.querySelector("#refreshButton").addEventListener("click", () => {
   if (hasCustomerSession()) void loadHistory();
 });
 
-// ログアウトは端末の記録に触らない。ログイン状態だけを解いて入口の画面へ戻す。
-// 下書きもお気に入りも残るので、同じ人が入り直せば続きからそのまま使える。
+// アプリを切り替えるための出口。ログイン状態も端末の記録も触らない。
+// 一覧から選び直せばすぐ戻ってこられる。
+// ログインを解きたいときは、入口の画面のログアウトを使う。
 // まゆみ助産院アプリと同じ場所に置かれているので、2つ上が入口。
-// 相対パスにしておくと、確認用サーバーでも公開先でも同じリンクで通る。
 const LAUNCHER_PAGE_URL = "../../start/";
-const SHARED_SESSION_STORAGE_KEYS = ["mayumi_launcher_session", "mayumi_member_auth_token"];
 
 document.querySelector("#logoutButton")?.addEventListener("click", () => {
-  const confirmed = window.confirm(
-    "ログアウトして入口の画面に戻ります。\nこの端末の記録は消えないので、入り直せば続きから使えます。",
-  );
-  if (!confirmed) return;
-  api.clearCustomerToken?.();
-  SHARED_SESSION_STORAGE_KEYS.forEach((key) => {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // プライベートモード等では触れない
-    }
-  });
   location.href = LAUNCHER_PAGE_URL;
 });
 

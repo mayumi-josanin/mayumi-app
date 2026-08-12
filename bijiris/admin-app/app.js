@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v101";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v102";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -8658,26 +8658,12 @@ credentialForm.addEventListener("submit", async (event) => {
   }
 });
 
-// ログアウトしたら、この画面のログイン欄ではなく入口へ戻す。
-// 入口から入り直せば、ここは認証なしで開く。
+// アプリを切り替えるための出口。ログイン状態は保ったままにする。
+// ログインを解きたいときは、入口の画面のログアウトを使う。
 // まゆみ助産院アプリと同じ場所に置かれているので、2つ上が入口。
 const LAUNCHER_PAGE_URL = "../../start/";
 
 document.querySelector("#logoutButton").addEventListener("click", () => {
-  state.token = "";
-  state.adminInfo = null;
-  state.customerProfiles = {};
-  localStorage.removeItem(TOKEN_KEY);
-  // 入口が持っている共通のログイン状態も一緒に手放す。
-  ["mayumi_launcher_session", "mayumi_admin_auth_token", "mayumi_member_auth_token",
-   "mayumi_survey_admin_token_expires"].forEach((key) => {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // プライベートモード等では触れない
-    }
-  });
-  void api.logout?.();
   location.href = LAUNCHER_PAGE_URL;
 });
 
