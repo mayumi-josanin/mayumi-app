@@ -8246,35 +8246,17 @@ async function removeUserDeviceSession(deviceId) {
   }
 }
 
-// ===== ログアウト =====
-// 端末に残っている記録には触らない。共通のログイン状態だけを解いて入口へ戻す。
-// 同じ人が入り直したときに、ログアウト前の続きからそのまま使えるようにするため。
-
-// ランチャー（入口）が管理しているログイン状態。アプリごとの記録とは別物。
-const SHARED_SESSION_STORAGE_KEYS = [
-  'mayumi_launcher_session',
-  'mayumi_member_auth_token'
-];
+// ===== アプリの切り替え =====
+// 入口へ戻るだけ。ログイン状態も端末の記録も触らないので、
+// 一覧から選び直せばすぐ戻ってこられる。
+// ログインを解きたいときは、入口の画面のログアウトを使う。
 
 const LAUNCHER_PAGE_URL = 'start/';
 
-function clearSharedSession() {
-  SHARED_SESSION_STORAGE_KEYS.forEach(function (key) {
-    try { localStorage.removeItem(key); } catch (e) { /* プライベートモードでは触れない */ }
-  });
-}
-
-async function logoutFromApp() {
-  const confirmed = await showAppConfirm(
-    'ログアウトして入口の画面に戻ります。\nこの端末の記録は消えないので、入り直せば続きから使えます。',
-    {
-      title: 'ログアウト',
-      confirmLabel: 'ログアウトする',
-      cancelLabel: 'やめる'
-    }
-  );
-  if (!confirmed) return;
-  clearSharedSession();
+// アプリを切り替えるための出口。ログイン状態は保ったままにして、
+// 入口ではアプリ一覧が出るようにする。
+// ログインを解きたいときは、入口の画面のログアウトを使う。
+function goToAppList() {
   location.href = LAUNCHER_PAGE_URL;
 }
 
