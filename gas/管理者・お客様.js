@@ -2219,7 +2219,7 @@ function registerAccount(data) {
       }
       // すでにある記録には触らない。空いている欄だけ、入力があれば埋める。
       const row = target.values.slice();
-      if (kana && !String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = kana;
+      if (kana && !String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
       if (phone && !String(row[USER_COL.PHONE - 1] || '').trim()) row[USER_COL.PHONE - 1] = phone;
       if (address && !String(row[USER_COL.ADDRESS - 1] || '').trim()) row[USER_COL.ADDRESS - 1] = address;
       row[USER_COL.PASSCODE - 1] = passcode;
@@ -2246,8 +2246,8 @@ function registerAccount(data) {
     const row = new Array(USER_HEADERS.length).fill('');
     row[USER_COL.MEMBER_ID - 1] = memberId;
     row[USER_COL.TIMESTAMP - 1] = timestamp;
-    row[USER_COL.NAME - 1] = rawName;
-    row[USER_COL.KANA - 1] = kana;
+    row[USER_COL.NAME - 1] = normalizeStoredName_(rawName);
+    row[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
     row[USER_COL.PHONE - 1] = phone;
     row[USER_COL.BIRTHDAY - 1] = birthday;
     row[USER_COL.ADDRESS - 1] = address;
@@ -2390,7 +2390,7 @@ function registerBijirisUse(data) {
     const row = target.values.slice();
     row[USER_COL.BIJIRIS - 1] = ACCOUNT_BIJIRIS_REGISTERED;
     // フリガナが未登録の会員は、この機会に埋めておく。
-    if (!String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = kana;
+    if (!String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
     store.sheet.getRange(target.rowIdx, 1, 1, USER_HEADERS.length).setValues([row]);
     touchLastOnline_(store.sheet, target.rowIdx);
     return buildAccountSession_(row);
@@ -6650,8 +6650,8 @@ function handleUpdateUser(data) {
       const rowData = new Array(USER_HEADERS.length).fill('');
       rowData[USER_COL.MEMBER_ID - 1] = memberId;
       rowData[USER_COL.TIMESTAMP - 1] = timestamp;
-      rowData[USER_COL.NAME - 1] = rawName;
-      rowData[USER_COL.KANA - 1] = data.kana || '';
+      rowData[USER_COL.NAME - 1] = normalizeStoredName_(rawName);
+      rowData[USER_COL.KANA - 1] = normalizeStoredKana_(data.kana || '');
       rowData[USER_COL.PHONE - 1] = data.phone || '';
       rowData[USER_COL.AVATAR_URL - 1] = data.avatar || '';
       rowData[USER_COL.MEMO - 1] = data.memo || '';
@@ -6688,8 +6688,8 @@ function handleUpdateUser(data) {
       const updatedRow = currentValues.slice();
       updatedRow[USER_COL.MEMBER_ID - 1] = memberId;
       updatedRow[USER_COL.TIMESTAMP - 1] = timestamp;
-      updatedRow[USER_COL.NAME - 1] = data.name !== undefined ? rawName : currentValues[USER_COL.NAME - 1];
-      updatedRow[USER_COL.KANA - 1] = data.kana !== undefined ? data.kana : currentValues[USER_COL.KANA - 1];
+      updatedRow[USER_COL.NAME - 1] = normalizeStoredName_(data.name !== undefined ? rawName : currentValues[USER_COL.NAME - 1]);
+      updatedRow[USER_COL.KANA - 1] = normalizeStoredKana_(data.kana !== undefined ? data.kana : currentValues[USER_COL.KANA - 1]);
       updatedRow[USER_COL.PHONE - 1] = data.phone !== undefined ? data.phone : currentValues[USER_COL.PHONE - 1];
       updatedRow[USER_COL.AVATAR_URL - 1] = data.avatar !== undefined ? data.avatar : currentValues[USER_COL.AVATAR_URL - 1];
       updatedRow[USER_COL.MEMO - 1] = data.memo !== undefined ? data.memo : currentValues[USER_COL.MEMO - 1];
@@ -6734,6 +6734,19 @@ function normalizePhoneForMatch_(value) {
     str = '0' + str;
   }
   return str;
+}
+
+// 保存する氏名・フリガナから空白を取り除く。
+// 「山田 太郎」と「山田太郎」が別人として登録され、同じ方が二重に
+// 登録されてしまうため。照合側（normalizeNameForMatch_）も空白を無視している。
+function normalizeStoredName_(value) {
+  return String(value == null ? '' : value).replace(/[\s\u3000]+/g, '');
+}
+
+function normalizeStoredKana_(value) {
+  let text = String(value == null ? '' : value);
+  try { text = text.normalize('NFKC'); } catch (err) { /* 古い環境では未対応 */ }
+  return text.replace(/[\s\u3000]+/g, '');
 }
 
 function normalizeNameForMatch_(value) {
@@ -6827,8 +6840,8 @@ function ensureUserRowFromActivity_(sheet, data) {
     const rowData = new Array(USER_HEADERS.length).fill('');
     rowData[USER_COL.MEMBER_ID - 1] = memberId;
     rowData[USER_COL.TIMESTAMP - 1] = timestamp;
-    rowData[USER_COL.NAME - 1] = name;
-    rowData[USER_COL.KANA - 1] = kana;
+    rowData[USER_COL.NAME - 1] = normalizeStoredName_(name);
+    rowData[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
     rowData[USER_COL.PHONE - 1] = phone;
     rowData[USER_COL.AVATAR_URL - 1] = avatar;
     rowData[USER_COL.MEMO - 1] = memo;
@@ -7508,8 +7521,8 @@ function handleUpdateAdminUser(data) {
     const range = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length);
     const currentRow = range.getValues()[0];
     const updatedRow = currentRow.slice();
-    updatedRow[USER_COL.NAME - 1] = data.name !== undefined ? data.name : currentRow[USER_COL.NAME - 1];
-    updatedRow[USER_COL.KANA - 1] = data.kana !== undefined ? data.kana : currentRow[USER_COL.KANA - 1];
+    updatedRow[USER_COL.NAME - 1] = normalizeStoredName_(data.name !== undefined ? data.name : currentRow[USER_COL.NAME - 1]);
+    updatedRow[USER_COL.KANA - 1] = normalizeStoredKana_(data.kana !== undefined ? data.kana : currentRow[USER_COL.KANA - 1]);
     updatedRow[USER_COL.PHONE - 1] = data.phone !== undefined ? data.phone : currentRow[USER_COL.PHONE - 1];
     updatedRow[USER_COL.MEMO - 1] = data.memo !== undefined ? data.memo : currentRow[USER_COL.MEMO - 1];
     updatedRow[USER_COL.BIRTHDAY - 1] = data.birthday !== undefined ? data.birthday : currentRow[USER_COL.BIRTHDAY - 1];

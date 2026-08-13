@@ -427,12 +427,18 @@
       });
   }
 
+  // 氏名とフリガナは空白を残さない。「山田 太郎」と「山田太郎」が
+  // 別人として登録され、同じ方が二重に登録されてしまうため。
+  function withoutSpaces(value) {
+    return String(value == null ? '' : value).replace(/[\s\u3000]+/g, '');
+  }
+
   $('loginForm').addEventListener('submit', function (event) {
     event.preventDefault();
     var form = event.currentTarget;
     post({
       type: 'loginAccount',
-      name: form.name.value,
+      name: withoutSpaces(form.name.value),
       passcode: form.passcode.value
     }, form.querySelector('button'), $('loginError'));
   });
@@ -442,8 +448,8 @@
     var form = event.currentTarget;
     post({
       type: 'registerAccount',
-      name: form.name.value,
-      kana: form.kana.value,
+      name: withoutSpaces(form.name.value),
+      kana: withoutSpaces(form.kana.value),
       birthday: form.birthday.value,
       phone: form.phone.value,
       address: form.address.value,
@@ -456,8 +462,8 @@
     var form = event.currentTarget;
     post({
       type: 'registerBijirisUse',
-      name: form.name.value,
-      kana: form.kana.value,
+      name: withoutSpaces(form.name.value),
+      kana: withoutSpaces(form.kana.value),
       passcode: form.passcode.value
     }, form.querySelector('button'), $('bijirisError'));
   });
