@@ -973,6 +973,11 @@ window.MayumiSurveyApi = (() => {
         return jsonp(gasUrl, "adminInfo", { token: options.token });
       }
 
+      // 管理アプリの起動時にまとめて取る窓口。8回に分けるより速い。
+      if (path === "/api/admin/bootstrap" && method === "GET") {
+        return jsonp(gasUrl, "adminBootstrap", { token: options.token });
+      }
+
       if (path === "/api/admin/users" && method === "GET") {
         return jsonp(gasUrl, "adminUsers", { token: options.token });
       }

@@ -476,6 +476,24 @@ function handleGet_(e) {
   if (action === "adminMeasurements") return { measurements: getMeasurements_({}) };
   if (action === "adminBijirisPosts") return { posts: getBijirisPosts_({ includeDrafts: true }) };
   if (action === "adminTicketSurvey") return getTicketSurveyPayload_();
+  // 管理アプリの起動時にまとめて返す窓口。
+  // Apps Script は同じスクリプトへの同時呼び出しを順番待ちにするため、
+  // 8回に分けて取りにいくと、そのぶん待ち時間が積み上がっていた。
+  if (action === "adminBootstrap") {
+    var 回数券 = null;
+    // 回数券分析は補助機能。ここで転んでも他が出せるようにしておく。
+    try { 回数券 = getTicketSurveyPayload_(); } catch (err) { 回数券 = null; }
+    return {
+      info: getAdminInfo_(),
+      surveys: getSurveys_(),
+      responses: getResponses_({ includeTrashed: true }),
+      measurements: getMeasurements_({}),
+      bijirisPosts: getBijirisPosts_({ includeDrafts: true }),
+      preferences: getPreferences_(),
+      customerMemos: getCustomerMemos_(),
+      ticketSurvey: 回数券,
+    };
+  }
   if (action === "adminUpdate") {
     return {
       response: updateResponse_(params.responseId, params.status, params.adminMemo),

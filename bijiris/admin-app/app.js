@@ -1811,35 +1811,61 @@ function getFallbackSurveys() {
   return typeof makeSurveys === "function" ? makeSurveys(new Date().toISOString()) : [];
 }
 
+// 起動時に必要なものを取ってくる。
+// Apps Script は同じスクリプトへの同時呼び出しを順番待ちにするので、
+// 8回に分けて頼むと、その待ち時間がそのまま積み上がる。まず1回でまとめて頼む。
+async function fetchAdminBundle() {
+  try {
+    const bundle = await api.request("/api/admin/bootstrap", { token: state.token });
+    if (bundle && bundle.info) {
+      return {
+        info: bundle.info,
+        surveys: bundle.surveys || [],
+        responses: bundle.responses || [],
+        measurements: bundle.measurements || [],
+        bijirisPosts: bundle.bijirisPosts || [],
+        preferences: bundle.preferences || null,
+        customerMemos: bundle.customerMemos || {},
+        ticketSurvey: bundle.ticketSurvey || null,
+      };
+    }
+  } catch (error) {
+    // まとめて取る窓口がまだ無いサーバーもある。その場合は下のやり方に戻す。
+  }
+
+  const [info, surveys, responses, measurements, bijirisPosts, preferences, customerMemos, ticketSurvey] =
+    await Promise.all([
+      api.request("/api/admin/info", { token: state.token }),
+      api.request("/api/admin/surveys", { token: state.token }),
+      api.request("/api/admin/responses", { token: state.token }),
+      api.request("/api/admin/measurements", { token: state.token }),
+      api.request("/api/admin/bijiris-posts", { token: state.token }),
+      api.request("/api/admin/preferences", { token: state.token }),
+      api.request("/api/admin/customer-memos", { token: state.token }),
+      // 回数券分析は補助機能なので、取得に失敗しても他の画面は表示できるようにする。
+      api.request("/api/admin/ticket-survey", { token: state.token }).catch(() => null),
+    ]);
+  return {
+    info: info || null,
+    surveys: surveys?.surveys || [],
+    responses: responses?.responses || [],
+    measurements: measurements?.measurements || [],
+    bijirisPosts: bijirisPosts?.posts || [],
+    preferences: preferences?.preferences || null,
+    customerMemos: customerMemos?.memos || {},
+    ticketSurvey: ticketSurvey || null,
+  };
+}
+
 async function loadAdminData() {
-  const [
-    adminInfoResult,
-    surveysResult,
-    responsesResult,
-    measurementsResult,
-    bijirisPostsResult,
-    preferencesResult,
-    customerMemosResult,
-    ticketSurveyResult,
-  ] = await Promise.all([
-    api.request("/api/admin/info", { token: state.token }),
-    api.request("/api/admin/surveys", { token: state.token }),
-    api.request("/api/admin/responses", { token: state.token }),
-    api.request("/api/admin/measurements", { token: state.token }),
-    api.request("/api/admin/bijiris-posts", { token: state.token }),
-    api.request("/api/admin/preferences", { token: state.token }),
-    api.request("/api/admin/customer-memos", { token: state.token }),
-    // 回数券分析は補助機能なので、取得に失敗しても他の画面は表示できるようにする。
-    api.request("/api/admin/ticket-survey", { token: state.token }).catch(() => null),
-  ]);
-  state.ticketSurvey = ticketSurveyResult || state.ticketSurvey;
-  state.adminInfo = adminInfoResult || null;
+  const bundle = await fetchAdminBundle();
+
+  state.ticketSurvey = bundle.ticketSurvey || state.ticketSurvey;
+  state.adminInfo = bundle.info;
   state.customerProfiles = indexCustomerProfiles(state.adminInfo?.customerProfiles);
-  state.surveys = (surveysResult.surveys || []).length
-    ? surveysResult.surveys || []
-    : getFallbackSurveys();
+  state.surveys = bundle.surveys.length ? bundle.surveys : getFallbackSurveys();
   const visibleSurveyIds = getVisibleSurveyIdSet();
-  state.responses = (responsesResult.responses || [])
+  state.responses = bundle.responses
     .map((response) => ({
       status: "new",
       adminMemo: "",
@@ -1848,14 +1874,14 @@ async function loadAdminData() {
     .filter((response) =>
       !visibleSurveyIds.size || visibleSurveyIds.has(String(response?.surveyId || "").trim()),
     );
-  state.measurements = Array.isArray(measurementsResult?.measurements)
-    ? measurementsResult.measurements.map(normalizeMeasurementRecord)
+  state.measurements = Array.isArray(bundle.measurements)
+    ? bundle.measurements.map(normalizeMeasurementRecord)
     : [];
-  state.bijirisPosts = Array.isArray(bijirisPostsResult?.posts)
-    ? bijirisPostsResult.posts.map(normalizeBijirisPost).filter((post) => post.id)
+  state.bijirisPosts = Array.isArray(bundle.bijirisPosts)
+    ? bundle.bijirisPosts.map(normalizeBijirisPost).filter((post) => post.id)
     : [];
-  state.preferences = preferencesResult?.preferences || null;
-  state.customerMemos = customerMemosResult?.memos || {};
+  state.preferences = bundle.preferences;
+  state.customerMemos = bundle.customerMemos;
   state.adminUsers = Array.isArray(state.adminInfo?.adminUsers) ? state.adminInfo.adminUsers : [];
   if (!state.selectedAnalyticsSurveyId && state.surveys[0]) {
     state.selectedAnalyticsSurveyId = state.surveys[0].id;
