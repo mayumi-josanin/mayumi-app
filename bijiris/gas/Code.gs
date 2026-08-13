@@ -4860,16 +4860,30 @@ function adminLoginWithMayumi_(mayumiToken) {
   if (!url) throw new Error("まゆみ助産院アプリの接続先が設定されていません。");
 
   var endpoint = url + "?action=checkAdminToken&token=" + encodeURIComponent(token);
-  var res = UrlFetchApp.fetch(endpoint, {
-    method: "get",
-    muteHttpExceptions: true,
-    followRedirects: true,
-  });
 
-  var parsed;
-  try {
-    parsed = JSON.parse(res.getContentText());
-  } catch (error) {
+  // まゆみ側は混み合うと JSON ではなくエラーのHTMLを返すことがある。
+  // 1回で諦めると、その場で管理画面に入れなくなるので数回まで試し直す。
+  var parsed = null;
+  var lastBody = "";
+  for (var attempt = 1; attempt <= 3; attempt += 1) {
+    if (attempt > 1) Utilities.sleep(800 * (attempt - 1));
+    var res = UrlFetchApp.fetch(endpoint, {
+      method: "get",
+      muteHttpExceptions: true,
+      followRedirects: true,
+    });
+    lastBody = res.getContentText();
+    try {
+      parsed = JSON.parse(lastBody);
+      break;
+    } catch (error) {
+      parsed = null;
+    }
+  }
+  if (!parsed) {
+    appendErrorLog_("adminLoginWithMayumi", "まゆみ側の応答を読み取れない", {
+      body: String(lastBody).substring(0, 200),
+    });
     throw new Error("まゆみ助産院アプリからの応答を読み取れませんでした。");
   }
   if (!parsed || parsed.valid !== true) {
