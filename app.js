@@ -18,6 +18,27 @@ let currentRequiredUpdateUrl = '';
 let USER_MENUS = [];
 let _profile = null;
 try { _profile = JSON.parse(localStorage.getItem('mayumi_profile') || 'null'); } catch (e) { }
+// 入口の画面でログインした方に、ここでもう一度会員登録をお願いしない。
+// 入口が預かっているお名前と会員IDから、この端末の記録を用意しておく。
+// 電話番号などの残りは、マイページを開いたときに本体から取り直す。
+if (!_profile) {
+  try {
+    const launcher = JSON.parse(localStorage.getItem('mayumi_launcher_session') || 'null');
+    if (launcher && launcher.name && launcher.memberId) {
+      _profile = {
+        name: launcher.name,
+        kana: launcher.kana || '',
+        phone: '',
+        birthday: '',
+        address: '',
+        regDate: '',
+        memberId: launcher.memberId
+      };
+      localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
+      localStorage.setItem('member_id', launcher.memberId);
+    }
+  } catch (e) { /* プライベートモードでは読み書きできない */ }
+}
 let CUSTOMER_NAME = _profile && _profile.name ? _profile.name : '';
 let stampCount = 0;
 try { stampCount = parseInt(localStorage.getItem('mayumi_stamp') || '0') || 0; } catch (e) { }
@@ -8331,7 +8352,10 @@ function checkFirstLaunch() {
       return;
     }
 
-    if (!isPasscodeLoginEnabled()) {
+    // 入口で一度パスコードを入れていただいているので、開くたびには聞かない。
+    // 設定画面の表示は isPasscodeLoginEnabled() のままにしておきたいので、
+    // ここだけ shouldRequirePasscodeLock() で先に止める。
+    if (!shouldRequirePasscodeLock() || !isPasscodeLoginEnabled()) {
       isPasscodeAuthenticated = true;
       closePasscodeOverlay();
       scheduleProfileRecoveryPrompt();

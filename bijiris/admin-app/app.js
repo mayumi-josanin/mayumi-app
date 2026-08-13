@@ -1764,9 +1764,10 @@ function setLoggedIn(loggedIn) {
   adminView.hidden = !loggedIn;
   if (loggedIn) {
     setPage("dashboard");
-    loginForm.reset();
   }
-  loginSubmitButton.textContent = "ログイン";
+  // ログイン用のフォームは入口の画面へ移したので、ここには無いことがある。
+  if (loginForm) loginForm.reset();
+  if (loginSubmitButton) loginSubmitButton.textContent = "ログイン";
 }
 
 function getMemoEntryTime(value) {
@@ -8597,32 +8598,9 @@ function setupInstall() {
   });
 }
 
-loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const formData = new FormData(event.currentTarget);
-  const button = event.currentTarget.querySelector('button[type="submit"]');
-  button.disabled = true;
-  button.textContent = "確認中";
-  try {
-    const result = await api.request("/api/admin/login", {
-      method: "POST",
-      body: {
-        loginId: String(formData.get("loginId") || ""),
-        password: String(formData.get("password") || ""),
-      },
-    });
-    state.token = result.token;
-    localStorage.setItem(TOKEN_KEY, state.token);
-    setLoggedIn(true);
-    await loadAdminData();
-    showToast("ログインしました。");
-  } catch (error) {
-    showToast(error.message || "ログインできませんでした。");
-  } finally {
-    button.disabled = false;
-    button.textContent = "ログイン";
-  }
-});
+// このアプリでのID・パスワードによるログインは廃止した。
+// 入口の画面でログインすると、あちらが合鍵（TOKEN_KEY）を置いてくれる。
+// ここではその合鍵を読むだけで、認証は一切行わない。
 
 credentialForm.addEventListener("input", () => {
   credentialForm.dataset.dirty = "true";
