@@ -2166,8 +2166,20 @@ function buildAccountSession_(row) {
     // 入口で一度ログインすれば管理画面まで開ける（二重に聞かない）という方針。
     // その代わり、管理画面へ入れるのはパスコード4桁または6桁だけになる。
     token: isAdmin ? makeAdminToken_(expiresAt) : makeMemberToken_(memberId, expiresAt),
-    expiresAt: new Date(expiresAt).toISOString()
+    expiresAt: new Date(expiresAt).toISOString(),
+    // まだいただけていない項目。値そのものは返さない。
+    // 電話番号か生年月日が無いと、パスコードを忘れたときに戻せなくなるため、
+    // 入口の画面でお願いする材料にする。
+    missing: missingProfileFields_(row)
   };
+}
+
+function missingProfileFields_(row) {
+  const missing = [];
+  if (!String(row[USER_COL.PHONE - 1] || '').trim()) missing.push('phone');
+  if (!normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1])) missing.push('birthday');
+  if (!String(row[USER_COL.ADDRESS - 1] || '').trim()) missing.push('address');
+  return missing;
 }
 
 // アプリを開いた記録。管理側で「最近使っている方」が分かるようにする。

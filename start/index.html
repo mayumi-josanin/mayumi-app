@@ -219,6 +219,29 @@
     <div id="appList"></div>
     <p class="note" id="appsNote"></p>
 
+    <!-- ご登録のときに伺えなかった項目をお願いする。
+         電話番号か生年月日が無いと、パスコードを忘れたときに戻せないため。 -->
+    <div class="helpBlock" id="profileGapBlock" hidden>
+      <strong>ご登録内容の確認をお願いします</strong>
+      <p class="note" style="margin-top:4px;">
+        下の項目がまだ登録されていません。パスコードを忘れてしまったときに、
+        ご本人だと確認できるようになります。1分ほどで終わります。
+      </p>
+      <form id="profileGapForm">
+        <label id="gapPhoneLabel" hidden>電話番号
+          <input name="phone" type="tel" autocomplete="tel" />
+        </label>
+        <label id="gapBirthdayLabel" hidden>生年月日
+          <input name="birthday" type="date" />
+        </label>
+        <label id="gapAddressLabel" hidden>ご住所
+          <input name="address" type="text" autocomplete="street-address" />
+        </label>
+        <p class="error" id="profileGapError"></p>
+        <button class="primary" type="submit">登録する</button>
+      </form>
+    </div>
+
     <!-- 機種変更の前に、この画面でコードを発行していただく。
          新しい端末では、ログイン画面の「引き継ぎコードをお持ちの方」から使う。 -->
     <div class="helpBlock" id="transferIssueBlock">
@@ -436,6 +459,8 @@
       ensureBijirisAdminToken().catch(function () { /* タップ時にやり直す */ });
     }
 
+    renderProfileGap(session);
+
     // 引き継ぎコードの発行は、本番のサーバー側でいま管理者しか呼べない。
     // （会員IDだけで誰でも発行できると、他人の記録を乗っ取れてしまうため）
     // 会員ご自身にも出すには、サーバー側でご本人確認を足す必要がある。
@@ -478,6 +503,10 @@
     $('transferCodeBox').hidden = true;
     $('transferCodeValue').textContent = '--------';
     $('transferIssueError').textContent = '';
+    // 前の方が入力した電話番号や住所を、次の方に見せない。
+    $('profileGapForm').reset();
+    $('profileGapBlock').hidden = true;
+    $('profileGapError').textContent = '';
     showTab('login');
   }
 
@@ -503,6 +532,8 @@
       kana: json.kana || '',
       memberId: json.memberId,
       bijiris: json.bijiris === true,
+      // まだいただけていない項目（電話番号・生年月日・ご住所）。
+      missing: Array.isArray(json.missing) ? json.missing : [],
       // 合鍵の期限。開いたときにこれを見て、切れていればログイン画面に戻す。
       // 記録しておかないと、切れたあともアプリ一覧が出てしまい、
       // 中に入ったところでエラーになる（壊れたように見えてしまう）。
@@ -680,6 +711,78 @@
       transferCode: form.transferCode.value,
       newPasscode: form.newPasscode.value
     }, form.querySelector('button'), $('transferError'), form.newPasscode.value);
+  });
+
+  // ===== ご登録内容の確認（足りない項目のお願い）=====
+
+  var GAP_FIELDS = [
+    { key: 'phone', labelId: 'gapPhoneLabel' },
+    { key: 'birthday', labelId: 'gapBirthdayLabel' },
+    { key: 'address', labelId: 'gapAddressLabel' }
+  ];
+
+  function renderProfileGap(session) {
+    var missing = (session && session.missing) || [];
+    // 管理者の方には出さない。スタッフの記録は受付で整えていただく。
+    var show = session.role !== 'admin' && missing.length > 0;
+    GAP_FIELDS.forEach(function (field) {
+      $(field.labelId).hidden = missing.indexOf(field.key) < 0;
+    });
+    $('profileGapBlock').hidden = !show;
+    $('profileGapError').textContent = '';
+  }
+
+  $('profileGapForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    var session = null;
+    try { session = JSON.parse(read(SESSION_KEY) || 'null'); } catch (e) { session = null; }
+    if (!session || !session.memberId) {
+      $('profileGapError').textContent = 'ログインし直してからお試しください。';
+      return;
+    }
+
+    // 出している欄のうち、入力されたものだけを送る。
+    // 空のまま送ると、いま入っている内容を消してしまうため。
+    var payload = { type: 'updateUser', memberId: session.memberId };
+    var filled = 0;
+    GAP_FIELDS.forEach(function (field) {
+      if ($(field.labelId).hidden) return;
+      var value = form[field.key].value.trim();
+      if (!value) return;
+      payload[field.key] = value;
+      filled += 1;
+    });
+    if (!filled) {
+      $('profileGapError').textContent = '1つ以上ご入力ください。';
+      return;
+    }
+
+    var button = form.querySelector('button');
+    var label = button.textContent;
+    button.disabled = true;
+    button.textContent = '登録しています…';
+    $('profileGapError').textContent = '';
+    requestGas(payload, 1)
+      .then(function (json) {
+        if (!json || json.status !== 'ok') {
+          throw new Error((json && json.message) || '登録できませんでした。');
+        }
+        // 登録できた項目を、この端末の記録からも外す。
+        session.missing = (session.missing || []).filter(function (key) {
+          return payload[key] === undefined;
+        });
+        store(SESSION_KEY, JSON.stringify(session));
+        renderProfileGap(session);
+        if (!session.missing.length) {
+          $('appsNote').textContent = 'ご登録ありがとうございました。どのアプリも、この画面からそのままお入りいただけます。';
+        }
+      })
+      .catch(function (error) { $('profileGapError').textContent = error.message; })
+      .then(function () {
+        button.disabled = false;
+        button.textContent = label;
+      });
   });
 
   // ===== 引き継ぎコードの発行（ログイン後の画面）=====
