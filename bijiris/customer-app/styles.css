@@ -172,6 +172,15 @@ p {
   gap: 12px;
 }
 
+/* 見出しの文が長いと、隣のボタンが押しつぶされて文字が縦一列になってしまう。
+   ボタンは縮めず、文字も折り返さない。 */
+.section-head > button,
+.section-head .ghost-button,
+.section-head .secondary-button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .survey-toolbar h2 {
   margin-bottom: 8px;
 }
@@ -916,9 +925,24 @@ textarea {
   z-index: 1;
 }
 
+/* 説明文とボタンを横に並べると、ボタンが押しつぶされて
+   「6回券を追加」の文字が縦一列になってしまう。説明を上、ボタンを下にする。 */
 .ticket-next-sheet-action {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* 6回券と10回券は横に並べる。幅は半分ずつ。 */
+.ticket-next-sheet-action .action-row {
+  flex-wrap: nowrap;
+  justify-content: stretch;
+}
+
+.ticket-next-sheet-action .action-row > button {
+  flex: 1 1 0;
+  white-space: nowrap;
 }
 
 .ticket-stamp-list {
