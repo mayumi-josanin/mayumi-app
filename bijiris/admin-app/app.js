@@ -1195,7 +1195,6 @@ const measurementPhotoDialogTitle = document.querySelector("#measurementPhotoDia
 const measurementPhotoDialogMeta = document.querySelector("#measurementPhotoDialogMeta");
 const measurementPhotoDialogBody = document.querySelector("#measurementPhotoDialogBody");
 const loginForm = document.querySelector("#loginForm");
-const credentialForm = document.querySelector("#credentialForm");
 const appUpdateButton = document.querySelector("#appUpdateButton");
 const installButton = document.querySelector("#installButton");
 const loginSubmitButton = document.querySelector("#loginSubmitButton");
@@ -5948,7 +5947,6 @@ function groupByCustomerFrom(responses) {
 }
 
 function renderSettings() {
-  const credentialInfo = document.querySelector("#credentialInfo");
   const storageInfo = document.querySelector("#storageInfo");
   const pushStatusInfo = document.querySelector("#pushStatusInfo");
   const preferencesCard = document.querySelector("#preferencesCard");
@@ -5956,20 +5954,10 @@ function renderSettings() {
   const versionInfo = document.querySelector("#versionInfo");
   const backupMetaInfo = document.querySelector("#backupMetaInfo");
   if (!state.adminInfo) {
-    credentialInfo.textContent = "認証情報を読み込み中です。";
     storageInfo.innerHTML = `<div class="empty">保存先情報を読み込み中です。</div>`;
     if (pushStatusInfo) pushStatusInfo.innerHTML = `<div class="empty">通知設定を読み込み中です。</div>`;
     return;
   }
-
-  if (!credentialForm.dataset.dirty) {
-    credentialForm.elements.loginId.value = state.adminInfo.adminUsername || "";
-  }
-
-  credentialInfo.innerHTML = `
-    現在のログインID: ${escapeHtml(state.adminInfo.adminUsername || "")}<br />
-    パスワードは入力した場合のみ変更します。
-  `;
 
   const spreadsheetLink = state.adminInfo.spreadsheetUrl
     ? `<a href="${escapeHtml(state.adminInfo.spreadsheetUrl)}" target="_blank" rel="noopener">
@@ -8602,39 +8590,8 @@ function setupInstall() {
 // 入口の画面でログインすると、あちらが合鍵（TOKEN_KEY）を置いてくれる。
 // ここではその合鍵を読むだけで、認証は一切行わない。
 
-credentialForm.addEventListener("input", () => {
-  credentialForm.dataset.dirty = "true";
-});
-
-credentialForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const formData = new FormData(event.currentTarget);
-  const button = event.currentTarget.querySelector('button[type="submit"]');
-  button.disabled = true;
-  button.textContent = "保存中";
-  try {
-    const result = await api.request("/api/admin/credentials", {
-      method: "PUT",
-      token: state.token,
-      body: {
-        loginId: String(formData.get("loginId") || ""),
-        password: String(formData.get("password") || ""),
-      },
-    });
-    state.adminInfo = result.adminInfo || state.adminInfo;
-    state.customerProfiles = indexCustomerProfiles(state.adminInfo?.customerProfiles);
-    state.adminUsers = Array.isArray(state.adminInfo?.adminUsers) ? state.adminInfo.adminUsers : state.adminUsers;
-    credentialForm.dataset.dirty = "";
-    credentialForm.reset();
-    renderSettings();
-    showToast("管理者認証を更新しました。");
-  } catch (error) {
-    showToast(error.message || "認証情報を更新できませんでした。");
-  } finally {
-    button.disabled = false;
-    button.textContent = "保存";
-  }
-});
+// 設定画面にあった「管理者ログイン（ログインID・パスワードの変更）」も一緒に廃止した。
+// ログインしなくなった以上、ここで変えても何にも使われず、紛らわしいだけになる。
 
 // アプリを切り替えるための出口。ログイン状態は保ったままにする。
 // ログインを解きたいときは、入口の画面のログアウトを使う。

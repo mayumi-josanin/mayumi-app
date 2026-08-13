@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260813-01" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260813-01" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260813-01" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260813-01" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260813-02" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260813-02" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260813-02" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260813-02" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -335,28 +335,8 @@
           <section id="page-settings" class="page">
             <h2>設定</h2>
             <div class="grid-two settings-grid">
-              <section class="card">
-                <div class="card-title">管理者ログイン</div>
-                <p>ログインIDは現在値を読み込みます。パスワードは入力した場合のみ更新します。</p>
-                <form id="credentialForm" class="stack">
-                  <label>
-                    ログインID
-                    <input name="loginId" type="text" autocomplete="username" required />
-                  </label>
-                  <label>
-                    新しいパスワード
-                    <input
-                      name="password"
-                      type="password"
-                      autocomplete="new-password"
-                      placeholder="変更時のみ入力"
-                    />
-                  </label>
-                  <button class="primary-button" type="submit">保存</button>
-                </form>
-                <div id="credentialInfo" class="url-box"></div>
-              </section>
-
+              <!-- 「管理者ログイン（ID・パスワードの変更）」はここにあったが、
+                   ログイン自体を入口の画面に一本化したため廃止した。 -->
               <section class="card">
                 <div class="card-title">保存先情報</div>
                 <div id="storageInfo" class="stack"></div>
@@ -451,9 +431,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260813-01"></script>
+    <script src="../default-surveys.js?v=20260813-02"></script>
     <script src="../shared/gas-config.js?v=20260417-12"></script>
-    <script src="../shared/api.js?v=20260813-01"></script>
-    <script src="./app.js?v=20260813-01"></script>
+    <script src="../shared/api.js?v=20260813-02"></script>
+    <script src="./app.js?v=20260813-02"></script>
   </body>
 </html>
