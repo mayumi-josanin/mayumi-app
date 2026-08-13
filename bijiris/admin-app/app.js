@@ -5950,7 +5950,6 @@ function renderSettings() {
   const storageInfo = document.querySelector("#storageInfo");
   const pushStatusInfo = document.querySelector("#pushStatusInfo");
   const preferencesCard = document.querySelector("#preferencesCard");
-  const adminUsersCard = document.querySelector("#adminUsersCard");
   const versionInfo = document.querySelector("#versionInfo");
   const backupMetaInfo = document.querySelector("#backupMetaInfo");
   if (!state.adminInfo) {
@@ -6133,98 +6132,8 @@ function renderSettings() {
     });
   }
 
-  if (adminUsersCard) {
-    const users = Array.isArray(state.adminUsers) && state.adminUsers.length
-      ? state.adminUsers
-      : [{ id: "", username: "", email: "", active: true }];
-    adminUsersCard.innerHTML = `
-      <form id="adminUsersForm" class="stack">
-        <div id="adminUsersList" class="stack">
-          ${users
-            .map(
-              (user, index) => `
-                <article class="answer-item admin-user-item" data-admin-user-id="${escapeHtml(user.id || "")}">
-                  <strong>管理者 ${index + 1}</strong>
-                  <div class="survey-question-grid">
-                    <label>
-                      ログインID
-                      <input name="username" type="text" value="${escapeHtml(user.username || "")}" required />
-                    </label>
-                    <label>
-                      通知メール
-                      <input name="email" type="email" value="${escapeHtml(user.email || "")}" />
-                    </label>
-                  </div>
-                  <div class="survey-question-grid">
-                    <label>
-                      パスワード
-                      <input name="password" type="password" placeholder="${user.id ? "変更時のみ入力" : "4文字以上"}" />
-                    </label>
-                    <label class="inline-toggle">
-                      <input name="active" type="checkbox" ${user.active === false ? "" : "checked"} />
-                      有効
-                    </label>
-                  </div>
-                  <button class="secondary-button" type="button" data-remove-admin-user>削除</button>
-                </article>
-              `,
-            )
-            .join("")}
-        </div>
-        <div class="action-row">
-          <button id="addAdminUserButton" class="secondary-button" type="button">管理者を追加</button>
-          <button class="primary-button" type="submit">管理者を保存</button>
-        </div>
-      </form>
-    `;
-    adminUsersCard.onclick = (event) => {
-      const addButton = event.target.closest("#addAdminUserButton");
-      if (addButton) {
-        document.querySelector("#adminUsersList")?.insertAdjacentHTML(
-          "beforeend",
-          `
-            <article class="answer-item admin-user-item" data-admin-user-id="">
-              <strong>管理者 追加</strong>
-              <div class="survey-question-grid">
-                <label>
-                  ログインID
-                  <input name="username" type="text" value="" required />
-                </label>
-                <label>
-                  通知メール
-                  <input name="email" type="email" value="" />
-                </label>
-              </div>
-              <div class="survey-question-grid">
-                <label>
-                  パスワード
-                  <input name="password" type="password" placeholder="4文字以上" />
-                </label>
-                <label class="inline-toggle">
-                  <input name="active" type="checkbox" checked />
-                  有効
-                </label>
-              </div>
-              <button class="secondary-button" type="button" data-remove-admin-user>削除</button>
-            </article>
-          `,
-        );
-        return;
-      }
-      const removeButton = event.target.closest("[data-remove-admin-user]");
-      if (!removeButton) return;
-      const items = adminUsersCard.querySelectorAll(".admin-user-item");
-      if (items.length <= 1) {
-        showToast("管理者アカウントは1件以上必要です。");
-        return;
-      }
-      removeButton.closest(".admin-user-item")?.remove();
-    };
-    adminUsersCard.querySelector("#adminUsersForm")?.addEventListener("submit", (event) => {
-      event.preventDefault();
-      void saveAdminUsers(event.currentTarget);
-    });
-  }
+  // 「管理者アカウント一覧」はここにあったが、ログインを入口の画面に
+  // 一本化したため廃止した。ここで足しても消しても、もう入口には効かない。
 
   if (versionInfo) {
     versionInfo.innerHTML = `
@@ -8408,28 +8317,9 @@ async function savePushConfig(form) {
   }
 }
 
-async function saveAdminUsers(form) {
-  const items = Array.from(form.querySelectorAll(".admin-user-item")).map((item) => ({
-    id: item.dataset.adminUserId || "",
-    username: String(item.querySelector('[name="username"]')?.value || "").trim(),
-    password: String(item.querySelector('[name="password"]')?.value || "").trim(),
-    email: String(item.querySelector('[name="email"]')?.value || "").trim(),
-    active: Boolean(item.querySelector('[name="active"]')?.checked),
-  }));
-  try {
-    const result = await api.request("/api/admin/users", {
-      method: "PUT",
-      token: state.token,
-      body: { adminUsers: items },
-    });
-    state.adminUsers = result.adminUsers || state.adminUsers;
-    state.adminInfo = state.adminInfo ? { ...state.adminInfo, adminUsers: state.adminUsers } : state.adminInfo;
-    showToast("管理者アカウントを保存しました。");
-    renderSettings();
-  } catch (error) {
-    showToast(error.message || "管理者アカウントを保存できませんでした。");
-  }
-}
+// 管理者アカウントを保存する処理もここにあったが、一覧の画面と一緒に廃止した。
+// バックアップの読み書き（adminUsers の項目）は、古いバックアップを
+// 復元できなくなると困るのでそのまま残してある。
 
 async function runMaintenanceNow() {
   try {
