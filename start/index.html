@@ -287,6 +287,22 @@
       });
   }
 
+  // 合鍵の取得は、まゆみとビジリスの2つのGASを続けて呼ぶので数秒かかる。
+  // タップしてから始めるとその分だけ待たせてしまうので、
+  // アプリ一覧を出した時点で裏で取りにいっておく。一覧を眺めている間に済む。
+  var bijirisTokenPromise = null;
+  function ensureBijirisAdminToken() {
+    if (bijirisTokenIsFresh()) return Promise.resolve();
+    if (!bijirisTokenPromise) {
+      bijirisTokenPromise = fetchBijirisAdminToken();
+      // 取得の成否にかかわらず、次回また取りにいけるようにしておく。
+      bijirisTokenPromise.catch(function () {}).then(function () {
+        bijirisTokenPromise = null;
+      });
+    }
+    return bijirisTokenPromise;
+  }
+
   function bindBijirisAdminLink() {
     var link = document.querySelector('a.app[data-app="bijirisAdmin"]');
     if (!link) return;
@@ -297,7 +313,7 @@
       var label = name.textContent;
       name.textContent = '準備しています…';
       var failed = '';
-      fetchBijirisAdminToken()
+      ensureBijirisAdminToken()
         .catch(function (error) { failed = (error && error.message) || '取得に失敗しました。'; })
         .then(function () {
           name.textContent = label;
@@ -335,6 +351,12 @@
     $('appList').innerHTML = html;
     bindBijirisAdminLink();
 
+    // 管理者の方には、タップを待たずに合鍵を用意しておく。
+    // 失敗してもここでは何も言わない。タップされたときに改めて試す。
+    if (session.role === 'admin') {
+      ensureBijirisAdminToken().catch(function () { /* タップ時にやり直す */ });
+    }
+
     // 未登録の一般会員にだけ、ビジリスの初回登録を出す。
     var needsBijiris = session.role !== 'admin' && !session.bijiris;
     $('bijirisSignup').hidden = !needsBijiris;
@@ -342,10 +364,9 @@
       $('bijirisForm').elements.name.value = session.name || '';
     }
 
-    // できていないことを、できている風に見せない。
     $('appsNote').textContent = session.role === 'admin'
-      ? 'まゆみ助産院の管理アプリは、そのままお使いいただけます。ビジリスの管理アプリは、現在まだ個別のログインが必要です。'
-      : 'まゆみ助産院アプリはそのままお使いいただけます。ビジリスは現在まだ個別のログインが必要です。';
+      ? 'どのアプリも、この画面からそのままお入りいただけます。'
+      : 'どのアプリも、この画面からそのままお入りいただけます。';
   }
 
   function logout() {
