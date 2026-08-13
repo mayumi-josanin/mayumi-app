@@ -2228,6 +2228,21 @@ function registerAccount(data) {
       return buildAccountSession_(row);
     }
 
+      // 同じお名前で、生年月日が記録されていない方がいる場合。
+      // このまま新規で足すと、同じ方が2行に分かれてスタンプも分かれてしまう。
+      // 生年月日が空だと本人かどうか確かめようがないので、受付でご対応いただく。
+      const sameNameNoBirthday = store.rows.filter(function (item) {
+        return normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) === name &&
+               !normalizeDateOnlyValue_(item.values[USER_COL.BIRTHDAY - 1]);
+      });
+      if (sameNameNoBirthday.length) {
+        return {
+          status: 'error',
+          message: '同じお名前のご登録がありますが、生年月日が記録されていないため確認できません。'
+            + '恐れ入りますが、受付にお申し出ください。'
+        };
+      }
+
     // ここから先は記録が見つからなかった方。連絡先まで揃えていただく。
     if (!kana) return { status: 'error', message: 'フリガナを入力してください。' };
     if (!phone) return { status: 'error', message: '電話番号を入力してください。' };
@@ -7250,63 +7265,82 @@ function handleResetForgottenPasscode(data) {
     const birthday = normalizeDateOnlyValue_(data.birthday);
     const newPasscode = String(data.newPasscode || '').trim();
 
-    if (!name || !phone || !birthday || !newPasscode) {
-      return { status: 'error', message: 'お名前・電話番号・生年月日・新しいパスコードを入力してください。' };
+    // 電話番号と生年月日は、どちらか一方でも構わない。
+    // 記録の側が空の方（40%近くいる）を、原理的に通れない状態にしないため。
+    if (!name || !newPasscode || (!phone && !birthday)) {
+      return {
+        status: 'error',
+        message: 'お名前と、電話番号または生年月日のどちらか、そして新しいパスコードを入力してください。'
+      };
     }
     if (!/^(?:\d{4}|\d{6})$/.test(newPasscode)) {
       return { status: 'error', message: '新しいパスコードは4桁または6桁の数字で入力してください。' };
     }
+    // 氏名と生年月日だけで通る場合があるので、狙い撃ちの総当たりを回数で止める。
+    if (isRecoveryLocked_(name, '')) {
+      return {
+        status: 'error',
+        message: 'お手続きが続いたため、一時的にお休みしています。10分ほど経ってから、もう一度お試しください。'
+      };
+    }
 
     const values = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
-    let matchedRow = -1;
-    let matchedUser = null;
 
+    // 記録にある項目だけを照合する。記録が空の項目は、確かめようがないので問わない。
+    // ただし「氏名だけで通す」ことはしない。同姓同名の他人が入れてしまうため。
+    function judge(row) {
+      if (normalizeNameForMatch_(row[USER_COL.NAME - 1]) !== name) return null;
+      const rowPhone = normalizePhoneForMatch_(row[USER_COL.PHONE - 1]);
+      const rowBirthday = normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]);
+      let checked = 0;
+      if (rowPhone) {
+        if (!phone || rowPhone !== phone) return null;
+        checked += 1;
+      }
+      if (rowBirthday) {
+        if (!birthday || rowBirthday !== birthday) return null;
+        checked += 1;
+      }
+      if (checked === 0) return null;   // 記録に電話も生年月日も無い方は、受付でご対応
+      return checked;
+    }
+
+    const candidates = [];
+    for (let i = 0; i < values.length; i += 1) {
+      const checked = judge(values[i]);
+      if (checked) candidates.push({ rowIndex: i + 2, checked: checked });
+    }
+
+    // 会員IDの指定があれば、その行に絞る（複数該当のときの取り違えを防ぐ）。
+    let picked = null;
     if (memberId) {
       const targetRow = findUserRowByMemberId_(sheet, memberId);
-      if (targetRow >= 2) {
-        const row = values[targetRow - 2];
-        const rowPhone = normalizePhoneForMatch_(row[USER_COL.PHONE - 1]);
-        const rowName = normalizeNameForMatch_(row[USER_COL.NAME - 1]);
-        const rowBirthday = normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]);
-        if (rowPhone === phone && rowName === name && rowBirthday === birthday) {
-          matchedRow = targetRow;
-          matchedUser = buildRecoverAccountUserFromRow_(row);
-        }
-      }
+      picked = candidates.filter(function (c) { return c.rowIndex === targetRow; })[0] || null;
     }
-
-    if (!matchedUser) {
-      const candidates = [];
-      for (let i = 0; i < values.length; i++) {
-        const row = values[i];
-        const rowPhone = normalizePhoneForMatch_(row[USER_COL.PHONE - 1]);
-        const rowName = normalizeNameForMatch_(row[USER_COL.NAME - 1]);
-        const rowBirthday = normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]);
-        if (rowPhone !== phone) continue;
-        if (rowName !== name) continue;
-        if (rowBirthday !== birthday) continue;
-        candidates.push({
-          rowIndex: i + 2,
-          user: buildRecoverAccountUserFromRow_(row)
-        });
-      }
-
+    if (!picked) {
       if (candidates.length > 1) {
-        return { status: 'error', message: '一致する会員情報が複数見つかりました。院へお問い合わせください。' };
+        recordRecoveryFailure_(name, '');
+        return {
+          status: 'error',
+          message: '同じ内容のご登録が複数見つかりました。恐れ入りますが、受付にお申し出ください。'
+        };
       }
-      if (!candidates.length) {
-        return { status: 'error', message: '一致する会員情報が見つかりませんでした。入力内容をご確認ください。' };
-      }
-
-      matchedRow = candidates[0].rowIndex;
-      matchedUser = candidates[0].user;
+      picked = candidates[0] || null;
     }
 
-    if (matchedRow < 2 || !matchedUser) {
-      return { status: 'error', message: '本人確認に失敗しました。入力内容をご確認ください。' };
+    if (!picked) {
+      recordRecoveryFailure_(name, '');
+      return {
+        status: 'error',
+        message: 'ご登録の内容と一致しませんでした。'
+          + 'ご登録時に電話番号や生年月日をいただいていない場合は、この画面からはお手続きできません。'
+          + '恐れ入りますが、受付にお申し出ください。'
+      };
     }
 
-    const range = sheet.getRange(matchedRow, 1, 1, USER_HEADERS.length);
+    clearRecoveryAttempts_(name, '');
+
+    const range = sheet.getRange(picked.rowIndex, 1, 1, USER_HEADERS.length);
     const updatedRow = range.getValues()[0];
     updatedRow[USER_COL.PASSCODE - 1] = newPasscode;
     updatedRow[USER_COL.DELETE_STATUS - 1] = '';
@@ -7314,12 +7348,37 @@ function handleResetForgottenPasscode(data) {
     updatedRow[USER_COL.MERGED_INTO - 1] = '';
     clearTransferCodeFromRow_(updatedRow);
     range.setValues([updatedRow]);
-    matchedUser = buildRecoverAccountUserFromRow_(updatedRow);
+
+    // 1項目だけで通した場合は、あとから経緯を追えるように残す。
+    // パスコードそのものは書かない。
+    recordPasscodeResetHistory_(updatedRow, picked.checked);
+
+    const matchedUser = buildRecoverAccountUserFromRow_(updatedRow);
     matchedUser.passcode = newPasscode;
     return { status: 'ok', user: matchedUser };
   } catch (err) {
     Logger.log('handleResetForgottenPasscode error: ' + err.toString());
     return { status: 'error', message: err.toString() };
+  }
+}
+
+// パスコード再設定の記録。何を照合して通したかを残す。
+function recordPasscodeResetHistory_(row, checkedCount) {
+  try {
+    const sheet = ensureAdminAuditLogSheet_();
+    sheet.appendRow([
+      formatDateTime_(new Date()),
+      'パスコード再設定',
+      '成功',
+      String(row[USER_COL.MEMBER_ID - 1] || ''),
+      checkedCount >= 2
+        ? '氏名・電話番号・生年月日の3点で確認'
+        : '氏名と、記録にある1項目で確認（もう一方は未登録）',
+      'ご本人',
+      ''
+    ]);
+  } catch (err) {
+    Logger.log('recordPasscodeResetHistory_ error: ' + err.toString());
   }
 }
 

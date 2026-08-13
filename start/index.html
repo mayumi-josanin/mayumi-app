@@ -171,17 +171,18 @@
 
       <form id="forgotForm" hidden>
         <p class="note">
-          ご登録のお名前・電話番号・生年月日で本人確認のうえ、新しいパスコードを設定します。
-          照合できない場合は、受付でスタッフにお申し出ください。
+          ご登録の内容で本人確認のうえ、新しいパスコードを設定します。
+          電話番号と生年月日は、分かるほうだけでも構いません（両方いただけると確実です）。
+          確認できない場合は、受付でスタッフにお申し出ください。
         </p>
         <label>お名前（漢字・フルネーム）
           <input name="name" type="text" autocomplete="name" required />
         </label>
-        <label>電話番号
-          <input name="phone" type="tel" autocomplete="tel" required />
+        <label>電話番号<span class="optional">どちらか一方で可</span>
+          <input name="phone" type="tel" autocomplete="tel" />
         </label>
-        <label>生年月日
-          <input name="birthday" type="date" required />
+        <label>生年月日<span class="optional">どちらか一方で可</span>
+          <input name="birthday" type="date" />
         </label>
         <label>新しいパスコード（数字4桁または6桁）
           <input name="newPasscode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" required />
@@ -657,6 +658,11 @@
   $('forgotForm').addEventListener('submit', function (event) {
     event.preventDefault();
     var form = event.currentTarget;
+    // どちらも空だと、お名前だけで通そうとしてしまう。手前で止める。
+    if (!form.phone.value.trim() && !form.birthday.value.trim()) {
+      $('forgotError').textContent = '電話番号か生年月日の、どちらか一方はご入力ください。';
+      return;
+    }
     postThenLogin({
       type: 'resetForgottenPasscode',
       name: withoutSpaces(form.name.value),
