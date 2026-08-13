@@ -247,7 +247,20 @@
     return until > Date.now() + 10 * 60 * 1000;
   }
 
-  function fetchBijirisAdminToken() {
+  // まゆみのGASは混み合うと JSON ではなくエラーのHTMLを返すことがある。
+  // ビジリスはそれを読み取れず「確認が取れませんでした」で終わってしまうので、
+  // 数回まで試し直す。1回で諦めると、その場で管理画面に入れなくなる。
+  function fetchBijirisAdminToken(attempt) {
+    var tries = attempt || 1;
+    return fetchBijirisAdminTokenOnce().catch(function (error) {
+      if (tries >= 3) throw error;
+      return wait(1200 * tries).then(function () {
+        return fetchBijirisAdminToken(tries + 1);
+      });
+    });
+  }
+
+  function fetchBijirisAdminTokenOnce() {
     var mayumiToken = read(ADMIN_TOKEN_KEY);
     if (!mayumiToken) {
       return Promise.reject(new Error('管理者としてログインし直してください。'));
@@ -289,7 +302,12 @@
         .then(function () {
           name.textContent = label;
           if (failed) {
-            $('appsNote').textContent = 'ビジリス管理の自動ログインに失敗しました：' + failed;
+            // ここで進んでしまうと、入れない画面に着いて行き止まりになる。
+            // この画面にとどまっていただき、もう一度押せるようにする。
+            $('appsNote').textContent =
+              'ビジリス管理を開けませんでした（' + failed + '）。'
+              + 'もう一度お試しください。時間をおくと開けることがあります。';
+            return;
           }
           location.href = link.getAttribute('href');
         });
