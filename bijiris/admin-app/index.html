@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260813-02" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260813-02" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260813-02" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260813-02" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260813-03" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260813-03" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260813-03" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260813-03" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -344,10 +344,8 @@
               </section>
             </div>
             <div class="grid-two settings-grid">
-              <section class="card">
-                <div class="card-title">管理者アカウント一覧</div>
-                <div id="adminUsersCard"></div>
-              </section>
+              <!-- 「管理者アカウント一覧」はここにあったが、ログインを
+                   入口の画面に一本化したため廃止した。 -->
               <section class="card">
                 <div class="card-title">豆知識通知設定</div>
                 <div id="pushStatusInfo" class="stack"></div>
@@ -431,9 +429,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260813-02"></script>
+    <script src="../default-surveys.js?v=20260813-03"></script>
     <script src="../shared/gas-config.js?v=20260417-12"></script>
-    <script src="../shared/api.js?v=20260813-02"></script>
-    <script src="./app.js?v=20260813-02"></script>
+    <script src="../shared/api.js?v=20260813-03"></script>
+    <script src="./app.js?v=20260813-03"></script>
   </body>
 </html>
