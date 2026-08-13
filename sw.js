@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mayumi-app-v53';
+const CACHE_NAME = 'mayumi-app-v54';
 // 同一オリジンに管理者アプリ (/admin/) の Service Worker も同居しているため、
 // 後片付けはお客様アプリ自身のキャッシュだけに限定する。
 const CACHE_PREFIX = 'mayumi-app-';
