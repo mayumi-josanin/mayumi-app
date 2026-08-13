@@ -8,29 +8,26 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260729-03" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260729-03" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260729-03" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260729-03" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260813-01" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260813-01" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260813-01" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260813-01" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+    <!-- 認証は入口の画面に一本化した。ここではIDやパスワードを聞かず、
+         入口を通っていない方には、そちらへお戻りいただく。 -->
     <section id="loginView" class="login-view">
-      <form id="loginForm" class="login-card">
+      <div class="login-card">
         <img src="./icons/icon-192.png" alt="まゆみ助産院" />
-        <h1>管理者認証</h1>
-        <p>アンケート回答を確認・管理します。</p>
-        <label>
-          ログインID
-          <input name="loginId" type="text" autocomplete="username" required />
-        </label>
-        <label>
-          パスワード
-          <input name="password" type="password" autocomplete="current-password" required />
-        </label>
-        <button id="loginSubmitButton" class="primary-button" type="submit">ログイン</button>
-      </form>
+        <h1>入口からお入りください</h1>
+        <p>
+          ログインの期限が切れているか、まだログインされていません。
+          アプリ一覧の画面からもう一度お入りください。
+        </p>
+        <a class="primary-button" href="../../start/">アプリ一覧へ</a>
+      </div>
     </section>
 
     <section id="adminView" class="admin-view" hidden>
@@ -454,9 +451,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260729-03"></script>
+    <script src="../default-surveys.js?v=20260813-01"></script>
     <script src="../shared/gas-config.js?v=20260417-12"></script>
-    <script src="../shared/api.js?v=20260729-03"></script>
-    <script src="./app.js?v=20260729-03"></script>
+    <script src="../shared/api.js?v=20260813-01"></script>
+    <script src="./app.js?v=20260813-01"></script>
   </body>
 </html>

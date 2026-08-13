@@ -11108,6 +11108,40 @@
       location.href = '../start/';
     }
 
+    // 管理者として通っていない（または期限が切れた）とき。
+    // ここでパスワードを聞き直さず、入口へお戻りいただく。
+    let launcherRequiredShown = false;
+    function showLauncherRequired() {
+      if (launcherRequiredShown) return;
+      launcherRequiredShown = true;
+      const overlay = document.createElement('div');
+      overlay.style.cssText =
+        'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;' +
+        'padding:24px;background:rgba(255,255,255,.97);';
+      const card = document.createElement('div');
+      card.style.cssText =
+        'max-width:340px;text-align:center;font-size:15px;line-height:1.8;color:#333;';
+      const title = document.createElement('div');
+      title.style.cssText = 'font-size:18px;font-weight:700;margin-bottom:12px;';
+      title.textContent = '入口からお入りください';
+      const body = document.createElement('p');
+      body.style.cssText = 'margin:0 0 20px;';
+      body.textContent = 'ログインの期限が切れているか、まだログインされていません。'
+        + 'アプリ一覧の画面からもう一度お入りください。';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'アプリ一覧へ';
+      button.style.cssText =
+        'padding:12px 28px;font-size:15px;border:0;border-radius:8px;cursor:pointer;' +
+        'background:#8a9e7e;color:#fff;';
+      button.addEventListener('click', goToAppList);
+      card.appendChild(title);
+      card.appendChild(body);
+      card.appendChild(button);
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+    }
+
     function isAdminAuthError(json) {
       const message = String((json && json.message) || '');
       return message.indexOf('管理者ログインが必要です') >= 0 ||
