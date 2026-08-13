@@ -5323,73 +5323,9 @@ function updatePushUI(state) {
 }
 
 function updatePasscodeLoginUI() {
-  const btn = document.getElementById('passcode-login-btn');
-  const status = document.getElementById('passcodeLoginStatus');
-  const desc = document.getElementById('passcodeLoginHelp');
-  const available = !!(_profile && hasConfiguredLocalPasscode());
-  const enabled = available && isPasscodeLoginEnabled();
-
-  if (status) status.textContent = available ? (enabled ? 'オン' : 'オフ') : '未設定';
-  if (desc) {
-    desc.textContent = available
-      ? (enabled
-        ? 'アプリを開くたびにパスコード入力が必要です。'
-        : '次回から起動時のパスコード入力を省略できます。')
-      : 'まずはパスコードを設定してください。';
-  }
-  if (!btn) return;
-
-  if (!available) {
-    btn.textContent = '未設定';
-    btn.disabled = true;
-    btn.classList.add('secondary');
-    btn.classList.remove('primary');
-    return;
-  }
-
-  if (enabled) {
-    btn.textContent = 'オン（タップでオフ）';
-    btn.classList.add('secondary');
-    btn.classList.remove('primary');
-  } else {
-    btn.textContent = 'オフ（タップでオン）';
-    btn.classList.add('primary');
-    btn.classList.remove('secondary');
-  }
-  btn.disabled = false;
+  // マイページのパスコード設定は廃止したので、更新する表示が無い。
 }
 
-async function togglePasscodeLoginSetting() {
-  if (!_profile || !hasConfiguredLocalPasscode()) {
-    showToast('まずパスコードを設定してください');
-    return;
-  }
-
-  const nextEnabled = !isPasscodeLoginEnabled();
-  const isConfirmed = await showAppConfirm(
-    nextEnabled
-      ? '起動時のパスコード入力をオンにしますか？\n次回からアプリを開くたびにログインが必要になります。'
-      : '起動時のパスコード入力をオフにしますか？\n次回からアプリを開いたときのログインを省略できます。',
-    {
-      title: 'ログイン設定',
-      confirmLabel: nextEnabled ? 'オンにする' : 'オフにする',
-      cancelLabel: '戻る',
-      confirmVariant: nextEnabled ? 'primary' : 'danger'
-    }
-  );
-  if (!isConfirmed) return;
-
-  setPasscodeLoginEnabled(nextEnabled);
-  isPasscodeAuthenticated = true;
-  if (!nextEnabled) {
-    closePasscodeOverlay();
-    markPasscodeUnlockSkippedOnce();
-  }
-  syncCurrentDeviceSession({ silent: true }).catch(function (error) {
-    console.error('syncCurrentDeviceSession after togglePasscodeLoginSetting error:', error);
-  });
-  showToast(nextEnabled ? '起動時のパスコード入力をオンにしました' : '起動時のパスコード入力をオフにしました');
-}
 
 
 // 更新バッジの制御
@@ -7147,74 +7083,9 @@ function handleBannerChange(input) {
   });
 }
 
-function clearPasscodeOverlayError() {
-  const input = document.getElementById('lockPasscode');
-  const error = document.getElementById('lockPasscodeErr');
-  if (input) input.classList.remove('error');
-  if (error) error.classList.remove('show');
-}
 
-function prefillForgotPasscodeForm(fieldMap) {
-  const settings = fieldMap || {};
-  const nameInput = document.getElementById(settings.nameId);
-  const phoneInput = document.getElementById(settings.phoneId);
-  const birthdayInput = document.getElementById(settings.birthdayId);
-  const passcodeInput = document.getElementById(settings.passcodeId);
-  const sourcePhoneInput = settings.sourcePhoneId ? document.getElementById(settings.sourcePhoneId) : null;
-  const profileName = _profile && _profile.name ? _profile.name : '';
-  const profilePhone = _profile && _profile.phone ? _profile.phone : '';
-  const profileBirthday = _profile && _profile.birthday ? _profile.birthday : '';
 
-  if (nameInput) {
-    nameInput.value = normalizeNameInput(nameInput.value) || profileName;
-  }
-  if (phoneInput) {
-    const currentPhone = normalizePhoneInput(phoneInput.value);
-    const sourcePhone = sourcePhoneInput ? normalizePhoneInput(sourcePhoneInput.value) : '';
-    phoneInput.value = currentPhone || sourcePhone || profilePhone;
-  }
-  if (birthdayInput) {
-    birthdayInput.value = normalizeDateOnlyInput(birthdayInput.value) || profileBirthday;
-  }
-  if (passcodeInput) {
-    passcodeInput.value = '';
-  }
-}
 
-function prefillRestoreAccountForm(fieldMap) {
-  const settings = fieldMap || {};
-  const nameInput = document.getElementById(settings.nameId);
-  const kanaInput = document.getElementById(settings.kanaId);
-  const phoneInput = document.getElementById(settings.phoneId);
-  const birthdayInput = document.getElementById(settings.birthdayId);
-  const passcodeInput = document.getElementById(settings.passcodeId);
-  const transferCodeInput = document.getElementById(settings.transferCodeId);
-  const newPasscodeInput = document.getElementById(settings.newPasscodeId);
-  const profileName = _profile && _profile.name ? _profile.name : '';
-  const profileKana = _profile && _profile.kana ? _profile.kana : '';
-  const profilePhone = _profile && _profile.phone ? _profile.phone : '';
-  const profileBirthday = _profile && _profile.birthday ? _profile.birthday : '';
-
-  if (nameInput) nameInput.value = normalizeNameInput(nameInput.value) || profileName;
-  if (kanaInput) kanaInput.value = normalizeKanaInput(kanaInput.value) || profileKana;
-  if (phoneInput) phoneInput.value = normalizePhoneInput(phoneInput.value) || profilePhone;
-  if (birthdayInput) birthdayInput.value = normalizeDateOnlyInput(birthdayInput.value) || profileBirthday;
-  if (passcodeInput) passcodeInput.value = '';
-  if (transferCodeInput) transferCodeInput.value = '';
-  if (newPasscodeInput) newPasscodeInput.value = '';
-}
-
-function updateTransferCodeDisplay(details) {
-  const card = document.getElementById('transferCodeResultCard');
-  const codeEl = document.getElementById('transferCodeValue');
-  const expiryEl = document.getElementById('transferCodeExpiry');
-  const code = details && details.transferCode ? String(details.transferCode) : '';
-  const expiryText = details && details.expiresAt ? formatCustomerDateYmdHm(details.expiresAt) : (details && details.expiresAtLabel ? details.expiresAtLabel : '');
-
-  if (codeEl) codeEl.textContent = code || '--------';
-  if (expiryEl) expiryEl.textContent = expiryText ? ('有効期限：' + expiryText) : '有効期限：---';
-  if (card) card.style.display = code ? 'block' : 'none';
-}
 
 async function applyRecoveredUserState(user, passcode, successMessage) {
   const u = user || {};
@@ -7303,69 +7174,13 @@ async function applyRecoveredUserState(user, passcode, successMessage) {
   showToast(successMessage || 'ログインしました🌿');
 }
 
-function togglePasscodeOverlayView(view) {
-  const login = document.getElementById('passcodeLoginContent');
-  const restore = document.getElementById('passcodeRestoreContent');
-  const reset = document.getElementById('passcodeResetContent');
-  if (login) login.style.display = view === 'login' ? 'block' : 'none';
-  if (restore) restore.style.display = view === 'restore' ? 'block' : 'none';
-  if (reset) reset.style.display = view === 'reset' ? 'block' : 'none';
-  if (view === 'restore') {
-    prefillRestoreAccountForm({
-      nameId: 'passcodeRestoreName',
-      kanaId: 'passcodeRestoreKana',
-      phoneId: 'passcodeRestorePhone',
-      birthdayId: 'passcodeRestoreBirthday',
-      passcodeId: 'passcodeRestorePasscode',
-      transferCodeId: 'passcodeRestoreTransferCode',
-      newPasscodeId: 'passcodeRestoreNewPasscode'
-    });
-  }
-  if (view === 'reset') {
-    prefillForgotPasscodeForm({
-      nameId: 'passcodeResetName',
-      phoneId: 'passcodeResetPhone',
-      birthdayId: 'passcodeResetBirthday',
-      passcodeId: 'passcodeResetNewPasscode',
-      sourcePhoneId: 'passcodeRestorePhone'
-    });
-  }
-  clearPasscodeOverlayError();
-}
 
 function openPasscodeOverlay() {
-  if (!_profile || !hasConfiguredLocalPasscode()) return;
-  const overlay = document.getElementById('passcodeOverlay');
-  const input = document.getElementById('lockPasscode');
-  const resetName = document.getElementById('passcodeResetName');
-  const resetPhone = document.getElementById('passcodeResetPhone');
-  const resetBirthday = document.getElementById('passcodeResetBirthday');
-  const resetPasscode = document.getElementById('passcodeResetNewPasscode');
-  if (input) input.value = '';
-  prefillRestoreAccountForm({
-    nameId: 'passcodeRestoreName',
-    kanaId: 'passcodeRestoreKana',
-    phoneId: 'passcodeRestorePhone',
-    birthdayId: 'passcodeRestoreBirthday',
-    passcodeId: 'passcodeRestorePasscode',
-    transferCodeId: 'passcodeRestoreTransferCode',
-    newPasscodeId: 'passcodeRestoreNewPasscode'
-  });
-  if (resetName) resetName.value = _profile.name || '';
-  if (resetPhone) resetPhone.value = _profile.phone || '';
-  if (resetBirthday) resetBirthday.value = _profile.birthday || '';
-  if (resetPasscode) resetPasscode.value = '';
-  togglePasscodeOverlayView('login');
-  if (overlay) overlay.classList.add('open');
-  setTimeout(function () {
-    if (input) input.focus();
-  }, 60);
+  // 起動時のパスコード入力は廃止した。入口の画面で一度ログインしていただく。
 }
 
 function closePasscodeOverlay() {
-  const overlay = document.getElementById('passcodeOverlay');
-  if (overlay) overlay.classList.remove('open');
-  clearPasscodeOverlayError();
+  // 起動時のパスコード入力は廃止したので、閉じるものが無い。
 }
 
 function shouldRequirePasscodeLock() {
@@ -7375,45 +7190,6 @@ function shouldRequirePasscodeLock() {
 }
 
 
-async function unlockAppWithPasscode() {
-  const input = document.getElementById('lockPasscode');
-  const error = document.getElementById('lockPasscodeErr');
-  const btn = document.getElementById('unlockBtn');
-  const passcode = normalizePasscodeInput(input ? input.value : '');
-
-  if (!isValidPasscodeValue(passcode)) {
-    if (input) input.classList.add('error');
-    if (error) error.classList.add('show');
-    showToast('4桁または6桁の数字で入力してください');
-    return;
-  }
-
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = '確認中...';
-  }
-  clearPasscodeOverlayError();
-
-  try {
-    const isMatched = await verifyLocalPasscode(passcode);
-    if (!isMatched) {
-      if (input) input.classList.add('error');
-      if (error) error.classList.add('show');
-      showToast('パスコードが一致しません');
-      return;
-    }
-    isPasscodeAuthenticated = true;
-    closePasscodeOverlay();
-    flushPendingIncomingStampAction();
-    showToast('ログインしました🌿');
-    scheduleProfileRecoveryPrompt();
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = 'ログインする';
-    }
-  }
-}
 
 async function restoreAccountByForm(options) {
   const settings = options || {};
@@ -7572,212 +7348,20 @@ async function resetForgottenPasscodeByForm(options) {
   }
 }
 
-function restoreAccountFromLockScreen() {
-  return restoreAccountByForm({
-    nameId: 'passcodeRestoreName',
-    kanaId: 'passcodeRestoreKana',
-    phoneId: 'passcodeRestorePhone',
-    birthdayId: 'passcodeRestoreBirthday',
-    passcodeId: 'passcodeRestorePasscode',
-    transferCodeId: 'passcodeRestoreTransferCode',
-    newPasscodeId: 'passcodeRestoreNewPasscode',
-    buttonId: 'passcodeRestoreBtn'
-  });
-}
 
-function resetForgottenPasscodeFromLockScreen() {
-  return resetForgottenPasscodeByForm({
-    nameId: 'passcodeResetName',
-    phoneId: 'passcodeResetPhone',
-    birthdayId: 'passcodeResetBirthday',
-    passcodeId: 'passcodeResetNewPasscode',
-    buttonId: 'passcodeResetBtn'
-  });
-}
 
 function toggleSetupView(view) {
-  const choice = document.getElementById('setupChoiceContent');
+  // パスコードの入力・変更・復元の画面は、入口の画面へ移したのでここには無い。
+  // 残っているのは会員登録（プロフィール）のフォームだけ。
   const setup = document.getElementById('setupFormContent');
-  const restore = document.getElementById('restoreFormContent');
-  const change = document.getElementById('changePasscodeContent');
-  const forgot = document.getElementById('forgotPasscodeContent');
-
-  if (choice) choice.style.display = view === 'choice' ? 'block' : 'none';
-
-  if (view === 'restore') {
-    if (setup) setup.style.display = 'none';
-    if (restore) restore.style.display = 'block';
-    if (change) change.style.display = 'none';
-    if (forgot) forgot.style.display = 'none';
-    prefillRestoreAccountForm({
-      nameId: 'restoreName',
-      kanaId: 'restoreKana',
-      phoneId: 'restorePhone',
-      birthdayId: 'restoreBirthday',
-      passcodeId: 'restorePasscode',
-      transferCodeId: 'restoreTransferCode',
-      newPasscodeId: 'restoreNewPasscode'
-    });
-  } else if (view === 'forgot') {
-    if (setup) setup.style.display = 'none';
-    if (restore) restore.style.display = 'none';
-    if (change) change.style.display = 'none';
-    if (forgot) forgot.style.display = 'block';
-    prefillForgotPasscodeForm({
-      nameId: 'forgotPasscodeName',
-      phoneId: 'forgotPasscodePhone',
-      birthdayId: 'forgotPasscodeBirthday',
-      passcodeId: 'forgotPasscodeNew',
-      sourcePhoneId: 'restorePhone'
-    });
-  } else if (view === 'change') {
-    if (setup) setup.style.display = 'none';
-    if (restore) restore.style.display = 'none';
-    if (change) change.style.display = 'block';
-    if (forgot) forgot.style.display = 'none';
-  } else if (view === 'choice') {
-    if (setup) setup.style.display = 'none';
-    if (restore) restore.style.display = 'none';
-    if (change) change.style.display = 'none';
-    if (forgot) forgot.style.display = 'none';
-  } else {
-    if (setup) setup.style.display = 'block';
-    if (restore) restore.style.display = 'none';
-    if (change) change.style.display = 'none';
-    if (forgot) forgot.style.display = 'none';
-  }
-}
-
-function openChangePasscode() {
-  document.getElementById('newPasscode').value = '';
-  toggleSetupView('change');
-  const cancelBtn = document.getElementById('setupCancelBtn');
-  if (cancelBtn) cancelBtn.style.display = 'inline-block';
-  openModal('setupOverlay');
-}
-
-async function saveNewPasscode() {
-  if (!_profile || !_profile.memberId) return;
-  const newPass = normalizePasscodeInput(document.getElementById('newPasscode').value);
-
-  if (!isValidPasscodeValue(newPass)) {
-    showToast('4桁または6桁の数字を入力してください');
-    return;
-  }
-
-  const btn = document.getElementById('changePasscodeBtn');
-  btn.disabled = true;
-  btn.textContent = '保存中...';
-
-  try {
-    const data = {
-      type: 'updateUser',
-      memberId: _profile.memberId,
-      passcode: newPass
-    };
-    const res = await postToGAS(data);
-    if (res && res.status === 'ok') {
-      await storeLocalPasscode(newPass);
-      isPasscodeAuthenticated = true;
-      syncCurrentDeviceSession({ silent: true }).catch(function (error) {
-        console.error('syncCurrentDeviceSession after saveNewPasscode error:', error);
-      });
-      updateTransferCodeDisplay(null);
-      showToast('パスコードを変更しました🌿');
-      closeSetupModal();
-    } else if (res && res.status === 'queued') {
-      await storeLocalPasscode(newPass);
-      isPasscodeAuthenticated = true;
-      showToast('パスコードを変更しました。通信回復後に同期します');
-      closeSetupModal();
-    } else {
-      showToast('変更に失敗しました');
-    }
-  } catch (e) {
-    console.error(e);
-    showToast('通信エラーが発生しました');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '変更を保存';
-  }
-}
-
-async function issueTransferCode() {
-  if (!_profile || !_profile.memberId) {
-    showToast('会員情報を確認できません');
-    return;
-  }
-
-  const isConfirmed = await showAppConfirm('この端末の会員情報で引き継ぎコードを発行しますか？\n新しい端末の「データの引き継ぎ・復元」で使えます。', {
-    title: '引き継ぎコードの発行',
-    confirmLabel: '発行する',
-    cancelLabel: '戻る'
-  });
-  if (!isConfirmed) return;
-
-  const btn = document.getElementById('issueTransferCodeBtn');
-  if (btn) {
-    btn.disabled = true;
-    btn.dataset.originalText = btn.dataset.originalText || btn.textContent;
-    btn.textContent = '発行中...';
-  }
-
-  try {
-    const res = await postToGAS({
-      type: 'issueTransferCode',
-      memberId: _profile.memberId
-    });
-
-    if (res && res.status === 'ok' && res.transferCode) {
-      updateTransferCodeDisplay(res);
-      await showAppAlert(
-        '引き継ぎコード：' + res.transferCode + '\n有効期限：' + (res.expiresAtLabel || formatCustomerDateYmdHm(res.expiresAt) || '---') + '\n\n新しい端末の「データの引き継ぎ・復元」で入力してください。',
-        {
-          title: '引き継ぎコードを発行しました',
-          confirmLabel: '閉じる'
-        }
-      );
-      return;
-    }
-
-    await showAppAlert(res && res.message ? res.message : '引き継ぎコードの発行に失敗しました。', {
-      title: '発行エラー',
-      confirmLabel: '閉じる'
-    });
-  } catch (e) {
-    console.error('issueTransferCode error:', e);
-    showToast('通信エラーが発生しました');
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = btn.dataset.originalText || '引き継ぎコードを発行する';
-    }
-  }
+  if (setup) setup.style.display = 'block';
 }
 
 
-async function restoreAccount() {
-  return restoreAccountByForm({
-    nameId: 'restoreName',
-    kanaId: 'restoreKana',
-    phoneId: 'restorePhone',
-    birthdayId: 'restoreBirthday',
-    passcodeId: 'restorePasscode',
-    transferCodeId: 'restoreTransferCode',
-    newPasscodeId: 'restoreNewPasscode',
-    buttonId: 'restoreBtn'
-  });
-}
 
-async function resetForgottenPasscode() {
-  return resetForgottenPasscodeByForm({
-    nameId: 'forgotPasscodeName',
-    phoneId: 'forgotPasscodePhone',
-    birthdayId: 'forgotPasscodeBirthday',
-    passcodeId: 'forgotPasscodeNew',
-    buttonId: 'forgotPasscodeBtn'
-  });
-}
+
+
+
 
 async function saveProfile() {
   const nameEl = document.getElementById('setupName');
@@ -7940,77 +7524,9 @@ async function saveProfile() {
 }
 
 function openMigrationModal() {
-  const phoneInput = document.getElementById('migrationPhone');
-  const passcodeInput = document.getElementById('migrationPasscode');
-  const overlay = document.getElementById('migrationOverlay');
-  if (phoneInput) phoneInput.value = _profile && _profile.phone ? _profile.phone : '';
-  if (passcodeInput) passcodeInput.value = '';
-  isPasscodeAuthenticated = false;
-  if (overlay) overlay.classList.add('open');
-  setTimeout(function () {
-    if (passcodeInput) passcodeInput.focus();
-  }, 60);
+  // パスコード設定をお願いする案内は廃止した。入口の画面で設定していただく。
 }
 
-async function saveMigrationPasscode() {
-  const phone = document.getElementById('migrationPhone').value.trim();
-  const passcode = normalizePasscodeInput(document.getElementById('migrationPasscode').value);
-  const btn = document.getElementById('migrationBtn');
-
-  if (!phone || !isValidPasscodeValue(passcode)) {
-    showToast('電話番号と4桁または6桁のパスコードを入力してください');
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = '保存中...';
-
-  try {
-    const data = {
-      type: 'updateUser',
-      memberId: _profile.memberId,
-      phone: phone,
-      passcode: passcode
-    };
-    const res = await postToGAS(data);
-    if (res && res.status === 'ok') {
-      _profile.phone = phone;
-      localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
-      await storeLocalPasscode(passcode);
-      isPasscodeAuthenticated = true;
-      flushPendingIncomingStampAction();
-      syncCurrentDeviceSession({ silent: true }).catch(function (error) {
-        console.error('syncCurrentDeviceSession after saveMigrationPasscode error:', error);
-      });
-      showToast('パスコード設定を完了しました🌿');
-      document.getElementById('migrationOverlay').classList.remove('open');
-      const homePage = document.getElementById('page-home');
-      if (homePage) homePage.classList.add('active');
-      switchPage('home');
-      updateProfileUI();
-    } else if (res && res.status === 'queued') {
-      _profile.phone = phone;
-      localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
-      await storeLocalPasscode(passcode);
-      isPasscodeAuthenticated = true;
-      flushPendingIncomingStampAction();
-      showToast('設定を保存しました。通信回復後に同期します');
-      document.getElementById('migrationOverlay').classList.remove('open');
-      const homePage = document.getElementById('page-home');
-      if (homePage) homePage.classList.add('active');
-      switchPage('home');
-      updateProfileUI();
-    } else {
-      showToast('設定に失敗しました');
-    }
-  } catch (e) {
-    console.error(e);
-    showToast('通信エラーが発生しました');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '設定してアプリを使う';
-  }
-}
 
 function openEditProfile() {
   if (!_profile) { openSetupModal(false); return; }
@@ -8293,40 +7809,23 @@ async function checkExistingMemberCandidates(name, kana, phone, birthday) {
   return [];
 }
 
-function prefillRecoveryFormsFromProfile(values) {
-  const payload = values || {};
-  [
-    ['restoreName', payload.name],
-    ['restoreKana', payload.kana],
-    ['restorePhone', payload.phone],
-    ['restoreBirthday', payload.birthday],
-    ['passcodeRestoreName', payload.name],
-    ['passcodeRestoreKana', payload.kana],
-    ['passcodeRestorePhone', payload.phone],
-    ['passcodeRestoreBirthday', payload.birthday]
-  ].forEach(function (pair) {
-    const el = document.getElementById(pair[0]);
-    if (el && pair[1] !== undefined) el.value = pair[1] || '';
-  });
-}
 
 async function promptRecoveryCandidates(candidates, formValues) {
   if (!candidates || !candidates.length) return false;
-  const summary = candidates.slice(0, 3).map(function (candidate) {
-    const reasonText = Array.isArray(candidate.reasons) ? candidate.reasons.join('・') : '一致';
-    return '・' + (candidate.name || '会員') + ' / ' + (candidate.memberId || '---') + ' / 一致: ' + reasonText;
-  }).join('\n');
+  // 復元の画面は入口へ移した。ここで新しく登録されると同じ方が二重になるので、
+  // 登録を止めて、入口のログイン画面へお戻りいただく。
   const shouldMove = await showAppConfirm(
-    '以前登録した可能性がある会員が見つかりました。\n新規登録ではなく復元を使うと、同じお名前で別の会員IDが増えるのを防げます。\n\n' + summary + '\n\n復元画面へ移動しますか？',
+    'すでにご登録の記録が見つかりました。\n新しく登録すると、同じお名前で別の会員として増えてしまいます。\n\n'
+    + 'ログイン画面から、これまでと同じお名前とパスコードでお入りください。\n'
+    + 'パスコードが分からない場合も、ログイン画面の「お困りのとき」からお手続きいただけます。',
     {
-      title: '以前登録した情報が見つかりました',
-      confirmLabel: '復元へ進む',
-      cancelLabel: '新規登録を続ける'
+      title: 'すでにご登録があります',
+      confirmLabel: 'ログイン画面へ',
+      cancelLabel: 'このまま新規登録する'
     }
   );
   if (!shouldMove) return false;
-  prefillRecoveryFormsFromProfile(formValues);
-  toggleSetupView('restore');
+  location.href = 'start/';
   return true;
 }
 

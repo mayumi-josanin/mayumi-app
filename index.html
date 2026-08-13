@@ -72,123 +72,6 @@
   <div id="toast" class="toast"></div>
 
   <!-- PASSCODE LOCK SCREEN -->
-  <div class="setup-overlay passcode-lock-overlay" id="passcodeOverlay">
-    <div class="setup-sheet">
-      <div class="setup-icon">
-        <img src="icon.png" alt="Logo" style="width:64px;height:64px;border-radius:15px;object-fit:cover;">
-      </div>
-
-      <div id="passcodeLoginContent">
-        <div class="setup-title">ログイン</div>
-        <div class="setup-desc">アプリを開くには、設定したパスコードを入力してください。</div>
-        <div class="setup-note-card">
-          ご本人確認のため、<b>4桁または6桁の数字</b>でログインします。
-        </div>
-        <div class="setup-field" style="margin-top:16px;">
-          <label class="setup-label">パスコード <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="lockPasscode" type="password" placeholder="例：1234" maxlength="6"
-            inputmode="numeric" autocomplete="current-password"
-            oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
-            onkeydown="if(event.key==='Enter'){unlockAppWithPasscode()}">
-          <div class="setup-err" id="lockPasscodeErr">パスコードが違います。もう一度ご確認ください。</div>
-        </div>
-        <button class="btn primary" id="unlockBtn" onclick="unlockAppWithPasscode()">ログインする</button>
-        <button class="setup-inline-link" type="button" onclick="togglePasscodeOverlayView('restore')">データの引き継ぎ・復元はこちら
-          ↺</button>
-        <button class="setup-inline-link" type="button"
-          onclick="togglePasscodeOverlayView('reset')">パスコードを忘れた場合の再設定はこちら</button>
-      </div>
-
-      <div id="passcodeRestoreContent" style="display:none;">
-        <div class="setup-title">データの引き継ぎ・復元</div>
-        <div class="setup-desc">引き継ぎコード、または「お名前またはフリガナ」と生年月日で会員情報を復元できます。<br>復元後、この端末で使うパスコードも設定します。</div>
-        <div class="setup-note-card" style="text-align:left;">
-          引き継ぎコードがある方: 引き継ぎコードと新しいパスコードを入力してください。<br>
-          引き継ぎコードがない方: 生年月日は必須です。お名前・フリガナはどちらか一方が登録内容と一致すれば復元できます。
-        </div>
-        <div class="setup-field" style="margin-top:16px;">
-          <label class="setup-label">お名前（フリガナと合わせてどちらか必須）</label>
-          <input class="setup-input" id="passcodeRestoreName" type="text" placeholder="登録したお名前" autocomplete="name">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">フリガナ（お名前と合わせてどちらか必須）</label>
-          <input class="setup-input" id="passcodeRestoreKana" type="text" placeholder="登録したフリガナ（カタカナ）"
-            autocomplete="off">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">電話番号</label>
-          <input class="setup-input" id="passcodeRestorePhone" type="tel" placeholder="登録した電話番号" maxlength="15"
-            autocomplete="tel">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">生年月日 <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="passcodeRestoreBirthday" type="date" autocomplete="bday">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">現在のパスコード（わかる方のみ）</label>
-          <input class="setup-input" id="passcodeRestorePasscode" type="password" placeholder="登録中のパスコード" maxlength="6"
-            inputmode="numeric" autocomplete="current-password"
-            oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
-            onkeydown="if(event.key==='Enter'){restoreAccountFromLockScreen()}">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">引き継ぎコード（ある方のみ）</label>
-          <input class="setup-input" id="passcodeRestoreTransferCode" type="tel" placeholder="8桁の引き継ぎコード" maxlength="8"
-            inputmode="numeric" autocomplete="one-time-code"
-            oninput="this.value=this.value.replace(/\D/g,'').slice(0,8)">
-          <div style="font-size:10px; color:var(--text-light); margin-top:4px;">※引き継ぎコードは1回限り・1週間有効です。</div>
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">この端末で使うパスコード（数字4桁または6桁） <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="passcodeRestoreNewPasscode" type="password" placeholder="新しく使うパスコード"
-            maxlength="6" inputmode="numeric" autocomplete="new-password"
-            oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
-            onkeydown="if(event.key==='Enter'){restoreAccountFromLockScreen()}">
-          <div style="font-size:10px; color:var(--text-light); margin-top:4px;">※現在のパスコードをそのまま使う場合は、上だけ入力してここは空欄でも大丈夫です。
-          </div>
-        </div>
-        <button class="btn primary" id="passcodeRestoreBtn" onclick="restoreAccountFromLockScreen()"
-          style="margin-top:10px">ログインして復元する ↺</button>
-        <button class="setup-inline-link" type="button" onclick="togglePasscodeOverlayView('reset')"
-          style="margin-top:12px;">パスコードを忘れた場合の再設定はこちら</button>
-        <button class="btn secondary" onclick="togglePasscodeOverlayView('login')"
-          style="margin-top:10px">パスコード入力に戻る</button>
-      </div>
-
-      <div id="passcodeResetContent" style="display:none;">
-        <div class="setup-title">パスコードの再設定</div>
-        <div class="setup-desc">パスコードを忘れた場合は、登録したお名前・電話番号・生年月日を確認して、新しいパスコードへ再設定できます。</div>
-        <div class="setup-note-card" style="text-align:left;">
-          この端末に会員情報が残っている場合は、自動で入力されます。<br>
-          一致しない場合は、院へご相談ください。
-        </div>
-        <div class="setup-field" style="margin-top:16px;">
-          <label class="setup-label">お名前 <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="passcodeResetName" type="text" placeholder="登録したお名前" autocomplete="name">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">電話番号 <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="passcodeResetPhone" type="tel" placeholder="登録した電話番号" maxlength="15"
-            autocomplete="tel">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">生年月日 <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="passcodeResetBirthday" type="date" autocomplete="bday">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">新しいパスコード（数字4桁または6桁） <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="passcodeResetNewPasscode" type="password" placeholder="新しいパスコードを入力"
-            maxlength="6" inputmode="numeric" autocomplete="new-password"
-            oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
-            onkeydown="if(event.key==='Enter'){resetForgottenPasscodeFromLockScreen()}">
-        </div>
-        <button class="btn primary" id="passcodeResetBtn" onclick="resetForgottenPasscodeFromLockScreen()"
-          style="margin-top:10px">再設定してログインする</button>
-        <button class="btn secondary" onclick="togglePasscodeOverlayView('login')"
-          style="margin-top:10px">パスコード入力に戻る</button>
-      </div>
-    </div>
-  </div>
 
   <!-- HEADER -->
   <header class="header">
@@ -624,43 +507,6 @@
         </div>
         <button class="btn secondary" style="margin-top:10px;font-size:12px;padding:9px" onclick="openEditProfile()">✏️
           プロフィールを編集</button>
-        <button class="btn secondary" style="margin-top:6px;font-size:12px;padding:9px"
-          onclick="openChangePasscode()">🔐
-          パスコードを変更</button>
-        <div class="card"
-          style="margin-top:12px;padding:15px;border-radius:12px;background:var(--warm-white);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;">
-          <div>
-            <div style="font-size:14px;font-weight:bold;color:var(--text-dark);">ログイン時のパスコード</div>
-            <div style="font-size:11px;color:var(--text-light);margin-top:4px;">
-              現在: <span id="passcodeLoginStatus">---</span>
-            </div>
-            <div id="passcodeLoginHelp" style="font-size:11px;color:var(--text-light);margin-top:4px;">
-              アプリを開くたびにパスコード入力を求めるか設定できます
-            </div>
-          </div>
-          <button class="btn secondary" id="passcode-login-btn"
-            style="margin:0;padding:8px 16px;font-size:12px;border-radius:20px;"
-            onclick="togglePasscodeLoginSetting()">オン（タップでオフ）</button>
-        </div>
-        <div class="card"
-          style="margin-top:12px;padding:16px;border-radius:14px;background:linear-gradient(135deg,#fffdf8,#f6f8f2);border:1px solid var(--border);">
-          <div style="font-size:15px;font-weight:700;color:var(--text-dark);margin-bottom:6px;">↺ 引き継ぎコードの発行</div>
-          <div style="font-size:12px;color:var(--text-light);line-height:1.8;margin-bottom:12px;">
-            機種変更や再インストールの前に発行しておくと、新しい端末の「データの引き継ぎ・復元」から会員情報を戻せます。<br>
-            発行したコードは1回限り・1週間有効です。
-          </div>
-          <div id="transferCodeResultCard"
-            style="display:none;background:var(--warm-white);border:1px dashed var(--sage);border-radius:12px;padding:14px 12px;margin-bottom:12px;text-align:center;">
-            <div style="font-size:11px;color:var(--text-light);margin-bottom:6px;">現在の引き継ぎコード</div>
-            <div id="transferCodeValue"
-              style="font-size:28px;letter-spacing:0.18em;font-weight:800;color:var(--sage-dark);margin-left:0.18em;">
-              --------</div>
-            <div id="transferCodeExpiry" style="font-size:11px;color:var(--text-mid);margin-top:8px;line-height:1.7;">
-              有効期限：---</div>
-          </div>
-          <button class="btn secondary" id="issueTransferCodeBtn" style="margin:0;font-size:12px;padding:9px"
-            onclick="issueTransferCode()">引き継ぎコードを発行する</button>
-        </div>
         <div class="card"
           style="margin-top:12px;padding:14px 16px;border-radius:12px;background:var(--warm-white);border:1px solid var(--border);">
           <div id="retryQueueStatus" style="font-size:12px;color:var(--text-mid);line-height:1.8;"><b>同期状況:</b> 確認中です</div>
@@ -1093,16 +939,6 @@
       <div class="setup-icon">
         <img src="icon.png" alt="Logo" style="width:64px;height:64px;border-radius:15px;object-fit:cover;">
       </div>
-      <div id="setupChoiceContent" style="display:none;">
-        <div class="setup-title">はじめにお選びください</div>
-        <div class="setup-desc">以前アプリを登録したことがある方と、はじめて登録する方で進み方が異なります。<br>当てはまる方を選んでください。</div>
-        <div class="setup-note-card" style="text-align:left;">
-          以前アプリを登録したことがある方が、ここで新しく登録すると、同じお名前でも<b>別の会員ID</b>が作られることがあります。<br>
-          再インストール、機種変更、ホーム画面追加後の再利用は、<b>「以前登録した方はこちら」</b>からお進みください。
-        </div>
-        <button class="btn primary" type="button" onclick="toggleSetupView('restore')" style="margin-top:16px;">以前登録した方はこちら ↺</button>
-        <button class="btn secondary" type="button" onclick="toggleSetupView('setup')" style="margin-top:10px;">はじめて登録する方はこちら</button>
-      </div>
       <div id="setupFormContent">
         <div class="setup-title" id="setupTitle">ようこそ！</div>
         <div class="setup-desc" id="setupDesc">まゆみ助産院アプリへようこそ。<br>はじめにプロフィールを登録してください。</div>
@@ -1159,151 +995,21 @@
           <label class="setup-label">パスコード（数字4桁または6桁） <span style="color:var(--danger)">*</span></label>
           <input class="setup-input" id="setupPasscode" type="password" placeholder="例：1234" maxlength="6"
             pattern="[0-9]*" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)">
-          <div style="font-size:10px; color:var(--text-light); margin-top:4px;">※機種変更時のデータ引き継ぎに使用します。</div>
+          <div style="font-size:10px; color:var(--text-light); margin-top:4px;">※アプリを開くときのログインに使います。</div>
           <div class="setup-err" id="setupPasscodeErr">4桁または6桁の数字を入力してください</div>
         </div>
 
         <button class="btn primary" id="setupBtn" onclick="saveProfile()" style="margin-top:4px">登録してアプリを始める 🌿</button>
-        <div id="setupRestoreLinkWrap"
-          style="text-align:center; margin-top:20px; font-size:12px; color:var(--text-light);">
-          以前アプリを登録したことがある方は、ここで新規登録せず復元をお選びください。<br>
-          <span onclick="toggleSetupView('restore')"
-            style="color:var(--sage-dark); font-weight:bold; cursor:pointer; text-decoration:underline; display:inline-block; margin-top:6px;">以前登録した方のデータ引き継ぎ・復元はこちら
-            ↺</span>
-        </div>
       </div>
-
-      <div id="restoreFormContent" style="display:none;">
-        <div class="setup-title">ログイン・引き継ぎ</div>
-        <div class="setup-desc">引き継ぎコード、または「お名前またはフリガナ」と生年月日で会員情報を復元できます。<br>復元後、この端末で使うパスコードも設定します。</div>
-        <div class="setup-note-card" style="text-align:left;">
-          引き継ぎコードがある方: 引き継ぎコードと新しいパスコードを入力してください。<br>
-          引き継ぎコードがない方: 生年月日は必須です。お名前・フリガナはどちらか一方が登録内容と一致すれば復元できます。
-        </div>
-
-        <div class="setup-field" style="margin-top:16px;">
-          <label class="setup-label">お名前（フリガナと合わせてどちらか必須）</label>
-          <input class="setup-input" id="restoreName" type="text" placeholder="登録したお名前" autocomplete="name">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">フリガナ（お名前と合わせてどちらか必須）</label>
-          <input class="setup-input" id="restoreKana" type="text" placeholder="登録したフリガナ（カタカナ）" autocomplete="off">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">電話番号</label>
-          <input class="setup-input" id="restorePhone" type="tel" placeholder="登録した電話番号" maxlength="15"
-            inputmode="numeric" autocomplete="tel">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">生年月日 <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="restoreBirthday" type="date" autocomplete="bday">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">現在のパスコード（わかる方のみ）</label>
-          <input class="setup-input" id="restorePasscode" type="password" placeholder="登録中のパスコード" maxlength="6"
-            inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">引き継ぎコード（ある方のみ）</label>
-          <input class="setup-input" id="restoreTransferCode" type="tel" placeholder="8桁の引き継ぎコード" maxlength="8"
-            inputmode="numeric" autocomplete="one-time-code"
-            oninput="this.value=this.value.replace(/\D/g,'').slice(0,8)">
-          <div style="font-size:10px; color:var(--text-light); margin-top:4px;">※引き継ぎコードは1回限り・1週間有効です。</div>
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">この端末で使うパスコード（数字4桁または6桁） <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="restoreNewPasscode" type="password" placeholder="新しく使うパスコード" maxlength="6"
-            inputmode="numeric" autocomplete="new-password" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
-            onkeydown="if(event.key==='Enter'){restoreAccount()}">
-          <div style="font-size:10px; color:var(--text-light); margin-top:4px;">※現在のパスコードをそのまま使う場合は、上だけ入力してここは空欄でも大丈夫です。
-          </div>
-        </div>
-
-        <button class="btn primary" id="restoreBtn" onclick="restoreAccount()" style="margin-top:10px">ログインして復元する
-          ↺</button>
-        <button class="setup-inline-link" type="button" onclick="toggleSetupView('forgot')"
-          style="margin-top:12px;">パスコードを忘れた場合の再設定はこちら</button>
-        <button class="btn secondary" onclick="toggleSetupView('choice')" style="margin-top:10px">最初の選択に戻る</button>
-      </div>
-
-      <div id="forgotPasscodeContent" style="display:none;">
-        <div class="setup-title">パスコードの再設定</div>
-        <div class="setup-desc">登録したお名前・電話番号・生年月日を入力し、新しいパスコードへ再設定してください。<br>再設定後、そのままこの端末へログインします。</div>
-        <div class="setup-field">
-          <label class="setup-label">お名前 <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="forgotPasscodeName" type="text" placeholder="登録したお名前" autocomplete="name">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">電話番号 <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="forgotPasscodePhone" type="tel" placeholder="登録した電話番号" maxlength="15"
-            inputmode="numeric" autocomplete="tel">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">生年月日 <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="forgotPasscodeBirthday" type="date" autocomplete="bday">
-        </div>
-        <div class="setup-field">
-          <label class="setup-label">新しいパスコード（数字4桁または6桁） <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="forgotPasscodeNew" type="password" placeholder="新しいパスコードを入力" maxlength="6"
-            inputmode="numeric" autocomplete="new-password" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
-            onkeydown="if(event.key==='Enter'){resetForgottenPasscode()}">
-        </div>
-        <button class="btn primary" id="forgotPasscodeBtn" onclick="resetForgottenPasscode()"
-          style="margin-top:10px">再設定してログインする</button>
-        <button class="btn secondary" onclick="toggleSetupView('restore')" style="margin-top:10px">ログイン・引き継ぎに戻る</button>
-      </div>
-
-      <!-- CHANGE PASSCODE CONTENT -->
-      <div id="changePasscodeContent" style="display:none;">
-        <div class="setup-title">パスコードの変更</div>
-        <div class="setup-desc">新しい4桁または6桁のパスコードを入力してください。</div>
-        <div class="setup-field">
-          <label class="setup-label">新しいパスコード <span style="color:var(--danger)">*</span></label>
-          <input class="setup-input" id="newPasscode" type="password" placeholder="数字4桁または6桁" maxlength="6"
-            inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)">
-        </div>
-        <button class="btn primary" id="changePasscodeBtn" onclick="saveNewPasscode()"
-          style="margin-top:10px">変更を保存</button>
-      </div>
-
       <button class="btn secondary" id="setupCancelBtn" onclick="closeSetupModal()"
         style="display:none; margin-top:10px;">キャンセル</button>
     </div>
   </div>
 
-  <!-- PASSCODE MIGRATION MODAL -->
-  <div class="setup-overlay" id="migrationOverlay">
-    <div class="setup-sheet" style="max-height:90vh; overflow-y:auto; padding-bottom:30px;">
-      <div class="setup-icon">
-        <img src="icon.png" alt="Logo" style="width:64px;height:64px;border-radius:15px;object-fit:cover;">
-      </div>
-      <div class="setup-title">セキュリティ強化のお知らせ</div>
-      <div class="setup-desc" style="margin-bottom:15px; text-align:left;">
-        いつもまゆみ助産院アプリをご利用いただきありがとうございます。<br><br>
-        アプリ起動時の確認と、機種変更時のデータ引き継ぎをより安全・確実に行うため、<b>起動用・引継ぎ用のパスコード（4桁または6桁の数字）</b>の設定をお願いしております。<br><br>
-        お手数ですが、現在ご登録の<b>電話番号</b>と<b>新しいパスコード</b>を入力して保存してください。
-      </div>
-
-      <div class="setup-field">
-        <label class="setup-label">電話番号 <span style="color:var(--danger)">*</span></label>
-        <input class="setup-input" id="migrationPhone" type="tel" placeholder="例：090-1234-5678" maxlength="15"
-          inputmode="numeric">
-      </div>
-      <div class="setup-field">
-        <label class="setup-label">新しいパスコード（数字4桁または6桁） <span style="color:var(--danger)">*</span></label>
-        <input class="setup-input" id="migrationPasscode" type="password" placeholder="例：1234" maxlength="6"
-          inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)">
-        <div style="font-size:10px; color:var(--text-light); margin-top:4px;">※絶対に忘れない数字を設定してください。</div>
-      </div>
-
-      <button class="btn primary" id="migrationBtn" onclick="saveMigrationPasscode()"
-        style="margin-top:12px">設定してアプリを使う</button>
-    </div>
-  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-  <script src="app.js?v=20260813-2"></script>
+  <script src="app.js?v=20260813-3"></script>
 </body>
 
 </html>
