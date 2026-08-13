@@ -416,8 +416,10 @@ function normalizePhoneInput(value) {
   return String(value == null ? '' : value).replace(/\D/g, '');
 }
 
+// 氏名は空白を残さない。「山田 太郎」と「山田太郎」が別人として登録され、
+// 同じ方が二重に登録されてしまうため。照合側も空白を無視している。
 function normalizeNameInput(value) {
-  return String(value == null ? '' : value).replace(/[\s\u3000]+/g, ' ').trim();
+  return String(value == null ? '' : value).replace(/[\s\u3000]+/g, '');
 }
 
 // フリガナは半角カナ・濁点をNFKCで全角カタカナへ寄せてから空白を整える
@@ -426,7 +428,8 @@ function normalizeKanaInput(value) {
   try {
     text = text.normalize('NFKC');
   } catch (e) { }
-  return text.replace(/[\s　]+/g, ' ').trim();
+  // フリガナも氏名と同じ理由で空白を残さない。
+  return text.replace(/[\s　]+/g, '');
 }
 
 // 全角カタカナ（ァ〜ヶ）と長音記号のみを許可する
