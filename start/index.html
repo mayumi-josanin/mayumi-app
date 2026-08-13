@@ -64,6 +64,24 @@
     margin: 0 0 14px; padding: 10px 12px; font-size: 13px; line-height: 1.6;
     background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
   }
+  /* 主役ではない操作（お困りのとき、引き継ぎコードの発行など）。 */
+  button.subtle {
+    width: 100%; margin-top: 10px; padding: 12px; font-size: 14px;
+    color: var(--muted); background: #fff;
+    border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  }
+  .helpBlock { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .helpBlock > strong { font-size: 14px; }
+  /* 発行した引き継ぎコードを、書き写しやすい大きさで見せる。 */
+  .codeBox {
+    margin-top: 12px; padding: 16px; text-align: center;
+    background: var(--bg); border: 1px dashed var(--sage); border-radius: 10px;
+  }
+  .codeBox .value {
+    font-size: 30px; font-weight: 800; letter-spacing: .18em;
+    color: var(--sage-dark); font-variant-numeric: tabular-nums;
+  }
+  .codeBox .meta { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.7; }
   /* すでにご利用の方は空欄で構わない欄につける印。 */
   .optional {
     margin-left: 6px; padding: 1px 6px; font-size: 11px;
@@ -143,6 +161,50 @@
         これまでの記録を引き継いで、パスコードだけを設定します。
       </p>
     </form>
+
+    <!-- パスコードにまつわることは、この画面に集約する。
+         各アプリの中では聞かない（入口で一度だけ、という方針）。 -->
+    <div class="helpBlock" id="helpBlock">
+      <strong>お困りのとき</strong>
+      <button class="subtle" type="button" id="openForgot">パスコードを忘れた方</button>
+      <button class="subtle" type="button" id="openTransfer">引き継ぎコードをお持ちの方</button>
+
+      <form id="forgotForm" hidden>
+        <p class="note">
+          ご登録のお名前・電話番号・生年月日で本人確認のうえ、新しいパスコードを設定します。
+          照合できない場合は、受付でスタッフにお申し出ください。
+        </p>
+        <label>お名前（漢字・フルネーム）
+          <input name="name" type="text" autocomplete="name" required />
+        </label>
+        <label>電話番号
+          <input name="phone" type="tel" autocomplete="tel" required />
+        </label>
+        <label>生年月日
+          <input name="birthday" type="date" required />
+        </label>
+        <label>新しいパスコード（数字4桁または6桁）
+          <input name="newPasscode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" required />
+        </label>
+        <p class="error" id="forgotError"></p>
+        <button class="primary" type="submit">新しいパスコードを設定する</button>
+      </form>
+
+      <form id="transferForm" hidden>
+        <p class="note">
+          前の端末で発行した引き継ぎコードを入力してください。
+          1回限り・1週間有効です。
+        </p>
+        <label>引き継ぎコード（8桁）
+          <input name="transferCode" type="tel" inputmode="numeric" maxlength="8" required />
+        </label>
+        <label>この端末で使うパスコード（数字4桁または6桁）
+          <input name="newPasscode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" required />
+        </label>
+        <p class="error" id="transferError"></p>
+        <button class="primary" type="submit">引き継ぐ</button>
+      </form>
+    </div>
   </section>
 
   <section id="appsView" class="card" hidden>
@@ -155,6 +217,22 @@
     </div>
     <div id="appList"></div>
     <p class="note" id="appsNote"></p>
+
+    <!-- 機種変更の前に、この画面でコードを発行していただく。
+         新しい端末では、ログイン画面の「引き継ぎコードをお持ちの方」から使う。 -->
+    <div class="helpBlock" id="transferIssueBlock">
+      <strong>機種変更をされる方へ</strong>
+      <p class="note" style="margin-top:4px;">
+        新しい端末でも、これまでと同じお名前とパスコードでお入りいただけます。
+        パスコードが分からなくなりそうなときは、先にコードを発行しておくと安心です。
+      </p>
+      <div class="codeBox" id="transferCodeBox" hidden>
+        <div class="value" id="transferCodeValue">--------</div>
+        <div class="meta" id="transferCodeMeta"></div>
+      </div>
+      <p class="error" id="transferIssueError"></p>
+      <button class="subtle" type="button" id="issueTransferButton">引き継ぎコードを発行する</button>
+    </div>
 
     <!-- ビジリスをご利用の方の初回登録。登録済みの方には出さない。 -->
     <div id="bijirisSignup" hidden style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line);">
@@ -357,6 +435,12 @@
       ensureBijirisAdminToken().catch(function () { /* タップ時にやり直す */ });
     }
 
+    // 引き継ぎコードの発行は、本番のサーバー側でいま管理者しか呼べない。
+    // （会員IDだけで誰でも発行できると、他人の記録を乗っ取れてしまうため）
+    // 会員ご自身にも出すには、サーバー側でご本人確認を足す必要がある。
+    // それまでは、押しても必ず失敗するボタンを会員には出さない。
+    $('transferIssueBlock').hidden = session.role !== 'admin';
+
     // 未登録の一般会員にだけ、ビジリスの初回登録を出す。
     var needsBijiris = session.role !== 'admin' && !session.bijiris;
     $('bijirisSignup').hidden = !needsBijiris;
@@ -383,6 +467,16 @@
     showLoginNotice('');
     $('loginForm').reset();
     $('registerForm').reset();
+    // 前の方が入力した内容や、発行したコードを残さない。
+    $('forgotForm').reset();
+    $('transferForm').reset();
+    $('forgotForm').hidden = true;
+    $('transferForm').hidden = true;
+    $('forgotError').textContent = '';
+    $('transferError').textContent = '';
+    $('transferCodeBox').hidden = true;
+    $('transferCodeValue').textContent = '--------';
+    $('transferIssueError').textContent = '';
     showTab('login');
   }
 
@@ -512,6 +606,104 @@
       address: form.address.value,
       passcode: form.passcode.value
     }, form.querySelector('button'), $('registerError'));
+  });
+
+  // ===== お困りのとき（パスコードの再設定・引き継ぎ）=====
+
+  // 再設定や引き継ぎが済んだら、そのままお入りいただく。
+  // 「設定できました。もう一度ログインしてください」と二度手間にしない。
+  function postThenLogin(payload, button, errorEl, passcode) {
+    var label = button.textContent;
+    button.disabled = true;
+    button.textContent = '確認しています…';
+    errorEl.textContent = '';
+    return requestGas(payload, 1)
+      .then(function (json) {
+        if (!json || json.status !== 'ok') {
+          throw new Error((json && json.message) || 'うまくいきませんでした。');
+        }
+        // 引き継ぎコードの場合、お名前はこちらでは分からないので応答から受け取る。
+        var name = withoutSpaces((json.user && json.user.name) || payload.name || '');
+        if (!name) throw new Error('お名前を確認できませんでした。受付にお申し出ください。');
+        return requestGas({ type: 'loginAccount', name: name, passcode: passcode }, 1);
+      })
+      .then(function (json) {
+        if (!json || json.status !== 'ok' || !json.token) {
+          throw new Error((json && json.message)
+            || '設定はできましたが、ログインできませんでした。新しいパスコードでお試しください。');
+        }
+        applySession(json);
+      })
+      .catch(function (error) { errorEl.textContent = error.message; })
+      .then(function () {
+        button.disabled = false;
+        button.textContent = label;
+      });
+  }
+
+  // 2つの案内は同時に開かない。並べると、どちらを使うのか迷わせてしまう。
+  function toggleHelpForm(which) {
+    var openForgot = which === 'forgot' && $('forgotForm').hidden;
+    var openTransfer = which === 'transfer' && $('transferForm').hidden;
+    $('forgotForm').hidden = !openForgot;
+    $('transferForm').hidden = !openTransfer;
+    $('forgotError').textContent = '';
+    $('transferError').textContent = '';
+  }
+
+  $('openForgot').addEventListener('click', function () { toggleHelpForm('forgot'); });
+  $('openTransfer').addEventListener('click', function () { toggleHelpForm('transfer'); });
+
+  $('forgotForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    postThenLogin({
+      type: 'resetForgottenPasscode',
+      name: withoutSpaces(form.name.value),
+      phone: form.phone.value,
+      birthday: form.birthday.value,
+      newPasscode: form.newPasscode.value
+    }, form.querySelector('button'), $('forgotError'), form.newPasscode.value);
+  });
+
+  $('transferForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    postThenLogin({
+      type: 'recoverAccount',
+      transferCode: form.transferCode.value,
+      newPasscode: form.newPasscode.value
+    }, form.querySelector('button'), $('transferError'), form.newPasscode.value);
+  });
+
+  // ===== 引き継ぎコードの発行（ログイン後の画面）=====
+  $('issueTransferButton').addEventListener('click', function () {
+    var button = this;
+    var session = null;
+    try { session = JSON.parse(read(SESSION_KEY) || 'null'); } catch (e) { session = null; }
+    if (!session || !session.memberId) {
+      $('transferIssueError').textContent = 'ログインし直してからお試しください。';
+      return;
+    }
+    var label = button.textContent;
+    button.disabled = true;
+    button.textContent = '発行しています…';
+    $('transferIssueError').textContent = '';
+    requestGas({ type: 'issueTransferCode', memberId: session.memberId }, 1)
+      .then(function (json) {
+        if (!json || json.status !== 'ok' || !json.transferCode) {
+          throw new Error((json && json.message) || '発行できませんでした。');
+        }
+        $('transferCodeValue').textContent = json.transferCode;
+        $('transferCodeMeta').textContent =
+          '有効期限：' + (json.expiresAtLabel || json.expiresAt || '') + '（1回限り）';
+        $('transferCodeBox').hidden = false;
+      })
+      .catch(function (error) { $('transferIssueError').textContent = error.message; })
+      .then(function () {
+        button.disabled = false;
+        button.textContent = label;
+      });
   });
 
   $('bijirisForm').addEventListener('submit', function (event) {
