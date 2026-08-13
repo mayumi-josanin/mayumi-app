@@ -59,6 +59,11 @@
   button.primary:disabled { opacity: .7; cursor: progress; }
   .error { color: var(--danger); font-size: 13px; min-height: 20px; margin: 12px 0 0; }
   .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+  /* 期限切れなど、失敗ではないがお伝えしたいこと。赤字にすると驚かせてしまう。 */
+  .notice {
+    margin: 0 0 14px; padding: 10px 12px; font-size: 13px; line-height: 1.6;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  }
   /* すでにご利用の方は空欄で構わない欄につける印。 */
   .optional {
     margin-left: 6px; padding: 1px 6px; font-size: 11px;
@@ -98,6 +103,7 @@
     </div>
 
     <form id="loginForm">
+      <p class="notice" id="loginNotice" hidden></p>
       <p class="note">
         すでにアプリをお使いの方は、これまでと同じお名前とパスコードでお入りいただけます。
       </p>
@@ -215,6 +221,13 @@
     try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
   }
 
+  // 失敗ではないお知らせ（期限切れなど）をログイン画面に出す。
+  function showLoginNotice(message) {
+    var el = $('loginNotice');
+    el.textContent = message || '';
+    el.hidden = !message;
+  }
+
   function showTab(which) {
     var isRegister = which === 'register';
     $('tabRegister').setAttribute('aria-selected', String(isRegister));
@@ -328,6 +341,7 @@
     $('loginView').hidden = false;
     $('loginError').textContent = '';
     $('registerError').textContent = '';
+    showLoginNotice('');
     $('loginForm').reset();
     $('registerForm').reset();
     showTab('login');
@@ -354,7 +368,11 @@
       name: json.name,
       kana: json.kana || '',
       memberId: json.memberId,
-      bijiris: json.bijiris === true
+      bijiris: json.bijiris === true,
+      // 合鍵の期限。開いたときにこれを見て、切れていればログイン画面に戻す。
+      // 記録しておかないと、切れたあともアプリ一覧が出てしまい、
+      // 中に入ったところでエラーになる（壊れたように見えてしまう）。
+      expiresAt: Date.parse(json.expiresAt) || 0
     };
     seedBijirisCustomer(session);
     if (json.role === 'admin') {
@@ -481,6 +499,13 @@
     if (!session || !session.role) return;
     var token = session.role === 'admin' ? read(ADMIN_TOKEN_KEY) : read(MEMBER_TOKEN_KEY);
     if (!token) { store(SESSION_KEY, ''); return; }
+    // 合鍵の期限を過ぎていたら、ここで手放してログイン画面に戻す。
+    // 期限が入っていない記録は、この仕組みを入れる前のもの。同じく入り直していただく。
+    if (!session.expiresAt || Date.now() >= session.expiresAt) {
+      logout();
+      showLoginNotice('前回のログインから90日が過ぎました。お手数ですが、もう一度お入りください。');
+      return;
+    }
     renderApps(session);
   })();
 })();
