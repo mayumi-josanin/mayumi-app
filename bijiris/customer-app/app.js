@@ -6504,7 +6504,9 @@ document.querySelector("#passcodeRecoveryForm")?.addEventListener("submit", asyn
   }
 });
 
-customerForm.addEventListener("submit", async (event) => {
+// お客様情報の入力欄はホーム画面から外した（入口の画面でお名前が分かるため）。
+// 要素が無いことがあるので、あるときだけ受け付ける。
+customerForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     const profile = readCustomerProfileFromForm(event.currentTarget);

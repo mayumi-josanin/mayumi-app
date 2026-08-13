@@ -8,17 +8,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみアンケート" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260729-03" />
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20260729-03" sizes="180x180" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260729-03" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260729-03" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260813-01" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20260813-01" sizes="180x180" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260813-01" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260813-01" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <header class="app-header">
       <div class="brand">
-        <img src="./icons/apple-touch-icon.png?v=20260729-03" alt="まゆみ助産院" />
+        <img src="./icons/apple-touch-icon.png?v=20260813-01" alt="まゆみ助産院" />
         <div>
           <div class="brand-name">まゆみ助産院</div>
           <div class="brand-sub">アンケート回答アプリ</div>
@@ -26,6 +26,9 @@
       </div>
       <div class="header-actions">
         <button id="appUpdateButton" class="header-button" type="button">更新</button>
+        <!-- ログインしたままアプリを切り替えるための出口。
+             どの画面からでも押せるよう、上部の更新の隣に置いている。 -->
+        <button id="logoutButton" class="header-button" type="button">アプリ一覧</button>
         <button id="installButton" class="header-button" type="button" hidden>追加</button>
       </div>
     </header>
@@ -107,22 +110,6 @@
           <p>ログイン後、回答したいアンケートを押してください。</p>
         </section>
 
-        <section class="section-card">
-          <h2>お客様情報</h2>
-          <form id="customerForm" class="form-grid">
-            <label>
-              お名前(漢字・フルネーム)
-              <input name="name" type="text" autocomplete="name" required />
-            </label>
-            <label>
-              フリガナ(カタカナ)
-              <input name="nameKana" type="text" autocapitalize="characters" required />
-            </label>
-            <button class="primary-button" type="submit">保存する</button>
-          </form>
-          <button id="logoutButton" class="secondary-button logout-button" type="button">アプリ一覧へ</button>
-          <p class="logout-note">ご利用いただけるアプリの一覧に戻ります。ログインしたままなので、すぐ戻ってこられます。</p>
-        </section>
 
         <section class="section-card">
           <div class="section-head">
@@ -225,9 +212,9 @@
       </button>
     </nav>
 
-    <script src="../default-surveys.js?v=20260729-03"></script>
+    <script src="../default-surveys.js?v=20260813-01"></script>
     <script src="../shared/gas-config.js?v=20260417-13"></script>
-    <script src="../shared/api.js?v=20260729-03"></script>
-    <script src="./app.js?v=20260729-03"></script>
+    <script src="../shared/api.js?v=20260813-01"></script>
+    <script src="./app.js?v=20260813-01"></script>
   </body>
 </html>
