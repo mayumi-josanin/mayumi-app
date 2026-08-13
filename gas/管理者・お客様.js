@@ -6949,6 +6949,60 @@ function buildRecoverAccountUserFromRow_(row) {
   };
 }
 
+// ===== アカウント復元の保護 =====
+// 復元は「生年月日一致 かつ（氏名 または フリガナ）一致」で通る。院内運用として
+// 条件を緩めた経緯があるぶん、外から総当たりされないよう別途守る必要がある。
+
+// 候補一覧に本名をそのまま出すと、電話番号だけを知っている相手に氏名が渡る。
+// 本人が「自分だ」と気づく程度に留める。
+function maskNameForRecovery_(value) {
+  const name = String(value || '').trim();
+  if (!name) return '会員';
+  const rest = Math.min(Math.max(name.length - 1, 1), 3);
+  return name.slice(0, 1) + '○'.repeat(rest);
+}
+
+// 生年月日は現実的に1〜2万通りしかない。制限がなければ総当たりで他人の
+// アカウントに入れてしまうため、狙われた相手ごとに試行回数を数える。
+// 全体で数えると、攻撃者が1人いるだけで正規の会員が復元できなくなる。
+const RECOVERY_MAX_ATTEMPTS = 10;
+const RECOVERY_LOCK_WINDOW_SEC = 10 * 60;
+
+function recoveryAttemptKey_(name, kana) {
+  const seed = String(name || '') + '|' + String(kana || '');
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed, Utilities.Charset.UTF_8);
+  return 'recover_' + Utilities.base64EncodeWebSafe(digest).slice(0, 24);
+}
+
+function isRecoveryLocked_(name, kana) {
+  try {
+    const count = Number(CacheService.getScriptCache().get(recoveryAttemptKey_(name, kana)) || 0);
+    return count >= RECOVERY_MAX_ATTEMPTS;
+  } catch (err) {
+    // キャッシュが使えないときに復元自体を止めると、正規の会員が締め出される。
+    return false;
+  }
+}
+
+function recordRecoveryFailure_(name, kana) {
+  try {
+    const cache = CacheService.getScriptCache();
+    const key = recoveryAttemptKey_(name, kana);
+    const count = Number(cache.get(key) || 0) + 1;
+    cache.put(key, String(count), RECOVERY_LOCK_WINDOW_SEC);
+  } catch (err) {
+    // 数えられなくても復元の可否には影響させない。
+  }
+}
+
+function clearRecoveryAttempts_(name, kana) {
+  try {
+    CacheService.getScriptCache().remove(recoveryAttemptKey_(name, kana));
+  } catch (err) {
+    // 消せなくても10分で自然に消える。
+  }
+}
+
 function getRecoveryCandidates(params) {
   try {
     const ss = getOrCreateSpreadsheet();
@@ -6980,19 +7034,26 @@ function getRecoveryCandidates(params) {
         return sum + (label === '氏名' || label === 'フリガナ' ? 2 : 3);
       }, 0);
       return {
-        rowIdx: index + 2,
         memberId: String(row[USER_COL.MEMBER_ID - 1] || ''),
-        name: String(row[USER_COL.NAME - 1] || ''),
-        phone: String(row[USER_COL.PHONE - 1] || ''),
-        birthday: normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]),
-        updatedAt: formatMaybeDateTime_(row[USER_COL.TIMESTAMP - 1]),
+        name: maskNameForRecovery_(row[USER_COL.NAME - 1]),
         reasons: reasons,
+        // 並べ替えにだけ使う。返す直前に落とす。
+        updatedAt: formatMaybeDateTime_(row[USER_COL.TIMESTAMP - 1]),
         score: score
       };
     }).filter(Boolean).sort(function (a, b) {
       if (b.score !== a.score) return b.score - a.score;
       return parseLooseDateToTimestamp_(b.updatedAt) - parseLooseDateToTimestamp_(a.updatedAt);
-    }).slice(0, 5);
+    }).slice(0, 5).map(function (candidate) {
+      // このAPIは認証なしで呼べる（会員登録の途中で使うため）。
+      // 生年月日と電話番号は絶対に返さない。生年月日は handleRecoverAccount の
+      // 必須一致キーなので、返すと氏名だけで他人のアカウントに入れてしまう。
+      return {
+        memberId: candidate.memberId,
+        name: candidate.name,
+        reasons: candidate.reasons
+      };
+    });
 
     return { status: 'ok', candidates: candidates };
   } catch (err) {
@@ -7024,6 +7085,15 @@ function handleRecoverAccount(data) {
     }
     if (!/^(?:\d{4}|\d{6})$/.test(newPasscode)) {
       return { status: 'error', message: 'この端末で使うパスコードを4桁または6桁の数字で入力してください。' };
+    }
+
+    // 引き継ぎコードは本人しか持たないので数えない。
+    // 氏名＋生年月日で通す経路だけ、狙われた相手ごとに試行回数を制限する。
+    if (!transferCode && isRecoveryLocked_(name, kana)) {
+      return {
+        status: 'error',
+        message: '復元の試行が続いたため、一時的に停止しています。10分後に再度お試しください。'
+      };
     }
 
     const values = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
@@ -7083,12 +7153,16 @@ function handleRecoverAccount(data) {
       }
 
       if (!candidates.length) {
+        // 生年月日を external から順に当てにくる攻撃は、ここを繰り返し通る。
+        // 複数一致は正規の会員でも起きるので数えない（追加入力を促すだけ）。
+        recordRecoveryFailure_(name, kana);
         return { status: 'error', message: '一致する会員情報が見つかりませんでした。入力内容をご確認ください。' };
       }
       if (candidates.length > 1) {
         return { status: 'error', message: '一致する会員情報が複数見つかりました。電話番号または現在のパスコードを追加で入力するか、引き継ぎコードをご利用ください。' };
       }
 
+      clearRecoveryAttempts_(name, kana);
       matchedRowIndex = candidates[0].rowIndex;
       matchedRowValues = candidates[0].rowValues;
     }
