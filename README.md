@@ -187,6 +187,8 @@ Chrome / Edge で上記URLを開き、アドレスバー右端の **インスト
 | **確認用アプリ**（`develop` を手元から配信） | https://macbook-air-5.tail8efe0d.ts.net/start/ |
 | ビジリスの編集ルール | [bijiris/CLAUDE.md](bijiris/CLAUDE.md) |
 | ビジリスの申し送り | [bijiris/WORK_NOTES.md](bijiris/WORK_NOTES.md) |
+| データ棚卸し（いま何をどこに持っているか） | [docs/データ棚卸し.md](docs/データ棚卸し.md) |
+| 移行設計（データベースへ移すなら） | [docs/移行設計.md](docs/移行設計.md) |
 
 確認用URLは **Tailscale の中からのみ** 届きます。スマホ側の Tailscale が ON である必要があります。
 
