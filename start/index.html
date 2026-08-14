@@ -542,11 +542,12 @@
     seedBijirisCustomer(session);
     if (json.role === 'admin') {
       store(ADMIN_TOKEN_KEY, json.token);
-      store(MEMBER_TOKEN_KEY, '');
     } else {
-      store(MEMBER_TOKEN_KEY, json.token);
       store(ADMIN_TOKEN_KEY, '');
     }
+    // 会員用の合鍵は、管理者の方にも置いておく。
+    // ビジリスがご本人の履歴を出すのに使うため（管理者もひとりの会員なので）。
+    store(MEMBER_TOKEN_KEY, json.memberToken || (json.role === 'admin' ? '' : json.token));
     store(SESSION_KEY, JSON.stringify(session));
     renderApps(session);
   }

@@ -2197,6 +2197,9 @@ function buildAccountSession_(row) {
     // 入口で一度ログインすれば管理画面まで開ける（二重に聞かない）という方針。
     // その代わり、管理画面へ入れるのはパスコード4桁または6桁だけになる。
     token: isAdmin ? makeAdminToken_(expiresAt) : makeMemberToken_(memberId, expiresAt),
+    // 管理者の方にも会員用の合鍵を渡す。ご自身のビジリスの履歴を見るのに使う。
+    // 管理者かどうかに関わらず、その方ご本人を指す合鍵。
+    memberToken: makeMemberToken_(memberId, expiresAt),
     expiresAt: new Date(expiresAt).toISOString(),
     // まだいただけていない項目。値そのものは返さない。
     // 電話番号か生年月日が無いと、パスコードを忘れたときに戻せなくなるため、

@@ -522,8 +522,9 @@ function 最近のエラーを見る() {
   try { 一覧 = JSON.parse(raw || '[]'); } catch (error) { 一覧 = []; }
   if (!一覧.length) { Logger.log('エラーの記録はありません'); return; }
 
-  Logger.log('新しいものから最大15件');
-  一覧.slice(-15).reverse().forEach(function (e) {
+  // 保存は新しいものが先頭（unshift）。先頭から取るのが「新しい順」。
+  Logger.log('新しいものから最大15件（全' + 一覧.length + '件）');
+  一覧.slice(0, 15).forEach(function (e) {
     Logger.log('― ' + (e.at || '') + '  [' + (e.source || '') + ']');
     Logger.log('   ' + String(e.message || '').slice(0, 300));
     var d = e.detail ? JSON.stringify(e.detail) : '';
