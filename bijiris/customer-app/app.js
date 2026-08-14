@@ -3177,6 +3177,22 @@ async function loadBijirisPosts() {
   }
 }
 
+// まだ会員登録をされていない方への案内。
+//
+// アンケートの送信には会員登録が要らないため、「記録はあるが会員ではない方」が実在する。
+// その方には履歴も計測記録もお見せできないので、「入れません」で終わらせず、
+// 登録すると何が見られるようになるかを伝えて、入口へご案内する。
+function 登録のご案内() {
+  return `<div class="empty">` +
+    `<strong>これまでの記録をご覧いただけます</strong><br />` +
+    `<span style="font-size:13px;line-height:1.7;display:inline-block;margin:8px 0;">` +
+    `まゆみ助産院アプリにご登録いただくと、これまでの計測記録とアンケートの回答を` +
+    `いつでも見返していただけます。ご登録はお名前と生年月日、パスコードだけで1分ほどです。` +
+    `</span><br />` +
+    `<a href="../../start/" style="color:var(--sage-dark);font-weight:700;">登録・ログインへ進む</a>` +
+    `</div>`;
+}
+
 // 入口の画面（まゆみ助産院アプリ）でログイン済みかを見て、
 // 済んでいればビジリスの合鍵を自動で受け取る。
 // お客様にパスコードを二度聞かないための橋渡し。
@@ -3246,8 +3262,7 @@ async function loadHistory() {
     appState.historyLoadError = "";
     renderHomeTicketStatus();
     historyList.innerHTML = mayumiLoginReason === "入口"
-      ? `<div class="empty">履歴をご覧いただくには、入口の画面からお入りください。<br />` +
-        `<a href="../../start/" style="color:var(--sage-dark);font-weight:700;">アプリ一覧へ</a></div>`
+      ? 登録のご案内()
       : `<div class="empty">履歴を読み込めませんでした。<br />` +
         `<span style="font-size:12px;">${escapeHtml(mayumiLoginReason || "入口の画面からお入りください。")}</span></div>`;
     renderMeasurements();
@@ -6211,6 +6226,11 @@ function renderMeasurements() {
   if (!measurementPanel) return;
   if (!hasCustomerSession()) {
     measurementPanel.innerHTML = `<div class="empty">先にログインしてください。</div>`;
+    return;
+  }
+  // 合鍵が無い＝会員登録がまだの方。計測記録もお見せできないので、履歴と同じ案内を出す。
+  if (!api.getCustomerToken()) {
+    measurementPanel.innerHTML = 登録のご案内();
     return;
   }
   if (appState.historyLoading && !appState.measurements.length && !appState.history.length) {
