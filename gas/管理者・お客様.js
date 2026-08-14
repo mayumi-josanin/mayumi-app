@@ -760,6 +760,19 @@ function summarizeAuditDescription_(type, data, result) {
   return String(result && result.message || '').trim();
 }
 
+// 操作履歴に残さない種別。
+//
+// 端末セッションと特典状態の同期は、アプリが自動で行うもので人の操作ではない。
+// 実測すると93日で 8,800件（全体の92%）を占めており、シートを太らせるだけで
+// 誰も見ていなかった。操作者も常に「管理者」なので、監査の役にも立っていない。
+const AUDIT_LOG_SKIP_TYPES = {
+  askSupportChat: true,          // ご相談の本文が入るため残さない
+  uploadImage: true,             // 画像データが大きい
+  postGoogleReviewReply: true,
+  syncUserDeviceSession: true,   // 自動の同期。93日で7,993件
+  syncUserRewardStatus: true     // 自動の同期。93日で807件
+};
+
 function appendAdminAuditLog_(type, data, result) {
   try {
     const sheet = ensureAdminAuditLogSheet_();
@@ -2853,7 +2866,7 @@ function doPost(e) {
     if (result && result.status === 'ok' && !NON_INVALIDATING_POST_TYPES[type]) {
       bumpDataCacheVersion_(type);
     }
-    if (type !== 'askSupportChat' && type !== 'uploadImage' && type !== 'postGoogleReviewReply') {
+    if (!AUDIT_LOG_SKIP_TYPES[type]) {
       appendAdminAuditLog_(type, data, result);
     }
     return createJsonResponse(result);
