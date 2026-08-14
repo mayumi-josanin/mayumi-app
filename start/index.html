@@ -232,8 +232,9 @@
     <div class="helpBlock" id="profileGapBlock" hidden>
       <strong>ご登録内容の確認をお願いします</strong>
       <p class="note" style="margin-top:4px;">
-        下の項目がまだ登録されていません。パスコードを忘れてしまったときに、
-        ご本人だと確認できるようになります。1分ほどで終わります。
+        下の項目がまだいただけていません。<strong>電話番号か生年月日のどちらかがないと、
+        パスコードを忘れたときにこの画面ではお戻しできず、受付でのお手続きが必要になります。</strong>
+        1分ほどで終わりますので、この機会にご登録ください。
       </p>
       <form id="profileGapForm">
         <label id="gapPhoneLabel" hidden>電話番号
@@ -751,8 +752,9 @@
 
   function renderProfileGap(session) {
     var missing = (session && session.missing) || [];
-    // 管理者の方には出さない。スタッフの記録は受付で整えていただく。
-    var show = session.role !== 'admin' && missing.length > 0;
+    // 以前は管理者に出していなかったが、スタッフの方も電話番号や生年月日が無ければ
+    // 同じように締め出される。立場に関わらずお願いする。
+    var show = missing.length > 0;
     GAP_FIELDS.forEach(function (field) {
       $(field.labelId).hidden = missing.indexOf(field.key) < 0;
     });
