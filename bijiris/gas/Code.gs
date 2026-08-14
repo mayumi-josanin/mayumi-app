@@ -7091,8 +7091,18 @@ function runTicketSurveyAnalysisOnce() {
 // アプリも待たされる。回答が増えていないときは、すぐ抜けるようにする。
 var TICKET_SURVEY_FULL_RUN_INTERVAL_MS = 60 * 60 * 1000;   // 増えていなくても1時間に1度は通す
 
+// 実質の実行間隔。トリガー自体は10分ごとに起きるが、ここで間引いて30分相当にする。
+// トリガーの所有者が別アカウントで作り直せないため、コード側で調整している。
+// トリガーを30分間隔で作り直した場合は、この判定は素通りするだけで害はない。
+var TICKET_SURVEY_MIN_GAP_MS = 25 * 60 * 1000;
+
 function runTicketSurveyAutoProcess() {
   try {
+    // いちばん軽い判定を先頭に置く。スプレッドシートを開く前に帰れるようにする。
+    // ここでは何も書かない。書くと「前回」が毎回更新されて永久に間引かれる。
+    var 前回 = getTicketSurveyMeta_().lastAutoRunAt;
+    if (前回 && Date.now() - new Date(前回).getTime() < TICKET_SURVEY_MIN_GAP_MS) return;
+
     if (!getAnthropicApiKey_()) {
       updateTicketSurveyMeta_({ lastAutoRunAt: new Date().toISOString(), autoError: "APIキー未設定のためスキップ" });
       return;
