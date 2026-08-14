@@ -13,8 +13,9 @@
 |------|--------|
 | お客様として**使う**人 | この下の [アクセス方法](#アクセス方法) |
 | 院内で**管理する**人 | [院内向け](#院内向け) |
-| **開発する**人 | [開発者向け](#開発者向け) → [反映のしかた](#反映のしかた) |
-| ビジリスを**触る**人 | [bijiris/CLAUDE.md](bijiris/CLAUDE.md)（編集ルール）／[bijiris/WORK_NOTES.md](bijiris/WORK_NOTES.md)（前回の続き） |
+| **開発する**人 | **[開発者ガイド](docs/developer_guide.md)**（編集→確認→公開を1枚で） |
+| **AI に手伝わせる**人 | **[CLAUDE.md](CLAUDE.md)**（絶対ルール9項目） |
+| ビジリスを**触る**人 | [bijiris/CLAUDE.md](bijiris/CLAUDE.md)／[bijiris/WORK_NOTES.md](bijiris/WORK_NOTES.md) |
 
 ---
 
@@ -187,8 +188,6 @@ Chrome / Edge で上記URLを開き、アドレスバー右端の **インスト
 | **確認用アプリ**（`develop` を手元から配信） | https://macbook-air-5.tail8efe0d.ts.net/start/ |
 | ビジリスの編集ルール | [bijiris/CLAUDE.md](bijiris/CLAUDE.md) |
 | ビジリスの申し送り | [bijiris/WORK_NOTES.md](bijiris/WORK_NOTES.md) |
-| データ棚卸し（いま何をどこに持っているか） | [docs/データ棚卸し.md](docs/データ棚卸し.md) |
-| 移行設計（データベースへ移すなら） | [docs/移行設計.md](docs/移行設計.md) |
 
 確認用URLは **Tailscale の中からのみ** 届きます。スマホ側の Tailscale が ON である必要があります。
 
@@ -272,8 +271,17 @@ tailscale serve --bg 8765
 
 ```
 mayumi-app/
-├── README.md
+├── README.md                 この案内
+├── CLAUDE.md                 開発規律（絶対ルール9項目）
 ├── .github/workflows/deploy-pages.yml   main を GitHub Pages へ
+│
+├── docs/                     資料
+│   ├── developer_guide.md    編集→確認→公開を1枚で（開発者はまずこれ）
+│   ├── git_workflow.md       ブランチの役割とルール
+│   ├── お客様へのお知らせ.md   公開時に出す文面の下書き
+│   └── design/
+│       ├── データ棚卸し.md     いま何をどこに、何件持っているか
+│       └── 移行設計.md        データベースへ移すときの設計と下見の結果
 │
 ├── start/                    共通の入り口（ログイン・アプリ一覧・復旧・引き継ぎ）
 │   └── index.html            ここだけで完結。札の発行と保存もここ
@@ -304,8 +312,14 @@ mayumi-app/
 │   │   ├── Code.gs           本番バックエンド（回答保存・認証・写真・AI分析）
 │   │   ├── 会員別まとめ.js     会員1人1シートのまとめを作る道具
 │   │   └── 計測結果の取り込み.js  旧データの取り込みと片付けの道具
+│   ├── gas/                  （調べる道具）
+│   │   ├── 棚卸し.js           構造・件数・入り口の点検・操作履歴の集計
+│   │   ├── 移行の下見.js        移行できる件数と、突き合わないものを出す
+│   │   ├── 片付け.js           消す前の下見と、控えを取ってからの削除
+│   │   └── 計測結果の取り込み.js  旧データの取り込み
 │   ├── default-surveys.js    アンケート定義の初期値
-│   ├── deploy.sh             フロント＋GAS を一括反映
+│   ├── deploy.sh             使わない（フロントまで main へ公開してしまう）
+│   ├── _移転用/               旧URL用の転送ページ（main 公開後に設置）
 │   └── server.js / data/     手元確認用の代替バックエンド（本番未使用）
 │
 └── manuals/                  お客様向け操作マニュアル（HTML / PDF）
@@ -351,3 +365,19 @@ mayumi-app/
 - Service Worker のキャッシュ名を上げずに配信ファイルを変える
 - アンケート定義を片方だけ直す
 - 既存の保存項目を、断りなく変更・削除する
+- `bijiris/deploy.sh` を使う（未確認の作業まで `main` へ公開されます）
+
+---
+
+## ドキュメント
+
+| ドキュメント | 内容 |
+|-------------|------|
+| **[docs/developer_guide.md](docs/developer_guide.md)** | **開発者向け1枚まとめ（編集→確認→公開）** |
+| **[CLAUDE.md](CLAUDE.md)** | **開発規律（絶対ルール9項目）** |
+| [docs/git_workflow.md](docs/git_workflow.md) | ブランチの役割とルール・公開までの順番 |
+| [docs/お客様へのお知らせ.md](docs/お客様へのお知らせ.md) | 公開時に出す文面の下書き・受付での答え方 |
+| [docs/design/データ棚卸し.md](docs/design/データ棚卸し.md) | いま何をどこに、何件持っているか（実測） |
+| [docs/design/移行設計.md](docs/design/移行設計.md) | データベースへ移すときの設計・下見の結果 |
+| [bijiris/CLAUDE.md](bijiris/CLAUDE.md) | ビジリス配下の編集ルール |
+| [bijiris/WORK_NOTES.md](bijiris/WORK_NOTES.md) | ビジリスの申し送り（前回の続き） |
