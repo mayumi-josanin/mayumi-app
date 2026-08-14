@@ -1608,6 +1608,16 @@ function runScheduledMaintenance() {
     backupInfo = writeBackupFile_();
   }
   var purged = purgeOldTrashResponses_();
+
+  // 会員別まとめの作り直し。専用のトリガーもあるが、そちらはまだ一度も動いて
+  // いないため、確実に毎日動くこの処理からも呼ぶ。中で作り直すだけなので、
+  // 二重に動いても結果は変わらない。失敗しても後続を止めない。
+  try {
+    会員別まとめを毎日作り直す();
+  } catch (error) {
+    appendErrorLog_("maintenance.memberDigest", String(error && error.message ? error.message : error));
+  }
+
   var maintenanceMeta = {
     at: new Date().toISOString(),
     purged: purged,
