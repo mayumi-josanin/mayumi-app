@@ -144,6 +144,88 @@ function 棚卸しをする() {
   return ss.getId();
 }
 
+// ---------- 会員の入り口の点検 ----------
+//
+// 「いま入れない方が何人いるか」「自力で復旧できない方が何人いるか」を数える。
+// お名前などの中身は出さない。出すのは件数と、直すべき行の番号だけ。
+
+var 点検_まゆみファイルID = '1gIcUGxg2PEuFoU5a_IgQ6lDWgghceJ7v2dgqo9iPe4w';
+
+function 会員の入り口を点検する() {
+  var ss = SpreadsheetApp.openById(点検_まゆみファイルID);
+  var sh = ss.getSheetByName('会員データ');
+  if (!sh) { Logger.log('会員データのシートが見つかりません'); return; }
+
+  var 行数 = sh.getLastRow();
+  var 列数 = sh.getLastColumn();
+  var v = sh.getRange(1, 1, 行数, 列数).getValues();
+  var 見出し = v[0];
+
+  var 位置 = function (名) {
+    var i = 見出し.indexOf(名);
+    return i;
+  };
+  var C = {
+    id: 位置('ID'), 名: 位置('氏名'), 電話: 位置('電話番号'), 誕生: 位置('生年月日'),
+    パス: 位置('パスコード'), ハッシュ: 位置('パスワードハッシュ'), 権限: 位置('権限'),
+    削除: 位置('削除状態'), 最終: 位置('最終オンライン日時'), 登録: 位置('登録日時'),
+  };
+
+  var 空 = function (x) { return x === '' || x === null || x === undefined; };
+
+  var 合計 = 0;
+  var 名前なし = [];        // 行番号
+  var 入れない = 0;          // パスコードもハッシュも無い
+  var 復旧できない = 0;      // 入れない かつ 電話も生年月日も無い
+  var 復旧できる = 0;        // 入れない が 電話か生年月日がある
+  var 一度も開いていない = 0;
+  var 管理者 = 0;
+  var 中身が空の行 = [];
+
+  for (var r = 1; r < v.length; r += 1) {
+    var row = v[r];
+    var 何か入っている = row.some(function (x) { return !空(x); });
+    if (!何か入っている) continue;
+
+    合計 += 1;
+    if (C.権限 >= 0 && String(row[C.権限] || '').trim() === '管理者') 管理者 += 1;
+
+    var 名 = C.名 >= 0 ? String(row[C.名] || '').trim() : '';
+    if (!名) {
+      名前なし.push(r + 1);
+      // お名前が無い行は、ほかに何が入っているかも見る
+      var 埋まっている = row.filter(function (x) { return !空(x); }).length;
+      if (埋まっている <= 2) 中身が空の行.push(r + 1);
+    }
+
+    var パス = C.パス >= 0 ? String(row[C.パス] || '').trim() : '';
+    var ハッシュ = C.ハッシュ >= 0 ? String(row[C.ハッシュ] || '').trim() : '';
+    if (!パス && !ハッシュ) {
+      入れない += 1;
+      var 電話 = C.電話 >= 0 ? String(row[C.電話] || '').trim() : '';
+      var 誕生 = C.誕生 >= 0 ? row[C.誕生] : '';
+      if (!電話 && 空(誕生)) 復旧できない += 1; else 復旧できる += 1;
+    }
+
+    if (C.最終 >= 0 && 空(row[C.最終])) 一度も開いていない += 1;
+  }
+
+  Logger.log('■ 会員データの点検');
+  Logger.log('  会員の行: ' + 合計 + '（うち管理者 ' + 管理者 + '）');
+  Logger.log('');
+  Logger.log('▼ 入り口に入れない方');
+  Logger.log('  パスコードもパスワードも無い: ' + 入れない + '名');
+  Logger.log('    └ 電話か生年月日があり、自力で復旧できる: ' + 復旧できる + '名');
+  Logger.log('    └ どちらも無く、受付対応が要る: ' + 復旧できない + '名');
+  Logger.log('');
+  Logger.log('▼ お名前が空の行');
+  Logger.log('  ' + 名前なし.length + '行  行番号: ' + (名前なし.join(', ') || 'なし'));
+  Logger.log('  うち、ほぼ空っぽの行: ' + 中身が空の行.length + '  行番号: ' + (中身が空の行.join(', ') || 'なし'));
+  Logger.log('');
+  Logger.log('▼ 参考');
+  Logger.log('  最終オンライン日時が空（この記録が始まって以降に開いていない）: ' + 一度も開いていない + '名');
+}
+
 // 調べ終わったら消す
 function 棚卸しのファイルを消す() {
   var it = DriveApp.searchFiles('title contains "データ棚卸し_" and trashed = false');
