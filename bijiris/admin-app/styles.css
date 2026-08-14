@@ -2183,3 +2183,14 @@ textarea {
   font-size: 0.85rem;
   line-height: 1.6;
 }
+
+/* 「アプリ一覧へ」はリンクだがボタンとして見せる。
+   そのままだと下線が出て、文字も左に寄ってしまう。 */
+a.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: #fff;
+  padding: 0 20px;
+}
