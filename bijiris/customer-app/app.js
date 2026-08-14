@@ -418,13 +418,10 @@ const bijirisPanel = document.querySelector("#bijirisPanel");
 const homeTicketStatus = document.querySelector("#homeTicketStatus");
 const homeCampaignStatus = document.querySelector("#homeCampaignStatus");
 const homeMilestoneReward = document.querySelector("#homeMilestoneReward");
-const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
 const appUpdateButton = document.querySelector("#appUpdateButton");
 const installButton = document.querySelector("#installButton");
 const registrationLead = document.querySelector("#registrationLead");
-const customerRegisterButton = document.querySelector("#customerRegisterButton");
-const recoverAccountButton = document.querySelector("#recoverAccountButton");
 const bottomNav = document.querySelector("#bottomNav");
 const measurementRefreshButton = document.querySelector("#measurementRefreshButton");
 const bijirisRefreshButton = document.querySelector("#bijirisRefreshButton");
@@ -813,13 +810,17 @@ function isKatakanaName(value) {
   return /^[ァ-ヶー・ヴ　]+$/.test(String(value || ""));
 }
 
+// 入口（/start/）を通っていれば、そこで本人確認は済んでいる。
+// フリガナは会員165名中34名しか登録が無いため、ここで必須にすると
+// 大半の方が「ログインしていない」扱いになってしまう。お名前だけで判定する。
 function hasCustomerSession() {
-  return Boolean(appState.customer.name && appState.customer.nameKana);
+  return Boolean(appState.customer.name);
 }
 
 function getCustomerDisplayName() {
   if (!hasCustomerSession()) return "";
-  return `${appState.customer.name}（${appState.customer.nameKana}）`;
+  const kana = appState.customer.nameKana;
+  return kana ? `${appState.customer.name}（${kana}）` : appState.customer.name;
 }
 
 function getCustomerMemberNumber() {
@@ -1157,10 +1158,6 @@ function renderRegistrationGuide() {
     registrationLead.textContent = canRegister
       ? "このアプリから会員登録してください。登録後は回答履歴もそのまま確認できます。"
       : "ブラウザでは初回会員登録を行わず、ホーム画面に追加したアプリから会員登録してください。";
-  }
-  if (customerRegisterButton) {
-    customerRegisterButton.disabled = !canRegister;
-    customerRegisterButton.textContent = canRegister ? "会員登録する" : "ホーム画面アプリで会員登録";
   }
 }
 
@@ -3113,7 +3110,7 @@ function renderBijirisPosts() {
   if (!bijirisPanel) return;
   updateBijirisNotificationUi();
   if (!hasCustomerSession()) {
-    bijirisPanel.innerHTML = `<div class="empty">先にログインしてください。</div>`;
+    bijirisPanel.innerHTML = 登録のご案内();
     return;
   }
   if (appState.bijirisLoading && !appState.bijirisPosts.length) {
@@ -3243,7 +3240,7 @@ async function loadHistory() {
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
-    historyList.innerHTML = `<div class="empty">先にログインしてください。</div>`;
+    historyList.innerHTML = 登録のご案内();
     renderMeasurements();
     return;
   }
@@ -3326,10 +3323,6 @@ async function loadHistory() {
 }
 
 function syncCustomerForms() {
-  if (customerLoginForm) {
-    customerLoginForm.elements.name.value = appState.customer.name || "";
-    customerLoginForm.elements.nameKana.value = appState.customer.nameKana || "";
-  }
   if (customerForm) {
     customerForm.elements.name.value = appState.customer.name || "";
     customerForm.elements.nameKana.value = appState.customer.nameKana || "";
@@ -3403,7 +3396,7 @@ async function applyCustomerSession(profile, options = {}) {
 function selectSurvey(surveyId) {
   if (!hasCustomerSession()) {
     setPage("login");
-    showToast("先にログインしてください。");
+    showToast("入口の画面からお入りください。");
     return;
   }
   if (!canSubmitNewResponseForSurvey(surveyId)) {
@@ -4736,7 +4729,7 @@ async function submitPreparedAnswer() {
   const survey = getSelectedSurvey();
   if (!survey || !appState.confirmPayload) return;
   if (!hasCustomerSession()) {
-    showToast("先にログインしてください。");
+    showToast("入口の画面からお入りください。");
     setPage("login");
     return;
   }
@@ -6225,7 +6218,7 @@ function renderMeasurementPhotoTimeline(entries) {
 function renderMeasurements() {
   if (!measurementPanel) return;
   if (!hasCustomerSession()) {
-    measurementPanel.innerHTML = `<div class="empty">先にログインしてください。</div>`;
+    measurementPanel.innerHTML = 登録のご案内();
     return;
   }
   // 合鍵が無い＝会員登録がまだの方。計測記録もお見せできないので、履歴と同じ案内を出す。
@@ -6499,80 +6492,8 @@ function setupInstall() {
   });
 }
 
-customerLoginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!canRegisterFromThisContext()) {
-    showToast("初回会員登録はホーム画面に追加したアプリから行ってください。");
-    return;
-  }
-  try {
-    const profile = readCustomerProfileFromForm(event.currentTarget);
-    const passcode = String(new FormData(event.currentTarget).get("passcode") || "").trim();
-    if (passcode) {
-      // パスコードをお持ちの方はサーバー側で本人確認する。成功するとトークンが
-      // 保存され、履歴・計測値・写真が見られるようになる。
-      await api.customerLogin({
-        name: profile.name,
-        nameKana: profile.nameKana,
-        passcode,
-      });
-    }
-    await applyCustomerSession(profile);
-  } catch (error) {
-    reportClientError("customer.login", error);
-    showToast(error.message || "ログインできませんでした。");
-  }
-});
-
-recoverAccountButton?.addEventListener("click", () => {
-  const panel = document.querySelector("#passcodeRecoveryPanel");
-  if (!panel) return;
-  panel.hidden = !panel.hidden;
-  if (panel.hidden) return;
-  // ログイン欄に入力済みの内容を引き継いで、二度手間にしない。
-  const loginData = new FormData(customerLoginForm);
-  const recoveryForm = panel.querySelector("#passcodeRecoveryForm");
-  if (recoveryForm) {
-    const nameField = recoveryForm.elements.name;
-    const kanaField = recoveryForm.elements.nameKana;
-    if (nameField && !nameField.value) nameField.value = String(loginData.get("name") || "");
-    if (kanaField && !kanaField.value) kanaField.value = String(loginData.get("nameKana") || "");
-  }
-  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-});
-
-document.querySelector("#passcodeRecoveryForm")?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const formData = new FormData(event.currentTarget);
-  const name = String(formData.get("name") || "").trim();
-  const nameKana = String(formData.get("nameKana") || "").trim();
-  const birthday = String(formData.get("birthday") || "").trim();
-  const newPasscode = String(formData.get("newPasscode") || "").trim();
-  try {
-    if (!name && !nameKana) {
-      throw new Error("お名前またはフリガナを入力してください。");
-    }
-    if (!/^(?:\d{4}|\d{6})$/.test(newPasscode)) {
-      throw new Error("パスコードは4桁または6桁の数字で入力してください。");
-    }
-    // 生年月日の入力があれば会員情報との照合、無ければ
-    // スタッフが許可した「期限つきの再設定」として扱う。
-    const result = birthday
-      ? await api.customerRecover({ name, nameKana, birthday, newPasscode })
-      : await api.customerSetPasscode({ name, nameKana, newPasscode });
-    await applyCustomerSession(
-      normalizeCustomerProfile({
-        name: result?.customerProfile?.name || name,
-        nameKana: result?.customerProfile?.nameKana || nameKana,
-        memberNumber: result?.customerProfile?.memberNumber || "",
-      })
-    );
-    showToast("パスコードを設定しました。");
-  } catch (error) {
-    reportClientError("customer.passcodeRecover", error);
-    showToast(error.message || "設定できませんでした。");
-  }
-});
+// 会員登録フォームとパスコード再設定の処理は削除した。
+// ログインは入口（/start/）だけで行い、このアプリでは本人確認をしない。
 
 // お客様情報の入力欄はホーム画面から外した（入口の画面でお名前が分かるため）。
 // 要素が無いことがあるので、あるときだけ受け付ける。

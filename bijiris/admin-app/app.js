@@ -8601,7 +8601,7 @@ if (state.token) {
     localStorage.removeItem(TOKEN_KEY);
     state.token = "";
     setLoggedIn(false);
-    showToast(error.message || "再ログインしてください。");
+    showToast(error.message || "入口の画面からお入りください。");
   });
 }
 

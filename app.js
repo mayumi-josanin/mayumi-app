@@ -8280,11 +8280,10 @@ async function handleNativeNotificationFallback() {
 
 // ===== 初期化 (並列実行で高速化) =====
 // ===== 入口を経由してから使っていただく設定 =====
-// true にすると、ログインしていない方はアプリを開いた時点で入口へ移る。
-// 公開しただけで切り替わらないよう、既定は false にしてある。
-// 確認用で試すときは、その端末で次を実行すると有効になる:
-//   localStorage.setItem('mayumi_require_login', 'true')
-const REQUIRE_LAUNCHER_LOGIN = false;
+// ログインしていない方は、アプリを開いた時点で入口へ移る。
+// ログインは入口（/start/）だけで行い、このアプリでは会員登録もパスコードも聞かない。
+// ログイン済みの方は、入口の記録からお名前を引き継ぐので何も聞かれない（ファイル冒頭を参照）。
+const REQUIRE_LAUNCHER_LOGIN = true;
 
 function shouldSendToLauncher() {
   let enabled = REQUIRE_LAUNCHER_LOGIN;
