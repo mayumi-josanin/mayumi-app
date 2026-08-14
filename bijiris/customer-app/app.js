@@ -1152,14 +1152,9 @@ function applyLaunchRouteIfPossible() {
   return true;
 }
 
-function renderRegistrationGuide() {
-  const canRegister = canRegisterFromThisContext();
-  if (registrationLead) {
-    registrationLead.textContent = canRegister
-      ? "このアプリから会員登録してください。登録後は回答履歴もそのまま確認できます。"
-      : "ブラウザでは初回会員登録を行わず、ホーム画面に追加したアプリから会員登録してください。";
-  }
-}
+// このアプリでは会員登録をしなくなったので、案内文を書き換えない。
+// 文面は index.html に置いたものをそのまま出す。
+function renderRegistrationGuide() {}
 
 function escapeHtml(value) {
   return String(value ?? "")
