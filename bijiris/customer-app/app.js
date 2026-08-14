@@ -3183,6 +3183,8 @@ async function loadBijirisPosts() {
 const MAYUMI_MEMBER_TOKEN_KEY = "mayumi_member_auth_token";
 let mayumiLoginTried = false;
 
+let mayumiLoginReason = "";
+
 async function tryLoginWithMayumi() {
   if (mayumiLoginTried) return false;
   mayumiLoginTried = true;
@@ -3190,9 +3192,13 @@ async function tryLoginWithMayumi() {
   try {
     mayumiToken = localStorage.getItem(MAYUMI_MEMBER_TOKEN_KEY) || "";
   } catch {
+    mayumiLoginReason = "この端末では保存領域が使えません（プライベートモードなど）。";
     return false;
   }
-  if (!mayumiToken) return false;
+  if (!mayumiToken) {
+    mayumiLoginReason = "入口";
+    return false;
+  }
   try {
     const result = await api.customerLoginWithMayumi(mayumiToken);
     if (result && result.token) {
@@ -3208,7 +3214,7 @@ async function tryLoginWithMayumi() {
       return true;
     }
   } catch (error) {
-    // 入口を通っていない、期限切れなどはここに来る。案内表示に任せる。
+    mayumiLoginReason = String((error && error.message) || error);
     reportClientError("customer.loginWithMayumi", error);
   }
   return false;
@@ -3239,9 +3245,11 @@ async function loadHistory() {
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
-    historyList.innerHTML =
-      `<div class="empty">履歴・計測値・お写真をご覧いただくには、パスコードの設定が必要です。<br />` +
-      `ログイン画面の「パスコードを忘れた方・初めて設定する方」からお進みください。</div>`;
+    historyList.innerHTML = mayumiLoginReason === "入口"
+      ? `<div class="empty">履歴をご覧いただくには、入口の画面からお入りください。<br />` +
+        `<a href="../../start/" style="color:var(--sage-dark);font-weight:700;">アプリ一覧へ</a></div>`
+      : `<div class="empty">履歴を読み込めませんでした。<br />` +
+        `<span style="font-size:12px;">${escapeHtml(mayumiLoginReason || "入口の画面からお入りください。")}</span></div>`;
     renderMeasurements();
     return;
   }

@@ -792,10 +792,28 @@ window.MayumiSurveyApi = (() => {
       }
 
       // 入口の画面でログイン済みの方に、パスコードを聞かずに合鍵を渡す窓口。
+      // postToGas は no-cors で送りっぱなしのため返答を読めない。ここは読む必要がある。
       if (path === "/api/customer/login-with-mayumi") {
-        return postToGas(gasUrl, "customerLoginWithMayumi", {
-          mayumiToken: (options.body || {}).mayumiToken || "",
+        const res = await fetch(gasUrl, {
+          method: "POST",
+          redirect: "follow",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "customerLoginWithMayumi",
+            mayumiToken: (options.body || {}).mayumiToken || "",
+          }),
         });
+        const text = await res.text();
+        let data = null;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error("応答を読み取れませんでした。少し待ってからお試しください。");
+        }
+        if (!data || data.error) {
+          throw new Error((data && data.error) || "合鍵を受け取れませんでした。");
+        }
+        return data;
       }
 
       if (path === "/api/customer/login") {
