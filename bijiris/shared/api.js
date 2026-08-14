@@ -791,6 +791,13 @@ window.MayumiSurveyApi = (() => {
         return jsonp(gasUrl, "photoData", options.query || {});
       }
 
+      // 入口の画面でログイン済みの方に、パスコードを聞かずに合鍵を渡す窓口。
+      if (path === "/api/customer/login-with-mayumi") {
+        return postToGas(gasUrl, "customerLoginWithMayumi", {
+          mayumiToken: (options.body || {}).mayumiToken || "",
+        });
+      }
+
       if (path === "/api/customer/login") {
         return jsonp(gasUrl, "customerLogin", options.query || {});
       }
@@ -1589,6 +1596,17 @@ window.MayumiSurveyApi = (() => {
     return data;
   }
 
+  // 入口の画面でログイン済みなら、パスコードを聞かずに合鍵をもらう。
+  // まゆみ側が本人と認めた場合だけ、ビジリスの合鍵が発行される。
+  async function customerLoginWithMayumi(mayumiToken) {
+    const data = await request("/api/customer/login-with-mayumi", {
+      method: "POST",
+      body: { mayumiToken: normalizeText(mayumiToken) },
+    });
+    if (data && data.token) setCustomerToken(data.token);
+    return data;
+  }
+
   return {
     request,
     logout,
@@ -1598,6 +1616,7 @@ window.MayumiSurveyApi = (() => {
     customerLogin,
     customerRecover,
     customerSetPasscode,
+    customerLoginWithMayumi,
     getCustomerToken,
     setCustomerToken,
     clearCustomerToken,

@@ -260,7 +260,8 @@ const MUTATING_GET_ACTIONS = {
 // キャッシュの鍵は data だけで作られ token を見ないため、
 // トークンごとに違うはずの答えが使い回されてしまう。
 const NEVER_CACHE_ACTIONS = {
-  checkAdminToken: true
+  checkAdminToken: true,
+  checkMemberToken: true
 };
 
 const NON_INVALIDATING_POST_TYPES = {
@@ -1901,6 +1902,8 @@ const PUBLIC_ACTIONS = {
   // ビジリスのGASが、こちらのトークンの有効性を確かめに来る窓口。
   // 有効か否かしか返さないので、公開しても手がかりにならない。
   checkAdminToken: true,
+  // ビジリスが会員の合鍵を確かめに来る窓口。有効かどうかとお名前しか返さない。
+  checkMemberToken: true,
   // 公開コンテンツ
   getNews: true, getProducts: true, getCalendar: true, getMenus: true,
   getCategories: true, getInitialData: true, getSupportFaq: true,
@@ -2140,6 +2143,34 @@ function readAccountRows_() {
 // パスワードをどこにも複製しないための作り。
 // 答えるのは有効か否かだけで、誰のものかも、何ができるかも返さない。
 // トークンを持っていない相手には何の手がかりにもならない。
+// ビジリスのGASが「この会員の合鍵は本物か」を確かめに来る窓口。
+// 本物なら、そのお名前とフリガナだけを返す。
+// お名前が分かってもこの窓口からは何も引き出せないので、公開して差し支えない。
+function checkMemberToken(params) {
+  try {
+    const token = String((params && params.token) || '').trim();
+    const memberId = token ? verifyMemberToken_(token) : '';
+    if (!memberId) return { status: 'ok', valid: false };
+
+    const sheet = getOrCreateUsersSheet_(getOrCreateSpreadsheet());
+    const rowIdx = findUserRowByMemberId_(sheet, memberId);
+    if (rowIdx < 2) return { status: 'ok', valid: false };
+    const row = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).getValues()[0];
+    if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) {
+      return { status: 'ok', valid: false };
+    }
+    return {
+      status: 'ok',
+      valid: true,
+      memberId: memberId,
+      name: String(row[USER_COL.NAME - 1] || ''),
+      kana: String(row[USER_COL.KANA - 1] || '')
+    };
+  } catch (err) {
+    return { status: 'ok', valid: false };
+  }
+}
+
 function checkAdminToken(params) {
   try {
     const token = String((params && params.token) || '').trim();
@@ -2455,6 +2486,9 @@ function doGet(e) {
     switch (action) {
       case 'checkAdminToken':
         result = checkAdminToken(e.parameter);
+        break;
+      case 'checkMemberToken':
+        result = checkMemberToken(e.parameter);
         break;
       case 'getNews':
         result = getBlogNews();

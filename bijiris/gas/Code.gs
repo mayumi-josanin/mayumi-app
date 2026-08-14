@@ -524,6 +524,9 @@ function handlePost_(body) {
   if (body.action === "adminLoginWithMayumi") {
     return adminLoginWithMayumi_(body.mayumiToken);
   }
+  if (body.action === "customerLoginWithMayumi") {
+    return customerLoginWithMayumi_(body.mayumiToken);
+  }
   if (body.action === "submitResponse") {
     return saveResponse_(body);
   }
@@ -4865,6 +4868,57 @@ var MAYUMI_GAS_URL_DEFAULT =
 // こちらのトークンを発行する。こうすると管理パスワードをどこにも複製せずに済む。
 //
 // 必要な設定（スクリプトプロパティ）: MAYUMI_GAS_URL
+// まゆみ助産院アプリの会員としてログイン済みの方に、
+// ビジリスのお客様用の合鍵を渡す。
+// パスコードを二度聞かないための橋渡し。本人確認はまゆみ側に任せる。
+function customerLoginWithMayumi_(mayumiToken) {
+  var token = normalizeText_(mayumiToken);
+  if (!token) throw new Error("ログイン情報がありません。");
+
+  var url = normalizeText_(
+    PropertiesService.getScriptProperties().getProperty("MAYUMI_GAS_URL")
+  ) || MAYUMI_GAS_URL_DEFAULT;
+  if (!url) throw new Error("まゆみ助産院アプリの接続先が設定されていません。");
+
+  var endpoint = url + "?action=checkMemberToken&token=" + encodeURIComponent(token);
+
+  // まゆみ側は混み合うと JSON ではなくHTMLを返すことがあるので、数回試す。
+  var parsed = null;
+  for (var attempt = 1; attempt <= 3; attempt += 1) {
+    if (attempt > 1) Utilities.sleep(800 * (attempt - 1));
+    var res = UrlFetchApp.fetch(endpoint, {
+      method: "get",
+      muteHttpExceptions: true,
+      followRedirects: true,
+    });
+    try {
+      parsed = JSON.parse(res.getContentText());
+      break;
+    } catch (error) {
+      parsed = null;
+    }
+  }
+  if (!parsed) throw new Error("まゆみ助産院アプリからの応答を読み取れませんでした。");
+  if (parsed.valid !== true) throw new Error("ログインの確認が取れませんでした。");
+
+  var name = normalizeText_(parsed.name);
+  if (!name) throw new Error("お名前を確認できませんでした。");
+
+  // ビジリス側にお客様の記録が無ければ、ここで作る（初回の方のため）。
+  var 一致 = findCustomerProfileByName_(getCustomerProfiles_(), name, "");
+  var profile = 一致 && 一致.profile ? 一致.profile : null;
+  var 表示名 = profile && profile.name ? profile.name : name;
+
+  var expiresAt = Date.now() + CUSTOMER_TOKEN_TTL_MS;
+  appendAuditLog_("customer.login", { name: 表示名, via: "mayumi" });
+  return {
+    token: makeCustomerToken_(表示名, expiresAt),
+    expiresAt: new Date(expiresAt).toISOString(),
+    name: 表示名,
+    kana: normalizeText_(parsed.kana),
+  };
+}
+
 function adminLoginWithMayumi_(mayumiToken) {
   var token = normalizeText_(mayumiToken);
   if (!token) throw new Error("ログイン情報がありません。");
