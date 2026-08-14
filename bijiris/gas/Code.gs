@@ -440,6 +440,39 @@ function handleGet_(e) {
     };
   }
   if (action === "bijirisPosts") return { posts: getBijirisPosts_({ publishedOnly: true }) };
+  // お客様アプリの起動時にまとめて返す窓口。
+  // Apps Script は同時呼び出しを順番待ちにするため、3回に分けると
+  // その待ち時間がそのまま積み上がっていた。
+  if (action === "customerBootstrap") {
+    var prefs = getPreferences_();
+    var 束 = {
+      surveys: getPublicSurveys_(),
+      dataPolicyText: prefs.dataPolicyText,
+      requireConsent: prefs.requireConsent,
+      consentText: prefs.consentText,
+      milestoneRewardConfig: prefs.milestoneRewardConfig,
+      campaignStampEnabled: prefs.campaignStampEnabled,
+      pushAppId: getPushAppId_(),
+      version: VERSION,
+      posts: getBijirisPosts_({ publishedOnly: true }),
+      history: null,
+    };
+    // 合鍵をお持ちなら履歴も一緒に返す。無い・切れている場合は履歴だけ空にする。
+    if (normalizeText_(params.token)) {
+      try {
+        var 名前 = requireCustomer_(params.token);
+        束.history = getCustomerHistoryPayload_({
+          customerName: 名前,
+          customerNameKana: params.nameKana,
+          matchByNameOnly: true,
+          includeTrashed: false,
+        });
+      } catch (error) {
+        束.history = null;
+      }
+    }
+    return 束;
+  }
   if (action === "history") {
     // お客様トークンの検証を必須にする。氏名を名乗るだけでは取得できない。
     // 対象のお客様はトークンから決める（params.name は信用しない）ため、

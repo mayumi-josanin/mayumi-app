@@ -4,7 +4,7 @@ window.MayumiSurveyApi = (() => {
   const CLIENT_ID_STORAGE_KEY = "mayumi_survey_client_id";
   const CUSTOMER_TOKEN_STORAGE_KEY = "mayumi_bijiris_customer_token";
   // このアクションはお客様トークンが必須。付け忘れを防ぐため jsonp で自動的に付ける。
-  const CUSTOMER_TOKEN_ACTIONS = ["history", "photoData"];
+  const CUSTOMER_TOKEN_ACTIONS = ["history", "photoData", "customerBootstrap"];
   const DEFAULT_PUBLIC_API_BASE = "https://mayumi-bijiris.onrender.com";
 
   function safeGetLocal(key) {
@@ -486,6 +486,24 @@ window.MayumiSurveyApi = (() => {
 
   // 応答を読む必要がある送信。no-cors では読めないので、こちらを使う。
   // サーバーが返した理由（24時間に1回まで等）を、そのままお客様にお伝えできる。
+  // 起動直後は アンケート・豆知識・履歴 が立て続けに要る。
+  // Apps Script は同時呼び出しを順番待ちにするので、1回でまとめて取る。
+  // 取れた内容は短時間だけ使い回し、そのあとの「更新」は最新を取りにいく。
+  let 起動時のまとめ結果 = null;
+  let 起動時のまとめ時刻 = 0;
+  const 起動時のまとめ有効時間 = 15000;
+
+  function 起動時のまとめ(gasUrl) {
+    if (起動時のまとめ結果 && Date.now() - 起動時のまとめ時刻 < 起動時のまとめ有効時間) {
+      return 起動時のまとめ結果;
+    }
+    起動時のまとめ時刻 = Date.now();
+    起動時のまとめ結果 = jsonp(gasUrl, "customerBootstrap", { clientId: getClientId() })
+      .then((data) => (data && Array.isArray(data.surveys) ? data : null))
+      .catch(() => null);
+    return 起動時のまとめ結果;
+  }
+
   async function postToGasAndRead(gasUrl, action, payload) {
     const res = await fetch(gasUrl, {
       method: "POST",
@@ -857,7 +875,8 @@ window.MayumiSurveyApi = (() => {
 
       if (path === "/api/public/surveys") {
         try {
-          const remoteData = await jsonp(gasUrl, "surveys");
+          const 束 = await 起動時のまとめ(gasUrl);
+          const remoteData = 束 || (await jsonp(gasUrl, "surveys"));
           const remoteSurveys = remoteData.surveys || [];
           if (remoteSurveys.length) {
             return {
@@ -885,11 +904,15 @@ window.MayumiSurveyApi = (() => {
       }
 
       if (path === "/api/public/bijiris-posts" && method === "GET") {
+        const 束 = await 起動時のまとめ(gasUrl);
+        if (束) return { posts: 束.posts || [] };
         return jsonp(gasUrl, "bijirisPosts");
       }
 
       if (path.startsWith("/api/public/responses") && method === "GET") {
         const url = new URL(path, window.location.origin);
+        const 束 = await 起動時のまとめ(gasUrl);
+        if (束 && 束.history) return 束.history;
         return jsonp(gasUrl, "history", {
           clientId: getClientId(),
           name: normalizeText(url.searchParams.get("name")),
