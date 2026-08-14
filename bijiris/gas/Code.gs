@@ -1568,6 +1568,11 @@ function writeBackupFile_() {
     measurements: getMeasurements_({}),
     bijirisPosts: getBijirisPosts_({ includeDrafts: true }),
     adminUsers: getAdminUsers_().map(publicAdminUser_),
+    // スクリプトプロパティにしか無く、これまで控えが残らなかったもの。
+    // 消えると、回数券の進み具合・AI分析の指示文・会員番号の続きが失われる。
+    ticketSurveyMeta: getTicketSurveyMeta_(),
+    ticketSurveyPrompt: getTicketSurveyPrompt_(),
+    nextMemberNumberIndex: getStoredNextMemberNumberIndex_(),
   };
   var fileName = "backup_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmmss") + ".json";
   var file = backupFolder.createFile(fileName, JSON.stringify(payload, null, 2), MimeType.PLAIN_TEXT);

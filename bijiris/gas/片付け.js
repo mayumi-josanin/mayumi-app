@@ -10,7 +10,36 @@
 // エディタは「ファイルの先頭の関数」を最初に選ぶ。
 // 関数の選び直しが効かないことがあるため、実行したいものをここから呼ぶ。
 function いま実行する() {
-  テストデータを消す();
+  バックアップを確かめる();
+}
+
+// 日次バックアップが本当に効いているかを確かめ、いまの内容で1本作る。
+function バックアップを確かめる() {
+  var p = getPreferences_();
+  Logger.log('自動バックアップ: ' + (p.autoBackupEnabled ? 'オン' : 'オフ'));
+
+  // getProjectTriggers は「いま実行している人が作ったもの」しか返さない。
+  // 別のアカウントが作ったトリガーは 0 件に見えるので、無いと決めつけないこと。
+  // 全部を見るには、エディタ左の時計アイコン（トリガー画面）を開く。
+  var 予定 = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
+  Logger.log('この実行者が作った自動実行: ' + (予定.join('・') || 'なし'));
+  Logger.log('  ※ 他の人が作ったものは見えません。トリガー画面で確認してください。');
+  Logger.log('');
+
+  var meta = writeBackupFile_();
+  Logger.log('いまの内容で1本作りました: ' + meta.fileName);
+  Logger.log('  ' + meta.fileUrl);
+
+  var 中身 = JSON.parse(DriveApp.getFileById(meta.fileId).getBlob().getDataAsString());
+  Logger.log('');
+  Logger.log('入っている項目:');
+  Object.keys(中身).sort().forEach(function (k) {
+    var v = 中身[k];
+    var 量 = Array.isArray(v) ? v.length + '件'
+      : (v && typeof v === 'object') ? Object.keys(v).length + '項目'
+      : String(v).length + '文字';
+    Logger.log('  ' + k + ' … ' + 量);
+  });
 }
 
 var 片付け_まゆみID = '1gIcUGxg2PEuFoU5a_IgQ6lDWgghceJ7v2dgqo9iPe4w';
