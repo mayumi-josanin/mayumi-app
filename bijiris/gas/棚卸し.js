@@ -308,6 +308,107 @@ function 会員の一覧を出す() {
   return ss.getId();
 }
 
+// ---------- 重なっていそうな登録と、入れない理由を調べる ----------
+
+function 重複と入れない理由を調べる() {
+  var sh = SpreadsheetApp.openById(点検_まゆみファイルID).getSheetByName('会員データ');
+  var 行数 = sh.getLastRow();
+  var 列数 = sh.getLastColumn();
+  var v = sh.getRange(1, 1, 行数, 列数).getValues();
+  var 位 = {};
+  v[0].forEach(function (h, i) { 位[String(h)] = i; });
+
+  var 空 = function (x) { return x === '' || x === null || x === undefined; };
+  var 数字だけ = function (x) { return String(x == null ? '' : x).replace(/[^0-9]/g, ''); };
+  var 日付文字 = function (d) {
+    if (空(d)) return '';
+    var t = d instanceof Date ? d : new Date(d);
+    return isNaN(t.getTime()) ? '' : Utilities.formatDate(t, 'Asia/Tokyo', 'yyyy-MM-dd');
+  };
+
+  var 会員 = [];
+  for (var r = 1; r < v.length; r += 1) {
+    var row = v[r];
+    if (!row.some(function (x) { return !空(x); })) continue;
+    会員.push({
+      行: r + 1,
+      id: String(row[位['ID']] || ''),
+      名: String(row[位['氏名']] || '').trim(),
+      電話: 数字だけ(row[位['電話番号']]),
+      誕生: 日付文字(row[位['生年月日']]),
+      住所: String(row[位['住所']] || '').trim(),
+      パス: String(row[位['パスコード']] || '').trim(),
+      ハッシュ: String(row[位['パスワードハッシュ']] || '').trim(),
+      経路: String(row[位['登録経路']] || '').trim(),
+      経路詳細: String(row[位['登録経路詳細']] || '').trim(),
+      登録: 日付文字(row[位['登録日時']]),
+      最終: 日付文字(row[位['最終スタンプ取得日']]),
+      スタンプ: row[位['現在スタンプ数']],
+      埋: row.filter(function (x) { return !空(x); }).length,
+    });
+  }
+
+  // ① 電話も生年月日もあるのに入れない方
+  Logger.log('■ 電話番号と生年月日があるのに、入り口に入れない方');
+  Logger.log('  （パスコードもパスワードも無い＝ログインの手段が無い）');
+  Logger.log('');
+  var 経路ごと = {};
+  var 該当 = 会員.filter(function (m) {
+    return m.電話 && m.誕生 && !m.パス && !m.ハッシュ;
+  });
+  該当.forEach(function (m) {
+    var k = m.経路 || '(空)';
+    経路ごと[k] = (経路ごと[k] || 0) + 1;
+    Logger.log('  ' + m.行 + '行 ' + m.id + ' ' + m.名 +
+      ' … 登録 ' + m.登録 + ' / 経路 ' + (m.経路 || '(空)') +
+      (m.経路詳細 ? '（' + m.経路詳細 + '）' : '') +
+      ' / スタンプ ' + m.スタンプ);
+  });
+  Logger.log('');
+  Logger.log('  合計 ' + 該当.length + '名。登録経路の内訳:');
+  Object.keys(経路ごと).sort().forEach(function (k) {
+    Logger.log('    ' + k + ' … ' + 経路ごと[k] + '名');
+  });
+  Logger.log('');
+
+  // ② 同じ電話番号 / 同じ生年月日 の重なり
+  Logger.log('■ 同じ連絡先で登録されている組（別人の可能性もあります）');
+  Logger.log('');
+  var まとめる = function (かぎ名, とる) {
+    var 箱 = {};
+    会員.forEach(function (m) {
+      var k = とる(m);
+      if (!k) return;
+      if (!箱[k]) 箱[k] = [];
+      箱[k].push(m);
+    });
+    var 出た = false;
+    Object.keys(箱).forEach(function (k) {
+      if (箱[k].length < 2) return;
+      出た = true;
+      Logger.log('  ▼ ' + かぎ名 + 'が同じ ' + 箱[k].length + '名');
+      箱[k].sort(function (a, b) { return b.埋 - a.埋; }).forEach(function (m, i) {
+        Logger.log('     ' + (i === 0 ? '［情報が多い］' : '［少ない］  ') +
+          ' ' + m.行 + '行 ' + m.id + ' ' + m.名 +
+          ' … 項目' + m.埋 + '個 / 登録' + m.登録 +
+          ' / スタンプ' + m.スタンプ +
+          (m.パス || m.ハッシュ ? ' / 入れる' : ' / 入れない'));
+      });
+      Logger.log('');
+    });
+    if (!出た) { Logger.log('  ' + かぎ名 + 'が重なる組はありません'); Logger.log(''); }
+  };
+  まとめる('電話番号', function (m) { return m.電話; });
+  まとめる('生年月日', function (m) { return m.誕生; });
+
+  // ③ 案内が届かない方（入れない＝入口の案内も見られない）
+  var 案内届かず = 会員.filter(function (m) {
+    var 足りない = !m.電話 || !m.誕生 || !m.住所;
+    return 足りない && !m.パス && !m.ハッシュ;
+  });
+  Logger.log('■ 未登録の項目があるのに、入り口に入れないため案内が届かない方: ' + 案内届かず.length + '名');
+}
+
 // ---------- 操作履歴の中身を調べる ----------
 //
 // 何がどれだけ記録されているかを数える。お名前などの中身は出さない。
