@@ -484,6 +484,26 @@ window.MayumiSurveyApi = (() => {
     });
   }
 
+  // 応答を読む必要がある送信。no-cors では読めないので、こちらを使う。
+  // サーバーが返した理由（24時間に1回まで等）を、そのままお客様にお伝えできる。
+  async function postToGasAndRead(gasUrl, action, payload) {
+    const res = await fetch(gasUrl, {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, ...payload }),
+    });
+    const text = await res.text();
+    let data = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return null;   // 読めなかった場合は、これまでどおり確認の問い合わせに任せる
+    }
+    if (data && data.error) throw new Error(data.error);
+    return data;
+  }
+
   async function postToGas(gasUrl, action, payload) {
     await fetch(gasUrl, {
       method: "POST",
@@ -907,11 +927,15 @@ window.MayumiSurveyApi = (() => {
         const expectedPlan = normalizeText(ticketCard.plan);
         const expectedSheetNumber = Math.floor(Number(ticketCard.sheetNumber) || 0);
         const expectedRound = Math.max(0, Math.floor(Number(ticketCard.round) || 0));
-        await postToGas(gasUrl, "updatePublicTicketCard", {
+        const saved = await postToGasAndRead(gasUrl, "updatePublicTicketCard", {
           clientId: getClientId(),
           customer,
           ticketCard,
         });
+        // 応答が読めたなら、それが確定した結果。問い合わせ直す必要はない。
+        if (saved && saved.customerProfile) {
+          return { customerProfile: saved.customerProfile };
+        }
         const updated = await waitForCustomerProfile(gasUrl, customer, (profile) => {
           const activeTicketCard = profile?.activeTicketCard || {};
           return (
