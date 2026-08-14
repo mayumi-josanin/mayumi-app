@@ -226,6 +226,64 @@ function 会員の入り口を点検する() {
   Logger.log('  最終オンライン日時が空（この記録が始まって以降に開いていない）: ' + 一度も開いていない + '名');
 }
 
+// ---------- 操作履歴の中身を調べる ----------
+//
+// 何がどれだけ記録されているかを数える。お名前などの中身は出さない。
+
+function 操作履歴を調べる() {
+  var sh = SpreadsheetApp.openById(点検_まゆみファイルID).getSheetByName('ADMIN_AUDIT_LOG');
+  if (!sh) { Logger.log('ADMIN_AUDIT_LOG が見つかりません'); return; }
+
+  var 行数 = sh.getLastRow();
+  if (行数 < 2) { Logger.log('記録はありません'); return; }
+  var v = sh.getRange(2, 1, 行数 - 1, 6).getValues();   // 詳細JSONは読まない（重いので）
+
+  var 種別 = {};
+  var 結果 = {};
+  var 操作者 = {};
+  var 日ごと = {};
+  var 最古 = '';
+  var 最新 = '';
+
+  v.forEach(function (r) {
+    var 日時 = String(r[0] || '');
+    if (日時) {
+      if (!最古 || 日時 < 最古) 最古 = 日時;
+      if (!最新 || 日時 > 最新) 最新 = 日時;
+      var 日 = 日時.slice(0, 10);
+      日ごと[日] = (日ごと[日] || 0) + 1;
+    }
+    var t = String(r[1] || '(空)');
+    種別[t] = (種別[t] || 0) + 1;
+    var k = String(r[2] || '(空)');
+    結果[k] = (結果[k] || 0) + 1;
+    var o = String(r[5] || '(空)');
+    操作者[o] = (操作者[o] || 0) + 1;
+  });
+
+  Logger.log('■ 操作履歴（ADMIN_AUDIT_LOG）');
+  Logger.log('  記録数: ' + v.length + '行');
+  Logger.log('  いちばん古い: ' + 最古);
+  Logger.log('  いちばん新しい: ' + 最新);
+  Logger.log('  記録のある日数: ' + Object.keys(日ごと).length + '日');
+  Logger.log('');
+
+  var 並べる = function (見出し, 集計, 上限) {
+    Logger.log('▼ ' + 見出し);
+    Object.keys(集計)
+      .sort(function (a, b) { return 集計[b] - 集計[a]; })
+      .slice(0, 上限 || 100)
+      .forEach(function (k) {
+        Logger.log('  ' + k + ' … ' + 集計[k] + '件');
+      });
+    Logger.log('');
+  };
+
+  並べる('結果', 結果);
+  並べる('操作者', 操作者);
+  並べる('種別（多い順・上位20）', 種別, 20);
+}
+
 // 調べ終わったら消す
 function 棚卸しのファイルを消す() {
   var it = DriveApp.searchFiles('title contains "データ棚卸し_" and trashed = false');
