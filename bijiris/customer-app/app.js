@@ -3177,6 +3177,43 @@ async function loadBijirisPosts() {
   }
 }
 
+// 入口の画面（まゆみ助産院アプリ）でログイン済みかを見て、
+// 済んでいればビジリスの合鍵を自動で受け取る。
+// お客様にパスコードを二度聞かないための橋渡し。
+const MAYUMI_MEMBER_TOKEN_KEY = "mayumi_member_auth_token";
+let mayumiLoginTried = false;
+
+async function tryLoginWithMayumi() {
+  if (mayumiLoginTried) return false;
+  mayumiLoginTried = true;
+  let mayumiToken = "";
+  try {
+    mayumiToken = localStorage.getItem(MAYUMI_MEMBER_TOKEN_KEY) || "";
+  } catch {
+    return false;
+  }
+  if (!mayumiToken) return false;
+  try {
+    const result = await api.customerLoginWithMayumi(mayumiToken);
+    if (result && result.token) {
+      // 入口が知っているお名前を、こちらでも使えるようにしておく。
+      if (result.name && !appState.customer.name) {
+        appState.customer = {
+          ...appState.customer,
+          name: result.name,
+          nameKana: result.kana || appState.customer.nameKana,
+        };
+        saveLocal(CUSTOMER_KEY, appState.customer);
+      }
+      return true;
+    }
+  } catch (error) {
+    // 入口を通っていない、期限切れなどはここに来る。案内表示に任せる。
+    reportClientError("customer.loginWithMayumi", error);
+  }
+  return false;
+}
+
 async function loadHistory() {
   if (!hasCustomerSession()) {
     appState.history = [];
@@ -3189,8 +3226,13 @@ async function loadHistory() {
     return;
   }
 
-  // 履歴・計測値・写真はパスコードで保護されている。トークンが無い場合は
-  // エラーにせず、設定の入口を案内する（新規のお客様はまだ持っていないため）。
+  // 履歴・計測値・写真はパスコードで保護されている。
+  // 入口の画面でログイン済みなら、そちらの合鍵から自動で受け取る（二度聞かない）。
+  if (!api.getCustomerToken()) {
+    await tryLoginWithMayumi();
+  }
+
+  // それでも合鍵が無い場合だけ、パスコードの設定をご案内する。
   if (!api.getCustomerToken()) {
     appState.history = [];
     appState.measurements = [];
