@@ -133,6 +133,13 @@
       </label>
       <p class="error" id="loginError"></p>
       <button class="primary" type="submit">ログイン</button>
+      <!-- パスコードをまだお持ちでない方が、ここで行き止まりにならないようにする。
+           ご登録はあるがパスコードだけ未設定、という方が実際にいらっしゃる。 -->
+      <p class="note">
+        パスコードをまだ決めていない方・お忘れの方は、下の
+        <strong>「お困りのとき」</strong>からお進みください。
+        お名前と、電話番号または生年月日で確認のうえ設定できます。
+      </p>
     </form>
 
     <form id="registerForm" hidden>
@@ -172,8 +179,10 @@
       <form id="forgotForm" hidden>
         <p class="note">
           ご登録の内容で本人確認のうえ、新しいパスコードを設定します。
+          <strong>まだパスコードを決めていない方も、こちらから設定できます。</strong>
           電話番号と生年月日は、分かるほうだけでも構いません（両方いただけると確実です）。
-          確認できない場合は、受付でスタッフにお申し出ください。
+          電話番号も生年月日もご登録がない方は、この画面では確認できません。
+          受付でスタッフにお申し出ください。
         </p>
         <label>お名前（漢字・フルネーム）
           <input name="name" type="text" autocomplete="name" required />
@@ -216,11 +225,10 @@
       </div>
       <button type="button" id="logoutButton">ログアウト</button>
     </div>
-    <div id="appList"></div>
-    <p class="note" id="appsNote"></p>
 
     <!-- ご登録のときに伺えなかった項目をお願いする。
-         電話番号か生年月日が無いと、パスコードを忘れたときに戻せないため。 -->
+         電話番号か生年月日が無いと、パスコードを忘れたときに戻せないため。
+         アプリ一覧より前に置く。後ろだと、そのまま気づかず進まれてしまう。 -->
     <div class="helpBlock" id="profileGapBlock" hidden>
       <strong>ご登録内容の確認をお願いします</strong>
       <p class="note" style="margin-top:4px;">
@@ -241,6 +249,9 @@
         <button class="primary" type="submit">登録する</button>
       </form>
     </div>
+
+    <div id="appList"></div>
+    <p class="note" id="appsNote"></p>
 
     <!-- 機種変更の前に、この画面でコードを発行していただく。
          新しい端末では、ログイン画面の「引き継ぎコードをお持ちの方」から使う。 -->
@@ -624,7 +635,17 @@
       type: 'loginAccount',
       name: withoutSpaces(form.name.value),
       passcode: form.passcode.value
-    }, form.querySelector('button'), $('loginError'));
+    }, form.querySelector('button'), $('loginError'))
+      .then(function () {
+        // 入れなかったときは、次にどうすればよいかを開いて見せる。
+        // 迷子のまま画面を閉じてしまう方をなくすため。
+        if (!$('loginError').textContent) return;
+        openHelpForm('forgot');
+        // 一度書いたお名前をもう一度書かせない。
+        var forgot = $('forgotForm');
+        if (!forgot.name.value) forgot.name.value = form.name.value;
+        $('helpBlock').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
   });
 
   $('registerForm').addEventListener('submit', function (event) {
@@ -682,6 +703,12 @@
     $('transferForm').hidden = !openTransfer;
     $('forgotError').textContent = '';
     $('transferError').textContent = '';
+  }
+
+  // 「開く」だけ。すでに開いていれば何もしない（閉じてしまわないように）。
+  function openHelpForm(which) {
+    if (which === 'forgot' && $('forgotForm').hidden) toggleHelpForm('forgot');
+    if (which === 'transfer' && $('transferForm').hidden) toggleHelpForm('transfer');
   }
 
   $('openForgot').addEventListener('click', function () { toggleHelpForm('forgot'); });
