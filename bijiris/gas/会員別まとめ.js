@@ -428,6 +428,7 @@ function 会員ごとのファイルを作る() {
   var 目次 = book.getSheetByName('目次') || book.insertSheet('目次', 0);
   目次.clear();
   var 目次行 = [['お名前', '測定回数', '初回', '最新', 'ウエストの変化', '施術後', '計測時']];
+  var 使っているシート名 = {};   // 今回作った（＝いま在籍している）方のシート名
 
   名前.forEach(function (キー) {
     var 起点 = 再開日時[会員別_名前をそろえる_(キー)] || '';
@@ -454,6 +455,7 @@ function 会員ごとのファイルを作る() {
     ]);
 
     var シート名 = 会員別_シート名にする_(表示名, book);
+    使っているシート名[シート名] = true;
     var sheet = book.getSheetByName(シート名) || book.insertSheet(シート名);
     sheet.clear();
 
@@ -546,12 +548,25 @@ function 会員ごとのファイルを作る() {
   会員別_切り詰める_(目次, 目次行.length, 7);
   会員別_幅を整える_(目次, 目次行, 7);
 
+  // 管理アプリで削除された方（＝もうどこにも記録が無い方）のシートを外す。
+  // 「作った方」の記録は残すので、また登録されたときは再開日時からの記録だけを載せる。
+  var 外したシート = [];
+  book.getSheets().forEach(function (sh) {
+    var n = sh.getName();
+    if (n === '目次') return;
+    if (使っているシート名[n]) return;
+    if (book.getSheets().length <= 1) return;
+    book.deleteSheet(sh);
+    外したシート.push(n);
+  });
+
   名前.forEach(function (n) { 作った方[会員別_名前をそろえる_(n)] = true; });
   会員別_記録を書く_(会員別_作った方の記録キー, 作った方);
   会員別_記録を書く_(会員別_再開日時の記録キー, 再開日時);
 
   Logger.log('会員ごとのファイルを作り直しました（測定記録＋アンケートごと）');
   Logger.log('  会員 ' + 名前.length + '名');
+  if (外したシート.length) Logger.log('  外したシート（削除された方）: ' + 外したシート.join('・'));
   if (新しい方.length) Logger.log('  新しく作った方: ' + 新しい方.join('・'));
   if (戻られた方.length) {
     Logger.log('  作り直した方（ここからの記録のみ）: ' + 戻られた方.join('・'));
