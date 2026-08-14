@@ -549,3 +549,77 @@ function 最近の回答を見る() {
       '  ' + (r.customerName || '') + '  写真' + 写真 + '枚');
   });
 }
+
+// ---------- 片付けの下見 ----------
+
+// 使っていないシートと、増えてしまったファイルを洗い出す（読むだけ）
+function 片付けの下見() {
+  var live = getSpreadsheet_();
+
+  // コードが使うシート名
+  var 使う = {};
+  [MASTER_SHEET_NAME, MEASUREMENTS_SHEET_NAME, BIJIRIS_POSTS_SHEET_NAME,
+   BIJIRIS_POST_ATTACHMENTS_SHEET_NAME, MEMBER_SHEET_NAME,
+   TICKET_SURVEY_STORAGE_SHEET_NAME, 会員別_一覧シート名].forEach(function (n) {
+    使う[n] = 'コードが使う';
+  });
+  try {
+    getSurveys_().forEach(function (sv) {
+      使う[String(sv.title).trim()] = 'アンケート（' + sv.status + '）';
+    });
+  } catch (error) { /* 取れなくても続ける */ }
+
+  Logger.log('■ いま使っているファイル  ' + live.getName());
+  Logger.log('   ' + live.getUrl());
+  live.getSheets().forEach(function (sh) {
+    var 行 = Math.max(0, sh.getLastRow() - 1);
+    var 用途 = 使う[sh.getName()] || '（使っていない）';
+    Logger.log('   ' + sh.getName() + ' … ' + 行 + '行  ' + 用途);
+  });
+
+  var old = 取込_もう一方のファイル_();
+  if (old) {
+    Logger.log('');
+    Logger.log('■ もう一方のファイル  ' + old.getName());
+    Logger.log('   ' + old.getUrl());
+    old.getSheets().forEach(function (sh) {
+      Logger.log('   ' + sh.getName() + ' … ' + Math.max(0, sh.getLastRow() - 1) + '行');
+    });
+  }
+
+  Logger.log('');
+  Logger.log('■ 控え・作業用のファイル（Drive）');
+  ['【控え】', 'まゆみ助産院 ビジリス 会員別まとめ'].forEach(function (語) {
+    var it = DriveApp.searchFiles('title contains "' + 語 + '" and trashed = false');
+    while (it.hasNext()) {
+      var f = it.next();
+      Logger.log('   ' + f.getName() + '  最終更新 ' +
+        Utilities.formatDate(f.getLastUpdated(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm'));
+      Logger.log('      ' + f.getUrl());
+    }
+  });
+}
+
+// 古い控えをゴミ箱へ入れる。いちばん新しい控えは、保険として残す。
+// ゴミ箱なので、30日間は元に戻せる。
+function 古い控えを片付ける() {
+  var 一覧 = [];
+  var it = DriveApp.searchFiles('title contains "【控え】" and trashed = false');
+  while (it.hasNext()) {
+    var f = it.next();
+    一覧.push({ file: f, at: f.getLastUpdated().getTime(), name: f.getName() });
+  }
+  if (一覧.length <= 1) {
+    Logger.log('控えは ' + 一覧.length + '本だけです。片付けるものはありません。');
+    return;
+  }
+  一覧.sort(function (a, b) { return b.at - a.at; });   // 新しい順
+
+  Logger.log('残す（いちばん新しい控え）: ' + 一覧[0].name);
+  一覧.slice(1).forEach(function (x) {
+    x.file.setTrashed(true);
+    Logger.log('ゴミ箱へ: ' + x.name);
+  });
+  Logger.log('');
+  Logger.log(一覧.length - 1 + '本を片付けました（30日間は元に戻せます）');
+}
