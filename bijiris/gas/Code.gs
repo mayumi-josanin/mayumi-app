@@ -6152,7 +6152,9 @@ var TICKET_SURVEY_STORAGE_HEADERS = [
 var TICKET_SURVEY_PROMPT_PROPERTY_KEY = "TICKET_SURVEY_PROMPT";
 var TICKET_SURVEY_META_PROPERTY_KEY = "TICKET_SURVEY_META_JSON";
 var TICKET_SURVEY_AUTO_TRIGGER_IDS_PROPERTY_KEY = "TICKET_SURVEY_AUTO_TRIGGER_IDS_JSON";
-var TICKET_SURVEY_AUTO_INTERVAL_MINUTES = 10; // 定期ポーリングの間隔（1/5/10/15/30 のいずれか）
+// 定期ポーリングの間隔（分）。Apps Script が受け付けるのは 1/5/10/15/30 のいずれか。
+// 分析が最大30分遅れても実害はない。短いほどお客様の待ち時間に影響する。
+var TICKET_SURVEY_AUTO_INTERVAL_MINUTES = 30;
 var ANTHROPIC_API_KEY_PROPERTY_KEY = "ANTHROPIC_API_KEY";
 var ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 var ANTHROPIC_API_VERSION = "2023-06-01";
@@ -7084,10 +7086,30 @@ function runTicketSurveyAnalysisOnce() {
 
 // ---------- 定期ポーリング自動処理 ----------
 
+// 分析対象が無くても全回答を読み直していたため、1回に6〜15秒かかっていた。
+// Apps Script は同じスクリプトの実行を順番待ちにするので、その間はお客様の
+// アプリも待たされる。回答が増えていないときは、すぐ抜けるようにする。
+var TICKET_SURVEY_FULL_RUN_INTERVAL_MS = 60 * 60 * 1000;   // 増えていなくても1時間に1度は通す
+
 function runTicketSurveyAutoProcess() {
   try {
     if (!getAnthropicApiKey_()) {
       updateTicketSurveyMeta_({ lastAutoRunAt: new Date().toISOString(), autoError: "APIキー未設定のためスキップ" });
+      return;
+    }
+
+    // 回答一覧の行数だけを見る。開いて1回数えるだけなので1秒もかからない。
+    var meta = getTicketSurveyMeta_();
+    var master = getSpreadsheet_().getSheetByName(MASTER_SHEET_NAME);
+    var 行数 = master ? master.getLastRow() : 0;
+    var 前回行数 = Number(meta.lastSeenResponseRows);
+    var 前回通した = meta.lastFullRunAt ? new Date(meta.lastFullRunAt).getTime() : 0;
+    var 経過 = Date.now() - 前回通した;
+
+    // 回答が増えておらず、前回きちんと通してから1時間たっていなければ何もしない。
+    // 管理画面で写真を後から足した場合も、1時間以内には拾える。
+    if (Number.isFinite(前回行数) && 行数 === 前回行数 && 経過 < TICKET_SURVEY_FULL_RUN_INTERVAL_MS) {
+      updateTicketSurveyMeta_({ lastAutoRunAt: new Date().toISOString(), autoError: "" });
       return;
     }
 
@@ -7128,6 +7150,9 @@ function runTicketSurveyAutoProcess() {
 
     updateTicketSurveyMeta_({
       lastAutoRunAt: new Date().toISOString(),
+      // 次回ここまで来なくて済むように、通した時刻と行数を覚えておく。
+      lastFullRunAt: new Date().toISOString(),
+      lastSeenResponseRows: 行数,
       lastAutoSummary: summary
         ? { picked: pendingIds.length, succeeded: summary.succeeded, failed: (summary.failures || []).length, deferred: summary.deferred || 0 }
         : { picked: 0 },

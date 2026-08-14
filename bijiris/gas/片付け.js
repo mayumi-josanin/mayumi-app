@@ -14,6 +14,19 @@ function いま実行する() {
   テストデータの下見();
 }
 
+// 自動処理が「素通り」できているかを、2回続けて動かして時間で確かめる。
+function 回数券の自動処理を計る() {
+  for (var i = 1; i <= 2; i += 1) {
+    var t = Date.now();
+    runTicketSurveyAutoProcess();
+    Logger.log(i + '回目 … ' + ((Date.now() - t) / 1000).toFixed(2) + '秒');
+  }
+  var meta = getTicketSurveyMeta_();
+  Logger.log('');
+  Logger.log('覚えている行数: ' + meta.lastSeenResponseRows);
+  Logger.log('前回きちんと通した時刻: ' + meta.lastFullRunAt);
+}
+
 // 日次バックアップが本当に効いているかを確かめ、いまの内容で1本作る。
 function バックアップを確かめる() {
   var p = getPreferences_();
