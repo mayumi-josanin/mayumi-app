@@ -226,6 +226,88 @@ function 会員の入り口を点検する() {
   Logger.log('  最終オンライン日時が空（この記録が始まって以降に開いていない）: ' + 一度も開いていない + '名');
 }
 
+// ---------- 会員の一覧を出す ----------
+//
+// 電話番号と生年月日は「登録があるか」だけを出し、値そのものは出さない。
+// 連絡先が必要なときは、スプレッドシートを直接ご覧ください。
+
+function 会員の一覧を出す() {
+  var sh = SpreadsheetApp.openById(点検_まゆみファイルID).getSheetByName('会員データ');
+  if (!sh) { Logger.log('会員データのシートが見つかりません'); return; }
+
+  var 行数 = sh.getLastRow();
+  var 列数 = sh.getLastColumn();
+  var v = sh.getRange(1, 1, 行数, 列数).getValues();
+  var 見出し = v[0];
+  var 位 = {};
+  見出し.forEach(function (h, i) { 位[String(h)] = i; });
+
+  var 空 = function (x) { return x === '' || x === null || x === undefined; };
+  var 年月 = function (d) {
+    if (空(d)) return '';
+    var t = d instanceof Date ? d : new Date(d);
+    return isNaN(t.getTime()) ? '' : Utilities.formatDate(t, 'Asia/Tokyo', 'yyyy-MM');
+  };
+
+  var 出 = [];
+  出.push('# 会員一覧');
+  出.push('作成: ' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm'));
+  出.push('');
+  出.push('電話番号と生年月日は、登録の有無（○／空欄）だけを出しています。');
+  出.push('');
+  出.push('| # | 会員ID | 氏名 | 登録 | 電話 | 生年月日 | 入り口 | ビジリス | 権限 |');
+  出.push('|---|--------|------|------|------|---------|--------|---------|------|');
+
+  var 番号 = 0;
+  var 集計 = { 全体: 0, 入れる: 0, 入れない: 0, ビジリス: 0, 管理者: 0 };
+
+  for (var r = 1; r < v.length; r += 1) {
+    var row = v[r];
+    if (!row.some(function (x) { return !空(x); })) continue;
+
+    番号 += 1;
+    集計.全体 += 1;
+
+    var 名 = String(row[位['氏名']] || '').trim();
+    var 電話 = String(row[位['電話番号']] || '').trim() ? '○' : '';
+    var 誕生 = 空(row[位['生年月日']]) ? '' : '○';
+    var パス = String(row[位['パスコード']] || '').trim();
+    var ハッシュ = String(row[位['パスワードハッシュ']] || '').trim();
+    var 入れる = (パス || ハッシュ) ? '○' : '**×**';
+    var ビ = String(row[位['ビジリス']] || '').trim() ? '○' : '';
+    var 権限 = String(row[位['権限']] || '').trim();
+
+    if (パス || ハッシュ) 集計.入れる += 1; else 集計.入れない += 1;
+    if (ビ) 集計.ビジリス += 1;
+    if (権限) 集計.管理者 += 1;
+
+    出.push('| ' + 番号 + ' | ' + String(row[位['ID']] || '') + ' | ' + 名 + ' | ' +
+      年月(row[位['登録日時']]) + ' | ' + 電話 + ' | ' + 誕生 + ' | ' +
+      入れる + ' | ' + ビ + ' | ' + 権限 + ' |');
+  }
+
+  出.push('');
+  出.push('## まとめ');
+  出.push('');
+  出.push('- 会員: ' + 集計.全体 + '名');
+  出.push('- 入り口に入れる: ' + 集計.入れる + '名');
+  出.push('- **入れない（パスコード未設定）: ' + 集計.入れない + '名**');
+  出.push('- ビジリス利用中: ' + 集計.ビジリス + '名');
+  出.push('- 管理者: ' + 集計.管理者 + '名');
+
+  var 名前 = '会員一覧_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd-HHmm');
+  var ss = SpreadsheetApp.create(名前);
+  var out = ss.getSheets()[0];
+  out.setName('会員一覧');
+  if (出.length > out.getMaxRows()) out.insertRowsAfter(out.getMaxRows(), 出.length - out.getMaxRows());
+  out.getRange(1, 1, 出.length, 1).setValues(出.map(function (s) { return ["'" + s]; }));
+
+  Logger.log('書き出しました: ' + 名前);
+  Logger.log('  ' + ss.getUrl());
+  Logger.log('  会員 ' + 集計.全体 + '名');
+  return ss.getId();
+}
+
 // ---------- 操作履歴の中身を調べる ----------
 //
 // 何がどれだけ記録されているかを数える。お名前などの中身は出さない。
