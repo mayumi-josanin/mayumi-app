@@ -3503,7 +3503,27 @@ function compareBijirisPostRecords_(a, b) {
   return bTime - aTime;
 }
 
+// お客様アプリが開くたびに読む「公開ぶんの豆知識」の控え。
+// スプレッドシートを2枚読むのに約2秒かかり、それが起動の待ち時間に丸ごと乗る。
+// 中身が変わるのは管理アプリから書いたときだけなので、そのとき捨てれば
+// 古いものが出続けることはない（rewriteBijirisPostsSheets_ が唯一の書き込み口）。
+var 豆知識の控えの鍵 = 'bijirisPosts_published_v1';
+var 豆知識の控えの持ち時間 = 21600;   // 6時間。書き込み時に捨てるので長めでよい
+
+function 豆知識の控えを捨てる_() {
+  try { CacheService.getScriptCache().remove(豆知識の控えの鍵); } catch (e) { }
+}
+
 function getBijirisPosts_(filter) {
+  // 公開ぶんだけは、お客様が開くたびに必ず要る。控えがあればそれを返す。
+  var 公開ぶんだけ = Boolean(filter && filter.publishedOnly && !filter.includeDrafts);
+  if (公開ぶんだけ) {
+    try {
+      var 控え = CacheService.getScriptCache().get(豆知識の控えの鍵);
+      if (控え) return JSON.parse(控え);
+    } catch (e) { /* 控えが読めなくても、下で普通に読み直す */ }
+  }
+
   // 読むのは豆知識の2枚だけ。全アンケートのシートまで点検すると、
   // そのぶん Sheets との往復が増えて数秒かかる（お客様が開くたびに効く）。
   ensureBijirisPostsSheet_();
@@ -3522,7 +3542,7 @@ function getBijirisPosts_(filter) {
     }
   });
 
-  return readBijirisPostRows_()
+  var 一覧 = readBijirisPostRows_()
     .map(function (post) {
       var attachments = attachmentsByPostId[post.id] || { photos: [], documents: [] };
       return publicBijirisPost_(Object.assign({}, post, {
@@ -3537,9 +3557,20 @@ function getBijirisPosts_(filter) {
       return post.status !== "archived";
     })
     .sort(compareBijirisPostRecords_);
+
+  if (公開ぶんだけ) {
+    try {
+      // 控えに入らない大きさのときは、黙って控え無しで動く（表示は変わらない）。
+      CacheService.getScriptCache().put(豆知識の控えの鍵, JSON.stringify(一覧), 豆知識の控えの持ち時間);
+    } catch (e) { }
+  }
+  return 一覧;
 }
 
 function rewriteBijirisPostsSheets_(posts) {
+  // 書いたら控えは古い。捨てておかないと、管理アプリで直しても
+  // お客様の画面がしばらく変わらない。
+  豆知識の控えを捨てる_();
   var normalizedPosts = (Array.isArray(posts) ? posts : [])
     .map(function (post) { return normalizeBijirisPostRecord_(post, post && post.id); })
     .filter(Boolean);
