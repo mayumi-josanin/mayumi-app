@@ -11,7 +11,7 @@
 // 関数の選び直しが効かないことがあるため、実行したいものをここから呼ぶ。
 // 既定は「見るだけ」にしておく。うっかり実行しても何も壊れないように。
 function いま実行する() {
-  移行の下見をする();
+  ふりがなの下見();
 }
 
 // 自動処理が「素通り」できているかを、2回続けて動かして時間で確かめる。
@@ -432,4 +432,57 @@ function 今回の整理をまとめて行う() {
 
   var 残り = sh.getLastRow() - 1;
   Logger.log('会員は ' + 残り + '名になりました。控えから戻せます。');
+}
+
+// ---------- ふりがなをひらがなに揃える ----------
+//
+// ふりがなは「ひらがなで登録していただく」方針にした。
+// これまでカタカナで登録された分をひらがなへ寄せて、表記を1つにする。
+// 揃えておかないと、同じ方が別人として扱われる場面が出る。
+
+function 片付け_ひらがなへ_(値) {
+  return String(値 == null ? '' : 値).replace(/[ァ-ヶ]/g, function (ch) {
+    return String.fromCharCode(ch.charCodeAt(0) - 0x60);
+  });
+}
+
+function ふりがなの下見() {
+  var 結果 = ふりがな_探す_();
+  Logger.log('■ カタカナで登録されているふりがな: ' + 結果.対象.length + '件');
+  Logger.log('  （ひらがなに直します。中身は出しません）');
+  Logger.log('');
+  結果.対象.forEach(function (t) { Logger.log('  ' + t.行 + '行目'); });
+  Logger.log('');
+  Logger.log('ひらがなで登録済み: ' + 結果.すでに + '件 / 未登録: ' + 結果.空 + '件');
+  Logger.log('直してよければ「ふりがなをひらがなに揃える」を実行してください。');
+}
+
+function ふりがな_探す_() {
+  var sh = SpreadsheetApp.openById(片付け_まゆみID).getSheetByName('会員データ');
+  var 行数 = sh.getLastRow();
+  var 列数 = sh.getLastColumn();
+  var v = sh.getRange(1, 1, 行数, 列数).getValues();
+  var 列 = v[0].indexOf('フリガナ');
+  var 対象 = [];
+  var すでに = 0;
+  var 空 = 0;
+  for (var r = 1; r < v.length; r += 1) {
+    var 元 = String(v[r][列] || '').trim();
+    if (!元) { 空 += 1; continue; }
+    var 新 = 片付け_ひらがなへ_(元);
+    if (新 === 元) { すでに += 1; continue; }
+    対象.push({ 行: r + 1, 新: 新 });
+  }
+  return { sheet: sh, 列: 列, 対象: 対象, すでに: すでに, 空: 空 };
+}
+
+function ふりがなをひらがなに揃える() {
+  var 結果 = ふりがな_探す_();
+  if (!結果.対象.length) { Logger.log('直すものはありません'); return; }
+  片付け_控えを取る_(片付け_まゆみID, 'ふりがな統一前');
+  結果.対象.forEach(function (t) {
+    結果.sheet.getRange(t.行, 結果.列 + 1).setValue(t.新);
+  });
+  Logger.log('■ ' + 結果.対象.length + '件のふりがなをひらがなに直しました。');
+  Logger.log('  控えから戻せます。');
 }

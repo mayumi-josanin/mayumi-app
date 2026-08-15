@@ -6865,23 +6865,33 @@ function normalizeStoredName_(value) {
   return String(value == null ? '' : value).replace(/[\s\u3000]+/g, '');
 }
 
+// カタカナをひらがなへ寄せる。
+// ふりがなは「ひらがなで登録していただく」方針にしたが、
+// 以前に登録された分はカタカナのまま残っている。照合も保存もひらがなに揃える。
+function toHiragana_(value) {
+  return String(value == null ? '' : value).replace(/[\u30A1-\u30F6]/g, function (ch) {
+    return String.fromCharCode(ch.charCodeAt(0) - 0x60);
+  });
+}
+
 function normalizeStoredKana_(value) {
   let text = String(value == null ? '' : value);
   try { text = text.normalize('NFKC'); } catch (err) { /* 古い環境では未対応 */ }
-  return text.replace(/[\s\u3000]+/g, '');
+  return toHiragana_(text.replace(/[\s\u3000]+/g, ''));
 }
 
 function normalizeNameForMatch_(value) {
   return String(value || '').trim().replace(/[\s\u3000]+/g, '');
 }
 
-// フリガナ照合用。半角カナ・濁点をNFKCで全角カタカナへ寄せ、空白を除去する
+// ふりがな照合用。半角カナ・濁点をNFKCで寄せ、空白を除き、ひらがなに統一する。
+// 「サトウ」で登録された古い記録と「さとう」の新しい入力が、同じものとして一致する。
 function normalizeKanaForMatch_(value) {
   let text = String(value || '');
   try {
     text = text.normalize('NFKC');
   } catch (e) { }
-  return text.replace(/[\s　]+/g, '');
+  return toHiragana_(text.replace(/[\s　]+/g, ''));
 }
 
 function normalizePasscodeForMatch_(value) {
