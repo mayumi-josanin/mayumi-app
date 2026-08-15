@@ -708,6 +708,45 @@ textarea {
   margin-top: 2px;
 }
 
+/* カテゴリを閉じても選んだ内容は残る。件数を出しておかないと、
+   閉じたぶんが消えたように見えてしまう。 */
+/* 長いカテゴリ名でもバッジを押しつぶさない。折り返すのは名前の方。 */
+.concern-category-name {
+  min-width: 0;
+}
+
+.concern-category-count {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--sage);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ボタンは開閉するので、いまどちらなのかを記号でも示す。
+   色だけだと、色の見分けにくい方に伝わらない。 */
+.concern-category-card > .selection-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  line-height: 1.5;
+}
+
+.concern-category-card > .selection-button::after {
+  content: "＋";
+  margin-left: auto;
+  font-size: 15px;
+  opacity: .7;
+}
+
+.concern-category-card > .selection-button[aria-expanded="true"]::after {
+  content: "－";
+}
+
 .selection-button {
   width: 100%;
   min-height: 48px;
