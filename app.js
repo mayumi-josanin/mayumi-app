@@ -443,21 +443,30 @@ function normalizeNameInput(value) {
   return String(value == null ? '' : value).replace(/[\s\u3000]+/g, '');
 }
 
-// フリガナは半角カナ・濁点をNFKCで全角カタカナへ寄せてから空白を整える
+// カタカナで入力されてもひらがなへ寄せる。
+// ふりがなは「ひらがな」で登録していただく方針。以前の登録はカタカナのまま残っているため、
+// 保存も照合もひらがなに統一して、同じ方が別人にならないようにする。
+function toHiraganaValue(value) {
+  return String(value == null ? '' : value).replace(/[\u30A1-\u30F6]/g, function (ch) {
+    return String.fromCharCode(ch.charCodeAt(0) - 0x60);
+  });
+}
+
 function normalizeKanaInput(value) {
   let text = String(value == null ? '' : value);
   try {
     text = text.normalize('NFKC');
   } catch (e) { }
-  // フリガナも氏名と同じ理由で空白を残さない。
-  return text.replace(/[\s　]+/g, '');
+  // ふりがなも氏名と同じ理由で空白を残さない。
+  return toHiraganaValue(text.replace(/[\s　]+/g, ''));
 }
 
-// 全角カタカナ（ァ〜ヶ）と長音記号のみを許可する
+// ひらがな（ぁ〜ゖ）と長音記号のみを許可する。
+// カタカナで入れられても、上で寄せてから確かめるので通る。
 function isValidKanaValue(value) {
   const kana = normalizeKanaInput(value);
   if (!kana) return false;
-  return /^[ァ-ヶー]+(?: [ァ-ヶー]+)*$/.test(kana);
+  return /^[ぁ-ゖー]+$/.test(kana);
 }
 
 function normalizeDateOnlyInput(value) {
@@ -2674,7 +2683,7 @@ const SUPPORT_FAQ_FALLBACK = [
   { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,下部,上部', answer: '画面下部にはホーム、ショップ、カレンダー、NEWS、マイページがあります。画面上部からは、最新情報の更新、お知らせ一覧、カート、マイページショートカットを利用できます。', priority: 158 },
   { category: '会員登録', question: '初回起動時はどちらを選べばいいですか？', keywords: '初回,最初,はじめて,以前登録した方,はじめて登録する方,どちら', answer: 'アプリ一覧の入口の画面で、以前に登録したことがある方は「ログイン」、今回が初めての方は「はじめての方」を選んでください。再インストール後、機種変更後、ブラウザ版からホーム画面追加した後も、以前登録したことがある方は「ログイン」からお入りください。', priority: 156 },
   { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回登録', answer: '初回起動時は、まず「以前登録した方」と「はじめて登録する方」の選択画面が出ます。はじめて登録する方は、そのままプロフィール登録へ進み、お名前・フリガナ・生年月日を入力してください（電話番号・住所は任意です）。保存すると会員IDが発行され、アプリを使い始められます。', priority: 154 },
-  { category: 'プロフィール', question: 'フリガナがエラーになるときはどうすればいいですか？', keywords: 'フリガナ,ふりがな,カタカナ,ひらがな,漢字,エラー,入力できない', answer: 'フリガナは全角カタカナで入力してください。ひらがな・漢字・アルファベット・記号が含まれているとエラーになります。例：「タナカ ハナコ」。姓と名の間の空白は入れても入れなくても大丈夫です。フリガナと生年月日は、機種変更や再インストールのときのデータ復元に使います。', priority: 152 },
+  { category: 'プロフィール', question: 'フリガナがエラーになるときはどうすればいいですか？', keywords: 'フリガナ,ふりがな,カタカナ,ひらがな,漢字,エラー,入力できない', answer: 'ふりがなはひらがなで入力してください。ひらがな・漢字・アルファベット・記号が含まれているとエラーになります。例：「タナカ ハナコ」。姓と名の間の空白は入れても入れなくても大丈夫です。フリガナと生年月日は、機種変更や再インストールのときのデータ復元に使います。', priority: 152 },
   { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,名前,電話,住所,生年月日', answer: 'マイページを開き、「✏️ プロフィールを編集」を押してください。お名前、電話番号、生年月日、住所、アイコン画像、バナー画像を変更して保存できます。', priority: 152 },
   { category: 'プロフィール', question: '会員IDはどこで確認できますか？', keywords: '会員ID,会員番号,memberid,どこ,確認', answer: '会員IDはマイページ上部に表示されます。プロフィール登録または復元が完了すると発行されます。', priority: 150 },
   { category: 'ログイン', question: '起動時のパスコード設定について知りたい', keywords: 'パスコード,ログイン,起動時,4桁,6桁,設定', answer: '新しく登録する方も、すでに登録済みの方も、まずは4桁または6桁のパスコードを設定して使います。既存会員の方はアプリ起動時に設定画面が表示されます。', priority: 148 },
@@ -7210,7 +7219,7 @@ async function restoreAccountByForm(options) {
     return;
   }
   if (!transferCode && kana && !isValidKanaValue(kana)) {
-    showToast('フリガナは全角カタカナで入力してください');
+    showToast('ふりがなはひらがなで入力してください');
     return;
   }
   if (!transferCode && !birthday) {
@@ -7398,7 +7407,7 @@ async function saveProfile() {
   nameEl.classList.remove('error');
   nameErr.classList.remove('show');
 
-  // フリガナは全角カタカナのみ（復元時の照合に使うため）
+  // ふりがなはひらがなのみ（復元時の照合に使うため）
   if (!isValidKanaValue(kana)) {
     if (kanaEl) {
       kanaEl.classList.add('error');
@@ -7406,7 +7415,7 @@ async function saveProfile() {
     }
     if (kanaErr) {
       kanaErr.textContent = kana
-        ? 'フリガナは全角カタカナで入力してください'
+        ? 'ふりがなはひらがなで入力してください'
         : 'フリガナを入力してください';
       kanaErr.classList.add('show');
     }

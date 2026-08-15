@@ -806,8 +806,10 @@ function buildHistorySearchParams(profile, options = {}) {
   return params;
 }
 
+// ふりがなはひらがなで登録していただく方針。
+// 以前の登録はカタカナのまま残っているため、どちらでも通す。
 function isKatakanaName(value) {
-  return /^[ァ-ヶー・ヴ　]+$/.test(String(value || ""));
+  return /^[ぁ-ゖァ-ヶー・ヴ　]+$/.test(String(value || ""));
 }
 
 // 入口（/start/）を通っていれば、そこで本人確認は済んでいる。
@@ -3343,7 +3345,7 @@ function validateCustomerProfile(profile) {
     throw new Error("フリガナを入力してください。");
   }
   if (!isKatakanaName(profile.nameKana)) {
-    throw new Error("フリガナはカタカナで入力してください。");
+    throw new Error("ふりがなはひらがなで入力してください。");
   }
 }
 

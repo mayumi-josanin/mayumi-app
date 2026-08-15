@@ -149,8 +149,8 @@
       <label>生年月日
         <input name="birthday" type="date" required />
       </label>
-      <label>フリガナ（カタカナ）<span class="optional">はじめての方のみ</span>
-        <input name="kana" type="text" autocapitalize="characters" />
+      <label>ふりがな（ひらがな）<span class="optional">はじめての方のみ</span>
+        <input name="kana" type="text" placeholder="例：たなかはなこ" />
       </label>
       <label>電話番号<span class="optional">はじめての方のみ</span>
         <input name="phone" type="tel" autocomplete="tel" />
@@ -248,8 +248,8 @@
         <label id="gapNameLabel" hidden>お名前（漢字・フルネーム）
           <input name="name" type="text" autocomplete="name" />
         </label>
-        <label id="gapKanaLabel" hidden>フリガナ（カタカナ）
-          <input name="kana" type="text" autocapitalize="characters" />
+        <label id="gapKanaLabel" hidden>ふりがな（ひらがな）
+          <input name="kana" type="text" placeholder="例：たなかはなこ" />
         </label>
         <label id="gapPhoneLabel" hidden>電話番号
           <input name="phone" type="tel" autocomplete="tel" />
@@ -295,8 +295,8 @@
         <label>お名前（漢字・フルネーム）
           <input name="name" type="text" autocomplete="name" required />
         </label>
-        <label>フリガナ（カタカナ）
-          <input name="kana" type="text" autocapitalize="characters" required />
+        <label>ふりがな（ひらがな）
+          <input name="kana" type="text" placeholder="例：たなかはなこ" required />
         </label>
         <label>パスコード（アプリと同じもの）
           <input name="passcode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" placeholder="例：1234" required />
@@ -536,7 +536,7 @@
     showTab('login');
   }
 
-  // ビジリスのお客様アプリは、氏名とフリガナが揃っていれば本人と分かる。
+  // ビジリスのお客様アプリは、氏名とふりがなが揃っていれば本人と分かる。
   // 入口で分かっているので、あちらで入力し直さなくて済むよう先に置いておく。
   function seedBijirisCustomer(session) {
     if (!session.name || !session.kana) return;
@@ -637,7 +637,7 @@
       });
   }
 
-  // 氏名とフリガナは空白を残さない。「山田 太郎」と「山田太郎」が
+  // 氏名とふりがなは空白を残さない。「山田 太郎」と「山田太郎」が
   // 別人として登録され、同じ方が二重に登録されてしまうため。
   function withoutSpaces(value) {
     return String(value == null ? '' : value).replace(/[\s\u3000]+/g, '');
@@ -763,7 +763,7 @@
   // あとから漢字で登録し直されると、同じ方が二重に登録されてしまうため。
   var GAP_FIELDS = [
     { key: 'name', labelId: 'gapNameLabel', label: 'お名前（漢字）' },
-    { key: 'kana', labelId: 'gapKanaLabel', label: 'フリガナ' },
+    { key: 'kana', labelId: 'gapKanaLabel', label: 'ふりがな' },
     { key: 'phone', labelId: 'gapPhoneLabel', label: '電話番号' },
     { key: 'birthday', labelId: 'gapBirthdayLabel', label: '生年月日' },
     { key: 'address', labelId: 'gapAddressLabel', label: 'ご住所' }
