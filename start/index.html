@@ -240,9 +240,9 @@
     <div class="helpBlock" id="profileGapBlock" hidden>
       <strong>ご登録内容の確認をお願いします</strong>
       <p class="note" style="margin-top:4px;">
-        下の項目がまだいただけていません。<strong>電話番号か生年月日のどちらかがないと、
-        パスコードを忘れたときにこの画面ではお戻しできず、受付でのお手続きが必要になります。</strong>
-        1分ほどで終わりますので、この機会にご登録ください。
+        下の項目がまだいただけていません。<strong>すべてご入力をお願いします。</strong>
+        電話番号や生年月日がないと、パスコードを忘れたときにこの画面ではお戻しできず、
+        受付でのお手続きが必要になります。1分ほどで終わります。
       </p>
       <form id="profileGapForm">
         <label id="gapNameLabel" hidden>お名前（漢字・フルネーム）
@@ -762,11 +762,11 @@
   // 「漢字のお名前」は、ひらがなだけでご登録の方にお願いする。
   // あとから漢字で登録し直されると、同じ方が二重に登録されてしまうため。
   var GAP_FIELDS = [
-    { key: 'name', labelId: 'gapNameLabel' },
-    { key: 'kana', labelId: 'gapKanaLabel' },
-    { key: 'phone', labelId: 'gapPhoneLabel' },
-    { key: 'birthday', labelId: 'gapBirthdayLabel' },
-    { key: 'address', labelId: 'gapAddressLabel' }
+    { key: 'name', labelId: 'gapNameLabel', label: 'お名前（漢字）' },
+    { key: 'kana', labelId: 'gapKanaLabel', label: 'フリガナ' },
+    { key: 'phone', labelId: 'gapPhoneLabel', label: '電話番号' },
+    { key: 'birthday', labelId: 'gapBirthdayLabel', label: '生年月日' },
+    { key: 'address', labelId: 'gapAddressLabel', label: 'ご住所' }
   ];
 
   function renderProfileGap(session) {
@@ -791,19 +791,24 @@
       return;
     }
 
-    // 出している欄のうち、入力されたものだけを送る。
-    // 空のまま送ると、いま入っている内容を消してしまうため。
+    // 出している欄は、すべてご入力いただく。
+    // 一部だけだと、次に開いたときにまた同じお願いをすることになる。
     var payload = { type: 'updateUser', memberId: session.memberId };
-    var filled = 0;
+    var 未入力 = [];
     GAP_FIELDS.forEach(function (field) {
       if ($(field.labelId).hidden) return;
       var value = form[field.key].value.trim();
-      if (!value) return;
+      if (!value) { 未入力.push(field.label); return; }
       payload[field.key] = value;
-      filled += 1;
     });
-    if (!filled) {
-      $('profileGapError').textContent = '1つ以上ご入力ください。';
+    if (未入力.length) {
+      $('profileGapError').textContent = 未入力.join('・') + ' をご入力ください。';
+      return;
+    }
+
+    // ひらがなだけのお名前は、ここでもお引き止めする。
+    if (payload.name && /^[\u3041-\u309F\u30FC\s\u3000]+$/.test(payload.name)) {
+      $('profileGapError').textContent = 'お名前は漢字でご入力ください。';
       return;
     }
 
