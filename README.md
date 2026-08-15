@@ -379,6 +379,7 @@ mayumi-app/
 | **[docs/developer_guide.md](docs/developer_guide.md)** | **開発者向け1枚まとめ（編集→確認→公開）** |
 | **[CLAUDE.md](CLAUDE.md)** | **開発規律（絶対ルール9項目）** |
 | [docs/git_workflow.md](docs/git_workflow.md) | ブランチの役割とルール・公開までの順番 |
+| **[docs/サーバー設置手順.md](docs/サーバー設置手順.md)** | **PCにデータベースを置いて公開するまで（院長向け）** |
 | [docs/お客様へのお知らせ.md](docs/お客様へのお知らせ.md) | 公開時に出す文面の下書き・受付での答え方 |
 | [docs/design/データ棚卸し.md](docs/design/データ棚卸し.md) | いま何をどこに、何件持っているか（実測） |
 | [docs/design/移行設計.md](docs/design/移行設計.md) | データベースへ移すときの設計・下見の結果 |
