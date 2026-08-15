@@ -362,6 +362,7 @@ const appState = {
   pendingSubmission: loadLocal(PENDING_KEY, null),
   ticketCardOverride: normalizeActiveTicketCardOverride(loadLocal(TICKET_CARD_OVERRIDE_KEY, null)),
   serverTicketCard: null,
+  serverTicketStampAdjustment: 0,
   bijirisFavoritesByCustomer: loadLocal(BIJIRIS_FAVORITES_KEY, {}),
   bijirisReaderStateByCustomer: loadLocal(BIJIRIS_READER_STATE_KEY, {}),
   surveys: [],
@@ -494,6 +495,9 @@ function hydrateFromSnapshot() {
     appState.measurements = snapshot.measurements.map(normalizeMeasurementRecord);
   }
   if (snapshot.serverTicketCard !== undefined) appState.serverTicketCard = snapshot.serverTicketCard;
+  if (snapshot.serverTicketStampAdjustment !== undefined) {
+    appState.serverTicketStampAdjustment = snapshot.serverTicketStampAdjustment;
+  }
 }
 
 function removeLocal(key) {
@@ -600,6 +604,7 @@ function normalizeCustomerProfile(value) {
     historyMatchMode: value?.historyMatchMode === "name" ? "name" : "device",
     measurementTargets: normalizeMeasurementTargets(value?.measurementTargets),
     lastTicketCardAcquiredAt: normalizeText(value?.lastTicketCardAcquiredAt),
+    ticketStampAdjustment: Math.floor(Number(value?.ticketStampAdjustment)) || 0,
   };
 }
 
@@ -3347,11 +3352,14 @@ async function loadHistory() {
       ? result.measurements.map(normalizeMeasurementRecord)
       : [];
     syncCustomerProfileFromServer(result.customerProfile);
-    appState.serverTicketCard = normalizeServerCustomerProfile(result.customerProfile).activeTicketCard || null;
+    var 受け取った = normalizeServerCustomerProfile(result.customerProfile);
+    appState.serverTicketCard = 受け取った.activeTicketCard || null;
+    appState.serverTicketStampAdjustment = 受け取った.ticketStampAdjustment;
     saveSnapshot({
       history: appState.history,
       measurements: appState.measurements,
       serverTicketCard: appState.serverTicketCard,
+      serverTicketStampAdjustment: appState.serverTicketStampAdjustment,
     });
     appState.historyLoading = false;
     appState.historyLoadError = "";
@@ -5389,7 +5397,19 @@ function getMilestoneRewardConfig() {
 
 // 完了枚数: 種類(6回券/10回券)を問わず、最終回まで使い切ったカードのユニーク件数。
 // 管理者の手動カード設定(activeTicketCard override)は含めず、履歴ベースで算出する。
+// 受付で手当てしたぶん。施術後アンケートを出し忘れた回や、
+// アプリを始める前に使い切った分はアンケートに現れないので、そこを埋める。
+function getTicketStampAdjustment() {
+  const n = Math.floor(Number(appState.serverTicketStampAdjustment));
+  return isFinite(n) ? n : 0;
+}
+
 function getCompletedTicketCardCount() {
+  return Math.max(0, countCompletedTicketCardsFromHistory() + getTicketStampAdjustment());
+}
+
+// 施術後アンケートの提出から数える（こちらが基本）。
+function countCompletedTicketCardsFromHistory() {
   const maxRoundByCard = new Map();
   getVisibleHistoryResponses().forEach((response) => {
     const ticketMap = new Map(getResponseTicketInfo(response).map((item) => [item.label, item.value]));
@@ -5425,38 +5445,50 @@ function renderHomeMilestoneReward() {
 
   const completedCount = getCompletedTicketCardCount();
   const nextMilestone = config.milestones.find((milestone) => completedCount < milestone.threshold) || null;
+  const goal = config.milestones[config.milestones.length - 1].threshold;
+
+  // 道は1枚ごとに1区画。節目のところに特典を置く。
+  // 数字の一覧より、どこまで来てあと何枚かが一目で分かる方が集めたくなる。
+  const rewardByStep = new Map(config.milestones.map((m) => [m.threshold, m]));
+  const steps = [];
+  for (let step = 1; step <= goal; step += 1) {
+    const reached = completedCount >= step;
+    const milestone = rewardByStep.get(step) || null;
+    const isCurrent = step === completedCount;
+    const isNextStep = step === completedCount + 1;
+    steps.push(`
+      <li class="stamp-road-step ${reached ? "reached" : ""} ${isCurrent ? "current" : ""} ${isNextStep ? "next" : ""} ${milestone ? "has-reward" : ""}">
+        <span class="stamp-road-mark" aria-hidden="true">${milestone ? "🎁" : reached ? "●" : ""}</span>
+        <span class="stamp-road-num">${step}</span>
+        ${milestone ? `<span class="stamp-road-reward">${escapeHtml(milestone.reward)}</span>` : ""}
+      </li>
+    `);
+  }
+
+  const 残り = nextMilestone ? Math.max(0, nextMilestone.threshold - completedCount) : 0;
+  const 案内 = nextMilestone
+    ? `あと <b>${残り}枚</b> で「${escapeHtml(nextMilestone.reward)}」`
+    : `すべての特典を達成されました。ありがとうございます。`;
 
   homeMilestoneReward.innerHTML = `
-    <article class="ticket-home-card milestone-reward-card">
+    <article class="ticket-home-card stamp-road-card">
       <div class="ticket-home-head">
         <div>
-          <strong>マイルストーン特典</strong>
-          <div class="meta">回数券を使い切るほど特典がもらえます。</div>
+          <strong>ビジリスカード スタンプ</strong>
+          <div class="meta">回数券を1枚使い切るごとに1個たまります。</div>
         </div>
-        <span class="badge open">完了 ${completedCount}枚</span>
+        <span class="badge open">${completedCount} / ${goal}</span>
       </div>
-      <ul class="milestone-reward-list">
-        ${config.milestones
-          .map((milestone) => {
-            const achieved = completedCount >= milestone.threshold;
-            const isNext = nextMilestone && milestone.threshold === nextMilestone.threshold;
-            const remaining = Math.max(0, milestone.threshold - completedCount);
-            const statusText = achieved
-              ? `獲得済み: ${escapeHtml(milestone.reward)}`
-              : `あと ${remaining}枚 で「${escapeHtml(milestone.reward)}」`;
-            const descriptionText = milestone.description
-              ? `<span class="milestone-reward-description">${escapeHtml(milestone.description)}</span>`
-              : "";
-            return `
-              <li class="milestone-reward-item ${achieved ? "achieved" : ""} ${isNext ? "next" : ""}">
-                <span class="milestone-reward-threshold">${milestone.threshold}枚</span>
-                <span class="milestone-reward-status">${statusText}</span>
-                ${descriptionText}
-              </li>
-            `;
-          })
-          .join("")}
-      </ul>
+      <p class="stamp-road-lead">${案内}</p>
+      <ol class="stamp-road" aria-label="スタンプの道のり">
+        ${steps.join("")}
+      </ol>
+      ${
+        nextMilestone && nextMilestone.description
+          ? `<p class="stamp-road-note">${escapeHtml(nextMilestone.description)}</p>`
+          : ""
+      }
+      <p class="stamp-road-note">たまった特典は受付でお渡しします。お気軽にお声がけください。</p>
     </article>
   `;
 }

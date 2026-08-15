@@ -1299,6 +1299,10 @@ window.MayumiSurveyApi = (() => {
         if (Object.prototype.hasOwnProperty.call(options.body || {}, "measurementTargets")) {
           payload.measurementTargets = normalizeMeasurementTargets(options.body?.measurementTargets);
         }
+        // 回数券スタンプの手当て。0 も意味のある値なので、有無で判断する。
+        if (Object.prototype.hasOwnProperty.call(options.body || {}, "ticketStampAdjustment")) {
+          payload.ticketStampAdjustment = Math.floor(Number(options.body?.ticketStampAdjustment) || 0);
+        }
         await postToGas(gasUrl, "adminUpdateCustomer", {
           token: options.token,
           customerName: currentName,
