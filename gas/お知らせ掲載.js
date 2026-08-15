@@ -6,11 +6,25 @@
 // 既存の handleAddBlog を通すので、公開設定・お知らせ一覧・更新日時などが
 // 手で書くときと同じように揃う。シートに直接書き足さないこと。
 
-// エディタは「ファイルの先頭の関数」を最初に選ぶ。
-// 既定は下見にしておく。載せるときだけ、ここを お知らせを載せる() に書き換える。
+// エディタは「ファイルの先頭の関数」を最初に選ぶので、下見を先頭に置く。
+// 関数名はファイルをまたいで1つの名前空間になる。「いま実行する」のような
+// ありふれた名前を各ファイルに置くと、後から読まれた方に黙って上書きされる。
 // （2026-08-15「アプリの入り方が新しくなりました」掲載済み）
-function いま実行する() {
-  お知らせの下見();
+
+function お知らせの下見() {
+  var d = お知らせ_中身_();
+  Logger.log('■ これから載せる内容（まだ載せていません）');
+  Logger.log('');
+  Logger.log('タイトル: ' + d.title);
+  Logger.log('カテゴリ: ' + d.category + ' / アイコン: ' + d.icon);
+  Logger.log('公開設定: ' + d.status + ' / お知らせ一覧: ' + d.noticeStatus);
+  Logger.log('');
+  Logger.log('本文:');
+  Logger.log(d.body);
+  Logger.log('');
+  Logger.log('文字数: ' + d.body.length);
+  Logger.log('');
+  Logger.log('これでよければ「お知らせを載せる」を実行してください。');
 }
 
 var お知らせ_タイトル = 'アプリの入り方が新しくなりました';
@@ -54,21 +68,6 @@ function お知らせ_中身_() {
   };
 }
 
-function お知らせの下見() {
-  var d = お知らせ_中身_();
-  Logger.log('■ これから載せる内容（まだ載せていません）');
-  Logger.log('');
-  Logger.log('タイトル: ' + d.title);
-  Logger.log('カテゴリ: ' + d.category + ' / アイコン: ' + d.icon);
-  Logger.log('公開設定: ' + d.status + ' / お知らせ一覧: ' + d.noticeStatus);
-  Logger.log('');
-  Logger.log('本文:');
-  Logger.log(d.body);
-  Logger.log('');
-  Logger.log('文字数: ' + d.body.length);
-  Logger.log('');
-  Logger.log('これでよければ「お知らせを載せる」を実行してください。');
-}
 
 function お知らせを載せる() {
   var d = お知らせ_中身_();
