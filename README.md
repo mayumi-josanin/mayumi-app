@@ -275,6 +275,9 @@ mayumi-app/
 ├── CLAUDE.md                 開発規律（絶対ルール9項目）
 ├── .github/workflows/deploy-pages.yml   main を GitHub Pages へ
 │
+├── server/                   データベース（Django + PostgreSQL・移行中）
+│   └── README.md             手元での試し方・PCへの置き方
+│
 ├── docs/                     資料
 │   ├── developer_guide.md    編集→確認→公開を1枚で（開発者はまずこれ）
 │   ├── git_workflow.md       ブランチの役割とルール
