@@ -421,6 +421,11 @@ window.MayumiSurveyApi = (() => {
 
   function setCustomerToken(token) {
     const value = normalizeText(token);
+    // 合鍵が変わったら、まとめて取った結果は前の方のものかもしれない。捨てる。
+    if (value !== getCustomerToken()) {
+      起動時のまとめ結果 = null;
+      起動時のまとめ時刻 = 0;
+    }
     if (value) {
       safeSetLocal(CUSTOMER_TOKEN_STORAGE_KEY, value);
     } else {
