@@ -474,3 +474,81 @@ function 棚卸しのファイルを消す() {
   while (it.hasNext()) { it.next().setTrashed(true); n += 1; }
   Logger.log(n + '本をゴミ箱へ入れました');
 }
+
+// ---------- 入り口に入れず、自力でも戻せない方 ----------
+//
+// パスコードもパスワードも無く、電話番号も生年月日も無い方。
+// この方々は「お困りのとき」からも復旧できず、受付での対応しかない。
+// 消してよいか判断するため、失われるもの（スタンプ・特典・ビジリスの記録）も一緒に出す。
+
+function 受付対応が要る方を出す() {
+  var ss = SpreadsheetApp.openById(点検_まゆみファイルID);
+  var sh = ss.getSheetByName('会員データ');
+  var v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+  var 位 = {};
+  v[0].forEach(function (h, i) { 位[String(h)] = i; });
+  var 空 = function (x) { return x === '' || x === null || x === undefined; };
+
+  // ビジリスに記録がある方のお名前を集めておく
+  var ビジリス名 = {};
+  try {
+    var bs = SpreadsheetApp.openById('1pONQ8MfFSllKNOeQlcp56IRon3ZRWfFkbnjEDPchq8E');
+    [['測定履歴', '顧客名'], ['回数券分析結果', 'お名前'], ['回答一覧', 'お名前']].forEach(function (t) {
+      var s2 = bs.getSheetByName(t[0]);
+      if (!s2 || s2.getLastRow() < 2) return;
+      var v2 = s2.getRange(1, 1, s2.getLastRow(), s2.getLastColumn()).getValues();
+      var c = v2[0].indexOf(t[1]);
+      if (c < 0) return;
+      for (var i = 1; i < v2.length; i += 1) {
+        var n = String(v2[i][c] || '').trim();
+        if (n) ビジリス名[n] = (ビジリス名[n] || 0) + 1;
+      }
+    });
+  } catch (e) { Logger.log('ビジリスを読めませんでした: ' + e.message); }
+
+  var 一覧 = [];
+  for (var r = 1; r < v.length; r += 1) {
+    var row = v[r];
+    if (!row.some(function (x) { return !空(x); })) continue;
+    var パス = String(row[位['パスコード']] || '').trim();
+    var ハッシュ = String(row[位['パスワードハッシュ']] || '').trim();
+    if (パス || ハッシュ) continue;                                   // 入れる方
+    var 電話 = String(row[位['電話番号']] || '').trim();
+    if (電話) continue;                                              // 自力で戻せる
+    if (!空(row[位['生年月日']])) continue;                           // 自力で戻せる
+
+    var 名 = String(row[位['氏名']] || '').trim();
+    var 特典 = String(row[位['特典履歴JSON']] || '').trim();
+    var 特典数 = 0;
+    try { var j = JSON.parse(特典 || '[]'); 特典数 = Array.isArray(j) ? j.length : 0; } catch (e) { }
+    一覧.push({
+      行: r + 1,
+      id: String(row[位['ID']] || ''),
+      名: 名,
+      住所: String(row[位['住所']] || '').trim() ? 'あり' : '',
+      ふりがな: String(row[位['フリガナ']] || '').trim() ? 'あり' : '',
+      スタンプ: Number(row[位['現在スタンプ数']] || 0),
+      特典: 特典数,
+      ビジリス: ビジリス名[名] || 0,
+      登録: row[位['登録日時']],
+      経路: String(row[位['登録経路']] || '').trim(),
+    });
+  }
+
+  Logger.log('■ 入り口に入れず、自力でも戻せない方: ' + 一覧.length + '名');
+  Logger.log('  （パスコードなし・電話番号なし・生年月日なし）');
+  Logger.log('');
+  Logger.log('行 | 会員ID | 氏名 | ふりがな | 住所 | スタンプ | 特典 | ビジリス記録 | 登録経路');
+  一覧.forEach(function (t) {
+    Logger.log([t.行, t.id, t.名, t.ふりがな || '—', t.住所 || '—',
+      t.スタンプ, t.特典 + '件', t.ビジリス + '件', t.経路 || '(空)'].join(' | '));
+  });
+  Logger.log('');
+  var 失う = 一覧.filter(function (t) { return t.スタンプ > 0 || t.特典 > 0 || t.ビジリス > 0; });
+  Logger.log('▼ 消すと失われるものがある方: ' + 失う.length + '名');
+  失う.forEach(function (t) {
+    Logger.log('  ' + t.名 + ' … スタンプ' + t.スタンプ + ' / 特典' + t.特典 + '件 / ビジリス' + t.ビジリス + '件');
+  });
+  Logger.log('');
+  Logger.log('▼ 消しても失うものが無い方: ' + (一覧.length - 失う.length) + '名');
+}
