@@ -18,6 +18,11 @@ const CACHE_PREFIX = "mayumi-customer-survey-";
 const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v126";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
+// 前回開いたときの中身。Apps Script は応答までに数秒かかるので、
+// それを待つ間じゅう「読み込み中です。」だけが出ているのを避ける。
+// 先に前回の内容を出し、返ってきたら差し替える。
+const LAST_SNAPSHOT_KEY = "mayumi_customer_last_snapshot";
+const SNAPSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
 const ONE_SIGNAL_APP_SCOPE_KEY = "app_scope";
 const ONE_SIGNAL_APP_SCOPE_VALUE = "mayumi_bijiris";
@@ -395,7 +400,8 @@ const appState = {
   showUnreadBijirisOnly: false,
   bijirisLoading: false,
   bijirisLoadError: "",
-  concernCategoryByQuestion: {},
+  // カテゴリは複数同時に開ける。値は開いているカテゴリIDの配列。
+  concernOpenCategoriesByQuestion: {},
   selectedMeasurementPeriod: "6m",
   measurementMetricVisibility: { ...DEFAULT_MEASUREMENT_VISIBILITY },
   selectedMeasurementPhotoComparisonId: "",
@@ -445,6 +451,49 @@ function saveLocal(key, value) {
   } catch {
     // Ignore localStorage quota errors.
   }
+}
+
+// 前回の中身を控える。取れた分だけ上書きする（履歴だけ、豆知識だけ、でも成り立つ）。
+function saveSnapshot(patch) {
+  const current = loadLocal(LAST_SNAPSHOT_KEY, {}) || {};
+  saveLocal(LAST_SNAPSHOT_KEY, {
+    ...current,
+    ...patch,
+    owner: normalizeText(appState.customer?.name),
+    savedAt: Date.now(),
+  });
+}
+
+function readSnapshot() {
+  const snapshot = loadLocal(LAST_SNAPSHOT_KEY, null);
+  if (!snapshot || typeof snapshot !== "object") return null;
+  // 古すぎるものは出さない。開いた瞬間に何週間も前の回数券が見えると誤解を生む。
+  if (!snapshot.savedAt || Date.now() - snapshot.savedAt > SNAPSHOT_MAX_AGE_MS) return null;
+  return snapshot;
+}
+
+// 通信を待たずに、前回の内容で画面を埋める。
+// 履歴と回数券はご本人のものだけ。ご家族と端末を共有している場合に、
+// 別の方の記録が一瞬でも見えることがないよう、お名前が一致するときだけ使う。
+function hydrateFromSnapshot() {
+  const snapshot = readSnapshot();
+  if (!snapshot) return;
+
+  if (Array.isArray(snapshot.surveys) && snapshot.surveys.length) {
+    appState.surveys = snapshot.surveys;
+    if (snapshot.publicInfo) appState.publicInfo = { ...appState.publicInfo, ...snapshot.publicInfo };
+  }
+  if (Array.isArray(snapshot.posts) && snapshot.posts.length) {
+    appState.bijirisPosts = sortBijirisPosts(snapshot.posts.map(normalizeBijirisPost).filter((post) => post.id));
+  }
+
+  const owner = normalizeText(snapshot.owner);
+  if (!owner || owner !== normalizeText(appState.customer?.name)) return;
+  if (Array.isArray(snapshot.history)) appState.history = snapshot.history;
+  if (Array.isArray(snapshot.measurements)) {
+    appState.measurements = snapshot.measurements.map(normalizeMeasurementRecord);
+  }
+  if (snapshot.serverTicketCard !== undefined) appState.serverTicketCard = snapshot.serverTicketCard;
 }
 
 function removeLocal(key) {
@@ -1805,21 +1854,34 @@ function getConcernCategoryStateKey(surveyId, questionId) {
   return `${surveyId}:${questionId}`;
 }
 
-function getConcernActiveCategory(surveyId, questionId, selectedOptions = []) {
+// 開いているカテゴリの一覧を返す。
+// まだ一度も触っていないときは、すでに選ばれている項目のあるカテゴリを開いておく
+// （下書きに戻ったときに、何を選んだのか見えないままにしないため）。
+// 「全部閉じた」状態と区別したいので、触ったかどうかは値の有無で見る。
+function getOpenConcernCategories(surveyId, questionId, selectedOptions = []) {
   const key = getConcernCategoryStateKey(surveyId, questionId);
-  const current = appState.concernCategoryByQuestion[key];
-  if (SESSION_CONCERN_CATEGORIES.some((category) => category.id === current)) {
-    return current;
+  const stored = appState.concernOpenCategoriesByQuestion[key];
+  if (Array.isArray(stored)) {
+    return stored.filter((id) => SESSION_CONCERN_CATEGORIES.some((category) => category.id === id));
   }
-  const matched = SESSION_CONCERN_CATEGORIES.find((category) =>
+  return SESSION_CONCERN_CATEGORIES.filter((category) =>
     category.options.some((option) => selectedOptions.includes(option)),
-  );
-  return matched?.id || "";
+  ).map((category) => category.id);
 }
 
-function setConcernActiveCategory(surveyId, questionId, categoryId) {
+// 同じカテゴリをもう一度押したら閉じる。
+// 閉じても選んだ内容は下書きに残る（消えると押し直すたびに選び直しになる）。
+function toggleConcernCategory(surveyId, questionId, categoryId, selectedOptions = []) {
   const key = getConcernCategoryStateKey(surveyId, questionId);
-  appState.concernCategoryByQuestion[key] = categoryId;
+  const open = getOpenConcernCategories(surveyId, questionId, selectedOptions);
+  appState.concernOpenCategoriesByQuestion[key] = open.includes(categoryId)
+    ? open.filter((id) => id !== categoryId)
+    : open.concat(categoryId);
+}
+
+// そのカテゴリでいくつ選ばれているか。閉じていても数が見えるようにする。
+function countSelectedInCategory(category, selectedOptions = []) {
+  return category.options.filter((option) => selectedOptions.includes(option)).length;
 }
 
 function isInlineManagedTextareaQuestion(question) {
@@ -2044,7 +2106,10 @@ function setPage(page) {
 }
 
 async function loadSurveys() {
-  surveyList.innerHTML = `<div class="empty">読み込み中です。</div>`;
+  // 前回の一覧が出ているなら、それを消してまで「読み込み中」に差し替えない。
+  if (!appState.surveys.length) {
+    surveyList.innerHTML = `<div class="empty">読み込み中です。</div>`;
+  }
   try {
     const result = await api.request("/api/public/surveys");
     const surveys = Array.isArray(result.surveys) ? result.surveys : [];
@@ -2058,6 +2123,7 @@ async function loadSurveys() {
       version: result.version || APP_VERSION,
       pushAppId: result.pushAppId || getConfiguredPushAppId(),
     };
+    saveSnapshot({ surveys: appState.surveys, publicInfo: appState.publicInfo });
     renderSurveys();
     renderAnswerPanel();
     void initializePushNotifications();
@@ -3157,6 +3223,7 @@ async function loadBijirisPosts() {
       ? sortBijirisPosts(result.posts.map(normalizeBijirisPost).filter((post) => post.id))
       : [];
     migrateBijirisReaderStateTokens();
+    saveSnapshot({ posts: appState.bijirisPosts });
     appState.bijirisLoading = false;
     appState.bijirisLoadError = "";
     renderSurveys();
@@ -3266,7 +3333,10 @@ async function loadHistory() {
   appState.historyLoading = true;
   appState.historyLoadError = "";
   renderHomeTicketStatus();
-  historyList.innerHTML = `<div class="empty">読み込み中です。</div>`;
+  // 前回の履歴が出ているなら、消してまで「読み込み中」にしない。
+  if (!appState.history.length) {
+    historyList.innerHTML = `<div class="empty">読み込み中です。</div>`;
+  }
   try {
     const params = buildHistorySearchParams(appState.customer);
     const result = await api.request(
@@ -3278,6 +3348,11 @@ async function loadHistory() {
       : [];
     syncCustomerProfileFromServer(result.customerProfile);
     appState.serverTicketCard = normalizeServerCustomerProfile(result.customerProfile).activeTicketCard || null;
+    saveSnapshot({
+      history: appState.history,
+      measurements: appState.measurements,
+      serverTicketCard: appState.serverTicketCard,
+    });
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
@@ -4069,23 +4144,26 @@ function renderQuestion(question, index, surveyId) {
   if (question.type === "checkbox") {
     const selected = new Set(selectedCheckboxValues);
     if (question.id === SESSION_CONCERN_QUESTION_ID) {
-      const activeCategoryId = getConcernActiveCategory(surveyId, question.id, selectedCheckboxValues);
+      const openCategoryIds = getOpenConcernCategories(surveyId, question.id, selectedCheckboxValues);
       return `
         <div class="question-block" data-question-wrap="${question.id}" role="group">
           <div class="question-legend">${label}</div>
-          <div class="question-caption">気になるカテゴリを選んでから、該当する詳細項目にチェックしてください。</div>
+          <div class="question-caption">気になるカテゴリを開いて、該当する項目にチェックしてください。カテゴリはいくつでも開けます。もう一度押すと閉じますが、選んだ内容は残ります。</div>
           <div class="concern-category-list">
             ${SESSION_CONCERN_CATEGORIES.map((category) => {
-              const isActive = category.id === activeCategoryId;
+              const isActive = openCategoryIds.includes(category.id);
+              const selectedCount = countSelectedInCategory(category, selectedCheckboxValues);
               return `
                 <div class="concern-category-card ${isActive ? "active" : ""}">
                   <button
                     class="selection-button ${isActive ? "active" : ""}"
                     type="button"
+                    aria-expanded="${isActive ? "true" : "false"}"
                     data-concern-category="${escapeHtml(category.id)}"
                     data-question-id="${question.id}"
                   >
-                    ${escapeHtml(category.label)}
+                    <span class="concern-category-name">${escapeHtml(category.label)}</span>
+                    ${selectedCount ? `<span class="concern-category-count">${selectedCount}件選択中</span>` : ""}
                   </button>
                   ${
                     isActive
@@ -4130,7 +4208,7 @@ function renderQuestion(question, index, surveyId) {
                 : ""}
             </div>
           </div>
-          ${activeCategoryId ? "" : `<div class="empty">カテゴリを選択すると詳細項目を表示します。</div>`}
+          ${openCategoryIds.length ? "" : `<div class="empty">カテゴリを押すと項目が開きます。</div>`}
         </div>
       `;
     }
@@ -4533,9 +4611,23 @@ function attachAnswerFormHandlers(form, survey) {
     if (!questionId) return;
 
     if (input.type === "checkbox") {
-      const values = Array.from(form.querySelectorAll(`[data-question-id="${questionId}"]:checked`)).map(
-        (node) => node.value,
+      // 画面に出ている分だけを集めると、閉じているカテゴリの選択が消える。
+      // いま出ていない選択肢は下書きの値をそのまま引き継ぐ。
+      const nodes = Array.from(
+        form.querySelectorAll(`input[type="checkbox"][data-question-id="${questionId}"]`),
       );
+      const shown = new Set(nodes.map((node) => node.value));
+      const checked = nodes.filter((node) => node.checked).map((node) => node.value);
+      const previous = getDraftValue(survey.id, questionId);
+      const hidden = Array.isArray(previous) ? previous.filter((value) => !shown.has(value)) : [];
+
+      // 並びは設問の選択肢の順に揃える。記録に出る順が押した順で入れ替わらないように。
+      const question = survey.questions.find((item) => item.id === questionId);
+      const picked = new Set(hidden.concat(checked));
+      const values = Array.isArray(question?.options)
+        ? question.options.filter((option) => picked.has(option))
+        : Array.from(picked);
+
       updateDraftValue(survey.id, questionId, values);
       if (doesQuestionAffectVisibility(survey, questionId)) {
         renderAnswerPanel();
@@ -4570,7 +4662,9 @@ function attachAnswerFormHandlers(form, survey) {
       const questionId = button.dataset.questionId;
       const categoryId = button.dataset.concernCategory;
       if (!questionId || !categoryId) return;
-      setConcernActiveCategory(survey.id, questionId, categoryId);
+      const stored = getDraftValue(survey.id, questionId);
+      const selected = Array.isArray(stored) ? stored : [];
+      toggleConcernCategory(survey.id, questionId, categoryId, selected);
       renderAnswerPanel();
     });
   });
@@ -6578,6 +6672,8 @@ window.addEventListener("error", (event) => {
 window.addEventListener("unhandledrejection", (event) => {
   reportClientError("customer.promise", event.reason || "unhandled rejection");
 });
+// 通信を待つ前に、前回の内容で画面を埋めておく。
+hydrateFromSnapshot();
 syncCustomerForms();
 renderRegistrationGuide();
 renderHomeTicketStatus();
