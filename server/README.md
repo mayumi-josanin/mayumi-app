@@ -41,8 +41,14 @@ docker compose exec web python manage.py migrate
 
 ポートは KEM_DDENKI と重ならないようにしてある（DB 5434 / Web 8002）。
 
-Funnel で公開するときは、**KEM が 443・8443 を使っているため別ノードが要る**。
-`.env` の `DJANGO_ALLOWED_HOSTS` と `CSRF_TRUSTED_ORIGINS` に、その名前を入れる。
+Funnel が使えるのは 443 / 8443 / 10000 の3つ。KEM が 443・8443 を使っているので
+**10000 を使えば新しいノードは要らない**。
+
+```powershell
+tailscale funnel --bg --https=10000 http://127.0.0.1:8002
+```
+
+PCでの手順は [../docs/サーバー設置手順.md](../docs/サーバー設置手順.md) に一通り書いてある。
 
 > **前提**：このPCは Docker Desktop が「サインイン時に自動起動」のため、
 > 再起動後に誰かがサインインするまでDBが上がらない。
