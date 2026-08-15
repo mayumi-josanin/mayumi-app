@@ -454,6 +454,15 @@ function saveLocal(key, value) {
   }
 }
 
+// いま入口にお入りの会員ID。取れないときは空。
+function いま入口にお入りの会員ID_() {
+  try {
+    return 入口の会員ID_(localStorage.getItem(MAYUMI_MEMBER_TOKEN_KEY) || "");
+  } catch {
+    return "";
+  }
+}
+
 // 前回の中身を控える。取れた分だけ上書きする（履歴だけ、豆知識だけ、でも成り立つ）。
 function saveSnapshot(patch) {
   const current = loadLocal(LAST_SNAPSHOT_KEY, {}) || {};
@@ -461,6 +470,8 @@ function saveSnapshot(patch) {
     ...current,
     ...patch,
     owner: normalizeText(appState.customer?.name),
+    // お名前は変わりうるし、同姓同名もある。控えの持ち主は会員IDで持つ。
+    ownerMemberId: いま入口にお入りの会員ID_(),
     savedAt: Date.now(),
   });
 }
@@ -475,7 +486,8 @@ function readSnapshot() {
 
 // 通信を待たずに、前回の内容で画面を埋める。
 // 履歴と回数券はご本人のものだけ。ご家族と端末を共有している場合に、
-// 別の方の記録が一瞬でも見えることがないよう、お名前が一致するときだけ使う。
+// 別の方の記録が一瞬でも見えないよう、入口の会員IDが一致するときだけ使う。
+// お名前だけで見ると、端末に古いお名前が残っているときにすり抜ける。
 function hydrateFromSnapshot() {
   const snapshot = readSnapshot();
   if (!snapshot) return;
@@ -488,8 +500,10 @@ function hydrateFromSnapshot() {
     appState.bijirisPosts = sortBijirisPosts(snapshot.posts.map(normalizeBijirisPost).filter((post) => post.id));
   }
 
-  const owner = normalizeText(snapshot.owner);
-  if (!owner || owner !== normalizeText(appState.customer?.name)) return;
+  const いまの会員 = いま入口にお入りの会員ID_();
+  const 控えの持ち主 = normalizeText(snapshot.ownerMemberId);
+  // 持ち主が分からない控え（会員IDを持たせる前のもの）は使わない。
+  if (!いまの会員 || 控えの持ち主 !== いまの会員) return;
   if (Array.isArray(snapshot.history)) appState.history = snapshot.history;
   if (Array.isArray(snapshot.measurements)) {
     appState.measurements = snapshot.measurements.map(normalizeMeasurementRecord);
@@ -3367,7 +3381,11 @@ async function loadHistory() {
   })();
   const いまの会員 = 入口の会員ID_(入口の札);
   const 合鍵の持ち主 = normalizeText(loadLocal(BIJIRIS_SESSION_OWNER_KEY, ""));
-  if (いまの会員 && 合鍵の持ち主 && いまの会員 !== 合鍵の持ち主) {
+  // 持ち主が分からない合鍵も捨てる。
+  // 持ち主を覚え始めたのは途中からなので、それ以前からある端末は「不明」になる。
+  // 不明を素通りさせると、以前この端末で使われた方の記録が出たままになる。
+  // 取り直しは1回だけで、そのあとは持ち主が分かるので毎回は起きない。
+  if (いまの会員 && 合鍵の持ち主 !== いまの会員) {
     api.clearCustomerToken();
     mayumiLoginTried = false;
   }
