@@ -2221,8 +2221,24 @@ function buildAccountSession_(row) {
   };
 }
 
+// ひらがなだけのお名前は、ご登録の途中であることが多い。
+// あとから漢字で登録し直されると、同じ方が2行に分かれてしまうため、
+// 入口でお名前を整えていただく。
+//
+// カタカナのお名前は対象にしない。そのままが正しい方がいらっしゃるため。
+function needsKanjiName_(value) {
+  const s = String(value || '').replace(/[\s\u3000]/g, '');
+  if (!s) return false;
+  if (/[\u4E00-\u9FFF\u3005]/.test(s)) return false;        // 漢字が入っている
+  return /^[\u3041-\u309F\u30FC]+$/.test(s);                 // ひらがな（と長音）だけ
+}
+
 function missingProfileFields_(row) {
   const missing = [];
+  // 漢字のお名前とフリガナは、パスコードを忘れたときの照合にも、
+  // 同じ方が二重に登録されるのを防ぐのにも使う。
+  if (needsKanjiName_(row[USER_COL.NAME - 1])) missing.push('name');
+  if (!String(row[USER_COL.KANA - 1] || '').trim()) missing.push('kana');
   if (!String(row[USER_COL.PHONE - 1] || '').trim()) missing.push('phone');
   if (!normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1])) missing.push('birthday');
   if (!String(row[USER_COL.ADDRESS - 1] || '').trim()) missing.push('address');
@@ -2300,6 +2316,26 @@ function registerAccount(data) {
           message: '同じお名前のご登録がありますが、生年月日が記録されていないため確認できません。'
             + '恐れ入りますが、受付にお申し出ください。'
         };
+      }
+
+      // お名前の表記だけが違う、同じ方の二重登録を止める。
+      // 「こばやしみか」で登録された方が、あとから「小林美香」で登録し直すと
+      // 氏名が一致せず別人として増えてしまう。フリガナと生年月日が揃えば同じ方とみなす。
+      if (kana) {
+        const sameKanaAndBirthday = store.rows.filter(function (item) {
+          const rowKana = normalizeStoredKana_(item.values[USER_COL.KANA - 1] || '');
+          if (!rowKana || rowKana !== normalizeStoredKana_(kana)) return false;
+          return normalizeDateOnlyValue_(item.values[USER_COL.BIRTHDAY - 1]) === birthday;
+        });
+        if (sameKanaAndBirthday.length) {
+          return {
+            status: 'error',
+            message: 'フリガナと生年月日が同じご登録がすでにあります。'
+              + 'お名前の書き方だけが違う可能性があります。'
+              + '新しく登録するとこれまでの記録が分かれてしまうため、'
+              + '恐れ入りますが受付にお申し出ください。'
+          };
+        }
       }
 
     // ここから先は記録が見つからなかった方。連絡先まで揃えていただく。
