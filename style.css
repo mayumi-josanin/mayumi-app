@@ -527,13 +527,12 @@
       margin-bottom: 2px;
     }
 
-    /* お名前と「アプリ一覧」を横に並べる。余白は行が持つ（お名前側には付けない）。 */
-    .banner-name-row {
+    /* スタンプの表示と「アプリ一覧」を、同じ高さで左右に並べる。 */
+    .banner-bottom-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 14px;
     }
 
     .banner-name {
@@ -544,11 +543,9 @@
       letter-spacing: .04em;
     }
 
-    /* 長いお名前でもボタンを押しつぶさない。お名前の方を折り返す。 */
-    .banner-name-row .banner-name {
-      margin-bottom: 0;
-      min-width: 0;
-      overflow-wrap: anywhere;
+    /* 隣り合う2つの丸みが揃わないと不揃いに見えるので、高さを合わせる。 */
+    .banner-bottom-row .banner-chip {
+      min-height: 36px;
     }
 
     .banner-switch {
