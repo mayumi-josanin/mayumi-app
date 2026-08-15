@@ -6,6 +6,8 @@ const BIJIRIS_FAVORITES_KEY = "mayumi_bijiris_favorites";
 const BIJIRIS_READER_STATE_KEY = "mayumi_bijiris_reader_state";
 const PUSH_ENABLED_STORAGE_KEY = "mayumi_customer_push_enabled";
 const PUSH_APP_ID_STORAGE_KEY = "mayumi_customer_push_app_id";
+// サーバーへ送った通知設定の内容。同じ内容なら送り直さない。
+const PUSH_SYNC_SIGNATURE_KEY = "mayumi_customer_push_synced";
 const PHOTO_FILE_LIMIT = 6;
 const PHOTO_MAX_SIZE = 1400;
 const PHOTO_JPEG_QUALITY = 0.74;
@@ -762,7 +764,15 @@ async function syncPushStatusToServer(pushStatus) {
     supported: normalized.supported,
     permission: normalized.permission,
   });
+  // 送った印はメモリだけに持っていたため、アプリを開くたびに送り直していた。
+  // Apps Script は同時実行を順番待ちにするので、この1回が起動の待ち時間に
+  // そのまま乗っていた（実測で8秒かかることもあった）。端末に残して、
+  // 通知の設定が実際に変わったときだけ送る。
   if (signature === appState.pushServerSignature) return;
+  if (signature === loadLocal(PUSH_SYNC_SIGNATURE_KEY, "")) {
+    appState.pushServerSignature = signature;
+    return;
+  }
   try {
     const result = await api.request("/api/public/customer-profile/push", {
       method: "POST",
@@ -772,6 +782,7 @@ async function syncPushStatusToServer(pushStatus) {
       },
     });
     appState.pushServerSignature = signature;
+    saveLocal(PUSH_SYNC_SIGNATURE_KEY, signature);
     if (result?.customerProfile) {
       syncCustomerProfileFromServer(result.customerProfile);
     }
@@ -3315,6 +3326,18 @@ function 前の方の記録を端末から消す_() {
   removeLocal(TICKET_CARD_OVERRIDE_KEY);
 }
 
+// 合鍵の持ち主と、入口でお入りの方が違えば捨てる。
+// 持ち主が分からない合鍵も捨てる（持ち主を覚え始めたのが途中からのため）。
+// 取り直しは端末につき1回だけで、そのあとは持ち主が分かるので毎回は起きない。
+function 捨てるべき合鍵なら捨てる_() {
+  const いまの会員 = いま入口にお入りの会員ID_();
+  if (!いまの会員) return;
+  const 持ち主 = normalizeText(loadLocal(BIJIRIS_SESSION_OWNER_KEY, ""));
+  if (持ち主 === いまの会員) return;
+  api.clearCustomerToken();
+  mayumiLoginTried = false;
+}
+
 async function tryLoginWithMayumi() {
   if (mayumiLoginTried) return false;
   mayumiLoginTried = true;
@@ -3373,22 +3396,7 @@ async function loadHistory() {
     return;
   }
 
-  // 端末に残っている合鍵が、いま入口でお入りになった方のものとは限らない。
-  // ご家族と端末を共有している場合や、以前この端末で別の方が使った場合に、
-  // 前の方の回数券スタンプや履歴が出てしまう。違っていたら合鍵を捨てて取り直す。
-  const 入口の札 = (() => {
-    try { return localStorage.getItem(MAYUMI_MEMBER_TOKEN_KEY) || ""; } catch { return ""; }
-  })();
-  const いまの会員 = 入口の会員ID_(入口の札);
-  const 合鍵の持ち主 = normalizeText(loadLocal(BIJIRIS_SESSION_OWNER_KEY, ""));
-  // 持ち主が分からない合鍵も捨てる。
-  // 持ち主を覚え始めたのは途中からなので、それ以前からある端末は「不明」になる。
-  // 不明を素通りさせると、以前この端末で使われた方の記録が出たままになる。
-  // 取り直しは1回だけで、そのあとは持ち主が分かるので毎回は起きない。
-  if (いまの会員 && 合鍵の持ち主 !== いまの会員) {
-    api.clearCustomerToken();
-    mayumiLoginTried = false;
-  }
+  捨てるべき合鍵なら捨てる_();
 
   // 履歴・計測値・写真はパスコードで保護されている。
   // 入口の画面でログイン済みなら、そちらの合鍵から自動で受け取る（二度聞かない）。
@@ -6792,6 +6800,12 @@ window.addEventListener("error", (event) => {
 window.addEventListener("unhandledrejection", (event) => {
   reportClientError("customer.promise", event.reason || "unhandled rejection");
 });
+// 通信を始める前に、端末に残っている合鍵が「いま入口にお入りの方」のものか
+// 確かめる。ここを後回しにすると、起動時のまとめ（アンケート・豆知識・履歴を
+// 1回で取る呼び出し）が前の方の合鍵のまま飛び、サーバーが前の方の履歴を返す。
+// それが数秒間そのまま画面に出ていた。判定に通信は要らない。
+捨てるべき合鍵なら捨てる_();
+
 // 通信を待つ前に、前回の内容で画面を埋めておく。
 hydrateFromSnapshot();
 syncCustomerForms();
@@ -6802,7 +6816,8 @@ renderSurveys();
 renderAnswerPanel();
 renderMeasurements();
 renderBijirisPosts();
-void initializePushNotifications();
+// 通知の初期化は、アンケートが取れた直後に走るものが別にある（loadSurveys の中）。
+// ここでも呼ぶと、いちばん待たされる最初の1回とGASの順番待ちを取り合う。
 void loadSurveys();
 void loadBijirisPosts();
 setPage(hasCustomerSession() ? "home" : "login");
