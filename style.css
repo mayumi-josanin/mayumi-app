@@ -527,12 +527,57 @@
       margin-bottom: 2px;
     }
 
+    /* お名前と「アプリ一覧」を横に並べる。余白は行が持つ（お名前側には付けない）。 */
+    .banner-name-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
     .banner-name {
       font-family: 'Zen Old Mincho', serif;
       font-size: 21px;
       color: #fff;
       margin-bottom: 14px;
       letter-spacing: .04em;
+    }
+
+    /* 長いお名前でもボタンを押しつぶさない。お名前の方を折り返す。 */
+    .banner-name-row .banner-name {
+      margin-bottom: 0;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .banner-switch {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 36px;
+      padding: 7px 14px;
+      border: 1px solid rgba(255, 255, 255, .34);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, .17);
+      backdrop-filter: blur(4px);
+      color: #fff;
+      font-family: inherit;
+      font-size: 12px;
+      letter-spacing: .04em;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .banner-switch:hover,
+    .banner-switch:active {
+      background: rgba(255, 255, 255, .3);
+    }
+
+    .banner-switch:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
     }
 
     .banner-chip {
