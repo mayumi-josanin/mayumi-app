@@ -16,6 +16,21 @@ let currentInstalledAppInfo = { version: '', build: '', bundleId: '', isNative: 
 let currentRequiredUpdateUrl = '';
 
 let USER_MENUS = [];
+
+// 別の方がこの端末でお入りになったときに片付ける、個人のものだけの一覧。
+// 1か所にまとめておかないと足し忘れる（スタンプ履歴の取りこぼしがあった）。
+// 消えるのは端末の控えだけで、サーバーの記録には触らない。
+const 前の方の持ち物_ = [
+  'mayumi_profile', 'member_id',
+  'mayumi_stamp', 'mayumi_stamp_card', 'mayumi_stamp_history',
+  'mayumi_last_stamp_date', 'mayumi_last_stamp_at', 'mayumi_stamp_10_date',
+  'mayumi_earned_rewards',
+  'mayumi_avatar', 'mayumi_avatar_url', 'mayumi_banner',
+  'mayumi_support_chat_history', 'mayumi_support_chat_topic',
+  'last_seen_blog_hash', 'last_seen_calendar_hash',
+  'last_seen_notices_hash', 'last_seen_product_hash'
+];
+
 let _profile = null;
 try { _profile = JSON.parse(localStorage.getItem('mayumi_profile') || 'null'); } catch (e) { }
 // 入口の画面でログインした方に、ここでもう一度会員登録をお願いしない。
@@ -33,10 +48,7 @@ try {
   if (入口の会員 && 手元の会員 !== 入口の会員) {
     // 前の方のスタンプや特典まで引き継がせない。
     // サーバーの記録には触らないので、ご本人が入り直せば元どおりになる。
-    ['mayumi_profile', 'mayumi_stamp', 'mayumi_stamp_card', 'mayumi_last_stamp_date',
-      'mayumi_stamp_10_date', 'mayumi_earned_rewards', 'mayumi_avatar', 'mayumi_avatar_url',
-      'mayumi_banner', 'mayumi_support_chat_history', 'mayumi_support_chat_topic'
-    ].forEach(function (key) {
+    前の方の持ち物_.forEach(function (key) {
       try { localStorage.removeItem(key); } catch (e) { /* 消せなくても続ける */ }
     });
     _profile = null;
