@@ -8,17 +8,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみアンケート" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260729-03" />
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20260729-03" sizes="180x180" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260729-03" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260729-03" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260814-05" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20260814-05" sizes="180x180" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260814-05" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260814-05" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <header class="app-header">
       <div class="brand">
-        <img src="./icons/apple-touch-icon.png?v=20260729-03" alt="まゆみ助産院" />
+        <img src="./icons/apple-touch-icon.png?v=20260814-05" alt="まゆみ助産院" />
         <div>
           <div class="brand-name">まゆみ助産院</div>
           <div class="brand-sub">アンケート回答アプリ</div>
@@ -26,77 +26,34 @@
       </div>
       <div class="header-actions">
         <button id="appUpdateButton" class="header-button" type="button">更新</button>
+        <!-- ログインしたままアプリを切り替えるための出口。
+             どの画面からでも押せるよう、上部の更新の隣に置いている。 -->
+        <button id="logoutButton" class="header-button" type="button">アプリ一覧</button>
         <button id="installButton" class="header-button" type="button" hidden>追加</button>
       </div>
     </header>
 
     <main>
+      <!-- ログインは入口（/start/）だけで行う。このアプリでは会員登録もパスコードも聞かない。
+           入口を通っていない方には、ここで登録のご案内だけをする。 -->
       <section id="page-login" class="page active">
         <section class="welcome-card">
           <p class="eyebrow">Member</p>
-          <h1>初めての方は会員登録してください</h1>
-          <p id="registrationLead">ホーム画面に追加したアプリから会員登録してください。</p>
+          <h1>入口からお入りください</h1>
+          <p id="registrationLead">
+            ビジリスの記録は、まゆみ助産院アプリにご登録いただいた方がご覧いただけます。
+          </p>
         </section>
 
         <section class="section-card">
-          <h2>会員登録 / 復旧</h2>
-          <form id="customerLoginForm" class="form-grid">
-            <label>
-              お名前(漢字・フルネーム)
-              <input name="name" type="text" autocomplete="name" required />
-            </label>
-            <label>
-              フリガナ(カタカナ)
-              <input name="nameKana" type="text" autocapitalize="characters" required />
-            </label>
-            <label>
-              パスコード(4桁または6桁の数字)
-              <input
-                name="passcode"
-                type="password"
-                inputmode="numeric"
-                autocomplete="current-password"
-                placeholder="お持ちの方のみ"
-              />
-            </label>
-            <button class="primary-button" type="submit" id="customerRegisterButton">会員登録 / ログイン</button>
-            <button class="secondary-button" type="button" id="recoverAccountButton">パスコードを忘れた方・初めて設定する方</button>
-          </form>
-
-          <div id="passcodeRecoveryPanel" hidden>
-            <h3>パスコードの設定・再設定</h3>
-            <p class="hint">
-              ご登録の会員情報と照合します。生年月日と、お名前またはフリガナが一致すると、
-              新しいパスコードを設定できます。<br />
-              照合できない場合は、受付でスタッフにお申し出ください。スタッフが再設定を許可すると、
-              生年月日なしでこの画面から設定できます。
-            </p>
-            <form id="passcodeRecoveryForm" class="form-grid">
-              <label>
-                お名前(漢字・フルネーム)
-                <input name="name" type="text" autocomplete="name" />
-              </label>
-              <label>
-                フリガナ(カタカナ)
-                <input name="nameKana" type="text" autocapitalize="characters" />
-              </label>
-              <label>
-                生年月日
-                <input name="birthday" type="date" />
-              </label>
-              <label>
-                新しいパスコード(4桁または6桁の数字)
-                <input
-                  name="newPasscode"
-                  type="password"
-                  inputmode="numeric"
-                  autocomplete="new-password"
-                  required
-                />
-              </label>
-              <button class="primary-button" type="submit">設定する</button>
-            </form>
-          </div>
+          <h2>ご登録がお済みでない方へ</h2>
+          <p class="hint">
+            ご登録いただくと、これまでの計測記録とアンケートの回答をいつでも見返していただけます。<br />
+            ご登録はお名前と生年月日、パスコードだけで1分ほどです。
+          </p>
+          <a class="primary-button" href="../../start/" style="display:inline-block;text-align:center;text-decoration:none;">
+            登録・ログインへ進む
+          </a>
         </section>
       </section>
 
@@ -107,22 +64,6 @@
           <p>ログイン後、回答したいアンケートを押してください。</p>
         </section>
 
-        <section class="section-card">
-          <h2>お客様情報</h2>
-          <form id="customerForm" class="form-grid">
-            <label>
-              お名前(漢字・フルネーム)
-              <input name="name" type="text" autocomplete="name" required />
-            </label>
-            <label>
-              フリガナ(カタカナ)
-              <input name="nameKana" type="text" autocapitalize="characters" required />
-            </label>
-            <button class="primary-button" type="submit">保存する</button>
-          </form>
-          <button id="logoutButton" class="secondary-button logout-button" type="button">ログアウト</button>
-          <p class="logout-note">入口の画面に戻り、他のアプリに切り替えられます。この端末の記録は消えません。</p>
-        </section>
 
         <section class="section-card">
           <div class="section-head">
@@ -183,17 +124,6 @@
         <section class="section-card">
           <div class="section-head">
             <div>
-              <h2>通知設定</h2>
-              <p id="pushHelpText">豆知識の追加や更新を通知で受け取れます。</p>
-            </div>
-            <button id="pushToggleButton" class="ghost-button" type="button">通知オフ</button>
-          </div>
-          <div id="pushStatusText" class="member-info-card notification-status-card"></div>
-        </section>
-
-        <section class="section-card">
-          <div class="section-head">
-            <div>
               <h1>豆知識</h1>
               <p>豆知識やアドバイス、資料を確認できます。</p>
             </div>
@@ -225,9 +155,9 @@
       </button>
     </nav>
 
-    <script src="../default-surveys.js?v=20260729-03"></script>
+    <script src="../default-surveys.js?v=20260814-05"></script>
     <script src="../shared/gas-config.js?v=20260417-13"></script>
-    <script src="../shared/api.js?v=20260729-03"></script>
-    <script src="./app.js?v=20260729-03"></script>
+    <script src="../shared/api.js?v=20260814-05"></script>
+    <script src="./app.js?v=20260814-05"></script>
   </body>
 </html>

@@ -1240,27 +1240,15 @@
 </head>
 
 <body>
-  <div id="admin-login-overlay" aria-hidden="true"
-    style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.98); z-index:9999; display:none; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);">
-    <div
-      style="width:90%; max-width:380px; padding:40px 30px; background:#fff; border-radius:24px; box-shadow:0 20px 60px rgba(0,0,0,0.1); text-align:center;">
-      <div style="font-size:48px; margin-bottom:20px;">🔒</div>
-      <h2 style="margin-bottom:10px; font-family:'Zen Old Mincho', serif; border-bottom:none;">管理者認証</h2>
-      <p style="font-size:13px; color:#666; margin-bottom:25px;">パスワードを入力してください</p>
-      <input type="password" id="admin-password-input" placeholder="パスワード"
-        style="width:100%; padding:14px; border:1px solid #ddd; border-radius:12px; margin-bottom:15px; font-size:16px; text-align:center;">
-      <button id="admin-login-btn" class="btn"
-        style="width:100%; padding:14px; font-size:15px; font-weight:700; border-radius:12px; background:#5a7a4e; color:white; border:none; cursor:pointer;">ログイン</button>
-      <p id="admin-login-error" style="color:#d32f2f; font-size:12px; margin-top:15px; display:none;">パスワードが正しくありません</p>
-    </div>
-  </div>
+  <!-- ログインは入口（/start/）だけで行う。このアプリでは認証画面を持たない。
+       期限切れや未ログインのときは showLauncherRequired() が入口へご案内する。 -->
 
   <header>
     <h1>まゆみ助産院 管理画面</h1>
     <div class="header-actions">
       <button id="installAdminBtn" class="settings-btn install-btn" onclick="openAdminInstallGuide()">📲 追加</button>
       <button class="settings-btn" onclick="openSettings()">⚙ 初期設定</button>
-      <button class="settings-btn logout-btn" onclick="adminLogout()">ログアウト</button>
+      <button class="settings-btn logout-btn" onclick="goToAppList()">アプリ一覧</button>
     </div>
   </header>
 
@@ -3260,11 +3248,8 @@
         <label>危険操作用PIN（4〜8桁、空欄なら未設定）</label>
         <input type="password" id="adminActionPinInput" inputmode="numeric" placeholder="例：1234">
       </div>
-      <div class="form-group" style="margin-bottom:15px;">
-        <label>管理画面ログインパスワード（変更する場合のみ入力）</label>
-        <input type="password" id="adminLoginPasswordInput" placeholder="新しいパスワードを入力">
-        <p style="font-size:10px; color:var(--text-mid); margin-top:4px;">※変更して保存すると、次回ログイン時から新しいパスワードが必要になります。</p>
-      </div>
+      <!-- 「管理画面ログインパスワード」はここから削除した。
+           ログインは入口（/start/）だけで行うため、このアプリには次のログインが無い。 -->
       <div class="flex" style="gap: 10px;">
         <button class="btn" onclick="saveSettings()" style="flex:1;">保存</button>
         <button class="btn btn-outline" onclick="resetGasUrlToDefault()"
@@ -4974,7 +4959,6 @@
       document.getElementById('adminRoleModeInput').value = (adminSecurityConfig && adminSecurityConfig.roleMode) || 'owner';
       document.getElementById('adminOperatorNameInput').value = (adminSecurityConfig && adminSecurityConfig.operatorName) || '管理者';
       document.getElementById('adminActionPinInput').value = (adminSecurityConfig && adminSecurityConfig.actionPin) || '';
-      document.getElementById('adminLoginPasswordInput').value = ''; // 常に空で開く
       document.getElementById('settingsModal').classList.add('active');
     }
 
@@ -4991,21 +4975,7 @@
         actionPin: document.getElementById('adminActionPinInput').value
       };
 
-      const newPass = document.getElementById('adminLoginPasswordInput').value.trim();
-      if (newPass) {
-        // パスワードをハッシュ化して設定に追加
-        async function sha256(str) {
-          const msgBuffer = new TextEncoder().encode(str);
-          const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        }
-        securityConfig.loginHash = await sha256(newPass);
-        adminPresenceAuthPassword = newPass;
-        try {
-          sessionStorage.setItem(ADMIN_AUTH_PASSWORD_SESSION_KEY, newPass);
-        } catch (error) { }
-      }
+      // 管理画面ログインパスワードの設定はここにあったが、認証画面ごと廃止した。
 
       if (compareAdminVersions(runtimeConfig.minimumSupportedVersion, '0.0.0') > 0 && !runtimeConfig.iosStoreUrl) {
         showToast('最低対応バージョンを設定する場合は App Store URL も入力してください');
@@ -11104,16 +11074,42 @@
 
     // 入口へ戻ってアプリを切り替えるための出口。
     // 保存している設定や表示内容には触らず、ログイン状態だけを解く。
-    function adminLogout() {
-      const ok = window.confirm('ログアウトして入口の画面に戻ります。\n設定や表示の内容は消えません。');
-      if (!ok) return;
-      setAdminAuthToken('');
-      // 入口が持っている共通のログイン状態も解いておく
-      try {
-        localStorage.removeItem('mayumi_launcher_session');
-        localStorage.removeItem('mayumi_member_auth_token');
-      } catch (e) { /* プライベートモードでは触れない */ }
+    function goToAppList() {
       location.href = '../start/';
+    }
+
+    // 管理者として通っていない（または期限が切れた）とき。
+    // ここでパスワードを聞き直さず、入口へお戻りいただく。
+    let launcherRequiredShown = false;
+    function showLauncherRequired() {
+      if (launcherRequiredShown) return;
+      launcherRequiredShown = true;
+      const overlay = document.createElement('div');
+      overlay.style.cssText =
+        'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;' +
+        'padding:24px;background:#fff;';   // 透けさせない。未ログインの方に管理画面を見せない。
+      const card = document.createElement('div');
+      card.style.cssText =
+        'max-width:340px;text-align:center;font-size:15px;line-height:1.8;color:#333;';
+      const title = document.createElement('div');
+      title.style.cssText = 'font-size:18px;font-weight:700;margin-bottom:12px;';
+      title.textContent = '入口からお入りください';
+      const body = document.createElement('p');
+      body.style.cssText = 'margin:0 0 20px;';
+      body.textContent = 'ログインの期限が切れているか、まだログインされていません。'
+        + 'アプリ一覧の画面からもう一度お入りください。';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'アプリ一覧へ';
+      button.style.cssText =
+        'padding:12px 28px;font-size:15px;border:0;border-radius:8px;cursor:pointer;' +
+        'background:#8a9e7e;color:#fff;';
+      button.addEventListener('click', goToAppList);
+      card.appendChild(title);
+      card.appendChild(body);
+      card.appendChild(button);
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
     }
 
     function isAdminAuthError(json) {
@@ -11122,62 +11118,6 @@
              message.indexOf('管理者認証が未設定') >= 0;
     }
 
-    // トークンが無い／切れたときに出すログイン画面。
-    // 解決するまで待たせることで、後続の処理が壊れないようにする。
-    function showAdminLogin(note) {
-      const existing = document.getElementById('adminAuthOverlay');
-      if (existing) return existing.__promise;
-
-      const overlay = document.createElement('div');
-      overlay.id = 'adminAuthOverlay';
-      overlay.style.cssText =
-        'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;' +
-        'justify-content:center;z-index:99999;padding:20px;';
-      overlay.innerHTML =
-        '<form style="background:#fff;border-radius:14px;padding:24px;max-width:360px;width:100%;">' +
-        '<h2 style="margin:0 0 8px;font-size:18px;">管理者ログイン</h2>' +
-        '<p style="margin:0 0 16px;font-size:13px;color:#555;">' +
-        (note || 'パスワードを入力してください。') + '</p>' +
-        '<input type="password" id="adminAuthPassword" autocomplete="current-password" ' +
-        'style="width:100%;padding:12px;font-size:16px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;" />' +
-        '<p id="adminAuthError" style="color:#c0392b;font-size:13px;min-height:18px;margin:8px 0 0;"></p>' +
-        '<button type="submit" style="margin-top:8px;width:100%;padding:12px;font-size:16px;border:0;' +
-        'border-radius:8px;background:#5b8c5a;color:#fff;">ログイン</button>' +
-        '</form>';
-      document.body.appendChild(overlay);
-
-      overlay.__promise = new Promise((resolve) => {
-        const form = overlay.querySelector('form');
-        const errorEl = overlay.querySelector('#adminAuthError');
-        const input = overlay.querySelector('#adminAuthPassword');
-        input.focus();
-        form.addEventListener('submit', async (event) => {
-          event.preventDefault();
-          errorEl.textContent = '';
-          try {
-            const res = await fetch(GAS_URL, {
-              method: 'POST',
-              redirect: 'follow',
-              headers: { 'Content-Type': 'text/plain' },
-              body: JSON.stringify({ type: 'adminLogin', password: input.value })
-            });
-            const json = await res.json();
-            if (json && json.status === 'ok' && json.token) {
-              setAdminAuthToken(json.token);
-              overlay.remove();
-              resolve(true);
-              return;
-            }
-            errorEl.textContent = (json && json.message) || 'ログインできませんでした。';
-          } catch (e) {
-            errorEl.textContent = '通信に失敗しました。';
-          }
-          input.value = '';
-          input.focus();
-        });
-      });
-      return overlay.__promise;
-    }
 
     async function apiRequest(action, data = null, isPost = false) {
       if (!GAS_URL) {
@@ -11223,23 +11163,15 @@
             const res = await fetch(url, options);
             let json = await res.json();
 
-            // トークンが無い／期限切れならログインしてもらい、一度だけやり直す。
+            // トークンが無い／期限切れのとき。
+            // 一度も入口を通っていない場合は、そちらへ案内する（二重に聞かない）。
+            // 期限切れなど、すでにトークンを持っていた場合だけパスワードで入り直せる。
+            // 認証は入口の画面に一本化した。ここではパスワードを聞かず、
+            // 入口へ戻っていただく。
             if (isAdminAuthError(json)) {
               setAdminAuthToken('');
-              await showAdminLogin('セッションが切れました。パスワードを入力してください。');
-              const retryToken = getAdminAuthToken();
-              let retryUrl = baseUrl;
-              const retryOptions = { redirect: 'follow' };
-              if (isPost) {
-                retryOptions.method = 'POST';
-                retryOptions.body = JSON.stringify(Object.assign({}, data, { token: retryToken }));
-                retryOptions.headers = { 'Content-Type': 'text/plain' };
-              } else {
-                retryUrl += '?action=' + action;
-                if (data) retryUrl += '&data=' + encodeURIComponent(JSON.stringify(data));
-                if (retryToken) retryUrl += '&token=' + encodeURIComponent(retryToken);
-              }
-              json = await (await fetch(retryUrl, retryOptions)).json();
+              showLauncherRequired();
+              return null;
             }
             if (!isPost && json && json.status === 'ok') {
               writeAdminApiCache(action, data, json);
@@ -13711,19 +13643,9 @@
 
     installAdminActionSafetyGuards();
 
-    // 管理者認証を無効化し、画面をそのまま開けるようにする
-    (function () {
-      const LS_KEY = 'admin_auth_authenticated';
-      const overlay = document.getElementById('admin-login-overlay');
-      try {
-        localStorage.setItem(LS_KEY, 'true');
-      } catch (error) { }
-      if (overlay) {
-        overlay.style.display = 'none';
-        overlay.style.opacity = '0';
-        overlay.setAttribute('aria-hidden', 'true');
-      }
-    })();
+    // 以前ここに「認証画面を隠す」処理があったが、認証画面ごと削除したため不要になった。
+    // 古い端末に残っている認証済みの印だけ、掃除しておく。
+    try { localStorage.removeItem('admin_auth_authenticated'); } catch (error) { }
 
   </script>
 

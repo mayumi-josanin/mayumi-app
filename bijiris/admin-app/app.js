@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v100";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v102";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -1195,7 +1195,6 @@ const measurementPhotoDialogTitle = document.querySelector("#measurementPhotoDia
 const measurementPhotoDialogMeta = document.querySelector("#measurementPhotoDialogMeta");
 const measurementPhotoDialogBody = document.querySelector("#measurementPhotoDialogBody");
 const loginForm = document.querySelector("#loginForm");
-const credentialForm = document.querySelector("#credentialForm");
 const appUpdateButton = document.querySelector("#appUpdateButton");
 const installButton = document.querySelector("#installButton");
 const loginSubmitButton = document.querySelector("#loginSubmitButton");
@@ -1764,9 +1763,10 @@ function setLoggedIn(loggedIn) {
   adminView.hidden = !loggedIn;
   if (loggedIn) {
     setPage("dashboard");
-    loginForm.reset();
   }
-  loginSubmitButton.textContent = "ログイン";
+  // ログイン用のフォームは入口の画面へ移したので、ここには無いことがある。
+  if (loginForm) loginForm.reset();
+  if (loginSubmitButton) loginSubmitButton.textContent = "ログイン";
 }
 
 function getMemoEntryTime(value) {
@@ -1811,35 +1811,61 @@ function getFallbackSurveys() {
   return typeof makeSurveys === "function" ? makeSurveys(new Date().toISOString()) : [];
 }
 
+// 起動時に必要なものを取ってくる。
+// Apps Script は同じスクリプトへの同時呼び出しを順番待ちにするので、
+// 8回に分けて頼むと、その待ち時間がそのまま積み上がる。まず1回でまとめて頼む。
+async function fetchAdminBundle() {
+  try {
+    const bundle = await api.request("/api/admin/bootstrap", { token: state.token });
+    if (bundle && bundle.info) {
+      return {
+        info: bundle.info,
+        surveys: bundle.surveys || [],
+        responses: bundle.responses || [],
+        measurements: bundle.measurements || [],
+        bijirisPosts: bundle.bijirisPosts || [],
+        preferences: bundle.preferences || null,
+        customerMemos: bundle.customerMemos || {},
+        ticketSurvey: bundle.ticketSurvey || null,
+      };
+    }
+  } catch (error) {
+    // まとめて取る窓口がまだ無いサーバーもある。その場合は下のやり方に戻す。
+  }
+
+  const [info, surveys, responses, measurements, bijirisPosts, preferences, customerMemos, ticketSurvey] =
+    await Promise.all([
+      api.request("/api/admin/info", { token: state.token }),
+      api.request("/api/admin/surveys", { token: state.token }),
+      api.request("/api/admin/responses", { token: state.token }),
+      api.request("/api/admin/measurements", { token: state.token }),
+      api.request("/api/admin/bijiris-posts", { token: state.token }),
+      api.request("/api/admin/preferences", { token: state.token }),
+      api.request("/api/admin/customer-memos", { token: state.token }),
+      // 回数券分析は補助機能なので、取得に失敗しても他の画面は表示できるようにする。
+      api.request("/api/admin/ticket-survey", { token: state.token }).catch(() => null),
+    ]);
+  return {
+    info: info || null,
+    surveys: surveys?.surveys || [],
+    responses: responses?.responses || [],
+    measurements: measurements?.measurements || [],
+    bijirisPosts: bijirisPosts?.posts || [],
+    preferences: preferences?.preferences || null,
+    customerMemos: customerMemos?.memos || {},
+    ticketSurvey: ticketSurvey || null,
+  };
+}
+
 async function loadAdminData() {
-  const [
-    adminInfoResult,
-    surveysResult,
-    responsesResult,
-    measurementsResult,
-    bijirisPostsResult,
-    preferencesResult,
-    customerMemosResult,
-    ticketSurveyResult,
-  ] = await Promise.all([
-    api.request("/api/admin/info", { token: state.token }),
-    api.request("/api/admin/surveys", { token: state.token }),
-    api.request("/api/admin/responses", { token: state.token }),
-    api.request("/api/admin/measurements", { token: state.token }),
-    api.request("/api/admin/bijiris-posts", { token: state.token }),
-    api.request("/api/admin/preferences", { token: state.token }),
-    api.request("/api/admin/customer-memos", { token: state.token }),
-    // 回数券分析は補助機能なので、取得に失敗しても他の画面は表示できるようにする。
-    api.request("/api/admin/ticket-survey", { token: state.token }).catch(() => null),
-  ]);
-  state.ticketSurvey = ticketSurveyResult || state.ticketSurvey;
-  state.adminInfo = adminInfoResult || null;
+  const bundle = await fetchAdminBundle();
+
+  state.ticketSurvey = bundle.ticketSurvey || state.ticketSurvey;
+  state.adminInfo = bundle.info;
   state.customerProfiles = indexCustomerProfiles(state.adminInfo?.customerProfiles);
-  state.surveys = (surveysResult.surveys || []).length
-    ? surveysResult.surveys || []
-    : getFallbackSurveys();
+  state.surveys = bundle.surveys.length ? bundle.surveys : getFallbackSurveys();
   const visibleSurveyIds = getVisibleSurveyIdSet();
-  state.responses = (responsesResult.responses || [])
+  state.responses = bundle.responses
     .map((response) => ({
       status: "new",
       adminMemo: "",
@@ -1848,14 +1874,14 @@ async function loadAdminData() {
     .filter((response) =>
       !visibleSurveyIds.size || visibleSurveyIds.has(String(response?.surveyId || "").trim()),
     );
-  state.measurements = Array.isArray(measurementsResult?.measurements)
-    ? measurementsResult.measurements.map(normalizeMeasurementRecord)
+  state.measurements = Array.isArray(bundle.measurements)
+    ? bundle.measurements.map(normalizeMeasurementRecord)
     : [];
-  state.bijirisPosts = Array.isArray(bijirisPostsResult?.posts)
-    ? bijirisPostsResult.posts.map(normalizeBijirisPost).filter((post) => post.id)
+  state.bijirisPosts = Array.isArray(bundle.bijirisPosts)
+    ? bundle.bijirisPosts.map(normalizeBijirisPost).filter((post) => post.id)
     : [];
-  state.preferences = preferencesResult?.preferences || null;
-  state.customerMemos = customerMemosResult?.memos || {};
+  state.preferences = bundle.preferences;
+  state.customerMemos = bundle.customerMemos;
   state.adminUsers = Array.isArray(state.adminInfo?.adminUsers) ? state.adminInfo.adminUsers : [];
   if (!state.selectedAnalyticsSurveyId && state.surveys[0]) {
     state.selectedAnalyticsSurveyId = state.surveys[0].id;
@@ -5947,28 +5973,16 @@ function groupByCustomerFrom(responses) {
 }
 
 function renderSettings() {
-  const credentialInfo = document.querySelector("#credentialInfo");
   const storageInfo = document.querySelector("#storageInfo");
   const pushStatusInfo = document.querySelector("#pushStatusInfo");
   const preferencesCard = document.querySelector("#preferencesCard");
-  const adminUsersCard = document.querySelector("#adminUsersCard");
   const versionInfo = document.querySelector("#versionInfo");
   const backupMetaInfo = document.querySelector("#backupMetaInfo");
   if (!state.adminInfo) {
-    credentialInfo.textContent = "認証情報を読み込み中です。";
     storageInfo.innerHTML = `<div class="empty">保存先情報を読み込み中です。</div>`;
     if (pushStatusInfo) pushStatusInfo.innerHTML = `<div class="empty">通知設定を読み込み中です。</div>`;
     return;
   }
-
-  if (!credentialForm.dataset.dirty) {
-    credentialForm.elements.loginId.value = state.adminInfo.adminUsername || "";
-  }
-
-  credentialInfo.innerHTML = `
-    現在のログインID: ${escapeHtml(state.adminInfo.adminUsername || "")}<br />
-    パスワードは入力した場合のみ変更します。
-  `;
 
   const spreadsheetLink = state.adminInfo.spreadsheetUrl
     ? `<a href="${escapeHtml(state.adminInfo.spreadsheetUrl)}" target="_blank" rel="noopener">
@@ -6144,98 +6158,8 @@ function renderSettings() {
     });
   }
 
-  if (adminUsersCard) {
-    const users = Array.isArray(state.adminUsers) && state.adminUsers.length
-      ? state.adminUsers
-      : [{ id: "", username: "", email: "", active: true }];
-    adminUsersCard.innerHTML = `
-      <form id="adminUsersForm" class="stack">
-        <div id="adminUsersList" class="stack">
-          ${users
-            .map(
-              (user, index) => `
-                <article class="answer-item admin-user-item" data-admin-user-id="${escapeHtml(user.id || "")}">
-                  <strong>管理者 ${index + 1}</strong>
-                  <div class="survey-question-grid">
-                    <label>
-                      ログインID
-                      <input name="username" type="text" value="${escapeHtml(user.username || "")}" required />
-                    </label>
-                    <label>
-                      通知メール
-                      <input name="email" type="email" value="${escapeHtml(user.email || "")}" />
-                    </label>
-                  </div>
-                  <div class="survey-question-grid">
-                    <label>
-                      パスワード
-                      <input name="password" type="password" placeholder="${user.id ? "変更時のみ入力" : "4文字以上"}" />
-                    </label>
-                    <label class="inline-toggle">
-                      <input name="active" type="checkbox" ${user.active === false ? "" : "checked"} />
-                      有効
-                    </label>
-                  </div>
-                  <button class="secondary-button" type="button" data-remove-admin-user>削除</button>
-                </article>
-              `,
-            )
-            .join("")}
-        </div>
-        <div class="action-row">
-          <button id="addAdminUserButton" class="secondary-button" type="button">管理者を追加</button>
-          <button class="primary-button" type="submit">管理者を保存</button>
-        </div>
-      </form>
-    `;
-    adminUsersCard.onclick = (event) => {
-      const addButton = event.target.closest("#addAdminUserButton");
-      if (addButton) {
-        document.querySelector("#adminUsersList")?.insertAdjacentHTML(
-          "beforeend",
-          `
-            <article class="answer-item admin-user-item" data-admin-user-id="">
-              <strong>管理者 追加</strong>
-              <div class="survey-question-grid">
-                <label>
-                  ログインID
-                  <input name="username" type="text" value="" required />
-                </label>
-                <label>
-                  通知メール
-                  <input name="email" type="email" value="" />
-                </label>
-              </div>
-              <div class="survey-question-grid">
-                <label>
-                  パスワード
-                  <input name="password" type="password" placeholder="4文字以上" />
-                </label>
-                <label class="inline-toggle">
-                  <input name="active" type="checkbox" checked />
-                  有効
-                </label>
-              </div>
-              <button class="secondary-button" type="button" data-remove-admin-user>削除</button>
-            </article>
-          `,
-        );
-        return;
-      }
-      const removeButton = event.target.closest("[data-remove-admin-user]");
-      if (!removeButton) return;
-      const items = adminUsersCard.querySelectorAll(".admin-user-item");
-      if (items.length <= 1) {
-        showToast("管理者アカウントは1件以上必要です。");
-        return;
-      }
-      removeButton.closest(".admin-user-item")?.remove();
-    };
-    adminUsersCard.querySelector("#adminUsersForm")?.addEventListener("submit", (event) => {
-      event.preventDefault();
-      void saveAdminUsers(event.currentTarget);
-    });
-  }
+  // 「管理者アカウント一覧」はここにあったが、ログインを入口の画面に
+  // 一本化したため廃止した。ここで足しても消しても、もう入口には効かない。
 
   if (versionInfo) {
     versionInfo.innerHTML = `
@@ -8419,28 +8343,9 @@ async function savePushConfig(form) {
   }
 }
 
-async function saveAdminUsers(form) {
-  const items = Array.from(form.querySelectorAll(".admin-user-item")).map((item) => ({
-    id: item.dataset.adminUserId || "",
-    username: String(item.querySelector('[name="username"]')?.value || "").trim(),
-    password: String(item.querySelector('[name="password"]')?.value || "").trim(),
-    email: String(item.querySelector('[name="email"]')?.value || "").trim(),
-    active: Boolean(item.querySelector('[name="active"]')?.checked),
-  }));
-  try {
-    const result = await api.request("/api/admin/users", {
-      method: "PUT",
-      token: state.token,
-      body: { adminUsers: items },
-    });
-    state.adminUsers = result.adminUsers || state.adminUsers;
-    state.adminInfo = state.adminInfo ? { ...state.adminInfo, adminUsers: state.adminUsers } : state.adminInfo;
-    showToast("管理者アカウントを保存しました。");
-    renderSettings();
-  } catch (error) {
-    showToast(error.message || "管理者アカウントを保存できませんでした。");
-  }
-}
+// 管理者アカウントを保存する処理もここにあったが、一覧の画面と一緒に廃止した。
+// バックアップの読み書き（adminUsers の項目）は、古いバックアップを
+// 復元できなくなると困るのでそのまま残してある。
 
 async function runMaintenanceNow() {
   try {
@@ -8597,74 +8502,20 @@ function setupInstall() {
   });
 }
 
-loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const formData = new FormData(event.currentTarget);
-  const button = event.currentTarget.querySelector('button[type="submit"]');
-  button.disabled = true;
-  button.textContent = "確認中";
-  try {
-    const result = await api.request("/api/admin/login", {
-      method: "POST",
-      body: {
-        loginId: String(formData.get("loginId") || ""),
-        password: String(formData.get("password") || ""),
-      },
-    });
-    state.token = result.token;
-    localStorage.setItem(TOKEN_KEY, state.token);
-    setLoggedIn(true);
-    await loadAdminData();
-    showToast("ログインしました。");
-  } catch (error) {
-    showToast(error.message || "ログインできませんでした。");
-  } finally {
-    button.disabled = false;
-    button.textContent = "ログイン";
-  }
-});
+// このアプリでのID・パスワードによるログインは廃止した。
+// 入口の画面でログインすると、あちらが合鍵（TOKEN_KEY）を置いてくれる。
+// ここではその合鍵を読むだけで、認証は一切行わない。
 
-credentialForm.addEventListener("input", () => {
-  credentialForm.dataset.dirty = "true";
-});
+// 設定画面にあった「管理者ログイン（ログインID・パスワードの変更）」も一緒に廃止した。
+// ログインしなくなった以上、ここで変えても何にも使われず、紛らわしいだけになる。
 
-credentialForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const formData = new FormData(event.currentTarget);
-  const button = event.currentTarget.querySelector('button[type="submit"]');
-  button.disabled = true;
-  button.textContent = "保存中";
-  try {
-    const result = await api.request("/api/admin/credentials", {
-      method: "PUT",
-      token: state.token,
-      body: {
-        loginId: String(formData.get("loginId") || ""),
-        password: String(formData.get("password") || ""),
-      },
-    });
-    state.adminInfo = result.adminInfo || state.adminInfo;
-    state.customerProfiles = indexCustomerProfiles(state.adminInfo?.customerProfiles);
-    state.adminUsers = Array.isArray(state.adminInfo?.adminUsers) ? state.adminInfo.adminUsers : state.adminUsers;
-    credentialForm.dataset.dirty = "";
-    credentialForm.reset();
-    renderSettings();
-    showToast("管理者認証を更新しました。");
-  } catch (error) {
-    showToast(error.message || "認証情報を更新できませんでした。");
-  } finally {
-    button.disabled = false;
-    button.textContent = "保存";
-  }
-});
+// アプリを切り替えるための出口。ログイン状態は保ったままにする。
+// ログインを解きたいときは、入口の画面のログアウトを使う。
+// まゆみ助産院アプリと同じ場所に置かれているので、2つ上が入口。
+const LAUNCHER_PAGE_URL = "../../start/";
 
 document.querySelector("#logoutButton").addEventListener("click", () => {
-  state.token = "";
-  state.adminInfo = null;
-  state.customerProfiles = {};
-  localStorage.removeItem(TOKEN_KEY);
-  void api.logout?.();
-  setLoggedIn(false);
+  location.href = LAUNCHER_PAGE_URL;
 });
 
 document.querySelector("#refreshButton").addEventListener("click", () => {
@@ -8750,7 +8601,7 @@ if (state.token) {
     localStorage.removeItem(TOKEN_KEY);
     state.token = "";
     setLoggedIn(false);
-    showToast(error.message || "再ログインしてください。");
+    showToast(error.message || "入口の画面からお入りください。");
   });
 }
 

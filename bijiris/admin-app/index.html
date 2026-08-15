@@ -8,29 +8,26 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260729-03" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260729-03" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260729-03" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260729-03" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260814-06" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260814-06" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260814-06" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260814-06" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+    <!-- 認証は入口の画面に一本化した。ここではIDやパスワードを聞かず、
+         入口を通っていない方には、そちらへお戻りいただく。 -->
     <section id="loginView" class="login-view">
-      <form id="loginForm" class="login-card">
+      <div class="login-card">
         <img src="./icons/icon-192.png" alt="まゆみ助産院" />
-        <h1>管理者認証</h1>
-        <p>アンケート回答を確認・管理します。</p>
-        <label>
-          ログインID
-          <input name="loginId" type="text" autocomplete="username" required />
-        </label>
-        <label>
-          パスワード
-          <input name="password" type="password" autocomplete="current-password" required />
-        </label>
-        <button id="loginSubmitButton" class="primary-button" type="submit">ログイン</button>
-      </form>
+        <h1>入口からお入りください</h1>
+        <p>
+          ログインの期限が切れているか、まだログインされていません。
+          アプリ一覧の画面からもう一度お入りください。
+        </p>
+        <a class="primary-button" href="../../start/">アプリ一覧へ</a>
+      </div>
     </section>
 
     <section id="adminView" class="admin-view" hidden>
@@ -40,7 +37,7 @@
           <button id="appUpdateButton" class="header-button" type="button">アプリ更新</button>
           <button id="installButton" class="header-button" type="button" hidden>追加</button>
           <button id="refreshButton" class="header-button" type="button">更新</button>
-          <button id="logoutButton" class="header-button" type="button">ログアウト</button>
+          <button id="logoutButton" class="header-button" type="button">アプリ一覧</button>
         </div>
       </header>
 
@@ -171,7 +168,7 @@
                 </label>
                 <label>
                   フリガナ
-                  <input id="nameKanaFilter" type="search" placeholder="カタカナで絞り込み" />
+                  <input id="nameKanaFilter" type="search" placeholder="ふりがなで絞り込み" />
                 </label>
                 <label>
                   管理メモ
@@ -338,28 +335,8 @@
           <section id="page-settings" class="page">
             <h2>設定</h2>
             <div class="grid-two settings-grid">
-              <section class="card">
-                <div class="card-title">管理者ログイン</div>
-                <p>ログインIDは現在値を読み込みます。パスワードは入力した場合のみ更新します。</p>
-                <form id="credentialForm" class="stack">
-                  <label>
-                    ログインID
-                    <input name="loginId" type="text" autocomplete="username" required />
-                  </label>
-                  <label>
-                    新しいパスワード
-                    <input
-                      name="password"
-                      type="password"
-                      autocomplete="new-password"
-                      placeholder="変更時のみ入力"
-                    />
-                  </label>
-                  <button class="primary-button" type="submit">保存</button>
-                </form>
-                <div id="credentialInfo" class="url-box"></div>
-              </section>
-
+              <!-- 「管理者ログイン（ID・パスワードの変更）」はここにあったが、
+                   ログイン自体を入口の画面に一本化したため廃止した。 -->
               <section class="card">
                 <div class="card-title">保存先情報</div>
                 <div id="storageInfo" class="stack"></div>
@@ -367,10 +344,8 @@
               </section>
             </div>
             <div class="grid-two settings-grid">
-              <section class="card">
-                <div class="card-title">管理者アカウント一覧</div>
-                <div id="adminUsersCard"></div>
-              </section>
+              <!-- 「管理者アカウント一覧」はここにあったが、ログインを
+                   入口の画面に一本化したため廃止した。 -->
               <section class="card">
                 <div class="card-title">豆知識通知設定</div>
                 <div id="pushStatusInfo" class="stack"></div>
@@ -454,9 +429,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260729-03"></script>
+    <script src="../default-surveys.js?v=20260814-06"></script>
     <script src="../shared/gas-config.js?v=20260417-12"></script>
-    <script src="../shared/api.js?v=20260729-03"></script>
-    <script src="./app.js?v=20260729-03"></script>
+    <script src="../shared/api.js?v=20260814-06"></script>
+    <script src="./app.js?v=20260814-06"></script>
   </body>
 </html>

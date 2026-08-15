@@ -15,7 +15,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v124";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v126";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 const DEFAULT_ONESIGNAL_APP_ID = "88023099-c99e-44c6-9f7c-2ef08d363768";
@@ -418,13 +418,10 @@ const bijirisPanel = document.querySelector("#bijirisPanel");
 const homeTicketStatus = document.querySelector("#homeTicketStatus");
 const homeCampaignStatus = document.querySelector("#homeCampaignStatus");
 const homeMilestoneReward = document.querySelector("#homeMilestoneReward");
-const customerLoginForm = document.querySelector("#customerLoginForm");
 const customerForm = document.querySelector("#customerForm");
 const appUpdateButton = document.querySelector("#appUpdateButton");
 const installButton = document.querySelector("#installButton");
 const registrationLead = document.querySelector("#registrationLead");
-const customerRegisterButton = document.querySelector("#customerRegisterButton");
-const recoverAccountButton = document.querySelector("#recoverAccountButton");
 const bottomNav = document.querySelector("#bottomNav");
 const measurementRefreshButton = document.querySelector("#measurementRefreshButton");
 const bijirisRefreshButton = document.querySelector("#bijirisRefreshButton");
@@ -809,17 +806,23 @@ function buildHistorySearchParams(profile, options = {}) {
   return params;
 }
 
+// ふりがなはひらがなで登録していただく方針。
+// 以前の登録はカタカナのまま残っているため、どちらでも通す。
 function isKatakanaName(value) {
-  return /^[ァ-ヶー・ヴ　]+$/.test(String(value || ""));
+  return /^[ぁ-ゖァ-ヶー・ヴ　]+$/.test(String(value || ""));
 }
 
+// 入口（/start/）を通っていれば、そこで本人確認は済んでいる。
+// フリガナは会員165名中34名しか登録が無いため、ここで必須にすると
+// 大半の方が「ログインしていない」扱いになってしまう。お名前だけで判定する。
 function hasCustomerSession() {
-  return Boolean(appState.customer.name && appState.customer.nameKana);
+  return Boolean(appState.customer.name);
 }
 
 function getCustomerDisplayName() {
   if (!hasCustomerSession()) return "";
-  return `${appState.customer.name}（${appState.customer.nameKana}）`;
+  const kana = appState.customer.nameKana;
+  return kana ? `${appState.customer.name}（${kana}）` : appState.customer.name;
 }
 
 function getCustomerMemberNumber() {
@@ -1151,18 +1154,9 @@ function applyLaunchRouteIfPossible() {
   return true;
 }
 
-function renderRegistrationGuide() {
-  const canRegister = canRegisterFromThisContext();
-  if (registrationLead) {
-    registrationLead.textContent = canRegister
-      ? "このアプリから会員登録してください。登録後は回答履歴もそのまま確認できます。"
-      : "ブラウザでは初回会員登録を行わず、ホーム画面に追加したアプリから会員登録してください。";
-  }
-  if (customerRegisterButton) {
-    customerRegisterButton.disabled = !canRegister;
-    customerRegisterButton.textContent = canRegister ? "会員登録する" : "ホーム画面アプリで会員登録";
-  }
-}
+// このアプリでは会員登録をしなくなったので、案内文を書き換えない。
+// 文面は index.html に置いたものをそのまま出す。
+function renderRegistrationGuide() {}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -3113,7 +3107,7 @@ function renderBijirisPosts() {
   if (!bijirisPanel) return;
   updateBijirisNotificationUi();
   if (!hasCustomerSession()) {
-    bijirisPanel.innerHTML = `<div class="empty">先にログインしてください。</div>`;
+    bijirisPanel.innerHTML = 登録のご案内();
     return;
   }
   if (appState.bijirisLoading && !appState.bijirisPosts.length) {
@@ -3177,6 +3171,65 @@ async function loadBijirisPosts() {
   }
 }
 
+// まだ会員登録をされていない方への案内。
+//
+// アンケートの送信には会員登録が要らないため、「記録はあるが会員ではない方」が実在する。
+// その方には履歴も計測記録もお見せできないので、「入れません」で終わらせず、
+// 登録すると何が見られるようになるかを伝えて、入口へご案内する。
+function 登録のご案内() {
+  return `<div class="empty">` +
+    `<strong>これまでの記録をご覧いただけます</strong><br />` +
+    `<span style="font-size:13px;line-height:1.7;display:inline-block;margin:8px 0;">` +
+    `まゆみ助産院アプリにご登録いただくと、これまでの計測記録とアンケートの回答を` +
+    `いつでも見返していただけます。ご登録はお名前と生年月日、パスコードだけで1分ほどです。` +
+    `</span><br />` +
+    `<a href="../../start/" style="color:var(--sage-dark);font-weight:700;">登録・ログインへ進む</a>` +
+    `</div>`;
+}
+
+// 入口の画面（まゆみ助産院アプリ）でログイン済みかを見て、
+// 済んでいればビジリスの合鍵を自動で受け取る。
+// お客様にパスコードを二度聞かないための橋渡し。
+const MAYUMI_MEMBER_TOKEN_KEY = "mayumi_member_auth_token";
+let mayumiLoginTried = false;
+
+let mayumiLoginReason = "";
+
+async function tryLoginWithMayumi() {
+  if (mayumiLoginTried) return false;
+  mayumiLoginTried = true;
+  let mayumiToken = "";
+  try {
+    mayumiToken = localStorage.getItem(MAYUMI_MEMBER_TOKEN_KEY) || "";
+  } catch {
+    mayumiLoginReason = "この端末では保存領域が使えません（プライベートモードなど）。";
+    return false;
+  }
+  if (!mayumiToken) {
+    mayumiLoginReason = "入口";
+    return false;
+  }
+  try {
+    const result = await api.customerLoginWithMayumi(mayumiToken);
+    if (result && result.token) {
+      // 入口が知っているお名前を、こちらでも使えるようにしておく。
+      if (result.name && !appState.customer.name) {
+        appState.customer = {
+          ...appState.customer,
+          name: result.name,
+          nameKana: result.kana || appState.customer.nameKana,
+        };
+        saveLocal(CUSTOMER_KEY, appState.customer);
+      }
+      return true;
+    }
+  } catch (error) {
+    mayumiLoginReason = String((error && error.message) || error);
+    reportClientError("customer.loginWithMayumi", error);
+  }
+  return false;
+}
+
 async function loadHistory() {
   if (!hasCustomerSession()) {
     appState.history = [];
@@ -3184,22 +3237,28 @@ async function loadHistory() {
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
-    historyList.innerHTML = `<div class="empty">先にログインしてください。</div>`;
+    historyList.innerHTML = 登録のご案内();
     renderMeasurements();
     return;
   }
 
-  // 履歴・計測値・写真はパスコードで保護されている。トークンが無い場合は
-  // エラーにせず、設定の入口を案内する（新規のお客様はまだ持っていないため）。
+  // 履歴・計測値・写真はパスコードで保護されている。
+  // 入口の画面でログイン済みなら、そちらの合鍵から自動で受け取る（二度聞かない）。
+  if (!api.getCustomerToken()) {
+    await tryLoginWithMayumi();
+  }
+
+  // それでも合鍵が無い場合だけ、パスコードの設定をご案内する。
   if (!api.getCustomerToken()) {
     appState.history = [];
     appState.measurements = [];
     appState.historyLoading = false;
     appState.historyLoadError = "";
     renderHomeTicketStatus();
-    historyList.innerHTML =
-      `<div class="empty">履歴・計測値・お写真をご覧いただくには、パスコードの設定が必要です。<br />` +
-      `ログイン画面の「パスコードを忘れた方・初めて設定する方」からお進みください。</div>`;
+    historyList.innerHTML = mayumiLoginReason === "入口"
+      ? 登録のご案内()
+      : `<div class="empty">履歴を読み込めませんでした。<br />` +
+        `<span style="font-size:12px;">${escapeHtml(mayumiLoginReason || "入口の画面からお入りください。")}</span></div>`;
     renderMeasurements();
     return;
   }
@@ -3261,10 +3320,6 @@ async function loadHistory() {
 }
 
 function syncCustomerForms() {
-  if (customerLoginForm) {
-    customerLoginForm.elements.name.value = appState.customer.name || "";
-    customerLoginForm.elements.nameKana.value = appState.customer.nameKana || "";
-  }
   if (customerForm) {
     customerForm.elements.name.value = appState.customer.name || "";
     customerForm.elements.nameKana.value = appState.customer.nameKana || "";
@@ -3290,7 +3345,7 @@ function validateCustomerProfile(profile) {
     throw new Error("フリガナを入力してください。");
   }
   if (!isKatakanaName(profile.nameKana)) {
-    throw new Error("フリガナはカタカナで入力してください。");
+    throw new Error("ふりがなはひらがなで入力してください。");
   }
 }
 
@@ -3338,7 +3393,7 @@ async function applyCustomerSession(profile, options = {}) {
 function selectSurvey(surveyId) {
   if (!hasCustomerSession()) {
     setPage("login");
-    showToast("先にログインしてください。");
+    showToast("入口の画面からお入りください。");
     return;
   }
   if (!canSubmitNewResponseForSurvey(surveyId)) {
@@ -4671,7 +4726,7 @@ async function submitPreparedAnswer() {
   const survey = getSelectedSurvey();
   if (!survey || !appState.confirmPayload) return;
   if (!hasCustomerSession()) {
-    showToast("先にログインしてください。");
+    showToast("入口の画面からお入りください。");
     setPage("login");
     return;
   }
@@ -6160,7 +6215,12 @@ function renderMeasurementPhotoTimeline(entries) {
 function renderMeasurements() {
   if (!measurementPanel) return;
   if (!hasCustomerSession()) {
-    measurementPanel.innerHTML = `<div class="empty">先にログインしてください。</div>`;
+    measurementPanel.innerHTML = 登録のご案内();
+    return;
+  }
+  // 合鍵が無い＝会員登録がまだの方。計測記録もお見せできないので、履歴と同じ案内を出す。
+  if (!api.getCustomerToken()) {
+    measurementPanel.innerHTML = 登録のご案内();
     return;
   }
   if (appState.historyLoading && !appState.measurements.length && !appState.history.length) {
@@ -6429,82 +6489,12 @@ function setupInstall() {
   });
 }
 
-customerLoginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!canRegisterFromThisContext()) {
-    showToast("初回会員登録はホーム画面に追加したアプリから行ってください。");
-    return;
-  }
-  try {
-    const profile = readCustomerProfileFromForm(event.currentTarget);
-    const passcode = String(new FormData(event.currentTarget).get("passcode") || "").trim();
-    if (passcode) {
-      // パスコードをお持ちの方はサーバー側で本人確認する。成功するとトークンが
-      // 保存され、履歴・計測値・写真が見られるようになる。
-      await api.customerLogin({
-        name: profile.name,
-        nameKana: profile.nameKana,
-        passcode,
-      });
-    }
-    await applyCustomerSession(profile);
-  } catch (error) {
-    reportClientError("customer.login", error);
-    showToast(error.message || "ログインできませんでした。");
-  }
-});
+// 会員登録フォームとパスコード再設定の処理は削除した。
+// ログインは入口（/start/）だけで行い、このアプリでは本人確認をしない。
 
-recoverAccountButton?.addEventListener("click", () => {
-  const panel = document.querySelector("#passcodeRecoveryPanel");
-  if (!panel) return;
-  panel.hidden = !panel.hidden;
-  if (panel.hidden) return;
-  // ログイン欄に入力済みの内容を引き継いで、二度手間にしない。
-  const loginData = new FormData(customerLoginForm);
-  const recoveryForm = panel.querySelector("#passcodeRecoveryForm");
-  if (recoveryForm) {
-    const nameField = recoveryForm.elements.name;
-    const kanaField = recoveryForm.elements.nameKana;
-    if (nameField && !nameField.value) nameField.value = String(loginData.get("name") || "");
-    if (kanaField && !kanaField.value) kanaField.value = String(loginData.get("nameKana") || "");
-  }
-  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-});
-
-document.querySelector("#passcodeRecoveryForm")?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const formData = new FormData(event.currentTarget);
-  const name = String(formData.get("name") || "").trim();
-  const nameKana = String(formData.get("nameKana") || "").trim();
-  const birthday = String(formData.get("birthday") || "").trim();
-  const newPasscode = String(formData.get("newPasscode") || "").trim();
-  try {
-    if (!name && !nameKana) {
-      throw new Error("お名前またはフリガナを入力してください。");
-    }
-    if (!/^(?:\d{4}|\d{6})$/.test(newPasscode)) {
-      throw new Error("パスコードは4桁または6桁の数字で入力してください。");
-    }
-    // 生年月日の入力があれば会員情報との照合、無ければ
-    // スタッフが許可した「期限つきの再設定」として扱う。
-    const result = birthday
-      ? await api.customerRecover({ name, nameKana, birthday, newPasscode })
-      : await api.customerSetPasscode({ name, nameKana, newPasscode });
-    await applyCustomerSession(
-      normalizeCustomerProfile({
-        name: result?.customerProfile?.name || name,
-        nameKana: result?.customerProfile?.nameKana || nameKana,
-        memberNumber: result?.customerProfile?.memberNumber || "",
-      })
-    );
-    showToast("パスコードを設定しました。");
-  } catch (error) {
-    reportClientError("customer.passcodeRecover", error);
-    showToast(error.message || "設定できませんでした。");
-  }
-});
-
-customerForm.addEventListener("submit", async (event) => {
+// お客様情報の入力欄はホーム画面から外した（入口の画面でお名前が分かるため）。
+// 要素が無いことがあるので、あるときだけ受け付ける。
+customerForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     const profile = readCustomerProfileFromForm(event.currentTarget);
@@ -6546,25 +6536,13 @@ document.querySelector("#refreshButton").addEventListener("click", () => {
   if (hasCustomerSession()) void loadHistory();
 });
 
-// ログアウトは端末の記録に触らない。ログイン状態だけを解いて入口の画面へ戻す。
-// 下書きもお気に入りも残るので、同じ人が入り直せば続きからそのまま使える。
-// まゆみ助産院アプリとは配信元が別なので、行き先は絶対URLで指定する。
-const LAUNCHER_PAGE_URL = "https://mayumi-josanin.github.io/mayumi-app/start/";
-const SHARED_SESSION_STORAGE_KEYS = ["mayumi_launcher_session", "mayumi_member_auth_token"];
+// アプリを切り替えるための出口。ログイン状態も端末の記録も触らない。
+// 一覧から選び直せばすぐ戻ってこられる。
+// ログインを解きたいときは、入口の画面のログアウトを使う。
+// まゆみ助産院アプリと同じ場所に置かれているので、2つ上が入口。
+const LAUNCHER_PAGE_URL = "../../start/";
 
 document.querySelector("#logoutButton")?.addEventListener("click", () => {
-  const confirmed = window.confirm(
-    "ログアウトして入口の画面に戻ります。\nこの端末の記録は消えないので、入り直せば続きから使えます。",
-  );
-  if (!confirmed) return;
-  api.clearCustomerToken?.();
-  SHARED_SESSION_STORAGE_KEYS.forEach((key) => {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // プライベートモード等では触れない
-    }
-  });
   location.href = LAUNCHER_PAGE_URL;
 });
 
