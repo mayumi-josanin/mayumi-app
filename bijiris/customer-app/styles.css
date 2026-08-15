@@ -1929,3 +1929,124 @@ legend > span:first-child {
 .retry-card p {
   margin-bottom: 0;
 }
+
+/* ===== ビジリスカード スタンプの道のり =====
+   1枚使い切るごとに1区画進む。数字の一覧より、
+   どこまで来てあと何枚かが一目で分かる方が集めたくなる。 */
+.stamp-road-lead {
+  margin: 10px 0 4px;
+  font-size: 14px;
+  color: var(--text-dark);
+}
+
+.stamp-road-lead b {
+  font-size: 17px;
+  color: var(--sage-dark);
+}
+
+/* 1行5個で折り返す。成り行きで折り返すと、行の先頭に道の切れ端が残る。 */
+.stamp-road {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px 0;
+  margin: 14px 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.stamp-road-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* 区画と区画をつなぐ道。まだ届いていないところは薄いまま。 */
+.stamp-road-step::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: 50%;
+  left: -50%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+/* 各行の1つ目には、左から伸びる道を描かない。 */
+.stamp-road-step:nth-child(5n + 1)::before {
+  display: none;
+}
+
+.stamp-road-step.reached::before {
+  background: var(--sage);
+}
+
+.stamp-road-mark {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1;
+  color: #fff;
+}
+
+.stamp-road-step.reached .stamp-road-mark {
+  border-color: var(--sage);
+  background: var(--sage);
+}
+
+/* 次の1つ。ここを目指していただく。 */
+.stamp-road-step.next .stamp-road-mark {
+  border-color: var(--sage-dark);
+  border-style: dashed;
+  background: #fff;
+}
+
+.stamp-road-step.has-reward .stamp-road-mark {
+  width: 34px;
+  height: 34px;
+  border-color: var(--blush-dark);
+  background: #fff;
+  font-size: 16px;
+}
+
+.stamp-road-step.has-reward.reached .stamp-road-mark {
+  background: var(--blush);
+}
+
+.stamp-road-num {
+  font-size: 11px;
+  color: var(--text-light);
+  font-variant-numeric: tabular-nums;
+}
+
+.stamp-road-step.reached .stamp-road-num {
+  color: var(--sage-dark);
+  font-weight: 700;
+}
+
+.stamp-road-reward {
+  max-width: 72px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--brown);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.stamp-road-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-light);
+}

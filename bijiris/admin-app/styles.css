@@ -2194,3 +2194,25 @@ a.primary-button {
   color: #fff;
   padding: 0 20px;
 }
+
+/* 回数券スタンプの手当て。基本はアンケートの提出数なので、
+   ここは「出し忘れ」「アプリを始める前の分」を補うためだけの操作。 */
+.milestone-stamp-adjust {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+
+.milestone-stamp-adjust-buttons {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.milestone-stamp-adjust-buttons .ghost-button {
+  min-width: 56px;
+  min-height: 40px;
+}

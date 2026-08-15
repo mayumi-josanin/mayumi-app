@@ -1906,6 +1906,10 @@ function normalizeCustomerProfileRecord_(record, fallbackName) {
       record && (record.lastTicketCardAcquiredAt || record.ticketCardLastAcquiredAt)
     ),
     measurementTargets: normalizeMeasurementTargets_(record && record.measurementTargets),
+    // 回数券スタンプの手当て。基本は施術後アンケートの提出から数えるが、
+    // 出し忘れた回や、アプリを始める前に使い切った分はそこに現れない。
+    // 受付で確かめて手で足すための数（マイナスも入れられる）。
+    ticketStampAdjustment: normalizeTicketStampAdjustment_(record && record.ticketStampAdjustment),
     pushStatus: normalizePushStatus_(record && record.pushStatus),
     rewardRedemptions: normalizeRewardRedemptions_(record && record.rewardRedemptions),
     adminManaged: record && record.adminManaged === true,
@@ -1982,6 +1986,13 @@ function saveCustomerProfiles_(profiles) {
   );
 }
 
+// 手で足したぶん。桁を打ち間違えても実害が出ないよう幅を決めておく。
+function normalizeTicketStampAdjustment_(value) {
+  var n = Math.floor(Number(value));
+  if (!isFinite(n)) return 0;
+  return Math.max(-50, Math.min(50, n));
+}
+
 function publicCustomerProfile_(record) {
   if (!record) return null;
   return {
@@ -1992,6 +2003,7 @@ function publicCustomerProfile_(record) {
     activeTicketCardSource: normalizeActiveTicketCardSource_(record.activeTicketCardSource),
     lastTicketCardAcquiredAt: normalizeTicketCardAcquiredAt_(record.lastTicketCardAcquiredAt),
     measurementTargets: publicMeasurementTargets_(record.measurementTargets),
+    ticketStampAdjustment: normalizeTicketStampAdjustment_(record.ticketStampAdjustment),
     pushStatus: publicPushStatus_(record.pushStatus),
     rewardRedemptions: publicRewardRedemptions_(record.rewardRedemptions),
     updatedAt: normalizeText_(record.updatedAt),
@@ -2270,6 +2282,8 @@ function updateAdminCustomerProfileRecord_(currentName, nextName, responses, opt
   var shouldReplaceActiveTicketCard = Object.prototype.hasOwnProperty.call(normalizedOptions, "activeTicketCard");
   var shouldReplaceActiveTicketCardSource = Object.prototype.hasOwnProperty.call(normalizedOptions, "activeTicketCardSource");
   var shouldReplaceMeasurementTargets = Object.prototype.hasOwnProperty.call(normalizedOptions, "measurementTargets");
+  var shouldReplaceTicketStampAdjustment =
+    Object.prototype.hasOwnProperty.call(normalizedOptions, "ticketStampAdjustment");
 
   var profiles = getCustomerProfiles_();
   var match = findCustomerProfileByName_(profiles, fromName, "");
@@ -2322,6 +2336,9 @@ function updateAdminCustomerProfileRecord_(currentName, nextName, responses, opt
   if (shouldReplaceMeasurementTargets) {
     record.measurementTargets = normalizeMeasurementTargets_(normalizedOptions.measurementTargets);
   }
+  if (shouldReplaceTicketStampAdjustment) {
+    record.ticketStampAdjustment = normalizeTicketStampAdjustment_(normalizedOptions.ticketStampAdjustment);
+  }
 
   var saved = saveCustomerProfileRecord_(profiles, match && match.key, record, {
     replaceActiveTicketCard: shouldReplaceActiveTicketCard,
@@ -2340,6 +2357,12 @@ function getAdminCustomerProfiles_() {
       var publicProfile = publicCustomerProfile_(profiles[key]);
       if (!publicProfile) return null;
       publicProfile.completedTicketCardCount = completedCounts[publicProfile.name] || 0;
+      // お客様の画面に出るのは「アンケートから数えた数＋手当て」。
+      // 管理側でも同じ数が見えないと、渡す渡さないの判断ができない。
+      publicProfile.ticketStampTotal = Math.max(
+        0,
+        publicProfile.completedTicketCardCount + normalizeTicketStampAdjustment_(publicProfile.ticketStampAdjustment)
+      );
       return publicProfile;
     })
     .filter(Boolean)
@@ -4606,6 +4629,12 @@ function updateCustomerProfile_(customerName, payload) {
     if (shouldReplaceMeasurementTargets) {
       profileUpdateOptions.measurementTargets = measurementTargets;
     }
+    // 回数券スタンプの手当て。基本は施術後アンケートの提出から数えるので、
+    // ここは「出し忘れた回」「アプリを始める前の分」を足すためだけに使う。
+    if (payload && Object.prototype.hasOwnProperty.call(payload, "ticketStampAdjustment")) {
+      profileUpdateOptions.ticketStampAdjustment =
+        normalizeTicketStampAdjustment_(payload.ticketStampAdjustment);
+    }
     var savedProfile = updateAdminCustomerProfileRecord_(currentName, nextName, responses, profileUpdateOptions);
     var updatedMeasurements = 0;
     if (savedProfile && currentName !== nextName) {
@@ -4621,6 +4650,7 @@ function updateCustomerProfile_(customerName, payload) {
       ticketUpdated: shouldUpdateTicket,
       memberNumber: memberNumber,
       measurementTargetsUpdated: shouldReplaceMeasurementTargets,
+      ticketStampAdjustment: profileUpdateOptions.ticketStampAdjustment,
       updatedMeasurements: updatedMeasurements,
     });
     return {

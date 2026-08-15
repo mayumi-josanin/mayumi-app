@@ -1471,6 +1471,7 @@ function normalizeCustomerProfile(value) {
     pushStatus: normalizePushStatus(value?.pushStatus),
     rewardRedemptions: normalizeRewardRedemptions(value?.rewardRedemptions),
     completedTicketCardCount: Math.max(0, Math.floor(Number(value?.completedTicketCardCount) || 0)),
+    ticketStampAdjustment: Math.floor(Number(value?.ticketStampAdjustment) || 0),
     updatedAt: String(value?.updatedAt || "").trim(),
   };
 }
@@ -2760,13 +2761,23 @@ function renderCustomerMilestoneSection(customerName) {
   const config = getMilestoneRewardConfig(state.preferences);
   if (!config.enabled || !config.milestones.length) return "";
   const profile = getCustomerProfileByName(customerName);
-  const completedCount = Math.max(0, Math.floor(Number(profile?.completedTicketCardCount) || 0));
+  const fromSurveys = Math.max(0, Math.floor(Number(profile?.completedTicketCardCount) || 0));
+  const adjustment = Math.floor(Number(profile?.ticketStampAdjustment) || 0);
+  // お客様の画面に出るのはこの合計。ここが同じ数でないと渡す判断ができない。
+  const completedCount = Math.max(0, fromSurveys + adjustment);
   const redemptions = profile?.rewardRedemptions || {};
   const achievedMilestones = config.milestones.filter((milestone) => completedCount >= milestone.threshold);
   return `
     <article class="answer-item">
       <strong>マイルストーン特典</strong>
-      <div class="meta">完了枚数: ${completedCount}枚（回数券を使い切ったカードの通算枚数）</div>
+      <div class="meta">スタンプ: <b>${completedCount}個</b>（施術後アンケートから ${fromSurveys}個 ＋ 手当て ${adjustment >= 0 ? "+" : ""}${adjustment}個）</div>
+      <div class="milestone-stamp-adjust">
+        <span class="meta">アンケートを出し忘れた回や、アプリを始める前の分を手で足せます。</span>
+        <div class="milestone-stamp-adjust-buttons">
+          <button type="button" class="ghost-button" data-stamp-adjust="-1" data-customer="${escapeHtml(customerName)}">−1</button>
+          <button type="button" class="ghost-button" data-stamp-adjust="1" data-customer="${escapeHtml(customerName)}">＋1</button>
+        </div>
+      </div>
       ${
         achievedMilestones.length
           ? `<div class="milestone-history">
@@ -2853,6 +2864,43 @@ async function updateRewardRedemption(customerName, threshold, handed, checkbox)
     showToast(handed ? "渡し済みにしました。" : "未渡しに戻しました。");
   } catch (error) {
     showToast(error.message || "マイルストーン特典を更新できませんでした。");
+    renderCustomerManagement();
+  }
+}
+
+// スタンプを手で足す・戻す。基本はアンケートの提出数なので、
+// ここで動かすのは手当ての数だけ。アンケート側の数には触らない。
+async function adjustTicketStamp(customerName, delta, button) {
+  const profile = getCustomerProfileByName(customerName);
+  if (!profile) {
+    showToast("顧客が見つかりません。");
+    return;
+  }
+  const current = Math.floor(Number(profile.ticketStampAdjustment) || 0);
+  const fromSurveys = Math.max(0, Math.floor(Number(profile.completedTicketCardCount) || 0));
+  const next = current + delta;
+  // 合計がマイナスになる引き算はしない（0個より減らせても意味がない）。
+  if (fromSurveys + next < 0) {
+    showToast("これ以上は減らせません。");
+    return;
+  }
+  if (button) button.disabled = true;
+  try {
+    const result = await api.request(
+      `/api/admin/customers/${encodeURIComponent(customerName)}`,
+      {
+        method: "PUT",
+        token: state.token,
+        body: { name: profile.name || customerName, ticketStampAdjustment: next },
+      },
+    );
+    // この経路は更新後の内容を返さないので、読み直してから描き直す。
+    // そうしないと画面の数が古いままで、押しても増えないように見える。
+    await loadAdminData();
+    renderCustomerManagement();
+    showToast(delta > 0 ? "スタンプを1個足しました。" : "スタンプを1個戻しました。");
+  } catch (error) {
+    showToast(error.message || "スタンプを変更できませんでした。");
     renderCustomerManagement();
   }
 }
@@ -4596,6 +4644,16 @@ function renderCustomerManagement() {
   stage.querySelector("#customerMemoForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     void saveCustomerMemo(event.currentTarget);
+  });
+
+  stage.querySelectorAll("[data-stamp-adjust]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void adjustTicketStamp(
+        button.dataset.customer || "",
+        Math.floor(Number(button.dataset.stampAdjust) || 0),
+        button,
+      );
+    });
   });
 
   stage.querySelectorAll("[data-milestone-handed]").forEach((checkbox) => {
