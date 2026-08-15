@@ -21,6 +21,28 @@ try { _profile = JSON.parse(localStorage.getItem('mayumi_profile') || 'null'); }
 // 入口の画面でログインした方に、ここでもう一度会員登録をお願いしない。
 // 入口が預かっているお名前と会員IDから、この端末の記録を用意しておく。
 // 電話番号などの残りは、マイページを開いたときに本体から取り直す。
+//
+// 端末に残っている記録が、いま入口にお入りの方のものとは限らない。
+// 以前は「記録が無いときだけ」入口から用意していたため、前にこの端末で
+// 使われた方（テスト用の会員など）の記録がそのまま残り、その方の
+// スタンプやお名前が出てしまっていた。会員IDが違えば捨てる。
+try {
+  const launcher = JSON.parse(localStorage.getItem('mayumi_launcher_session') || 'null');
+  const 入口の会員 = launcher && launcher.memberId ? String(launcher.memberId) : '';
+  const 手元の会員 = _profile && _profile.memberId ? String(_profile.memberId) : '';
+  if (入口の会員 && 手元の会員 !== 入口の会員) {
+    // 前の方のスタンプや特典まで引き継がせない。
+    // サーバーの記録には触らないので、ご本人が入り直せば元どおりになる。
+    ['mayumi_profile', 'mayumi_stamp', 'mayumi_stamp_card', 'mayumi_last_stamp_date',
+      'mayumi_stamp_10_date', 'mayumi_earned_rewards', 'mayumi_avatar', 'mayumi_avatar_url',
+      'mayumi_banner', 'mayumi_support_chat_history', 'mayumi_support_chat_topic'
+    ].forEach(function (key) {
+      try { localStorage.removeItem(key); } catch (e) { /* 消せなくても続ける */ }
+    });
+    _profile = null;
+  }
+} catch (e) { /* プライベートモードでは読めない */ }
+
 if (!_profile) {
   try {
     const launcher = JSON.parse(localStorage.getItem('mayumi_launcher_session') || 'null');

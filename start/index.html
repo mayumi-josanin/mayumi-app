@@ -538,17 +538,49 @@
 
   // ビジリスのお客様アプリは、氏名とふりがなが揃っていれば本人と分かる。
   // 入口で分かっているので、あちらで入力し直さなくて済むよう先に置いておく。
+  //
+  // 「すでにある分は触らない」ようにしていたが、それだと以前この端末で
+  // 使われた方のお名前が残り、その方の記録が出てしまっていた。
+  // 入口でお入りになった方が本人なので、必ず上書きする。
   function seedBijirisCustomer(session) {
-    if (!session.name || !session.kana) return;
+    if (!session.name) return;
     try {
-      var current = JSON.parse(localStorage.getItem(BIJIRIS_CUSTOMER_KEY) || '{}');
-      if (current && current.name && current.nameKana) return;   // すでにある分は触らない
       localStorage.setItem(BIJIRIS_CUSTOMER_KEY, JSON.stringify({
         name: session.name,
-        nameKana: session.kana,
+        nameKana: session.kana || '',
         historyMatchMode: 'device'
       }));
     } catch (e) { /* プライベートモードでは保存できない */ }
+  }
+
+  // この端末で最後にお入りになった方。
+  var LAST_MEMBER_KEY = 'mayumi_last_member_id';
+
+  // お一人が使い終えたあと、別の方が同じ端末でお入りになったとき。
+  // 前の方のスタンプ・プロフィール・履歴の控えが残っていると、
+  // 新しい方のものとして表示されてしまう。端末に持っている分は消す。
+  // （サーバーの記録には触らない。消えるのはこの端末の控えだけ）
+  var 前の方の持ち物 = [
+    'mayumi_profile', 'mayumi_stamp', 'mayumi_stamp_card', 'mayumi_last_stamp_date',
+    'mayumi_stamp_10_date', 'mayumi_earned_rewards', 'mayumi_avatar', 'mayumi_avatar_url',
+    'mayumi_banner', 'mayumi_support_chat_history', 'mayumi_support_chat_topic',
+    'mayumi_survey_customer', 'mayumi_survey_drafts', 'mayumi_survey_ticket_card_overrides',
+    'mayumi_customer_last_snapshot', 'mayumi_bijiris_session_owner'
+  ];
+
+  function 別の方に切り替わったら片付ける(memberId) {
+    var いま = String(memberId || '');
+    if (!いま) return;
+    var 前 = '';
+    try { 前 = localStorage.getItem(LAST_MEMBER_KEY) || ''; } catch (e) { return; }
+    if (前 && 前 !== いま) {
+      前の方の持ち物.forEach(function (key) {
+        try { localStorage.removeItem(key); } catch (e) { /* 消せなくても続ける */ }
+      });
+      // ビジリスの合鍵も、前の方のものなので捨てる。
+      try { localStorage.removeItem('mayumi_bijiris_customer_token'); } catch (e) { }
+    }
+    try { localStorage.setItem(LAST_MEMBER_KEY, いま); } catch (e) { }
   }
 
   function applySession(json) {
@@ -565,6 +597,7 @@
       // 中に入ったところでエラーになる（壊れたように見えてしまう）。
       expiresAt: Date.parse(json.expiresAt) || 0
     };
+    別の方に切り替わったら片付ける(session.memberId);
     seedBijirisCustomer(session);
     if (json.role === 'admin') {
       store(ADMIN_TOKEN_KEY, json.token);
