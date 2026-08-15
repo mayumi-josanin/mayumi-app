@@ -11,7 +11,7 @@
 // 関数の選び直しが効かないことがあるため、実行したいものをここから呼ぶ。
 // 既定は「見るだけ」にしておく。うっかり実行しても何も壊れないように。
 function いま実行する() {
-  ふりがなの下見();
+  ビジリスの印の下見();
 }
 
 // 自動処理が「素通り」できているかを、2回続けて動かして時間で確かめる。
@@ -487,4 +487,83 @@ function ふりがなをひらがなに揃える() {
   });
   Logger.log('■ ' + 結果.対象.length + '件のふりがなをひらがなに直しました。');
   Logger.log('  控えから戻せます。');
+}
+
+// ---------- ビジリスの利用印を実態に合わせる ----------
+//
+// 入口のアプリ一覧は、会員データの「ビジリス」列を見て出し分けている。
+// この列が立っていないと、測定記録のある方でもビジリスが表示されない。
+// 実際、記録のある方は10名いるのに、印が立っているのは2名だけだった。
+//
+// ビジリス側に記録（測定・回数券分析・アンケート回答）があるお名前に、印を立てる。
+// 印を消すことはしない（手で立てた方を勝手に外さないため）。
+
+function ビジリス_記録のあるお名前_() {
+  var 名 = {};
+  var bs = SpreadsheetApp.openById(片付け_ビジリスID);
+  [['測定履歴', '顧客名'], ['回数券分析結果', 'お名前'], ['回答一覧', 'お名前']].forEach(function (t) {
+    var sh = bs.getSheetByName(t[0]);
+    if (!sh || sh.getLastRow() < 2) return;
+    var v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+    var c = v[0].indexOf(t[1]);
+    if (c < 0) return;
+    for (var i = 1; i < v.length; i += 1) {
+      var n = String(v[i][c] || '').replace(/[\s　]+/g, '').trim();
+      if (n) 名[n] = true;
+    }
+  });
+  return 名;
+}
+
+function ビジリス_対象を探す_() {
+  var 記録 = ビジリス_記録のあるお名前_();
+  var sh = SpreadsheetApp.openById(片付け_まゆみID).getSheetByName('会員データ');
+  var v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+  var 位 = {};
+  v[0].forEach(function (h, i) { 位[String(h)] = i; });
+
+  var 立てる = [];
+  var すでに = [];
+  var 会員にいない = {};
+  var 会員名 = {};
+
+  for (var r = 1; r < v.length; r += 1) {
+    var 名 = String(v[r][位['氏名']] || '').replace(/[\s　]+/g, '').trim();
+    if (!名) continue;
+    会員名[名] = true;
+    if (!記録[名]) continue;
+    if (String(v[r][位['ビジリス']] || '').trim()) すでに.push({ 行: r + 1, 名: 名 });
+    else 立てる.push({ 行: r + 1, 名: 名 });
+  }
+  Object.keys(記録).forEach(function (n) { if (!会員名[n]) 会員にいない[n] = true; });
+
+  return { sheet: sh, 列: 位['ビジリス'], 立てる: 立てる, すでに: すでに, 会員にいない: Object.keys(会員にいない) };
+}
+
+function ビジリスの印の下見() {
+  var r = ビジリス_対象を探す_();
+  Logger.log('■ ビジリスの記録があるのに、印が立っていない方: ' + r.立てる.length + '名');
+  r.立てる.forEach(function (t) { Logger.log('  ' + t.行 + '行 ' + t.名); });
+  Logger.log('');
+  Logger.log('すでに印が立っている: ' + r.すでに.length + '名');
+  r.すでに.forEach(function (t) { Logger.log('  ' + t.名); });
+  Logger.log('');
+  if (r.会員にいない.length) {
+    Logger.log('※ 記録はあるが会員データにいないお名前: ' + r.会員にいない.join('・'));
+  }
+  Logger.log('');
+  Logger.log('立ててよければ「ビジリスの印を立てる」を実行してください。');
+}
+
+function ビジリスの印を立てる() {
+  var r = ビジリス_対象を探す_();
+  if (!r.立てる.length) { Logger.log('立てるものはありません'); return; }
+  片付け_控えを取る_(片付け_まゆみID, 'ビジリスの印を立てる前');
+  r.立てる.forEach(function (t) {
+    r.sheet.getRange(t.行, r.列 + 1).setValue('登録済み');
+  });
+  Logger.log('■ ' + r.立てる.length + '名に印を立てました');
+  r.立てる.forEach(function (t) { Logger.log('  ' + t.名); });
+  Logger.log('');
+  Logger.log('この方々の入口のアプリ一覧に、ビジリスが出るようになります。');
 }
