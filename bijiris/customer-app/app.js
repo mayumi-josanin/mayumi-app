@@ -5550,7 +5550,7 @@ function renderHomeMilestoneReward() {
     <article class="ticket-home-card stamp-road-card">
       <div class="ticket-home-head">
         <div>
-          <strong>ビジリスカード スタンプ</strong>
+          <strong>${escapeHtml(normalizeText(appState.customer?.name) || "")}様のスタンプ</strong>
           <div class="meta">回数券を1枚使い切るごとに1個たまります。</div>
         </div>
         <span class="badge open">${completedCount} / ${goal}</span>
@@ -5641,7 +5641,19 @@ function renderHomeCampaignStatus() {
   `;
 }
 
+// どなたのスタンプカードなのかを、カードの見出しに出す。
+// 端末を共有されている場合に「これは自分の記録か」がすぐ分かるようにする。
+function renderHomeTicketOwner() {
+  const el = document.querySelector("#homeTicketOwner");
+  if (!el) return;
+  const name = normalizeText(appState.customer?.name);
+  el.textContent = hasCustomerSession() && name
+    ? `${name}様のスタンプカードです。`
+    : "最新の回答内容から現在の回数券状況を表示します。";
+}
+
 function renderHomeTicketStatus() {
+  renderHomeTicketOwner();
   renderHomeMilestoneReward();
   renderHomeCampaignStatus();
   if (!homeTicketStatus) return;
