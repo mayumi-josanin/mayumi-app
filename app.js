@@ -18,6 +18,27 @@ let currentRequiredUpdateUrl = '';
 let USER_MENUS = [];
 let _profile = null;
 try { _profile = JSON.parse(localStorage.getItem('mayumi_profile') || 'null'); } catch (e) { }
+// 入口の画面でログインした方に、ここでもう一度会員登録をお願いしない。
+// 入口が預かっているお名前と会員IDから、この端末の記録を用意しておく。
+// 電話番号などの残りは、マイページを開いたときに本体から取り直す。
+if (!_profile) {
+  try {
+    const launcher = JSON.parse(localStorage.getItem('mayumi_launcher_session') || 'null');
+    if (launcher && launcher.name && launcher.memberId) {
+      _profile = {
+        name: launcher.name,
+        kana: launcher.kana || '',
+        phone: '',
+        birthday: '',
+        address: '',
+        regDate: '',
+        memberId: launcher.memberId
+      };
+      localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
+      localStorage.setItem('member_id', launcher.memberId);
+    }
+  } catch (e) { /* プライベートモードでは読み書きできない */ }
+}
 let CUSTOMER_NAME = _profile && _profile.name ? _profile.name : '';
 let stampCount = 0;
 try { stampCount = parseInt(localStorage.getItem('mayumi_stamp') || '0') || 0; } catch (e) { }
@@ -416,24 +437,36 @@ function normalizePhoneInput(value) {
   return String(value == null ? '' : value).replace(/\D/g, '');
 }
 
+// 氏名は空白を残さない。「山田 太郎」と「山田太郎」が別人として登録され、
+// 同じ方が二重に登録されてしまうため。照合側も空白を無視している。
 function normalizeNameInput(value) {
-  return String(value == null ? '' : value).replace(/[\s\u3000]+/g, ' ').trim();
+  return String(value == null ? '' : value).replace(/[\s\u3000]+/g, '');
 }
 
-// フリガナは半角カナ・濁点をNFKCで全角カタカナへ寄せてから空白を整える
+// カタカナで入力されてもひらがなへ寄せる。
+// ふりがなは「ひらがな」で登録していただく方針。以前の登録はカタカナのまま残っているため、
+// 保存も照合もひらがなに統一して、同じ方が別人にならないようにする。
+function toHiraganaValue(value) {
+  return String(value == null ? '' : value).replace(/[\u30A1-\u30F6]/g, function (ch) {
+    return String.fromCharCode(ch.charCodeAt(0) - 0x60);
+  });
+}
+
 function normalizeKanaInput(value) {
   let text = String(value == null ? '' : value);
   try {
     text = text.normalize('NFKC');
   } catch (e) { }
-  return text.replace(/[\s　]+/g, ' ').trim();
+  // ふりがなも氏名と同じ理由で空白を残さない。
+  return toHiraganaValue(text.replace(/[\s　]+/g, ''));
 }
 
-// 全角カタカナ（ァ〜ヶ）と長音記号のみを許可する
+// ひらがな（ぁ〜ゖ）と長音記号のみを許可する。
+// カタカナで入れられても、上で寄せてから確かめるので通る。
 function isValidKanaValue(value) {
   const kana = normalizeKanaInput(value);
   if (!kana) return false;
-  return /^[ァ-ヶー]+(?: [ァ-ヶー]+)*$/.test(kana);
+  return /^[ぁ-ゖー]+$/.test(kana);
 }
 
 function normalizeDateOnlyInput(value) {
@@ -2648,20 +2681,20 @@ const FALLBACK_BLOG = [
 const SUPPORT_FAQ_FALLBACK = [
   { category: 'アプリ全般', question: 'このアプリでできることを知りたい', keywords: 'アプリ,使い方,できること,何ができる,機能,全体', answer: 'このアプリでは、ホーム、ショップ、カレンダー、NEWS、マイページ、お知らせ一覧、スタンプQR読み取り、商品注文、注文履歴確認、特典確認、通知設定、起動時パスコード、データ引き継ぎ・復元、引き継ぎコード発行、使い方サポートが利用できます。予約確定や個別相談は公式LINEをご利用ください。', priority: 160 },
   { category: 'アプリ全般', question: 'アプリの画面構成を教えてください', keywords: '画面,構成,タブ,ナビ,メニュー,下部,上部', answer: '画面下部にはホーム、ショップ、カレンダー、NEWS、マイページがあります。画面上部からは、最新情報の更新、お知らせ一覧、カート、マイページショートカットを利用できます。', priority: 158 },
-  { category: '会員登録', question: '初回起動時はどちらを選べばいいですか？', keywords: '初回,最初,はじめて,以前登録した方,はじめて登録する方,どちら', answer: 'アプリを開いた最初の選択画面で、以前に登録したことがある方は「以前登録した方はこちら ↺」、今回が初めての方は「はじめて登録する方はこちら」を選んでください。再インストール後、機種変更後、ブラウザ版からホーム画面追加した後も、以前登録したことがある方は復元側から進んでください。', priority: 156 },
+  { category: '会員登録', question: '初回起動時はどちらを選べばいいですか？', keywords: '初回,最初,はじめて,以前登録した方,はじめて登録する方,どちら', answer: 'アプリ一覧の入口の画面で、以前に登録したことがある方は「ログイン」、今回が初めての方は「はじめての方」を選んでください。再インストール後、機種変更後、ブラウザ版からホーム画面追加した後も、以前登録したことがある方は「ログイン」からお入りください。', priority: 156 },
   { category: 'プロフィール', question: 'プロフィールの登録方法を知りたい', keywords: 'プロフィール,登録,会員,名前,電話,住所,生年月日,初回登録', answer: '初回起動時は、まず「以前登録した方」と「はじめて登録する方」の選択画面が出ます。はじめて登録する方は、そのままプロフィール登録へ進み、お名前・フリガナ・生年月日を入力してください（電話番号・住所は任意です）。保存すると会員IDが発行され、アプリを使い始められます。', priority: 154 },
-  { category: 'プロフィール', question: 'フリガナがエラーになるときはどうすればいいですか？', keywords: 'フリガナ,ふりがな,カタカナ,ひらがな,漢字,エラー,入力できない', answer: 'フリガナは全角カタカナで入力してください。ひらがな・漢字・アルファベット・記号が含まれているとエラーになります。例：「タナカ ハナコ」。姓と名の間の空白は入れても入れなくても大丈夫です。フリガナと生年月日は、機種変更や再インストールのときのデータ復元に使います。', priority: 152 },
+  { category: 'プロフィール', question: 'フリガナがエラーになるときはどうすればいいですか？', keywords: 'フリガナ,ふりがな,カタカナ,ひらがな,漢字,エラー,入力できない', answer: 'ふりがなはひらがなで入力してください。ひらがな・漢字・アルファベット・記号が含まれているとエラーになります。例：「タナカ ハナコ」。姓と名の間の空白は入れても入れなくても大丈夫です。フリガナと生年月日は、機種変更や再インストールのときのデータ復元に使います。', priority: 152 },
   { category: 'プロフィール', question: 'プロフィールの変更方法を知りたい', keywords: 'プロフィール,変更,編集,名前,電話,住所,生年月日', answer: 'マイページを開き、「✏️ プロフィールを編集」を押してください。お名前、電話番号、生年月日、住所、アイコン画像、バナー画像を変更して保存できます。', priority: 152 },
   { category: 'プロフィール', question: '会員IDはどこで確認できますか？', keywords: '会員ID,会員番号,memberid,どこ,確認', answer: '会員IDはマイページ上部に表示されます。プロフィール登録または復元が完了すると発行されます。', priority: 150 },
   { category: 'ログイン', question: '起動時のパスコード設定について知りたい', keywords: 'パスコード,ログイン,起動時,4桁,6桁,設定', answer: '新しく登録する方も、すでに登録済みの方も、まずは4桁または6桁のパスコードを設定して使います。既存会員の方はアプリ起動時に設定画面が表示されます。', priority: 148 },
-  { category: 'ログイン', question: 'ログイン時のパスコードを毎回入力したくないです', keywords: 'ログイン時のパスコード,毎回,入力したくない,オフ,省略', answer: 'パスコードを一度設定したあと、マイページの「ログイン時のパスコード」からオン・オフを切り替えられます。オフにすると、次回からアプリ起動時のパスコード入力を省略できます。', priority: 146 },
+  { category: 'ログイン', question: 'ログイン時のパスコードを毎回入力したくないです', keywords: 'ログイン時のパスコード,毎回,入力したくない,オフ,省略', answer: 'アプリを開くたびにパスコードを入力していただく仕組みは廃止しました。パスコードはアプリ一覧の入口の画面で一度だけお使いいただき、そのあとはどのアプリも聞かれずにお開きいただけます。', priority: 146 },
   { category: 'ログイン', question: 'パスコードの変更方法を知りたい', keywords: 'パスコード,変更,変える,ログイン,再設定', answer: 'マイページを開き、「🔐 パスコードを変更」を押してください。現在のパスコードを確認したあと、新しい4桁または6桁のパスコードへ変更できます。', priority: 144 },
-  { category: 'ログイン', question: 'パスコードを忘れたときの再設定方法を知りたい', keywords: 'パスコード,忘れた,再設定,ログインできない', answer: 'ログイン画面、または「ログイン・引き継ぎ」画面にある「パスコードを忘れた場合の再設定はこちら」から再設定できます。登録したお名前・電話番号・生年月日を入力し、新しい4桁または6桁のパスコードを設定してください。', priority: 142 },
-  { category: '引き継ぎ', question: 'データの引き継ぎ・復元方法を知りたい', keywords: '引き継ぎ,復元,機種変更,データ移行,ログイン,再インストール', answer: 'ログイン画面、または初回画面で「以前登録した方はこちら ↺」を選ぶと復元画面へ進めます。引き継ぎコードがある場合は、引き継ぎコードと新しいパスコードを入力してください。引き継ぎコードがない場合は、お名前またはフリガナのどちらかと、生年月日を入力すると復元できます。', priority: 140 },
+  { category: 'ログイン', question: 'パスコードを忘れたときの再設定方法を知りたい', keywords: 'パスコード,忘れた,再設定,ログインできない', answer: 'アプリ一覧の入口の画面で「お困りのとき」→「パスコードを忘れた方」からお進みください。お名前と、電話番号または生年月日のどちらかで確認のうえ、新しい4桁または6桁のパスコードを設定できます。', priority: 142 },
+  { category: '引き継ぎ', question: 'データの引き継ぎ・復元方法を知りたい', keywords: '引き継ぎ,復元,機種変更,データ移行,ログイン,再インストール', answer: 'アプリ一覧の入口の画面で「お困りのとき」からお進みください。引き継ぎコードをお持ちの場合は「引き継ぎコードをお持ちの方」、お持ちでない場合は「パスコードを忘れた方」から、お名前と電話番号または生年月日で復元できます。', priority: 140 },
   { category: '引き継ぎ', question: '引き継ぎコードの発行方法を知りたい', keywords: '引き継ぎコード,発行,機種変更,再インストール,コード', answer: 'マイページの「↺ 引き継ぎコードの発行」から発行できます。機種変更や再インストールの前に発行しておくと、新しい端末の「データの引き継ぎ・復元」で使えます。', priority: 138 },
   { category: '引き継ぎ', question: '引き継ぎコードの有効期限を知りたい', keywords: '引き継ぎコード,有効期限,いつまで,何日,使えない', answer: '引き継ぎコードは1回限りで、発行から1週間有効です。期限切れ、または一度使用したコードは使えません。必要な場合はマイページから新しいコードを発行してください。', priority: 136 },
-  { category: '会員登録', question: '会員登録が重複しないようにする方法を知りたい', keywords: '重複,二重,会員登録,同じ名前,会員ID,ブラウザ,ホーム画面', answer: '以前登録したことがある方は、新規登録へ進まず、必ず「以前登録した方はこちら ↺」から復元してください。ブラウザで先に登録したあとホーム画面に追加した方、再インストールした方、機種変更した方も同じです。新規登録をすると、同じお名前でも別の会員IDが作られることがあります。', priority: 134 },
-  { category: 'ホーム画面', question: 'ホーム画面への追加方法を知りたい', keywords: 'ホーム画面,追加,インストール,iphone,android,safari,chrome', answer: 'iPhone は Safari でサイトを開き、共有ボタンから「ホーム画面に追加」を選びます。Android は Chrome のメニューから「ホーム画面に追加」または「アプリをインストール」を選びます。すでに登録済みの方は、追加後に新規登録せず「以前登録した方はこちら ↺」から入ってください。', priority: 132 },
+  { category: '会員登録', question: '会員登録が重複しないようにする方法を知りたい', keywords: '重複,二重,会員登録,同じ名前,会員ID,ブラウザ,ホーム画面', answer: '以前登録したことがある方は、「はじめての方」へ進まず、必ず入口の画面の「ログイン」からお入りください。ブラウザで先に登録したあとホーム画面に追加した方、再インストールした方、機種変更した方も同じです。新しく登録すると、同じお名前でも別の会員IDが作られることがあります。', priority: 134 },
+  { category: 'ホーム画面', question: 'ホーム画面への追加方法を知りたい', keywords: 'ホーム画面,追加,インストール,iphone,android,safari,chrome', answer: 'iPhone は Safari でサイトを開き、共有ボタンから「ホーム画面に追加」を選びます。Android は Chrome のメニューから「ホーム画面に追加」または「アプリをインストール」を選びます。すでに登録済みの方は、追加後に新しく登録せず、入口の画面の「ログイン」からお入りください。', priority: 132 },
   { category: 'ホーム', question: 'ホーム画面の見方を知りたい', keywords: 'ホーム,トップ,home,見方', answer: 'ホーム画面では、スタンプQRの読み取り、現在のスタンプカード確認、おすすめ商品、最新のNEWS、メニュー一覧への移動、公式サイト・SNSへのリンクを確認できます。', priority: 130 },
   { category: '注文', question: '商品の注文方法を知りたい', keywords: '注文,買い方,ショップ,カート,購入', answer: '下部メニューの「ショップ」を開き、商品を選んで詳細を確認し、「カートに追加する」を押してください。画面上部の🛒からカートを開き、内容を確認して「ご注文を確定する」で注文できます。', priority: 128 },
   { category: '注文', question: 'カートの使い方を知りたい', keywords: 'カート,買い物かご,個数,削除,変更', answer: '商品を「カートに追加する」で入れたあと、画面上部の🛒を押すとカートを開けます。カートでは個数変更や削除ができます。商品が入っていない場合は空の画面が表示されます。', priority: 126 },
@@ -2691,7 +2724,7 @@ const SUPPORT_FAQ_FALLBACK = [
   { category: 'NEWS', question: 'まゆみのブログとは何ですか？', keywords: 'まゆみのブログ,ブログ,外部ブログ', answer: '「まゆみのブログ」はマイページやホームの「🔗 公式サイト・SNS」から開ける外部ブログです。NEWS内の「まゆみのつぶやき」とは別の場所です。', priority: 78 },
   { category: 'リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'LINE,ライン,instagram,facebook,ホームページ,公式サイト,SNS,問い合わせ', answer: 'ホーム画面またはマイページの「🔗 公式サイト・SNS」を開くと、公式ホームページ、Instagram、Facebook、公式LINE、まゆみのブログを選んで開けます。', priority: 76 },
   { category: '使い方サポート', question: '使い方チャットでは何を質問できますか？', keywords: 'チャット,サポート,ボット,相談,何が聞ける', answer: '使い方チャットでは、登録、復元、パスコード、注文、注文履歴、スタンプ、特典、通知、NEWS、お知らせ一覧、カレンダー、メニュー一覧、更新方法など、アプリの使い方について質問できます。診療相談や個別予約は公式LINEをご利用ください。', priority: 74 },
-  { category: '引き継ぎ', question: '再インストールしたあとの入り方を知りたい', keywords: '再インストール,削除,アンインストール,復元,入り方', answer: 'アプリを入れ直したあとは、新規登録ではなく、初回画面またはログイン画面の「以前登録した方はこちら ↺」から復元してください。引き継ぎコードがある場合はコードで、ない場合はお名前またはフリガナのどちらかと、生年月日で復元できます。', priority: 72 },
+  { category: '引き継ぎ', question: '再インストールしたあとの入り方を知りたい', keywords: '再インストール,削除,アンインストール,復元,入り方', answer: 'アプリを入れ直したあとは、新しく登録し直さず、アプリ一覧の入口の画面からこれまでと同じお名前とパスコードでお入りください。パスコードが分からない場合は「お困りのとき」から設定し直せます。', priority: 72 },
   { category: 'トラブル', question: '画面表示がおかしい・アプリが重いときはどうすればいいですか？', keywords: '表示されない,おかしい,崩れ,不具合,バグ,重い,遅い,フリーズ', answer: 'まず画面上部の🔄ボタンで最新情報を再取得してください。それでも改善しない場合は、アプリを一度閉じて再起動し、通信状態もご確認ください。再インストールが必要な場合は、先に引き継ぎコードを発行するか、復元方法を確認してから行ってください。', priority: 70 },
 ];
 /* SUPPORT_FAQ_FALLBACK_END */
@@ -5299,73 +5332,9 @@ function updatePushUI(state) {
 }
 
 function updatePasscodeLoginUI() {
-  const btn = document.getElementById('passcode-login-btn');
-  const status = document.getElementById('passcodeLoginStatus');
-  const desc = document.getElementById('passcodeLoginHelp');
-  const available = !!(_profile && hasConfiguredLocalPasscode());
-  const enabled = available && isPasscodeLoginEnabled();
-
-  if (status) status.textContent = available ? (enabled ? 'オン' : 'オフ') : '未設定';
-  if (desc) {
-    desc.textContent = available
-      ? (enabled
-        ? 'アプリを開くたびにパスコード入力が必要です。'
-        : '次回から起動時のパスコード入力を省略できます。')
-      : 'まずはパスコードを設定してください。';
-  }
-  if (!btn) return;
-
-  if (!available) {
-    btn.textContent = '未設定';
-    btn.disabled = true;
-    btn.classList.add('secondary');
-    btn.classList.remove('primary');
-    return;
-  }
-
-  if (enabled) {
-    btn.textContent = 'オン（タップでオフ）';
-    btn.classList.add('secondary');
-    btn.classList.remove('primary');
-  } else {
-    btn.textContent = 'オフ（タップでオン）';
-    btn.classList.add('primary');
-    btn.classList.remove('secondary');
-  }
-  btn.disabled = false;
+  // マイページのパスコード設定は廃止したので、更新する表示が無い。
 }
 
-async function togglePasscodeLoginSetting() {
-  if (!_profile || !hasConfiguredLocalPasscode()) {
-    showToast('まずパスコードを設定してください');
-    return;
-  }
-
-  const nextEnabled = !isPasscodeLoginEnabled();
-  const isConfirmed = await showAppConfirm(
-    nextEnabled
-      ? '起動時のパスコード入力をオンにしますか？\n次回からアプリを開くたびにログインが必要になります。'
-      : '起動時のパスコード入力をオフにしますか？\n次回からアプリを開いたときのログインを省略できます。',
-    {
-      title: 'ログイン設定',
-      confirmLabel: nextEnabled ? 'オンにする' : 'オフにする',
-      cancelLabel: '戻る',
-      confirmVariant: nextEnabled ? 'primary' : 'danger'
-    }
-  );
-  if (!isConfirmed) return;
-
-  setPasscodeLoginEnabled(nextEnabled);
-  isPasscodeAuthenticated = true;
-  if (!nextEnabled) {
-    closePasscodeOverlay();
-    markPasscodeUnlockSkippedOnce();
-  }
-  syncCurrentDeviceSession({ silent: true }).catch(function (error) {
-    console.error('syncCurrentDeviceSession after togglePasscodeLoginSetting error:', error);
-  });
-  showToast(nextEnabled ? '起動時のパスコード入力をオンにしました' : '起動時のパスコード入力をオフにしました');
-}
 
 
 // 更新バッジの制御
@@ -5809,7 +5778,7 @@ function getFeatureSupportReply(messageNorm) {
           'プロフィールの登録方法です。',
           '1. 初回起動時は「はじめて登録する方はこちら」を選びます。',
           '2. お名前、電話番号、生年月日、住所を入力して保存します。',
-          '3. 以前登録したことがある方は、新規登録ではなく「以前登録した方はこちら ↺」から復元してください。'
+          '3. 以前登録したことがある方は、新しく登録せず、入口の画面の「ログイン」からお入りください。'
         ],
       ['プロフィールの登録方法を知りたい', 'プロフィールの変更方法を知りたい']
     );
@@ -6294,16 +6263,12 @@ function getSupportStatusReply(messageNorm) {
 
   if (hasAnySupportKeyword(messageNorm, ['パスコード', 'ログイン時']) && asksStatusOnly) {
     return buildSupportReply(
-      hasConfiguredLocalPasscode()
-        ? [
-          `この端末のパスコード設定は完了しており、起動時のパスコード入力は現在${isPasscodeLoginEnabled() ? 'オン' : 'オフ'}です。`,
-          '変更したい場合は、マイページの「ログイン時のパスコード」からオン・オフを切り替えられます。'
-        ]
-        : [
-          'この端末ではまだパスコード設定が完了していません。',
-          '初回設定画面、または既存会員向けの設定画面で4桁または6桁のパスコードを設定してください。'
-        ],
-      ['起動時のパスコード設定について知りたい', 'パスコードの変更方法を知りたい'],
+      [
+        'パスコードは、アプリ一覧の入口の画面でお使いいただくものです。',
+        'このアプリを開くたびに入力していただく必要はありません。',
+        'お忘れの場合は、入口の画面の「お困りのとき」から設定し直せます。'
+      ],
+      ['パスコードを忘れたときの再設定方法を知りたい'],
       true,
       'passcode'
     );
@@ -6372,7 +6337,7 @@ function getBuiltInSupportReply(messageNorm) {
     return buildSupportReply(
       [
         '最初の選択画面のご案内です。',
-        '1. 以前登録したことがある方、再インストール後の方、機種変更後の方は「以前登録した方はこちら ↺」を選びます。',
+        '1. 以前登録したことがある方、再インストール後の方、機種変更後の方は、入口の画面の「ログイン」からお入りください。',
         '2. 今回が初めての方は「はじめて登録する方はこちら」を選びます。',
         '3. 以前登録した方が新規登録へ進むと、別の会員IDが作られることがあります。'
       ],
@@ -6392,12 +6357,11 @@ function getBuiltInSupportReply(messageNorm) {
   if (hasAnySupportKeyword(messageNorm, ['パスコード']) && hasAnySupportKeyword(messageNorm, ['毎回', '起動時', 'オン', 'オフ', '省略'])) {
     return buildSupportReply(
       [
-        'ログイン時のパスコード設定です。',
-        '1. パスコードを一度設定したあと、マイページの「ログイン時のパスコード」からオン・オフを切り替えられます。',
-        `2. 現在は${isPasscodeLoginEnabled() ? 'オン' : 'オフ'}です。`,
-        '3. オフにすると、次回からアプリ起動時のパスコード入力を省略できます。'
+        'アプリを開くたびにパスコードを入力していただく仕組みは廃止しました。',
+        'パスコードは、アプリ一覧の入口の画面で一度だけお使いいただきます。',
+        'そのあとは、どのアプリも聞かれずにお開きいただけます。'
       ],
-      ['起動時のパスコード設定について知りたい', 'パスコードの変更方法を知りたい']
+      ['パスコードを忘れたときの再設定方法を知りたい']
     );
   }
 
@@ -6414,7 +6378,7 @@ function getBuiltInSupportReply(messageNorm) {
         'プロフィール登録の方法です。',
         '1. 初回起動時は「はじめて登録する方はこちら」を選びます。',
         '2. お名前、電話番号、生年月日、住所を入力して保存してください。',
-        '3. すでに登録済みの方は新規登録ではなく「以前登録した方はこちら ↺」から復元してください。',
+        '3. すでに登録済みの方は新しく登録せず、入口の画面の「ログイン」からお入りください。',
         '補足: お名前は必須です。'
       ],
       ['初回起動時はどちらを選べばいいですか？', 'データの引き継ぎ・復元方法を知りたい']
@@ -6755,8 +6719,8 @@ function getBuiltInSupportReply(messageNorm) {
     return buildSupportReply(
       [
         '端末の引き継ぎについてです。',
-        'ログイン画面、または初回画面の「以前登録した方はこちら ↺」から進めます。',
-        '引き継ぎコードがある場合は、引き継ぎコードと新しいパスコードを入力してください。',
+        'アプリ一覧の入口の画面の「お困りのとき」から進めます。',
+        '引き継ぎコードがある場合は「引き継ぎコードをお持ちの方」からお進みください。',
         '引き継ぎコードがない場合は、お名前またはフリガナのどちらかと、生年月日を入力すると復元できます。',
         '機種変更前は、マイページの「↺ 引き継ぎコードの発行」からコードを出しておくとスムーズです。'
       ],
@@ -6768,7 +6732,7 @@ function getBuiltInSupportReply(messageNorm) {
     return buildSupportReply(
       [
         'アプリの削除・復元についてです。',
-        '再インストール後は、ログイン画面や初回画面で「以前登録した方はこちら ↺」を選ぶと会員情報を戻せます。',
+        '再インストール後は、アプリ一覧の入口の画面からこれまでと同じお名前とパスコードでお入りいただけます。',
         '引き継ぎコードがある場合はコードで復元できます。ない場合も、お名前またはフリガナのどちらかと、生年月日で復元できます。',
         '再インストール前にマイページで引き継ぎコードを発行しておくと、よりスムーズです。'
       ],
@@ -7123,74 +7087,9 @@ function handleBannerChange(input) {
   });
 }
 
-function clearPasscodeOverlayError() {
-  const input = document.getElementById('lockPasscode');
-  const error = document.getElementById('lockPasscodeErr');
-  if (input) input.classList.remove('error');
-  if (error) error.classList.remove('show');
-}
 
-function prefillForgotPasscodeForm(fieldMap) {
-  const settings = fieldMap || {};
-  const nameInput = document.getElementById(settings.nameId);
-  const phoneInput = document.getElementById(settings.phoneId);
-  const birthdayInput = document.getElementById(settings.birthdayId);
-  const passcodeInput = document.getElementById(settings.passcodeId);
-  const sourcePhoneInput = settings.sourcePhoneId ? document.getElementById(settings.sourcePhoneId) : null;
-  const profileName = _profile && _profile.name ? _profile.name : '';
-  const profilePhone = _profile && _profile.phone ? _profile.phone : '';
-  const profileBirthday = _profile && _profile.birthday ? _profile.birthday : '';
 
-  if (nameInput) {
-    nameInput.value = normalizeNameInput(nameInput.value) || profileName;
-  }
-  if (phoneInput) {
-    const currentPhone = normalizePhoneInput(phoneInput.value);
-    const sourcePhone = sourcePhoneInput ? normalizePhoneInput(sourcePhoneInput.value) : '';
-    phoneInput.value = currentPhone || sourcePhone || profilePhone;
-  }
-  if (birthdayInput) {
-    birthdayInput.value = normalizeDateOnlyInput(birthdayInput.value) || profileBirthday;
-  }
-  if (passcodeInput) {
-    passcodeInput.value = '';
-  }
-}
 
-function prefillRestoreAccountForm(fieldMap) {
-  const settings = fieldMap || {};
-  const nameInput = document.getElementById(settings.nameId);
-  const kanaInput = document.getElementById(settings.kanaId);
-  const phoneInput = document.getElementById(settings.phoneId);
-  const birthdayInput = document.getElementById(settings.birthdayId);
-  const passcodeInput = document.getElementById(settings.passcodeId);
-  const transferCodeInput = document.getElementById(settings.transferCodeId);
-  const newPasscodeInput = document.getElementById(settings.newPasscodeId);
-  const profileName = _profile && _profile.name ? _profile.name : '';
-  const profileKana = _profile && _profile.kana ? _profile.kana : '';
-  const profilePhone = _profile && _profile.phone ? _profile.phone : '';
-  const profileBirthday = _profile && _profile.birthday ? _profile.birthday : '';
-
-  if (nameInput) nameInput.value = normalizeNameInput(nameInput.value) || profileName;
-  if (kanaInput) kanaInput.value = normalizeKanaInput(kanaInput.value) || profileKana;
-  if (phoneInput) phoneInput.value = normalizePhoneInput(phoneInput.value) || profilePhone;
-  if (birthdayInput) birthdayInput.value = normalizeDateOnlyInput(birthdayInput.value) || profileBirthday;
-  if (passcodeInput) passcodeInput.value = '';
-  if (transferCodeInput) transferCodeInput.value = '';
-  if (newPasscodeInput) newPasscodeInput.value = '';
-}
-
-function updateTransferCodeDisplay(details) {
-  const card = document.getElementById('transferCodeResultCard');
-  const codeEl = document.getElementById('transferCodeValue');
-  const expiryEl = document.getElementById('transferCodeExpiry');
-  const code = details && details.transferCode ? String(details.transferCode) : '';
-  const expiryText = details && details.expiresAt ? formatCustomerDateYmdHm(details.expiresAt) : (details && details.expiresAtLabel ? details.expiresAtLabel : '');
-
-  if (codeEl) codeEl.textContent = code || '--------';
-  if (expiryEl) expiryEl.textContent = expiryText ? ('有効期限：' + expiryText) : '有効期限：---';
-  if (card) card.style.display = code ? 'block' : 'none';
-}
 
 async function applyRecoveredUserState(user, passcode, successMessage) {
   const u = user || {};
@@ -7279,122 +7178,22 @@ async function applyRecoveredUserState(user, passcode, successMessage) {
   showToast(successMessage || 'ログインしました🌿');
 }
 
-function togglePasscodeOverlayView(view) {
-  const login = document.getElementById('passcodeLoginContent');
-  const restore = document.getElementById('passcodeRestoreContent');
-  const reset = document.getElementById('passcodeResetContent');
-  if (login) login.style.display = view === 'login' ? 'block' : 'none';
-  if (restore) restore.style.display = view === 'restore' ? 'block' : 'none';
-  if (reset) reset.style.display = view === 'reset' ? 'block' : 'none';
-  if (view === 'restore') {
-    prefillRestoreAccountForm({
-      nameId: 'passcodeRestoreName',
-      kanaId: 'passcodeRestoreKana',
-      phoneId: 'passcodeRestorePhone',
-      birthdayId: 'passcodeRestoreBirthday',
-      passcodeId: 'passcodeRestorePasscode',
-      transferCodeId: 'passcodeRestoreTransferCode',
-      newPasscodeId: 'passcodeRestoreNewPasscode'
-    });
-  }
-  if (view === 'reset') {
-    prefillForgotPasscodeForm({
-      nameId: 'passcodeResetName',
-      phoneId: 'passcodeResetPhone',
-      birthdayId: 'passcodeResetBirthday',
-      passcodeId: 'passcodeResetNewPasscode',
-      sourcePhoneId: 'passcodeRestorePhone'
-    });
-  }
-  clearPasscodeOverlayError();
-}
 
 function openPasscodeOverlay() {
-  if (!_profile || !hasConfiguredLocalPasscode()) return;
-  const overlay = document.getElementById('passcodeOverlay');
-  const input = document.getElementById('lockPasscode');
-  const resetName = document.getElementById('passcodeResetName');
-  const resetPhone = document.getElementById('passcodeResetPhone');
-  const resetBirthday = document.getElementById('passcodeResetBirthday');
-  const resetPasscode = document.getElementById('passcodeResetNewPasscode');
-  if (input) input.value = '';
-  prefillRestoreAccountForm({
-    nameId: 'passcodeRestoreName',
-    kanaId: 'passcodeRestoreKana',
-    phoneId: 'passcodeRestorePhone',
-    birthdayId: 'passcodeRestoreBirthday',
-    passcodeId: 'passcodeRestorePasscode',
-    transferCodeId: 'passcodeRestoreTransferCode',
-    newPasscodeId: 'passcodeRestoreNewPasscode'
-  });
-  if (resetName) resetName.value = _profile.name || '';
-  if (resetPhone) resetPhone.value = _profile.phone || '';
-  if (resetBirthday) resetBirthday.value = _profile.birthday || '';
-  if (resetPasscode) resetPasscode.value = '';
-  togglePasscodeOverlayView('login');
-  if (overlay) overlay.classList.add('open');
-  setTimeout(function () {
-    if (input) input.focus();
-  }, 60);
+  // 起動時のパスコード入力は廃止した。入口の画面で一度ログインしていただく。
 }
 
 function closePasscodeOverlay() {
-  const overlay = document.getElementById('passcodeOverlay');
-  if (overlay) overlay.classList.remove('open');
-  clearPasscodeOverlayError();
+  // 起動時のパスコード入力は廃止したので、閉じるものが無い。
 }
 
 function shouldRequirePasscodeLock() {
-  if (!_profile || !hasConfiguredLocalPasscode()) return false;
-  if (!isPasscodeLoginEnabled()) return false;
-  const onboarding = document.getElementById('onboardingScreen');
-  const setupOverlay = document.getElementById('setupOverlay');
-  const migrationOverlay = document.getElementById('migrationOverlay');
-  if (onboarding && onboarding.classList.contains('show')) return false;
-  if (setupOverlay && setupOverlay.classList.contains('open')) return false;
-  if (migrationOverlay && migrationOverlay.classList.contains('open')) return false;
-  return true;
+  // 入口の画面でパスコードを入れていただくので、開くたびに同じものは聞かない。
+  // パスコードの設定・再設定の画面はマイページに残してある。
+  return false;
 }
 
-async function unlockAppWithPasscode() {
-  const input = document.getElementById('lockPasscode');
-  const error = document.getElementById('lockPasscodeErr');
-  const btn = document.getElementById('unlockBtn');
-  const passcode = normalizePasscodeInput(input ? input.value : '');
 
-  if (!isValidPasscodeValue(passcode)) {
-    if (input) input.classList.add('error');
-    if (error) error.classList.add('show');
-    showToast('4桁または6桁の数字で入力してください');
-    return;
-  }
-
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = '確認中...';
-  }
-  clearPasscodeOverlayError();
-
-  try {
-    const isMatched = await verifyLocalPasscode(passcode);
-    if (!isMatched) {
-      if (input) input.classList.add('error');
-      if (error) error.classList.add('show');
-      showToast('パスコードが一致しません');
-      return;
-    }
-    isPasscodeAuthenticated = true;
-    closePasscodeOverlay();
-    flushPendingIncomingStampAction();
-    showToast('ログインしました🌿');
-    scheduleProfileRecoveryPrompt();
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = 'ログインする';
-    }
-  }
-}
 
 async function restoreAccountByForm(options) {
   const settings = options || {};
@@ -7420,7 +7219,7 @@ async function restoreAccountByForm(options) {
     return;
   }
   if (!transferCode && kana && !isValidKanaValue(kana)) {
-    showToast('フリガナは全角カタカナで入力してください');
+    showToast('ふりがなはひらがなで入力してください');
     return;
   }
   if (!transferCode && !birthday) {
@@ -7553,212 +7352,20 @@ async function resetForgottenPasscodeByForm(options) {
   }
 }
 
-function restoreAccountFromLockScreen() {
-  return restoreAccountByForm({
-    nameId: 'passcodeRestoreName',
-    kanaId: 'passcodeRestoreKana',
-    phoneId: 'passcodeRestorePhone',
-    birthdayId: 'passcodeRestoreBirthday',
-    passcodeId: 'passcodeRestorePasscode',
-    transferCodeId: 'passcodeRestoreTransferCode',
-    newPasscodeId: 'passcodeRestoreNewPasscode',
-    buttonId: 'passcodeRestoreBtn'
-  });
-}
 
-function resetForgottenPasscodeFromLockScreen() {
-  return resetForgottenPasscodeByForm({
-    nameId: 'passcodeResetName',
-    phoneId: 'passcodeResetPhone',
-    birthdayId: 'passcodeResetBirthday',
-    passcodeId: 'passcodeResetNewPasscode',
-    buttonId: 'passcodeResetBtn'
-  });
-}
 
 function toggleSetupView(view) {
-  const choice = document.getElementById('setupChoiceContent');
+  // パスコードの入力・変更・復元の画面は、入口の画面へ移したのでここには無い。
+  // 残っているのは会員登録（プロフィール）のフォームだけ。
   const setup = document.getElementById('setupFormContent');
-  const restore = document.getElementById('restoreFormContent');
-  const change = document.getElementById('changePasscodeContent');
-  const forgot = document.getElementById('forgotPasscodeContent');
-
-  if (choice) choice.style.display = view === 'choice' ? 'block' : 'none';
-
-  if (view === 'restore') {
-    if (setup) setup.style.display = 'none';
-    if (restore) restore.style.display = 'block';
-    if (change) change.style.display = 'none';
-    if (forgot) forgot.style.display = 'none';
-    prefillRestoreAccountForm({
-      nameId: 'restoreName',
-      kanaId: 'restoreKana',
-      phoneId: 'restorePhone',
-      birthdayId: 'restoreBirthday',
-      passcodeId: 'restorePasscode',
-      transferCodeId: 'restoreTransferCode',
-      newPasscodeId: 'restoreNewPasscode'
-    });
-  } else if (view === 'forgot') {
-    if (setup) setup.style.display = 'none';
-    if (restore) restore.style.display = 'none';
-    if (change) change.style.display = 'none';
-    if (forgot) forgot.style.display = 'block';
-    prefillForgotPasscodeForm({
-      nameId: 'forgotPasscodeName',
-      phoneId: 'forgotPasscodePhone',
-      birthdayId: 'forgotPasscodeBirthday',
-      passcodeId: 'forgotPasscodeNew',
-      sourcePhoneId: 'restorePhone'
-    });
-  } else if (view === 'change') {
-    if (setup) setup.style.display = 'none';
-    if (restore) restore.style.display = 'none';
-    if (change) change.style.display = 'block';
-    if (forgot) forgot.style.display = 'none';
-  } else if (view === 'choice') {
-    if (setup) setup.style.display = 'none';
-    if (restore) restore.style.display = 'none';
-    if (change) change.style.display = 'none';
-    if (forgot) forgot.style.display = 'none';
-  } else {
-    if (setup) setup.style.display = 'block';
-    if (restore) restore.style.display = 'none';
-    if (change) change.style.display = 'none';
-    if (forgot) forgot.style.display = 'none';
-  }
-}
-
-function openChangePasscode() {
-  document.getElementById('newPasscode').value = '';
-  toggleSetupView('change');
-  const cancelBtn = document.getElementById('setupCancelBtn');
-  if (cancelBtn) cancelBtn.style.display = 'inline-block';
-  openModal('setupOverlay');
-}
-
-async function saveNewPasscode() {
-  if (!_profile || !_profile.memberId) return;
-  const newPass = normalizePasscodeInput(document.getElementById('newPasscode').value);
-
-  if (!isValidPasscodeValue(newPass)) {
-    showToast('4桁または6桁の数字を入力してください');
-    return;
-  }
-
-  const btn = document.getElementById('changePasscodeBtn');
-  btn.disabled = true;
-  btn.textContent = '保存中...';
-
-  try {
-    const data = {
-      type: 'updateUser',
-      memberId: _profile.memberId,
-      passcode: newPass
-    };
-    const res = await postToGAS(data);
-    if (res && res.status === 'ok') {
-      await storeLocalPasscode(newPass);
-      isPasscodeAuthenticated = true;
-      syncCurrentDeviceSession({ silent: true }).catch(function (error) {
-        console.error('syncCurrentDeviceSession after saveNewPasscode error:', error);
-      });
-      updateTransferCodeDisplay(null);
-      showToast('パスコードを変更しました🌿');
-      closeSetupModal();
-    } else if (res && res.status === 'queued') {
-      await storeLocalPasscode(newPass);
-      isPasscodeAuthenticated = true;
-      showToast('パスコードを変更しました。通信回復後に同期します');
-      closeSetupModal();
-    } else {
-      showToast('変更に失敗しました');
-    }
-  } catch (e) {
-    console.error(e);
-    showToast('通信エラーが発生しました');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '変更を保存';
-  }
-}
-
-async function issueTransferCode() {
-  if (!_profile || !_profile.memberId) {
-    showToast('会員情報を確認できません');
-    return;
-  }
-
-  const isConfirmed = await showAppConfirm('この端末の会員情報で引き継ぎコードを発行しますか？\n新しい端末の「データの引き継ぎ・復元」で使えます。', {
-    title: '引き継ぎコードの発行',
-    confirmLabel: '発行する',
-    cancelLabel: '戻る'
-  });
-  if (!isConfirmed) return;
-
-  const btn = document.getElementById('issueTransferCodeBtn');
-  if (btn) {
-    btn.disabled = true;
-    btn.dataset.originalText = btn.dataset.originalText || btn.textContent;
-    btn.textContent = '発行中...';
-  }
-
-  try {
-    const res = await postToGAS({
-      type: 'issueTransferCode',
-      memberId: _profile.memberId
-    });
-
-    if (res && res.status === 'ok' && res.transferCode) {
-      updateTransferCodeDisplay(res);
-      await showAppAlert(
-        '引き継ぎコード：' + res.transferCode + '\n有効期限：' + (res.expiresAtLabel || formatCustomerDateYmdHm(res.expiresAt) || '---') + '\n\n新しい端末の「データの引き継ぎ・復元」で入力してください。',
-        {
-          title: '引き継ぎコードを発行しました',
-          confirmLabel: '閉じる'
-        }
-      );
-      return;
-    }
-
-    await showAppAlert(res && res.message ? res.message : '引き継ぎコードの発行に失敗しました。', {
-      title: '発行エラー',
-      confirmLabel: '閉じる'
-    });
-  } catch (e) {
-    console.error('issueTransferCode error:', e);
-    showToast('通信エラーが発生しました');
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = btn.dataset.originalText || '引き継ぎコードを発行する';
-    }
-  }
+  if (setup) setup.style.display = 'block';
 }
 
 
-async function restoreAccount() {
-  return restoreAccountByForm({
-    nameId: 'restoreName',
-    kanaId: 'restoreKana',
-    phoneId: 'restorePhone',
-    birthdayId: 'restoreBirthday',
-    passcodeId: 'restorePasscode',
-    transferCodeId: 'restoreTransferCode',
-    newPasscodeId: 'restoreNewPasscode',
-    buttonId: 'restoreBtn'
-  });
-}
 
-async function resetForgottenPasscode() {
-  return resetForgottenPasscodeByForm({
-    nameId: 'forgotPasscodeName',
-    phoneId: 'forgotPasscodePhone',
-    birthdayId: 'forgotPasscodeBirthday',
-    passcodeId: 'forgotPasscodeNew',
-    buttonId: 'forgotPasscodeBtn'
-  });
-}
+
+
+
 
 async function saveProfile() {
   const nameEl = document.getElementById('setupName');
@@ -7800,7 +7407,7 @@ async function saveProfile() {
   nameEl.classList.remove('error');
   nameErr.classList.remove('show');
 
-  // フリガナは全角カタカナのみ（復元時の照合に使うため）
+  // ふりがなはひらがなのみ（復元時の照合に使うため）
   if (!isValidKanaValue(kana)) {
     if (kanaEl) {
       kanaEl.classList.add('error');
@@ -7808,7 +7415,7 @@ async function saveProfile() {
     }
     if (kanaErr) {
       kanaErr.textContent = kana
-        ? 'フリガナは全角カタカナで入力してください'
+        ? 'ふりがなはひらがなで入力してください'
         : 'フリガナを入力してください';
       kanaErr.classList.add('show');
     }
@@ -7921,77 +7528,9 @@ async function saveProfile() {
 }
 
 function openMigrationModal() {
-  const phoneInput = document.getElementById('migrationPhone');
-  const passcodeInput = document.getElementById('migrationPasscode');
-  const overlay = document.getElementById('migrationOverlay');
-  if (phoneInput) phoneInput.value = _profile && _profile.phone ? _profile.phone : '';
-  if (passcodeInput) passcodeInput.value = '';
-  isPasscodeAuthenticated = false;
-  if (overlay) overlay.classList.add('open');
-  setTimeout(function () {
-    if (passcodeInput) passcodeInput.focus();
-  }, 60);
+  // パスコード設定をお願いする案内は廃止した。入口の画面で設定していただく。
 }
 
-async function saveMigrationPasscode() {
-  const phone = document.getElementById('migrationPhone').value.trim();
-  const passcode = normalizePasscodeInput(document.getElementById('migrationPasscode').value);
-  const btn = document.getElementById('migrationBtn');
-
-  if (!phone || !isValidPasscodeValue(passcode)) {
-    showToast('電話番号と4桁または6桁のパスコードを入力してください');
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = '保存中...';
-
-  try {
-    const data = {
-      type: 'updateUser',
-      memberId: _profile.memberId,
-      phone: phone,
-      passcode: passcode
-    };
-    const res = await postToGAS(data);
-    if (res && res.status === 'ok') {
-      _profile.phone = phone;
-      localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
-      await storeLocalPasscode(passcode);
-      isPasscodeAuthenticated = true;
-      flushPendingIncomingStampAction();
-      syncCurrentDeviceSession({ silent: true }).catch(function (error) {
-        console.error('syncCurrentDeviceSession after saveMigrationPasscode error:', error);
-      });
-      showToast('パスコード設定を完了しました🌿');
-      document.getElementById('migrationOverlay').classList.remove('open');
-      const homePage = document.getElementById('page-home');
-      if (homePage) homePage.classList.add('active');
-      switchPage('home');
-      updateProfileUI();
-    } else if (res && res.status === 'queued') {
-      _profile.phone = phone;
-      localStorage.setItem('mayumi_profile', JSON.stringify(_profile));
-      await storeLocalPasscode(passcode);
-      isPasscodeAuthenticated = true;
-      flushPendingIncomingStampAction();
-      showToast('設定を保存しました。通信回復後に同期します');
-      document.getElementById('migrationOverlay').classList.remove('open');
-      const homePage = document.getElementById('page-home');
-      if (homePage) homePage.classList.add('active');
-      switchPage('home');
-      updateProfileUI();
-    } else {
-      showToast('設定に失敗しました');
-    }
-  } catch (e) {
-    console.error(e);
-    showToast('通信エラーが発生しました');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '設定してアプリを使う';
-  }
-}
 
 function openEditProfile() {
   if (!_profile) { openSetupModal(false); return; }
@@ -8246,35 +7785,17 @@ async function removeUserDeviceSession(deviceId) {
   }
 }
 
-// ===== ログアウト =====
-// 端末に残っている記録には触らない。共通のログイン状態だけを解いて入口へ戻す。
-// 同じ人が入り直したときに、ログアウト前の続きからそのまま使えるようにするため。
-
-// ランチャー（入口）が管理しているログイン状態。アプリごとの記録とは別物。
-const SHARED_SESSION_STORAGE_KEYS = [
-  'mayumi_launcher_session',
-  'mayumi_member_auth_token'
-];
+// ===== アプリの切り替え =====
+// 入口へ戻るだけ。ログイン状態も端末の記録も触らないので、
+// 一覧から選び直せばすぐ戻ってこられる。
+// ログインを解きたいときは、入口の画面のログアウトを使う。
 
 const LAUNCHER_PAGE_URL = 'start/';
 
-function clearSharedSession() {
-  SHARED_SESSION_STORAGE_KEYS.forEach(function (key) {
-    try { localStorage.removeItem(key); } catch (e) { /* プライベートモードでは触れない */ }
-  });
-}
-
-async function logoutFromApp() {
-  const confirmed = await showAppConfirm(
-    'ログアウトして入口の画面に戻ります。\nこの端末の記録は消えないので、入り直せば続きから使えます。',
-    {
-      title: 'ログアウト',
-      confirmLabel: 'ログアウトする',
-      cancelLabel: 'やめる'
-    }
-  );
-  if (!confirmed) return;
-  clearSharedSession();
+// アプリを切り替えるための出口。ログイン状態は保ったままにして、
+// 入口ではアプリ一覧が出るようにする。
+// ログインを解きたいときは、入口の画面のログアウトを使う。
+function goToAppList() {
   location.href = LAUNCHER_PAGE_URL;
 }
 
@@ -8292,40 +7813,23 @@ async function checkExistingMemberCandidates(name, kana, phone, birthday) {
   return [];
 }
 
-function prefillRecoveryFormsFromProfile(values) {
-  const payload = values || {};
-  [
-    ['restoreName', payload.name],
-    ['restoreKana', payload.kana],
-    ['restorePhone', payload.phone],
-    ['restoreBirthday', payload.birthday],
-    ['passcodeRestoreName', payload.name],
-    ['passcodeRestoreKana', payload.kana],
-    ['passcodeRestorePhone', payload.phone],
-    ['passcodeRestoreBirthday', payload.birthday]
-  ].forEach(function (pair) {
-    const el = document.getElementById(pair[0]);
-    if (el && pair[1] !== undefined) el.value = pair[1] || '';
-  });
-}
 
 async function promptRecoveryCandidates(candidates, formValues) {
   if (!candidates || !candidates.length) return false;
-  const summary = candidates.slice(0, 3).map(function (candidate) {
-    const reasonText = Array.isArray(candidate.reasons) ? candidate.reasons.join('・') : '一致';
-    return '・' + (candidate.name || '会員') + ' / ' + (candidate.memberId || '---') + ' / 一致: ' + reasonText;
-  }).join('\n');
+  // 復元の画面は入口へ移した。ここで新しく登録されると同じ方が二重になるので、
+  // 登録を止めて、入口のログイン画面へお戻りいただく。
   const shouldMove = await showAppConfirm(
-    '以前登録した可能性がある会員が見つかりました。\n新規登録ではなく復元を使うと、同じお名前で別の会員IDが増えるのを防げます。\n\n' + summary + '\n\n復元画面へ移動しますか？',
+    'すでにご登録の記録が見つかりました。\n新しく登録すると、同じお名前で別の会員として増えてしまいます。\n\n'
+    + 'ログイン画面から、これまでと同じお名前とパスコードでお入りください。\n'
+    + 'パスコードが分からない場合も、ログイン画面の「お困りのとき」からお手続きいただけます。',
     {
-      title: '以前登録した情報が見つかりました',
-      confirmLabel: '復元へ進む',
-      cancelLabel: '新規登録を続ける'
+      title: 'すでにご登録があります',
+      confirmLabel: 'ログイン画面へ',
+      cancelLabel: 'このまま新規登録する'
     }
   );
   if (!shouldMove) return false;
-  prefillRecoveryFormsFromProfile(formValues);
-  toggleSetupView('restore');
+  location.href = 'start/';
   return true;
 }
 
@@ -8351,7 +7855,10 @@ function checkFirstLaunch() {
       return;
     }
 
-    if (!isPasscodeLoginEnabled()) {
+    // 入口で一度パスコードを入れていただいているので、開くたびには聞かない。
+    // 設定画面の表示は isPasscodeLoginEnabled() のままにしておきたいので、
+    // ここだけ shouldRequirePasscodeLock() で先に止める。
+    if (!shouldRequirePasscodeLock() || !isPasscodeLoginEnabled()) {
       isPasscodeAuthenticated = true;
       closePasscodeOverlay();
       scheduleProfileRecoveryPrompt();
@@ -8776,9 +8283,33 @@ async function handleNativeNotificationFallback() {
 // ※ 重複定義のため削除（3180行目付近に集約）
 
 // ===== 初期化 (並列実行で高速化) =====
+// ===== 入口を経由してから使っていただく設定 =====
+// ログインしていない方は、アプリを開いた時点で入口へ移る。
+// ログインは入口（/start/）だけで行い、このアプリでは会員登録もパスコードも聞かない。
+// ログイン済みの方は、入口の記録からお名前を引き継ぐので何も聞かれない（ファイル冒頭を参照）。
+const REQUIRE_LAUNCHER_LOGIN = true;
+
+function shouldSendToLauncher() {
+  let enabled = REQUIRE_LAUNCHER_LOGIN;
+  try {
+    if (localStorage.getItem('mayumi_require_login') === 'true') enabled = true;
+  } catch (e) { /* プライベートモードでは読めない */ }
+  if (!enabled) return false;
+  try {
+    const session = localStorage.getItem('mayumi_launcher_session');
+    if (session && JSON.parse(session).role) return false;   // ログイン済み
+  } catch (e) { /* 壊れていれば未ログイン扱い */ }
+  return true;
+}
+
 async function initApp() {
   if (initAppStarted) return;
   initAppStarted = true;
+  // 入口を通っていない方には、まずログインしていただく。
+  if (shouldSendToLauncher()) {
+    location.replace('start/');
+    return;
+  }
   await initSecureLocalStore();
   applyAccessibilitySettings();
   renderRetryQueueStatus();

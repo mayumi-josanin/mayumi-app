@@ -56,9 +56,37 @@
     width: 100%; margin-top: 20px; padding: 15px; font-size: 16px; font-weight: 700;
     color: #fff; background: var(--sage); border: 0; border-radius: 10px; cursor: pointer;
   }
-  button.primary:disabled { opacity: .6; cursor: default; }
+  button.primary:disabled { opacity: .7; cursor: progress; }
   .error { color: var(--danger); font-size: 13px; min-height: 20px; margin: 12px 0 0; }
   .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+  /* 期限切れなど、失敗ではないがお伝えしたいこと。赤字にすると驚かせてしまう。 */
+  .notice {
+    margin: 0 0 14px; padding: 10px 12px; font-size: 13px; line-height: 1.6;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  }
+  /* 主役ではない操作（お困りのとき、引き継ぎコードの発行など）。 */
+  button.subtle {
+    width: 100%; margin-top: 10px; padding: 12px; font-size: 14px;
+    color: var(--muted); background: #fff;
+    border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  }
+  .helpBlock { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .helpBlock > strong { font-size: 14px; }
+  /* 発行した引き継ぎコードを、書き写しやすい大きさで見せる。 */
+  .codeBox {
+    margin-top: 12px; padding: 16px; text-align: center;
+    background: var(--bg); border: 1px dashed var(--sage); border-radius: 10px;
+  }
+  .codeBox .value {
+    font-size: 30px; font-weight: 800; letter-spacing: .18em;
+    color: var(--sage-dark); font-variant-numeric: tabular-nums;
+  }
+  .codeBox .meta { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+  /* すでにご利用の方は空欄で構わない欄につける印。 */
+  .optional {
+    margin-left: 6px; padding: 1px 6px; font-size: 11px;
+    color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 999px;
+  }
 
   .who { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
   .who strong { font-size: 16px; }
@@ -93,42 +121,108 @@
     </div>
 
     <form id="loginForm">
+      <p class="notice" id="loginNotice" hidden></p>
+      <p class="note">
+        すでにアプリをお使いの方は、これまでと同じお名前とパスコードでお入りいただけます。
+      </p>
       <label>お名前（漢字・フルネーム）
         <input name="name" type="text" autocomplete="name" required />
       </label>
-      <label>パスワード
-        <input name="password" type="password" autocomplete="current-password" required />
+      <label>パスコード
+        <input name="passcode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" placeholder="例：1234" required />
       </label>
       <p class="error" id="loginError"></p>
       <button class="primary" type="submit">ログイン</button>
+      <!-- パスコードをまだお持ちでない方が、ここで行き止まりにならないようにする。
+           ご登録はあるがパスコードだけ未設定、という方が実際にいらっしゃる。 -->
+      <p class="note">
+        パスコードをまだ決めていない方・お忘れの方は、下の
+        <strong>「お困りのとき」</strong>からお進みください。
+        お名前と、電話番号または生年月日で確認のうえ設定できます。
+      </p>
     </form>
 
     <form id="registerForm" hidden>
       <label>お名前（漢字・フルネーム）
         <input name="name" type="text" autocomplete="name" required />
       </label>
-      <label>フリガナ（カタカナ）
-        <input name="kana" type="text" autocapitalize="characters" required />
-      </label>
       <label>生年月日
         <input name="birthday" type="date" required />
       </label>
-      <label>電話番号
-        <input name="phone" type="tel" autocomplete="tel" required />
+      <label>ふりがな（ひらがな）<span class="optional">はじめての方のみ</span>
+        <input name="kana" type="text" placeholder="例：たなかはなこ" />
       </label>
-      <label>ご住所
-        <input name="address" type="text" autocomplete="street-address" required />
+      <label>電話番号<span class="optional">はじめての方のみ</span>
+        <input name="phone" type="tel" autocomplete="tel" />
       </label>
-      <label>パスワード（8文字以上）
-        <input name="password" type="password" autocomplete="new-password" required />
+      <label>ご住所<span class="optional">はじめての方のみ</span>
+        <input name="address" type="text" autocomplete="street-address" />
+      </label>
+      <label>パスコード（数字4桁または6桁）
+        <input name="passcode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" placeholder="例：1234" required />
       </label>
       <p class="error" id="registerError"></p>
       <button class="primary" type="submit">登録する</button>
       <p class="note">
-        すでに当院をご利用の方は、お名前と生年月日が一致すれば、
-        これまでの記録を引き継いでパスワードだけ設定します。
+        すでに当院をご利用の方は、お名前・生年月日・パスコードの3つだけで結構です。
+        これまでの記録を引き継いで、パスコードだけを設定します。
+      </p>
+      <!-- パスコードが無い方が「入れないから登録し直そう」と考えて二重登録に至るのを防ぐ。
+           記録が分かれるとスタンプも測定履歴も追えなくなるため、はっきり書く。 -->
+      <p class="note">
+        <strong>アプリに入れないからといって、新しく登録し直さないでください。</strong>
+        これまでの記録が分かれてしまいます。
+        パスコードが分からない場合は、上の「ログイン」に戻り
+        <strong>「お困りのとき」</strong>からお進みください。
       </p>
     </form>
+
+    <!-- パスコードにまつわることは、この画面に集約する。
+         各アプリの中では聞かない（入口で一度だけ、という方針）。 -->
+    <div class="helpBlock" id="helpBlock">
+      <strong>お困りのとき</strong>
+      <button class="subtle" type="button" id="openForgot">パスコードを忘れた方</button>
+      <button class="subtle" type="button" id="openTransfer">引き継ぎコードをお持ちの方</button>
+
+      <form id="forgotForm" hidden>
+        <p class="note">
+          ご登録の内容で本人確認のうえ、新しいパスコードを設定します。
+          <strong>まだパスコードを決めていない方も、こちらから設定できます。</strong>
+          電話番号と生年月日は、分かるほうだけでも構いません（両方いただけると確実です）。
+          電話番号も生年月日もご登録がない方は、この画面では確認できません。
+          受付でスタッフにお申し出ください。
+        </p>
+        <label>お名前（漢字・フルネーム）
+          <input name="name" type="text" autocomplete="name" required />
+        </label>
+        <label>電話番号<span class="optional">どちらか一方で可</span>
+          <input name="phone" type="tel" autocomplete="tel" />
+        </label>
+        <label>生年月日<span class="optional">どちらか一方で可</span>
+          <input name="birthday" type="date" />
+        </label>
+        <label>新しいパスコード（数字4桁または6桁）
+          <input name="newPasscode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" required />
+        </label>
+        <p class="error" id="forgotError"></p>
+        <button class="primary" type="submit">新しいパスコードを設定する</button>
+      </form>
+
+      <form id="transferForm" hidden>
+        <p class="note">
+          前の端末で発行した引き継ぎコードを入力してください。
+          1回限り・1週間有効です。
+        </p>
+        <label>引き継ぎコード（8桁）
+          <input name="transferCode" type="tel" inputmode="numeric" maxlength="8" required />
+        </label>
+        <label>この端末で使うパスコード（数字4桁または6桁）
+          <input name="newPasscode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" required />
+        </label>
+        <p class="error" id="transferError"></p>
+        <button class="primary" type="submit">引き継ぐ</button>
+      </form>
+    </div>
   </section>
 
   <section id="appsView" class="card" hidden>
@@ -139,8 +233,56 @@
       </div>
       <button type="button" id="logoutButton">ログアウト</button>
     </div>
+
+    <!-- ご登録のときに伺えなかった項目をお願いする。
+         電話番号か生年月日が無いと、パスコードを忘れたときに戻せないため。
+         アプリ一覧より前に置く。後ろだと、そのまま気づかず進まれてしまう。 -->
+    <div class="helpBlock" id="profileGapBlock" hidden>
+      <strong>ご登録内容の確認をお願いします</strong>
+      <p class="note" style="margin-top:4px;">
+        下の項目がまだいただけていません。<strong>すべてご入力をお願いします。</strong>
+        電話番号や生年月日がないと、パスコードを忘れたときにこの画面ではお戻しできず、
+        受付でのお手続きが必要になります。1分ほどで終わります。
+      </p>
+      <form id="profileGapForm">
+        <label id="gapNameLabel" hidden>お名前（漢字・フルネーム）
+          <input name="name" type="text" autocomplete="name" />
+        </label>
+        <label id="gapKanaLabel" hidden>ふりがな（ひらがな）
+          <input name="kana" type="text" placeholder="例：たなかはなこ" />
+        </label>
+        <label id="gapPhoneLabel" hidden>電話番号
+          <input name="phone" type="tel" autocomplete="tel" />
+        </label>
+        <label id="gapBirthdayLabel" hidden>生年月日
+          <input name="birthday" type="date" />
+        </label>
+        <label id="gapAddressLabel" hidden>ご住所
+          <input name="address" type="text" autocomplete="street-address" />
+        </label>
+        <p class="error" id="profileGapError"></p>
+        <button class="primary" type="submit">登録する</button>
+      </form>
+    </div>
+
     <div id="appList"></div>
     <p class="note" id="appsNote"></p>
+
+    <!-- 機種変更の前に、この画面でコードを発行していただく。
+         新しい端末では、ログイン画面の「引き継ぎコードをお持ちの方」から使う。 -->
+    <div class="helpBlock" id="transferIssueBlock">
+      <strong>機種変更をされる方へ</strong>
+      <p class="note" style="margin-top:4px;">
+        新しい端末でも、これまでと同じお名前とパスコードでお入りいただけます。
+        パスコードが分からなくなりそうなときは、先にコードを発行しておくと安心です。
+      </p>
+      <div class="codeBox" id="transferCodeBox" hidden>
+        <div class="value" id="transferCodeValue">--------</div>
+        <div class="meta" id="transferCodeMeta"></div>
+      </div>
+      <p class="error" id="transferIssueError"></p>
+      <button class="subtle" type="button" id="issueTransferButton">引き継ぎコードを発行する</button>
+    </div>
 
     <!-- ビジリスをご利用の方の初回登録。登録済みの方には出さない。 -->
     <div id="bijirisSignup" hidden style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line);">
@@ -153,11 +295,11 @@
         <label>お名前（漢字・フルネーム）
           <input name="name" type="text" autocomplete="name" required />
         </label>
-        <label>フリガナ（カタカナ）
-          <input name="kana" type="text" autocapitalize="characters" required />
+        <label>ふりがな（ひらがな）
+          <input name="kana" type="text" placeholder="例：たなかはなこ" required />
         </label>
-        <label>パスワード（ログインと同じもの）
-          <input name="password" type="password" autocomplete="current-password" required />
+        <label>パスコード（アプリと同じもの）
+          <input name="passcode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" placeholder="例：1234" required />
         </label>
         <p class="error" id="bijirisError"></p>
         <button class="primary" type="submit">ビジリスを登録する</button>
@@ -179,6 +321,12 @@
   var ADMIN_TOKEN_KEY = 'mayumi_admin_auth_token';
   var MEMBER_TOKEN_KEY = 'mayumi_member_auth_token';
   var SESSION_KEY = 'mayumi_launcher_session';
+  // ビジリス管理アプリが読みに来るキー。ビジリスのGASが発行したトークンを置く。
+  var BIJIRIS_ADMIN_TOKEN_KEY = 'mayumi_survey_admin_token';
+  // ビジリスのお客様アプリが本人を覚えている場所
+  var BIJIRIS_CUSTOMER_KEY = 'mayumi_survey_customer';
+  var BIJIRIS_ADMIN_EXPIRES_KEY = 'mayumi_survey_admin_token_expires';
+  var BIJIRIS_GAS = 'https://script.google.com/macros/s/AKfycbyZfGreoBxYYaB5i0NX1Hw_9eAMD5Q1YTfzKORYyLc2-TQt6R6xblkUNyW8SlEih4QW/exec';
 
   // ビジリスは同じリポジトリの bijiris/ に入っているので相対パスで指す。
   // こうしておくと、確認用サーバーでも公開先でも同じリンクで通る。
@@ -201,12 +349,113 @@
     try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
   }
 
+  // 失敗ではないお知らせ（期限切れなど）をログイン画面に出す。
+  function showLoginNotice(message) {
+    var el = $('loginNotice');
+    el.textContent = message || '';
+    el.hidden = !message;
+  }
+
   function showTab(which) {
     var isRegister = which === 'register';
     $('tabRegister').setAttribute('aria-selected', String(isRegister));
     $('tabLogin').setAttribute('aria-selected', String(!isRegister));
     $('registerForm').hidden = !isRegister;
     $('loginForm').hidden = isRegister;
+  }
+
+  // ビジリス管理のトークンは8時間で切れる。期限が近ければ取り直してから開く。
+  // 取り直しはビジリスのGASに直接お願いする。あちらがまゆみに
+  // 「このトークンは有効か」を確かめてから発行する仕組み。
+  function bijirisTokenIsFresh() {
+    var token = read(BIJIRIS_ADMIN_TOKEN_KEY);
+    if (!token) return false;
+    var until = Number(read(BIJIRIS_ADMIN_EXPIRES_KEY) || 0);
+    // 残り10分を切っていたら取り直す
+    return until > Date.now() + 10 * 60 * 1000;
+  }
+
+  // まゆみのGASは混み合うと JSON ではなくエラーのHTMLを返すことがある。
+  // ビジリスはそれを読み取れず「確認が取れませんでした」で終わってしまうので、
+  // 数回まで試し直す。1回で諦めると、その場で管理画面に入れなくなる。
+  function fetchBijirisAdminToken(attempt) {
+    var tries = attempt || 1;
+    return fetchBijirisAdminTokenOnce().catch(function (error) {
+      if (tries >= 3) throw error;
+      return wait(1200 * tries).then(function () {
+        return fetchBijirisAdminToken(tries + 1);
+      });
+    });
+  }
+
+  function fetchBijirisAdminTokenOnce() {
+    var mayumiToken = read(ADMIN_TOKEN_KEY);
+    if (!mayumiToken) {
+      return Promise.reject(new Error('管理者としてログインし直してください。'));
+    }
+    return fetch(BIJIRIS_GAS, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'adminLoginWithMayumi', mayumiToken: mayumiToken })
+    })
+      .then(function (res) { return res.text(); })
+      .then(function (text) {
+        var json;
+        try {
+          json = JSON.parse(text);
+        } catch (e) {
+          throw new Error('ビジリスからの応答を読み取れませんでした。');
+        }
+        if (!json || !json.token) {
+          throw new Error(String((json && json.error) || 'トークンを受け取れませんでした。'));
+        }
+        store(BIJIRIS_ADMIN_TOKEN_KEY, json.token);
+        store(BIJIRIS_ADMIN_EXPIRES_KEY, String(Date.parse(json.expiresAt) || 0));
+      });
+  }
+
+  // 合鍵の取得は、まゆみとビジリスの2つのGASを続けて呼ぶので数秒かかる。
+  // タップしてから始めるとその分だけ待たせてしまうので、
+  // アプリ一覧を出した時点で裏で取りにいっておく。一覧を眺めている間に済む。
+  var bijirisTokenPromise = null;
+  function ensureBijirisAdminToken() {
+    if (bijirisTokenIsFresh()) return Promise.resolve();
+    if (!bijirisTokenPromise) {
+      bijirisTokenPromise = fetchBijirisAdminToken();
+      // 取得の成否にかかわらず、次回また取りにいけるようにしておく。
+      bijirisTokenPromise.catch(function () {}).then(function () {
+        bijirisTokenPromise = null;
+      });
+    }
+    return bijirisTokenPromise;
+  }
+
+  function bindBijirisAdminLink() {
+    var link = document.querySelector('a.app[data-app="bijirisAdmin"]');
+    if (!link) return;
+    link.addEventListener('click', function (event) {
+      if (bijirisTokenIsFresh()) return;   // そのまま開く
+      event.preventDefault();
+      var name = link.querySelector('.name');
+      var label = name.textContent;
+      name.textContent = '準備しています…';
+      var failed = '';
+      ensureBijirisAdminToken()
+        .catch(function (error) { failed = (error && error.message) || '取得に失敗しました。'; })
+        .then(function () {
+          name.textContent = label;
+          if (failed) {
+            // ここで進んでしまうと、入れない画面に着いて行き止まりになる。
+            // この画面にとどまっていただき、もう一度押せるようにする。
+            $('appsNote').textContent =
+              'ビジリス管理を開けませんでした（' + failed + '）。'
+              + 'もう一度お試しください。時間をおくと開けることがあります。';
+            return;
+          }
+          location.href = link.getAttribute('href');
+        });
+    });
   }
 
   function renderApps(session) {
@@ -223,11 +472,26 @@
     var html = '';
     keys.forEach(function (key) {
       var app = APPS[key];
-      html += '<a class="app" href="' + app.url + '">' +
+      html += '<a class="app" href="' + app.url + '" data-app="' + key + '">' +
               '<div class="name">' + app.name + '</div>' +
               '<div class="desc">' + app.desc + '</div></a>';
     });
     $('appList').innerHTML = html;
+    bindBijirisAdminLink();
+
+    // 管理者の方には、タップを待たずに合鍵を用意しておく。
+    // 失敗してもここでは何も言わない。タップされたときに改めて試す。
+    if (session.role === 'admin') {
+      ensureBijirisAdminToken().catch(function () { /* タップ時にやり直す */ });
+    }
+
+    renderProfileGap(session);
+
+    // 引き継ぎコードの発行は、本番のサーバー側でいま管理者しか呼べない。
+    // （会員IDだけで誰でも発行できると、他人の記録を乗っ取れてしまうため）
+    // 会員ご自身にも出すには、サーバー側でご本人確認を足す必要がある。
+    // それまでは、押しても必ず失敗するボタンを会員には出さない。
+    $('transferIssueBlock').hidden = session.role !== 'admin';
 
     // 未登録の一般会員にだけ、ビジリスの初回登録を出す。
     var needsBijiris = session.role !== 'admin' && !session.bijiris;
@@ -236,53 +500,130 @@
       $('bijirisForm').elements.name.value = session.name || '';
     }
 
-    // できていないことを、できている風に見せない。
     $('appsNote').textContent = session.role === 'admin'
-      ? 'まゆみ助産院の管理アプリは、そのままお使いいただけます。ビジリスの管理アプリは、現在まだ個別のログインが必要です。'
-      : 'まゆみ助産院アプリはそのままお使いいただけます。ビジリスは現在まだ個別のログインが必要です。';
+      ? 'どのアプリも、この画面からそのままお入りいただけます。'
+      : 'どのアプリも、この画面からそのままお入りいただけます。';
   }
 
   function logout() {
     store(ADMIN_TOKEN_KEY, '');
     store(MEMBER_TOKEN_KEY, '');
     store(SESSION_KEY, '');
+    // ビジリス管理のトークンも一緒に手放す。残すと次の人がそのまま入れてしまう。
+    store(BIJIRIS_ADMIN_TOKEN_KEY, '');
+    store(BIJIRIS_ADMIN_EXPIRES_KEY, '');
     $('appsView').hidden = true;
     $('loginView').hidden = false;
     $('loginError').textContent = '';
     $('registerError').textContent = '';
+    showLoginNotice('');
     $('loginForm').reset();
     $('registerForm').reset();
+    // 前の方が入力した内容や、発行したコードを残さない。
+    $('forgotForm').reset();
+    $('transferForm').reset();
+    $('forgotForm').hidden = true;
+    $('transferForm').hidden = true;
+    $('forgotError').textContent = '';
+    $('transferError').textContent = '';
+    $('transferCodeBox').hidden = true;
+    $('transferCodeValue').textContent = '--------';
+    $('transferIssueError').textContent = '';
+    // 前の方が入力した電話番号や住所を、次の方に見せない。
+    $('profileGapForm').reset();
+    $('profileGapBlock').hidden = true;
+    $('profileGapError').textContent = '';
     showTab('login');
+  }
+
+  // ビジリスのお客様アプリは、氏名とふりがなが揃っていれば本人と分かる。
+  // 入口で分かっているので、あちらで入力し直さなくて済むよう先に置いておく。
+  function seedBijirisCustomer(session) {
+    if (!session.name || !session.kana) return;
+    try {
+      var current = JSON.parse(localStorage.getItem(BIJIRIS_CUSTOMER_KEY) || '{}');
+      if (current && current.name && current.nameKana) return;   // すでにある分は触らない
+      localStorage.setItem(BIJIRIS_CUSTOMER_KEY, JSON.stringify({
+        name: session.name,
+        nameKana: session.kana,
+        historyMatchMode: 'device'
+      }));
+    } catch (e) { /* プライベートモードでは保存できない */ }
   }
 
   function applySession(json) {
     var session = {
       role: json.role,
       name: json.name,
+      kana: json.kana || '',
       memberId: json.memberId,
-      bijiris: json.bijiris === true
+      bijiris: json.bijiris === true,
+      // まだいただけていない項目（電話番号・生年月日・ご住所）。
+      missing: Array.isArray(json.missing) ? json.missing : [],
+      // 合鍵の期限。開いたときにこれを見て、切れていればログイン画面に戻す。
+      // 記録しておかないと、切れたあともアプリ一覧が出てしまい、
+      // 中に入ったところでエラーになる（壊れたように見えてしまう）。
+      expiresAt: Date.parse(json.expiresAt) || 0
     };
+    seedBijirisCustomer(session);
     if (json.role === 'admin') {
       store(ADMIN_TOKEN_KEY, json.token);
-      store(MEMBER_TOKEN_KEY, '');
     } else {
-      store(MEMBER_TOKEN_KEY, json.token);
       store(ADMIN_TOKEN_KEY, '');
     }
+    // 会員用の合鍵は、管理者の方にも置いておく。
+    // ビジリスがご本人の履歴を出すのに使うため（管理者もひとりの会員なので）。
+    store(MEMBER_TOKEN_KEY, json.memberToken || (json.role === 'admin' ? '' : json.token));
     store(SESSION_KEY, JSON.stringify(session));
     renderApps(session);
   }
 
-  function post(payload, button, errorEl) {
-    button.disabled = true;
-    errorEl.textContent = '';
+  function wait(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  // Google のスクリプトは、混み合っていると JSON ではなくエラーのHTMLを返すことがある。
+  // お客様アプリはこれを送信待ちに回して隠しているが、ログインは待てないので
+  // ここで数回まで自動的にやり直す。
+  function requestGas(payload, attempt) {
     return fetch(MAYUMI_GAS, {
       method: 'POST',
       redirect: 'follow',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload)
     })
-      .then(function (res) { return res.json(); })
+      .then(function (res) { return res.text(); })
+      .then(function (text) {
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          if (attempt < 3) {
+            return wait(1500 * attempt).then(function () {
+              return requestGas(payload, attempt + 1);
+            });
+          }
+          throw new Error('通信がうまくいきませんでした。少し待ってから、もう一度お試しください。');
+        }
+      })
+      .catch(function (error) {
+        // 通信そのものが失敗した場合も同じように試し直す。
+        if (attempt < 3 && error && error.name === 'TypeError') {
+          return wait(1500 * attempt).then(function () {
+            return requestGas(payload, attempt + 1);
+          });
+        }
+        throw error;
+      });
+  }
+
+  function post(payload, button, errorEl) {
+    // Google のスクリプトは応答まで2〜3秒かかる。
+    // 何も出ないと止まって見えるので、待っていることを伝える。
+    var label = button.textContent;
+    button.disabled = true;
+    button.textContent = '確認しています…';
+    errorEl.textContent = '';
+    return requestGas(payload, 1)
       .then(function (json) {
         if (!json || json.status !== 'ok' || !json.token) {
           throw new Error((json && json.message) || 'うまくいきませんでした。');
@@ -290,7 +631,16 @@
         applySession(json);
       })
       .catch(function (error) { errorEl.textContent = error.message; })
-      .then(function () { button.disabled = false; });
+      .then(function () {
+        button.disabled = false;
+        button.textContent = label;
+      });
+  }
+
+  // 氏名とふりがなは空白を残さない。「山田 太郎」と「山田太郎」が
+  // 別人として登録され、同じ方が二重に登録されてしまうため。
+  function withoutSpaces(value) {
+    return String(value == null ? '' : value).replace(/[\s\u3000]+/g, '');
   }
 
   $('loginForm').addEventListener('submit', function (event) {
@@ -298,9 +648,19 @@
     var form = event.currentTarget;
     post({
       type: 'loginAccount',
-      name: form.name.value,
-      password: form.password.value
-    }, form.querySelector('button'), $('loginError'));
+      name: withoutSpaces(form.name.value),
+      passcode: form.passcode.value
+    }, form.querySelector('button'), $('loginError'))
+      .then(function () {
+        // 入れなかったときは、次にどうすればよいかを開いて見せる。
+        // 迷子のまま画面を閉じてしまう方をなくすため。
+        if (!$('loginError').textContent) return;
+        openHelpForm('forgot');
+        // 一度書いたお名前をもう一度書かせない。
+        var forgot = $('forgotForm');
+        if (!forgot.name.value) forgot.name.value = form.name.value;
+        $('helpBlock').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
   });
 
   $('registerForm').addEventListener('submit', function (event) {
@@ -308,13 +668,205 @@
     var form = event.currentTarget;
     post({
       type: 'registerAccount',
-      name: form.name.value,
-      kana: form.kana.value,
+      name: withoutSpaces(form.name.value),
+      kana: withoutSpaces(form.kana.value),
       birthday: form.birthday.value,
       phone: form.phone.value,
       address: form.address.value,
-      password: form.password.value
+      passcode: form.passcode.value
     }, form.querySelector('button'), $('registerError'));
+  });
+
+  // ===== お困りのとき（パスコードの再設定・引き継ぎ）=====
+
+  // 再設定や引き継ぎが済んだら、そのままお入りいただく。
+  // 「設定できました。もう一度ログインしてください」と二度手間にしない。
+  function postThenLogin(payload, button, errorEl, passcode) {
+    var label = button.textContent;
+    button.disabled = true;
+    button.textContent = '確認しています…';
+    errorEl.textContent = '';
+    return requestGas(payload, 1)
+      .then(function (json) {
+        if (!json || json.status !== 'ok') {
+          throw new Error((json && json.message) || 'うまくいきませんでした。');
+        }
+        // 引き継ぎコードの場合、お名前はこちらでは分からないので応答から受け取る。
+        var name = withoutSpaces((json.user && json.user.name) || payload.name || '');
+        if (!name) throw new Error('お名前を確認できませんでした。受付にお申し出ください。');
+        return requestGas({ type: 'loginAccount', name: name, passcode: passcode }, 1);
+      })
+      .then(function (json) {
+        if (!json || json.status !== 'ok' || !json.token) {
+          throw new Error((json && json.message)
+            || '設定はできましたが、ログインできませんでした。新しいパスコードでお試しください。');
+        }
+        applySession(json);
+      })
+      .catch(function (error) { errorEl.textContent = error.message; })
+      .then(function () {
+        button.disabled = false;
+        button.textContent = label;
+      });
+  }
+
+  // 2つの案内は同時に開かない。並べると、どちらを使うのか迷わせてしまう。
+  function toggleHelpForm(which) {
+    var openForgot = which === 'forgot' && $('forgotForm').hidden;
+    var openTransfer = which === 'transfer' && $('transferForm').hidden;
+    $('forgotForm').hidden = !openForgot;
+    $('transferForm').hidden = !openTransfer;
+    $('forgotError').textContent = '';
+    $('transferError').textContent = '';
+  }
+
+  // 「開く」だけ。すでに開いていれば何もしない（閉じてしまわないように）。
+  function openHelpForm(which) {
+    if (which === 'forgot' && $('forgotForm').hidden) toggleHelpForm('forgot');
+    if (which === 'transfer' && $('transferForm').hidden) toggleHelpForm('transfer');
+  }
+
+  $('openForgot').addEventListener('click', function () { toggleHelpForm('forgot'); });
+  $('openTransfer').addEventListener('click', function () { toggleHelpForm('transfer'); });
+
+  $('forgotForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    // どちらも空だと、お名前だけで通そうとしてしまう。手前で止める。
+    if (!form.phone.value.trim() && !form.birthday.value.trim()) {
+      $('forgotError').textContent = '電話番号か生年月日の、どちらか一方はご入力ください。';
+      return;
+    }
+    postThenLogin({
+      type: 'resetForgottenPasscode',
+      name: withoutSpaces(form.name.value),
+      phone: form.phone.value,
+      birthday: form.birthday.value,
+      newPasscode: form.newPasscode.value
+    }, form.querySelector('button'), $('forgotError'), form.newPasscode.value);
+  });
+
+  $('transferForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    postThenLogin({
+      type: 'recoverAccount',
+      transferCode: form.transferCode.value,
+      newPasscode: form.newPasscode.value
+    }, form.querySelector('button'), $('transferError'), form.newPasscode.value);
+  });
+
+  // ===== ご登録内容の確認（足りない項目のお願い）=====
+
+  // 出す順番は、お名前まわり → 連絡先 → ご住所。
+  // 「漢字のお名前」は、ひらがなだけでご登録の方にお願いする。
+  // あとから漢字で登録し直されると、同じ方が二重に登録されてしまうため。
+  var GAP_FIELDS = [
+    { key: 'name', labelId: 'gapNameLabel', label: 'お名前（漢字）' },
+    { key: 'kana', labelId: 'gapKanaLabel', label: 'ふりがな' },
+    { key: 'phone', labelId: 'gapPhoneLabel', label: '電話番号' },
+    { key: 'birthday', labelId: 'gapBirthdayLabel', label: '生年月日' },
+    { key: 'address', labelId: 'gapAddressLabel', label: 'ご住所' }
+  ];
+
+  function renderProfileGap(session) {
+    var missing = (session && session.missing) || [];
+    // 以前は管理者に出していなかったが、スタッフの方も電話番号や生年月日が無ければ
+    // 同じように締め出される。立場に関わらずお願いする。
+    var show = missing.length > 0;
+    GAP_FIELDS.forEach(function (field) {
+      $(field.labelId).hidden = missing.indexOf(field.key) < 0;
+    });
+    $('profileGapBlock').hidden = !show;
+    $('profileGapError').textContent = '';
+  }
+
+  $('profileGapForm').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    var session = null;
+    try { session = JSON.parse(read(SESSION_KEY) || 'null'); } catch (e) { session = null; }
+    if (!session || !session.memberId) {
+      $('profileGapError').textContent = 'ログインし直してからお試しください。';
+      return;
+    }
+
+    // 出している欄は、すべてご入力いただく。
+    // 一部だけだと、次に開いたときにまた同じお願いをすることになる。
+    var payload = { type: 'updateUser', memberId: session.memberId };
+    var 未入力 = [];
+    GAP_FIELDS.forEach(function (field) {
+      if ($(field.labelId).hidden) return;
+      var value = form[field.key].value.trim();
+      if (!value) { 未入力.push(field.label); return; }
+      payload[field.key] = value;
+    });
+    if (未入力.length) {
+      $('profileGapError').textContent = 未入力.join('・') + ' をご入力ください。';
+      return;
+    }
+
+    // ひらがなだけのお名前は、ここでもお引き止めする。
+    if (payload.name && /^[\u3041-\u309F\u30FC\s\u3000]+$/.test(payload.name)) {
+      $('profileGapError').textContent = 'お名前は漢字でご入力ください。';
+      return;
+    }
+
+    var button = form.querySelector('button');
+    var label = button.textContent;
+    button.disabled = true;
+    button.textContent = '登録しています…';
+    $('profileGapError').textContent = '';
+    requestGas(payload, 1)
+      .then(function (json) {
+        if (!json || json.status !== 'ok') {
+          throw new Error((json && json.message) || '登録できませんでした。');
+        }
+        // 登録できた項目を、この端末の記録からも外す。
+        session.missing = (session.missing || []).filter(function (key) {
+          return payload[key] === undefined;
+        });
+        store(SESSION_KEY, JSON.stringify(session));
+        renderProfileGap(session);
+        if (!session.missing.length) {
+          $('appsNote').textContent = 'ご登録ありがとうございました。どのアプリも、この画面からそのままお入りいただけます。';
+        }
+      })
+      .catch(function (error) { $('profileGapError').textContent = error.message; })
+      .then(function () {
+        button.disabled = false;
+        button.textContent = label;
+      });
+  });
+
+  // ===== 引き継ぎコードの発行（ログイン後の画面）=====
+  $('issueTransferButton').addEventListener('click', function () {
+    var button = this;
+    var session = null;
+    try { session = JSON.parse(read(SESSION_KEY) || 'null'); } catch (e) { session = null; }
+    if (!session || !session.memberId) {
+      $('transferIssueError').textContent = 'ログインし直してからお試しください。';
+      return;
+    }
+    var label = button.textContent;
+    button.disabled = true;
+    button.textContent = '発行しています…';
+    $('transferIssueError').textContent = '';
+    requestGas({ type: 'issueTransferCode', memberId: session.memberId }, 1)
+      .then(function (json) {
+        if (!json || json.status !== 'ok' || !json.transferCode) {
+          throw new Error((json && json.message) || '発行できませんでした。');
+        }
+        $('transferCodeValue').textContent = json.transferCode;
+        $('transferCodeMeta').textContent =
+          '有効期限：' + (json.expiresAtLabel || json.expiresAt || '') + '（1回限り）';
+        $('transferCodeBox').hidden = false;
+      })
+      .catch(function (error) { $('transferIssueError').textContent = error.message; })
+      .then(function () {
+        button.disabled = false;
+        button.textContent = label;
+      });
   });
 
   $('bijirisForm').addEventListener('submit', function (event) {
@@ -322,9 +874,9 @@
     var form = event.currentTarget;
     post({
       type: 'registerBijirisUse',
-      name: form.name.value,
-      kana: form.kana.value,
-      password: form.password.value
+      name: withoutSpaces(form.name.value),
+      kana: withoutSpaces(form.kana.value),
+      passcode: form.passcode.value
     }, form.querySelector('button'), $('bijirisError'));
   });
 
@@ -341,6 +893,13 @@
     if (!session || !session.role) return;
     var token = session.role === 'admin' ? read(ADMIN_TOKEN_KEY) : read(MEMBER_TOKEN_KEY);
     if (!token) { store(SESSION_KEY, ''); return; }
+    // 合鍵の期限を過ぎていたら、ここで手放してログイン画面に戻す。
+    // 期限が入っていない記録は、この仕組みを入れる前のもの。同じく入り直していただく。
+    if (!session.expiresAt || Date.now() >= session.expiresAt) {
+      logout();
+      showLoginNotice('前回のログインから90日が過ぎました。お手数ですが、もう一度お入りください。');
+      return;
+    }
     renderApps(session);
   })();
 })();

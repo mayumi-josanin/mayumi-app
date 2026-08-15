@@ -1,0 +1,133 @@
+# 開発者ガイド
+
+編集 → 確認 → 公開までを1枚にまとめたもの。**まずこれを読んでください。**
+
+ブランチのルールだけを知りたいときは [Git 運用ルール](git_workflow.md)。
+
+---
+
+## 1. どこを編集するか
+
+| やりたいこと | 触るファイル |
+|-------------|------------|
+| ログイン・アプリ一覧を変える | `start/index.html` |
+| お客様アプリの画面を変える | `index.html` / `app.js` |
+| 管理アプリの画面を変える | `admin/index.html`（画面もロジックも1ファイル） |
+| ビジリスの画面を変える | `bijiris/customer-app/` / `bijiris/admin-app/` |
+| 会員・予約・スタンプの処理を変える | `gas/管理者・お客様.js` |
+| アンケート・計測・回数券の処理を変える | `bijiris/gas/Code.gs` |
+
+> [!IMPORTANT]
+> **アンケートの設問は2か所にあります。**`bijiris/default-surveys.js` と `bijiris/gas/Code.gs`。
+> 片方だけ直すと食い違います。
+
+## 2. 手元で確認する
+
+```bash
+caffeinate -is python3 -m http.server 8765 --bind 0.0.0.0 --directory ~/Desktop/mayumi-app
+tailscale serve --bg 8765          # スマホから見るとき
+```
+
+| 見たいもの | URL |
+|-----------|-----|
+| 入口 | http://localhost:8765/start/ |
+| お客様アプリ | http://localhost:8765/ |
+| 管理アプリ | http://localhost:8765/admin/ |
+| ビジリス | http://localhost:8765/bijiris/customer-app/ |
+| ビジリス管理 | http://localhost:8765/bijiris/admin-app/ |
+
+Tailscale 経由なら `https://macbook-air-5.tail8efe0d.ts.net/start/`。
+**スマホ側の Tailscale が ON でないと届きません。**
+
+> [!WARNING]
+> 確認用サーバーも**本番のGASにつながっています。**
+> 書き込みの操作（会員登録・アンケート送信・削除）は実データに影響します。
+
+## 3. 構文を確かめる
+
+```bash
+node --check app.js
+node --check bijiris/customer-app/app.js
+
+# HTMLに埋め込んだJSを確かめる
+python3 -c "
+import re
+s=open('start/index.html',encoding='utf-8').read()
+print('\n'.join(re.findall(r'<script>(.*?)</script>',s,re.S)))
+" > /tmp/x.js && node --check /tmp/x.js
+```
+
+## 4. Service Worker のキャッシュ名を上げる
+
+**配信ファイルを変えたら必ず上げてください。**上げ忘れると、お客様の端末に古い画面が残り続けます。
+
+| アプリ | ファイル | 変数 |
+|-------|---------|------|
+| お客様 | `sw.js` | `CACHE_NAME` |
+| 管理 | `admin/admin-sw.js` | `ADMIN_CACHE_NAME` |
+| ビジリス | `bijiris/customer-app/sw.js` | `CACHE_NAME` |
+| ビジリス管理 | `bijiris/admin-app/sw.js` | `CACHE_NAME` |
+
+## 5. GASを反映する
+
+```bash
+# ビジリス
+cd bijiris/gas && clasp push -f
+clasp deploy -i AKfycbyZfGreoBxYYaB5i0NX1Hw_9eAMD5Q1YTfzKORYyLc2-TQt6R6xblkUNyW8SlEih4QW
+
+# まゆみ
+cd gas && clasp push -f
+clasp deploy -i AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA
+```
+
+> [!CAUTION]
+> **`clasp deploy` に `-i` を必ず付けてください。**付けないと新しいURLが作られ、
+> 全アプリがバックエンドを見失います。
+>
+> **`bijiris/deploy.sh` は使わないでください。**フロントを `main` へ push してしまい、
+> 未確認の作業まで公開されます。
+
+### どちらが「本番」か
+
+| 動くもの | 使われるコード |
+|---------|--------------|
+| 時間トリガー（日次処理・会員別まとめ） | **Head**（`clasp push` した瞬間に変わる） |
+| Webアプリ（アプリからの通信） | **デプロイ済みバージョン**（`clasp deploy` で変わる） |
+
+### エディタで関数を実行するとき
+
+関数の選び直しが効かないことがあります。`bijiris/gas/片付け.js` の先頭にある
+`いま実行する()` の中身を書き換えて push すると、確実にそれが選ばれます。
+
+## 6. 公開する
+
+[Git 運用ルール](git_workflow.md#main-へ出すまでの順番)の順番に従ってください。
+
+```bash
+git switch main && git merge develop && git push origin main
+```
+
+## 7. 調べるための道具（GAS）
+
+`bijiris/gas/` に、実データを変えずに調べる道具が入っています。
+
+| ファイル | 関数 | できること |
+|---------|------|-----------|
+| `棚卸し.js` | `棚卸しをする()` | 3ファイルの構造・件数・型を書き出す |
+| `棚卸し.js` | `会員の入り口を点検する()` | 入れない方・復旧できない方を数える |
+| `棚卸し.js` | `操作履歴を調べる()` | 操作履歴の中身を種別ごとに数える |
+| `移行の下見.js` | `移行の下見をする()` | 移行できる件数と突き合わないものを出す |
+| `片付け.js` | `〜の下見()` | 消す前に何が消えるかを見る |
+| `会員別まとめ.js` | `会員ごとのファイルを作る()` | 会員1人1シートのまとめを作り直す |
+
+**「下見」と付くものは読むだけです。**消す関数は必ず先に控えを取ります。
+
+## 8. 落とし穴
+
+| 症状 | 原因 |
+|------|------|
+| 画面が変わらない | Service Worker のキャッシュ名を上げていない |
+| GASを直したのに反映されない | Webアプリはデプロイ済みバージョンで動く |
+| 全員がログアウトされた | `ADMIN_TOKEN_SECRET` を変えてしまった |
+| ビジリスで会員が見つからない | お名前の文字列で突き合わせている（[移行設計](design/移行設計.md)参照） |
+| トリガーが無いように見える | `getProjectTriggers()` は自分が作ったものしか返さない |

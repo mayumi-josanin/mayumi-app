@@ -440,6 +440,39 @@ function handleGet_(e) {
     };
   }
   if (action === "bijirisPosts") return { posts: getBijirisPosts_({ publishedOnly: true }) };
+  // お客様アプリの起動時にまとめて返す窓口。
+  // Apps Script は同時呼び出しを順番待ちにするため、3回に分けると
+  // その待ち時間がそのまま積み上がっていた。
+  if (action === "customerBootstrap") {
+    var prefs = getPreferences_();
+    var 束 = {
+      surveys: getPublicSurveys_(),
+      dataPolicyText: prefs.dataPolicyText,
+      requireConsent: prefs.requireConsent,
+      consentText: prefs.consentText,
+      milestoneRewardConfig: prefs.milestoneRewardConfig,
+      campaignStampEnabled: prefs.campaignStampEnabled,
+      pushAppId: getPushAppId_(),
+      version: VERSION,
+      posts: getBijirisPosts_({ publishedOnly: true }),
+      history: null,
+    };
+    // 合鍵をお持ちなら履歴も一緒に返す。無い・切れている場合は履歴だけ空にする。
+    if (normalizeText_(params.token)) {
+      try {
+        var 名前 = requireCustomer_(params.token);
+        束.history = getCustomerHistoryPayload_({
+          customerName: 名前,
+          customerNameKana: params.nameKana,
+          matchByNameOnly: true,
+          includeTrashed: false,
+        });
+      } catch (error) {
+        束.history = null;
+      }
+    }
+    return 束;
+  }
   if (action === "history") {
     // お客様トークンの検証を必須にする。氏名を名乗るだけでは取得できない。
     // 対象のお客様はトークンから決める（params.name は信用しない）ため、
@@ -476,6 +509,24 @@ function handleGet_(e) {
   if (action === "adminMeasurements") return { measurements: getMeasurements_({}) };
   if (action === "adminBijirisPosts") return { posts: getBijirisPosts_({ includeDrafts: true }) };
   if (action === "adminTicketSurvey") return getTicketSurveyPayload_();
+  // 管理アプリの起動時にまとめて返す窓口。
+  // Apps Script は同じスクリプトへの同時呼び出しを順番待ちにするため、
+  // 8回に分けて取りにいくと、そのぶん待ち時間が積み上がっていた。
+  if (action === "adminBootstrap") {
+    var 回数券 = null;
+    // 回数券分析は補助機能。ここで転んでも他が出せるようにしておく。
+    try { 回数券 = getTicketSurveyPayload_(); } catch (err) { 回数券 = null; }
+    return {
+      info: getAdminInfo_(),
+      surveys: getSurveys_(),
+      responses: getResponses_({ includeTrashed: true }),
+      measurements: getMeasurements_({}),
+      bijirisPosts: getBijirisPosts_({ includeDrafts: true }),
+      preferences: getPreferences_(),
+      customerMemos: getCustomerMemos_(),
+      ticketSurvey: 回数券,
+    };
+  }
   if (action === "adminUpdate") {
     return {
       response: updateResponse_(params.responseId, params.status, params.adminMemo),
@@ -503,6 +554,12 @@ function handleGet_(e) {
 }
 
 function handlePost_(body) {
+  if (body.action === "adminLoginWithMayumi") {
+    return adminLoginWithMayumi_(body.mayumiToken);
+  }
+  if (body.action === "customerLoginWithMayumi") {
+    return customerLoginWithMayumi_(body.mayumiToken);
+  }
   if (body.action === "submitResponse") {
     return saveResponse_(body);
   }
@@ -1511,6 +1568,11 @@ function writeBackupFile_() {
     measurements: getMeasurements_({}),
     bijirisPosts: getBijirisPosts_({ includeDrafts: true }),
     adminUsers: getAdminUsers_().map(publicAdminUser_),
+    // スクリプトプロパティにしか無く、これまで控えが残らなかったもの。
+    // 消えると、回数券の進み具合・AI分析の指示文・会員番号の続きが失われる。
+    ticketSurveyMeta: getTicketSurveyMeta_(),
+    ticketSurveyPrompt: getTicketSurveyPrompt_(),
+    nextMemberNumberIndex: getStoredNextMemberNumberIndex_(),
   };
   var fileName = "backup_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmmss") + ".json";
   var file = backupFolder.createFile(fileName, JSON.stringify(payload, null, 2), MimeType.PLAIN_TEXT);
@@ -1546,6 +1608,16 @@ function runScheduledMaintenance() {
     backupInfo = writeBackupFile_();
   }
   var purged = purgeOldTrashResponses_();
+
+  // 会員別まとめの作り直し。専用のトリガーもあるが、そちらはまだ一度も動いて
+  // いないため、確実に毎日動くこの処理からも呼ぶ。中で作り直すだけなので、
+  // 二重に動いても結果は変わらない。失敗しても後続を止めない。
+  try {
+    会員別まとめを毎日作り直す();
+  } catch (error) {
+    appendErrorLog_("maintenance.memberDigest", String(error && error.message ? error.message : error));
+  }
+
   var maintenanceMeta = {
     at: new Date().toISOString(),
     purged: purged,
@@ -4834,6 +4906,122 @@ function uniqueValues_(values) {
   });
 }
 
+var MAYUMI_GAS_URL_DEFAULT =
+  "https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec";
+
+// まゆみ助産院アプリの入口でログインした管理者を、こちらでも管理者として扱う。
+//
+// まゆみのトークンはあちらの鍵で署名されているので、こちらでは検証できない。
+// 代わりに「このトークンは有効か」をまゆみのGASに問い合わせ、有効なときだけ
+// こちらのトークンを発行する。こうすると管理パスワードをどこにも複製せずに済む。
+//
+// 必要な設定（スクリプトプロパティ）: MAYUMI_GAS_URL
+// まゆみ助産院アプリの会員としてログイン済みの方に、
+// ビジリスのお客様用の合鍵を渡す。
+// パスコードを二度聞かないための橋渡し。本人確認はまゆみ側に任せる。
+function customerLoginWithMayumi_(mayumiToken) {
+  var token = normalizeText_(mayumiToken);
+  if (!token) throw new Error("ログイン情報がありません。");
+
+  var url = normalizeText_(
+    PropertiesService.getScriptProperties().getProperty("MAYUMI_GAS_URL")
+  ) || MAYUMI_GAS_URL_DEFAULT;
+  if (!url) throw new Error("まゆみ助産院アプリの接続先が設定されていません。");
+
+  var endpoint = url + "?action=checkMemberToken&token=" + encodeURIComponent(token);
+
+  // まゆみ側は混み合うと JSON ではなくHTMLを返すことがあるので、数回試す。
+  var parsed = null;
+  for (var attempt = 1; attempt <= 3; attempt += 1) {
+    if (attempt > 1) Utilities.sleep(800 * (attempt - 1));
+    var res = UrlFetchApp.fetch(endpoint, {
+      method: "get",
+      muteHttpExceptions: true,
+      followRedirects: true,
+    });
+    try {
+      parsed = JSON.parse(res.getContentText());
+      break;
+    } catch (error) {
+      parsed = null;
+    }
+  }
+  if (!parsed) throw new Error("まゆみ助産院アプリからの応答を読み取れませんでした。");
+  if (parsed.valid !== true) throw new Error("ログインの確認が取れませんでした。");
+
+  var name = normalizeText_(parsed.name);
+  if (!name) throw new Error("お名前を確認できませんでした。");
+
+  // ビジリス側にお客様の記録が無ければ、ここで作る（初回の方のため）。
+  var 一致 = findCustomerProfileByName_(getCustomerProfiles_(), name, "");
+  var profile = 一致 && 一致.profile ? 一致.profile : null;
+  var 表示名 = profile && profile.name ? profile.name : name;
+
+  var expiresAt = Date.now() + CUSTOMER_TOKEN_TTL_MS;
+  appendAuditLog_("customer.login", { name: 表示名, via: "mayumi" });
+  return {
+    token: makeCustomerToken_(表示名, expiresAt),
+    expiresAt: new Date(expiresAt).toISOString(),
+    name: 表示名,
+    kana: normalizeText_(parsed.kana),
+  };
+}
+
+function adminLoginWithMayumi_(mayumiToken) {
+  var token = normalizeText_(mayumiToken);
+  if (!token) throw new Error("ログイン情報がありません。");
+
+  // 接続先は秘密ではない（まゆみ側のアプリにも同じURLが書かれている）。
+  // 設定を必須にすると登録漏れで動かなくなるため、既定値を持たせておく。
+  // スクリプトプロパティ MAYUMI_GAS_URL があれば、そちらを優先する。
+  var url = normalizeText_(
+    PropertiesService.getScriptProperties().getProperty("MAYUMI_GAS_URL")
+  ) || MAYUMI_GAS_URL_DEFAULT;
+  if (!url) throw new Error("まゆみ助産院アプリの接続先が設定されていません。");
+
+  var endpoint = url + "?action=checkAdminToken&token=" + encodeURIComponent(token);
+
+  // まゆみ側は混み合うと JSON ではなくエラーのHTMLを返すことがある。
+  // 1回で諦めると、その場で管理画面に入れなくなるので数回まで試し直す。
+  var parsed = null;
+  var lastBody = "";
+  for (var attempt = 1; attempt <= 3; attempt += 1) {
+    if (attempt > 1) Utilities.sleep(800 * (attempt - 1));
+    var res = UrlFetchApp.fetch(endpoint, {
+      method: "get",
+      muteHttpExceptions: true,
+      followRedirects: true,
+    });
+    lastBody = res.getContentText();
+    try {
+      parsed = JSON.parse(lastBody);
+      break;
+    } catch (error) {
+      parsed = null;
+    }
+  }
+  if (!parsed) {
+    appendErrorLog_("adminLoginWithMayumi", "まゆみ側の応答を読み取れない", {
+      body: String(lastBody).substring(0, 200),
+    });
+    throw new Error("まゆみ助産院アプリからの応答を読み取れませんでした。");
+  }
+  if (!parsed || parsed.valid !== true) {
+    appendErrorLog_("adminLoginWithMayumi", "まゆみ側で無効と判定", {});
+    throw new Error("ログインの確認が取れませんでした。");
+  }
+
+  var user = getAdminUsers_()[0];
+  if (!user) throw new Error("管理者アカウントが登録されていません。");
+
+  var expiresAt = Date.now() + 8 * 60 * 60 * 1000;
+  appendAuditLog_("admin.login", { loginId: user.username, via: "mayumi" });
+  return {
+    token: makeToken_(user.username, expiresAt),
+    expiresAt: new Date(expiresAt).toISOString(),
+  };
+}
+
 function adminLogin_(loginId, password) {
   var normalizedLoginId = normalizeText_(loginId);
   ensureLoginAllowed_(normalizedLoginId);
@@ -5964,11 +6152,13 @@ var TICKET_SURVEY_STORAGE_HEADERS = [
 var TICKET_SURVEY_PROMPT_PROPERTY_KEY = "TICKET_SURVEY_PROMPT";
 var TICKET_SURVEY_META_PROPERTY_KEY = "TICKET_SURVEY_META_JSON";
 var TICKET_SURVEY_AUTO_TRIGGER_IDS_PROPERTY_KEY = "TICKET_SURVEY_AUTO_TRIGGER_IDS_JSON";
-var TICKET_SURVEY_AUTO_INTERVAL_MINUTES = 10; // 定期ポーリングの間隔（1/5/10/15/30 のいずれか）
+// 定期ポーリングの間隔（分）。Apps Script が受け付けるのは 1/5/10/15/30 のいずれか。
+// 分析が最大30分遅れても実害はない。短いほどお客様の待ち時間に影響する。
+var TICKET_SURVEY_AUTO_INTERVAL_MINUTES = 30;
 var ANTHROPIC_API_KEY_PROPERTY_KEY = "ANTHROPIC_API_KEY";
 var ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 var ANTHROPIC_API_VERSION = "2023-06-01";
-var ANTHROPIC_MODEL = "claude-opus-4-8";
+var ANTHROPIC_MODEL = "claude-opus-5";
 var ANTHROPIC_MAX_TOKENS = 3000;
 var ANTHROPIC_EFFORT = "medium";
 var TICKET_SURVEY_MAX_PHOTOS_PER_SIDE = 4;
@@ -6896,10 +7086,40 @@ function runTicketSurveyAnalysisOnce() {
 
 // ---------- 定期ポーリング自動処理 ----------
 
+// 分析対象が無くても全回答を読み直していたため、1回に6〜15秒かかっていた。
+// Apps Script は同じスクリプトの実行を順番待ちにするので、その間はお客様の
+// アプリも待たされる。回答が増えていないときは、すぐ抜けるようにする。
+var TICKET_SURVEY_FULL_RUN_INTERVAL_MS = 60 * 60 * 1000;   // 増えていなくても1時間に1度は通す
+
+// 実質の実行間隔。トリガー自体は10分ごとに起きるが、ここで間引いて30分相当にする。
+// トリガーの所有者が別アカウントで作り直せないため、コード側で調整している。
+// トリガーを30分間隔で作り直した場合は、この判定は素通りするだけで害はない。
+var TICKET_SURVEY_MIN_GAP_MS = 25 * 60 * 1000;
+
 function runTicketSurveyAutoProcess() {
   try {
+    // いちばん軽い判定を先頭に置く。スプレッドシートを開く前に帰れるようにする。
+    // ここでは何も書かない。書くと「前回」が毎回更新されて永久に間引かれる。
+    var 前回 = getTicketSurveyMeta_().lastAutoRunAt;
+    if (前回 && Date.now() - new Date(前回).getTime() < TICKET_SURVEY_MIN_GAP_MS) return;
+
     if (!getAnthropicApiKey_()) {
       updateTicketSurveyMeta_({ lastAutoRunAt: new Date().toISOString(), autoError: "APIキー未設定のためスキップ" });
+      return;
+    }
+
+    // 回答一覧の行数だけを見る。開いて1回数えるだけなので1秒もかからない。
+    var meta = getTicketSurveyMeta_();
+    var master = getSpreadsheet_().getSheetByName(MASTER_SHEET_NAME);
+    var 行数 = master ? master.getLastRow() : 0;
+    var 前回行数 = Number(meta.lastSeenResponseRows);
+    var 前回通した = meta.lastFullRunAt ? new Date(meta.lastFullRunAt).getTime() : 0;
+    var 経過 = Date.now() - 前回通した;
+
+    // 回答が増えておらず、前回きちんと通してから1時間たっていなければ何もしない。
+    // 管理画面で写真を後から足した場合も、1時間以内には拾える。
+    if (Number.isFinite(前回行数) && 行数 === 前回行数 && 経過 < TICKET_SURVEY_FULL_RUN_INTERVAL_MS) {
+      updateTicketSurveyMeta_({ lastAutoRunAt: new Date().toISOString(), autoError: "" });
       return;
     }
 
@@ -6940,6 +7160,9 @@ function runTicketSurveyAutoProcess() {
 
     updateTicketSurveyMeta_({
       lastAutoRunAt: new Date().toISOString(),
+      // 次回ここまで来なくて済むように、通した時刻と行数を覚えておく。
+      lastFullRunAt: new Date().toISOString(),
+      lastSeenResponseRows: 行数,
       lastAutoSummary: summary
         ? { picked: pendingIds.length, succeeded: summary.succeeded, failed: (summary.failures || []).length, deferred: summary.deferred || 0 }
         : { picked: 0 },

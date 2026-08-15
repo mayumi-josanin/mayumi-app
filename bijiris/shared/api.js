@@ -4,7 +4,7 @@ window.MayumiSurveyApi = (() => {
   const CLIENT_ID_STORAGE_KEY = "mayumi_survey_client_id";
   const CUSTOMER_TOKEN_STORAGE_KEY = "mayumi_bijiris_customer_token";
   // このアクションはお客様トークンが必須。付け忘れを防ぐため jsonp で自動的に付ける。
-  const CUSTOMER_TOKEN_ACTIONS = ["history", "photoData"];
+  const CUSTOMER_TOKEN_ACTIONS = ["history", "photoData", "customerBootstrap"];
   const DEFAULT_PUBLIC_API_BASE = "https://mayumi-bijiris.onrender.com";
 
   function safeGetLocal(key) {
@@ -484,6 +484,44 @@ window.MayumiSurveyApi = (() => {
     });
   }
 
+  // 応答を読む必要がある送信。no-cors では読めないので、こちらを使う。
+  // サーバーが返した理由（24時間に1回まで等）を、そのままお客様にお伝えできる。
+  // 起動直後は アンケート・豆知識・履歴 が立て続けに要る。
+  // Apps Script は同時呼び出しを順番待ちにするので、1回でまとめて取る。
+  // 取れた内容は短時間だけ使い回し、そのあとの「更新」は最新を取りにいく。
+  let 起動時のまとめ結果 = null;
+  let 起動時のまとめ時刻 = 0;
+  const 起動時のまとめ有効時間 = 15000;
+
+  function 起動時のまとめ(gasUrl) {
+    if (起動時のまとめ結果 && Date.now() - 起動時のまとめ時刻 < 起動時のまとめ有効時間) {
+      return 起動時のまとめ結果;
+    }
+    起動時のまとめ時刻 = Date.now();
+    起動時のまとめ結果 = jsonp(gasUrl, "customerBootstrap", { clientId: getClientId() })
+      .then((data) => (data && Array.isArray(data.surveys) ? data : null))
+      .catch(() => null);
+    return 起動時のまとめ結果;
+  }
+
+  async function postToGasAndRead(gasUrl, action, payload) {
+    const res = await fetch(gasUrl, {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, ...payload }),
+    });
+    const text = await res.text();
+    let data = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return null;   // 読めなかった場合は、これまでどおり確認の問い合わせに任せる
+    }
+    if (data && data.error) throw new Error(data.error);
+    return data;
+  }
+
   async function postToGas(gasUrl, action, payload) {
     await fetch(gasUrl, {
       method: "POST",
@@ -791,6 +829,31 @@ window.MayumiSurveyApi = (() => {
         return jsonp(gasUrl, "photoData", options.query || {});
       }
 
+      // 入口の画面でログイン済みの方に、パスコードを聞かずに合鍵を渡す窓口。
+      // postToGas は no-cors で送りっぱなしのため返答を読めない。ここは読む必要がある。
+      if (path === "/api/customer/login-with-mayumi") {
+        const res = await fetch(gasUrl, {
+          method: "POST",
+          redirect: "follow",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "customerLoginWithMayumi",
+            mayumiToken: (options.body || {}).mayumiToken || "",
+          }),
+        });
+        const text = await res.text();
+        let data = null;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error("応答を読み取れませんでした。少し待ってからお試しください。");
+        }
+        if (!data || data.error) {
+          throw new Error((data && data.error) || "合鍵を受け取れませんでした。");
+        }
+        return data;
+      }
+
       if (path === "/api/customer/login") {
         return jsonp(gasUrl, "customerLogin", options.query || {});
       }
@@ -812,7 +875,8 @@ window.MayumiSurveyApi = (() => {
 
       if (path === "/api/public/surveys") {
         try {
-          const remoteData = await jsonp(gasUrl, "surveys");
+          const 束 = await 起動時のまとめ(gasUrl);
+          const remoteData = 束 || (await jsonp(gasUrl, "surveys"));
           const remoteSurveys = remoteData.surveys || [];
           if (remoteSurveys.length) {
             return {
@@ -840,11 +904,15 @@ window.MayumiSurveyApi = (() => {
       }
 
       if (path === "/api/public/bijiris-posts" && method === "GET") {
+        const 束 = await 起動時のまとめ(gasUrl);
+        if (束) return { posts: 束.posts || [] };
         return jsonp(gasUrl, "bijirisPosts");
       }
 
       if (path.startsWith("/api/public/responses") && method === "GET") {
         const url = new URL(path, window.location.origin);
+        const 束 = await 起動時のまとめ(gasUrl);
+        if (束 && 束.history) return 束.history;
         return jsonp(gasUrl, "history", {
           clientId: getClientId(),
           name: normalizeText(url.searchParams.get("name")),
@@ -882,11 +950,15 @@ window.MayumiSurveyApi = (() => {
         const expectedPlan = normalizeText(ticketCard.plan);
         const expectedSheetNumber = Math.floor(Number(ticketCard.sheetNumber) || 0);
         const expectedRound = Math.max(0, Math.floor(Number(ticketCard.round) || 0));
-        await postToGas(gasUrl, "updatePublicTicketCard", {
+        const saved = await postToGasAndRead(gasUrl, "updatePublicTicketCard", {
           clientId: getClientId(),
           customer,
           ticketCard,
         });
+        // 応答が読めたなら、それが確定した結果。問い合わせ直す必要はない。
+        if (saved && saved.customerProfile) {
+          return { customerProfile: saved.customerProfile };
+        }
         const updated = await waitForCustomerProfile(gasUrl, customer, (profile) => {
           const activeTicketCard = profile?.activeTicketCard || {};
           return (
@@ -971,6 +1043,11 @@ window.MayumiSurveyApi = (() => {
 
       if (path === "/api/admin/info" && method === "GET") {
         return jsonp(gasUrl, "adminInfo", { token: options.token });
+      }
+
+      // 管理アプリの起動時にまとめて取る窓口。8回に分けるより速い。
+      if (path === "/api/admin/bootstrap" && method === "GET") {
+        return jsonp(gasUrl, "adminBootstrap", { token: options.token });
       }
 
       if (path === "/api/admin/users" && method === "GET") {
@@ -1584,6 +1661,17 @@ window.MayumiSurveyApi = (() => {
     return data;
   }
 
+  // 入口の画面でログイン済みなら、パスコードを聞かずに合鍵をもらう。
+  // まゆみ側が本人と認めた場合だけ、ビジリスの合鍵が発行される。
+  async function customerLoginWithMayumi(mayumiToken) {
+    const data = await request("/api/customer/login-with-mayumi", {
+      method: "POST",
+      body: { mayumiToken: normalizeText(mayumiToken) },
+    });
+    if (data && data.token) setCustomerToken(data.token);
+    return data;
+  }
+
   return {
     request,
     logout,
@@ -1593,6 +1681,7 @@ window.MayumiSurveyApi = (() => {
     customerLogin,
     customerRecover,
     customerSetPasscode,
+    customerLoginWithMayumi,
     getCustomerToken,
     setCustomerToken,
     clearCustomerToken,

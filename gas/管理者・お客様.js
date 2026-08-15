@@ -256,6 +256,14 @@ const MUTATING_GET_ACTIONS = {
   confirmReceipt: true
 };
 
+// キャッシュに載せてはいけないもの。
+// キャッシュの鍵は data だけで作られ token を見ないため、
+// トークンごとに違うはずの答えが使い回されてしまう。
+const NEVER_CACHE_ACTIONS = {
+  checkAdminToken: true,
+  checkMemberToken: true
+};
+
 const NON_INVALIDATING_POST_TYPES = {
   askSupportChat: true,
   uploadImage: true,
@@ -751,6 +759,19 @@ function summarizeAuditDescription_(type, data, result) {
   }
   return String(result && result.message || '').trim();
 }
+
+// 操作履歴に残さない種別。
+//
+// 端末セッションと特典状態の同期は、アプリが自動で行うもので人の操作ではない。
+// 実測すると93日で 8,800件（全体の92%）を占めており、シートを太らせるだけで
+// 誰も見ていなかった。操作者も常に「管理者」なので、監査の役にも立っていない。
+const AUDIT_LOG_SKIP_TYPES = {
+  askSupportChat: true,          // ご相談の本文が入るため残さない
+  uploadImage: true,             // 画像データが大きい
+  postGoogleReviewReply: true,
+  syncUserDeviceSession: true,   // 自動の同期。93日で7,993件
+  syncUserRewardStatus: true     // 自動の同期。93日で807件
+};
 
 function appendAdminAuditLog_(type, data, result) {
   try {
@@ -1891,6 +1912,11 @@ const ADMIN_LOGIN_LOCK_WINDOW_MS = 10 * 60 * 1000;
 // お客様アプリが実際に呼んでいるアクション（app.js から抽出）。
 // ここに載っていないものは全て管理者専用として扱う。
 const PUBLIC_ACTIONS = {
+  // ビジリスのGASが、こちらのトークンの有効性を確かめに来る窓口。
+  // 有効か否かしか返さないので、公開しても手がかりにならない。
+  checkAdminToken: true,
+  // ビジリスが会員の合鍵を確かめに来る窓口。有効かどうかとお名前しか返さない。
+  checkMemberToken: true,
   // 公開コンテンツ
   getNews: true, getProducts: true, getCalendar: true, getMenus: true,
   getCategories: true, getInitialData: true, getSupportFaq: true,
@@ -2036,7 +2062,46 @@ function adminLogin_(data) {
 // 氏名は一意ではない（同姓同名や重複登録が実在する）。そのため
 // 「氏名で候補を集め、パスワードが合う行がちょうど1つ」を成立条件にする。
 // ==========================================================================
-const ACCOUNT_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30日
+const ACCOUNT_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90日
+
+// 会員はもともと「パスコード（数字4桁または6桁）」を持っている。
+// 新しくパスワードを覚えていただくのではなく、これをそのままログインに使う。
+// パスコードは数字に見えるが、0505 のような値は数値として扱われると
+// 先頭の 0 が落ちて 505 になってしまう。列ごと「書式なしテキスト」にして防ぐ。
+function ensurePasscodeColumnIsText_(sheet) {
+  if (!sheet) return;
+  try {
+    const rows = Math.max(sheet.getMaxRows() - 1, 1);
+    const range = sheet.getRange(2, USER_COL.PASSCODE, rows, 1);
+    if (range.getNumberFormat() === '@') return;
+    range.setNumberFormat('@');
+  } catch (err) {
+    // 書式を変えられなくても、照合側で桁を揃えるので致命的ではない
+  }
+}
+
+function normalizePasscodeValue_(value) {
+  return String(value == null ? '' : value).replace(/[^0-9]/g, '');
+}
+
+function isValidPasscodeValue_(value) {
+  const digits = normalizePasscodeValue_(value);
+  return digits.length === 4 || digits.length === 6;
+}
+
+// 行に記録されたパスコードと一致するか。
+// 先頭の 0 が数値として保存されて消えることがあるため、桁を揃えてから比べる。
+function matchesRowPasscode_(row, passcode) {
+  const input = normalizePasscodeValue_(passcode);
+  if (!input) return false;
+  const stored = normalizePasscodeValue_(row[USER_COL.PASSCODE - 1]);
+  if (!stored) return false;
+  if (stored === input) return true;
+  if (stored.length < input.length) {
+    return stored.padStart(input.length, '0') === input;
+  }
+  return false;
+}
 
 function makeAccountSalt_() {
   return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
@@ -2084,6 +2149,50 @@ function readAccountRows_() {
   return { sheet: sheet, rows: rows };
 }
 
+// ビジリスは別のGASで動いており、トークンの署名鍵もこちらとは違う。
+// そのため向こうはこちらのトークンを検証できない。代わりに「このトークンは
+// 有効か」だけを答える窓口を用意し、ビジリス側から確かめてもらう。
+//
+// パスワードをどこにも複製しないための作り。
+// 答えるのは有効か否かだけで、誰のものかも、何ができるかも返さない。
+// トークンを持っていない相手には何の手がかりにもならない。
+// ビジリスのGASが「この会員の合鍵は本物か」を確かめに来る窓口。
+// 本物なら、そのお名前とフリガナだけを返す。
+// お名前が分かってもこの窓口からは何も引き出せないので、公開して差し支えない。
+function checkMemberToken(params) {
+  try {
+    const token = String((params && params.token) || '').trim();
+    const memberId = token ? verifyMemberToken_(token) : '';
+    if (!memberId) return { status: 'ok', valid: false };
+
+    const sheet = getOrCreateUsersSheet_(getOrCreateSpreadsheet());
+    const rowIdx = findUserRowByMemberId_(sheet, memberId);
+    if (rowIdx < 2) return { status: 'ok', valid: false };
+    const row = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).getValues()[0];
+    if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) {
+      return { status: 'ok', valid: false };
+    }
+    return {
+      status: 'ok',
+      valid: true,
+      memberId: memberId,
+      name: String(row[USER_COL.NAME - 1] || ''),
+      kana: String(row[USER_COL.KANA - 1] || '')
+    };
+  } catch (err) {
+    return { status: 'ok', valid: false };
+  }
+}
+
+function checkAdminToken(params) {
+  try {
+    const token = String((params && params.token) || '').trim();
+    return { status: 'ok', valid: !!token && !!verifyAdminToken_(token) };
+  } catch (err) {
+    return { status: 'ok', valid: false };
+  }
+}
+
 function buildAccountSession_(row) {
   const isAdmin = String(row[USER_COL.ROLE - 1] || '').trim() === ACCOUNT_ADMIN_ROLE;
   const memberId = String(row[USER_COL.MEMBER_ID - 1] || '');
@@ -2093,12 +2202,47 @@ function buildAccountSession_(row) {
     role: isAdmin ? 'admin' : 'member',
     memberId: memberId,
     name: String(row[USER_COL.NAME - 1] || ''),
+    // ビジリスは氏名とフリガナで本人を見分けるので、入口から引き継げるよう返す。
+    kana: String(row[USER_COL.KANA - 1] || ''),
     // ビジリスの登録有無で、アプリ一覧に出すかどうかが決まる。
     bijiris: String(row[USER_COL.BIJIRIS - 1] || '').trim() === ACCOUNT_BIJIRIS_REGISTERED,
-    // 管理者には既存形式の管理者トークンを返す。管理アプリを変えずに済む。
+    // 権限が管理者なら、管理アプリ用のトークンをここで渡す。
+    // 入口で一度ログインすれば管理画面まで開ける（二重に聞かない）という方針。
+    // その代わり、管理画面へ入れるのはパスコード4桁または6桁だけになる。
     token: isAdmin ? makeAdminToken_(expiresAt) : makeMemberToken_(memberId, expiresAt),
-    expiresAt: new Date(expiresAt).toISOString()
+    // 管理者の方にも会員用の合鍵を渡す。ご自身のビジリスの履歴を見るのに使う。
+    // 管理者かどうかに関わらず、その方ご本人を指す合鍵。
+    memberToken: makeMemberToken_(memberId, expiresAt),
+    expiresAt: new Date(expiresAt).toISOString(),
+    // まだいただけていない項目。値そのものは返さない。
+    // 電話番号か生年月日が無いと、パスコードを忘れたときに戻せなくなるため、
+    // 入口の画面でお願いする材料にする。
+    missing: missingProfileFields_(row)
   };
+}
+
+// ひらがなだけのお名前は、ご登録の途中であることが多い。
+// あとから漢字で登録し直されると、同じ方が2行に分かれてしまうため、
+// 入口でお名前を整えていただく。
+//
+// カタカナのお名前は対象にしない。そのままが正しい方がいらっしゃるため。
+function needsKanjiName_(value) {
+  const s = String(value || '').replace(/[\s\u3000]/g, '');
+  if (!s) return false;
+  if (/[\u4E00-\u9FFF\u3005]/.test(s)) return false;        // 漢字が入っている
+  return /^[\u3041-\u309F\u30FC]+$/.test(s);                 // ひらがな（と長音）だけ
+}
+
+function missingProfileFields_(row) {
+  const missing = [];
+  // 漢字のお名前とフリガナは、パスコードを忘れたときの照合にも、
+  // 同じ方が二重に登録されるのを防ぐのにも使う。
+  if (needsKanjiName_(row[USER_COL.NAME - 1])) missing.push('name');
+  if (!String(row[USER_COL.KANA - 1] || '').trim()) missing.push('kana');
+  if (!String(row[USER_COL.PHONE - 1] || '').trim()) missing.push('phone');
+  if (!normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1])) missing.push('birthday');
+  if (!String(row[USER_COL.ADDRESS - 1] || '').trim()) missing.push('address');
+  return missing;
 }
 
 // アプリを開いた記録。管理側で「最近使っている方」が分かるようにする。
@@ -2119,14 +2263,24 @@ function registerAccount(data) {
     const birthday = normalizeDateOnlyValue_(data && data.birthday);
     const phone = String((data && data.phone) || '').trim();
     const address = String((data && data.address) || '').trim();
-    const password = String((data && data.password) || '');
+    const passcode = normalizePasscodeValue_((data && (data.passcode || data.password)) || '');
 
+    // 氏名・生年月日・パスコードは、既存の方も新しい方も必ず要る。
+    // フリガナ・電話・住所は、記録がまだ無い方にだけ求める（下で確かめる）。
     if (!name) return { status: 'error', message: 'お名前を入力してください。' };
-    if (!kana) return { status: 'error', message: 'フリガナを入力してください。' };
+    // ひらがなだけのご登録は、あとから漢字で登録し直されて二重になりやすい。
+    // 入口で止めておくと、あとの名寄せがいらなくなる。
+    if (needsKanjiName_(name)) {
+      return {
+        status: 'error',
+        message: 'お名前は漢字でご入力ください。'
+          + 'ひらがなでご登録いただくと、あとから同じ方が二重に登録されてしまうことがあります。'
+      };
+    }
     if (!birthday) return { status: 'error', message: '生年月日を入力してください。' };
-    if (!phone) return { status: 'error', message: '電話番号を入力してください。' };
-    if (!address) return { status: 'error', message: 'ご住所を入力してください。' };
-    if (password.length < 8) return { status: 'error', message: 'パスワードは8文字以上にしてください。' };
+    if (!isValidPasscodeValue_(passcode)) {
+      return { status: 'error', message: 'パスコードは数字4桁または6桁で入力してください。' };
+    }
 
     const store = readAccountRows_();
 
@@ -2139,25 +2293,64 @@ function registerAccount(data) {
       return { status: 'error', message: '同じお名前と生年月日の登録が複数あります。受付にお申し出ください。' };
     }
 
-    const salt = makeAccountSalt_();
-    const hash = hashAccountPassword_(password, salt);
     const timestamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/M/d H:mm');
 
     if (matched.length === 1) {
       const target = matched[0];
-      if (String(target.values[USER_COL.PASSWORD_HASH - 1] || '').trim()) {
-        return { status: 'error', message: 'すでに登録済みです。ログインしてください。' };
+      // すでにパスコードをお持ちの方は、登録ではなくログインしていただく。
+      if (normalizePasscodeValue_(target.values[USER_COL.PASSCODE - 1])) {
+        return { status: 'error', message: 'すでに登録済みです。パスコードでログインしてください。' };
       }
+      // すでにある記録には触らない。空いている欄だけ、入力があれば埋める。
       const row = target.values.slice();
-      row[USER_COL.KANA - 1] = kana;
-      row[USER_COL.PHONE - 1] = phone;
-      row[USER_COL.ADDRESS - 1] = address;
-      row[USER_COL.PASSWORD_HASH - 1] = hash;
-      row[USER_COL.PASSWORD_SALT - 1] = salt;
+      if (kana && !String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
+      if (phone && !String(row[USER_COL.PHONE - 1] || '').trim()) row[USER_COL.PHONE - 1] = phone;
+      if (address && !String(row[USER_COL.ADDRESS - 1] || '').trim()) row[USER_COL.ADDRESS - 1] = address;
+      row[USER_COL.PASSCODE - 1] = passcode;
       store.sheet.getRange(target.rowIdx, 1, 1, USER_HEADERS.length).setValues([row]);
       touchLastOnline_(store.sheet, target.rowIdx);
       return buildAccountSession_(row);
     }
+
+      // 同じお名前で、生年月日が記録されていない方がいる場合。
+      // このまま新規で足すと、同じ方が2行に分かれてスタンプも分かれてしまう。
+      // 生年月日が空だと本人かどうか確かめようがないので、受付でご対応いただく。
+      const sameNameNoBirthday = store.rows.filter(function (item) {
+        return normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) === name &&
+               !normalizeDateOnlyValue_(item.values[USER_COL.BIRTHDAY - 1]);
+      });
+      if (sameNameNoBirthday.length) {
+        return {
+          status: 'error',
+          message: '同じお名前のご登録がありますが、生年月日が記録されていないため確認できません。'
+            + '恐れ入りますが、受付にお申し出ください。'
+        };
+      }
+
+      // お名前の表記だけが違う、同じ方の二重登録を止める。
+      // 「こばやしみか」で登録された方が、あとから「小林美香」で登録し直すと
+      // 氏名が一致せず別人として増えてしまう。フリガナと生年月日が揃えば同じ方とみなす。
+      if (kana) {
+        const sameKanaAndBirthday = store.rows.filter(function (item) {
+          const rowKana = normalizeStoredKana_(item.values[USER_COL.KANA - 1] || '');
+          if (!rowKana || rowKana !== normalizeStoredKana_(kana)) return false;
+          return normalizeDateOnlyValue_(item.values[USER_COL.BIRTHDAY - 1]) === birthday;
+        });
+        if (sameKanaAndBirthday.length) {
+          return {
+            status: 'error',
+            message: 'フリガナと生年月日が同じご登録がすでにあります。'
+              + 'お名前の書き方だけが違う可能性があります。'
+              + '新しく登録するとこれまでの記録が分かれてしまうため、'
+              + '恐れ入りますが受付にお申し出ください。'
+          };
+        }
+      }
+
+    // ここから先は記録が見つからなかった方。連絡先まで揃えていただく。
+    if (!kana) return { status: 'error', message: 'フリガナを入力してください。' };
+    if (!phone) return { status: 'error', message: '電話番号を入力してください。' };
+    if (!address) return { status: 'error', message: 'ご住所を入力してください。' };
 
     // 新規。会員番号は既存と衝突しないものを採番する。
     const used = {};
@@ -2172,13 +2365,12 @@ function registerAccount(data) {
     const row = new Array(USER_HEADERS.length).fill('');
     row[USER_COL.MEMBER_ID - 1] = memberId;
     row[USER_COL.TIMESTAMP - 1] = timestamp;
-    row[USER_COL.NAME - 1] = rawName;
-    row[USER_COL.KANA - 1] = kana;
+    row[USER_COL.NAME - 1] = normalizeStoredName_(rawName);
+    row[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
     row[USER_COL.PHONE - 1] = phone;
     row[USER_COL.BIRTHDAY - 1] = birthday;
     row[USER_COL.ADDRESS - 1] = address;
-    row[USER_COL.PASSWORD_HASH - 1] = hash;
-    row[USER_COL.PASSWORD_SALT - 1] = salt;
+    row[USER_COL.PASSCODE - 1] = passcode;
     row[USER_COL.DEVICE_SESSIONS - 1] = '[]';
     setUserRegistrationSource_(row, '新規登録', 'ランチャー', timestamp);
     store.sheet.appendRow(row);
@@ -2189,12 +2381,59 @@ function registerAccount(data) {
   }
 }
 
+// 記録されているパスコードが入力より短ければ、先頭の 0 が落ちている。
+// 本人が入力できた値なので、そのまま書き戻して直す。
+function repairStoredPasscode_(sheet, hit, passcode) {
+  try {
+    const input = normalizePasscodeValue_(passcode);
+    const stored = normalizePasscodeValue_(hit.values[USER_COL.PASSCODE - 1]);
+    if (!input || !stored || stored === input) return;
+    if (stored.length >= input.length) return;
+    const cell = sheet.getRange(hit.rowIdx, USER_COL.PASSCODE);
+    cell.setNumberFormat('@');
+    cell.setValue(input);
+    hit.values[USER_COL.PASSCODE - 1] = input;
+  } catch (err) {
+    // 直せなくてもログイン自体は成立している
+  }
+}
+
+// ログインは待たされると使ってもらえない。
+// 照合に要る列だけを先に読み、当てはまった行だけを丸ごと読む。
+// 全行×全列（約9,000セル）を毎回読むのに比べて、やり取りがずっと軽い。
+function findAccountRowsByName_(name) {
+  const sheet = getOrCreateUsersSheet_(getOrCreateSpreadsheet());
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { sheet: sheet, rows: [] };
+
+  const count = lastRow - 1;
+  const names = sheet.getRange(2, USER_COL.NAME, count, 1).getValues();
+  const deleted = sheet.getRange(2, USER_COL.DELETE_STATUS, count, 1).getValues();
+
+  const rowIdxList = [];
+  for (let i = 0; i < count; i += 1) {
+    if (String(deleted[i][0] || '').trim() === SOFT_DELETE_STATUS) continue;
+    if (normalizeNameForMatch_(names[i][0]) !== name) continue;
+    rowIdxList.push(i + 2);
+  }
+
+  // 同姓同名は多くても数人。ここだけ全列を読む。
+  const rows = rowIdxList.map(function (rowIdx) {
+    return {
+      rowIdx: rowIdx,
+      values: sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length).getValues()[0]
+    };
+  });
+  return { sheet: sheet, rows: rows };
+}
+
 function loginAccount(data) {
   try {
     const name = normalizeNameForMatch_(data && data.name);
-    const password = String((data && data.password) || '');
-    if (!name || !password) {
-      return { status: 'error', message: 'お名前とパスワードを入力してください。' };
+    // 入口の入力欄はパスコードに統一した。古い呼び出しのために password も受ける。
+    const passcode = String((data && (data.passcode || data.password)) || '');
+    if (!name || !passcode) {
+      return { status: 'error', message: 'お名前とパスコードを入力してください。' };
     }
 
     // 総当たり対策。管理者ログインと同じ入れ物を使う。
@@ -2209,14 +2448,15 @@ function loginAccount(data) {
       return { status: 'error', message: 'ログイン失敗が続いたため、一時的に停止しています。10分後に再試行してください。' };
     }
 
-    // 氏名は一意でないため、パスワードで絞り込む。
-    const store = readAccountRows_();
+    // 氏名は一意でないため、パスコードで絞り込む。
+    const store = findAccountRowsByName_(name);
     const hits = store.rows.filter(function (item) {
-      if (normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) !== name) return false;
+      if (matchesRowPasscode_(item.values, passcode)) return true;
+      // 以前パスワードで登録した方も、そのまま入れるようにしておく。
       const salt = String(item.values[USER_COL.PASSWORD_SALT - 1] || '');
       const hash = String(item.values[USER_COL.PASSWORD_HASH - 1] || '');
       if (!salt || !hash) return false;
-      return hashAccountPassword_(password, salt) === hash;
+      return hashAccountPassword_(passcode, salt) === hash;
     });
 
     if (hits.length !== 1) {
@@ -2226,11 +2466,14 @@ function loginAccount(data) {
       attempts[key] = current;
       properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
       // 該当が2件以上でも「違います」で統一する。存在を推測させないため。
-      return { status: 'error', message: 'お名前またはパスワードが違います。' };
+      return { status: 'error', message: 'お名前またはパスコードが違います。' };
     }
 
     delete attempts[key];
     properties.setProperty(ADMIN_LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
+    // 先頭の 0 が落ちて記録されていた場合、ここで正しい桁に直しておく。
+    // 入力が通った時点で本来の値が分かるので、次からは桁を揃えずに一致する。
+    repairStoredPasscode_(store.sheet, hits[0], passcode);
     touchLastOnline_(store.sheet, hits[0].rowIdx);
     return buildAccountSession_(hits[0].values);
   } catch (err) {
@@ -2245,28 +2488,28 @@ function registerBijirisUse(data) {
   try {
     const name = normalizeNameForMatch_(data && data.name);
     const kana = String((data && data.kana) || '').trim();
-    const password = String((data && data.password) || '');
-    if (!name || !kana || !password) {
-      return { status: 'error', message: 'お名前・フリガナ・パスワードを入力してください。' };
+    const passcode = String((data && (data.passcode || data.password)) || '');
+    if (!name || !kana || !passcode) {
+      return { status: 'error', message: 'お名前・フリガナ・パスコードを入力してください。' };
     }
 
-    const store = readAccountRows_();
+    const store = findAccountRowsByName_(name);
     const hits = store.rows.filter(function (item) {
-      if (normalizeNameForMatch_(item.values[USER_COL.NAME - 1]) !== name) return false;
+      if (matchesRowPasscode_(item.values, passcode)) return true;
       const salt = String(item.values[USER_COL.PASSWORD_SALT - 1] || '');
       const hash = String(item.values[USER_COL.PASSWORD_HASH - 1] || '');
       if (!salt || !hash) return false;
-      return hashAccountPassword_(password, salt) === hash;
+      return hashAccountPassword_(passcode, salt) === hash;
     });
     if (hits.length !== 1) {
-      return { status: 'error', message: 'お名前またはパスワードが違います。' };
+      return { status: 'error', message: 'お名前またはパスコードが違います。' };
     }
 
     const target = hits[0];
     const row = target.values.slice();
     row[USER_COL.BIJIRIS - 1] = ACCOUNT_BIJIRIS_REGISTERED;
     // フリガナが未登録の会員は、この機会に埋めておく。
-    if (!String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = kana;
+    if (!String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
     store.sheet.getRange(target.rowIdx, 1, 1, USER_HEADERS.length).setValues([row]);
     touchLastOnline_(store.sheet, target.rowIdx);
     return buildAccountSession_(row);
@@ -2286,7 +2529,7 @@ function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
   const cachePayload = buildCachePayload_(e && e.parameter);
   const isMutatingAction = !!MUTATING_GET_ACTIONS[action];
-  const canUseCache = !!action && !isMutatingAction;
+  const canUseCache = !!action && !isMutatingAction && !NEVER_CACHE_ACTIONS[action];
 
   try {
     // キャッシュより先に検証する。順序を逆にすると、認証なしで
@@ -2302,6 +2545,12 @@ function doGet(e) {
 
     let result;
     switch (action) {
+      case 'checkAdminToken':
+        result = checkAdminToken(e.parameter);
+        break;
+      case 'checkMemberToken':
+        result = checkMemberToken(e.parameter);
+        break;
       case 'getNews':
         result = getBlogNews();
         break;
@@ -2467,6 +2716,8 @@ function doPost(e) {
       return createJsonResponse(registerBijirisUse(data));
     }
     requireAdminAccess_(type, data);
+
+
 
     switch (type) {
       case 'order':
@@ -2660,7 +2911,7 @@ function doPost(e) {
     if (result && result.status === 'ok' && !NON_INVALIDATING_POST_TYPES[type]) {
       bumpDataCacheVersion_(type);
     }
-    if (type !== 'askSupportChat' && type !== 'uploadImage' && type !== 'postGoogleReviewReply') {
+    if (!AUDIT_LOG_SKIP_TYPES[type]) {
       appendAdminAuditLog_(type, data, result);
     }
     return createJsonResponse(result);
@@ -3576,6 +3827,7 @@ function ensureUsersSheetStructure_(sheet) {
     styleHeader(sheet, USER_HEADERS.length, '#0288d1');
     configureUsersSheet_(sheet);
   }
+  ensurePasscodeColumnIsText_(sheet);
   return sheet;
 }
 
@@ -6520,8 +6772,8 @@ function handleUpdateUser(data) {
       const rowData = new Array(USER_HEADERS.length).fill('');
       rowData[USER_COL.MEMBER_ID - 1] = memberId;
       rowData[USER_COL.TIMESTAMP - 1] = timestamp;
-      rowData[USER_COL.NAME - 1] = rawName;
-      rowData[USER_COL.KANA - 1] = data.kana || '';
+      rowData[USER_COL.NAME - 1] = normalizeStoredName_(rawName);
+      rowData[USER_COL.KANA - 1] = normalizeStoredKana_(data.kana || '');
       rowData[USER_COL.PHONE - 1] = data.phone || '';
       rowData[USER_COL.AVATAR_URL - 1] = data.avatar || '';
       rowData[USER_COL.MEMO - 1] = data.memo || '';
@@ -6558,8 +6810,8 @@ function handleUpdateUser(data) {
       const updatedRow = currentValues.slice();
       updatedRow[USER_COL.MEMBER_ID - 1] = memberId;
       updatedRow[USER_COL.TIMESTAMP - 1] = timestamp;
-      updatedRow[USER_COL.NAME - 1] = data.name !== undefined ? rawName : currentValues[USER_COL.NAME - 1];
-      updatedRow[USER_COL.KANA - 1] = data.kana !== undefined ? data.kana : currentValues[USER_COL.KANA - 1];
+      updatedRow[USER_COL.NAME - 1] = normalizeStoredName_(data.name !== undefined ? rawName : currentValues[USER_COL.NAME - 1]);
+      updatedRow[USER_COL.KANA - 1] = normalizeStoredKana_(data.kana !== undefined ? data.kana : currentValues[USER_COL.KANA - 1]);
       updatedRow[USER_COL.PHONE - 1] = data.phone !== undefined ? data.phone : currentValues[USER_COL.PHONE - 1];
       updatedRow[USER_COL.AVATAR_URL - 1] = data.avatar !== undefined ? data.avatar : currentValues[USER_COL.AVATAR_URL - 1];
       updatedRow[USER_COL.MEMO - 1] = data.memo !== undefined ? data.memo : currentValues[USER_COL.MEMO - 1];
@@ -6606,17 +6858,40 @@ function normalizePhoneForMatch_(value) {
   return str;
 }
 
+// 保存する氏名・フリガナから空白を取り除く。
+// 「山田 太郎」と「山田太郎」が別人として登録され、同じ方が二重に
+// 登録されてしまうため。照合側（normalizeNameForMatch_）も空白を無視している。
+function normalizeStoredName_(value) {
+  return String(value == null ? '' : value).replace(/[\s\u3000]+/g, '');
+}
+
+// カタカナをひらがなへ寄せる。
+// ふりがなは「ひらがなで登録していただく」方針にしたが、
+// 以前に登録された分はカタカナのまま残っている。照合も保存もひらがなに揃える。
+function toHiragana_(value) {
+  return String(value == null ? '' : value).replace(/[\u30A1-\u30F6]/g, function (ch) {
+    return String.fromCharCode(ch.charCodeAt(0) - 0x60);
+  });
+}
+
+function normalizeStoredKana_(value) {
+  let text = String(value == null ? '' : value);
+  try { text = text.normalize('NFKC'); } catch (err) { /* 古い環境では未対応 */ }
+  return toHiragana_(text.replace(/[\s\u3000]+/g, ''));
+}
+
 function normalizeNameForMatch_(value) {
   return String(value || '').trim().replace(/[\s\u3000]+/g, '');
 }
 
-// フリガナ照合用。半角カナ・濁点をNFKCで全角カタカナへ寄せ、空白を除去する
+// ふりがな照合用。半角カナ・濁点をNFKCで寄せ、空白を除き、ひらがなに統一する。
+// 「サトウ」で登録された古い記録と「さとう」の新しい入力が、同じものとして一致する。
 function normalizeKanaForMatch_(value) {
   let text = String(value || '');
   try {
     text = text.normalize('NFKC');
   } catch (e) { }
-  return text.replace(/[\s　]+/g, '');
+  return toHiragana_(text.replace(/[\s　]+/g, ''));
 }
 
 function normalizePasscodeForMatch_(value) {
@@ -6697,8 +6972,8 @@ function ensureUserRowFromActivity_(sheet, data) {
     const rowData = new Array(USER_HEADERS.length).fill('');
     rowData[USER_COL.MEMBER_ID - 1] = memberId;
     rowData[USER_COL.TIMESTAMP - 1] = timestamp;
-    rowData[USER_COL.NAME - 1] = name;
-    rowData[USER_COL.KANA - 1] = kana;
+    rowData[USER_COL.NAME - 1] = normalizeStoredName_(name);
+    rowData[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
     rowData[USER_COL.PHONE - 1] = phone;
     rowData[USER_COL.AVATAR_URL - 1] = avatar;
     rowData[USER_COL.MEMO - 1] = memo;
@@ -6806,6 +7081,60 @@ function buildRecoverAccountUserFromRow_(row) {
   };
 }
 
+// ===== アカウント復元の保護 =====
+// 復元は「生年月日一致 かつ（氏名 または フリガナ）一致」で通る。院内運用として
+// 条件を緩めた経緯があるぶん、外から総当たりされないよう別途守る必要がある。
+
+// 候補一覧に本名をそのまま出すと、電話番号だけを知っている相手に氏名が渡る。
+// 本人が「自分だ」と気づく程度に留める。
+function maskNameForRecovery_(value) {
+  const name = String(value || '').trim();
+  if (!name) return '会員';
+  const rest = Math.min(Math.max(name.length - 1, 1), 3);
+  return name.slice(0, 1) + '○'.repeat(rest);
+}
+
+// 生年月日は現実的に1〜2万通りしかない。制限がなければ総当たりで他人の
+// アカウントに入れてしまうため、狙われた相手ごとに試行回数を数える。
+// 全体で数えると、攻撃者が1人いるだけで正規の会員が復元できなくなる。
+const RECOVERY_MAX_ATTEMPTS = 10;
+const RECOVERY_LOCK_WINDOW_SEC = 10 * 60;
+
+function recoveryAttemptKey_(name, kana) {
+  const seed = String(name || '') + '|' + String(kana || '');
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed, Utilities.Charset.UTF_8);
+  return 'recover_' + Utilities.base64EncodeWebSafe(digest).slice(0, 24);
+}
+
+function isRecoveryLocked_(name, kana) {
+  try {
+    const count = Number(CacheService.getScriptCache().get(recoveryAttemptKey_(name, kana)) || 0);
+    return count >= RECOVERY_MAX_ATTEMPTS;
+  } catch (err) {
+    // キャッシュが使えないときに復元自体を止めると、正規の会員が締め出される。
+    return false;
+  }
+}
+
+function recordRecoveryFailure_(name, kana) {
+  try {
+    const cache = CacheService.getScriptCache();
+    const key = recoveryAttemptKey_(name, kana);
+    const count = Number(cache.get(key) || 0) + 1;
+    cache.put(key, String(count), RECOVERY_LOCK_WINDOW_SEC);
+  } catch (err) {
+    // 数えられなくても復元の可否には影響させない。
+  }
+}
+
+function clearRecoveryAttempts_(name, kana) {
+  try {
+    CacheService.getScriptCache().remove(recoveryAttemptKey_(name, kana));
+  } catch (err) {
+    // 消せなくても10分で自然に消える。
+  }
+}
+
 function getRecoveryCandidates(params) {
   try {
     const ss = getOrCreateSpreadsheet();
@@ -6837,19 +7166,26 @@ function getRecoveryCandidates(params) {
         return sum + (label === '氏名' || label === 'フリガナ' ? 2 : 3);
       }, 0);
       return {
-        rowIdx: index + 2,
         memberId: String(row[USER_COL.MEMBER_ID - 1] || ''),
-        name: String(row[USER_COL.NAME - 1] || ''),
-        phone: String(row[USER_COL.PHONE - 1] || ''),
-        birthday: normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]),
-        updatedAt: formatMaybeDateTime_(row[USER_COL.TIMESTAMP - 1]),
+        name: maskNameForRecovery_(row[USER_COL.NAME - 1]),
         reasons: reasons,
+        // 並べ替えにだけ使う。返す直前に落とす。
+        updatedAt: formatMaybeDateTime_(row[USER_COL.TIMESTAMP - 1]),
         score: score
       };
     }).filter(Boolean).sort(function (a, b) {
       if (b.score !== a.score) return b.score - a.score;
       return parseLooseDateToTimestamp_(b.updatedAt) - parseLooseDateToTimestamp_(a.updatedAt);
-    }).slice(0, 5);
+    }).slice(0, 5).map(function (candidate) {
+      // このAPIは認証なしで呼べる（会員登録の途中で使うため）。
+      // 生年月日と電話番号は絶対に返さない。生年月日は handleRecoverAccount の
+      // 必須一致キーなので、返すと氏名だけで他人のアカウントに入れてしまう。
+      return {
+        memberId: candidate.memberId,
+        name: candidate.name,
+        reasons: candidate.reasons
+      };
+    });
 
     return { status: 'ok', candidates: candidates };
   } catch (err) {
@@ -6881,6 +7217,15 @@ function handleRecoverAccount(data) {
     }
     if (!/^(?:\d{4}|\d{6})$/.test(newPasscode)) {
       return { status: 'error', message: 'この端末で使うパスコードを4桁または6桁の数字で入力してください。' };
+    }
+
+    // 引き継ぎコードは本人しか持たないので数えない。
+    // 氏名＋生年月日で通す経路だけ、狙われた相手ごとに試行回数を制限する。
+    if (!transferCode && isRecoveryLocked_(name, kana)) {
+      return {
+        status: 'error',
+        message: '復元の試行が続いたため、一時的に停止しています。10分後に再度お試しください。'
+      };
     }
 
     const values = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
@@ -6940,12 +7285,16 @@ function handleRecoverAccount(data) {
       }
 
       if (!candidates.length) {
+        // 生年月日を external から順に当てにくる攻撃は、ここを繰り返し通る。
+        // 複数一致は正規の会員でも起きるので数えない（追加入力を促すだけ）。
+        recordRecoveryFailure_(name, kana);
         return { status: 'error', message: '一致する会員情報が見つかりませんでした。入力内容をご確認ください。' };
       }
       if (candidates.length > 1) {
         return { status: 'error', message: '一致する会員情報が複数見つかりました。電話番号または現在のパスコードを追加で入力するか、引き継ぎコードをご利用ください。' };
       }
 
+      clearRecoveryAttempts_(name, kana);
       matchedRowIndex = candidates[0].rowIndex;
       matchedRowValues = candidates[0].rowValues;
     }
@@ -7033,63 +7382,82 @@ function handleResetForgottenPasscode(data) {
     const birthday = normalizeDateOnlyValue_(data.birthday);
     const newPasscode = String(data.newPasscode || '').trim();
 
-    if (!name || !phone || !birthday || !newPasscode) {
-      return { status: 'error', message: 'お名前・電話番号・生年月日・新しいパスコードを入力してください。' };
+    // 電話番号と生年月日は、どちらか一方でも構わない。
+    // 記録の側が空の方（40%近くいる）を、原理的に通れない状態にしないため。
+    if (!name || !newPasscode || (!phone && !birthday)) {
+      return {
+        status: 'error',
+        message: 'お名前と、電話番号または生年月日のどちらか、そして新しいパスコードを入力してください。'
+      };
     }
     if (!/^(?:\d{4}|\d{6})$/.test(newPasscode)) {
       return { status: 'error', message: '新しいパスコードは4桁または6桁の数字で入力してください。' };
     }
+    // 氏名と生年月日だけで通る場合があるので、狙い撃ちの総当たりを回数で止める。
+    if (isRecoveryLocked_(name, '')) {
+      return {
+        status: 'error',
+        message: 'お手続きが続いたため、一時的にお休みしています。10分ほど経ってから、もう一度お試しください。'
+      };
+    }
 
     const values = sheet.getRange(2, 1, lastRow - 1, USER_HEADERS.length).getValues();
-    let matchedRow = -1;
-    let matchedUser = null;
 
+    // 記録にある項目だけを照合する。記録が空の項目は、確かめようがないので問わない。
+    // ただし「氏名だけで通す」ことはしない。同姓同名の他人が入れてしまうため。
+    function judge(row) {
+      if (normalizeNameForMatch_(row[USER_COL.NAME - 1]) !== name) return null;
+      const rowPhone = normalizePhoneForMatch_(row[USER_COL.PHONE - 1]);
+      const rowBirthday = normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]);
+      let checked = 0;
+      if (rowPhone) {
+        if (!phone || rowPhone !== phone) return null;
+        checked += 1;
+      }
+      if (rowBirthday) {
+        if (!birthday || rowBirthday !== birthday) return null;
+        checked += 1;
+      }
+      if (checked === 0) return null;   // 記録に電話も生年月日も無い方は、受付でご対応
+      return checked;
+    }
+
+    const candidates = [];
+    for (let i = 0; i < values.length; i += 1) {
+      const checked = judge(values[i]);
+      if (checked) candidates.push({ rowIndex: i + 2, checked: checked });
+    }
+
+    // 会員IDの指定があれば、その行に絞る（複数該当のときの取り違えを防ぐ）。
+    let picked = null;
     if (memberId) {
       const targetRow = findUserRowByMemberId_(sheet, memberId);
-      if (targetRow >= 2) {
-        const row = values[targetRow - 2];
-        const rowPhone = normalizePhoneForMatch_(row[USER_COL.PHONE - 1]);
-        const rowName = normalizeNameForMatch_(row[USER_COL.NAME - 1]);
-        const rowBirthday = normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]);
-        if (rowPhone === phone && rowName === name && rowBirthday === birthday) {
-          matchedRow = targetRow;
-          matchedUser = buildRecoverAccountUserFromRow_(row);
-        }
-      }
+      picked = candidates.filter(function (c) { return c.rowIndex === targetRow; })[0] || null;
     }
-
-    if (!matchedUser) {
-      const candidates = [];
-      for (let i = 0; i < values.length; i++) {
-        const row = values[i];
-        const rowPhone = normalizePhoneForMatch_(row[USER_COL.PHONE - 1]);
-        const rowName = normalizeNameForMatch_(row[USER_COL.NAME - 1]);
-        const rowBirthday = normalizeDateOnlyValue_(row[USER_COL.BIRTHDAY - 1]);
-        if (rowPhone !== phone) continue;
-        if (rowName !== name) continue;
-        if (rowBirthday !== birthday) continue;
-        candidates.push({
-          rowIndex: i + 2,
-          user: buildRecoverAccountUserFromRow_(row)
-        });
-      }
-
+    if (!picked) {
       if (candidates.length > 1) {
-        return { status: 'error', message: '一致する会員情報が複数見つかりました。院へお問い合わせください。' };
+        recordRecoveryFailure_(name, '');
+        return {
+          status: 'error',
+          message: '同じ内容のご登録が複数見つかりました。恐れ入りますが、受付にお申し出ください。'
+        };
       }
-      if (!candidates.length) {
-        return { status: 'error', message: '一致する会員情報が見つかりませんでした。入力内容をご確認ください。' };
-      }
-
-      matchedRow = candidates[0].rowIndex;
-      matchedUser = candidates[0].user;
+      picked = candidates[0] || null;
     }
 
-    if (matchedRow < 2 || !matchedUser) {
-      return { status: 'error', message: '本人確認に失敗しました。入力内容をご確認ください。' };
+    if (!picked) {
+      recordRecoveryFailure_(name, '');
+      return {
+        status: 'error',
+        message: 'ご登録の内容と一致しませんでした。'
+          + 'ご登録時に電話番号や生年月日をいただいていない場合は、この画面からはお手続きできません。'
+          + '恐れ入りますが、受付にお申し出ください。'
+      };
     }
 
-    const range = sheet.getRange(matchedRow, 1, 1, USER_HEADERS.length);
+    clearRecoveryAttempts_(name, '');
+
+    const range = sheet.getRange(picked.rowIndex, 1, 1, USER_HEADERS.length);
     const updatedRow = range.getValues()[0];
     updatedRow[USER_COL.PASSCODE - 1] = newPasscode;
     updatedRow[USER_COL.DELETE_STATUS - 1] = '';
@@ -7097,12 +7465,37 @@ function handleResetForgottenPasscode(data) {
     updatedRow[USER_COL.MERGED_INTO - 1] = '';
     clearTransferCodeFromRow_(updatedRow);
     range.setValues([updatedRow]);
-    matchedUser = buildRecoverAccountUserFromRow_(updatedRow);
+
+    // 1項目だけで通した場合は、あとから経緯を追えるように残す。
+    // パスコードそのものは書かない。
+    recordPasscodeResetHistory_(updatedRow, picked.checked);
+
+    const matchedUser = buildRecoverAccountUserFromRow_(updatedRow);
     matchedUser.passcode = newPasscode;
     return { status: 'ok', user: matchedUser };
   } catch (err) {
     Logger.log('handleResetForgottenPasscode error: ' + err.toString());
     return { status: 'error', message: err.toString() };
+  }
+}
+
+// パスコード再設定の記録。何を照合して通したかを残す。
+function recordPasscodeResetHistory_(row, checkedCount) {
+  try {
+    const sheet = ensureAdminAuditLogSheet_();
+    sheet.appendRow([
+      formatDateTime_(new Date()),
+      'パスコード再設定',
+      '成功',
+      String(row[USER_COL.MEMBER_ID - 1] || ''),
+      checkedCount >= 2
+        ? '氏名・電話番号・生年月日の3点で確認'
+        : '氏名と、記録にある1項目で確認（もう一方は未登録）',
+      'ご本人',
+      ''
+    ]);
+  } catch (err) {
+    Logger.log('recordPasscodeResetHistory_ error: ' + err.toString());
   }
 }
 
@@ -7378,8 +7771,8 @@ function handleUpdateAdminUser(data) {
     const range = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length);
     const currentRow = range.getValues()[0];
     const updatedRow = currentRow.slice();
-    updatedRow[USER_COL.NAME - 1] = data.name !== undefined ? data.name : currentRow[USER_COL.NAME - 1];
-    updatedRow[USER_COL.KANA - 1] = data.kana !== undefined ? data.kana : currentRow[USER_COL.KANA - 1];
+    updatedRow[USER_COL.NAME - 1] = normalizeStoredName_(data.name !== undefined ? data.name : currentRow[USER_COL.NAME - 1]);
+    updatedRow[USER_COL.KANA - 1] = normalizeStoredKana_(data.kana !== undefined ? data.kana : currentRow[USER_COL.KANA - 1]);
     updatedRow[USER_COL.PHONE - 1] = data.phone !== undefined ? data.phone : currentRow[USER_COL.PHONE - 1];
     updatedRow[USER_COL.MEMO - 1] = data.memo !== undefined ? data.memo : currentRow[USER_COL.MEMO - 1];
     updatedRow[USER_COL.BIRTHDAY - 1] = data.birthday !== undefined ? data.birthday : currentRow[USER_COL.BIRTHDAY - 1];
