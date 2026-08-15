@@ -3263,9 +3263,43 @@ function 登録のご案内() {
 // 済んでいればビジリスの合鍵を自動で受け取る。
 // お客様にパスコードを二度聞かないための橋渡し。
 const MAYUMI_MEMBER_TOKEN_KEY = "mayumi_member_auth_token";
+// この端末のビジリスの合鍵が「どの会員のものか」を覚えておく。
+const BIJIRIS_SESSION_OWNER_KEY = "mayumi_bijiris_session_owner";
 let mayumiLoginTried = false;
 
+// 入口の合鍵から会員IDだけを取り出す。
+// 正しいかどうかを確かめるのはサーバーの仕事なので、ここでは中身を読むだけ。
+// 「前と同じ方か」を知るためだけに使う。
+function 入口の会員ID_(札) {
+  const s = normalizeText(札);
+  if (!s) return "";
+  try {
+    const base64 = s.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded));
+    return normalizeText(payload && payload.u);
+  } catch {
+    return "";
+  }
+}
+
 let mayumiLoginReason = "";
+
+// 入口でお入りになった方が、この端末で前に使われていた方と違うとき。
+// 前の方の記録を残したままにすると、その方の回数券スタンプや書きかけの回答が
+// 新しい方のものとして出てしまう。端末に持っている分は消す。
+// （サーバー側の記録には触らない。消えるのはこの端末の控えだけ）
+function 前の方の記録を端末から消す_() {
+  appState.history = [];
+  appState.measurements = [];
+  appState.serverTicketCard = null;
+  appState.serverTicketStampAdjustment = 0;
+  appState.drafts = {};
+  appState.ticketCardOverride = null;
+  removeLocal(LAST_SNAPSHOT_KEY);
+  removeLocal(DRAFTS_KEY);
+  removeLocal(TICKET_CARD_OVERRIDE_KEY);
+}
 
 async function tryLoginWithMayumi() {
   if (mayumiLoginTried) return false;
@@ -3284,15 +3318,26 @@ async function tryLoginWithMayumi() {
   try {
     const result = await api.customerLoginWithMayumi(mayumiToken);
     if (result && result.token) {
-      // 入口が知っているお名前を、こちらでも使えるようにしておく。
-      if (result.name && !appState.customer.name) {
+      // 入口でログインされた方が本人。端末に残っているお名前より優先する。
+      //
+      // 以前は「まだお名前が無いときだけ」入れていたので、この端末で前に使われた
+      // お名前（テスト用の会員など）がそのまま残り、別の方の回数券スタンプや
+      // 履歴が出てしまっていた。入口の判断を必ず上書きする。
+      if (result.name) {
+        const 前の方 = normalizeText(appState.customer.name);
+        const 本人 = normalizeText(result.name);
+        if (前の方 && 前の方 !== 本人) {
+          前の方の記録を端末から消す_();
+        }
         appState.customer = {
           ...appState.customer,
           name: result.name,
-          nameKana: result.kana || appState.customer.nameKana,
+          nameKana: result.kana || (前の方 === 本人 ? appState.customer.nameKana : ""),
         };
         saveLocal(CUSTOMER_KEY, appState.customer);
+        syncCustomerForms();
       }
+      saveLocal(BIJIRIS_SESSION_OWNER_KEY, 入口の会員ID_(mayumiToken));
       return true;
     }
   } catch (error) {
@@ -3312,6 +3357,19 @@ async function loadHistory() {
     historyList.innerHTML = 登録のご案内();
     renderMeasurements();
     return;
+  }
+
+  // 端末に残っている合鍵が、いま入口でお入りになった方のものとは限らない。
+  // ご家族と端末を共有している場合や、以前この端末で別の方が使った場合に、
+  // 前の方の回数券スタンプや履歴が出てしまう。違っていたら合鍵を捨てて取り直す。
+  const 入口の札 = (() => {
+    try { return localStorage.getItem(MAYUMI_MEMBER_TOKEN_KEY) || ""; } catch { return ""; }
+  })();
+  const いまの会員 = 入口の会員ID_(入口の札);
+  const 合鍵の持ち主 = normalizeText(loadLocal(BIJIRIS_SESSION_OWNER_KEY, ""));
+  if (いまの会員 && 合鍵の持ち主 && いまの会員 !== 合鍵の持ち主) {
+    api.clearCustomerToken();
+    mayumiLoginTried = false;
   }
 
   // 履歴・計測値・写真はパスコードで保護されている。
