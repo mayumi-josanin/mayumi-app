@@ -3481,7 +3481,10 @@ function compareBijirisPostRecords_(a, b) {
 }
 
 function getBijirisPosts_(filter) {
-  ensureSpreadsheet_();
+  // 読むのは豆知識の2枚だけ。全アンケートのシートまで点検すると、
+  // そのぶん Sheets との往復が増えて数秒かかる（お客様が開くたびに効く）。
+  ensureBijirisPostsSheet_();
+  ensureBijirisPostAttachmentsSheet_();
   var attachmentsByPostId = {};
   readBijirisPostAttachmentRows_().forEach(function (attachment) {
     var postId = normalizeText_(attachment && attachment.postId);
@@ -3993,7 +3996,8 @@ function decorateMeasurementWithCustomerProfile_(measurement, profiles) {
 }
 
 function getMeasurements_(filter) {
-  ensureSpreadsheet_();
+  // 読むのは計測のシートだけ。理由は getBijirisPosts_ と同じ。
+  ensureMeasurementsSheet_();
   var profiles = getCustomerProfiles_();
   return readMeasurementRows_()
     .filter(function (measurement) {
@@ -4816,13 +4820,19 @@ function findRowIndexByColumn_(sheet, column, value) {
   return 0;
 }
 
+// 1回の実行の中で何度も呼ばれる（1リクエストで20か所から呼ばれうる）。
+// 中身は「シートが無ければ作る」だけなので、2回目以降はやり直す意味がない。
+var 整えた_ = false;
+
 function ensureSpreadsheet_() {
+  if (整えた_) return;
   var spreadsheet = getSpreadsheet_();
   ensureSheet_(spreadsheet, MASTER_SHEET_NAME, MASTER_HEADERS);
   ensureMeasurementsSheet_();
   ensureBijirisPostsSheet_();
   ensureBijirisPostAttachmentsSheet_();
   getSurveys_().forEach(ensureSurveySheet_);
+  整えた_ = true;
 }
 
 function ensureSurveySheet_(survey) {
@@ -4833,11 +4843,25 @@ function ensureSurveySheet_(survey) {
   return ensureSheet_(getSpreadsheet_(), survey.title, headers);
 }
 
+// 見出し行が合っていれば書かない。
+// 以前は読み取りのたびに全シートへ setValues していたため、
+// お客様がアプリを開くだけでスプレッドシートへの書き込みが十数回走り、
+// それが起動の遅さ（豆知識の取得で5秒台）の主因になっていた。
+// 書き込みは読み取りよりずっと遅い。同じ内容なら書かなくてよい。
 function ensureSheet_(spreadsheet, name, headers) {
   var sheet = spreadsheet.getSheetByName(name);
   if (!sheet) sheet = spreadsheet.insertSheet(name);
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  sheet.setFrozenRows(1);
+
+  // 列が足りないと getRange が範囲外になる。先に広げる。
+  var 足りない列 = headers.length - sheet.getMaxColumns();
+  if (足りない列 > 0) sheet.insertColumnsAfter(sheet.getMaxColumns(), 足りない列);
+
+  var いまの見出し = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  var 同じ = headers.every(function (h, i) {
+    return String(いまの見出し[i] == null ? "" : いまの見出し[i]) === String(h);
+  });
+  if (!同じ) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (sheet.getFrozenRows() !== 1) sheet.setFrozenRows(1);
   return sheet;
 }
 
