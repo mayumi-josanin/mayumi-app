@@ -2268,6 +2268,15 @@ function registerAccount(data) {
     // 氏名・生年月日・パスコードは、既存の方も新しい方も必ず要る。
     // フリガナ・電話・住所は、記録がまだ無い方にだけ求める（下で確かめる）。
     if (!name) return { status: 'error', message: 'お名前を入力してください。' };
+    // ひらがなだけのご登録は、あとから漢字で登録し直されて二重になりやすい。
+    // 入口で止めておくと、あとの名寄せがいらなくなる。
+    if (needsKanjiName_(name)) {
+      return {
+        status: 'error',
+        message: 'お名前は漢字でご入力ください。'
+          + 'ひらがなでご登録いただくと、あとから同じ方が二重に登録されてしまうことがあります。'
+      };
+    }
     if (!birthday) return { status: 'error', message: '生年月日を入力してください。' };
     if (!isValidPasscodeValue_(passcode)) {
       return { status: 'error', message: 'パスコードは数字4桁または6桁で入力してください。' };
