@@ -103,15 +103,16 @@
         <div class="banner-overlay"></div>
         <div style="position:relative; z-index:1;">
           <p class="banner-sub">こんにちは</p>
-          <!-- アプリの切り替えは、いちばん目につくお名前の横に置く。
-               設定の中にもあるが、そこまで辿り着けない方が多い。 -->
-          <div class="banner-name-row">
-            <p class="banner-name" id="homeBannerName">---様</p>
+          <p class="banner-name" id="homeBannerName">---様</p>
+          <!-- アプリの切り替えは、いちばん目につく緑の枠の中に置く。
+               設定の中にもあるが、そこまで辿り着けない方が多い。
+               スタンプの表示と同じ高さで、右端に並べる。 -->
+          <div class="banner-bottom-row">
+            <div class="banner-chip">
+              <span class="chip-num" id="homeStampNum">7</span>
+              <span class="chip-label">スタンプ獲得中</span>
+            </div>
             <button class="banner-switch" type="button" onclick="goToAppList()">アプリ一覧 ›</button>
-          </div>
-          <div class="banner-chip">
-            <span class="chip-num" id="homeStampNum">7</span>
-            <span class="chip-label">スタンプ獲得中</span>
           </div>
         </div>
       </div>
