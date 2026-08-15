@@ -5475,7 +5475,29 @@ function normalizeMilestoneRewardConfig(value) {
   return { enabled, milestones };
 }
 
+// 見た目を確かめるためだけの見本。URL に ?stampPreview=1 を付けたときだけ使う。
+// 本番の特典を設定してしまうと、中身が決まる前にお客様へ約束することになるため、
+// こちらは端末の中だけで完結させる（サーバーには何も書かない）。
+var スタンプ道のりの見本 = {
+  enabled: true,
+  milestones: [
+    { threshold: 1, reward: "見本の特典", description: "これは見本です。実際の特典は管理アプリで設定します。" },
+    { threshold: 3, reward: "見本の特典", description: "" },
+    { threshold: 5, reward: "見本の特典", description: "" },
+    { threshold: 10, reward: "見本の特典", description: "" },
+  ],
+};
+
+function スタンプ道のりの見本を出すか_() {
+  try {
+    return new URLSearchParams(location.search).get("stampPreview") === "1";
+  } catch {
+    return false;
+  }
+}
+
 function getMilestoneRewardConfig() {
+  if (スタンプ道のりの見本を出すか_()) return normalizeMilestoneRewardConfig(スタンプ道のりの見本);
   return normalizeMilestoneRewardConfig(appState.publicInfo?.milestoneRewardConfig);
 }
 
@@ -5527,7 +5549,10 @@ function renderHomeMilestoneReward() {
     return;
   }
 
-  const completedCount = getCompletedTicketCardCount();
+  // 見本のときは ?stampCount=3 のように個数も指定できる。進んだ見た目を確かめるため。
+  const completedCount = スタンプ道のりの見本を出すか_()
+    ? Math.max(0, Math.floor(Number(new URLSearchParams(location.search).get("stampCount")) || 0))
+    : getCompletedTicketCardCount();
   const nextMilestone = config.milestones.find((milestone) => completedCount < milestone.threshold) || null;
   const goal = config.milestones[config.milestones.length - 1].threshold;
 
@@ -5558,7 +5583,7 @@ function renderHomeMilestoneReward() {
     <article class="ticket-home-card stamp-road-card">
       <div class="ticket-home-head">
         <div>
-          <strong>${escapeHtml(normalizeText(appState.customer?.name) || "")}様のスタンプ</strong>
+          <strong>回数券スタンプ</strong>
           <div class="meta">回数券を1枚使い切るごとに1個たまります。</div>
         </div>
         <span class="badge open">${completedCount} / ${goal}</span>
