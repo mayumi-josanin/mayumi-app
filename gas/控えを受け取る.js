@@ -96,41 +96,7 @@ function 控え受取_古いものを片付ける_(folder) {
 
 // ---- 受付で使う道具 ----
 
-// 受け取り用の合鍵を作る。**値は画面に出さない。**
-// 値を見るときは、GASの「プロジェクトの設定」→「スクリプト プロパティ」で
-// BACKUP_UPLOAD_KEY を開いてください。そこからPCの .env に貼ります。
-function 控えの設定を作る() {
-  var props = PropertiesService.getScriptProperties();
-  var いま = props.getProperty(控え受取_合鍵の鍵);
-  if (いま) {
-    Logger.log('■ 受け取りの合鍵は、すでに作られています（' + いま.length + '文字）');
-    Logger.log('');
-    Logger.log('  作り直したいときは、先にスクリプトプロパティから');
-    Logger.log('  ' + 控え受取_合鍵の鍵 + ' を消してから、もう一度実行してください。');
-    return;
-  }
-
-  var 文字 = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  var 鍵 = '';
-  for (var i = 0; i < 50; i += 1) {
-    鍵 += 文字.charAt(Math.floor(Math.random() * 文字.length));
-  }
-  props.setProperty(控え受取_合鍵の鍵, 鍵);
-
-  var folder = 控え受取_フォルダを用意する_();
-
-  Logger.log('■ 受け取りの合鍵を作りました（' + 鍵.length + '文字）');
-  Logger.log('  **値はここに出しません。**');
-  Logger.log('');
-  Logger.log('  見かた:');
-  Logger.log('    左の歯車（プロジェクトの設定）→ スクリプト プロパティ');
-  Logger.log('    → ' + 控え受取_合鍵の鍵 + ' の値をコピー');
-  Logger.log('');
-  Logger.log('■ 保存先のフォルダ: ' + folder.getName());
-  Logger.log('  ' + folder.getUrl());
-}
-
-// いま何件の控えがあるかを見るだけ。
+// いま何件・いつのものがあるかを見るだけ。
 function 控えの状態を見る() {
   var it = DriveApp.getFoldersByName(控え受取_フォルダ名);
   if (!it.hasNext()) {
@@ -166,4 +132,38 @@ function 控えの状態を見る() {
       Logger.log('  **30時間以上届いていません。**PC側の毎日の実行が止まっている可能性があります。');
     }
   }
+}
+
+// 受け取り用の合鍵を作る。**値は画面に出さない。**
+// 値を見るときは、GASの「プロジェクトの設定」→「スクリプト プロパティ」で
+// BACKUP_UPLOAD_KEY を開いてください。そこからPCの .env に貼ります。
+function 控えの設定を作る() {
+  var props = PropertiesService.getScriptProperties();
+  var いま = props.getProperty(控え受取_合鍵の鍵);
+  if (いま) {
+    Logger.log('■ 受け取りの合鍵は、すでに作られています（' + いま.length + '文字）');
+    Logger.log('');
+    Logger.log('  作り直したいときは、先にスクリプトプロパティから');
+    Logger.log('  ' + 控え受取_合鍵の鍵 + ' を消してから、もう一度実行してください。');
+    return;
+  }
+
+  var 文字 = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  var 鍵 = '';
+  for (var i = 0; i < 50; i += 1) {
+    鍵 += 文字.charAt(Math.floor(Math.random() * 文字.length));
+  }
+  props.setProperty(控え受取_合鍵の鍵, 鍵);
+
+  var folder = 控え受取_フォルダを用意する_();
+
+  Logger.log('■ 受け取りの合鍵を作りました（' + 鍵.length + '文字）');
+  Logger.log('  **値はここに出しません。**');
+  Logger.log('');
+  Logger.log('  見かた:');
+  Logger.log('    左の歯車（プロジェクトの設定）→ スクリプト プロパティ');
+  Logger.log('    → ' + 控え受取_合鍵の鍵 + ' の値をコピー');
+  Logger.log('');
+  Logger.log('■ 保存先のフォルダ: ' + folder.getName());
+  Logger.log('  ' + folder.getUrl());
 }
