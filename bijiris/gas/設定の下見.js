@@ -4,6 +4,50 @@
 // 保存は「送って、読み直して一致を確かめる」作りだが、送信は応答を読まないため、
 // サーバー側で例外が出ても画面には「確認できませんでした」としか出ない。
 
+// 記録を読む通信で、本当に何も書かないかを確かめる。**読むだけ。**
+//
+// 顧客管理まるごとを読む前後で見比べる。1文字でも変われば、どこかで書いている。
+// 「読むだけのはずが書いていた」のが、スタンプが消えた原因だったため、
+// 直したあとも、ここで見張れるようにしておく。
+function 読むだけか確かめる() {
+  var 鍵 = CUSTOMER_PROFILES_PROPERTY_KEY;
+  var 前 = PropertiesService.getScriptProperties().getProperty(鍵) || '{}';
+
+  var profiles = getCustomerProfiles_() || {};
+  var 名前一覧 = Object.keys(profiles).map(function (k) {
+    return String((profiles[k] || {}).name || '');
+  }).filter(Boolean);
+
+  名前一覧.forEach(function (名) {
+    var r = profiles[名] || {};
+    getCustomerHistoryPayload_({
+      memberNumber: r.memberNumber,
+      customerName: 名,
+      matchByNameOnly: true,
+      includeTrashed: false
+    });
+  });
+
+  var 後 = PropertiesService.getScriptProperties().getProperty(鍵) || '{}';
+
+  Logger.log('■ ' + 名前一覧.length + '名ぶん、お客様アプリと同じ読み方をしました');
+  Logger.log('');
+  if (前 === 後) {
+    Logger.log('■ 顧客管理は1文字も変わっていません。読むだけになっています。');
+  } else {
+    Logger.log('■ **顧客管理が変わりました。まだどこかで書いています。**');
+    Logger.log('    読む前: ' + 前.length + '文字 ／ 読んだ後: ' + 後.length + '文字');
+    var 前の表 = JSON.parse(前), 後の表 = JSON.parse(後);
+    Object.keys(後の表).forEach(function (k) {
+      if (JSON.stringify(前の表[k]) !== JSON.stringify(後の表[k])) {
+        Logger.log('    変わった方: ' + k);
+        Logger.log('      前: ' + JSON.stringify(前の表[k]));
+        Logger.log('      後: ' + JSON.stringify(後の表[k]));
+      }
+    });
+  }
+}
+
 // お客様アプリが受け取る内容を、そのまま見る。**読むだけ。**
 // 「管理側で登録したのにカードが出ない」の切り分け用。
 function お客様に渡る内容を見る() {
@@ -27,6 +71,25 @@ function お客様に渡る内容を見る() {
   }
   Logger.log('');
   Logger.log('  ※ 回数券カードが null だと、アプリは「回数券を追加」を出す。');
+
+  // 会員番号だけを手がかりにしても、同じ内容が返るかを見る。
+  // お名前を一切渡さずに引けるかどうかが、切り替えの成否になる。
+  if (p && p.memberNumber) {
+    var 番号で = getCustomerHistoryPayload_({
+      memberNumber: p.memberNumber,
+      customerName: '',
+      matchByNameOnly: true,
+      includeTrashed: false
+    });
+    var q = 番号で.customerProfile;
+    Logger.log('');
+    Logger.log('■ 会員番号（' + p.memberNumber + '）だけで引いた場合');
+    Logger.log('    お名前: ' + (q ? q.name : '**引けない**'));
+    Logger.log('    回答: ' + (番号で.responses || []).length + '件 ／ 計測: ' + (番号で.measurements || []).length + '件');
+    Logger.log('    回数券カード: ' + JSON.stringify(q && q.activeTicketCard));
+    Logger.log('    スタンプ手当て: ' + (q ? q.ticketStampAdjustment : '-'));
+    Logger.log('    お名前で引いた場合と同じか: ' + (q && q.name === p.name ? 'はい' : '**いいえ**'));
+  }
 }
 
 // 顧客管理に登録されている回数券カードが、お客様アプリへどう渡るかを見る。

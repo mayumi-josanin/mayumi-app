@@ -460,9 +460,10 @@ function handleGet_(e) {
     // 合鍵をお持ちなら履歴も一緒に返す。無い・切れている場合は履歴だけ空にする。
     if (normalizeText_(params.token)) {
       try {
-        var 名前 = requireCustomer_(params.token);
+        var 本人 = requireCustomerIdentity_(params.token);
         束.history = getCustomerHistoryPayload_({
-          customerName: 名前,
+          memberNumber: 本人.memberNumber,
+          customerName: 本人.name,
           customerNameKana: params.nameKana,
           matchByNameOnly: true,
           includeTrashed: false,
@@ -477,9 +478,11 @@ function handleGet_(e) {
     // お客様トークンの検証を必須にする。氏名を名乗るだけでは取得できない。
     // 対象のお客様はトークンから決める（params.name は信用しない）ため、
     // 他人の氏名を指定しても自分の履歴しか返らない。
-    var historyCustomerName = requireCustomer_(params.token);
+    // 誰の記録かは、合鍵に入っている会員番号で決める。お名前は表示に使うだけ。
+    var 本人 = requireCustomerIdentity_(params.token);
     return getCustomerHistoryPayload_({
-      customerName: historyCustomerName,
+      memberNumber: 本人.memberNumber,
+      customerName: 本人.name,
       customerNameKana: params.nameKana,
       matchByNameOnly: true,
       includeTrashed: false,
@@ -2092,6 +2095,29 @@ function findCustomerProfileByClientId_(profiles, clientId) {
   return matches.length ? matches[0] : null;
 }
 
+// 会員番号でお客様を探す。**お名前より先に、こちらで探すこと。**
+//
+// お名前は手がかりとして弱い。同姓同名の方、ご結婚などでお名前が変わった方、
+// 旧字・スペースの表記ゆれで、別の方の記録に行き着いてしまう。別名の仕組みで
+// 補っていたが、その別名に他の方が紛れ込んだのが、前多洋子さんの記録に
+// 千葉萌恵さんが入っていた件（2026年8月）。
+//
+// 会員番号はまゆみアプリと共通の MYM-#### で、お名前が変わっても変わらない。
+function findCustomerProfileByMemberNumber_(profiles, memberNumber) {
+  var number = normalizeMemberNumber_(memberNumber);
+  if (!number) return null;
+  var matched = null;
+  Object.keys(profiles || {}).forEach(function (key) {
+    if (matched) return;
+    var profile = normalizeCustomerProfileRecord_(profiles[key], key);
+    if (!profile) return;
+    if (normalizeMemberNumber_(profile.memberNumber) === number) {
+      matched = { key: key, profile: profile };
+    }
+  });
+  return matched;
+}
+
 function findCustomerProfileByName_(profiles, customerName, customerNameKana) {
   var normalizedName = normalizeText_(customerName);
   if (!normalizedName) return null;
@@ -2274,6 +2300,55 @@ function resolveCustomerProfileForSubmission_(customer, clientId) {
   record.updatedAt = new Date().toISOString();
 
   var saved = saveCustomerProfileRecord_(profiles, match && match.key, record);
+  saveCustomerProfiles_(profiles);
+  return saved;
+}
+
+// ログインのときだけ、お客様の記録を用意する。
+//
+// 以前は「記録を読みに来たとき」に用意していた。読むだけのはずの通信で保存が走り、
+// そこで項目を引き継ぎ忘れて、受付で入れたスタンプが消えた（2026年8月）。
+// 書くのはログインなどの区切りだけにして、読む通信では何も書かないようにする。
+function お客様の記録を用意する_(customerName, customerNameKana, memberNumber) {
+  var name = normalizeText_(customerName);
+  if (!name || お名前になっていないか_(name)) return null;
+  var kana = normalizeKana_(customerNameKana);
+  var number = normalizeMemberNumber_(memberNumber);
+
+  var profiles = getCustomerProfiles_();
+  var match = findCustomerProfileByMemberNumber_(profiles, number) ||
+    findCustomerProfileByName_(profiles, name, kana);
+
+  if (!match) {
+    var 新しい記録 = normalizeCustomerProfileRecord_({
+      name: name,
+      nameKana: kana,
+      memberNumber: number,
+      clientIds: [],
+      aliases: [],
+      adminManaged: false,
+    }, name);
+    if (!新しい記録) return null;
+    var 作った = saveCustomerProfileRecord_(profiles, null, 新しい記録);
+    saveCustomerProfiles_(profiles);
+    return 作った;
+  }
+
+  // 足りないところだけ補う。お名前は、受付で直した内容を正とするので上書きしない。
+  var record = normalizeCustomerProfileRecord_(match.profile, match.profile && match.profile.name);
+  var 変えた = false;
+  if (number && normalizeMemberNumber_(record.memberNumber) !== number) {
+    record.memberNumber = number;
+    変えた = true;
+  }
+  if (kana && !normalizeKana_(record.nameKana)) {
+    record.nameKana = kana;
+    変えた = true;
+  }
+  if (!変えた) return record;
+
+  record.updatedAt = new Date().toISOString();
+  var saved = saveCustomerProfileRecord_(profiles, match.key, record);
   saveCustomerProfiles_(profiles);
   return saved;
 }
@@ -2523,27 +2598,44 @@ function deleteCustomerProfileRecord_(customerName) {
   return true;
 }
 
+// お名前から顧客情報を引くだけ。見つからなければ null を返す（作らない）。
+function 記録から顧客情報を引く_(profiles, customerName, customerNameKana) {
+  var match = findCustomerProfileByName_(profiles, customerName, customerNameKana);
+  if (!match) return null;
+  return normalizeCustomerProfileRecord_(match.profile, match.profile && match.profile.name);
+}
+
+// お客様の記録を読んで返す。**ここでは何も書かない。**
+//
+// 以前はここで顧客情報を保存し直していた（端末IDやふりがなを覚えるため）。
+// その保存で項目を1つ引き継ぎ忘れ、お客様がアプリを開くたびに受付で入れた
+// スタンプが 0 に戻っていた（2026年8月）。読む通信で書くと、こういう抜けが
+// お客様の記録の消失として表に出る。記録を作る・直すのはログインと回答の
+// 保存だけにして、ここは読むだけにする。
+//
+// 探す順番は 会員番号 → 端末ID → お名前。お名前は最後の手立て。
 function getCustomerHistoryPayload_(filter) {
   var normalizedFilter = {
     clientId: normalizeText_(filter && filter.clientId),
+    memberNumber: normalizeMemberNumber_(filter && filter.memberNumber),
     customerName: normalizeText_(filter && filter.customerName),
     customerNameKana: normalizeKana_(filter && filter.customerNameKana),
     matchByNameOnly: Boolean(filter && filter.matchByNameOnly),
     includeTrashed: Boolean(filter && filter.includeTrashed),
   };
-  var profileMatch = normalizedFilter.matchByNameOnly
-    ? findCustomerProfileByName_(getCustomerProfiles_(), normalizedFilter.customerName, normalizedFilter.customerNameKana)
-    : findCustomerProfileByClientId_(getCustomerProfiles_(), normalizedFilter.clientId) ||
-      findCustomerProfileByName_(getCustomerProfiles_(), normalizedFilter.customerName, normalizedFilter.customerNameKana);
+  var 一覧 = getCustomerProfiles_();
+  var profileMatch = findCustomerProfileByMemberNumber_(一覧, normalizedFilter.memberNumber) ||
+    (normalizedFilter.matchByNameOnly
+      ? findCustomerProfileByName_(一覧, normalizedFilter.customerName, normalizedFilter.customerNameKana)
+      : findCustomerProfileByClientId_(一覧, normalizedFilter.clientId) ||
+        findCustomerProfileByName_(一覧, normalizedFilter.customerName, normalizedFilter.customerNameKana));
   var responses = [];
   var profile = null;
 
   if (profileMatch) {
-    profile = ensureCustomerProfileFromHistory_(
-      profileMatch.profile && profileMatch.profile.name,
-      normalizedFilter.customerNameKana || profileMatch.profile && profileMatch.profile.nameKana,
-      normalizedFilter.clientId,
-      normalizedFilter.customerName
+    profile = normalizeCustomerProfileRecord_(
+      profileMatch.profile,
+      profileMatch.profile && profileMatch.profile.name
     );
     responses = getResponses_({
       customerName: profile && profile.name,
@@ -2569,33 +2661,16 @@ function getCustomerHistoryPayload_(filter) {
       includeTrashed: normalizedFilter.includeTrashed,
     });
     if (responses.length) {
-      profile = ensureCustomerProfileFromHistory_(
-        responses[0].customerName,
-        normalizedFilter.customerNameKana,
-        normalizedFilter.clientId,
-        normalizedFilter.customerName
-      );
+      profile = 記録から顧客情報を引く_(一覧, responses[0].customerName, normalizedFilter.customerNameKana);
       responses = getResponses_({
         customerName: profile && profile.name || responses[0].customerName,
         includeTrashed: normalizedFilter.includeTrashed,
       });
     }
   } else if (responses.length) {
-    profile = ensureCustomerProfileFromHistory_(
-      responses[0].customerName,
-      normalizedFilter.customerNameKana,
-      normalizedFilter.clientId,
-      normalizedFilter.customerName && normalizedFilter.customerName !== responses[0].customerName
-        ? normalizedFilter.customerName
-        : ""
-    );
+    profile = 記録から顧客情報を引く_(一覧, responses[0].customerName, normalizedFilter.customerNameKana);
   } else if (normalizedFilter.customerName) {
-    profile = ensureCustomerProfileFromHistory_(
-      normalizedFilter.customerName,
-      normalizedFilter.customerNameKana,
-      normalizedFilter.clientId,
-      ""
-    );
+    profile = 記録から顧客情報を引く_(一覧, normalizedFilter.customerName, normalizedFilter.customerNameKana);
   }
 
   return {
@@ -5082,16 +5157,20 @@ function customerLoginWithMayumi_(mayumiToken) {
 
   var name = normalizeText_(parsed.name);
   if (!name) throw new Error("お名前を確認できませんでした。");
+  // まゆみ側の会員番号を、そのままビジリスの手がかりにする。
+  // 1つの番号で全アプリの記録がたどれるようにするため。
+  var 会員番号 = normalizeMemberNumber_(parsed.memberId);
+  var kana = normalizeKana_(parsed.kana);
 
   // ビジリス側にお客様の記録が無ければ、ここで作る（初回の方のため）。
-  var 一致 = findCustomerProfileByName_(getCustomerProfiles_(), name, "");
-  var profile = 一致 && 一致.profile ? 一致.profile : null;
+  var profile = お客様の記録を用意する_(name, kana, 会員番号);
   var 表示名 = profile && profile.name ? profile.name : name;
+  var 合鍵の番号 = normalizeMemberNumber_(profile && profile.memberNumber) || 会員番号;
 
   var expiresAt = Date.now() + CUSTOMER_TOKEN_TTL_MS;
-  appendAuditLog_("customer.login", { name: 表示名, via: "mayumi" });
+  appendAuditLog_("customer.login", { name: 表示名, memberNumber: 合鍵の番号, via: "mayumi" });
   return {
-    token: makeCustomerToken_(表示名, expiresAt),
+    token: makeCustomerToken_(表示名, expiresAt, 合鍵の番号),
     expiresAt: new Date(expiresAt).toISOString(),
     name: 表示名,
     kana: normalizeText_(parsed.kana),
@@ -5225,33 +5304,57 @@ function updateAdminCredentials_(loginId, password) {
 // --------------------------------------------------------------------------
 var CUSTOMER_TOKEN_TTL_MS = 60 * 24 * 60 * 60 * 1000; // 60日（端末に記憶させる想定）
 
-function makeCustomerToken_(customerName, expiresAt) {
+// 合鍵には会員番号（m）も入れる。記録を探す手がかりをお名前から会員番号に移すため。
+//
+// 署名の材料は今までどおり「お名前と期限」だけにしてある。材料を変えると、
+// すでにお持ちの合鍵が全部無効になり、お客様が入り直しになる（絶対ルール9）。
+// m を足すだけなら、古い合鍵もそのまま通り、m が無いものはお名前で探す形に戻る。
+// 60日で全員が新しい合鍵に入れ替わる。
+function makeCustomerToken_(customerName, expiresAt, memberNumber) {
   var name = normalizeText_(customerName);
-  return Utilities.base64EncodeWebSafe(JSON.stringify({
+  var payload = {
     t: "customer",
     u: name,
     exp: expiresAt,
     sig: sign_("customer|" + name + "|" + expiresAt),
-  }));
+  };
+  var number = normalizeMemberNumber_(memberNumber);
+  if (number) payload.m = number;
+  return Utilities.base64EncodeWebSafe(JSON.stringify(payload));
 }
 
-function verifyCustomerToken_(token) {
+function readCustomerToken_(token) {
   try {
     var raw = Utilities.newBlob(Utilities.base64DecodeWebSafe(String(token || ""))).getDataAsString();
     var payload = JSON.parse(raw);
-    if (payload.t !== "customer") return "";
-    if (!payload.u || !payload.exp || Number(payload.exp) < Date.now()) return "";
-    if (payload.sig !== sign_("customer|" + payload.u + "|" + payload.exp)) return "";
-    return normalizeText_(payload.u);
+    if (payload.t !== "customer") return null;
+    if (!payload.u || !payload.exp || Number(payload.exp) < Date.now()) return null;
+    if (payload.sig !== sign_("customer|" + payload.u + "|" + payload.exp)) return null;
+    return {
+      name: normalizeText_(payload.u),
+      memberNumber: normalizeMemberNumber_(payload.m),
+    };
   } catch (error) {
-    return "";
+    return null;
   }
+}
+
+function verifyCustomerToken_(token) {
+  var 中身 = readCustomerToken_(token);
+  return 中身 ? 中身.name : "";
 }
 
 function requireCustomer_(token) {
   var name = verifyCustomerToken_(token);
   if (!name) throw new Error("お客様のログインが必要です。");
   return name;
+}
+
+// どなたの記録かを、合鍵から決める。会員番号があればそれを使う。
+function requireCustomerIdentity_(token) {
+  var 中身 = readCustomerToken_(token);
+  if (!中身 || !中身.name) throw new Error("お客様のログインが必要です。");
+  return 中身;
 }
 
 // 氏名とフリガナの「両方」の完全一致を必須とする。
@@ -5293,7 +5396,7 @@ function customerLogin_(params) {
   var expiresAt = Date.now() + CUSTOMER_TOKEN_TTL_MS;
   appendAuditLog_("customer.login", { name: profile.name });
   return {
-    token: makeCustomerToken_(profile.name, expiresAt),
+    token: makeCustomerToken_(profile.name, expiresAt, profile.memberNumber),
     expiresAt: new Date(expiresAt).toISOString(),
     customerProfile: publicCustomerProfile_(profile),
   };
@@ -5385,7 +5488,7 @@ function customerSetPasscode_(params) {
 
   var expiresAt = Date.now() + CUSTOMER_TOKEN_TTL_MS;
   return {
-    token: makeCustomerToken_(saved.name, expiresAt),
+    token: makeCustomerToken_(saved.name, expiresAt, saved.memberNumber),
     expiresAt: new Date(expiresAt).toISOString(),
     customerProfile: publicCustomerProfile_(saved),
   };
@@ -5542,7 +5645,7 @@ function customerRecover_(params) {
 
   var expiresAt = Date.now() + CUSTOMER_TOKEN_TTL_MS;
   return {
-    token: makeCustomerToken_(saved.name, expiresAt),
+    token: makeCustomerToken_(saved.name, expiresAt, saved.memberNumber),
     expiresAt: new Date(expiresAt).toISOString(),
     customerProfile: publicCustomerProfile_(saved),
   };
