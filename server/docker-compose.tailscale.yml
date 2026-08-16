@@ -1,0 +1,49 @@
+# まゆみ専用の入り口（Tailscale のノードをもう1つ立てる）。
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tailscale.yml up -d
+#
+# **足すだけ。**いつもの `docker compose up -d` は今までどおり動く。
+# うまくいかなければ、このファイルを使わなければ元に戻る。
+#
+# なぜ要るのか:
+#   Tailscale で外に公開できる口は 443 / 8443 / 10000 の3つだけで、
+#   KEM_DDENKI が 443 と 8443 を使っている。同じPCの同じ口を分け合うと、
+#   公開の設定が1つのファイルに同居し、**片方の作業でもう片方が落ちる。**
+#
+#   このPCの中に「まゆみ用の機械」をもう1台立てる形にすれば、
+#   まゆみは自分だけの 443 を持てる。KEM_DDENKI の設定には一切触らない。
+#   URLにポート番号も付かない（塞がれているWi-Fiでも届く）。
+#
+# 事前に要るもの（院長にお願いすること）:
+#   1. Tailscale 管理画面で認証キーを1つ発行し、.env の TS_AUTHKEY に入れる
+#   2. 立ち上げたあと、管理画面で mayumi-api の**キーの期限切れを無効にする**
+#      （既定では180日で切れ、その日にAPIが止まる）
+
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    hostname: mayumi-api          # これがそのまま mayumi-api.tailXXXX.ts.net になる
+    restart: always
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_HOSTNAME: mayumi-api
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_USERSPACE: "false"
+    volumes:
+      # **これが要。**
+      # 覚え書きを残さないと、再起動のたびに新しい機械として登録され、
+      # mayumi-api-1 / mayumi-api-2 … と名前が変わっていく。
+      # 名前が変わればアプリの通信先が消えるので、必ず残す。
+      - tailscale_state:/var/lib/tailscale
+      - ./tailscale/serve.json:/config/serve.json:ro
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      - web
+
+volumes:
+  tailscale_state:
