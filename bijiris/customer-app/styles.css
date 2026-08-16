@@ -984,6 +984,37 @@ textarea {
   white-space: nowrap;
 }
 
+/* まだ埋まっていないカードの「切り替える」。
+   いつでも押せるが、うっかり押されないよう畳んでおく。 */
+.ticket-next-sheet-more {
+  margin-top: 10px;
+  border-top: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+  padding-top: 10px;
+}
+
+.ticket-next-sheet-more > summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+  list-style: none;
+}
+
+.ticket-next-sheet-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ticket-next-sheet-more > summary::before {
+  content: "＋ ";
+}
+
+.ticket-next-sheet-more[open] > summary::before {
+  content: "− ";
+}
+
+.ticket-next-sheet-more > .meta {
+  margin: 8px 0;
+}
+
 .ticket-stamp-list {
   display: flex;
   flex-wrap: wrap;
