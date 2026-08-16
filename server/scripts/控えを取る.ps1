@@ -86,9 +86,54 @@ if ($消した -gt 0) { Write-Host "  $残す日数 日より古い控えを $�
 $残り = (Get-ChildItem -Path $置き場 -Filter "mayumi-*.dump").Count
 Write-Host "  いま残っている控え: $残り 件"
 
+# ---- Googleドライブへ送る ----
+#
+# PCの中に置くだけでは、そのPCが壊れたときに控えも一緒に無くなる。
+# 会員情報は作り直せないので、置き場をPCの外に持つ。
+#
+# GAS に送る向きにしてある。逆（GASが取りに来る）にすると、サーバー側に
+# 「データベース全体を返す窓口」を作ることになり、合鍵ひとつで会員情報が
+# 丸ごと持ち出せる口をインターネットに開けてしまう。
+#
+# .env の BACKUP_UPLOAD_KEY と MAYUMI_GAS_URL が要る。無ければ送らずに知らせる。
+
+$env設定 = @{}
+Get-Content (Join-Path $サーバー ".env") | ForEach-Object {
+  if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') { $env設定[$Matches[1]] = $Matches[2].Trim() }
+}
+$送り先 = $env設定["MAYUMI_GAS_URL"]
+$送信鍵 = $env設定["BACKUP_UPLOAD_KEY"]
+
+if (-not $送り先 -or -not $送信鍵) {
+  Write-Host ""
+  Write-Host "※ Googleドライブへ送る設定がありません（.env の MAYUMI_GAS_URL / BACKUP_UPLOAD_KEY）。"
+  Write-Host "   このままだと、PCが壊れたときに控えも一緒に無くなります。"
+} else {
+  try {
+    $本文 = @{
+      type     = "uploadBackup"
+      key      = $送信鍵
+      filename = (Split-Path -Leaf $ファイル)
+      content  = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($ファイル))
+    } | ConvertTo-Json -Compress
+
+    # GAS は転送で受けるので -MaximumRedirection を残す。
+    $応答 = Invoke-RestMethod -Uri $送り先 -Method Post -Body $本文 `
+      -ContentType "application/json" -TimeoutSec 180
+
+    if ($応答.status -eq "ok") {
+      Write-Host "  ドライブへ送りました: $($応答.saved)（$([math]::Round($応答.bytes/1KB,1)) KB）"
+      if ($応答.removed -gt 0) { Write-Host "  ドライブの古い控えを $($応答.removed) 件片付けました" }
+    } else {
+      Write-Host "  **ドライブへ送れませんでした: $($応答.message)**"
+    }
+  } catch {
+    # 送れなくてもPCの中の控えは残る。ここで止めない。
+    Write-Host "  **ドライブへ送れませんでした: $($_.Exception.Message)**"
+  }
+}
+
 if ($ドライブ外) {
   Write-Host ""
-  Write-Host "※ Googleドライブのフォルダが見つからなかったので、PCの中に置きました。"
-  Write-Host "   このままだと、PCが壊れたときに控えも一緒に無くなります。"
-  Write-Host "   Googleドライブ（パソコン版）を入れるか、-置き場 で別の場所を指定してください。"
+  Write-Host "※ PCの中の置き場は $置き場 です（ドライブへ送れていれば、こちらは予備）。"
 }

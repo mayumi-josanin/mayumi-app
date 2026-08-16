@@ -2715,6 +2715,12 @@ function doPost(e) {
     if (type === 'registerBijirisUse') {
       return createJsonResponse(registerBijirisUse(data));
     }
+    // 自宅PCから届くデータベースの控え。
+    // PCは管理者としてログインしないので、ここだけは専用の合鍵で判断する
+    // （控えを受け取る.gs）。保存先はドライブの決まったフォルダに固定してある。
+    if (type === 'uploadBackup') {
+      return createJsonResponse(控えを受け取る_(data));
+    }
     requireAdminAccess_(type, data);
 
 
