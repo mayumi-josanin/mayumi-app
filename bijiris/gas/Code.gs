@@ -2260,8 +2260,6 @@ function ensureCustomerProfileFromHistory_(canonicalName, customerNameKana, clie
   if (!name) return null;
   if (お名前になっていないか_(name)) return null;
   var normalizedClientId = normalizeText_(clientId);
-  var normalizedAlias = normalizeText_(aliasName);
-  if (お名前になっていないか_(normalizedAlias)) normalizedAlias = "";
   var profiles = getCustomerProfiles_();
   var match = findCustomerProfileByClientId_(profiles, normalizedClientId) ||
     findCustomerProfileByName_(profiles, name, customerNameKana);
@@ -2282,9 +2280,15 @@ function ensureCustomerProfileFromHistory_(canonicalName, customerNameKana, clie
   if (!record.nameKana && customerNameKana) {
     record.nameKana = normalizeKana_(customerNameKana);
   }
-  if (normalizedAlias && normalizedAlias !== record.name && record.aliases.indexOf(normalizedAlias) === -1) {
-    record.aliases.push(normalizedAlias);
-  }
+  // アプリが名乗ったお名前を別名として自動登録しない。
+  //
+  // 以前は「端末IDで見つけた会員」に対し、その端末が名乗った名前を別名として
+  // 足していた。端末に古いお名前が残っていると、それが本人の別名になり、
+  // 別名はお名前の照合に使われるため、他の方の記録が出る原因になっていた
+  // （前多洋子さんに「千葉萌恵」「テスト」が入っていたのはこれ）。
+  //
+  // いまはログインを入口の合鍵で確定しており、どなたの履歴かは合鍵から決まる。
+  // 名乗られた名前は根拠にならない。別名は管理アプリでお名前を変えたときだけ付く。
   record.updatedAt = new Date().toISOString();
 
   var saved = saveCustomerProfileRecord_(profiles, match && match.key, record);
