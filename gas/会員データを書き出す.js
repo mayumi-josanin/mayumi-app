@@ -19,6 +19,26 @@
 
 var 会員書出_シート名 = '会員データ';
 
+function 会員データを書き出す() {
+  var r = 会員書出_集める_();
+  var 中身 = JSON.stringify({
+    書き出した日時: Utilities.formatDate(new Date(), 'Asia/Tokyo', "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    件数: r.members.length,
+    members: r.members
+  }, null, 2);
+
+  var 名前 = '会員データ_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd-HHmm') + '.json';
+  var file = DriveApp.createFile(名前, 中身, MimeType.PLAIN_TEXT);
+
+  Logger.log('■ 書き出しました: ' + 名前);
+  Logger.log('  ' + file.getUrl());
+  Logger.log('');
+  Logger.log('  会員: ' + r.members.length + '名 / 除いた行: ' + r.除いた.length + '件');
+  Logger.log('');
+  Logger.log('  ※ このファイルにはパスコードが平文で入っています。');
+  Logger.log('     取り込みが済んだら、ドライブからも手元からも消してください。');
+}
+
 function 会員データの下見() {
   var r = 会員書出_集める_();
   Logger.log('■ 会員データ: ' + r.全体 + '行');
@@ -40,26 +60,6 @@ function 会員データの下見() {
   Logger.log('    ビジリス登録:     ' + ビジ + '名');
   Logger.log('');
   Logger.log('  よければ 会員データを書き出す() を実行してください。');
-}
-
-function 会員データを書き出す() {
-  var r = 会員書出_集める_();
-  var 中身 = JSON.stringify({
-    書き出した日時: Utilities.formatDate(new Date(), 'Asia/Tokyo', "yyyy-MM-dd'T'HH:mm:ssXXX"),
-    件数: r.members.length,
-    members: r.members
-  }, null, 2);
-
-  var 名前 = '会員データ_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd-HHmm') + '.json';
-  var file = DriveApp.createFile(名前, 中身, MimeType.PLAIN_TEXT);
-
-  Logger.log('■ 書き出しました: ' + 名前);
-  Logger.log('  ' + file.getUrl());
-  Logger.log('');
-  Logger.log('  会員: ' + r.members.length + '名 / 除いた行: ' + r.除いた.length + '件');
-  Logger.log('');
-  Logger.log('  ※ このファイルにはパスコードが平文で入っています。');
-  Logger.log('     取り込みが済んだら、ドライブからも手元からも消してください。');
 }
 
 function 会員書出_見出し_(鍵) {

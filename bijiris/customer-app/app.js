@@ -5732,7 +5732,38 @@ function renderHomeTicketOwner() {
     : "最新の回答内容から現在の回数券状況を表示します。";
 }
 
+// 回数券スタンプの集計が終わるまで出すご案内。
+//
+// 受付での回数券の使用実績をまだ数え切れておらず、画面に出ている枚数・回数が
+// 実際と違うことがある。黙っていると「間違っている」と受け取られてしまうので、
+// **こちらで調整中であることを先にお伝えする。**
+//
+// **集計が終わったら false にすること。**出しっぱなしにすると、
+// 正しくなったあとも「まだ違うのかもしれない」と思わせてしまう。
+const 集計中のお知らせを出すか_ = true;
+
+function renderHomeTicketNotice() {
+  const 枠 = document.querySelector("#homeTicketNotice");
+  if (!枠) return;
+  // ログイン前は回数券そのものが出ないので、案内も出さない。
+  if (!集計中のお知らせを出すか_ || !hasCustomerSession()) {
+    枠.innerHTML = "";
+    return;
+  }
+  枠.innerHTML = `
+    <div class="ticket-notice" role="status">
+      <strong>回数券スタンプを集計中です</strong>
+      <p>
+        ただいま回数券スタンプを集計しております。そのため、表示されている枚数・回数が
+        実際と異なる場合がございます。<br>
+        のちほどこちらで調整し、最新の状態を表示いたしますので、少々お待ちください。
+      </p>
+    </div>
+  `;
+}
+
 function renderHomeTicketStatus() {
+  renderHomeTicketNotice();
   renderHomeTicketOwner();
   renderHomeMilestoneReward();
   renderHomeCampaignStatus();
