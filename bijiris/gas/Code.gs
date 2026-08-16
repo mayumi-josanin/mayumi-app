@@ -3546,6 +3546,10 @@ function 豆知識の控えを捨てる_() {
 
 function getBijirisPosts_(filter) {
   // 公開ぶんだけは、お客様が開くたびに必ず要る。控えがあればそれを返す。
+  // シートを片付けたあとは、作り直さずに空で返す。
+  var book = getSpreadsheet_();
+  if (!book.getSheetByName(BIJIRIS_POSTS_SHEET_NAME)) return [];
+
   var 公開ぶんだけ = Boolean(filter && filter.publishedOnly && !filter.includeDrafts);
   if (公開ぶんだけ) {
     try {
@@ -3554,10 +3558,6 @@ function getBijirisPosts_(filter) {
     } catch (e) { /* 控えが読めなくても、下で普通に読み直す */ }
   }
 
-  // 読むのは豆知識の2枚だけ。全アンケートのシートまで点検すると、
-  // そのぶん Sheets との往復が増えて数秒かかる（お客様が開くたびに効く）。
-  ensureBijirisPostsSheet_();
-  ensureBijirisPostAttachmentsSheet_();
   var attachmentsByPostId = {};
   readBijirisPostAttachmentRows_().forEach(function (attachment) {
     var postId = normalizeText_(attachment && attachment.postId);
@@ -4920,8 +4920,7 @@ function ensureSpreadsheet_() {
   var spreadsheet = getSpreadsheet_();
   ensureSheet_(spreadsheet, MASTER_SHEET_NAME, MASTER_HEADERS);
   ensureMeasurementsSheet_();
-  ensureBijirisPostsSheet_();
-  ensureBijirisPostAttachmentsSheet_();
+  // 豆知識は取りやめた。ここで作ると、片付けても読むたびに空のシートが戻る。
   getSurveys_().forEach(ensureSurveySheet_);
   整えた_ = true;
 }
