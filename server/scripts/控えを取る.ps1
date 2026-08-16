@@ -117,27 +117,16 @@ if (-not $送り先 -or -not $送信鍵) {
       content  = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($ファイル))
     } | ConvertTo-Json -Compress
 
-    # GAS は必ず転送（302）を返す。PowerShell は転送のときに POST を GET に
-    # 変えてしまうため、そのままだと doGet の応答を受け取ってしまう。
-    # doGet も status: ok を返すので、**送れていないのに成功に見える。**
-    # （実際にそれで「送りました」と表示しながら0件だった）
-    # 転送先を自分で受け取り、そこへ POST し直す。
-    # PowerShell 5.1 は -MaximumRedirection 0 のとき、302 を「例外」として投げる。
-    # 転送先は、その例外が持つ応答のヘッダから取り出す。
-    $転送先 = $null
-    try {
-      # -UseBasicParsing は必須。付けないと古いIEの部品を使おうとして、
-      # この環境では NullReferenceException になる（応答すら返らない）。
-      $一次 = Invoke-WebRequest -Uri $送り先 -Method Post -Body $本文 -UseBasicParsing `
-        -ContentType "application/json" -TimeoutSec 180 -MaximumRedirection 0
-      $転送先 = $一次.Headers["Location"]
-    } catch {
-      $res = $_.Exception.Response
-      if ($res) { $転送先 = $res.Headers["Location"] }
-    }
-    if (-not $転送先) { $転送先 = $送り先 }
-
-    $生 = Invoke-WebRequest -Uri $転送先 -Method Post -Body $本文 -UseBasicParsing `
+    # GAS は 302 を返すが、**そのまま自動で追従させれば POST のまま通る。**
+    #
+    # 一度「転送先を自分で受け取って POST し直す」形にしたが、転送先
+    # （script.googleusercontent.com）は POST を受け付けず 405 を返す。
+    # 素直に任せるのが正しい。
+    #
+    # -UseBasicParsing は必須。付けないと古いIEの部品を使おうとして、
+    # この環境では NullReferenceException になり、応答すら返らない。
+    # **本当の原因はこれ1つだった。**
+    $生 = Invoke-WebRequest -Uri $送り先 -Method Post -Body $本文 -UseBasicParsing `
       -ContentType "application/json" -TimeoutSec 180
     $応答 = $生.Content | ConvertFrom-Json
 
