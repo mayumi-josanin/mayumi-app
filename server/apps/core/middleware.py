@@ -84,6 +84,37 @@ class CORSミドルウェア:
         return ", ".join(既存)
 
 
+class 管理画面をしまうミドルウェア:
+    """Django の管理画面を、外から開けないようにする。
+
+    Funnel は「この口に来たものは全部通す」という作りなので、
+    `/admin/` も一緒にインターネットへ出てしまう。会員情報を扱う画面が
+    ログイン欄ごと外に見えているのは、鍵を掛けていても好ましくない。
+
+    このPCの中から開いたときだけ通す。手元から見たいときは、
+    SSHの転送でこのPCの中を経由して開く（外には開かない）。
+
+        ssh -L 8002:127.0.0.1:8002 （ユーザー名）@desktop-rmsk0vg.tail8efe0d.ts.net
+        → 手元のブラウザで http://localhost:8002/admin/
+
+    403 ではなく 404 を返すのは、そこに管理画面があること自体を
+    外に教えないため。
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.conf import settings
+
+        if request.path.startswith("/admin"):
+            住所 = request.get_host().split(":")[0]
+            if 住所 not in getattr(settings, "ADMIN_ALLOWED_HOSTS", []):
+                return HttpResponse("Not Found", status=404, content_type="text/plain")
+
+        return self.get_response(request)
+
+
 class 呼び出し制限ミドルウェア:
     """同じ相手からの呼び出しが多すぎたら断る。
 
