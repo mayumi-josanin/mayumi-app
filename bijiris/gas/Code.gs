@@ -1877,14 +1877,27 @@ function normalizeTicketCardAcquiredAt_(value) {
   return isNaN(parsed.getTime()) ? "" : parsed.toISOString();
 }
 
+// お名前として意味をなさない文字列かどうか。
+// ひらがな・カタカナ・漢字・英数字を1文字も含まないものは、お名前ではない。
+//
+// 「????」のような値が実際に紛れ込み、別のお客様として登録されたり、
+// 既存の方の別名に混ざったりしていた。別名はお名前の照合に使われるため、
+// 放っておくと他の方の記録が出る原因になる。入口で弾く。
+function お名前になっていないか_(値) {
+  var s = normalizeText_(値);
+  if (!s) return true;
+  return !/[ぁ-んァ-ヶ一-龥a-zA-Z0-9]/.test(s);
+}
+
 function normalizeCustomerProfileRecord_(record, fallbackName) {
   var name = normalizeText_(record && record.name || fallbackName);
   if (!name) return null;
+  if (お名前になっていないか_(name)) return null;
   var aliases = uniqueValues_(
     (Array.isArray(record && record.aliases) ? record.aliases : [])
       .map(normalizeText_)
       .filter(function (alias) {
-        return alias && alias !== name;
+        return alias && alias !== name && !お名前になっていないか_(alias);
       })
   );
   var clientIds = uniqueValues_(
@@ -2169,10 +2182,13 @@ function saveCustomerProfileRecord_(profiles, previousKey, record, options) {
     normalized.rewardRedemptions = normalizeRewardRedemptions_(existing.rewardRedemptions);
   }
   if (!normalized.memberNumber) {
-    var nextIndex = Math.max(getStoredNextMemberNumberIndex_(), getHighestMemberNumberIndex_(profiles) + 1, 1);
-    normalized.memberNumber = formatMemberNumber_(nextIndex);
-    saveNextMemberNumberIndex_(nextIndex + 1);
-  } else {
+    // まずまゆみ側の番号を使う。会員番号は1つで全アプリを見分けるため。
+    normalized.memberNumber = まゆみの会員番号を引く_(normalized.name);
+  }
+  if (normalized.memberNumber) {
+    // まゆみ側に見つからない方（会員登録前にアンケートだけ出された等）には、
+    // こちらで番号を作らない。作ると、あとで本当の会員番号が付いたときに
+    // 2つ持つことになり、どちらが本物か分からなくなる。番号なしのまま置く。
     var memberNumberIndex = parseMemberNumberIndex_(normalized.memberNumber);
     if (memberNumberIndex > 0) {
       saveNextMemberNumberIndex_(Math.max(getStoredNextMemberNumberIndex_(), memberNumberIndex + 1));
@@ -2242,8 +2258,10 @@ function resolveCustomerProfileForSubmission_(customer, clientId) {
 function ensureCustomerProfileFromHistory_(canonicalName, customerNameKana, clientId, aliasName) {
   var name = normalizeText_(canonicalName);
   if (!name) return null;
+  if (お名前になっていないか_(name)) return null;
   var normalizedClientId = normalizeText_(clientId);
   var normalizedAlias = normalizeText_(aliasName);
+  if (お名前になっていないか_(normalizedAlias)) normalizedAlias = "";
   var profiles = getCustomerProfiles_();
   var match = findCustomerProfileByClientId_(profiles, normalizedClientId) ||
     findCustomerProfileByName_(profiles, name, customerNameKana);
@@ -5836,8 +5854,64 @@ function publicActiveTicketCard_(value) {
   };
 }
 
+
+// ===== 会員番号はまゆみ側を正とする =====
+// 会員番号は1つで全アプリを見分けられるようにする。ビジリスが独自に採番すると
+// 同じ方に2つの番号ができ、突き合わせのたびに対応表が要る。
+// まゆみの会員データ（氏名→会員番号）を引いて、その番号を使う。
+var まゆみ会員_ファイルID = '1gIcUGxg2PEuFoU5a_IgQ6lDWgghceJ7v2dgqo9iPe4w';
+var まゆみ会員_控えの鍵 = 'mayumiMemberNumbers_v1';
+var まゆみ会員_控えの持ち時間 = 600;   // 10分。会員登録のたびに読み直すほどではない
+
+function まゆみ会員_名前をそろえる_(値) {
+  return String(値 == null ? '' : 値).replace(/[\s　]+/g, '').trim();
+}
+
+// 氏名 → 会員番号 の対応表。読み込みに1秒ほどかかるので短時間だけ控える。
+function まゆみ会員_対応表_() {
+  try {
+    var 控え = CacheService.getScriptCache().get(まゆみ会員_控えの鍵);
+    if (控え) return JSON.parse(控え);
+  } catch (e) { /* 控えが読めなければ読み直す */ }
+
+  var 表 = {};
+  try {
+    var sh = SpreadsheetApp.openById(まゆみ会員_ファイルID).getSheetByName('会員データ');
+    if (sh && sh.getLastRow() > 1) {
+      var v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+      var 位 = {};
+      v[0].forEach(function (h, i) { 位[String(h)] = i; });
+      for (var r = 1; r < v.length; r += 1) {
+        var 名 = まゆみ会員_名前をそろえる_(v[r][位['氏名']]);
+        var 番号 = String(v[r][位['会員番号']] || v[r][位['ID']] || '').trim();
+        if (名 && 番号) 表[名] = 番号;
+      }
+    }
+  } catch (e) {
+    // まゆみ側が読めないときは空で返す。採番は下の従来どおりに落ちる。
+  }
+
+  try {
+    CacheService.getScriptCache().put(まゆみ会員_控えの鍵, JSON.stringify(表), まゆみ会員_控えの持ち時間);
+  } catch (e) { }
+  return 表;
+}
+
+// まゆみ側の会員番号。見つからなければ空。
+function まゆみの会員番号を引く_(名前) {
+  var 名 = まゆみ会員_名前をそろえる_(名前);
+  if (!名) return '';
+  var 番号 = まゆみ会員_対応表_()[名];
+  return 番号 ? normalizeMemberNumber_(番号) : '';
+}
+
+// 会員番号はまゆみ側の書式（MYM-0000）に揃える。
+// ビジリスだけ M0000 だと、受付で並べたときに「同じ方か」を毎回考えることになる。
+// 古い M0000 も、ここを通ると MYM-0000 になるので書き換えは要らない。
+var 会員番号の接頭辞 = "MYM-";
+
 function formatMemberNumber_(index) {
-  return "M" + Utilities.formatString("%04d", Math.max(1, Math.floor(Number(index) || 0)));
+  return 会員番号の接頭辞 + Utilities.formatString("%04d", Math.max(1, Math.floor(Number(index) || 0)));
 }
 
 function parseMemberNumberIndex_(value) {
@@ -5883,10 +5957,12 @@ function ensureCustomerProfileMemberNumbers_(profiles) {
       var profile = normalizeCustomerProfileRecord_(profiles[key], key);
       if (!profile) return;
       if (!profile.memberNumber) {
-        profile.memberNumber = formatMemberNumber_(nextIndex);
-        nextIndex += 1;
-        profiles[key] = profile;
-        changed = true;
+        // まゆみ側にある方だけ入れる。無い方は番号なしのままにする。
+        profile.memberNumber = まゆみの会員番号を引く_(profile.name);
+        if (profile.memberNumber) {
+          profiles[key] = profile;
+          changed = true;
+        }
       }
     });
   if (nextIndex !== getStoredNextMemberNumberIndex_()) {

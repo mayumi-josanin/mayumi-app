@@ -12,6 +12,53 @@
 //
 // すでにある方は触らない（お名前の付け替えや管理者の設定を上書きしないため）。
 
+// 顧客管理に入っているお名前を全部出す。**読むだけ。**
+// テスト用の名前が紛れていないか、ふりがなや会員番号が入っているかを確かめる。
+function 顧客の一覧を出す() {
+  var profiles = getCustomerProfiles_() || {};
+  var 鍵 = Object.keys(profiles);
+  var 怪しい語 = ['テスト', 'test', 'デモ', 'demo', 'サンプル', 'ダミー'];
+  var 行 = [];
+  var 要確認 = [];
+
+  鍵.forEach(function (k) {
+    var r = profiles[k] || {};
+    var 名 = String(r.name || '');
+    var x = {
+      名: 名,
+      かな: String(r.nameKana || ''),
+      会員番号: String(r.memberNumber || ''),
+      手当て: Number(r.ticketStampAdjustment || 0),
+      別名: (r.aliases || []).join('・'),
+    };
+    行.push(x);
+    var 小文字 = 名.toLowerCase();
+    if (!名) 要確認.push('（お名前が空）保存名: ' + k);
+    else if (怪しい語.some(function (w) { return 小文字.indexOf(w.toLowerCase()) >= 0; })) {
+      要確認.push('テスト等の語を含む: ' + 名);
+    }
+  });
+
+  行.sort(function (a, b) { return a.名 < b.名 ? -1 : 1; });
+
+  Logger.log('■ ビジリス顧客管理のお名前: ' + 行.length + '名');
+  Logger.log('');
+  行.forEach(function (x) {
+    Logger.log('  ' + x.名 +
+      '（' + (x.かな || 'ふりがな未登録') + '）' +
+      ' / ' + (x.会員番号 || '会員番号なし') +
+      (x.手当て ? ' / スタンプ手当て ' + x.手当て : '') +
+      (x.別名 ? ' / 別名: ' + x.別名 : ''));
+  });
+  Logger.log('');
+  if (要確認.length) {
+    Logger.log('■ 要確認: ' + 要確認.length + '件');
+    要確認.forEach(function (m) { Logger.log('  ' + m); });
+  } else {
+    Logger.log('■ テスト用の名前や空のお名前はありません。');
+  }
+}
+
 function 顧客登録の下見() {
   var r = 顧客登録_対象を集める_();
   Logger.log('■ ビジリスの印がある方: ' + r.対象.length + '名');

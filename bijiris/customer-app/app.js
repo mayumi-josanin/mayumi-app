@@ -3288,6 +3288,7 @@ function 登録のご案内() {
 // 済んでいればビジリスの合鍵を自動で受け取る。
 // お客様にパスコードを二度聞かないための橋渡し。
 const MAYUMI_MEMBER_TOKEN_KEY = "mayumi_member_auth_token";
+const MAYUMI_LAUNCHER_SESSION_KEY = "mayumi_launcher_session";
 // この端末のビジリスの合鍵が「どの会員のものか」を覚えておく。
 const BIJIRIS_SESSION_OWNER_KEY = "mayumi_bijiris_session_owner";
 let mayumiLoginTried = false;
@@ -3324,6 +3325,29 @@ function 前の方の記録を端末から消す_() {
   removeLocal(LAST_SNAPSHOT_KEY);
   removeLocal(DRAFTS_KEY);
   removeLocal(TICKET_CARD_OVERRIDE_KEY);
+}
+
+// 入口の記録からお名前をいただく。入口でお入りの方が本人。
+function 入口のお名前を取り込む_() {
+  let session = null;
+  try {
+    session = JSON.parse(localStorage.getItem(MAYUMI_LAUNCHER_SESSION_KEY) || "null");
+  } catch {
+    return;
+  }
+  if (!session || !session.name) return;
+
+  const 本人 = normalizeText(session.name);
+  const 前の方 = normalizeText(appState.customer?.name);
+  if (前の方 && 前の方 !== 本人) 前の方の記録を端末から消す_();
+  if (前の方 === 本人 && normalizeKana(appState.customer?.nameKana)) return;
+
+  appState.customer = {
+    ...appState.customer,
+    name: session.name,
+    nameKana: session.kana || appState.customer?.nameKana || "",
+  };
+  saveLocal(CUSTOMER_KEY, appState.customer);
 }
 
 // 合鍵の持ち主と、入口でお入りの方が違えば捨てる。
@@ -6825,6 +6849,12 @@ window.addEventListener("error", (event) => {
 window.addEventListener("unhandledrejection", (event) => {
   reportClientError("customer.promise", event.reason || "unhandled rejection");
 });
+// お名前は入口の記録から直接いただく。
+// これまでは入口がログインの瞬間に置いていく写しだけが頼りで、その写しが
+// 無いとお名前が空になり、どなたのカードか出せなかった。入口の記録には
+// お名前も会員IDも入っているので、開くたびにそこから取り直す。
+入口のお名前を取り込む_();
+
 // 通信を始める前に、端末に残っている合鍵が「いま入口にお入りの方」のものか
 // 確かめる。ここを後回しにすると、起動時のまとめ（アンケート・豆知識・履歴を
 // 1回で取る呼び出し）が前の方の合鍵のまま飛び、サーバーが前の方の履歴を返す。
