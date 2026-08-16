@@ -4,6 +4,34 @@
 // 保存は「送って、読み直して一致を確かめる」作りだが、送信は応答を読まないため、
 // サーバー側で例外が出ても画面には「確認できませんでした」としか出ない。
 
+// 顧客管理に登録されている回数券カードが、お客様アプリへどう渡るかを見る。
+// **読むだけ。**何も書かない。
+function 回数券の登録を見る() {
+  var profiles = getCustomerProfiles_() || {};
+  var 鍵 = Object.keys(profiles);
+  var 登録あり = 0;
+
+  Logger.log('■ 顧客管理の回数券カード（' + 鍵.length + '名）');
+  Logger.log('');
+  鍵.sort(function (a, b) { return a < b ? -1 : 1; }).forEach(function (k) {
+    var r = profiles[k] || {};
+    var 公開 = publicCustomerProfile_(r);
+    var c = 公開 && 公開.activeTicketCard;
+    if (c) {
+      登録あり += 1;
+      Logger.log('  ' + r.name + ': ' + c.plan + '・' + c.sheetLabel + '・' + c.roundLabel +
+        '（出どころ: ' + (r.activeTicketCardSource || '不明') + '）');
+    } else {
+      Logger.log('  ' + r.name + ': 未登録');
+    }
+  });
+  Logger.log('');
+  Logger.log('■ 登録あり: ' + 登録あり + '名 / 未登録: ' + (鍵.length - 登録あり) + '名');
+  Logger.log('');
+  Logger.log('  未登録の方は、お客様アプリで「回数券を追加」のボタンが出ます。');
+  Logger.log('  管理アプリの顧客編集で 種類・何枚目・何回目 を入れると、カードが出ます。');
+}
+
 // 空のときだけ片付ける。中身があれば触らない。
 function 豆知識を片付ける() {
   var book = getSpreadsheet_();
@@ -83,5 +111,6 @@ function 設定の下見() {
   Logger.log('  豆知識の件数: ' + getBijirisPosts_({ includeDrafts: true }).length +
     '（公開ぶん ' + getBijirisPosts_({ publishedOnly: true }).length + '）');
 }
+
 
 
