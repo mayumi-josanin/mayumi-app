@@ -984,6 +984,30 @@ textarea {
   white-space: nowrap;
 }
 
+/* 集計中のご案内。
+   お待たせすることのお詫びなので、赤い警告色にはしない。
+   ただし読み飛ばされると意味がないので、左に色の帯を入れて目を留める。 */
+.ticket-notice {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(180, 140, 60, 0.28);
+  border-left: 4px solid rgba(180, 140, 60, 0.75);
+  background: rgba(220, 180, 90, 0.10);
+}
+
+.ticket-notice > strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.ticket-notice > p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 /* まだ埋まっていないカードの「切り替える」。
    いつでも押せるが、うっかり押されないよう畳んでおく。 */
 .ticket-next-sheet-more {
