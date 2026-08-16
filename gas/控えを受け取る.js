@@ -23,18 +23,43 @@ var 控え受取_上限バイト = 25 * 1024 * 1024;   // 25MB。これを超え
 // 既存の受け口（管理者・お客様.gs の doPost）は、管理者トークンを要求する。
 // PCは管理者としてログインしないので、この処理だけは自分の合鍵で判断する。
 // **保存先はこのフォルダに固定**で、任意の場所には書けないようにしてある。
+// 受け取りの様子を残す。**推測で直そうとして2回外したので、記録を見て直す。**
+// スクリプトプロパティに最後の10件だけ残す（増え続けないように）。
+var 控え受取_記録の鍵 = 'BACKUP_UPLOAD_LOG';
+
+function 控え受取_記録する_(何が) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var 一覧 = JSON.parse(props.getProperty(控え受取_記録の鍵) || '[]');
+    一覧.unshift({
+      時刻: Utilities.formatDate(new Date(), 'Asia/Tokyo', 'MM-dd HH:mm:ss'),
+      内容: String(何が).slice(0, 200)
+    });
+    props.setProperty(控え受取_記録の鍵, JSON.stringify(一覧.slice(0, 10)));
+  } catch (e) {
+    // 記録できなくても本体は止めない。
+  }
+}
+
 function 控えを受け取る_(data) {
+  控え受取_記録する_('呼ばれた: key=' + (data && data.key ? 'あり' : '無し') +
+    ' / filename=' + (data && data.filename || '無し') +
+    ' / content=' + ((data && data.content) ? data.content.length + '文字' : '無し'));
+
   var 合鍵 = PropertiesService.getScriptProperties().getProperty(控え受取_合鍵の鍵);
   if (!合鍵) {
+    控え受取_記録する_('やめた: 合鍵が設定されていない');
     return { status: 'error', message: '受け取りの設定がまだです。' };
   }
   if (String(data && data.key || '') !== 合鍵) {
     // どこが違うかは知らせない。総当たりの手がかりを与えないため。
+    控え受取_記録する_('やめた: 合鍵が合わない');
     return { status: 'error', message: '受け取れませんでした。' };
   }
 
   var 名前 = String(data.filename || '').replace(/[^A-Za-z0-9._-]/g, '');
   if (!/^mayumi-\d{8}-\d{4}\.dump$/.test(名前)) {
+    控え受取_記録する_('やめた: ファイル名の形が違う → ' + 名前);
     return { status: 'error', message: 'ファイル名の形が違います。' };
   }
 
@@ -59,6 +84,8 @@ function 控えを受け取る_(data) {
 
   var file = folder.createFile(Utilities.newBlob(中身, 'application/octet-stream', 名前));
   var 消した = 控え受取_古いものを片付ける_(folder);
+  控え受取_記録する_('保存した: ' + 名前 + ' / ' + 中身.length + 'バイト / フォルダ=' +
+    folder.getId() + ' / いま' + 控え受取_数える_(folder) + '件');
 
   return {
     status: 'ok',
@@ -97,6 +124,61 @@ function 控え受取_古いものを片付ける_(folder) {
 // ---- 受付で使う道具 ----
 
 // いま何件・いつのものがあるかを見るだけ。
+function 控えの受け取り記録を見る() {
+  var 生 = PropertiesService.getScriptProperties().getProperty(控え受取_記録の鍵) || '[]';
+  var 一覧 = JSON.parse(生);
+  Logger.log('■ 受け取りの記録: ' + 一覧.length + '件（新しい順・最大10件）');
+  Logger.log('');
+  if (!一覧.length) {
+    Logger.log('  1件もありません。**そもそも呼ばれていません。**');
+    Logger.log('  PC側の送信が、この受け口まで届いていないということです。');
+    return;
+  }
+  一覧.forEach(function (x) { Logger.log('  ' + x.時刻 + '  ' + x.内容); });
+}
+
+// 受け取り用の合鍵を作る。**値は画面に出さない。**
+// 値を見るときは、GASの「プロジェクトの設定」→「スクリプト プロパティ」で
+// BACKUP_UPLOAD_KEY を開いてください。そこからPCの .env に貼ります。
+function 控えの設定を作る() {
+  var props = PropertiesService.getScriptProperties();
+  var いま = props.getProperty(控え受取_合鍵の鍵);
+  if (いま) {
+    Logger.log('■ 受け取りの合鍵は、すでに作られています（' + いま.length + '文字）');
+    Logger.log('');
+    Logger.log('  作り直したいときは、先にスクリプトプロパティから');
+    Logger.log('  ' + 控え受取_合鍵の鍵 + ' を消してから、もう一度実行してください。');
+    return;
+  }
+
+  var 文字 = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  var 鍵 = '';
+  for (var i = 0; i < 50; i += 1) {
+    鍵 += 文字.charAt(Math.floor(Math.random() * 文字.length));
+  }
+  props.setProperty(控え受取_合鍵の鍵, 鍵);
+
+  var folder = 控え受取_フォルダを用意する_();
+
+  Logger.log('■ 受け取りの合鍵を作りました（' + 鍵.length + '文字）');
+  Logger.log('  **値はここに出しません。**');
+  Logger.log('');
+  Logger.log('  見かた:');
+  Logger.log('    左の歯車（プロジェクトの設定）→ スクリプト プロパティ');
+  Logger.log('    → ' + 控え受取_合鍵の鍵 + ' の値をコピー');
+  Logger.log('');
+  Logger.log('■ 保存先のフォルダ: ' + folder.getName());
+  Logger.log('  ' + folder.getUrl());
+}
+
+function 控え受取_数える_(folder) {
+  var n = 0;
+  var it = folder.getFiles();
+  while (it.hasNext()) { it.next(); n += 1; }
+  return n;
+}
+
+// 受け取りの様子を読む。**読むだけ。**
 function 控えの状態を見る() {
   var it = DriveApp.getFoldersByName(控え受取_フォルダ名);
   if (!it.hasNext()) {
@@ -132,38 +214,4 @@ function 控えの状態を見る() {
       Logger.log('  **30時間以上届いていません。**PC側の毎日の実行が止まっている可能性があります。');
     }
   }
-}
-
-// 受け取り用の合鍵を作る。**値は画面に出さない。**
-// 値を見るときは、GASの「プロジェクトの設定」→「スクリプト プロパティ」で
-// BACKUP_UPLOAD_KEY を開いてください。そこからPCの .env に貼ります。
-function 控えの設定を作る() {
-  var props = PropertiesService.getScriptProperties();
-  var いま = props.getProperty(控え受取_合鍵の鍵);
-  if (いま) {
-    Logger.log('■ 受け取りの合鍵は、すでに作られています（' + いま.length + '文字）');
-    Logger.log('');
-    Logger.log('  作り直したいときは、先にスクリプトプロパティから');
-    Logger.log('  ' + 控え受取_合鍵の鍵 + ' を消してから、もう一度実行してください。');
-    return;
-  }
-
-  var 文字 = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  var 鍵 = '';
-  for (var i = 0; i < 50; i += 1) {
-    鍵 += 文字.charAt(Math.floor(Math.random() * 文字.length));
-  }
-  props.setProperty(控え受取_合鍵の鍵, 鍵);
-
-  var folder = 控え受取_フォルダを用意する_();
-
-  Logger.log('■ 受け取りの合鍵を作りました（' + 鍵.length + '文字）');
-  Logger.log('  **値はここに出しません。**');
-  Logger.log('');
-  Logger.log('  見かた:');
-  Logger.log('    左の歯車（プロジェクトの設定）→ スクリプト プロパティ');
-  Logger.log('    → ' + 控え受取_合鍵の鍵 + ' の値をコピー');
-  Logger.log('');
-  Logger.log('■ 保存先のフォルダ: ' + folder.getName());
-  Logger.log('  ' + folder.getUrl());
 }
