@@ -13,7 +13,9 @@
 // 本当に困ったときの1通が埋もれてしまう。
 
 // 見に行き先。スクリプトプロパティ DB_HEALTH_URL があればそちらを使う。
-var 見張り_既定のURL = 'https://desktop-rmsk0vg.tail8efe0d.ts.net:10000/api/health';
+// まゆみ専用のノード（mayumi-api）。ポート番号は付かない。
+// KEM_DDENKI の desktop-rmsk0vg とは別の機械として登録してある。
+var 見張り_既定のURL = 'https://mayumi-api.tail8efe0d.ts.net/api/health';
 
 // 何回続けて届かなかったら知らせるか。
 // 1回で送ると、回線の一瞬の不調でも鳴ってしまう。2回＝約30分止まって初めて知らせる。
