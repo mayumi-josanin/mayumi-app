@@ -5568,7 +5568,7 @@ function renderHomeMilestoneReward() {
     return;
   }
   const config = getMilestoneRewardConfig();
-  if (!config.enabled || !config.milestones.length) {
+  if (!config.enabled) {
     homeMilestoneReward.innerHTML = "";
     return;
   }
@@ -5578,7 +5578,12 @@ function renderHomeMilestoneReward() {
     ? Math.max(0, Math.floor(Number(new URLSearchParams(location.search).get("stampCount")) || 0))
     : getCompletedTicketCardCount();
   const nextMilestone = config.milestones.find((milestone) => completedCount < milestone.threshold) || null;
-  const goal = config.milestones[config.milestones.length - 1].threshold;
+  // 特典がまだ決まっていなくてもカードは出す。
+  // 「たまっていること」自体をお伝えしたいので、特典の設定待ちで
+  // カードごと消えてしまうのは困る。区切りは10個を既定にする。
+  const goal = config.milestones.length
+    ? config.milestones[config.milestones.length - 1].threshold
+    : 10;
 
   // 道は1枚ごとに1区画。節目のところに特典を置く。
   // 数字の一覧より、どこまで来てあと何枚かが一目で分かる方が集めたくなる。
@@ -5599,9 +5604,11 @@ function renderHomeMilestoneReward() {
   }
 
   const 残り = nextMilestone ? Math.max(0, nextMilestone.threshold - completedCount) : 0;
-  const 案内 = nextMilestone
-    ? `あと <b>${残り}枚</b> で「${escapeHtml(nextMilestone.reward)}」`
-    : `すべての特典を達成されました。ありがとうございます。`;
+  const 案内 = !config.milestones.length
+    ? `回数券を1枚使い切るごとに1個たまります。特典はただいま準備中です。`
+    : nextMilestone
+      ? `あと <b>${残り}枚</b> で「${escapeHtml(nextMilestone.reward)}」`
+      : `すべての特典を達成されました。ありがとうございます。`;
 
   homeMilestoneReward.innerHTML = `
     <article class="ticket-home-card stamp-road-card">
@@ -5621,7 +5628,11 @@ function renderHomeMilestoneReward() {
           ? `<p class="stamp-road-note">${escapeHtml(nextMilestone.description)}</p>`
           : ""
       }
-      <p class="stamp-road-note">たまった特典は受付でお渡しします。お気軽にお声がけください。</p>
+      ${
+        config.milestones.length
+          ? `<p class="stamp-road-note">たまった特典は受付でお渡しします。お気軽にお声がけください。</p>`
+          : ""
+      }
     </article>
   `;
 }
