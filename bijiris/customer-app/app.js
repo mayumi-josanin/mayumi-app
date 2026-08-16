@@ -1666,6 +1666,23 @@ function getExpectedSessionTicketRoundLabel(ticketPlan, ticketSheetLabel, option
   const ticketCount = parseTicketCount(normalizedPlan);
   if (!normalizedPlan || !normalizedSheet || !ticketCount) return "";
 
+  // いまのスタンプカードと同じ情報源から出す。
+  //
+  // 以前はここだけ「回答の履歴」しか見ていなかった。受付で管理アプリに
+  // 「6回券・1枚目・1回目」と登録しても、その枚の回答がまだ無ければ 1回目 と
+  // 判定され、自動で入る 2回目 と食い違って注意書きが出ていた。
+  // 自動入力は getActiveTicketCardState() を使っているので、こちらも揃える。
+  const card = getActiveTicketCardState();
+  if (
+    card &&
+    normalizeText(card.ticketPlan) === normalizedPlan &&
+    normalizeText(card.ticketSheetLabel) === normalizedSheet
+  ) {
+    const expectedRound = Math.min(ticketCount, Math.max(1, (Number(card.currentRound) || 0) + 1));
+    return `${expectedRound}回目`;
+  }
+
+  // 別の枚を選ばれたときは、その枚の最後の回答から数える。
   const latestSameSheetResponse = getTicketResponsesByPlanAndSheet(normalizedPlan, normalizedSheet, options)[0] || null;
   if (latestSameSheetResponse) {
     const ticketMap = new Map(getResponseTicketInfo(latestSameSheetResponse).map((item) => [item.label, item.value]));
@@ -1674,11 +1691,7 @@ function getExpectedSessionTicketRoundLabel(ticketPlan, ticketSheetLabel, option
     return `${expectedRound}回目`;
   }
 
-  const activeOverride = getActiveTicketCardOverride();
-  if (activeOverride?.plan === normalizedPlan && `${activeOverride.sheetNumber}枚目` === normalizedSheet) {
-    return "1回目";
-  }
-
+  // どちらも無い枚は、これから始まる枚なので1回目。
   return "1回目";
 }
 
