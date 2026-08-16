@@ -1106,8 +1106,16 @@ function updatePreferences_(payload) {
     campaignStampEnabled: payload && payload.campaignStampEnabled === false ? false : true,
   };
 
+  // 通知メールが無いときは、設定の保存ごと止めない。
+  //
+  // 以前はここで例外にしていた。送信は応答を読まない作りなので、画面には
+  // 「確認できませんでした」としか出ず、特典もキャンペーンも何ひとつ
+  // 保存できない状態が続いていた（メールが空・オーナーも取得できないため）。
+  //
+  // 通知が送れないのは通知の問題であって、他の設定を巻き添えにする理由はない。
+  // メールが無いときは通知だけを止めて、残りは保存する。
   if (next.notificationEnabled && !next.notificationEmail) {
-    throw new Error("通知メールアドレスを入力してください。");
+    next.notificationEnabled = false;
   }
 
   PropertiesService.getScriptProperties().setProperty(PREFERENCES_PROPERTY_KEY, JSON.stringify(next));
