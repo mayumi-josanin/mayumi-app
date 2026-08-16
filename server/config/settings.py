@@ -49,6 +49,7 @@ MIDDLEWARE = [
     # 付いていないと、ブラウザには理由が伝わらず「通信できませんでした」としか出ない。
     "apps.core.middleware.CORSミドルウェア",
     "apps.core.middleware.呼び出し制限ミドルウェア",
+    "apps.core.middleware.管理画面をしまうミドルウェア",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -155,6 +156,16 @@ THROTTLE_PER_MINUTE = int(env("THROTTLE_PER_MINUTE", "120") or 120)
 # 当てずっぽうを繰り返される道は厳しくする（ログイン・パスコードの復旧など）。
 THROTTLE_STRICT_PER_MINUTE = int(env("THROTTLE_STRICT_PER_MINUTE", "10") or 10)
 THROTTLE_STRICT_PATHS = ["/api/login", "/api/recover", "/api/passcode"]
+
+# Django の管理画面を開ける住所。**このPCの中からだけ。**
+# Funnel は「この口に来たものは全部通す」ので、何もしないと
+# 会員情報の管理画面がログイン欄ごとインターネットに出てしまう。
+# 手元から見たいときは SSH の転送でこのPCの中を経由する。
+ADMIN_ALLOWED_HOSTS = [
+    h.strip()
+    for h in env("ADMIN_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h.strip()
+]
 
 # 生死の確認は数えない。見張りが断られると「止まっている」と誤って知らせてしまう。
 THROTTLE_EXEMPT_PATHS = ["/api/health"]
