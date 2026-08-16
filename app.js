@@ -41,17 +41,25 @@ try { _profile = JSON.parse(localStorage.getItem('mayumi_profile') || 'null'); }
 // 以前は「記録が無いときだけ」入口から用意していたため、前にこの端末で
 // 使われた方（テスト用の会員など）の記録がそのまま残り、その方の
 // スタンプやお名前が出てしまっていた。会員IDが違えば捨てる。
+// この端末の記録がどなたのものかを覚えておく印。
+// プロフィールの会員IDだけを見ていたが、スタンプの個数などは
+// プロフィールとは別のところに入っており、持ち主が分からなかった。
+// 分からないものを画面に出すと、開いた瞬間に別の方の個数が見えてしまう。
+const 記録の持ち主の印_ = 'mayumi_records_owner';
+
 try {
   const launcher = JSON.parse(localStorage.getItem('mayumi_launcher_session') || 'null');
   const 入口の会員 = launcher && launcher.memberId ? String(launcher.memberId) : '';
-  const 手元の会員 = _profile && _profile.memberId ? String(_profile.memberId) : '';
-  if (入口の会員 && 手元の会員 !== 入口の会員) {
-    // 前の方のスタンプや特典まで引き継がせない。
-    // サーバーの記録には触らないので、ご本人が入り直せば元どおりになる。
+  const 記録の持ち主 = String(localStorage.getItem(記録の持ち主の印_) || '');
+  // 持ち主が分からない記録も捨てる。印を付け始めたのが途中からなので、
+  // それ以前からある端末は「不明」になる。素通りさせると前の方の個数が出る。
+  // 捨てても、サーバーからご本人の記録がすぐ入るので失われるものはない。
+  if (入口の会員 && 記録の持ち主 !== 入口の会員) {
     前の方の持ち物_.forEach(function (key) {
       try { localStorage.removeItem(key); } catch (e) { /* 消せなくても続ける */ }
     });
     _profile = null;
+    try { localStorage.setItem(記録の持ち主の印_, 入口の会員); } catch (e) { }
   }
 } catch (e) { /* プライベートモードでは読めない */ }
 
