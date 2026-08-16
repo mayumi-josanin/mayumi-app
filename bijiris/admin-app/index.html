@@ -8,10 +8,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="まゆみ管理" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260816-02" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260816-02" />
-    <link rel="icon" href="./icons/icon-192.png?v=20260816-02" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20260816-02" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260816-03" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png?v=20260816-03" />
+    <link rel="icon" href="./icons/icon-192.png?v=20260816-03" sizes="192x192" />
+    <link rel="stylesheet" href="./styles.css?v=20260816-03" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -45,7 +45,7 @@
         <aside class="sidebar">
           <button class="nav-item active" type="button" data-page="dashboard">📊 集計</button>
           <button class="nav-item" type="button" data-page="gacha">🎁 特典</button>
-          <button class="nav-item" type="button" data-page="bijiris">💡 豆知識</button>
+          <button class="nav-item" type="button" data-page="bijiris" hidden>💡 豆知識</button>
           <button class="nav-item" type="button" data-page="surveys">📝 アンケート管理</button>
           <button class="nav-item" type="button" data-page="customers">🧾 顧客管理</button>
           <button class="nav-item" type="button" data-page="responses">👥 回答管理</button>
@@ -387,7 +387,7 @@
       <nav class="bottom-nav" aria-label="管理アプリメニュー">
         <button class="bottom-nav-item active" type="button" data-page="dashboard">📊<span>集計</span></button>
         <button class="bottom-nav-item" type="button" data-page="gacha">🎁<span>特典</span></button>
-        <button class="bottom-nav-item" type="button" data-page="bijiris">💡<span>豆知識</span></button>
+        <button class="bottom-nav-item" type="button" data-page="bijiris" hidden>💡<span>豆知識</span></button>
         <button class="bottom-nav-item" type="button" data-page="surveys">📝<span>アンケート</span></button>
         <button class="bottom-nav-item" type="button" data-page="customers">🧾<span>顧客</span></button>
         <button class="bottom-nav-item" type="button" data-page="responses">👥<span>回答</span></button>
@@ -429,9 +429,9 @@
       </div>
     </div>
 
-    <script src="../default-surveys.js?v=20260816-02"></script>
+    <script src="../default-surveys.js?v=20260816-03"></script>
     <script src="../shared/gas-config.js?v=20260417-12"></script>
-    <script src="../shared/api.js?v=20260816-02"></script>
-    <script src="./app.js?v=20260816-02"></script>
+    <script src="../shared/api.js?v=20260816-03"></script>
+    <script src="./app.js?v=20260816-03"></script>
   </body>
 </html>
