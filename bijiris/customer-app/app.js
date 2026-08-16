@@ -4531,6 +4531,27 @@ function renderCompletionPanel(survey) {
   attachCommonButtons();
 }
 
+// 集計中に、回数券の枚数・回数が入らないまま回答いただくときのご案内。
+//
+// 何も言わずに空のまま送らせると、お客様は「入れ忘れた」と思われる。
+// こちらで入れることをお伝えしておく。
+function 集計中の回数券のご案内_(surveyId) {
+  if (!集計中のお知らせを出すか_) return "";
+  if (surveyId !== SESSION_SURVEY_ID) return "";
+  // 回数券の位置が埋まっているなら、断りは要らない。
+  if (getSessionTicketRoundSelection(surveyId)) return "";
+  return `
+    <div class="ticket-notice" role="status">
+      <strong>回数券の枚数・回数は、あとでこちらが入力します</strong>
+      <p>
+        ただいま回数券スタンプを集計しております。そのため、この回答には
+        何枚目・何回目が入りません。ご記入いただく必要はございません。<br>
+        こちらで確認して入力いたしますので、そのままご回答ください。
+      </p>
+    </div>
+  `;
+}
+
 function renderFormPanel(survey) {
   const surveyId = survey.id;
   const draft = getSurveyDraft(surveyId);
@@ -4541,6 +4562,7 @@ function renderFormPanel(survey) {
 
   answerPanel.innerHTML = `
     ${renderPendingNotice()}
+    ${集計中の回数券のご案内_(surveyId)}
     <div class="section-head survey-toolbar">
       <div>
         <h2>${escapeHtml(survey.title)}</h2>
@@ -4711,13 +4733,27 @@ function renderAnswerPanel() {
     }
     // 種類・何枚目・何回目は現在のカードから自動反映（お客様の入力は不要）
     const ticketFillStatus = ensureSessionTicketPositionSelection(surveyId);
-    if (ticketFillStatus === "final-measurement") {
-      renderTicketFinalMeasurementStep(survey, surveyId);
-      return;
-    }
-    if (ticketFillStatus !== "ok") {
-      renderTicketCardNeededStep(survey, surveyId);
-      return;
+
+    // **集計中はここで止めない。**
+    //
+    // ふだんは、回数券カードが無い・使い切っている場合に案内を出して
+    // 先へ進ませない。スタンプの位置が決まらないまま回答されると、
+    // 何回目の施術かが記録に残らないため。
+    //
+    // ただしいまは受付で回数券の使用実績を数え直している最中で、
+    // カードが正しく入っていない方がいる。そのままだと
+    // **アンケートそのものが出せなくなる。**
+    // ご感想をいただくことのほうが大切なので、集計中は通す。
+    // 何枚目・何回目は空のまま送られ、あとから受付で入れる。
+    if (!集計中のお知らせを出すか_) {
+      if (ticketFillStatus === "final-measurement") {
+        renderTicketFinalMeasurementStep(survey, surveyId);
+        return;
+      }
+      if (ticketFillStatus !== "ok") {
+        renderTicketCardNeededStep(survey, surveyId);
+        return;
+      }
     }
     // フォームへ進む
   }
