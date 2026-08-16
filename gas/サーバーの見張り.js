@@ -24,15 +24,24 @@ var 見張り_知らせるまでの回数 = 2;
 var 見張り_状態の鍵 = 'DB_HEALTH_STATE';
 var 見張り_扱う関数名 = 'サーバーを見張る';
 
-function 見張りを始める() {
-  見張りを止める();
-  ScriptApp.newTrigger(見張り_扱う関数名).timeBased().everyMinutes(15).create();
-  見張り_状態を書く_({ 最後: 'ok', 連続失敗: 0, 落ちた時刻: '' });
-  Logger.log('■ 15分おきの見張りを始めました');
-  Logger.log('  見に行き先: ' + 見張り_URLを取る_());
-  Logger.log('  知らせ先: ' + CONFIG.GMAIL_TO);
+function サーバーの生死を見る() {
+  var r = 見張り_叩く_();
+  Logger.log('■ ' + 見張り_URLを取る_());
   Logger.log('');
-  Logger.log('  約30分止まったら1通、直ったらもう1通だけ届きます。');
+  if (r.ok) {
+    Logger.log('  届きました（' + r.かかった + 'ミリ秒）');
+    Logger.log('  応答: ' + r.本文);
+  } else {
+    Logger.log('  **届きません**');
+    Logger.log('  理由: ' + r.理由);
+  }
+  Logger.log('');
+  var 状態 = 見張り_状態を読む_();
+  Logger.log('  いまの記録: ' + (状態.最後 === 'ng'
+    ? '止まっていると判断中（' + 状態.連続失敗 + '回連続）'
+    : '動いていると判断中'));
+  Logger.log('');
+  Logger.log('  ※ これは見るだけです。メールは送りません。');
 }
 
 // 15分おきに呼ばれる。ここだけがメールを送る。
@@ -79,24 +88,15 @@ function サーバーを見張る() {
   見張り_状態を書く_({ 最後: 'ng', 連続失敗: 連続, 落ちた時刻: 落ちた時刻 });
 }
 
-function サーバーの生死を見る() {
-  var r = 見張り_叩く_();
-  Logger.log('■ ' + 見張り_URLを取る_());
+function 見張りを始める() {
+  見張りを止める();
+  ScriptApp.newTrigger(見張り_扱う関数名).timeBased().everyMinutes(15).create();
+  見張り_状態を書く_({ 最後: 'ok', 連続失敗: 0, 落ちた時刻: '' });
+  Logger.log('■ 15分おきの見張りを始めました');
+  Logger.log('  見に行き先: ' + 見張り_URLを取る_());
+  Logger.log('  知らせ先: ' + CONFIG.GMAIL_TO);
   Logger.log('');
-  if (r.ok) {
-    Logger.log('  届きました（' + r.かかった + 'ミリ秒）');
-    Logger.log('  応答: ' + r.本文);
-  } else {
-    Logger.log('  **届きません**');
-    Logger.log('  理由: ' + r.理由);
-  }
-  Logger.log('');
-  var 状態 = 見張り_状態を読む_();
-  Logger.log('  いまの記録: ' + (状態.最後 === 'ng'
-    ? '止まっていると判断中（' + 状態.連続失敗 + '回連続）'
-    : '動いていると判断中'));
-  Logger.log('');
-  Logger.log('  ※ これは見るだけです。メールは送りません。');
+  Logger.log('  約30分止まったら1通、直ったらもう1通だけ届きます。');
 }
 
 function 見張りを止める() {
