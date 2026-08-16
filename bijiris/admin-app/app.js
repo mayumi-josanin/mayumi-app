@@ -2759,7 +2759,7 @@ function getCompletedTicketCardBreakdown(customerName) {
 
 function renderCustomerMilestoneSection(customerName) {
   const config = getMilestoneRewardConfig(state.preferences);
-  if (!config.enabled || !config.milestones.length) return "";
+  if (!config.enabled) return "";
   const profile = getCustomerProfileByName(customerName);
   const fromSurveys = Math.max(0, Math.floor(Number(profile?.completedTicketCardCount) || 0));
   const adjustment = Math.floor(Number(profile?.ticketStampAdjustment) || 0);
@@ -2778,68 +2778,87 @@ function renderCustomerMilestoneSection(customerName) {
           <button type="button" class="ghost-button" data-stamp-adjust="1" data-customer="${escapeHtml(customerName)}">＋1</button>
         </div>
       </div>
-      ${
-        achievedMilestones.length
-          ? `<div class="milestone-history">
-              <div class="meta">獲得済み特典の履歴</div>
-              <ul class="milestone-history-list">
-                ${achievedMilestones
-                  .map((milestone) => {
-                    const redemption = redemptions[String(milestone.threshold)] || null;
-                    const handed = redemption?.handed === true;
-                    const handedAt = handed ? String(redemption.handedAt || "") : "";
-                    const handedLabel = handed
-                      ? `（渡し済み${handedAt ? " " + escapeHtml(formatDate(handedAt)) : ""}）`
-                      : "（未渡し）";
-                    return `<li>${milestone.threshold}枚目：${escapeHtml(milestone.reward)}<span class="meta">${handedLabel}</span></li>`;
-                  })
-                  .join("")}
-              </ul>
-            </div>`
-          : `<div class="meta">獲得済みの特典はまだありません。</div>`
-      }
-      <div class="milestone-admin-list">
-        ${config.milestones
-          .map((milestone) => {
-            const achieved = completedCount >= milestone.threshold;
-            const redemption = redemptions[String(milestone.threshold)] || null;
-            const handed = redemption?.handed === true;
-            const handedAt = handed ? String(redemption.handedAt || "") : "";
-            return `
-              <div class="milestone-admin-item ${achieved ? "achieved" : ""}">
-                <div class="milestone-admin-info">
-                  <span class="milestone-reward-threshold">${milestone.threshold}枚</span>
-                  <span class="milestone-admin-reward">${escapeHtml(milestone.reward)}</span>
-                  <span class="badge ${achieved ? "open" : "draft"}">${achieved ? "達成" : "未達成"}</span>
-                </div>
-                ${
-                  milestone.description
-                    ? `<div class="meta milestone-admin-description">${escapeHtml(milestone.description)}</div>`
-                    : ""
-                }
-                ${
-                  achieved
-                    ? `
-                      <label class="milestone-handed-toggle">
-                        <input
-                          type="checkbox"
-                          data-milestone-handed
-                          data-customer="${escapeHtml(customerName)}"
-                          data-threshold="${milestone.threshold}"
-                          ${handed ? "checked" : ""}
-                        />
-                        <span>渡し済み</span>
-                        ${handedAt ? `<span class="meta">${escapeHtml(formatDate(handedAt))}</span>` : ""}
-                      </label>
-                    `
-                    : `<div class="meta">達成後に渡し済みの管理ができます。</div>`
-                }
-              </div>
-            `;
-          })
-          .join("")}
-      </div>
+      ${renderCustomerStampRoad(config, completedCount)}
+      ${renderCustomerRewardTable(config, completedCount, redemptions, customerName)}
     </article>
+  `;
+}
+
+// 管理側でも、お客様と同じ道のりを見られるようにする。
+// 数字だけだと「あと何枚か」がすぐ分からず、受付で説明しづらい。
+function renderCustomerStampRoad(config, completedCount) {
+  const goal = config.milestones.length
+    ? config.milestones[config.milestones.length - 1].threshold
+    : 10;
+  const rewardAt = new Map(config.milestones.map((m) => [m.threshold, m]));
+  const steps = [];
+  for (let step = 1; step <= goal; step += 1) {
+    const reached = completedCount >= step;
+    const reward = rewardAt.get(step) || null;
+    steps.push(`
+      <li class="admin-road-step ${reached ? "reached" : ""} ${reward ? "has-reward" : ""}">
+        <span class="admin-road-mark">${reward ? "🎁" : reached ? "●" : ""}</span>
+        <span class="admin-road-num">${step}</span>
+      </li>
+    `);
+  }
+  return `
+    <div class="meta" style="margin-top:10px;">道のり（${completedCount} / ${goal}）</div>
+    <ol class="admin-road">${steps.join("")}</ol>
+  `;
+}
+
+// いま何を獲得していて、どれをお渡ししたかの一覧。
+// 「達成したか」と「渡したか」は別のことなので、列を分ける。
+function renderCustomerRewardTable(config, completedCount, redemptions, customerName) {
+  if (!config.milestones.length) {
+    return `<div class="meta">特典がまだ設定されていません。「🎁 特典」で節目と内容をご登録ください。</div>`;
+  }
+  const rows = config.milestones.map((milestone) => {
+    const achieved = completedCount >= milestone.threshold;
+    const redemption = redemptions[String(milestone.threshold)] || null;
+    const handed = redemption?.handed === true;
+    const handedAt = handed ? String(redemption.handedAt || "") : "";
+    const 状態 = !achieved
+      ? `<span class="badge draft">未達成</span>`
+      : handed
+        ? `<span class="badge">受取済み</span>`
+        : `<span class="badge open">未受取</span>`;
+    return `
+      <tr class="${achieved && !handed ? "reward-pending" : ""}">
+        <td>${milestone.threshold}個</td>
+        <td>${escapeHtml(milestone.reward)}${
+          milestone.description ? `<div class="meta">${escapeHtml(milestone.description)}</div>` : ""
+        }</td>
+        <td>${状態}</td>
+        <td>${
+          achieved
+            ? `<label class="milestone-handed-toggle">
+                 <input type="checkbox" data-milestone-handed
+                        data-customer="${escapeHtml(customerName)}"
+                        data-threshold="${milestone.threshold}" ${handed ? "checked" : ""} />
+                 <span>渡した</span>
+                 ${handedAt ? `<span class="meta">${escapeHtml(formatDate(handedAt))}</span>` : ""}
+               </label>`
+            : `<span class="meta">—</span>`
+        }</td>
+      </tr>
+    `;
+  });
+  const 未受取 = config.milestones.filter((m) => {
+    const r = redemptions[String(m.threshold)] || null;
+    return completedCount >= m.threshold && r?.handed !== true;
+  }).length;
+  return `
+    <div class="meta" style="margin-top:10px;">
+      獲得状況${未受取 ? ` ／ <b>未受取 ${未受取}件</b>` : "（未受取はありません）"}
+    </div>
+    <div class="table-scroll">
+      <table class="reward-table">
+        <thead><tr><th>節目</th><th>特典</th><th>状態</th><th>受け取り</th></tr></thead>
+        <tbody>${rows.join("")}</tbody>
+      </table>
+    </div>
   `;
 }
 
