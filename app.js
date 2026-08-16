@@ -3354,11 +3354,16 @@ function openGoogleCalendarEvent(idx) {
 const AWARENESS_SURVEY_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc4-waljb2FnucFuNjsyuijhJ7UFgX6WWT2dMpLW-F6yZvanA/viewform';
 const AWARENESS_SURVEY_MEMBER_ID_ENTRY = 'entry.819858940';
 
+// 「知ったきっかけ」アンケートのご案内を出すかどうか。
+// いまは出さない方針のため false。出すときは true に戻すだけでよい。
+// HTML 側も最初から非表示にしてあるので、読み込み時に一瞬出ることもない。
+const 知ったきっかけアンケートを出す = false;
+
 // 回答済みかどうかはサーバーが持っているため、機種変更しても判定が引き継がれる。
 function applyAwarenessSurveyAnswered(answered) {
   const card = document.getElementById('awarenessSurveyCard');
   if (!card) return;
-  card.style.display = answered ? 'none' : '';
+  card.style.display = (!知ったきっかけアンケートを出す || answered) ? 'none' : '';
 }
 
 function openAwarenessSurvey() {
