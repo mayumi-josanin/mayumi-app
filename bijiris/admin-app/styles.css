@@ -2216,3 +2216,121 @@ a.primary-button {
   min-width: 56px;
   min-height: 40px;
 }
+
+/* 管理側の道のり。お客様の画面と同じ並びにして、受付で見比べられるようにする。 */
+.admin-road {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px 0;
+  margin: 6px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-road-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-road-step::before {
+  content: "";
+  position: absolute;
+  top: 13px;
+  right: 50%;
+  left: -50%;
+  height: 3px;
+  background: var(--border);
+}
+
+.admin-road-step:nth-child(5n + 1)::before {
+  display: none;
+}
+
+.admin-road-step.reached::before {
+  background: var(--sage);
+}
+
+.admin-road-mark {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: #fff;
+  font-size: 12px;
+  color: #fff;
+}
+
+.admin-road-step.reached .admin-road-mark {
+  border-color: var(--sage);
+  background: var(--sage);
+}
+
+.admin-road-step.has-reward .admin-road-mark {
+  border-color: var(--blush-dark);
+  background: #fff;
+  color: inherit;
+}
+
+.admin-road-num {
+  font-size: 11px;
+  color: var(--text-light);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 獲得状況の表。未受取の行は目に留まるようにする。 */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.reward-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.reward-table th,
+.reward-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.reward-table th {
+  font-size: 12px;
+  color: var(--text-light);
+  white-space: nowrap;
+}
+
+.reward-table tr.reward-pending td {
+  background: rgba(232, 201, 181, 0.18);
+}
+
+/* 「渡した」のラベルが縦に潰れないようにする。 */
+.reward-table .milestone-handed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.reward-table .milestone-handed-toggle .meta {
+  white-space: nowrap;
+}
+
+.reward-table td:nth-child(4) {
+  min-width: 190px;
+}
+
+.reward-table td:first-child {
+  white-space: nowrap;
+}
