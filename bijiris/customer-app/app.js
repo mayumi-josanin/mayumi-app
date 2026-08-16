@@ -5803,9 +5803,19 @@ function renderHomeTicketStatus() {
           : ""
       }
       ${
+        // カードの追加は、いつでもできるようにする。
+        // 以前は「スタンプが全て埋まるまで」出さなかったが、受付で新しい回数券を
+        // お買い上げになった時点で切り替えたい場面があり、お客様が進めなくなっていた。
+        // ただ、うっかり押すと今の枚が締まってしまうので、埋まる前は折りたたんでおく。
         activeTicketCard.ticketCount && activeTicketCard.currentRound >= activeTicketCard.ticketCount
           ? addCardControl
-          : `<div class="meta">スタンプが全て埋まると「新規カードを追加」が表示されます。</div>`
+          : `
+            <details class="ticket-next-sheet-more">
+              <summary>新しい回数券に切り替える</summary>
+              <div class="meta">いまの${escapeHtml(activeTicketCard.ticketSheetLabel || "カード")}は ${activeTicketCard.currentRound} / ${activeTicketCard.ticketCount} です。新しい回数券をお求めになったときにお使いください。</div>
+              ${addCardControl}
+            </details>
+          `
       }
     </article>
   `;
