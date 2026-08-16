@@ -84,8 +84,13 @@ function 控えを受け取る_(data) {
 
   var file = folder.createFile(Utilities.newBlob(中身, 'application/octet-stream', 名前));
   var 消した = 控え受取_古いものを片付ける_(folder);
+  // どのアカウントで動いているかも残す。
+  // エディタから見えないフォルダに保存されていたため、
+  // **受け口とエディタで実行者が違う**可能性を切り分ける必要があった。
+  var 実行者 = '';
+  try { 実行者 = Session.getEffectiveUser().getEmail(); } catch (e) { 実行者 = '取得できず'; }
   控え受取_記録する_('保存した: ' + 名前 + ' / ' + 中身.length + 'バイト / フォルダ=' +
-    folder.getId() + ' / いま' + 控え受取_数える_(folder) + '件');
+    folder.getId() + ' / いま' + 控え受取_数える_(folder) + '件 / 実行者=' + 実行者);
 
   return {
     status: 'ok',
@@ -96,9 +101,28 @@ function 控えを受け取る_(data) {
   };
 }
 
+// 保存先のフォルダ。**IDで固定する。名前で探してはいけない。**
+//
+// 名前で探していたら、同じ名前のフォルダが2つでき、受け口が保存する先と
+// 画面で数える先が食い違った。「送れているのに0件」に見え、原因を
+// 掴むまでに何度も遠回りをした（2026-08-17）。
+// getFoldersByName はどれが返るか保証されない。IDなら1つに定まる。
+var 控え受取_フォルダIDの鍵 = 'BACKUP_FOLDER_ID';
+
 function 控え受取_フォルダを用意する_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty(控え受取_フォルダIDの鍵);
+  if (id) {
+    try {
+      return DriveApp.getFolderById(id);
+    } catch (e) {
+      // 消された・権限が無いときはここに来る。作り直して覚え直す。
+    }
+  }
   var it = DriveApp.getFoldersByName(控え受取_フォルダ名);
-  return it.hasNext() ? it.next() : DriveApp.createFolder(控え受取_フォルダ名);
+  var folder = it.hasNext() ? it.next() : DriveApp.createFolder(控え受取_フォルダ名);
+  props.setProperty(控え受取_フォルダIDの鍵, folder.getId());
+  return folder;
 }
 
 // 新しいものから数えて 控え受取_残す件数 まで残し、それより古いものを捨てる。
@@ -114,6 +138,16 @@ function 控え受取_古いものを片付ける_(folder) {
   // 名前に日時が入っているので、名前で並べれば新しい順になる。
   一覧.sort(function (a, b) { return a.名 < b.名 ? 1 : -1; });
   var 消した = 0;
+
+  // 小さすぎるものは控えではない。動作確認で送った数バイトのものが
+  // 残ると、パッと見て「控えがある」と誤解する。実物は数十KB以上ある。
+  一覧 = 一覧.filter(function (x) {
+    if (x.file.getSize() >= 1024) return true;
+    x.file.setTrashed(true);
+    消した += 1;
+    return false;
+  });
+
   一覧.slice(控え受取_残す件数).forEach(function (x) {
     x.file.setTrashed(true);
     消した += 1;
@@ -180,13 +214,33 @@ function 控え受取_数える_(folder) {
 
 // 受け取りの様子を読む。**読むだけ。**
 function 控えの状態を見る() {
-  var it = DriveApp.getFoldersByName(控え受取_フォルダ名);
-  if (!it.hasNext()) {
-    Logger.log('■ 保存先のフォルダがまだありません。');
-    Logger.log('  控えの設定を作る() を先に実行してください。');
-    return;
+  // 保存先はIDで固定してある。名前で探すと、同じ名前のフォルダが複数あるとき
+  // 受け口と画面で違うものを見てしまう（実際にそれで「0件」に見えた）。
+  var 固定ID = PropertiesService.getScriptProperties().getProperty(控え受取_フォルダIDの鍵);
+  var folder = null;
+  if (固定ID) {
+    try {
+      folder = DriveApp.getFolderById(固定ID);
+    } catch (e) {
+      Logger.log('■ **控えのフォルダを、このアカウントからは開けません。**');
+      Logger.log('  フォルダID: ' + 固定ID);
+      Logger.log('  https://drive.google.com/drive/folders/' + 固定ID);
+      Logger.log('');
+      Logger.log('  控え自体は保存されています。見えないのは、Webアプリを動かしている');
+      Logger.log('  Googleアカウントと、いまこの画面を開いているアカウントが違うためです。');
+      Logger.log('  上のURLを、Webアプリ側のアカウントで開いてください。');
+      return;
+    }
   }
-  var folder = it.next();
+  if (!folder) {
+    var it = DriveApp.getFoldersByName(控え受取_フォルダ名);
+    if (!it.hasNext()) {
+      Logger.log('■ 保存先のフォルダがまだありません。');
+      Logger.log('  控えの設定を作る() を先に実行してください。');
+      return;
+    }
+    folder = it.next();
+  }
   var 一覧 = [];
   var files = folder.getFiles();
   while (files.hasNext()) {
@@ -197,6 +251,7 @@ function 控えの状態を見る() {
 
   Logger.log('■ ' + folder.getName() + ': ' + 一覧.length + '件');
   Logger.log('  ' + folder.getUrl());
+  Logger.log('  フォルダID: ' + folder.getId());
   Logger.log('');
   一覧.slice(0, 10).forEach(function (x) {
     Logger.log('    ' + x.名 + '  ' + Math.round(x.大きさ / 1024) + 'KB  ' +
@@ -214,4 +269,19 @@ function 控えの状態を見る() {
       Logger.log('  **30時間以上届いていません。**PC側の毎日の実行が止まっている可能性があります。');
     }
   }
+
+  // 受け取りの記録も続けて出す。
+  // エディタの関数選択が効かない場面が多く、別々に実行すると手間がかかる。
+  Logger.log('');
+  var 生 = PropertiesService.getScriptProperties().getProperty(控え受取_記録の鍵) || '[]';
+  var 記録 = JSON.parse(生);
+  Logger.log('■ 受け取りの記録: ' + 記録.length + '件（新しい順）');
+  if (!記録.length) {
+    Logger.log('  1件もありません。**受け口が呼ばれていません。**');
+  } else {
+    記録.forEach(function (x) { Logger.log('    ' + x.時刻 + '  ' + x.内容); });
+  }
+
+  Logger.log('');
+  Logger.log('■ この実行を動かしている人: ' + Session.getEffectiveUser().getEmail());
 }
