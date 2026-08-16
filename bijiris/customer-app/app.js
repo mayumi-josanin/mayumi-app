@@ -3567,7 +3567,6 @@ async function applyCustomerSession(profile, options = {}) {
   saveLocal(CUSTOMER_KEY, appState.customer);
   syncCustomerForms();
   await loadHistory();
-  await loadBijirisPosts();
   await initializePushNotifications();
   if (applyLaunchRouteIfPossible()) {
     renderHomeTicketStatus();
@@ -6725,9 +6724,7 @@ function setupAutoCacheMaintenance() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       scheduleAutoCacheMaintenance();
-      if (hasCustomerSession() && !appState.bijirisLoading) {
-        void loadBijirisPosts();
-      }
+      // 豆知識は取りやめ。画面に戻ったときの取り直しも不要。
     }
   });
   window.setInterval(() => {
@@ -6814,7 +6811,6 @@ document.querySelectorAll("[data-page]").forEach((button) => {
 
 document.querySelector("#refreshButton").addEventListener("click", () => {
   void loadSurveys();
-  void loadBijirisPosts();
   if (hasCustomerSession()) void loadHistory();
 });
 
@@ -6884,6 +6880,7 @@ renderMeasurements();
 renderBijirisPosts();
 // 通知の初期化は、アンケートが取れた直後に走るものが別にある（loadSurveys の中）。
 // ここでも呼ぶと、いちばん待たされる最初の1回とGASの順番待ちを取り合う。
+// 豆知識は取りやめたので、起動時に取りに行かない。
+// この取得だけで1.7〜3.5秒かかっており、開くまでの待ち時間に乗っていた。
 void loadSurveys();
-void loadBijirisPosts();
 setPage(hasCustomerSession() ? "home" : "login");
