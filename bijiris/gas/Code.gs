@@ -2120,6 +2120,7 @@ function saveCustomerProfileRecord_(profiles, previousKey, record, options) {
   var replaceMeasurementTargets = options && options.replaceMeasurementTargets === true;
   var replacePushStatus = options && options.replacePushStatus === true;
   var replaceRewardRedemptions = options && options.replaceRewardRedemptions === true;
+  var replaceTicketStampAdjustment = options && options.replaceTicketStampAdjustment === true;
   var requestedActiveTicketCard = normalizeActiveTicketCard_(record && record.activeTicketCard);
   var requestedActiveTicketCardSource = normalizeActiveTicketCardSource_(
     record && (record.activeTicketCardSource || record.ticketCardSource)
@@ -2130,6 +2131,7 @@ function saveCustomerProfileRecord_(profiles, previousKey, record, options) {
   var requestedMeasurementTargets = normalizeMeasurementTargets_(record && record.measurementTargets);
   var requestedPushStatus = normalizePushStatus_(record && record.pushStatus);
   var requestedRewardRedemptions = normalizeRewardRedemptions_(record && record.rewardRedemptions);
+  var requestedTicketStampAdjustment = normalizeTicketStampAdjustment_(record && record.ticketStampAdjustment);
   if (previousKey && previousKey !== normalized.name) {
     delete profiles[previousKey];
   }
@@ -2188,6 +2190,19 @@ function saveCustomerProfileRecord_(profiles, previousKey, record, options) {
     normalized.rewardRedemptions = requestedRewardRedemptions;
   } else if (existing && existing.rewardRedemptions) {
     normalized.rewardRedemptions = normalizeRewardRedemptions_(existing.rewardRedemptions);
+  }
+  // 手当て（受付で入れたスタンプの個数）も引き継ぐ。
+  //
+  // 既存の記録があるとき、上の 2138 行あたりで normalized を作り直している。
+  // そこに手当てを書いていなかったため、保存のたびに 0 に戻っていた。
+  // お客様がアプリを開くと ensureCustomerProfileFromHistory_ が必ず通るので、
+  // 「受付で入れたスタンプが、お客様が開いた瞬間に消える」形で表に出ていた。
+  if (replaceTicketStampAdjustment) {
+    normalized.ticketStampAdjustment = requestedTicketStampAdjustment;
+  } else if (requestedTicketStampAdjustment) {
+    normalized.ticketStampAdjustment = requestedTicketStampAdjustment;
+  } else if (existing) {
+    normalized.ticketStampAdjustment = normalizeTicketStampAdjustment_(existing.ticketStampAdjustment);
   }
   if (!normalized.memberNumber) {
     // まずまゆみ側の番号を使う。会員番号は1つで全アプリを見分けるため。
@@ -2374,6 +2389,8 @@ function updateAdminCustomerProfileRecord_(currentName, nextName, responses, opt
     replaceActiveTicketCard: shouldReplaceActiveTicketCard,
     replaceActiveTicketCardSource: shouldReplaceActiveTicketCardSource,
     replaceMeasurementTargets: shouldReplaceMeasurementTargets,
+    // 0 に戻す操作も効くよう、管理側からは「置き換える」と明示する。
+    replaceTicketStampAdjustment: shouldReplaceTicketStampAdjustment,
   });
   saveCustomerProfiles_(profiles);
   return saved;

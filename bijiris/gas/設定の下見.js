@@ -4,6 +4,31 @@
 // 保存は「送って、読み直して一致を確かめる」作りだが、送信は応答を読まないため、
 // サーバー側で例外が出ても画面には「確認できませんでした」としか出ない。
 
+// お客様アプリが受け取る内容を、そのまま見る。**読むだけ。**
+// 「管理側で登録したのにカードが出ない」の切り分け用。
+function お客様に渡る内容を見る() {
+  var 名前 = '前多洋子';   // 確かめたい方のお名前
+  var payload = getCustomerHistoryPayload_({
+    customerName: 名前,
+    matchByNameOnly: true,
+    includeTrashed: false
+  });
+  Logger.log('■ ' + 名前 + ' さんに渡る内容');
+  Logger.log('');
+  Logger.log('  回答: ' + (payload.responses || []).length + '件');
+  Logger.log('  計測: ' + (payload.measurements || []).length + '件');
+  var p = payload.customerProfile;
+  Logger.log('  顧客情報: ' + (p ? 'あり' : '**無し**'));
+  if (p) {
+    Logger.log('    お名前: ' + p.name);
+    Logger.log('    会員番号: ' + p.memberNumber);
+    Logger.log('    回数券カード: ' + JSON.stringify(p.activeTicketCard));
+    Logger.log('    スタンプ手当て: ' + p.ticketStampAdjustment);
+  }
+  Logger.log('');
+  Logger.log('  ※ 回数券カードが null だと、アプリは「回数券を追加」を出す。');
+}
+
 // 顧客管理に登録されている回数券カードが、お客様アプリへどう渡るかを見る。
 // **読むだけ。**何も書かない。
 function 回数券の登録を見る() {
@@ -111,6 +136,7 @@ function 設定の下見() {
   Logger.log('  豆知識の件数: ' + getBijirisPosts_({ includeDrafts: true }).length +
     '（公開ぶん ' + getBijirisPosts_({ publishedOnly: true }).length + '）');
 }
+
 
 
 
