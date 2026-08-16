@@ -15,7 +15,8 @@ services:
     volumes:
       - mayumi_pgdata:/var/lib/postgresql/data
     ports:
-      - "${DB_PORT:-5434}:5432"
+      # データベースも、このPCの中からだけ。LANに開ける理由がない。
+      - "127.0.0.1:${DB_PORT:-5434}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -41,7 +42,13 @@ services:
       DB_HOST: db
       DB_PORT: "5432"
     ports:
-      - "${WEB_PORT:-8002}:8000"
+      # このPCの中からしか届かないようにする。
+      #
+      # 0.0.0.0 のままだと、同じLANにいる端末が Tailscale を通さずに
+      # 直接 8002 を叩けてしまう。そうなると、呼び出し元のIPを見分けるための
+      # X-Forwarded-For を自分で付けられ、呼び出し制限をすり抜けられる。
+      # 外へは Funnel（127.0.0.1 へ渡してくる）だけが通り道になる。
+      - "127.0.0.1:${WEB_PORT:-8002}:8000"
     volumes:
       - .:/app
 

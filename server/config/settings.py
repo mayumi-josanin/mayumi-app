@@ -45,6 +45,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # CORS を一番外に置く。中で断ったとき（429 など）にも許可のヘッダが要るため。
+    # 付いていないと、ブラウザには理由が伝わらず「通信できませんでした」としか出ない。
+    "apps.core.middleware.CORSミドルウェア",
+    "apps.core.middleware.呼び出し制限ミドルウェア",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -120,5 +124,54 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # この API は Funnel で公開されるため、インターネットから誰でも届く。
 # GAS だけが知っている文字列を X-Api-Key ヘッダで送ってもらい、突き合わせる。
 # 空のままだと API はすべて拒否する（設定し忘れて素通しになるのを防ぐ）。
+#
+# ※ アプリが直接呼ぶようになったら、この鍵はアプリに持たせられない。
+#    アプリのJavaScriptは誰でも読めるため、書いた瞬間に誰でも全会員を読める。
+#    その段階では「お客様1人ずつの合鍵」で本人を決める形にする。
 # ---------------------------------------------------------------
 API_KEY = env("API_KEY", "")
+
+# ---------------------------------------------------------------
+# アプリから直接呼ばれるための設定
+# ---------------------------------------------------------------
+
+# 住所をまたぐ通信を許す相手。**`*` にはしない。**
+# `*` にすると、見知らぬページの JavaScript からも、お客様の合鍵さえあれば
+# 読めてしまう。配っている場所だけを並べる。
+CORS_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in env(
+        "CORS_ALLOWED_ORIGINS",
+        "https://mayumi-josanin.github.io",
+    ).split(",")
+    if o.strip()
+]
+
+# 呼び出しの上限（1分あたり・相手のIPごと）。
+# 家庭の回線とPCなので、常識的な使い方より少し上に置く。
+# お客様1人がアプリを開いて出す通信は、多くても数十件。
+THROTTLE_PER_MINUTE = int(env("THROTTLE_PER_MINUTE", "120") or 120)
+
+# 当てずっぽうを繰り返される道は厳しくする（ログイン・パスコードの復旧など）。
+THROTTLE_STRICT_PER_MINUTE = int(env("THROTTLE_STRICT_PER_MINUTE", "10") or 10)
+THROTTLE_STRICT_PATHS = ["/api/login", "/api/recover", "/api/passcode"]
+
+# 生死の確認は数えない。見張りが断られると「止まっている」と誤って知らせてしまう。
+THROTTLE_EXEMPT_PATHS = ["/api/health"]
+
+# 数を覚える場所。
+# Django の既定はプロセスごとに別々に覚えるため、働き手が複数あると
+# 実際には人数ぶん通ってしまう。データベース側の入れ物を使って揃える。
+#
+#   python manage.py createcachetable
+#
+# 手元確認（SQLite）のときは、その手間を省いてプロセスごとの入れ物にする。
+if env_bool("USE_SQLITE", False):
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+            "LOCATION": "django_cache",
+        }
+    }
