@@ -1,3 +1,5 @@
+from decimal import ROUND_HALF_UP, Decimal
+
 from django.db import models
 
 
@@ -36,7 +38,18 @@ class RevenueRecord(models.Model):
 
     # 空欄は None。0（無料・サービス）と、記録していない、を混ぜない。
     quantity = models.IntegerField("数", null=True, blank=True)
-    unit_price = models.IntegerField("単価（円）", null=True, blank=True)
+
+    # **単価は整数ではない。**まとめ買いの集計行があるため。
+    # 例: 天然だし調味粉の32〜35行は「3個で6995円」で、
+    #     単価が 6995÷3 = 2331.6666… で入っている（2026-08-17 の書き出しで判明）。
+    # 整数で受けると 2331 に切り捨てられ、3×2331=6993 で
+    # **1行あたり2円、4行で8円が消える。**金額を勝手に減らさない。
+    #
+    # 小数6桁まで持てば、掛け戻して円に丸めたときに元の金額に戻る
+    # （2331.666667 × 3 = 6995.000001 → 6995円）。
+    unit_price = models.DecimalField(
+        "単価（円）", max_digits=12, decimal_places=6, null=True, blank=True
+    )
     # **メニューの112件は、原価単価がすべて 0。**空欄ではなく実際に0。
     # 「まだ入れていない0」ではなく「本当に原価0円」だと院長に確認済み
     # （2026-08-17）。教室や施術は仕入れが無いので、売上がそのまま残る。
@@ -44,7 +57,12 @@ class RevenueRecord(models.Model):
     #
     # したがって 0 と空欄を区別する。**混ぜると粗利が変わる。**
     # 0 なら粗利＝売上、空欄なら粗利は出せない（None）。
-    unit_cost = models.IntegerField("原価（円・1つあたり）", null=True, blank=True)
+    #
+    # いまは全件が整数だが、単価と同じ理由でいつ割り算の結果が
+    # 入ってもおかしくないので、こちらも小数で受ける。
+    unit_cost = models.DecimalField(
+        "原価（円・1つあたり）", max_digits=12, decimal_places=6, null=True, blank=True
+    )
 
     memo = models.TextField("メモ", blank=True)
 
@@ -67,23 +85,31 @@ class RevenueRecord(models.Model):
     def __str__(self):
         return f"{self.recorded_on} {self.name}"
 
+    @staticmethod
+    def _円に丸める(数, 単価):
+        """数×単価を、円（整数）にして返す。
+
+        単価は小数を持つ（まとめ買いの集計行があるため）。
+        掛けたあとに四捨五入すれば、元の金額に戻る。
+        **先に単価を丸めてから掛けてはいけない。**そこで桁が落ちる。
+        """
+        if 数 is None or 単価 is None:
+            return None
+        return int((Decimal(数) * 単価).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
     @property
     def amount(self):
-        """売れた金額。数と単価がそろっている行だけ出せる。
+        """売れた金額（円）。数と単価がそろっている行だけ出せる。
 
         **片方が欠けていたら 0 ではなく None を返す。**
         0円売れたのと、分からないのは違う。
         """
-        if self.quantity is None or self.unit_price is None:
-            return None
-        return self.quantity * self.unit_price
+        return self._円に丸める(self.quantity, self.unit_price)
 
     @property
     def cost(self):
-        """かかった金額。原価が空の行は None（0ではない）。"""
-        if self.quantity is None or self.unit_cost is None:
-            return None
-        return self.quantity * self.unit_cost
+        """かかった金額（円）。原価が空の行は None（0ではない）。"""
+        return self._円に丸める(self.quantity, self.unit_cost)
 
     @property
     def profit(self):

@@ -12,7 +12,7 @@
 // 次に移す表。移す前に必ずここに足して、実物を見てから作る。
 // 設計書の件数が実物と違っていたことがある（お知らせ94→95、
 // カレンダー116→143）。**推測で表を作らない。**
-var 表下見_対象 = ['MENU_REVENUE', 'PRODUCT_REVENUE'];
+var 表下見_対象 = ['管理マスタ', 'BACKUP_LOG'];
 
 function 表の下見() {
   var ss = getOrCreateSpreadsheet();
