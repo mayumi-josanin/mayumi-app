@@ -303,3 +303,8 @@ class RevenueRecord(models.Model):
             "memo": self.memo,
             "deleted": self.deleted,
         }
+
+
+# 回数券分析は、お客様のお体についての記録なので別ファイルに置いている。
+# ここで読み込むことで Django が表として認識する。
+from .models_ticket import TicketAnalysis  # noqa: E402,F401
