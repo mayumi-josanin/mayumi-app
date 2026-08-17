@@ -11,6 +11,7 @@
 
 import json
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -24,10 +25,10 @@ def 文字(値):
 
 
 def 数(値):
-    """空欄は None のまま返す。**0 と空欄を混ぜない。**
+    """個数など、数えられるもの。空欄は None のまま返す。
 
-    原価0（仕入れの無い教室など）を「記録していない」に丸めると、
-    粗利が変わってしまう。
+    **0 と空欄を混ぜない。**原価0（仕入れの無い教室など）を
+    「記録していない」に丸めると、粗利が変わってしまう。
     """
     if 値 is None or 値 == "":
         return None
@@ -35,6 +36,26 @@ def 数(値):
         return int(値)
     except (TypeError, ValueError):
         return None
+
+
+def 金額(値):
+    """単価・原価。**整数に丸めない。**
+
+    まとめ買いの集計行があり、単価が割り切れないことがある
+    （例: 3個で6995円 → 単価 2331.6666…）。
+    int() で受けると 2331 になり、掛け戻したとき金額が減る。
+
+    float をそのまま Decimal に渡すと誤差が乗るので、
+    いったん文字にしてから渡す。
+    """
+    if 値 is None or 値 == "":
+        return None
+    try:
+        d = Decimal(str(値))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    # 表の桁数（小数6桁）に合わせる。ここで初めて丸める。
+    return d.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
 
 
 def 日付(値):
@@ -104,8 +125,8 @@ class Command(BaseCommand):
                 "recorded_on": 日,
                 "name": 名[:255],
                 "quantity": 数(r.get("quantity")),
-                "unit_price": 数(r.get("unit_price")),
-                "unit_cost": 数(r.get("unit_cost")),
+                "unit_price": 金額(r.get("unit_price")),
+                "unit_cost": 金額(r.get("unit_cost")),
                 "memo": 文字(r.get("memo")),
                 "deleted": bool(文字(r.get("deleted"))),
                 "deleted_at": 日時(r.get("deleted_at")),
@@ -133,15 +154,25 @@ class Command(BaseCommand):
                 continue
             self.stdout.write("")
             self.stdout.write(f"  ● {種別}: {len(分)}件")
-            for 鍵, 名 in (("quantity", "数"), ("unit_price", "単価"), ("unit_cost", "原価")):
-                空 = sum(1 for r in 分 if 数(r.get(鍵)) is None)
-                ゼロ = sum(1 for r in 分 if 数(r.get(鍵)) == 0)
-                self.stdout.write(f"      {名}: 空欄 {空}件 / 0 {ゼロ}件")
+            for 鍵, 名, 変換 in (("quantity", "数", 数),
+                                 ("unit_price", "単価", 金額),
+                                 ("unit_cost", "原価", 金額)):
+                値ら = [変換(r.get(鍵)) for r in 分]
+                空 = sum(1 for v in 値ら if v is None)
+                ゼロ = sum(1 for v in 値ら if v == 0)
+                端数 = sum(1 for v in 値ら if v is not None and v != int(v))
+                self.stdout.write(f"      {名}: 空欄 {空}件 / 0 {ゼロ}件"
+                                  + (f" / **割り切れない値 {端数}件**" if 端数 else ""))
             # 金額は、数と単価がそろっている行だけで出す。
+            # **掛けてから円に丸める。**先に単価を丸めると桁が落ちる。
             出せる = [r for r in 分
-                      if 数(r.get("quantity")) is not None and 数(r.get("unit_price")) is not None]
-            売上 = sum(数(r["quantity"]) * 数(r["unit_price"]) for r in 出せる)
-            self.stdout.write(f"      売上の合計: {円(売上)}"
+                      if 数(r.get("quantity")) is not None and 金額(r.get("unit_price")) is not None]
+            売上 = sum(
+                (Decimal(数(r["quantity"])) * 金額(r["unit_price"])).quantize(
+                    Decimal("1"), rounding=ROUND_HALF_UP)
+                for r in 出せる
+            )
+            self.stdout.write(f"      売上の合計: {円(int(売上))}"
                               + (f"（数か単価が空で出せない行 {len(分) - len(出せる)}件）"
                                  if len(出せる) != len(分) else ""))
 
