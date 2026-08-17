@@ -17,56 +17,6 @@
 var 書出_まゆみID = '1gIcUGxg2PEuFoU5a_IgQ6lDWgghceJ7v2dgqo9iPe4w';
 var 書出_ビジリスID = '1pONQ8MfFSllKNOeQlcp56IRon3ZRWfFkbnjEDPchq8E';
 
-function 書出_空か_(x) { return x === '' || x === null || x === undefined; }
-
-// 突き合わせ用にお名前を整える。空白の有無や全角半角のゆれを吸収する。
-function 書出_名前をそろえる_(値) {
-  var s = String(値 == null ? '' : 値).replace(/[\s　]+/g, '');
-  try { s = s.normalize('NFKC'); } catch (e) { }
-  return s;
-}
-
-function 書出_日付_(値) {
-  if (書出_空か_(値)) return null;
-  var d = 値 instanceof Date ? 値 : new Date(値);
-  if (isNaN(d.getTime())) return null;
-  return Utilities.formatDate(d, 'Asia/Tokyo', 'yyyy-MM-dd');
-}
-
-function 書出_日時_(値) {
-  if (書出_空か_(値)) return null;
-  var d = 値 instanceof Date ? 値 : new Date(値);
-  if (isNaN(d.getTime())) return null;
-  return Utilities.formatDate(d, 'Asia/Tokyo', "yyyy-MM-dd'T'HH:mm:ssXXX");
-}
-
-function 書出_数_(値) {
-  if (書出_空か_(値)) return null;
-  var n = Number(値);
-  return isNaN(n) ? null : n;
-}
-
-// お名前 → 会員ID の対応表を作る。同姓同名がいれば、その名前は使わない。
-function 書出_会員の対応表_() {
-  var sh = SpreadsheetApp.openById(書出_まゆみID).getSheetByName('会員データ');
-  var v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
-  var 位 = {};
-  v[0].forEach(function (h, i) { 位[String(h)] = i; });
-
-  var 表 = {};
-  var 重複 = {};
-  for (var r = 1; r < v.length; r += 1) {
-    var 名 = 書出_名前をそろえる_(v[r][位['氏名']]);
-    var id = String(v[r][位['ID']] || '').trim();
-    if (!名 || !id) continue;
-    if (表[名]) { 重複[名] = true; continue; }
-    表[名] = id;
-  }
-  // 同姓同名は、どちらか分からないので結ばない（間違った人に紐づけない）
-  Object.keys(重複).forEach(function (k) { delete 表[k]; });
-  return { 表: 表, 重複: Object.keys(重複) };
-}
-
 function 測定履歴を書き出す() {
   var 会員 = 書出_会員の対応表_();
   var sh = SpreadsheetApp.openById(書出_ビジリスID).getSheetByName('測定履歴');
@@ -138,3 +88,54 @@ function 測定履歴を書き出す() {
   Logger.log('   3. 件数が合えば --下見 を外して実行');
   return file.getId();
 }
+
+function 書出_空か_(x) { return x === '' || x === null || x === undefined; }
+
+// 突き合わせ用にお名前を整える。空白の有無や全角半角のゆれを吸収する。
+function 書出_名前をそろえる_(値) {
+  var s = String(値 == null ? '' : 値).replace(/[\s　]+/g, '');
+  try { s = s.normalize('NFKC'); } catch (e) { }
+  return s;
+}
+
+function 書出_日付_(値) {
+  if (書出_空か_(値)) return null;
+  var d = 値 instanceof Date ? 値 : new Date(値);
+  if (isNaN(d.getTime())) return null;
+  return Utilities.formatDate(d, 'Asia/Tokyo', 'yyyy-MM-dd');
+}
+
+function 書出_日時_(値) {
+  if (書出_空か_(値)) return null;
+  var d = 値 instanceof Date ? 値 : new Date(値);
+  if (isNaN(d.getTime())) return null;
+  return Utilities.formatDate(d, 'Asia/Tokyo', "yyyy-MM-dd'T'HH:mm:ssXXX");
+}
+
+function 書出_数_(値) {
+  if (書出_空か_(値)) return null;
+  var n = Number(値);
+  return isNaN(n) ? null : n;
+}
+
+// お名前 → 会員ID の対応表を作る。同姓同名がいれば、その名前は使わない。
+function 書出_会員の対応表_() {
+  var sh = SpreadsheetApp.openById(書出_まゆみID).getSheetByName('会員データ');
+  var v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+  var 位 = {};
+  v[0].forEach(function (h, i) { 位[String(h)] = i; });
+
+  var 表 = {};
+  var 重複 = {};
+  for (var r = 1; r < v.length; r += 1) {
+    var 名 = 書出_名前をそろえる_(v[r][位['氏名']]);
+    var id = String(v[r][位['ID']] || '').trim();
+    if (!名 || !id) continue;
+    if (表[名]) { 重複[名] = true; continue; }
+    表[名] = id;
+  }
+  // 同姓同名は、どちらか分からないので結ばない（間違った人に紐づけない）
+  Object.keys(重複).forEach(function (k) { delete 表[k]; });
+  return { 表: 表, 重複: Object.keys(重複) };
+}
+
