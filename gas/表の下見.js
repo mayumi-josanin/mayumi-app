@@ -12,7 +12,56 @@
 // 次に移す表。移す前に必ずここに足して、実物を見てから作る。
 // 設計書の件数が実物と違っていたことがある（お知らせ94→95、
 // カレンダー116→143）。**推測で表を作らない。**
-var 表下見_対象 = ['APP_SUPPORT_FAQ', 'PUSH_NOTICES'];
+var 表下見_対象 = ['MENU_REVENUE', 'PRODUCT_REVENUE'];
+
+function 表の下見() {
+  var ss = getOrCreateSpreadsheet();
+
+  表下見_対象.forEach(function (名) {
+    var sh = ss.getSheetByName(名);
+    Logger.log('==============================');
+    Logger.log('■ ' + 名);
+    if (!sh) {
+      Logger.log('  **シートがありません**');
+      Logger.log('');
+      return;
+    }
+
+    var 最終行 = sh.getLastRow();
+    var 最終列 = sh.getLastColumn();
+    Logger.log('  ' + (最終行 - 1) + '行 × ' + 最終列 + '列');
+    Logger.log('');
+
+    if (最終行 < 1) { Logger.log('  空です'); Logger.log(''); return; }
+
+    var v = sh.getRange(1, 1, Math.min(最終行, 200), 最終列).getValues();
+    var 見出し = v[0];
+
+    Logger.log('  列と、埋まっている件数:');
+    見出し.forEach(function (h, i) {
+      var 埋 = 0, 例 = '';
+      for (var r = 1; r < v.length; r += 1) {
+        var x = v[r][i];
+        if (x !== '' && x !== null && x !== undefined) {
+          埋 += 1;
+          if (!例) {
+            例 = x instanceof Date
+              ? Utilities.formatDate(x, 'Asia/Tokyo', 'yyyy-MM-dd HH:mm')
+              : String(x);
+            if (例.length > 40) 例 = 例.slice(0, 40) + '…';
+          }
+        }
+      }
+      Logger.log('    ' + (i + 1) + '. ' + (String(h) || '（見出しなし）') +
+        '  … ' + 埋 + '件' + (例 ? '  例: ' + 例 : ''));
+    });
+    Logger.log('');
+  });
+
+  Logger.log('==============================');
+  Logger.log('  ※ 読むだけです。シートは変えていません。');
+}
+
 
 // 列の埋まり方に偏りがあったとき、その正体を数えるための道具。
 // 「ここが空なのは古い行だからだろう」と推測すると外す。実際に数える。
@@ -92,54 +141,6 @@ function 表の内訳() {
       if (!数えた) Logger.log('    （すべて空）');
       Logger.log('');
     });
-  });
-
-  Logger.log('==============================');
-  Logger.log('  ※ 読むだけです。シートは変えていません。');
-}
-
-function 表の下見() {
-  var ss = getOrCreateSpreadsheet();
-
-  表下見_対象.forEach(function (名) {
-    var sh = ss.getSheetByName(名);
-    Logger.log('==============================');
-    Logger.log('■ ' + 名);
-    if (!sh) {
-      Logger.log('  **シートがありません**');
-      Logger.log('');
-      return;
-    }
-
-    var 最終行 = sh.getLastRow();
-    var 最終列 = sh.getLastColumn();
-    Logger.log('  ' + (最終行 - 1) + '行 × ' + 最終列 + '列');
-    Logger.log('');
-
-    if (最終行 < 1) { Logger.log('  空です'); Logger.log(''); return; }
-
-    var v = sh.getRange(1, 1, Math.min(最終行, 200), 最終列).getValues();
-    var 見出し = v[0];
-
-    Logger.log('  列と、埋まっている件数:');
-    見出し.forEach(function (h, i) {
-      var 埋 = 0, 例 = '';
-      for (var r = 1; r < v.length; r += 1) {
-        var x = v[r][i];
-        if (x !== '' && x !== null && x !== undefined) {
-          埋 += 1;
-          if (!例) {
-            例 = x instanceof Date
-              ? Utilities.formatDate(x, 'Asia/Tokyo', 'yyyy-MM-dd HH:mm')
-              : String(x);
-            if (例.length > 40) 例 = 例.slice(0, 40) + '…';
-          }
-        }
-      }
-      Logger.log('    ' + (i + 1) + '. ' + (String(h) || '（見出しなし）') +
-        '  … ' + 埋 + '件' + (例 ? '  例: ' + 例 : ''));
-    });
-    Logger.log('');
   });
 
   Logger.log('==============================');
