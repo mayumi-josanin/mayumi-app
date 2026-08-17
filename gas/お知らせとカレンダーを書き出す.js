@@ -1,4 +1,5 @@
-// お知らせとカレンダーを、データベースへ取り込める形（JSON）で書き出す。
+// お知らせ・カレンダー・メニュー・商品・カテゴリを、
+// データベースへ取り込める形（JSON）で書き出す。
 //
 //   掲載物を書き出す()   … JSONにしてドライブへ置く
 //
@@ -59,6 +60,53 @@ var 掲載書出_カレンダーの列 = {
   menu_row: ['対象メニュー行']
 };
 
+// ---- メニュー・商品・カテゴリ ----
+
+var 掲載書出_メニューの列 = {
+  registered_on: ['登録日'],
+  name: ['メニュー名'],
+  image_urls: ['画像URL'],
+  summary: ['概要説明'],
+  booking_status: ['予約状況'],
+  published: ['公開設定'],
+  updated_at: ['更新日時'],
+  category: ['カテゴリ'],
+  sort_key: ['表示順'],
+  notice_listed: ['お知らせ一覧公開'],
+  publish_at: ['公開開始日時'],
+  deleted: ['削除状態'],
+  deleted_at: ['削除日時'],
+  notice_delisted_at: ['お知らせ一覧削除日時'],
+  notice_listed_at: ['お知らせ一覧掲載日時'],
+  delete_reason: ['削除理由']
+};
+
+var 掲載書出_商品の列 = {
+  category: ['カテゴリ'],
+  name: ['商品名'],
+  price: ['価格（円）', '価格'],
+  icon_url: ['アイコン'],
+  background_color: ['背景色コード'],
+  published: ['公開設定'],
+  description: ['商品説明'],
+  description_image_url: ['商品説明画像'],
+  updated_at: ['更新日時'],
+  stock: ['在庫数'],
+  stock_warning: ['在庫警告閾値'],
+  deleted_at: ['削除日時'],
+  publish_at: ['公開開始日時'],
+  notice_listed: ['お知らせ一覧公開'],
+  deleted: ['削除状態'],
+  special_price: ['特別価格（円）', '特別価格']
+};
+
+var 掲載書出_カテゴリの列 = {
+  name: ['カテゴリ名'],
+  // 2列目に見出しが入っていない。値は「お知らせ」「ブログ」で、
+  // カテゴリの種別。名前で拾えないので位置で拾う。
+  kind: ['種別', '__2列目']
+};
+
 function 掲載書出_空か_(x) { return x === '' || x === null || x === undefined; }
 
 function 掲載書出_文字_(値) {
@@ -106,7 +154,11 @@ function 掲載書出_列を引く_(見出し, 定義) {
   return 位;
 }
 
-function 掲載書出_1枚_(sheet, 定義, 日付の鍵) {
+// 名前の鍵は表によって違う（お知らせ・カレンダーは title、
+// メニュー・商品・カテゴリは name）。**ここを間違えると、
+// 空行の判定にかからず全行が飛ばされる。**
+function 掲載書出_1枚_(sheet, 定義, 日付の鍵, 名前の鍵) {
+  名前の鍵 = 名前の鍵 || 'title';
   var 最終行 = sheet.getLastRow();
   if (最終行 < 2) return { 行: [], 見つからない列: [], 全体: 0 };
 
@@ -117,8 +169,8 @@ function 掲載書出_1枚_(sheet, 定義, 日付の鍵) {
   var 行 = [];
   for (var r = 1; r < v.length; r += 1) {
     var row = v[r];
-    var 題 = 位.title >= 0 ? 掲載書出_文字_(row[位.title]) : '';
-    var 日 = 位[日付の鍵] >= 0 ? 掲載書出_日付_(row[位[日付の鍵]]) : null;
+    var 題 = 位[名前の鍵] >= 0 ? 掲載書出_文字_(row[位[名前の鍵]]) : '';
+    var 日 = (日付の鍵 && 位[日付の鍵] >= 0) ? 掲載書出_日付_(row[位[日付の鍵]]) : null;
     // 題も日付も無い行は、書きかけの空行。移す意味がない。
     if (!題 && !日) continue;
 
@@ -129,10 +181,28 @@ function 掲載書出_1枚_(sheet, 定義, 日付の鍵) {
       var x = row[i];
       if (鍵 === 'posted_on' || 鍵 === 'event_on') o[鍵] = 掲載書出_日付_(x);
       else if (鍵.indexOf('_at') >= 0) o[鍵] = 掲載書出_日時_(x);
-      else if (鍵 === 'sort_order' || 鍵 === 'menu_row') {
-        var n = parseInt(掲載書出_文字_(x), 10);
-        o[鍵] = isNaN(n) ? null : n;
-      } else o[鍵] = 掲載書出_文字_(x);
+      else if (鍵 === 'sort_order' || 鍵 === 'menu_row' || 鍵 === 'sort_key' ||
+               鍵 === 'price' || 鍵 === 'special_price' ||
+               鍵 === 'stock' || 鍵 === 'stock_warning') {
+        // 空欄は null のまま。**0 と空欄は意味が違う。**
+        // 在庫0（売り切れ）と、在庫を管理していない、を混ぜない。
+        var t = 掲載書出_文字_(x);
+        if (!t) { o[鍵] = null; }
+        else {
+          var n = Number(t);
+          o[鍵] = isFinite(n) ? n : null;
+        }
+      }
+      else if (鍵 === 'image_urls') {
+        // メニューの画像は配列で入っている（1つのメニューに複数枚）。
+        // 文字列のまま渡すと、あとで1枚ずつ扱えない。読める形にして渡す。
+        var v = 掲載書出_文字_(x);
+        if (!v) { o[鍵] = []; }
+        else if (v.charAt(0) === '[') {
+          try { o[鍵] = JSON.parse(v); } catch (e) { o[鍵] = [v]; }
+        } else { o[鍵] = [v]; }
+      }
+      else o[鍵] = 掲載書出_文字_(x);
     });
     行.push(o);
   }
@@ -145,10 +215,17 @@ function 掲載物を書き出す() {
   var お知らせ = 掲載書出_1枚_(ss.getSheetByName(SHEETS.BLOG), 掲載書出_お知らせの列, 'posted_on');
   var カレンダー = 掲載書出_1枚_(ss.getSheetByName(SHEETS.CALENDAR), 掲載書出_カレンダーの列, 'event_on');
 
+  var メニュー = 掲載書出_1枚_(ss.getSheetByName(SHEETS.MENUS), 掲載書出_メニューの列, 'registered_on', 'name');
+  var 商品 = 掲載書出_1枚_(ss.getSheetByName(SHEETS.PRODUCTS), 掲載書出_商品の列, '', 'name');
+  var カテゴリ = 掲載書出_1枚_(ss.getSheetByName(SHEETS.CATEGORIES), 掲載書出_カテゴリの列, '', 'name');
+
   var 中身 = JSON.stringify({
     書き出した日時: Utilities.formatDate(new Date(), 'Asia/Tokyo', "yyyy-MM-dd'T'HH:mm:ssXXX"),
     news: お知らせ.行,
-    calendar: カレンダー.行
+    calendar: カレンダー.行,
+    menus: メニュー.行,
+    products: 商品.行,
+    categories: カテゴリ.行
   }, null, 2);
 
   var 名前 = '掲載物_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd-HHmm') + '.json';
@@ -157,20 +234,30 @@ function 掲載物を書き出す() {
   Logger.log('■ 書き出しました: ' + 名前);
   Logger.log('  ' + file.getUrl());
   Logger.log('');
-  Logger.log('■ お知らせ: ' + お知らせ.行.length + '件（シートは' + お知らせ.全体 + '行）');
-  Logger.log('    公開:       ' + お知らせ.行.filter(function (x) { return x.published === '公開'; }).length + '件');
-  Logger.log('    削除済み:   ' + お知らせ.行.filter(function (x) { return x.deleted; }).length + '件');
-  if (お知らせ.見つからない列.length) {
-    Logger.log('    **見つからない列: ' + お知らせ.見つからない列.join('・') + '**');
-  }
-  Logger.log('');
-  Logger.log('■ カレンダー: ' + カレンダー.行.length + '件（シートは' + カレンダー.全体 + '行）');
-  Logger.log('    公開:       ' + カレンダー.行.filter(function (x) { return x.published === '公開'; }).length + '件');
-  Logger.log('    削除済み:   ' + カレンダー.行.filter(function (x) { return x.deleted; }).length + '件');
-  if (カレンダー.見つからない列.length) {
-    Logger.log('    **見つからない列: ' + カレンダー.見つからない列.join('・') + '**');
-  }
-  Logger.log('');
+  [
+    { 名: 'お知らせ', r: お知らせ },
+    { 名: 'カレンダー', r: カレンダー },
+    { 名: 'メニュー', r: メニュー },
+    { 名: '商品', r: 商品 },
+    { 名: 'カテゴリ', r: カテゴリ }
+  ].forEach(function (x) {
+    Logger.log('■ ' + x.名 + ': ' + x.r.行.length + '件（シートは' + x.r.全体 + '行）');
+    var 公開 = x.r.行.filter(function (y) { return y.published === '公開'; }).length;
+    var 削除 = x.r.行.filter(function (y) { return y.deleted; }).length;
+    if (x.名 !== 'カテゴリ') {
+      Logger.log('    公開: ' + 公開 + '件 / 削除済み: ' + 削除 + '件');
+    }
+    if (x.名 === 'メニュー') {
+      var 画像 = x.r.行.filter(function (y) { return y.image_urls && y.image_urls.length; }).length;
+      var 枚数 = x.r.行.reduce(function (a, y) { return a + ((y.image_urls || []).length); }, 0);
+      Logger.log('    画像がある: ' + 画像 + '件（のべ' + 枚数 + '枚）');
+    }
+    if (x.r.見つからない列.length) {
+      Logger.log('    **見つからない列: ' + x.r.見つからない列.join('・') + '**');
+    }
+    Logger.log('');
+  });
+
   Logger.log('  ※ 読むだけです。シートは変えていません。');
   Logger.log('  ※ 個人情報は含みませんが、取り込みが済んだら消してください。');
 }
