@@ -214,6 +214,145 @@ class Category(models.Model):
         return {"row": self.sheet_row, "name": self.name, "kind": self.kind}
 
 
+class SupportFaq(models.Model):
+    """APP_SUPPORT_FAQ。使い方チャットが答えるための質問と回答。
+    46行 × 7列（2026-08-17 時点）。全列が46件で、欠けている項目は無い。
+
+    **掲載の共通を継承しない。**削除状態・公開開始日時などの列がそもそも無い。
+    無い列を「あることにして」表を作ると、空の欄が意味ありげに残る。
+
+    キーワードは「プロフィール,登録,会員,…」のような読点区切りの文字列。
+    GAS側が `[\\n,、，/空白]` で分けて点数を付けている。**分け方は
+    答えの当たり外れそのもの**なので、分けずに文字列のまま移し、
+    分ける処理はサーバー側でも同じ規則で書く。
+    """
+
+    sheet_row = models.IntegerField("シートの行", db_index=True, unique=True)
+
+    published = models.BooleanField("公開", default=False, db_index=True)
+    category = models.CharField("カテゴリ", max_length=100, blank=True, db_index=True)
+    question = models.CharField("質問", max_length=255)
+    keywords = models.TextField("キーワード", blank=True)
+    answer = models.TextField("回答", blank=True)
+
+    # 大きいほど先に出る（例: 154）。同点はシートの行の順。
+    priority = models.IntegerField("優先度", default=0)
+
+    updated_at = models.DateTimeField("更新日時", null=True, blank=True)
+
+    imported_at = models.DateTimeField("取り込み日時", auto_now_add=True)
+    changed_at = models.DateTimeField("変更日時", auto_now=True)
+
+    class Meta:
+        verbose_name = "使い方FAQ"
+        verbose_name_plural = "使い方FAQ"
+        ordering = ["-priority", "sheet_row"]
+
+    def __str__(self):
+        return self.question
+
+    @property
+    def keyword_list(self):
+        """GAS の splitSupportKeywords_ と同じ分け方。**両方そろえること。**"""
+        import re
+
+        return [x for x in re.split(r"[\n,、，/\s]+", self.keywords or "") if x.strip()]
+
+    def to_dict(self):
+        return {
+            "row": self.sheet_row,
+            "status": "公開" if self.published else "非公開",
+            "category": self.category,
+            "question": self.question,
+            "keywords": self.keywords,
+            "answer": self.answer,
+            "priority": self.priority,
+        }
+
+
+class PushNotice(models.Model):
+    """PUSH_NOTICES。送ったお知らせ通知の控え。96行 × 15列（2026-08-17 時点）。
+
+    シートの見出しは13列だが、実物は15列ある。14・15列目の
+    削除状態・削除日時は、あとから汎用の削除の仕組みが足したもので、
+    どちらも0件。**実物を見なければ2列を落としていた。**
+
+    **日時・通知ID・送信結果の3つは、揃って埋まるか揃って空。**
+    96件中42件だけが埋まっている。ステータス別に数えると
+    「自動送信済み」90件中40件、「送信済み」6件中2件で、
+    ステータスとは関係が無かった。OneSignal から通知IDが返ってきた
+    配信がこの42件で、残りは結果を受け取らずに記録だけ残った行。
+    **空欄は空欄のまま移す。**0や仮の日時で埋めると、
+    「いつ届いたか」が分からなくなるどころか、届いたことになってしまう。
+    """
+
+    sheet_row = models.IntegerField("シートの行", db_index=True, unique=True)
+
+    # 実際に送られた日時。届かなかった行は空のまま。
+    sent_at = models.DateTimeField("日時", null=True, blank=True, db_index=True)
+    title = models.CharField("タイトル", max_length=255)
+    body = models.TextField("本文", blank=True)
+
+    # 誰に送ったか。実物は96件すべて 'all'。
+    target_status = models.CharField("送信対象", max_length=100, blank=True)
+    # GAS の作りでは、会員を選んで送ると**会員の一覧（JSON）が入りうる。**
+    # 書き出す前に6件の中身を確かめたところ、実際に入っていたのは
+    # 「テスト送信:デモ2」「確認送信:デモ2」というラベルだけで、
+    # 会員は含まれていなかった（2026-08-17）。
+    # **将来ここに会員一覧が入ったら、書き出したJSONは個人情報を含む。**
+    # そのときは 書き出したJSONを片付ける() の要注意扱いに加えること。
+    target_detail = models.TextField("送信対象詳細", blank=True)
+    recipient_count = models.IntegerField("送信件数", null=True, blank=True)
+
+    # 自動送信済み / 送信済み / 下書き / 予約済み / 送信失敗
+    status = models.CharField("ステータス", max_length=32, blank=True, db_index=True)
+
+    # 予約配信。実物は96件すべて空で、いまのところ使われていない。
+    scheduled_at = models.DateTimeField("配信予定日時", null=True, blank=True)
+
+    # 通知を押したときに開くページ（home / shop / calendar / news / …）。
+    target_page = models.CharField("対象ページ", max_length=32, blank=True)
+    preview_body = models.TextField("プレビュー本文", blank=True)
+
+    notification_id = models.CharField("通知ID", max_length=64, blank=True)
+    result = models.TextField("送信結果", blank=True)
+
+    updated_at = models.DateTimeField("更新日時", null=True, blank=True)
+
+    deleted = models.BooleanField("削除済み", default=False, db_index=True)
+    deleted_at = models.DateTimeField("削除日時", null=True, blank=True)
+
+    imported_at = models.DateTimeField("取り込み日時", auto_now_add=True)
+    changed_at = models.DateTimeField("変更日時", auto_now=True)
+
+    class Meta:
+        verbose_name = "プッシュ通知"
+        verbose_name_plural = "プッシュ通知"
+        ordering = ["-sheet_row"]
+
+    def __str__(self):
+        return f"{self.sent_at or '（未送信）'} {self.title}"
+
+    @property
+    def was_delivered(self):
+        """本当に配信されたと言い切れるか。通知IDが返ってきた行だけ。"""
+        return bool(self.notification_id)
+
+    def to_dict(self):
+        return {
+            "row": self.sheet_row,
+            "sentAt": self.sent_at.isoformat() if self.sent_at else None,
+            "title": self.title,
+            "body": self.body,
+            "targetStatus": self.target_status,
+            "recipientCount": self.recipient_count,
+            "status": self.status,
+            "targetPage": self.target_page,
+            "notificationId": self.notification_id,
+            "deleted": self.deleted,
+        }
+
+
 class CalendarEvent(掲載の共通):
     """カレンダー。スプレッドシートの「カレンダー」にあたる。
 
