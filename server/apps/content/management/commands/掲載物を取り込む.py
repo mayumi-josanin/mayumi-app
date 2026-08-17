@@ -18,7 +18,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from apps.content.models import CalendarEvent, News
+from apps.content.models import CalendarEvent, Category, Menu, News, Product
 
 
 def 文字(値):
@@ -84,9 +84,11 @@ class Command(BaseCommand):
             raise CommandError(f"読み込めませんでした: {e}")
 
         下見 = options["preview"]
-        結果 = []
-        結果.append(self._取り込む(News, 生.get("news") or [], "お知らせ", 下見))
-        結果.append(self._取り込む(CalendarEvent, 生.get("calendar") or [], "カレンダー", 下見))
+        self._取り込む(News, 生.get("news") or [], "お知らせ", 下見)
+        self._取り込む(CalendarEvent, 生.get("calendar") or [], "カレンダー", 下見)
+        self._取り込む(Menu, 生.get("menus") or [], "メニュー", 下見)
+        self._取り込む(Product, 生.get("products") or [], "商品", 下見)
+        self._カテゴリを取り込む(生.get("categories") or [], 下見)
 
         if 下見:
             self.stdout.write("")
@@ -94,7 +96,10 @@ class Command(BaseCommand):
             self.stdout.write("  よければ --下見 を外して実行してください。")
 
     def _取り込む(self, model, 行, 名, 下見):
-        日付の鍵 = "posted_on" if model is News else "event_on"
+        日付の鍵 = {News: "posted_on", CalendarEvent: "event_on",
+                    Menu: "registered_on"}.get(model, "")
+        # お知らせ・カレンダーは title、メニュー・商品は name。
+        名前の鍵 = "title" if model in (News, CalendarEvent) else "name"
         新規, 更新, 変化なし, 飛ばした = [], [], 0, 0
 
         for r in 行:
@@ -106,12 +111,12 @@ class Command(BaseCommand):
             # 題も日付も無い行は、書きかけの空行。書き出し側でも弾いているが、
             # ここでも弾く。**受け取る側で守らないと、書き出しの作りが
             # 変わったときに空行が黙って入り込む。**
-            if not 文字(r.get("title")) and not 日付(r.get(日付の鍵)):
+            if not 文字(r.get(名前の鍵)) and not (日付の鍵 and 日付(r.get(日付の鍵))):
                 飛ばした += 1
                 continue
 
             値 = {
-                "title": 文字(r.get("title"))[:255],
+                名前の鍵: 文字(r.get(名前の鍵))[:255],
                 "published": 公開か(r.get("published")),
                 "notice_listed": 公開か(r.get("notice_listed")),
                 "deleted": 削除済みか(r.get("deleted")),
@@ -124,7 +129,30 @@ class Command(BaseCommand):
                 "image_url": 文字(r.get("image_url")),
                 "updated_at": 日時(r.get("updated_at")),
             }
-            if model is News:
+            if model is Menu:
+                値.update({
+                    "registered_on": 日付(r.get("registered_on")),
+                    "summary": 文字(r.get("summary")),
+                    "category": 文字(r.get("category"))[:100],
+                    "booking_status": 文字(r.get("booking_status"))[:100],
+                    # 画像は配列のまま持つ。1つのメニューに複数枚ある。
+                    "image_urls": r.get("image_urls") if isinstance(r.get("image_urls"), list) else [],
+                    "sort_key": 数(r.get("sort_key")),
+                })
+            elif model is Product:
+                値.update({
+                    "category": 文字(r.get("category"))[:100],
+                    "price": 数(r.get("price")),
+                    "special_price": 数(r.get("special_price")),
+                    "description": 文字(r.get("description")),
+                    "icon_url": 文字(r.get("icon_url")),
+                    "description_image_url": 文字(r.get("description_image_url")),
+                    "background_color": 文字(r.get("background_color"))[:32],
+                    # 空欄は None のまま。0（売り切れ）と区別する。
+                    "stock": 数(r.get("stock")),
+                    "stock_warning": 数(r.get("stock_warning")),
+                })
+            elif model is News:
                 値.update({
                     "posted_on": 日付(r.get("posted_on")),
                     "category": 文字(r.get("category"))[:100],
@@ -134,7 +162,7 @@ class Command(BaseCommand):
                     "link_label": 文字(r.get("link_label"))[:100],
                     "button_text": 文字(r.get("button_text"))[:100],
                 })
-            else:
+            elif model is CalendarEvent:
                 値.update({
                     "event_on": 日付(r.get("event_on")),
                     "detail": 文字(r.get("detail")),
@@ -174,3 +202,39 @@ class Command(BaseCommand):
                 model.objects.filter(sheet_row=row).update(**値)
 
         self.stdout.write(f"    → いま {model.objects.count()}件")
+
+    def _カテゴリを取り込む(self, 行, 下見):
+        """カテゴリマスタ。2列しかないので、掲載の共通を持たない。"""
+        新規, 更新, 変化なし, 飛ばした = [], [], 0, 0
+
+        for r in 行:
+            row = 数(r.get("row"))
+            名 = 文字(r.get("name"))
+            if not row or not 名:
+                飛ばした += 1
+                continue
+            値 = {"name": 名[:100], "kind": 文字(r.get("kind"))[:32]}
+            既存 = Category.objects.filter(sheet_row=row).first()
+            if not 既存:
+                新規.append((row, 値))
+            elif [k for k, v in 値.items() if getattr(既存, k) != v]:
+                更新.append((row, 値))
+            else:
+                変化なし += 1
+
+        self.stdout.write("")
+        self.stdout.write(f"■ カテゴリ: JSONに {len(行)}件")
+        self.stdout.write(f"    新しく入る:   {len(新規)}件")
+        self.stdout.write(f"    中身が変わる: {len(更新)}件")
+        self.stdout.write(f"    変わらない:   {変化なし}件")
+        if 飛ばした:
+            self.stdout.write(f"    飛ばした: {飛ばした}件")
+        if 下見:
+            return
+
+        with transaction.atomic():
+            for row, 値 in 新規:
+                Category.objects.create(sheet_row=row, **値)
+            for row, 値 in 更新:
+                Category.objects.filter(sheet_row=row).update(**値)
+        self.stdout.write(f"    → いま {Category.objects.count()}件")
