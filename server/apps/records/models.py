@@ -3,6 +3,71 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db import models
 
 
+class AuditLog(models.Model):
+    """操作履歴。スプレッドシートの ADMIN_AUDIT_LOG にあたる。
+
+    **9,373行のうち、移すのは「人の操作」794件だけ**（院長の判断）。
+    残り8,579件（91.5%）はアプリが勝手に行う自動処理の記録で、
+    誰も見ない。全部移すとデータ量が11倍になり、控えも大きくなる。
+
+    除いた2種（2026-08-17 に全行を数えた結果）:
+
+    | 種別 | 件数 | 割合 | 中身 |
+    |---|---|---|---|
+    | syncUserDeviceSession | 7,788 | 83.1% | 端末の記録合わせ |
+    | syncUserRewardStatus | 791 | 8.4% | 特典状態の同期 |
+
+    **除いた件数は取り込みのたびに数えて出す。**黙って減らさない。
+
+    「操作者」は全9,373件が「管理者」で、誰がやったかは記録されていない。
+    列としては持つが、いまのところ監査の役には立っていない。
+
+    **「概要」は種別によって埋まり方がまったく違う。**
+    先頭200行だけ見ると 0/199 で空に見えるが、全体では
+    deleteOrders 30/30、mergeUsers 13/13 と全部埋まっている種別がある。
+    空欄のまま持ち、**「使っていない列」と決めつけない。**
+    """
+
+    # 自動処理の記録。これは移さない。**増やすときは移行設計にも書くこと。**
+    自動処理の種別 = ("syncUserDeviceSession", "syncUserRewardStatus")
+
+    sheet_row = models.IntegerField("シートの行", db_index=True, unique=True)
+
+    happened_at = models.DateTimeField("日時", null=True, blank=True, db_index=True)
+    kind = models.CharField("種別", max_length=64, db_index=True)
+
+    # 成功 / 失敗
+    result = models.CharField("結果", max_length=32, blank=True, db_index=True)
+
+    target = models.TextField("対象", blank=True)
+    summary = models.TextField("概要", blank=True)
+
+    # 全件「管理者」。誰がやったかは記録されていない。
+    operator = models.CharField("操作者", max_length=64, blank=True)
+
+    # 何を送って何が返ったかの控え。読める形（辞書）で持つ。
+    # 文字列のままだと、あとで中を絞り込めない。
+    detail = models.JSONField("詳細", null=True, blank=True)
+    # 読めなかったときは、元の文字列を捨てずにここへ置く。
+    # **形が違うからといって記録を消さない。**
+    detail_raw = models.TextField("詳細（読めなかったもの）", blank=True)
+
+    imported_at = models.DateTimeField("取り込み日時", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "操作履歴"
+        verbose_name_plural = "操作履歴"
+        ordering = ["-happened_at", "-sheet_row"]
+        indexes = [models.Index(fields=["kind", "-happened_at"])]
+
+    def __str__(self):
+        return f"{self.happened_at} {self.kind} {self.result}"
+
+    @property
+    def failed(self):
+        return self.result == "失敗"
+
+
 class SupplierPrice(models.Model):
     """仕入値。スプレッドシートの「管理マスタ」にあたる。22行 × 5列。
 
