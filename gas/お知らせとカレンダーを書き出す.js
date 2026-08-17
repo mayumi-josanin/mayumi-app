@@ -107,6 +107,39 @@ var 掲載書出_カテゴリの列 = {
   kind: ['種別', '__2列目']
 };
 
+// ---- 使い方FAQ・プッシュ通知 ----
+
+var 掲載書出_FAQの列 = {
+  status: ['状態'],
+  category: ['カテゴリ'],
+  question: ['質問'],
+  keywords: ['キーワード'],
+  answer: ['回答'],
+  priority: ['優先度'],
+  updated_at: ['更新日時']
+};
+
+var 掲載書出_プッシュ通知の列 = {
+  sent_at: ['日時'],
+  title: ['タイトル'],
+  body: ['本文'],
+  target_status: ['送信対象'],
+  target_detail: ['送信対象詳細'],
+  recipient_count: ['送信件数'],
+  status: ['ステータス'],
+  scheduled_at: ['配信予定日時'],
+  target_page: ['対象ページ'],
+  preview_body: ['プレビュー本文'],
+  notification_id: ['通知ID'],
+  result: ['送信結果'],
+  updated_at: ['更新日時'],
+  // 見出しは13列しか作られていないが、実物は15列ある。
+  // 14・15列目はあとから汎用の削除の仕組みが足したもの。
+  // どちらも0件だが、**あるものは落とさずに移す。**
+  deleted: ['削除状態'],
+  deleted_at: ['削除日時']
+};
+
 function 掲載書出_空か_(x) { return x === '' || x === null || x === undefined; }
 
 function 掲載書出_文字_(値) {
@@ -183,7 +216,8 @@ function 掲載書出_1枚_(sheet, 定義, 日付の鍵, 名前の鍵) {
       else if (鍵.indexOf('_at') >= 0) o[鍵] = 掲載書出_日時_(x);
       else if (鍵 === 'sort_order' || 鍵 === 'menu_row' || 鍵 === 'sort_key' ||
                鍵 === 'price' || 鍵 === 'special_price' ||
-               鍵 === 'stock' || 鍵 === 'stock_warning') {
+               鍵 === 'stock' || 鍵 === 'stock_warning' ||
+               鍵 === 'priority' || 鍵 === 'recipient_count') {
         // 空欄は null のまま。**0 と空欄は意味が違う。**
         // 在庫0（売り切れ）と、在庫を管理していない、を混ぜない。
         var t = 掲載書出_文字_(x);
@@ -219,13 +253,22 @@ function 掲載物を書き出す() {
   var 商品 = 掲載書出_1枚_(ss.getSheetByName(SHEETS.PRODUCTS), 掲載書出_商品の列, '', 'name');
   var カテゴリ = 掲載書出_1枚_(ss.getSheetByName(SHEETS.CATEGORIES), 掲載書出_カテゴリの列, '', 'name');
 
+  // FAQ は日付の列を持たないので、空行の判定は質問だけで行う。
+  var FAQ = 掲載書出_1枚_(ss.getSheetByName(SHEETS.APP_SUPPORT_FAQ), 掲載書出_FAQの列, '', 'question');
+  // プッシュ通知は「日時」が96件中42件しか埋まっていない。
+  // **日付を空行の手がかりにすると、54件が黙って落ちる。**
+  // タイトルは96件すべて埋まっているので、それだけで判定する。
+  var プッシュ通知 = 掲載書出_1枚_(ss.getSheetByName(SHEETS.PUSH), 掲載書出_プッシュ通知の列, '', 'title');
+
   var 中身 = JSON.stringify({
     書き出した日時: Utilities.formatDate(new Date(), 'Asia/Tokyo', "yyyy-MM-dd'T'HH:mm:ssXXX"),
     news: お知らせ.行,
     calendar: カレンダー.行,
     menus: メニュー.行,
     products: 商品.行,
-    categories: カテゴリ.行
+    categories: カテゴリ.行,
+    faq: FAQ.行,
+    push_notices: プッシュ通知.行
   }, null, 2);
 
   var 名前 = '掲載物_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd-HHmm') + '.json';
@@ -239,13 +282,31 @@ function 掲載物を書き出す() {
     { 名: 'カレンダー', r: カレンダー },
     { 名: 'メニュー', r: メニュー },
     { 名: '商品', r: 商品 },
-    { 名: 'カテゴリ', r: カテゴリ }
+    { 名: 'カテゴリ', r: カテゴリ },
+    { 名: 'FAQ', r: FAQ },
+    { 名: 'プッシュ通知', r: プッシュ通知 }
   ].forEach(function (x) {
     Logger.log('■ ' + x.名 + ': ' + x.r.行.length + '件（シートは' + x.r.全体 + '行）');
-    var 公開 = x.r.行.filter(function (y) { return y.published === '公開'; }).length;
+    // FAQ は公開・非公開を「状態」列に持つ。名前が published ではない。
+    var 公開の鍵 = x.名 === 'FAQ' ? 'status' : 'published';
+    var 公開 = x.r.行.filter(function (y) { return y[公開の鍵] === '公開'; }).length;
     var 削除 = x.r.行.filter(function (y) { return y.deleted; }).length;
-    if (x.名 !== 'カテゴリ') {
+    if (x.名 !== 'カテゴリ' && x.名 !== 'プッシュ通知') {
       Logger.log('    公開: ' + 公開 + '件 / 削除済み: ' + 削除 + '件');
+    }
+    if (x.名 === 'プッシュ通知') {
+      // 実際に配信できた件数。日時・通知ID・送信結果は揃って埋まる。
+      var 配信 = x.r.行.filter(function (y) { return y.notification_id; }).length;
+      var 状態 = {};
+      x.r.行.forEach(function (y) {
+        var s = y.status || '（空）';
+        状態[s] = (状態[s] || 0) + 1;
+      });
+      Logger.log('    通知IDが返ってきた（配信できた）: ' + 配信 + '件');
+      Logger.log('    ステータス: ' + Object.keys(状態).map(function (k) {
+        return k + ' ' + 状態[k] + '件';
+      }).join(' / '));
+      Logger.log('    削除済み: ' + 削除 + '件');
     }
     if (x.名 === 'メニュー') {
       var 画像 = x.r.行.filter(function (y) { return y.image_urls && y.image_urls.length; }).length;
@@ -259,5 +320,7 @@ function 掲載物を書き出す() {
   });
 
   Logger.log('  ※ 読むだけです。シートは変えていません。');
-  Logger.log('  ※ 個人情報は含みませんが、取り込みが済んだら消してください。');
+  Logger.log('  ※ 個人情報は含みません（プッシュ通知の「送信対象詳細」も');
+  Logger.log('     テスト送信のラベルだけであることを確認済み）。');
+  Logger.log('     ただし置きっぱなしにせず、取り込みが済んだら消してください。');
 }
