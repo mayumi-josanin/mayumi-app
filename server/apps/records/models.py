@@ -3,6 +3,67 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db import models
 
 
+class SupplierPrice(models.Model):
+    """仕入値。スプレッドシートの「管理マスタ」にあたる。22行 × 5列。
+
+    **5列のうち、使うのは3列だけ**（2026-08-17 の下見）:
+
+    | 列 | 中身 |
+    |---|---|
+    | 1. 商品名（完全一致） | 22件 |
+    | 2. 仕入値（円） | 22件 |
+    | 3. 備考 | 14件 |
+    | 4. （見出しなし） | **0件。空の列** |
+    | 5. 【仕入値の自動入力について】 | **3件。人向けの説明文** |
+
+    5列目は「注文管理シートでは、D列の『商品名』とここの『商品名』を
+    照合して…」という運用メモが3行だけ入っている。**列として移すと、
+    仕入値の表に意味のない文字列が混ざる。**見出しの名前で拾い、
+    この2列は取らない。
+
+    **商品名で商品マスタと結びついている。**見出しが「商品名（完全一致）」で、
+    名前がぴたり合うことを前提にした作り。IDに直したくなるが、直すと
+    名前が少し違うだけの商品が迷子になる。移行のあいだは名前のまま置き、
+    **結びついたかどうかを記録して、結びつかないものは数えて報告する。**
+    """
+
+    sheet_row = models.IntegerField("シートの行", db_index=True, unique=True)
+
+    product_name = models.CharField("商品名（完全一致）", max_length=255, db_index=True)
+
+    # 単価と同じ理由で小数で持つ。いまは全件が整数だが、
+    # 割り算の結果（3個で◯◯円 など）が入ってもおかしくない。
+    price = models.DecimalField(
+        "仕入値（円）", max_digits=12, decimal_places=6, null=True, blank=True
+    )
+
+    memo = models.TextField("備考", blank=True)
+
+    # 商品マスタに同じ名前があったか。取り込んだときの結果を残す。
+    # **見つからないことを黙って通さない。**あとで粗利を出すときに、
+    # どの商品の原価が分からないのかが即座に分かる。
+    matched_product = models.ForeignKey(
+        "content.Product", verbose_name="結びついた商品",
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="supplier_prices",
+    )
+
+    imported_at = models.DateTimeField("取り込み日時", auto_now_add=True)
+    changed_at = models.DateTimeField("変更日時", auto_now=True)
+
+    class Meta:
+        verbose_name = "仕入値"
+        verbose_name_plural = "仕入値"
+        ordering = ["sheet_row"]
+
+    def __str__(self):
+        return f"{self.product_name} {self.price}円"
+
+    @property
+    def is_linked(self):
+        return self.matched_product_id is not None
+
+
 class RevenueRecord(models.Model):
     """売上の記録。MENU_REVENUE 112行 と PRODUCT_REVENUE 65行 を1つにまとめたもの。
 
