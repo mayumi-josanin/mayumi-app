@@ -3,6 +3,49 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db import models
 
 
+class BackupRecord(models.Model):
+    """控えの記録。スプレッドシートの BACKUP_LOG にあたる。139行 × 5列。
+
+    GASがスプレッドシートの控え（コピー）を作ったときの記録。
+    **控えそのものではなく、「いつ・何という名前で作ったか」の一覧。**
+    実体はGoogleドライブにあり、ファイルIDとURLで辿れる。
+
+    | 列 | 中身 |
+    |---|---|
+    | 作成日時 | 例: 2026-04-05T18:25:26+09:00 |
+    | 種別 | 例: manual-admin（手で作ったか、自動か） |
+    | ファイル名 | 例: まゆみ助産院_管理_backup_20260405_182523 |
+    | ファイルID | ドライブ上のID |
+    | URL | 開くためのリンク |
+
+    **ドライブ上のファイルが消えても、この記録は残る。**
+    「あの日の控えはもう無い」と分かること自体に意味がある。
+    記録が消えると、無かったのか消えたのかも分からなくなる。
+
+    設計書には130件とあったが、実物は139行（2026-08-17 の下見）。
+    """
+
+    sheet_row = models.IntegerField("シートの行", db_index=True, unique=True)
+
+    created_at = models.DateTimeField("作成日時", null=True, blank=True, db_index=True)
+    kind = models.CharField("種別", max_length=64, blank=True, db_index=True)
+
+    file_name = models.CharField("ファイル名", max_length=255, blank=True)
+    # ドライブのIDは33文字前後だが、余裕を持たせる。
+    file_id = models.CharField("ファイルID", max_length=128, blank=True, db_index=True)
+    url = models.TextField("URL", blank=True)
+
+    imported_at = models.DateTimeField("取り込み日時", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "控えの記録"
+        verbose_name_plural = "控えの記録"
+        ordering = ["-created_at", "-sheet_row"]
+
+    def __str__(self):
+        return f"{self.created_at} {self.file_name}"
+
+
 class AuditLog(models.Model):
     """操作履歴。スプレッドシートの ADMIN_AUDIT_LOG にあたる。
 
