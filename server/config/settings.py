@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.measurements",
     "apps.members",
     "apps.content",
+    "apps.records",
 ]
 
 MIDDLEWARE = [
