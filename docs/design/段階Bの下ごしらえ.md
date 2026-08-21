@@ -149,3 +149,84 @@ GAS は5種類だけ記録から外している（`AUDIT_LOG_SKIP_TYPES`）の�
 操作履歴では分からないので、GAS 側に一時的に数える仕掛けを入れるか、
 アプリのコードから「起動時に何を呼ぶか」を追う。
 
+
+---
+
+## ② 読み取りを数えた（2026-08-21）
+
+操作履歴では分からないので、**アプリのコードから直接拾った。**
+読み取りは `getFromGAS(action)` / `fetchFromGAS(action)` を通る。
+
+### お客様アプリが読むもの — **12種**
+
+| action | どこで |
+|---|---|
+| `getAppRuntimeConfig` | 起動時 |
+| `getProducts` | 商品一覧 |
+| `getNews` | お知らせ |
+| `getPushNotices` | 通知の一覧 |
+| `getRewardGachaConfig` | 特典ガチャ |
+| `getUserRewardStatus` | 特典状態（会員ごと） |
+| `getCalendar` | カレンダー |
+| `getCustomerOrders` | 注文履歴（会員ごと） |
+| `getSupportFaq` | 使い方チャット |
+| `getUserDevices` | 端末の一覧（会員ごと） |
+| `getRecoveryCandidates` | **復元の候補** |
+| `getMenus` | メニュー一覧 |
+
+### 管理アプリが読むもの — **25種**
+
+    getAdminMenus / getAdminProducts / getAdminUsers / getAdminOrders
+    getAdminCalendar / getAdminBlogs / getCategories / getAdminUserOrders
+    getPushNotices / getProductRevenueRecords / getMenuRevenueRecords
+    getAnalytics / getAdminSupportFaq / getSupportChatAnalytics
+    getRewardGachaConfig / getPushUsers / getBackupStatus / getAppRuntimeConfig
+    getAdminTrashItems / getAdminTemplates / getAdminSecurityConfig
+    getAdminDashboardData / getAdminAuditLogs
+    getFirebasePresenceToken / getFirebasePresenceAdminConfig
+
+### 分かったこと
+
+**`getInitialData` はどちらのアプリからも呼ばれていない。**
+GAS は受け付けるが、実際には使われていない古い口。**作らなくてよい。**
+
+（①で「記録に0件だから使われているはず」と考えたのは早合点だった。
+　**本当に使われていなかった。**コードを見るまで断定しなくてよかった。）
+
+---
+
+## ①②を合わせた結論：作るのは **44種**
+
+| | 数 |
+|---|---|
+| GAS が受ける種類 | 96 |
+| **お客様アプリが使う（書き9＋読み12）** | **21** |
+| **管理アプリが使う（書き…＋読み25）** | — |
+| **合わせて実際に使われている** | **44**（重複を除く） |
+| **どこからも呼ばれていない** | **52** |
+
+**半分以上は作らなくてよい。**
+
+### 切り替えの最小構成 — お客様アプリの21種
+
+**まずここだけ作れば、お客様の側は切り替えられる。**管理アプリは
+スプレッドシートを見続けてよい（院内でしか使わないので、多少遅くても困らない）。
+
+    書き込み9  updateUser / recoverAccount / resetForgottenPasscode
+              drawRewardGacha / order / cancel / confirmReceipt
+              syncUserDeviceSession / syncUserRewardStatus
+    読み取り12 getAppRuntimeConfig / getProducts / getNews / getPushNotices
+              getRewardGachaConfig / getUserRewardStatus / getCalendar
+              getCustomerOrders / getSupportFaq / getUserDevices
+              getRecoveryCandidates / getMenus
+
+**このうち読み取り12種は、すでにサーバーにデータが揃っている。**
+お知らせ95・カレンダー143・メニュー13・商品9・FAQ46・通知96 は移行済み。
+**作るのは「出す口」だけで、中身を用意する必要は無い。**
+
+書き込み9種のうち、注文まわり（order / cancel / confirmReceipt）は
+**注文管理シートが0件**なので、いま使われていない。実質6種。
+
+> **次にやること: 札（トークン）の突き合わせ。**
+> これが合わない限り、何を作っても切り替えられない。
+
