@@ -94,3 +94,58 @@
 
 急ぐ理由は無い。サーバーは写しのまま置いておいても、
 控えが毎日取れて、見張りが動いている。**止まってもお客様には何も起きない。**
+
+---
+
+## ① 使っていない口を数えた（2026-08-21）
+
+**操作履歴（`records_auditlog` 794件・2026-05-17〜08-17）から数えた。**
+GAS は5種類だけ記録から外している（`AUDIT_LOG_SKIP_TYPES`）ので、
+**それ以外は呼ばれれば必ず残る。**つまり「一度も出てこない＝93日間使われていない」。
+
+| | 数 |
+|---|---|
+| GAS が受ける種類（重複を除く） | **96** |
+| 記録から外れている | 5 |
+| 記録に出うる | 91 |
+| **実際に出てきた** | **28** |
+| **93日間で一度も呼ばれていない** | **63** |
+
+### 実際に使われた28種（多い順）
+
+    updateUser 155 / recoverAccount 140 / addBlog 67 / saveMenuRevenueRecord 61
+    updateAdminRewardStatus 59 / resetForgottenPasscode 49 / deleteUser 42
+    addCalendar 40 / deleteOrders 30 / updateBlog 29 / drawRewardGacha 27
+    saveProductRevenueRecord 16 / updateCalendar 13 / mergeUsers 13 / deleteRow 10
+    updateMenu 8 / saveRewardGachaConfig 8 / grantSurveyStamp 7
+    runManualBackup 3 / restoreDeletedRecord 3 / issueTransferCode 2 / addMenu 2
+    deleteProductRevenueRecord 2 / deleteMenuRevenueRecord 2 / deleteRows 1
+    deleteCategory 1 / addCategory 1 / updateProduct 1
+    パスコード再設定 2（GASの一覧に無い日本語の種別。別経路で書かれている）
+
+### 読み取りは、この数え方では分からない
+
+**`getNews` などの読み取りが「一度も出てこない」のは、使われていない意味ではない。**
+記録されるのは `doPost` で、読み取りの多くは別経路（`doGet` / `action=`）を通る。
+実際、お客様アプリは起動のたびに `getInitialData` を呼んでいるはずだが、
+記録には1件も無い。**読み取り側は、別の方法で数える必要がある。**
+
+### それでも分かったこと
+
+**書き込み側は28種で足りる。**63種のうち多くは管理アプリの読み取りで、
+段階Bでは後回しにできる。**99すべてを作る必要は無い。**
+
+とくに**お客様アプリの書き込みは、実質7種**しか使われていない。
+
+    updateUser / recoverAccount / resetForgottenPasscode / drawRewardGacha
+    order / cancel / confirmReceipt
+
+（`syncUserDeviceSession` と `syncUserRewardStatus` は記録外だが、
+93日で8,579回。**最も呼ばれる2種**なので当然要る。）
+
+### 次に数えること
+
+**読み取りが実際にどれだけ呼ばれているか。**
+操作履歴では分からないので、GAS 側に一時的に数える仕掛けを入れるか、
+アプリのコードから「起動時に何を呼ぶか」を追う。
+
