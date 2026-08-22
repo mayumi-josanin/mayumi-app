@@ -653,3 +653,53 @@ isLowStock: soldOutStatus !== '売切' && lowStockThreshold > 0
 | 読み取り 設定2種 | `getAppRuntimeConfig` / `getRewardGachaConfig`（**スクリプトプロパティ。未移行**） |
 | 書き込み 6種 | まだ |
 
+
+### `getProducts` も一致した（2026-08-22 19:30）
+
+| action | GAS | サーバー | 項目 | |
+|---|---|---|---|---|
+| `getNews` | 88 | 88 | 16 | **一致** |
+| `getMenus` | 10 | 10 | 12 | **一致** |
+| `getCalendar` | 120 | 120 | 15 | **一致** |
+| `getSupportFaq` | 46 | 46 | 7 | **一致** |
+| `getPushNotices` | 97 | 97 | 15 | **一致** |
+| `getProducts` | 8 | 8 | 17 | **一致** |
+
+**読み取り6種、すべて一致。**
+
+#### ここでも自分の間違いを1つ直した
+
+最初 `getProducts` が **9件**返って、GAS の8件と合わなかった。
+
+原因は**私が GAS に無い条件を足したこと。**
+「シートの公開設定が空欄のとき `published` が False になってしまうから」と考え、
+`notice_listed` で救う条件を書いていた。**GAS にそんな条件は無い。**
+
+    サーバー  9行 天然だし調味粉  published=False  notice_listed=True
+    → 私の条件が非公開の商品を**救ってしまい**、お客様に出るところだった
+
+GAS はこれだけ。
+
+    if (!row[1] || String(row[5]).trim() === '非公開') continue;
+
+**推測で条件を足すと、出してはいけないものが出る。**
+「こうなっているはずだから、こう補っておこう」が一番危ない。
+**書いてあるとおりに写す。**
+
+> **売切の「天然だし調味粉」は、そもそも非公開だった。**
+> だからお客様の画面には出ていない。院長が「売切状態はない」と
+> おっしゃったのは、**お客様から見える範囲では正しかった。**
+
+---
+
+## ④の進み具合（2026-08-22 時点）
+
+| | 状態 |
+|---|---|
+| **読み取り 6種** | **済**。GASと完全一致 |
+| 読み取り 会員まわり4種 | `getUserRewardStatus` / `getUserDevices` / `getRecoveryCandidates` / `getCustomerOrders` |
+| 読み取り 設定2種 | `getAppRuntimeConfig` / `getRewardGachaConfig`（**スクリプトプロパティ。未移行**） |
+| 書き込み 6種 | まだ |
+
+**読み取り12種のうち6種、ちょうど半分が終わった。**
+

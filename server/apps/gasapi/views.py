@@ -26,7 +26,15 @@ import hmac
 from django.conf import settings
 from django.http import JsonResponse
 
-from apps.content.models import CalendarEvent, Category, Menu, News, PushNotice, SupportFaq
+from apps.content.models import (
+    CalendarEvent,
+    Category,
+    Menu,
+    News,
+    Product,
+    PushNotice,
+    SupportFaq,
+)
 
 
 def _合鍵を確かめる(request):
@@ -305,6 +313,79 @@ def _通知():
     return {"status": "ok", "notices": 一覧}
 
 
+
+def _商品():
+    """GAS の getProducts()（3420行）と同じ形で返す。
+
+    **除外条件がメニュー・カレンダーと逆。**
+
+        getMenus    … 公開設定が「公開」**でなければ外す**（空欄は外れる）
+        getProducts … 公開設定が「非公開」**なら外す**（**空欄は残る**）
+
+    写し間違えると、出してはいけない商品が出るか、出るべき商品が消える。
+
+    **売切は在庫数ではなく「売切状態」列で決まる。**
+    在庫が残っていても院長が手で「売切」にできる。
+    この列は 2026-08-17 の移行で見落としていて、8/22 に足した。
+    """
+    from django.utils import timezone
+    いま = timezone.now()
+
+    一覧 = []
+    for p in Product.objects.all():
+        # GAS（3420行）が外している4つ:
+        #   !row[1]                     … 商品名が空
+        #   row[5] === '非公開'          … **「非公開」のときだけ外す**
+        #   isNoticeListingDeleted_     … お知らせ一覧削除日時
+        #   isSoftDeletedByColumns_     … 削除状態・削除日時
+        #   !isPublishAtAvailable_      … 公開開始日時がまだ
+        if not (p.name or "").strip():
+            continue
+        # **GAS には無い条件を足さない。**
+        # 最初、「空欄も False になってしまうから」と考えて
+        # notice_listed で救う条件を書いたが、GAS にそんな条件は無い。
+        # そのせいで非公開の「天然だし調味粉」が出てしまい、9件になった
+        # （GAS は8件）。**推測で条件を足すと、出してはいけないものが出る。**
+        if not p.published:
+            continue
+        if p.notice_delisted_at:
+            continue
+        if p.deleted or p.deleted_at:
+            continue
+        if p.publish_at and p.publish_at > いま:
+            continue
+
+        在庫 = p.stock or 0
+        閾値 = p.stock_warning or 0
+        売切 = (p.sold_out or "").strip() == "売切"
+
+        画像 = _画像(p.icon_url)
+        説明画像 = _画像(p.description_image_url)
+
+        一覧.append({
+            "category": p.category or "",
+            "name": p.name or "",
+            "price": p.price or 0,
+            # GAS は「画像があればその1枚目、無ければ元の列の値（絵文字）」
+            "icon": 画像[0] if 画像 else (p.icon_url or "🌿"),
+            "imageUrls": 画像,
+            "bg": p.background_color or "c1",
+            "description": p.description or "",
+            "descriptionImage": 説明画像[0] if 説明画像 else (p.description_image_url or ""),
+            "descriptionImageUrls": 説明画像,
+            "updatedAt": _日時(p.updated_at),
+            "stockQty": 在庫,
+            "lowStockThreshold": 閾値,
+            "soldOutStatus": "売切" if 売切 else "在庫あり",
+            "isSoldOut": 売切,
+            # **売切でない かつ 閾値>0 かつ 在庫>0 かつ 在庫<=閾値**
+            "isLowStock": (not 売切) and 閾値 > 0 and 在庫 > 0 and 在庫 <= 閾値,
+            "publishAt": _日時(p.publish_at),
+            "noticeStatus": "公開" if p.notice_listed else "非公開",
+        })
+    return {"status": "ok", "products": 一覧}
+
+
 # action の名前 → 返す中身を作る関数
 _できること = {
     "getNews": _お知らせ,
@@ -312,6 +393,7 @@ _できること = {
     "getCalendar": _カレンダー,
     "getSupportFaq": _使い方FAQ,
     "getPushNotices": _通知,
+    "getProducts": _商品,
 }
 
 

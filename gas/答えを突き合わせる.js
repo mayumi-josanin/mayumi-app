@@ -15,7 +15,8 @@ function GASの答えを数える() {
     { 名: 'getMenus',       呼ぶ: function () { return getMenus(); },         中身: 'menus' },
     { 名: 'getCalendar',    呼ぶ: function () { return getCalendarEvents(); }, 中身: 'events' },
     { 名: 'getSupportFaq',  呼ぶ: function () { return getSupportFaq(); },    中身: 'faqs' },
-    { 名: 'getPushNotices', 呼ぶ: function () { return getPushNotices(); },   中身: 'notices' }
+    { 名: 'getPushNotices', 呼ぶ: function () { return getPushNotices(); },   中身: 'notices' },
+    { 名: 'getProducts',    呼ぶ: function () { return getProducts(); },      中身: 'products' }
   ];
 
   対象.forEach(function (x) {
