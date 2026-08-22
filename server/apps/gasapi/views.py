@@ -26,6 +26,7 @@ import hmac
 from django.conf import settings
 from django.http import JsonResponse
 
+from apps.members.models import Member
 from apps.content.models import (
     CalendarEvent,
     Category,
@@ -52,6 +53,27 @@ def _合鍵を確かめる(request):
     if not hmac.compare_digest(given.encode("utf-8", "ignore"), expected.encode("utf-8")):
         return JsonResponse({"status": "error", "message": "権限がありません。"}, status=403)
     return None
+
+
+
+def _引数(request):
+    """GAS と同じ形で引数を受け取る。
+
+    アプリは `?action=... &data={"memberId":"..."}` の形で送ってくる
+    （`fetchFromGAS(action, params)` を見ると `data` に JSON を入れている）。
+    `?memberId=...` の形でも受けられるようにしておく。
+    """
+    import json as _json
+
+    生 = request.GET.get("data", "")
+    if 生:
+        try:
+            v = _json.loads(生)
+            if isinstance(v, dict):
+                return v
+        except ValueError:
+            pass
+    return request.GET.dict()
 
 
 def _日時(値):
@@ -386,6 +408,72 @@ def _商品():
     return {"status": "ok", "products": 一覧}
 
 
+
+# 端末の記録は8件まで。GAS の MAX_DEVICE_SESSIONS と同じ値。
+# **ここを変えると、GASと違う数を返すことになる。**
+端末の上限 = 8
+
+
+def _端末(request):
+    """GAS の getUserDevices()（7680行）と同じ形で返す。
+
+    会員IDが要る。無ければエラー（GASと同じ文言）。
+    見つからない会員は**エラーではなく空の一覧**を返す（GASもそうしている）。
+    """
+    会員ID = _引数(request).get("memberId", "")
+    会員ID = str(会員ID or "").strip()
+    if not 会員ID:
+        return {"status": "error", "message": "会員IDが必要です"}
+
+    m = Member.objects.filter(member_id=会員ID).first()
+    if not m:
+        return {"status": "ok", "devices": []}
+
+    生 = m.device_sessions or []
+    if not isinstance(生, list):
+        return {"status": "ok", "devices": []}
+
+    一覧 = []
+    for d in 生:
+        if not isinstance(d, dict):
+            continue
+        端末ID = str(d.get("deviceId") or "").strip()
+        # **deviceId が無いものは捨てる。**GAS も同じ。
+        if not 端末ID:
+            continue
+        一覧.append({
+            "deviceId": 端末ID,
+            "label": str(d.get("label") or "").strip(),
+            "platform": str(d.get("platform") or "").strip(),
+            "appVersion": str(d.get("appVersion") or "").strip(),
+            "lastSeenAt": str(d.get("lastSeenAt") or "").strip(),
+            # **=== true のときだけ真。**「あれば真」にすると
+            # 文字列の "false" が真になってしまう。
+            "passcodeEnabled": d.get("passcodeEnabled") is True,
+            "pushEnabled": d.get("pushEnabled") is True,
+            "current": d.get("current") is True,
+        })
+
+    # 最後に使った順。GAS と同じ並び。
+    一覧.sort(key=lambda x: x["lastSeenAt"] or "", reverse=True)
+    return {"status": "ok", "devices": 一覧[:端末の上限]}
+
+
+def _注文(request):
+    """GAS の getCustomerOrders()（4869行）と同じ形で返す。
+
+    **注文管理シートは0行。**GAS も必ず空を返している。
+    サーバーにも注文の表は作っていない（[移行設計] の判断A「作らない」）。
+
+    それでも口だけは用意する。**無いと 501 を返してしまい、
+    アプリ側が「サーバーが壊れている」と受け取る恐れがある。**
+    """
+    会員ID = str(_引数(request).get("memberId", "") or "").strip()
+    if not 会員ID:
+        return {"status": "error", "message": "会員IDが必要です"}
+    return {"status": "ok", "orders": []}
+
+
 # action の名前 → 返す中身を作る関数
 _できること = {
     "getNews": _お知らせ,
@@ -394,6 +482,9 @@ _できること = {
     "getSupportFaq": _使い方FAQ,
     "getPushNotices": _通知,
     "getProducts": _商品,
+    # 会員IDが要るもの。request を受け取る。
+    "getUserDevices": _端末,
+    "getCustomerOrders": _注文,
 }
 
 
@@ -421,4 +512,16 @@ def 窓口(request):
             "notImplemented": True,
         }, status=501)
 
-    return JsonResponse(作る(), json_dumps_params={"ensure_ascii": False})
+    # 引数が要るものだけ request を渡す。
+    # **引数の有無で呼び方を変える。**全部に request を渡す作りにすると、
+    # 使わない関数まで引数を持たされて、読みにくくなる。
+    import inspect
+
+    if inspect.signature(作る).parameters:
+        中身 = 作る(request)
+    else:
+        中身 = 作る()
+
+    # 会員IDが無いときなど、GAS はエラーでも 200 で返している。
+    # **同じにする。**アプリは status を見て判断している。
+    return JsonResponse(中身, json_dumps_params={"ensure_ascii": False})
