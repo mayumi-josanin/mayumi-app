@@ -161,6 +161,9 @@ class Command(BaseCommand):
                     # 空欄は None のまま。0（売り切れ）と区別する。
                     "stock": 数(r.get("stock")),
                     "stock_warning": 数(r.get("stock_warning")),
+                    # 在庫数とは別物。院長が手で「売切」にできる。
+                    # GAS はこの列だけを見て売切を判定している。
+                    "sold_out": 文字(r.get("sold_out"))[:16],
                 })
             elif model is News:
                 値.update({
