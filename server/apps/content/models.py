@@ -158,6 +158,23 @@ class Product(掲載の共通):
     stock = models.IntegerField("在庫数", null=True, blank=True)
     stock_warning = models.IntegerField("在庫警告閾値", null=True, blank=True)
 
+    # 「売切」か「在庫あり」か。**在庫数とは別物。**
+    #
+    # 在庫数が残っていても、院長が手で「売切」にできる作りになっている
+    # （仕入れ待ち・取り置きなど）。GAS はこの列だけを見て売切を判定していて、
+    # 在庫数は見ていない。
+    #
+    #   isSoldOut  … この列が「売切」
+    #   isLowStock … 売切でない かつ 警告閾値>0 かつ 在庫数>0 かつ 在庫数<=閾値
+    #
+    # **2026-08-17 の移行で見落とした列。**そのとき16列だったシートが
+    # 5日後には22列になっていた（ensure〜 が列を足す作り）。
+    # この列が無いまま出すと、**売切の商品が「在庫あり」としてお客様に出る。**
+    sold_out = models.CharField(
+        "売切状態", max_length=16, blank=True,
+        help_text="「売切」か「在庫あり」。空欄は在庫あり扱い。",
+    )
+
     class Meta:
         verbose_name = "商品"
         verbose_name_plural = "商品"
