@@ -450,3 +450,56 @@ GAS が見るのは「お知らせ一覧公開」のほうだけ。
 > **件数が合うまで、この口は使わない。**
 > 2件足りないまま切り替えると、お客様には「記事が2つ消えた」ように見える。
 
+
+### 2つ目以降を作る前に分かったこと（2026-08-22）
+
+残り11種のうち、**データが揃っているのは思ったより少ない。**
+GASの実物を読んで、サーバーに材料があるかを1つずつ確かめた。
+
+| action | 材料 | 作れるか |
+|---|---|---|
+| `getNews` | お知らせ95 + カテゴリ7 | **作った**（件数の突き合わせ待ち） |
+| `getMenus` | メニュー13 | **作れる** |
+| `getCalendar` | カレンダー143 | **作れる** |
+| `getSupportFaq` | FAQ46 | **作れる** |
+| `getPushNotices` | プッシュ通知96 | **作れる** |
+| `getProducts` | 商品9 | **足りない**（下記） |
+| `getAppRuntimeConfig` | スクリプトプロパティ | **移していない** |
+| `getRewardGachaConfig` | スクリプトプロパティ | **移していない** |
+| `getUserRewardStatus` | 会員の特典履歴 | 会員データにあるが要確認 |
+| `getUserDevices` | 会員の端末セッション | 同上 |
+| `getRecoveryCandidates` | 会員データ | 同上 |
+| `getCustomerOrders` | 注文 | **注文管理シートは0件** |
+
+#### `getProducts` に足りないもの：**「売切状態」列**
+
+商品マスタには `売切状態` という列があり、GAS はこれを見て
+`soldOutStatus` / `isSoldOut` / `isLowStock` を返している。
+
+```js
+const soldOutStatus = normalizeProductSoldOutStatus_(row[soldOutCol - 1]);
+isSoldOut:  soldOutStatus === '売切',
+isLowStock: soldOutStatus !== '売切' && lowStockThreshold > 0
+            && stockQty > 0 && stockQty <= lowStockThreshold,
+```
+
+**サーバーの `Product` にこの列が無い。**移行のとき（2026-08-17）
+`表の下見()` で見た16列に入っていなかったか、見落としたか。
+**売切の商品が「在庫あり」として出てしまう。**
+
+対処: 商品マスタをもう一度下見して、`売切状態` 列を移す。
+
+#### 除外条件は、口ごとに違う
+
+同じ「公開」でも見ている列が違う。**まとめて書かない。**
+
+| action | 公開の判定 |
+|---|---|
+| `getNews` | **お知らせ一覧公開のみ**（公開設定は見ない） |
+| `getMenus` | **公開設定が「公開」**であること |
+| `getProducts` | **公開設定が「非公開」でない**こと（空欄は公開扱い） |
+
+`getMenus` は「公開でなければ外す」、`getProducts` は「非公開なら外す」。
+**空欄のときの扱いが逆になる。**写し間違えると、商品が消えるか、
+出してはいけないものが出る。
+
