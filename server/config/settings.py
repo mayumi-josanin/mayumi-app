@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "apps.members",
     "apps.content",
     "apps.records",
+    "apps.gasapi",
 ]
 
 MIDDLEWARE = [
