@@ -36,6 +36,11 @@ services:
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
       # GAS だけが知っている合鍵。空だと API はすべて拒否する。
       API_KEY: ${API_KEY:-}
+      # GAS が札（トークン）の署名に使っている秘密。**変えないこと。**
+      # 変えると、お客様の端末にある発行済みの札が全部無効になり、
+      # 全員がログイン画面に戻される（CLAUDE.md 絶対ルール1）。
+      # 段階Bで「GASが作った札をサーバーが同じと判定できるか」を確かめるために要る。
+      ADMIN_TOKEN_SECRET: ${ADMIN_TOKEN_SECRET:-}
       DB_NAME: mayumi
       DB_USER: postgres
       DB_PASSWORD: ${DB_PASSWORD:-postgres}

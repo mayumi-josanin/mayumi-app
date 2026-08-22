@@ -65,3 +65,38 @@ function 札を確かめる() {
   Logger.log('  ※ 読むだけです。実データは変えていません。');
   Logger.log('  ※ 見本は存在しない会員IDなので、この札では誰も入れません。');
 }
+
+
+// サーバーが計算した署名が正しいかを、GAS自身に判定させる。
+//
+//   サーバーの署名を判定する()
+//
+// 画面の文字を人が写すと、l と I、0 と O、c と g のような読み違いが起きる。
+// **写さずに、GASに直接比べさせる。**
+var 判定したい署名 = {
+  'member|MYM-0000-TEST|1893456000000': 'e_LOXY7kgSYmgxnL7CqQv15fzbpijFvTw95O6gMRrvc=',
+  'admin|1893456000000': '0bWBVhv3WvGquKq34othsepm5Rdn_nP-eSUifEDFUp4='
+};
+
+function サーバーの署名を判定する() {
+  Logger.log('■ サーバーが計算した署名を、GASの署名と比べます');
+  Logger.log('');
+  var 全部合った = true;
+  Object.keys(判定したい署名).forEach(function (もと) {
+    var 正しい = adminSign_(もと);
+    var 渡された = 判定したい署名[もと];
+    var 合う = (正しい === 渡された);
+    if (!合う) 全部合った = false;
+    Logger.log('  ' + もと);
+    Logger.log('    ' + (合う ? '**一致しました**' : '**違います**'));
+    if (!合う) {
+      Logger.log('      GASの署名     : ' + 正しい);
+      Logger.log('      渡された署名   : ' + 渡された);
+    }
+    Logger.log('');
+  });
+  Logger.log(全部合った
+    ? '■ すべて一致。サーバーはGASと同じ札を作れます。'
+    : '■ **一致しないものがあります。切り替えてはいけません。**');
+  Logger.log('  ※ 読むだけです。');
+}
