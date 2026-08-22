@@ -610,3 +610,46 @@ isLowStock: soldOutStatus !== '売切' && lowStockThreshold > 0
     ④ 実際に呼んで突き合わせる    … 件数・項目数・項目名
     ⑤ 合うまで直す
 
+
+### 読み取り5種が GAS と一致した（2026-08-22 17:58）
+
+| action | GAS | サーバー | 項目 | |
+|---|---|---|---|---|
+| `getNews` | 88 | 88 | 16 / 16 | **一致** |
+| `getMenus` | 10 | 10 | 12 / 12 | **一致** |
+| `getCalendar` | 120 | 120 | 15 / 15 | **一致** |
+| `getSupportFaq` | 46 | 46 | 7 / 7 | **一致** |
+| `getPushNotices` | 97 | 97 | 15 / 15 | **一致** |
+
+**件数も項目名も、5種すべて同じ。**
+
+#### 除外条件は、やはり口ごとに違った
+
+    getNews     … お知らせ一覧公開のみ（公開設定は見ない）
+    getMenus    … **公開設定が「公開」**であること
+    getCalendar … **公開設定が「公開」**であること
+    getPushNotices … 削除状態・削除日時のみ（公開の概念が無い）
+    getSupportFaq  … 状態が「公開」かつ**質問と回答が両方ある**こと
+
+**まとめて書いていたら、どれかが必ず狂っていた。**
+
+#### 無いものは作らない
+
+カレンダーの `category` `linkUrl` `linkButtonText` は、
+シートに列はあるが**サーバーには移していない**（点検で0件と確認済み）。
+**推測で値を埋めず、空文字を返す。**GASも実際ほとんど空。
+
+使われ始めたら移す。それまでは空のままでよい。
+
+---
+
+## ④の進み具合
+
+| | 状態 |
+|---|---|
+| **読み取り 5種** | **済**。GASと完全一致 |
+| 読み取り `getProducts` | 材料は揃った（売切状態を移した）。**これから** |
+| 読み取り 会員まわり4種 | `getUserRewardStatus` / `getUserDevices` / `getRecoveryCandidates` / `getCustomerOrders` |
+| 読み取り 設定2種 | `getAppRuntimeConfig` / `getRewardGachaConfig`（**スクリプトプロパティ。未移行**） |
+| 書き込み 6種 | まだ |
+

@@ -26,7 +26,7 @@ import hmac
 from django.conf import settings
 from django.http import JsonResponse
 
-from apps.content.models import Category, News
+from apps.content.models import CalendarEvent, Category, Menu, News, PushNotice, SupportFaq
 
 
 def _合鍵を確かめる(request):
@@ -143,9 +143,175 @@ def _お知らせ():
     return {"status": "ok", "news": 一覧, "categories": カテゴリ}
 
 
+
+def _画像(値):
+    """GAS の parseStoredImageUrls_ と同じ考え方。
+
+    1枚だけの列でも、GAS は配列にして返している。
+    空なら空の配列。**None を返さない。**
+    """
+    v = (値 or "").strip()
+    return [v] if v else []
+
+
+def _メニュー():
+    """GAS の getMenus()（9176行）と同じ形で返す。
+
+    **お知らせと除外条件が違う。**メニューは「公開設定が『公開』であること」。
+    お知らせは「お知らせ一覧公開」だけを見ていた。**まとめて書かない。**
+    """
+    from django.utils import timezone
+    いま = timezone.now()
+
+    一覧 = []
+    for m in Menu.objects.all():
+        # GAS（9176行）が外している4つ:
+        #   row[5] !== '公開'        … **公開設定が「公開」でなければ外す**
+        #   isNoticeListingDeleted_  … お知らせ一覧削除日時
+        #   isSoftDeletedByColumns_  … 削除状態・削除日時
+        #   !isPublishAtAvailable_   … 公開開始日時がまだ
+        if not m.published:
+            continue
+        if m.notice_delisted_at:
+            continue
+        if m.deleted or m.deleted_at:
+            continue
+        if m.publish_at and m.publish_at > いま:
+            continue
+
+        画像 = list(m.image_urls or [])
+        一覧.append({
+            "rowIdx": m.sheet_row,
+            "date": _日付(m.registered_on),
+            "name": m.name or "",
+            # GAS は「画像が無ければ元の列の値をそのまま返す」作り。
+            # サーバーでは配列で持っているので、先頭か空文字。
+            "imageUrl": 画像[0] if 画像 else "",
+            "imageUrls": 画像,
+            "description": m.summary or "",
+            "reservationStatus": m.booking_status or "",
+            "category": m.category or "",
+            "updatedAt": _日時(m.updated_at),
+            "publishAt": _日時(m.publish_at),
+            "noticeStatus": "公開" if m.notice_listed else "非公開",
+            "sortOrder": m.sort_key or 0,
+        })
+    return {"status": "ok", "menus": 一覧}
+
+
+def _カレンダー():
+    """GAS の getCalendarEvents()（**8292行のほう**）と同じ形で返す。
+
+    3344行にも同じ名前の関数があるが、**後から読まれる8292行が勝つ。**
+    1つ目を写すと、返す項目が足りなくなる。
+    """
+    from django.utils import timezone
+    いま = timezone.now()
+
+    一覧 = []
+    for c in CalendarEvent.objects.all():
+        # メニューと同じく「公開設定が『公開』であること」
+        if not c.published:
+            continue
+        if c.notice_delisted_at:
+            continue
+        if c.deleted or c.deleted_at:
+            continue
+        if c.publish_at and c.publish_at > いま:
+            continue
+
+        画像 = _画像(c.image_url)
+        一覧.append({
+            "rowIdx": c.sheet_row,
+            "date": _日付(c.event_on),
+            "title": c.title or "",
+            "desc": c.detail or "",
+            "color": c.color or "",
+            # カレンダーのカテゴリ列は、サーバーでは持っていない。
+            # **無いものを作らない。**空文字で返す（GASも空のことが多い）。
+            "category": "",
+            "image": 画像[0] if 画像 else "",
+            "imageUrls": 画像,
+            "updatedAt": _日時(c.updated_at),
+            "publishAt": _日時(c.publish_at),
+            # リンクURL・ボタンテキストはシートに列があるが**どちらも0件**なので
+            # 移していない。使われ始めたら移す（2026-08-22 の点検で確認）。
+            "linkUrl": "",
+            "linkButtonText": "",
+            "menuRowIdx": c.menu_row or 0,
+            "noticeStatus": "公開" if c.notice_listed else "非公開",
+            "sortOrder": c.sort_order or 0,
+        })
+    return {"status": "ok", "events": 一覧}
+
+
+def _使い方FAQ():
+    """GAS の getSupportFaq()（8994行）と同じ形で返す。
+
+    公開のものだけ（`getSupportFaqEntries_(false)`）。
+    並び順は**優先度の高い順、同点はシートの行の順**。
+    """
+    一覧 = [
+        {
+            "rowIdx": f.sheet_row,
+            "category": f.category or "",
+            "question": f.question or "",
+            "keywords": f.keywords or "",
+            "answer": f.answer or "",
+            "priority": f.priority or 0,
+            "updatedAt": _日時(f.updated_at),
+        }
+        # GAS は question と answer が両方ある公開のものだけを出す
+        for f in SupportFaq.objects.filter(published=True).exclude(question="").exclude(answer="")
+    ]
+    一覧.sort(key=lambda x: (-x["priority"], x["rowIdx"]))
+    return {"status": "ok", "faqs": 一覧}
+
+
+def _通知():
+    """GAS の getPushNotices()（8158行）と同じ形で返す。
+
+    **並びは日時の新しい順。**GAS は sentAt / scheduledAt / updatedAt の
+    どれかを日時とみなして並べている（前のものが空なら次を使う）。
+    """
+    def 日時の数(p):
+        for d in (p.sent_at, p.scheduled_at, p.updated_at):
+            if d:
+                return int(d.timestamp() * 1000)
+        return 0
+
+    一覧 = []
+    for p in PushNotice.objects.all():
+        if p.deleted or p.deleted_at:
+            continue
+        一覧.append({
+            "rowIdx": p.sheet_row,
+            "date": 日時の数(p),
+            "sentAt": _日時(p.sent_at),
+            "scheduledAt": _日時(p.scheduled_at),
+            "updatedAt": _日時(p.updated_at),
+            "title": p.title or "",
+            "body": p.body or "",
+            "targetStatus": p.target_status or "all",
+            "targetDetail": p.target_detail or "",
+            "recipientCount": p.recipient_count or 0,
+            "status": p.status or "",
+            "targetPage": p.target_page or "home",
+            "previewBody": p.preview_body or "",
+            "notificationId": p.notification_id or "",
+            "result": p.result or "",
+        })
+    一覧.sort(key=lambda x: -(x["date"] or 0))
+    return {"status": "ok", "notices": 一覧}
+
+
 # action の名前 → 返す中身を作る関数
 _できること = {
     "getNews": _お知らせ,
+    "getMenus": _メニュー,
+    "getCalendar": _カレンダー,
+    "getSupportFaq": _使い方FAQ,
+    "getPushNotices": _通知,
 }
 
 

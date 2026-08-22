@@ -11,7 +11,11 @@
 
 function GASの答えを数える() {
   var 対象 = [
-    { 名: 'getNews', 呼ぶ: function () { return getBlogNews(); }, 中身: 'news' }
+    { 名: 'getNews',        呼ぶ: function () { return getBlogNews(); },      中身: 'news' },
+    { 名: 'getMenus',       呼ぶ: function () { return getMenus(); },         中身: 'menus' },
+    { 名: 'getCalendar',    呼ぶ: function () { return getCalendarEvents(); }, 中身: 'events' },
+    { 名: 'getSupportFaq',  呼ぶ: function () { return getSupportFaq(); },    中身: 'faqs' },
+    { 名: 'getPushNotices', 呼ぶ: function () { return getPushNotices(); },   中身: 'notices' }
   ];
 
   対象.forEach(function (x) {
@@ -38,14 +42,8 @@ function GASの答えを数える() {
     if (一覧.length) {
       var 鍵 = Object.keys(一覧[0]);
       Logger.log('  項目 ' + 鍵.length + '個: ' + 鍵.join(' / '));
-      Logger.log('');
-      Logger.log('  1件目:');
-      鍵.forEach(function (k) {
-        var v = 一覧[0][k];
-        var t = (v === null || v === undefined) ? '(なし)' : String(v);
-        if (t.length > 46) t = t.slice(0, 46) + '…';
-        Logger.log('    ' + k + ' = ' + t);
-      });
+      // 1件目の中身までは出さない。5種ぶんだと画面が流れて読めない。
+      // **件数と項目名が合っていれば、まず十分。**
     }
     Logger.log('');
   });
