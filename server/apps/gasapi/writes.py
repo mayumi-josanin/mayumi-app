@@ -15,6 +15,7 @@
 """
 
 import json
+import random
 import re
 import unicodedata
 
@@ -263,7 +264,8 @@ def 特典をそろえる(data):
             "stampHistory": m.stamp_history or [],
             "lastStampDate": m.last_stamp_at.astimezone().strftime("%Y-%m-%d") if m.last_stamp_at else "",
             "lastStampAt": _日時の文字(m.last_stamp_at) if m.last_stamp_at else "",
-            "stampAchievedDate": "",
+            "stampAchievedDate": (_日時の文字(m.stamp_achieved_at)
+                                  if m.stamp_achieved_at else ""),
         }
 
     return {"status": "ok", "rewardStatus": 返す}
@@ -462,12 +464,257 @@ def 会員を書き換える(data):
     return {"status": "ok", "created": 新規}
 
 
+# ---------------------------------------------------------------------------
+# ごほうびガチャ
+# ---------------------------------------------------------------------------
+
+# GAS の REWARD_GACHA_PRIZE_POOL（管理者・お客様.js）と**同じにすること。**
+# 色や文言まで写してあるのは、アプリがこの値をそのまま画面に出すから。
+_賞の基本 = [
+    {"key": "A", "rankLabel": "A賞", "capsuleColor": "#f5cb6c", "accentColor": "#b0791b",
+     "message": "受付でその時の特典をお受け取りください。", "weight": 5},
+    {"key": "B", "rankLabel": "B賞", "capsuleColor": "#f3b7c9", "accentColor": "#b86282",
+     "message": "まゆみ助産院からのうれしいごほうびです。受付でご案内します。", "weight": 15},
+    {"key": "C", "rankLabel": "C賞", "capsuleColor": "#b9d8a7", "accentColor": "#628f58",
+     "message": "やさしいプレゼントをご用意しています。受付へお声がけください。", "weight": 30},
+    {"key": "D", "rankLabel": "D賞", "capsuleColor": "#b9d9f3", "accentColor": "#547fa2",
+     "message": "お楽しみプレゼントをご用意しています。", "weight": 50},
+]
+
+
+def _その月の賞(月キー):
+    """その月の賞の中身と確率を出す。
+
+    GAS の getRewardGachaMonthlyConfig_ と同じ選び方をする。
+
+        その月の設定があれば、それ
+        無ければ、**その月より前でいちばん新しいもの**
+        それも無ければ、最後の1つ
+        設定そのものが無ければ、既定の確率（5/15/30/50）
+
+    「無ければ既定に落ちる」ではなく「前の月を引き継ぐ」のが要点。
+    月が変わった瞬間に賞の中身が消えないため。
+    """
+    from apps.records.models import AppSetting
+
+    設定 = AppSetting.objects.filter(pk="REWARD_GACHA_CONFIG").first()
+    生 = (設定.value if 設定 else None) or {}
+    if isinstance(生, str):
+        try:
+            生 = json.loads(生)
+        except ValueError:
+            生 = {}
+    月ごと = 生.get("monthlyPrizes") if isinstance(生, dict) else None
+    月ごと = 月ごと if isinstance(月ごと, list) else []
+
+    選んだ = None
+    直前 = None
+    for e in 月ごと:
+        if not isinstance(e, dict):
+            continue
+        if e.get("month") == 月キー:
+            選んだ = e
+            break
+        if str(e.get("month") or "") <= 月キー:
+            直前 = e
+    選んだ = 選んだ or 直前 or (月ごと[-1] if 月ごと else None)
+    賞 = (選んだ or {}).get("prizes") or {}
+
+    出 = []
+    for 基本 in _賞の基本:
+        保存 = 賞.get(基本["key"]) or {}
+        中身 = str(保存.get("content") or "").strip()
+        確率 = 保存.get("probability")
+        try:
+            重み = max(0.0, min(100.0, round(float(確率) * 10) / 10))
+        except (TypeError, ValueError):
+            重み = float(基本["weight"])
+        出.append(dict(
+            基本,
+            # GAS の formatRewardGachaRewardName_ と同じ。
+            rewardName=(基本["rankLabel"] + " " + 中身) if 中身 else (基本["rankLabel"] + "プレゼント"),
+            note=str(保存.get("note") or "").strip(),
+            weight=重み,
+        ))
+    return 出
+
+
+def _賞を引く(賞たち):
+    """重み付きで1つ選ぶ。GAS の pickWeightedRewardGachaPrize_ と同じ。
+
+    **重みの合計が0なら、最後の1つ（D賞）を返す。**
+    全部0のときに「当たらない」で止めると、お客様が回せなくなる。
+    """
+    合計 = sum(max(0.0, p["weight"]) for p in 賞たち)
+    if 合計 <= 0:
+        return 賞たち[-1]
+    出た = random.random() * 合計
+    for p in 賞たち:
+        出た -= max(0.0, p["weight"])
+        if 出た < 0:
+            return p
+    return 賞たち[-1]
+
+
+def _賞の見た目(賞名):
+    """特典の名前から、色や文言を引き当てる。GAS の getRewardGachaPrizeMeta_ と同じ。"""
+    名 = str(賞名 or "").strip()
+    for p in _賞の基本:
+        if 名 == p["rankLabel"] or (名 and 名.startswith(p["rankLabel"])):
+            return p
+    return {
+        "key": "SPECIAL", "rankLabel": "ごほうび獲得",
+        "capsuleColor": "#d9c5a2", "accentColor": "#8d6c46",
+        "message": "受付でその時の特典をお受け取りください。",
+    }
+
+
+def _一か月後(t):
+    """1か月後。**JavaScript の `setMonth(+1)` と同じにする。**
+
+    JS は、はみ出した日数を翌月へ送る。
+
+        1/31 → 2/31 は無いので **3/3**（うるう年でなければ）
+        3/31 → 4/31 は無いので **5/1**
+
+    「月末に丸める」ほうが自然に見えるが、**そうするとGASと有効期限が
+    1〜3日ずれる。**お客様に見える日付なので、GASに合わせる。
+    """
+    import calendar
+    import datetime as _dt
+
+    年 = t.year + (1 if t.month == 12 else 0)
+    月 = 1 if t.month == 12 else t.month + 1
+    その月の末日 = calendar.monthrange(年, 月)[1]
+    if t.day <= その月の末日:
+        return t.replace(year=年, month=月)
+    はみ出し = t.day - その月の末日
+    return t.replace(year=年, month=月, day=その月の末日) + _dt.timedelta(days=はみ出し)
+
+
+def _特典の返し方(特典, すでに引いた):
+    見た目 = _賞の見た目(特典.get("rewardName"))
+    return {
+        "key": 見た目["key"],
+        "rankLabel": 見た目["rankLabel"],
+        "rewardName": str(特典.get("rewardName") or "特典プレゼント"),
+        # GAS も実質 `reward.rewardNote || ''`（賞の基本表に note は無い）。
+        "rewardNote": str(特典.get("rewardNote") or ""),
+        "earnedDate": 特典.get("earnedDate") or "",
+        "expiryDate": 特典.get("expiryDate") or "",
+        "capsuleColor": 見た目["capsuleColor"],
+        "accentColor": 見た目["accentColor"],
+        "message": 見た目["message"],
+        "alreadyDrawn": bool(すでに引いた),
+    }
+
+
+def _特典の状態(m):
+    return {
+        "stampCount": m.stamp_count or 0,
+        "stampCardNum": max(1, m.stamp_card_number or 1),
+        "rewards": m.reward_history or [],
+        "stampHistory": m.stamp_history or [],
+        "lastStampDate": m.last_stamp_at.astimezone().strftime("%Y-%m-%d") if m.last_stamp_at else "",
+        "lastStampAt": _日時の文字(m.last_stamp_at) if m.last_stamp_at else "",
+        "stampAchievedDate": _日時の文字(m.stamp_achieved_at) if m.stamp_achieved_at else "",
+    }
+
+
+def ガチャを引く(data):
+    """GAS の handleDrawRewardGacha()（7552行）と同じ。
+
+    スタンプが10個たまった方が、1枚のカードにつき**1回だけ**回せる。
+
+    ## ここは「2回引かれない」ことが全て
+
+    GAS は `LockService.getScriptLock()` で**スクリプト全体**を止めている。
+    こちらは**その会員の行だけ**を止める（`select_for_update`）。
+    他のお客様の通信は止まらないので、GASより速くて、同じだけ安全。
+
+    二重に引かれない仕組みは、ロックだけに頼らない。
+
+        いまのカード番号と同じ番号の特典が、すでにあるか？
+          → あれば **引かずに、その特典をそのまま返す**（alreadyDrawn）
+
+    **これが本当の守り。**通信が2回届いても、2つ目は「もう引いてあります」
+    になるだけで、特典は増えない。ロックは、その判定と書き込みの間に
+    割り込まれないようにするためのもの。
+
+    ## 有効期限
+
+    「スタンプが10個そろった日時」＋1か月。**回した日ではない。**
+    そろった日時が記録に無ければ、いまの時刻を使う（GASも同じ）。
+    """
+    d = data or {}
+    会員ID = str(d.get("memberId") or "").strip()
+    if not 会員ID:
+        return {"status": "error", "message": "会員IDが指定されていません"}
+
+    with transaction.atomic():
+        m = Member.objects.select_for_update().filter(member_id=会員ID).first()
+        if not m:
+            return {"status": "error", "message": "会員情報が見つかりません"}
+
+        いまのカード = max(1, m.stamp_card_number or 1)
+        特典たち = m.reward_history if isinstance(m.reward_history, list) else []
+
+        # **すでに引いてあれば、引かない。**ここが二重引きの本当の守り。
+        for r in 特典たち:
+            if not isinstance(r, dict):
+                continue
+            try:
+                番号 = max(1, int(r.get("cardNum") or 1))
+            except (TypeError, ValueError):
+                番号 = 1
+            if 番号 == いまのカード:
+                return {
+                    "status": "ok",
+                    "alreadyDrawn": True,
+                    "rewardStatus": _特典の状態(m),
+                    "drawnReward": _特典の返し方(r, True),
+                }
+
+        if (m.stamp_count or 0) < 10:
+            # GAS と同じ文言。
+            return {"status": "error", "message": "スタンプが10個たまっていません"}
+
+        獲得 = m.stamp_achieved_at or timezone.now()
+        月キー = timezone.now().astimezone().strftime("%Y-%m")
+        当たり = _賞を引く(_その月の賞(月キー))
+
+        新しい特典 = {
+            # GAS と同じ形。時刻＋乱数で、まず重ならない。
+            "id": "reward-%d-%d" % (int(獲得.timestamp() * 1000), random.randint(0, 999)),
+            "cardNum": いまのカード,
+            "rewardName": 当たり["rewardName"],
+            "rewardNote": 当たり["note"],
+            "earnedDate": _日時の文字(獲得),
+            "expiryDate": _日時の文字(_一か月後(獲得)),
+            "used": False,
+        }
+
+        m.reward_history = [新しい特典] + 特典たち
+        if not m.stamp_achieved_at:
+            m.stamp_achieved_at = 獲得
+        m.save(update_fields=["reward_history", "stamp_achieved_at", "changed_at"])
+
+        返す = {
+            "status": "ok",
+            "rewardStatus": _特典の状態(m),
+            "drawnReward": _特典の返し方(新しい特典, False),
+        }
+
+    return 返す
+
+
 # action の名前 → 書き込む関数
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
     "removeUserDeviceSession": 端末を外す,
     "syncUserRewardStatus": 特典をそろえる,
     "updateUser": 会員を書き換える,
+    "drawRewardGacha": ガチャを引く,
 }
 
 

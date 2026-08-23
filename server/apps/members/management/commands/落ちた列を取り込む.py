@@ -1,8 +1,10 @@
-"""会員データの **メモ** と **通知の届け先** を取り込む。
+"""会員データの、取り込みで落ちていた**3列**を入れる。
 
 最初の「会員を取り込む」で、この2列が落ちていた（2026-08-23に判明）。
 
-  ・メモ … そもそも書き出していなかった
+  ・メモ（7列目） … そもそも書き出していなかった
+  ・スタンプ達成日時（16列目） … これも書き出していなかった。
+    **ガチャの特典の有効期限（獲得＋1か月）の基準**になる。
   ・通知の届け先 … 書き出してはいたが、取り込み側が `真偽()` に通していた。
     購読IDは "true" でも "1" でもないので **偽に落ちていた。**
 
@@ -10,14 +12,16 @@
 お知らせが誰にも届かなくなる。
 
 使いかた:
-    python manage.py 落ちた2列を取り込む 落ちた2列.json --下見
-    python manage.py 落ちた2列を取り込む 落ちた2列.json
+    python manage.py 落ちた列を取り込む 落ちた列.json --下見
+    python manage.py 落ちた列を取り込む 落ちた列.json
 """
 
 import json
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
 
 from apps.members.models import Member
 
@@ -46,8 +50,24 @@ def _通知が入か(届け先):
     return True
 
 
+def _日時(値):
+    """スタンプ達成日時。読めなければ None（**いまの値は上書きしない**側で扱う）。"""
+    s = str(値 or "").strip()
+    if not s:
+        return None
+    t = parse_datetime(s)
+    if t is None:
+        d = parse_date(s[:10])
+        if d is None:
+            return None
+        t = timezone.datetime.combine(d, timezone.datetime.min.time())
+    if timezone.is_naive(t):
+        t = timezone.make_aware(t)
+    return t
+
+
 class Command(BaseCommand):
-    help = "会員データのメモと通知の届け先を取り込む"
+    help = "会員データのメモ・通知の届け先・スタンプ達成日時を取り込む"
 
     def add_arguments(self, parser):
         parser.add_argument("ファイル")
@@ -88,6 +108,11 @@ class Command(BaseCommand):
                 差["push_subscription"] = 届け先
             if m.push_enabled != 入:
                 差["push_enabled"] = 入
+
+            達成 = _日時(r.get("stampAchievedAt"))
+            # **読めなかったときは触らない。**空で上書きしない。
+            if 達成 is not None and m.stamp_achieved_at != 達成:
+                差["stamp_achieved_at"] = 達成
             if 差:
                 変わる.append((m, 差))
 
@@ -101,12 +126,14 @@ class Command(BaseCommand):
         届け先が付く = sum(1 for _, d in 変わる if d.get("push_subscription"))
         通知が入る = sum(1 for _, d in 変わる if d.get("push_enabled") is True)
         通知が切れる = sum(1 for _, d in 変わる if d.get("push_enabled") is False)
+        達成が入る = sum(1 for _, d in 変わる if d.get("stamp_achieved_at"))
 
         self.stdout.write(f"■ 変わる会員: {len(変わる)}名")
         self.stdout.write(f"    メモが入る:      {メモが付く}名")
         self.stdout.write(f"    届け先が入る:    {届け先が付く}名")
         self.stdout.write(f"    通知オンになる:  {通知が入る}名")
         self.stdout.write(f"    通知オフになる:  {通知が切れる}名")
+        self.stdout.write(f"    達成日時が入る:  {達成が入る}名")
         self.stdout.write("")
         self.stdout.write(f"  取り込み前の通知オン: "
                           f"{Member.objects.filter(push_enabled=True).count()}名")
