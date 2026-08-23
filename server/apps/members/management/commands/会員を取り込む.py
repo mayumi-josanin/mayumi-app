@@ -41,6 +41,22 @@ def 真偽(値):
     return s in ("true", "1", "on", "yes", "有効", "オン", "登録済み", "済")
 
 
+def _届け先(値):
+    """通知の届け先。真偽値の false と文字列の "false" は、どちらも空にする。"""
+    s = 文字(値)
+    return "" if s.lower() in ("false", "0", "none", "null", "undefined") else s
+
+
+def _通知が入か(値):
+    """届け先の中身から、通知オンかどうかを決める。
+
+    GAS は `!!row[USER_COL.PUSH - 1]`（7933行）。セルから読むと真偽値の
+    false がそのまま来るので偽になる。**こちらは文字で受け取る**ので、
+    "false" という文字列を明示的に偽へ寄せる。
+    """
+    return bool(_届け先(値))
+
+
 def 日付(値):
     s = 文字(値)[:10]
     if not s:
@@ -129,7 +145,17 @@ class Command(BaseCommand):
                 "birthday": 日付(r.get("birthday")),
                 "address": 文字(r.get("address")),
                 "avatar_url": 文字(r.get("avatarUrl")),
-                "push_enabled": 真偽(r.get("pushEnabled")),
+                # **8列目は「オン/オフ」ではなく、通知の届け先そのもの。**
+                # 2026-08-23 まで、ここで 真偽() に通していた。
+                # 購読IDは "true" でも "1" でもないので**偽に落ちていた。**
+                "push_subscription": _届け先(r.get("pushSubscription")
+                                             if "pushSubscription" in r
+                                             else r.get("pushEnabled")),
+                "push_enabled": _通知が入か(r.get("pushSubscription")
+                                            if "pushSubscription" in r
+                                            else r.get("pushEnabled")),
+                "memo": 文字(r.get("memo")),
+                "stamp_achieved_at": 日時(r.get("stampAchievedAt")),
                 "status": 文字(r.get("status")),
                 "stamp_count": 数(r.get("stampCount")),
                 "stamp_card_number": 数(r.get("stampCardNumber")),
