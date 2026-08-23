@@ -66,6 +66,25 @@ class Member(models.Model):
     # 無いままガチャを回すと、**有効期限が「回した日＋1か月」になってしまう。**
     stamp_achieved_at = models.DateTimeField("スタンプ達成日時", null=True, blank=True)
 
+    # ---- 「知ったきっかけアンケート」まわりの印 ----
+    #
+    # **GASでは会員ごとのスクリプトプロパティに入っている**（表ではない）。
+    #
+    #   SURVEY_ANSWERED:<会員ID>       … 回答した事実。アプリでボタンを隠す判定
+    #   SURVEY_STAMP:<会員ID>          … お礼スタンプを付けた記録（二重付与の防止）
+    #   SURVEY_STAMP_PENDING:<会員ID>  … カードが満杯で付けられず、空き待ちにした記録
+    #   REWARD_ADMIN_SET:<会員ID>      … 管理者がスタンプを直接編集した時刻。
+    #                                     アプリが「サーバーを正とする」判定に使う
+    #
+    # 2026-08-23 に取りこぼしとして見つかった。設定の書き出しは
+    # 「移すと決めた2つだけを名指しで」書き出していたので、これらは残っていた。
+    #
+    # **付け忘れると、お礼スタンプが二重に付く**（SURVEY_STAMP が空に見えるため）。
+    survey_answered_at = models.DateTimeField("アンケート回答日時", null=True, blank=True)
+    survey_stamp_granted_at = models.DateTimeField("お礼スタンプ付与日時", null=True, blank=True)
+    survey_stamp_pending_at = models.DateTimeField("お礼スタンプ保留日時", null=True, blank=True)
+    reward_admin_set_at = models.DateTimeField("管理者がスタンプを編集した日時", null=True, blank=True)
+
     # ---- ログインに使うもの ----
     #
     # 平文のパスコードは持ち込まない。取り込むときにハッシュにする。
