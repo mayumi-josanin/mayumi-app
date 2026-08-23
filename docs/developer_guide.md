@@ -87,6 +87,31 @@ clasp deploy -i AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAw
 > **`bijiris/deploy.sh` は使わないでください。**フロントを `main` へ push してしまい、
 > 未確認の作業まで公開されます。
 
+### バージョンが上限200に達したら
+
+```
+Cannot create more versions: Script has reached the limit of 200 versions.
+```
+
+**`clasp push` は通るが `clasp deploy` が失敗する。**
+つまり「コードはHEADに入ったが、お客様には出ていない」状態になる。
+（トリガーはHEADを動かすので、トリガー処理だけは先に変わる点に注意）
+
+直し方: Apps Script のエディタ →**プロジェクトの履歴**→ 古いバージョンを削除。
+**デプロイに使われているバージョンは削除できない**（画面が拒む）。
+
+どれが空いているかは、次で数えられる。
+
+```bash
+cd gas && clasp deployments && clasp versions
+```
+
+2026-08-24 の実績: バージョン200個・デプロイ156個のうち、
+**空いていたのは45個**（178と195〜238）。44個消して再デプロイできた。
+
+> **根本の原因は、過去に `-i` を付けずにデプロイしたこと。**
+> 毎回新しいデプロイが増え、それぞれがバージョンを押さえてしまう。
+
 ### どちらが「本番」か
 
 | 動くもの | 使われるコード |
