@@ -32,6 +32,24 @@ class Member(models.Model):
     avatar_url = models.TextField("アイコンURL", blank=True)
 
     push_enabled = models.BooleanField("Push設定", default=False)
+
+    # **通知の届け先そのもの。**会員データの8列目（PUSH）の中身をそのまま持つ。
+    # GAS の getPushUsers() は、この値を `subscription:` として配信に渡している
+    # （管理者・お客様.js 8227行）。**真偽値だけにすると通知が届かなくなる。**
+    #
+    # 中身は2種類ある。
+    #   - OneSignal の購読ID（英数字の羅列）
+    #   - 文字列の "true" / 真偽値の false（IDが取れなかった端末）
+    #
+    # 2026-08-23 に取り込みの取りこぼしとして見つかった。最初の取り込みでは
+    # `真偽()` に通していたため、**購読IDを持つ方は False に落ちていた**
+    # （"abc123..." は "true" でも "1" でもないので偽になる）。
+    push_subscription = models.TextField("通知の届け先", blank=True)
+
+    # 受付が残す覚え書き。管理アプリの会員一覧に出る（GAS 7932行の `memo`）。
+    # **お客様ご本人には見えない。**お体のことなど、繊細な内容が入りうる。
+    memo = models.TextField("メモ", blank=True)
+
     status = models.CharField("ご状況", max_length=100, blank=True)
 
     # まゆみのスタンプカード。**ビジリスの回数券とは別物。**混ぜない。

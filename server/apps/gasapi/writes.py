@@ -15,9 +15,13 @@
 """
 
 import json
+import re
+import unicodedata
 
+from django.contrib.auth.hashers import make_password
 from django.db import transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
 
 from apps.members.models import Member
 
@@ -265,11 +269,205 @@ def 特典をそろえる(data):
     return {"status": "ok", "rewardStatus": 返す}
 
 
+# ---------------------------------------------------------------------------
+# お名前・フリガナの整え方
+#
+# **GAS の normalizeStoredName_ / normalizeStoredKana_ と同じにすること。**
+# ここがずれると、同じ方が二重に登録される。
+# ---------------------------------------------------------------------------
+
+_空白 = re.compile(r"[\s\u3000]+")
+
+
+def _名前を整える(値):
+    """空白を全部取る。
+
+    「山田 太郎」と「山田太郎」が別人として登録され、
+    同じ方が二重に登録されてしまうため（GAS 6870行のコメントと同じ理由）。
+    """
+    return _空白.sub("", "" if 値 is None else str(値))
+
+
+def _かなを整える(値):
+    """NFKCで寄せ、空白を取り、**カタカナをひらがなにする。**
+
+    ふりがなは「ひらがなで登録していただく」方針にしたが、
+    以前に登録された分はカタカナのまま残っている。照合も保存もひらがなに揃える。
+    """
+    t = "" if 値 is None else str(値)
+    t = unicodedata.normalize("NFKC", t)
+    t = _空白.sub("", t)
+    # ァ(30A1)〜ヶ(30F6) を 0x60 引いてひらがなへ
+    return "".join(
+        chr(ord(c) - 0x60) if "\u30a1" <= c <= "\u30f6" else c for c in t
+    )
+
+
+# GAS の normalizeRegistrationSource_ と同じ言い換え表。
+_登録経路の言い換え = {
+    "new": "新規登録", "newregistration": "新規登録", "register": "新規登録",
+    "recover": "復元", "identity": "復元",
+    "transfer": "引き継ぎコード利用", "transfercode": "引き継ぎコード利用",
+    "merge": "重複候補からの復旧", "duplicate": "重複候補からの復旧",
+    "activity": "自動復旧", "auto": "自動復旧",
+}
+
+
+def _登録経路(値):
+    s = str(値 or "").strip()
+    if not s:
+        return "新規登録"
+    return _登録経路の言い換え.get(s.lower(), s)
+
+
+def _日付(値, 既定):
+    """生年月日。**読めなければ既定値（いまの値）を残す。**空にしない。"""
+    s = str(値 or "").strip()
+    if not s:
+        # はっきり空を送ってきたときだけ、空にする。
+        return None if 値 is not None and str(値) == "" else 既定
+    d = parse_date(s[:10])
+    if d is not None:
+        return d
+    t = parse_datetime(s)
+    return t.date() if t is not None else 既定
+
+
+def _通知が入か(届け先):
+    """届け先の中身から、通知オンかどうかを決める。
+
+    アプリは `pushSubscription: false`（真偽値）か、購読IDの文字列を送ってくる。
+    `false` は「通知オフ」。**文字列の "false" も同じ扱いにする。**
+    """
+    if 届け先 is False or 届け先 is None:
+        return False
+    s = str(届け先).strip()
+    if not s or s.lower() in ("false", "0", "none", "null", "undefined"):
+        return False
+    return True
+
+
+def 会員を書き換える(data):
+    """GAS の handleUpdateUser()（6759行）と同じ。**新規登録も兼ねる。**
+
+    お客様がプロフィールを保存したとき、通知の入切を変えたときに呼ばれる。
+    **会員が無ければ作る。**行を作るのは、この口だけの仕事。
+
+    ## 送られてこなかった項目は、いまの値を残す
+
+    JSON では `undefined` の項目は**そもそも送られてこない**ので、
+    「キーがあるか」で判断する。GAS の `data.x !== undefined` と同じ。
+
+        キーが無い      → いまの値のまま
+        キーがあって "" → **空にする**（はっきり消したいということ）
+
+    ## GAS と違うところ
+
+    1. **パスコードはハッシュにして保存する。**GAS は平文で表に書いている。
+       平文をやめるのが、この移行の目的の1つ。照合は check_password で行う。
+    2. **スタンプは、読めない値で 0 にしない。**理由は 特典をそろえる() と同じ。
+    3. **行ロックを取る。**GAS は読んで書くだけで、同時に届くと片方が消える。
+
+    ## 気をつけていること
+
+    お名前とフリガナは**保存する前に整える**（空白を取る・ひらがなに寄せる）。
+    ここがGASとずれると、同じ方が二重に登録される。
+    """
+    d = data or {}
+    会員ID = str(d.get("memberId") or "").strip()
+    if not 会員ID:
+        return {"status": "error", "message": "IDが指定されていません"}
+
+    # GAS と同じ検査。お名前を送ってきたのに、整えると空になる場合は断る。
+    if "name" in d and not _名前を整える(d.get("name")):
+        return {"status": "error", "message": "お名前を入力してください"}
+
+    いま = timezone.now()
+
+    with transaction.atomic():
+        m = Member.objects.select_for_update().filter(member_id=会員ID).first()
+        新規 = m is None
+        if 新規:
+            # **ここが唯一、会員を作る場所。**
+            m = Member(member_id=会員ID, created_at=いま)
+            m.device_sessions = []
+            m.registration_source = _登録経路(d.get("registrationSource"))
+            m.registration_source_detail = str(d.get("registrationSourceDetail") or "").strip()
+            m.registration_source_updated_at = いま
+
+        if "name" in d:
+            m.name = _名前を整える(d.get("name"))
+        else:
+            # GAS は既存の値も normalizeStoredName_ に通し直している。
+            # 空白入りで登録された古い記録が、保存のたびに整う。同じにする。
+            m.name = _名前を整える(m.name)
+
+        m.kana = _かなを整える(d["kana"] if "kana" in d else m.kana)
+
+        if "phone" in d:
+            m.phone = str(d.get("phone") or "").strip()
+        if "address" in d:
+            m.address = str(d.get("address") or "").strip()
+        if "avatar" in d:
+            m.avatar_url = str(d.get("avatar") or "").strip()
+        if "status" in d:
+            m.status = str(d.get("status") or "").strip()
+        if "memo" in d:
+            # **お客様アプリは、保存のたびに memo:'' を送ってくる。**
+            # つまり受付の覚え書きが毎回消える。GAS も同じ動きをしている。
+            # ここは GAS に合わせてある。直すならアプリ側（app.js）で
+            # memo を送るのをやめるのが正しい。
+            m.memo = str(d.get("memo") or "")
+        if "birthday" in d:
+            m.birthday = _日付(d.get("birthday"), m.birthday)
+
+        if "pushSubscription" in d:
+            届け先 = d.get("pushSubscription")
+            m.push_subscription = "" if 届け先 in (False, None) else str(届け先).strip()
+            if m.push_subscription.lower() == "false":
+                m.push_subscription = ""
+            m.push_enabled = _通知が入か(届け先)
+
+        if "passcode" in d and str(d.get("passcode") or "").strip():
+            # **平文では保存しない。**GAS との違い。
+            m.passcode_hash = make_password(str(d.get("passcode")).strip())
+            # GAS と同じ。パスコードを決め直したら、引き継ぎコードは無効にする。
+            m.transfer_code = ""
+            m.transfer_code_issued_at = None
+
+        if ("registrationSource" in d or "registrationSourceDetail" in d
+                or "registrationSourceUpdatedAt" in d):
+            m.registration_source = _登録経路(
+                d.get("registrationSource") or m.registration_source)
+            if "registrationSourceDetail" in d:
+                m.registration_source_detail = str(
+                    d.get("registrationSourceDetail") or "").strip()
+            t = parse_datetime(str(d.get("registrationSourceUpdatedAt") or ""))
+            m.registration_source_updated_at = (
+                t if t is not None else (m.registration_source_updated_at or いま))
+
+        # スタンプ・特典。**読めない値で 0 にしない。**
+        if "stampCount" in d:
+            m.stamp_count = _数(d.get("stampCount"), m.stamp_count or 0, 0, 10)
+        if "stampCardNum" in d:
+            m.stamp_card_number = _数(d.get("stampCardNum"), m.stamp_card_number or 1, 1)
+        if "rewards" in d:
+            m.reward_history = _一覧(d.get("rewards"), m.reward_history or [])
+        if "stampHistory" in d:
+            m.stamp_history = _一覧(d.get("stampHistory"), m.stamp_history or [])
+
+        # **端末・退会の印・統合先には触らない。**GAS も持ち越すだけ。
+        m.save()
+
+    return {"status": "ok", "created": 新規}
+
+
 # action の名前 → 書き込む関数
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
     "removeUserDeviceSession": 端末を外す,
     "syncUserRewardStatus": 特典をそろえる,
+    "updateUser": 会員を書き換える,
 }
 
 
