@@ -824,3 +824,45 @@ const redeemed = redeemPendingSurveyStamp_(sheet, rowIdx, row, memberId);
 それでも口は用意した。**無いと 501 を返してしまい、
 アプリが「サーバーが壊れている」と受け取る恐れがある。**
 
+
+### 設定2種も一致した — **読み取り10/12種**（2026-08-23）
+
+| action | GAS | サーバー | |
+|---|---|---|---|
+| `getAppRuntimeConfig` | 6項目 | 6項目 | **全項目一致** |
+| `getRewardGachaConfig` | 4か月 | 4か月 | **一致**（各月4等級・確率合計100） |
+
+**`webBundleVersion` の固定が効いていることを確かめた。**
+
+    保存されている値   2026.04.06.63   ← **使わない**
+    GAS が返す値      2026.04.05.61
+    サーバーが返す値    2026.04.05.61   ← 一致
+
+#### スクリプトプロパティの移し方
+
+`AppSetting`（鍵と値だけの表）に入れた。中身の形は設定ごとに違うので
+JSON のまま持つ。GAS も `JSON.stringify` で入れている。
+
+**秘密は移さない。**`ADMIN_TOKEN_SECRET` などは `.env` にあり、
+`AppSetting` には置かない。置くと**控え（バックアップ）に秘密が混ざる。**
+
+書き出し・取り込みの両方で、**移すと決めた2つだけを名指しで通す。**
+「全部書き出して後で選ぶ」はしない。書き出した時点で漏れる。
+
+---
+
+## ④の到達点（2026-08-23）
+
+**読み取り12種のうち10種が、GASと完全一致。**
+
+| | |
+|---|---|
+| `getNews` / `getMenus` / `getCalendar` | 済 |
+| `getSupportFaq` / `getPushNotices` / `getProducts` | 済 |
+| `getUserDevices` / `getCustomerOrders` | 済 |
+| `getAppRuntimeConfig` / `getRewardGachaConfig` | **済** |
+| `getUserRewardStatus` | **書き込みを含むので⑤で** |
+| `getRecoveryCandidates` | **認証なしで呼べるので⑤で** |
+
+残る2種は、読み取りのついでには作れない。書き込みの段階で扱う。
+
