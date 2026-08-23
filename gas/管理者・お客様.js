@@ -6775,6 +6775,23 @@ function handleUpdateUser(data) {
     const rewardStatus = sanitizeRewardStatus_(data);
 
     if (targetRow === -1) {
+      // **お名前が無いなら、新しい行を作らない。**
+      //
+      // 上の検査は `data.name !== undefined` が条件なので、name を
+      // **そもそも送らなければ通り抜ける。**この窓口は PUBLIC_ACTIONS に
+      // 入っていて合鍵なしで誰でも呼べるため、会員IDを適当に付けて送れば
+      // お名前も電話番号も生年月日も空の行がいくらでも作れる。
+      //
+      // 空の行は復元の条件（生年月日の完全一致）を満たしようがないので、
+      // **その会員IDは永久にアプリへ入れない。**
+      // 2026年8月に「入れないお客様が21名」いた原因も、おそらくこれ。
+      //
+      // 既にある行の書き換えは、お名前なしでも通す。通知の入切だけを
+      // 送ってくる経路（app.js の syncPushPreferenceToProfile）が
+      // memberId と pushSubscription しか送らないため。
+      if (!normalizedName) {
+        return { status: 'error', message: 'お名前を入力してください' };
+      }
       const rowData = new Array(USER_HEADERS.length).fill('');
       rowData[USER_COL.MEMBER_ID - 1] = memberId;
       rowData[USER_COL.TIMESTAMP - 1] = timestamp;
