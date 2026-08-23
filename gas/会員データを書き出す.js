@@ -49,7 +49,8 @@ function 会員データの下見() {
   if (r.除いた.length > 20) Logger.log('    …ほか ' + (r.除いた.length - 20) + '件');
   Logger.log('');
   Logger.log('■ 中身の埋まりぐあい');
-  ['kana', 'phone', 'birthday', 'address', 'passcode'].forEach(function (k) {
+  ['kana', 'phone', 'birthday', 'address', 'passcode',
+   'memo', 'pushSubscription', 'stampAchievedAt'].forEach(function (k) {
     var n = r.members.filter(function (m) { return m[k]; }).length;
     Logger.log('    ' + 会員書出_見出し_(k) + ': ' + n + '名 / ' + r.members.length + '名');
   });
@@ -65,7 +66,8 @@ function 会員データの下見() {
 function 会員書出_見出し_(鍵) {
   return ({
     kana: 'フリガナ', phone: '電話番号', birthday: '生年月日',
-    address: '住所', passcode: 'パスコード'
+    address: '住所', passcode: 'パスコード',
+    memo: 'メモ', pushSubscription: '通知の届け先', stampAchievedAt: 'スタンプ達成日時'
   })[鍵] || 鍵;
 }
 
@@ -120,7 +122,20 @@ function 会員書出_集める_() {
       birthday: 会員書出_日付_(row[USER_COL.BIRTHDAY - 1]),
       address: 会員書出_文字_(row[USER_COL.ADDRESS - 1]),
       avatarUrl: 会員書出_文字_(row[USER_COL.AVATAR_URL - 1]),
+      // **8列目は「オン/オフ」ではなく、通知の届け先そのもの。**
+      // GAS の getPushUsers() が、この値を subscription として配信に渡している。
+      // 真偽値の false がそのまま入っていることがあるので、文字にすると "false"
+      // になる。取り込み側で「オフ」に寄せている。
+      //
+      // 2026-08-23 まで、取り込み側がこれを 真偽() に通していた。
+      // 購読IDは "true" でも "1" でもないので**偽に落ちていた**（1名該当）。
+      pushSubscription: 会員書出_文字_(row[USER_COL.PUSH - 1]),
       pushEnabled: 会員書出_文字_(row[USER_COL.PUSH - 1]),
+      // 受付の覚え書き。2026-08-23 時点で 0名（お客様アプリが保存のたびに
+      // memo:'' を送って消しているため）。それでも列としては移す。
+      memo: 会員書出_文字_(row[USER_COL.MEMO - 1]),
+      // スタンプが10個そろった日時。**特典の有効期限の基準。**
+      stampAchievedAt: 会員書出_日時_(row[USER_COL.STAMP_ACHIEVED_AT - 1]),
       status: 会員書出_文字_(row[USER_COL.STATUS - 1]),
       stampCount: row[USER_COL.STAMP_COUNT - 1],
       stampCardNumber: row[USER_COL.STAMP_CARD_NUM - 1],
