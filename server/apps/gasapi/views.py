@@ -25,6 +25,7 @@ import hmac
 
 from django.conf import settings
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 from apps.members.models import Member
 from apps.records.models import AppSetting
@@ -582,15 +583,33 @@ _できること = {
 }
 
 
+@csrf_exempt
 def 窓口(request):
-    """GAS の doGet と同じ入口。?action=... で振り分ける。
+    """GAS の doGet / doPost と同じ入口。
+
+    読み取りは `?action=...`、書き込みは POST の `{"type": "..."}`。
+    **GAS がその形なので、そのまま合わせる。**
 
     まだ作っていない action は、**素直に「まだありません」と答える。**
     黙って空を返すと、切り替えたときに「データが消えた」ように見える。
+
+    `csrf_exempt` を付けるのは、アプリが別の場所（GitHub Pages）から
+    呼ぶため。**代わりに合鍵（API_KEY）で守っている。**
     """
     断り = _合鍵を確かめる(request)
     if 断り:
         return 断り
+
+    # 書き込み。GAS の doPost にあたる。
+    if request.method == "POST":
+        from .writes import 受け取る
+
+        書く, 中 = 受け取る(request)
+        if not 書く:
+            # 中 にはエラーの中身が入っている。
+            # **GAS はエラーでも 200 で返す。**同じにする。
+            return JsonResponse(中, json_dumps_params={"ensure_ascii": False})
+        return JsonResponse(書く(中), json_dumps_params={"ensure_ascii": False})
 
     action = request.GET.get("action", "").strip()
     if not action:
