@@ -27,6 +27,7 @@ from django.conf import settings
 from django.http import JsonResponse
 
 from apps.members.models import Member
+from apps.records.models import AppSetting
 from apps.content.models import (
     CalendarEvent,
     Category,
@@ -474,6 +475,97 @@ def _注文(request):
     return {"status": "ok", "orders": []}
 
 
+
+# GAS の DEFAULT_APP_RUNTIME_CONFIG と同じ既定値。
+# 保存されていない項目は、GAS もこれで補っている。
+アプリ設定の既定 = {
+    "latestAppVersion": "1.1.1",
+    "minimumSupportedVersion": "0.0.0",
+    "iosStoreUrl": "",
+    "updateTitle": "アップデートが必要です",
+    "updateMessage": "このアプリを引き続き利用するには、最新版へアップデートしてください。",
+    "webBundleVersion": "2026.04.05.61",
+}
+
+
+def _版を比べる(a, b):
+    """GAS の compareVersions_ と同じ。a が b より小さければ負を返す。"""
+    def 数に(v):
+        out = []
+        for x in str(v or "").split("."):
+            try:
+                out.append(int(x))
+            except ValueError:
+                out.append(0)
+        return out
+
+    x, y = 数に(a), 数に(b)
+    for i in range(max(len(x), len(y))):
+        p = x[i] if i < len(x) else 0
+        q = y[i] if i < len(y) else 0
+        if p != q:
+            return p - q
+    return 0
+
+
+def _アプリ設定():
+    """GAS の getAppRuntimeConfig()（466行）と同じ形で返す。
+
+    **保存された値をそのまま返さない。**GAS は `sanitizeAppRuntimeConfig_` を
+    通しており、そこで3つのことをしている。同じことをする。
+
+    1. 空の項目は既定値で補う
+    2. **`webBundleVersion` は保存値を無視して既定値で固定**
+    3. 最新版が最低対応版より古ければ、最低対応版に揃える
+    4. `iosStoreUrl` が http(s) で始まらなければ空にする
+
+    2 は GAS のコメントにこう書いてある。
+
+        // 現在配布中のネイティブ版との整合を優先し、返却値は固定で揃える
+
+    実際、保存値は `2026.04.06.63` だが GAS は `2026.04.05.61` を返している
+    （2026-08-22 に確認）。**院長の判断で、この動きをそのまま写す。**
+    ここを「保存値を返す」に変えると、**お客様に更新案内が出はじめる恐れがある。**
+    """
+    行 = AppSetting.objects.filter(key="APP_RUNTIME_CONFIG").first()
+    保存 = (行.value if 行 and isinstance(行.value, dict) else {}) or {}
+
+    設定 = {}
+    for k in ("latestAppVersion", "minimumSupportedVersion", "updateTitle", "updateMessage"):
+        v = str(保存.get(k) or "").strip()
+        設定[k] = v or アプリ設定の既定[k]
+
+    設定["iosStoreUrl"] = str(保存.get("iosStoreUrl") or アプリ設定の既定["iosStoreUrl"]).strip()
+
+    # **保存値を使わない。**GAS と同じく固定。
+    設定["webBundleVersion"] = アプリ設定の既定["webBundleVersion"]
+
+    if _版を比べる(設定["latestAppVersion"], 設定["minimumSupportedVersion"]) < 0:
+        設定["latestAppVersion"] = 設定["minimumSupportedVersion"]
+
+    if 設定["iosStoreUrl"] and not 設定["iosStoreUrl"].lower().startswith(("http://", "https://")):
+        設定["iosStoreUrl"] = ""
+
+    # GAS の返す並びに合わせる（JSONの順は見た目だけの話だが、
+    # 突き合わせのときに読みやすい）
+    順 = ["latestAppVersion", "minimumSupportedVersion", "iosStoreUrl",
+          "updateTitle", "updateMessage", "webBundleVersion"]
+    return {"status": "ok", "config": {k: 設定[k] for k in 順}}
+
+
+def _ガチャ設定():
+    """GAS の getRewardGachaConfig()（644行）と同じ形で返す。
+
+    月ごとの景品表。中身の形は GAS が保存したまま。
+    **手を加えない。**確率や文言を勝手に整えると、当たり方が変わる。
+    """
+    行 = AppSetting.objects.filter(key="REWARD_GACHA_CONFIG").first()
+    値 = (行.value if 行 and isinstance(行.value, dict) else None) or {"monthlyPrizes": []}
+    if "monthlyPrizes" not in 値:
+        値 = {"monthlyPrizes": []}
+    return {"status": "ok", "config": 値}
+
+
 # action の名前 → 返す中身を作る関数
 _できること = {
     "getNews": _お知らせ,
@@ -485,6 +577,8 @@ _できること = {
     # 会員IDが要るもの。request を受け取る。
     "getUserDevices": _端末,
     "getCustomerOrders": _注文,
+    "getAppRuntimeConfig": _アプリ設定,
+    "getRewardGachaConfig": _ガチャ設定,
 }
 
 

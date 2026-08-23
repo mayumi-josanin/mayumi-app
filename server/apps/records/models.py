@@ -308,3 +308,41 @@ class RevenueRecord(models.Model):
 # 回数券分析は、お客様のお体についての記録なので別ファイルに置いている。
 # ここで読み込むことで Django が表として認識する。
 from .models_ticket import TicketAnalysis  # noqa: E402,F401
+
+
+class AppSetting(models.Model):
+    """アプリの設定。GAS のスクリプトプロパティにあたる。
+
+    表ではなくプロパティに入っていたもの。`getAppRuntimeConfig` と
+    `getRewardGachaConfig` がここから読む。
+
+    **鍵と値だけの素直な作りにする。**中身の形は設定ごとに違う
+    （片方はバージョン情報、もう片方は4か月分の景品表）ので、
+    列に開かずJSONのまま持つ。GASも `JSON.stringify` で入れている。
+
+    移したもの（2026-08-23）:
+
+    | 鍵 | 中身 |
+    |---|---|
+    | `APP_RUNTIME_CONFIG` | アプリの版・更新案内の文言 |
+    | `REWARD_GACHA_CONFIG` | 4か月分の景品と確率 |
+
+    **秘密は入れない。**`ADMIN_TOKEN_SECRET` などは `.env` にあり、
+    ここには置かない。置くと、控え（バックアップ）に秘密が混ざる。
+    """
+
+    key = models.CharField("鍵", max_length=64, primary_key=True)
+    value = models.JSONField("値", default=dict, blank=True)
+
+    note = models.CharField("覚え書き", max_length=255, blank=True)
+
+    imported_at = models.DateTimeField("取り込み日時", auto_now_add=True)
+    changed_at = models.DateTimeField("変更日時", auto_now=True)
+
+    class Meta:
+        verbose_name = "アプリの設定"
+        verbose_name_plural = "アプリの設定"
+        ordering = ["key"]
+
+    def __str__(self):
+        return self.key
