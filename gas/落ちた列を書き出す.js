@@ -77,7 +77,10 @@ function 落ちた列の下見() {
 }
 
 function 落ち列_集める_() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(落ち列_シート名);
+  // **getActiveSpreadsheet() は使えない。**このGASは表に紐づいていない
+  // （単独のプロジェクト）ので null が返る。実際に 2026-08-23 にそれで落ちた。
+  // 他の道具と同じく getOrCreateSpreadsheet() を使う。
+  var sheet = getOrCreateSpreadsheet().getSheetByName(落ち列_シート名);
   if (!sheet) throw new Error('「' + 落ち列_シート名 + '」が見つかりません。');
 
   var 最終行 = sheet.getLastRow();
