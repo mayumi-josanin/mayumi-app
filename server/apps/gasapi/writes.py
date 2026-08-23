@@ -134,10 +134,142 @@ def 端末を外す(data):
     return {"status": "ok", "devices": 残り}
 
 
+
+def _数(値, 既定, 最小=None, 最大=None):
+    """数に直す。**読めなければ既定値を返す（0にしない）。**
+
+    GAS は `Number(x) || 0` と書いていて、これは
+    **null・空文字・文字列が来ると 0 になる。**
+    スタンプでこれが起きると、お客様の記録が0に戻る。
+
+    CLAUDE.md の「記録を読む通信で書き込む」を禁ずる項目は、
+    まさにこの形の不具合（受付で入れたスタンプが0に戻った）から来ている。
+    **ここでは 0 に落とさず、いまの値を残す。**
+    """
+    if 値 is None:
+        return 既定
+    try:
+        n = int(値)
+    except (TypeError, ValueError):
+        try:
+            n = int(float(値))
+        except (TypeError, ValueError):
+            return 既定
+    if 最小 is not None:
+        n = max(最小, n)
+    if 最大 is not None:
+        n = min(最大, n)
+    return n
+
+
+def _一覧(値, 既定):
+    """配列に直す。読めなければ既定値。**空配列にしない。**"""
+    if 値 is None:
+        return 既定
+    if isinstance(値, list):
+        return 値
+    if isinstance(値, str):
+        try:
+            v = json.loads(値)
+            return v if isinstance(v, list) else 既定
+        except ValueError:
+            return 既定
+    return 既定
+
+
+def 特典をそろえる(data):
+    """GAS の handleSyncUserRewardStatus()（7509行）と同じ。
+
+    アプリが持っているスタンプ・特典の状態を送ってきて、記録に反映する。
+    **93日で791回**呼ばれる。
+
+    ## ここがいちばん危ない
+
+    アプリから送られた値で**上書きする**作り。
+    送られてこなかった項目は、**いまの値を残す**（GAS も同じ）。
+
+        data.stampCount が undefined  → いまの値を使う
+        data.stampCount が 5          → 5 にする
+
+    **問題は「読めない値」が来たとき。**
+    GAS は `Number(x) || 0` なので、`null` や文字列が来ると **0 になる。**
+    お客様のスタンプが0に戻る。
+
+    **ここでは 0 に落とさず、いまの値を残す。**
+    GAS と違う動きになるが、**こちらのほうが安全side。**
+    「スタンプを0にする」は、管理アプリから明示的に行うべきこと。
+
+    ## 会員が無いときは作らない
+
+    GAS は `ensureUserRowFromActivity_` で**新しい行を足す**。
+    ここでは足さない。**足すのは updateUser の仕事**にする。
+    無い会員に特典だけ書くと、名前も電話番号も無い行ができる。
+    （2026-08 に「入れないお客様」が21名いた原因が、まさにこれ）
+    """
+    会員ID = str((data or {}).get("memberId") or "").strip()
+    if not 会員ID:
+        return {"status": "error", "message": "会員IDが指定されていません"}
+
+    with transaction.atomic():
+        m = Member.objects.select_for_update().filter(member_id=会員ID).first()
+        if not m:
+            # **GASと違って行を作らない。**理由は上のとおり。
+            return {"status": "error", "message": "会員情報が見つかりません"}
+
+        d = data or {}
+        # 送られてこなかった項目は、いまの値を残す。
+        # 読めない値が来たときも、いまの値を残す（0にしない）。
+        次 = {
+            "stampCount": _数(d.get("stampCount"), m.stamp_count or 0, 0, 10),
+            "stampCardNum": _数(d.get("stampCardNum"), m.stamp_card_number or 1, 1),
+            "rewards": _一覧(d.get("rewards"), m.reward_history or []),
+            "stampHistory": _一覧(d.get("stampHistory"), m.stamp_history or []),
+        }
+
+        m.stamp_count = 次["stampCount"]
+        m.stamp_card_number = 次["stampCardNum"]
+        m.reward_history = 次["rewards"]
+        m.stamp_history = 次["stampHistory"]
+
+        # 最終スタンプ日時。送られてきたものがあれば使う。
+        生 = d.get("lastStampAt") or d.get("lastStampDate")
+        if 生:
+            from django.utils.dateparse import parse_datetime, parse_date
+
+            t = parse_datetime(str(生))
+            if t is None:
+                日 = parse_date(str(生)[:10])
+                if 日:
+                    t = timezone.make_aware(
+                        timezone.datetime.combine(日, timezone.datetime.min.time()))
+            if t is not None:
+                if timezone.is_naive(t):
+                    t = timezone.make_aware(t)
+                m.last_stamp_at = t
+
+        m.save(update_fields=[
+            "stamp_count", "stamp_card_number", "reward_history",
+            "stamp_history", "last_stamp_at", "changed_at",
+        ])
+
+        返す = {
+            "stampCount": m.stamp_count,
+            "stampCardNum": m.stamp_card_number,
+            "rewards": m.reward_history or [],
+            "stampHistory": m.stamp_history or [],
+            "lastStampDate": m.last_stamp_at.astimezone().strftime("%Y-%m-%d") if m.last_stamp_at else "",
+            "lastStampAt": _日時の文字(m.last_stamp_at) if m.last_stamp_at else "",
+            "stampAchievedDate": "",
+        }
+
+    return {"status": "ok", "rewardStatus": 返す}
+
+
 # action の名前 → 書き込む関数
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
     "removeUserDeviceSession": 端末を外す,
+    "syncUserRewardStatus": 特典をそろえる,
 }
 
 
