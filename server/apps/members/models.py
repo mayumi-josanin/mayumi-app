@@ -57,6 +57,15 @@ class Member(models.Model):
     stamp_card_number = models.IntegerField("スタンプカード番号", default=0)
     last_stamp_at = models.DateTimeField("最終スタンプ取得日時", null=True, blank=True)
 
+    # スタンプが10個そろった日時。会員データの16列目（STAMP_ACHIEVED_AT）。
+    # **ガチャの特典の「獲得日」と「有効期限（獲得＋1か月）」の基準になる。**
+    # お客様アプリも `stampAchievedDate` として持っていて、端末とサーバーで
+    # 新しいほうを採る作りになっている（app.js 1806行）。
+    #
+    # 2026-08-23 に取り込みの取りこぼしとして見つかった。書き出してすらいなかった。
+    # 無いままガチャを回すと、**有効期限が「回した日＋1か月」になってしまう。**
+    stamp_achieved_at = models.DateTimeField("スタンプ達成日時", null=True, blank=True)
+
     # ---- ログインに使うもの ----
     #
     # 平文のパスコードは持ち込まない。取り込むときにハッシュにする。
