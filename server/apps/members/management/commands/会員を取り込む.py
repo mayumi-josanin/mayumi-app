@@ -15,6 +15,7 @@
 """
 
 import json
+import re as _re
 from datetime import datetime
 
 from django.contrib.auth.hashers import make_password
@@ -39,6 +40,43 @@ def 数(値, 既定=0):
 def 真偽(値):
     s = 文字(値).lower()
     return s in ("true", "1", "on", "yes", "有効", "オン", "登録済み", "済")
+
+
+def _電話(値):
+    """電話番号。**消えた先頭の0を戻す。**
+
+    スプレッドシートが電話番号を数値として受け取ると、先頭の0が落ちる。
+
+        08012345678  →  8012345678
+
+    2026-08-24 の時点で、153名のうち **121名**がこの形だった。
+    表そのものは `gas/電話番号の0を戻す.js` で直したが、
+    **ここでも受け止める。**片方だけに頼ると、また同じことが起きる。
+
+    足すのは、足した結果が日本の電話番号の形になるときだけ。
+    形にならないものは**そのまま持つ**（勝手に作り変えない）。
+    """
+    s = 文字(値)
+    if not s:
+        return ""
+    数 = _re.sub(r"\D", "", s)
+    if not 数 or 数.startswith("0"):
+        return s
+
+    # 国番号81（例: 817055600662 → 07055600662）
+    if len(数) == 12 and 数.startswith("81"):
+        return "0" + 数[2:]
+
+    候補 = "0" + 数
+    # 携帯（070/080/090 の11桁）
+    if len(候補) == 11 and 候補[:3] in ("070", "080", "090"):
+        return 候補
+    # 固定電話（0で始まる10桁。07x は固定の市外局番に無い）
+    if len(候補) == 10 and 候補[1] != "0" and not 候補.startswith("07"):
+        return 候補
+
+    # 形にならないものは、そのまま。**推測で作り変えない。**
+    return s
 
 
 def _届け先(値):
@@ -141,7 +179,7 @@ class Command(BaseCommand):
             値 = {
                 "name": name,
                 "kana": 文字(r.get("kana")),
-                "phone": 文字(r.get("phone")),
+                "phone": _電話(r.get("phone")),
                 "birthday": 日付(r.get("birthday")),
                 "address": 文字(r.get("address")),
                 "avatar_url": 文字(r.get("avatarUrl")),
