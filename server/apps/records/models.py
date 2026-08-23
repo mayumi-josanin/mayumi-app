@@ -76,7 +76,11 @@ class AuditLog(models.Model):
     # 自動処理の記録。これは移さない。**増やすときは移行設計にも書くこと。**
     自動処理の種別 = ("syncUserDeviceSession", "syncUserRewardStatus")
 
-    sheet_row = models.IntegerField("シートの行", db_index=True, unique=True)
+    # スプレッドシートの何行目から来たか。二重取り込みを防ぐための印。
+    # **サーバーが自分で作った記録には行番号が無い**（空にする）。
+    # PostgreSQL は空を重複と見なさないので、一意の指定はそのまま使える。
+    sheet_row = models.IntegerField("シートの行", db_index=True, unique=True,
+                                    null=True, blank=True)
 
     happened_at = models.DateTimeField("日時", null=True, blank=True, db_index=True)
     kind = models.CharField("種別", max_length=64, db_index=True)

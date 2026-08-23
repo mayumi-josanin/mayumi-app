@@ -14,12 +14,14 @@
 4. **書く前に必ず会員を確かめる**（無い会員に書かない）
 """
 
+import hashlib
 import json
 import random
 import re
 import unicodedata
 
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import check_password, make_password
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
@@ -708,6 +710,356 @@ def ガチャを引く(data):
     return 返す
 
 
+# ---------------------------------------------------------------------------
+# 入り口（アプリに戻っていただくための2つ）
+#
+# **ここがいちばん危ない。**通れば、その会員の記録すべてが手に入る。
+# 通しすぎれば他人が入り、締めすぎれば本当のご本人が入れなくなる。
+#
+# 2026年8月に「入れないお客様が21名」いた。生年月日が必須一致だったため。
+# **条件は GAS と1つも変えない。**変えるなら、それは別の判断として相談する。
+# ---------------------------------------------------------------------------
+
+# GAS と同じ。10分のあいだに10回はずしたら、いったんお休みいただく。
+復元の上限 = 10
+復元のお休み秒 = 10 * 60
+
+
+def _電話を寄せる(値):
+    """数字だけにする。9桁以上で0で始まらなければ0を足す（GASと同じ）。"""
+    数 = re.sub(r"\D", "", str(値 or "").strip())
+    if len(数) >= 9 and not 数.startswith("0"):
+        数 = "0" + 数
+    return 数
+
+
+def _日付を寄せる(値):
+    """`YYYY-MM-DD` の文字にする。GAS の normalizeDateOnlyValue_ と同じ。"""
+    if 値 is None or 値 == "":
+        return ""
+    if hasattr(値, "strftime"):
+        return 値.strftime("%Y-%m-%d")
+    文 = str(値).strip()
+    m = re.match(r"^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$", 文)
+    if m:
+        return "%s-%02d-%02d" % (m.group(1), int(m.group(2)), int(m.group(3)))
+    d = parse_date(文[:10])
+    return d.strftime("%Y-%m-%d") if d else ""
+
+
+def _引き継ぎコードを寄せる(値):
+    return re.sub(r"\D", "", str(値 or ""))[:8]
+
+
+def _復元の鍵(名, かな):
+    """試行回数を数えるための鍵。**お名前そのものは残さない。**
+
+    GAS と同じく SHA-256 にして頭だけ使う。
+    記録に平文のお名前が残ると、それ自体が漏れうる情報になる。
+    """
+    種 = str(名 or "") + "|" + str(かな or "")
+    return "recover_" + hashlib.sha256(種.encode("utf-8")).hexdigest()[:24]
+
+
+def _お休み中か(名, かな):
+    try:
+        return int(cache.get(_復元の鍵(名, かな)) or 0) >= 復元の上限
+    except Exception:
+        # **数えられないときに復元を止めない。**
+        # 止めると、本当のご本人が締め出される。GASも同じ判断。
+        return False
+
+
+def _はずれを数える(名, かな):
+    try:
+        鍵 = _復元の鍵(名, かな)
+        cache.set(鍵, int(cache.get(鍵) or 0) + 1, 復元のお休み秒)
+    except Exception:
+        pass
+
+
+def _数えるのをやめる(名, かな):
+    try:
+        cache.delete(_復元の鍵(名, かな))
+    except Exception:
+        # 消せなくても10分で自然に消える。
+        pass
+
+
+def _会員の返し方(m, 平文パスコード=""):
+    """GAS の buildRecoverAccountUserFromRow_ と同じ形。
+
+    **`rewards` と `stampHistory` は「文字列」で返す。**
+    GAS がセルの中身（JSONの文字列）をそのまま返しているため。
+    配列で返すとアプリ側の読み取りが変わる。
+    """
+    return {
+        "memberId": m.member_id,
+        "name": m.name or "",
+        "kana": m.kana or "",
+        "phone": m.phone or "",
+        "avatar": m.avatar_url or "",
+        "memo": m.memo or "",
+        "status": m.status or "",
+        "birthday": _日付を寄せる(m.birthday),
+        "address": m.address or "",
+        "passcode": 平文パスコード,
+        "deviceSessions": m.device_sessions or [],
+        "stampCount": m.stamp_count or 0,
+        "stampCardNum": max(1, m.stamp_card_number or 1),
+        "rewards": json.dumps(m.reward_history or [], ensure_ascii=False),
+        "stampHistory": json.dumps(m.stamp_history or [], ensure_ascii=False),
+        "lastStampDate": m.last_stamp_at.astimezone().strftime("%Y-%m-%d") if m.last_stamp_at else "",
+        "lastStampAt": _日時の文字(m.last_stamp_at) if m.last_stamp_at else "",
+        "stampAchievedAt": _日時の文字(m.stamp_achieved_at) if m.stamp_achieved_at else "",
+        "regDate": m.created_at.astimezone().strftime("%Y-%m-%d") if m.created_at else "",
+    }
+
+
+def _入り直していただく(m, 新パスコード, 経路, 詳細):
+    """通ったあとの共通の後始末。
+
+    **退会の印を消す。**復元は「戻ってきていただく」手続きなので、
+    消えた扱いになっていた方も、ここで元に戻る（GASも同じ）。
+    """
+    m.passcode_hash = make_password(新パスコード)
+    m.deleted = False
+    m.deleted_at = None
+    m.merged_into_id = ""
+    m.transfer_code = ""
+    m.transfer_code_issued_at = None
+    m.registration_source = 経路
+    m.registration_source_detail = 詳細
+    m.registration_source_updated_at = timezone.now()
+    m.save()
+
+
+def 会員を復元する(data):
+    """GAS の handleRecoverAccount()（7202行）と同じ。
+
+    端末を替えた方・アプリを消してしまった方が、記録に戻るための入り口。
+
+    ## 通る条件（**GASと1つも変えていない**）
+
+    引き継ぎコードがあれば、それだけで通る（ご本人しか持たないため）。
+
+    無ければ、
+
+        生年月日が**完全に一致**すること（必須）
+        かつ、お名前**または**フリガナのどちらかが一致すること
+        電話番号・いまのパスコードは、**入力されたときだけ**絞り込みに使う
+
+    1件も無ければ断る。**2件以上でも断る**（取り違えないため）。
+
+    > 2026年8月に「入れないお客様が21名」いたのは、生年月日が必須だから。
+    > **条件を緩めるかどうかは、この移行とは別の判断。**ここでは変えない。
+
+    ## GAS と違うところ
+
+    1. **パスコードはハッシュで照合する**（`check_password`）。GASは平文比較。
+    2. **行ロックを取る。**
+    3. 試行回数は、GASのキャッシュではなく**データベース**で数える。
+       gunicorn が3つ動いているので、処理ごとに数えると10回が30回になる。
+    """
+    d = data or {}
+    名 = _名前を整える(d.get("name"))
+    かな = _かなを整える(d.get("kana"))
+    電話 = _電話を寄せる(d.get("phone"))
+    生年月日 = _日付を寄せる(d.get("birthday"))
+    パスコード = str(d.get("passcode") or "").strip()
+    新パスコード = str(d.get("newPasscode") or "").strip() or パスコード
+    引き継ぎ = _引き継ぎコードを寄せる(d.get("transferCode"))
+
+    # **GASと同じ順で確かめる。**順が違うと、出るお知らせが変わる。
+    if not 引き継ぎ and not 名 and not かな:
+        return {"status": "error", "message": "お名前またはフリガナを入力してください。"}
+    if not 引き継ぎ and not 生年月日:
+        return {"status": "error", "message": "生年月日を入力してください。"}
+    if not re.match(r"^(?:\d{4}|\d{6})$", 新パスコード):
+        return {"status": "error",
+                "message": "この端末で使うパスコードを4桁または6桁の数字で入力してください。"}
+
+    # 引き継ぎコードはご本人しか持たないので数えない。
+    if not 引き継ぎ and _お休み中か(名, かな):
+        return {"status": "error",
+                "message": "復元の試行が続いたため、一時的に停止しています。10分後に再度お試しください。"}
+
+    with transaction.atomic():
+        if 引き継ぎ:
+            m = (Member.objects.select_for_update()
+                 .filter(transfer_code=引き継ぎ).first())
+            if not m:
+                return {"status": "error",
+                        "message": "一致する会員情報が見つかりませんでした。入力内容をご確認ください。"}
+            if not m.transfer_code_issued_at:
+                # **使えないコードは、その場で消す。**GASも同じ。
+                m.transfer_code = ""
+                m.save(update_fields=["transfer_code", "changed_at"])
+                return {"status": "error",
+                        "message": "この引き継ぎコードは無効です。元の端末で新しいコードを発行してください。"}
+            期限 = m.transfer_code_issued_at + timezone.timedelta(hours=168)  # 1週間
+            if 期限 < timezone.now():
+                m.transfer_code = ""
+                m.transfer_code_issued_at = None
+                m.save(update_fields=["transfer_code", "transfer_code_issued_at", "changed_at"])
+                return {"status": "error",
+                        "message": "この引き継ぎコードは期限切れです。元の端末で新しいコードを発行してください。"}
+            _入り直していただく(m, 新パスコード, "引き継ぎコード利用", "引き継ぎコードで復元")
+            return {"status": "ok",
+                    "user": dict(_会員の返し方(m), passcode=新パスコード),
+                    "recoveredBy": "transferCode"}
+
+        # ここから、ご本人の情報で探す経路。
+        # **退会の印がある方も探す。**復元は「戻ってきていただく」手続きなので。
+        候補 = []
+        for m in Member.objects.select_for_update():
+            if _日付を寄せる(m.birthday) != 生年月日:
+                continue
+            名が一致 = bool(名) and _名前を整える(m.name) == 名
+            かなが一致 = bool(かな) and bool(m.kana) and _かなを整える(m.kana) == かな
+            if not 名が一致 and not かなが一致:
+                continue
+            if 電話 and _電話を寄せる(m.phone) != 電話:
+                continue
+            if パスコード:
+                # **ハッシュで照合する。**GASは平文比較だった。
+                if not m.passcode_hash or not check_password(パスコード, m.passcode_hash):
+                    continue
+            候補.append(m)
+
+        if not 候補:
+            _はずれを数える(名, かな)
+            return {"status": "error",
+                    "message": "一致する会員情報が見つかりませんでした。入力内容をご確認ください。"}
+        if len(候補) > 1:
+            # 複数一致は正しい会員でも起きるので、はずれとして数えない（GASと同じ）。
+            return {"status": "error",
+                    "message": "一致する会員情報が複数見つかりました。電話番号または現在のパスコードを追加で入力するか、引き継ぎコードをご利用ください。"}
+
+        _数えるのをやめる(名, かな)
+        m = 候補[0]
+        _入り直していただく(m, 新パスコード, "復元", "本人情報で復元")
+        return {"status": "ok",
+                "user": dict(_会員の返し方(m), passcode=新パスコード),
+                "recoveredBy": "identity"}
+
+
+def パスコードを付け直す(data):
+    """GAS の handleResetForgottenPasscode()（7377行）と同じ。
+
+    パスコードを忘れた方が、付け直すための入り口。
+
+    ## 通る条件（**GASと1つも変えていない**）
+
+        お名前が一致すること（必須）
+        かつ、**記録にある項目だけ**を照合する
+
+    記録に電話番号があるなら、電話番号も一致しないと通らない。
+    記録に生年月日があるなら、生年月日も一致しないと通らない。
+    **記録が空の項目は、確かめようがないので問わない。**
+
+    ただし「お名前だけで通す」ことはしない（同姓同名の他人が入れてしまう）。
+    **記録に電話も生年月日も無い方は、この画面からは通れない。**受付でご対応。
+
+    > 電話番号と生年月日の「どちらか一方でよい」のは、記録の側が空の方が
+    > 4割近くいるため。両方必須にすると、その方々が原理的に通れなくなる。
+    """
+    d = data or {}
+    会員ID = str(d.get("memberId") or "").strip()
+    名 = _名前を整える(d.get("name"))
+    電話 = _電話を寄せる(d.get("phone"))
+    生年月日 = _日付を寄せる(d.get("birthday"))
+    新パスコード = str(d.get("newPasscode") or "").strip()
+
+    if not 名 or not 新パスコード or (not 電話 and not 生年月日):
+        return {"status": "error",
+                "message": "お名前と、電話番号または生年月日のどちらか、そして新しいパスコードを入力してください。"}
+    if not re.match(r"^(?:\d{4}|\d{6})$", 新パスコード):
+        return {"status": "error",
+                "message": "新しいパスコードは4桁または6桁の数字で入力してください。"}
+    if _お休み中か(名, ""):
+        return {"status": "error",
+                "message": "お手続きが続いたため、一時的にお休みしています。10分ほど経ってから、もう一度お試しください。"}
+
+    def 見る(m):
+        """通せるなら「いくつ照合できたか」を返す。通せないなら None。"""
+        if _名前を整える(m.name) != 名:
+            return None
+        行の電話 = _電話を寄せる(m.phone)
+        行の生年月日 = _日付を寄せる(m.birthday)
+        数 = 0
+        if 行の電話:
+            if not 電話 or 行の電話 != 電話:
+                return None
+            数 += 1
+        if 行の生年月日:
+            if not 生年月日 or 行の生年月日 != 生年月日:
+                return None
+            数 += 1
+        if 数 == 0:
+            # 記録に電話も生年月日も無い方は、受付でご対応。
+            return None
+        return 数
+
+    with transaction.atomic():
+        候補 = []
+        for m in Member.objects.select_for_update():
+            数 = 見る(m)
+            if 数:
+                候補.append((m, 数))
+
+        選んだ = None
+        if 会員ID:
+            # 会員IDの指定があれば、その方に絞る（取り違えを防ぐ）。
+            選んだ = next((c for c in 候補 if c[0].member_id == 会員ID), None)
+        if not 選んだ:
+            if len(候補) > 1:
+                _はずれを数える(名, "")
+                return {"status": "error",
+                        "message": "同じ内容のご登録が複数見つかりました。恐れ入りますが、受付にお申し出ください。"}
+            選んだ = 候補[0] if 候補 else None
+
+        if not 選んだ:
+            _はずれを数える(名, "")
+            return {"status": "error",
+                    "message": "ご登録の内容と一致しませんでした。"
+                               "ご登録時に電話番号や生年月日をいただいていない場合は、"
+                               "この画面からはお手続きできません。"
+                               "恐れ入りますが、受付にお申し出ください。"}
+
+        _数えるのをやめる(名, "")
+        m, 照合数 = 選んだ
+        _入り直していただく(m, 新パスコード, m.registration_source or "新規登録",
+                            m.registration_source_detail or "")
+
+        # 何で通したかを残す。**パスコードそのものは書かない。**
+        _パスコード再設定を記録する(m, 照合数)
+
+    return {"status": "ok", "user": dict(_会員の返し方(m), passcode=新パスコード)}
+
+
+def _パスコード再設定を記録する(m, 照合数):
+    """GAS の recordPasscodeResetHistory_ と同じ。操作履歴に残す。"""
+    try:
+        from apps.records.models import AuditLog
+
+        AuditLog.objects.create(
+            # **シートの行番号は付けない。**サーバーが作った記録の印になる。
+            sheet_row=None,
+            happened_at=timezone.now(),
+            kind="パスコード再設定",
+            result="成功",
+            target=m.member_id,
+            summary=("氏名・電話番号・生年月日の3点で確認" if 照合数 >= 2
+                     else "氏名と、記録にある1項目で確認（もう一方は未登録）"),
+            operator="ご本人",
+            detail=None,
+        )
+    except Exception:
+        # **記録が残せなくても、お客様の手続きは止めない。**
+        pass
+
+
 # action の名前 → 書き込む関数
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
@@ -715,6 +1067,8 @@ def ガチャを引く(data):
     "syncUserRewardStatus": 特典をそろえる,
     "updateUser": 会員を書き換える,
     "drawRewardGacha": ガチャを引く,
+    "recoverAccount": 会員を復元する,
+    "resetForgottenPasscode": パスコードを付け直す,
 }
 
 
