@@ -567,6 +567,144 @@ def _ガチャ設定():
     return {"status": "ok", "config": 値}
 
 
+def _特典の状態を見る(request):
+    """GAS の getUserRewardStatus()（7718行）と同じ。
+
+    アプリが起動のたびに、スタンプと特典の**いまの姿**を聞いてくる。
+
+    ## 会員がいなくてもエラーにしない
+
+    GAS は、行が無ければ**からっぽの状態を返す**（エラーにしない）。
+    登録の途中でも呼ばれるため。同じにする。
+
+    ## `adminSetAt` は「サーバーを正とする」合図
+
+    管理者がスタンプを直接いじった時刻。アプリはこれを見て、
+    **端末に残っている数より、サーバーの数を優先する。**
+    ここを空で返すと、**受付で入れたスタンプが、お客様がアプリを開いた
+    瞬間に消える。**2026年8月に実際に起きたのがこれ。
+
+    ## 満杯で保留になっているお礼スタンプ
+
+    GAS はここで**回収して1個足す**（読む通信で書き込んでいる）。
+    **こちらではやらない。**CLAUDE.md が禁じている形そのもので、
+    受付で入れたスタンプが消える事故の元になった経路。
+    保留の回収は、書き込みの口に寄せる。
+    """
+    from apps.members.models import Member
+
+    引数 = _引数(request)
+    会員ID = str(引数.get("memberId") or "").strip()
+    if not 会員ID:
+        return {"status": "error", "message": "会員IDが必要です"}
+
+    m = Member.objects.filter(member_id=会員ID).first()
+    if not m:
+        # GAS と同じ。**エラーにしない。**
+        return {
+            "status": "ok",
+            "rewardStatus": {
+                "stampCount": 0, "stampCardNum": 1, "rewards": [], "stampHistory": [],
+                "lastStampDate": "", "lastStampAt": "", "stampAchievedDate": "",
+            },
+            "surveyAnswered": False,
+            "adminSetAt": "",
+        }
+
+    return {
+        "status": "ok",
+        "rewardStatus": {
+            "stampCount": m.stamp_count or 0,
+            "stampCardNum": max(1, m.stamp_card_number or 1),
+            "rewards": m.reward_history or [],
+            "stampHistory": m.stamp_history or [],
+            "lastStampDate": m.last_stamp_at.astimezone().strftime("%Y-%m-%d") if m.last_stamp_at else "",
+            "lastStampAt": _日時(m.last_stamp_at),
+            "stampAchievedDate": _日時(m.stamp_achieved_at),
+        },
+        "surveyAnswered": m.survey_answered_at is not None,
+        "adminSetAt": _日時(m.reward_admin_set_at),
+    }
+
+
+def _お名前を伏せる(値):
+    """GAS の maskNameForRecovery_ と同じ。「佐藤花子」→「佐○○○」。
+
+    先頭1文字だけ出し、残りは○にする（**最大3つまで**）。
+    お名前の長さそのものも手がかりになるため、長くても3つで止める。
+    """
+    名 = str(値 or "").strip()
+    if not 名:
+        return "会員"
+    残り = min(max(len(名) - 1, 1), 3)
+    return 名[0] + "○" * 残り
+
+
+def _復元の候補(request):
+    """GAS の getRecoveryCandidates()（7144行）と同じ。
+
+    「入れなくなった」方に、**心当たりのある会員を数件だけ**お見せする画面。
+
+    ## この口は合鍵なしで呼べる（登録の途中で使うため）
+
+    だから、**返してよいものを間違えると、そのまま漏れる。**
+
+        返す:     会員ID・**伏せたお名前**（佐○○○）・一致した理由の名前
+        返さない: **生年月日・電話番号・フリガナの中身・住所・パスコード**
+
+    生年月日は復元の**必須一致キー**。返してしまうと、お名前だけ知っている
+    相手が、そのまま他人の記録に入れてしまう。**絶対に返さない。**
+
+    お名前も、そのまま出すと「電話番号だけ知っている相手」に氏名が渡る。
+    ご本人が「自分だ」と気づく程度に伏せる。
+
+    ## 並び順
+
+    一致した理由に重みを付ける。**生年月日・電話番号は3点、氏名・フリガナは2点。**
+    同点なら新しい順。上位5件だけ返す。
+    """
+    from apps.gasapi.writes import (_かなを整える, _名前を整える, _電話を寄せる,
+                                    _日付を寄せる)
+    from apps.members.models import Member
+
+    引数 = _引数(request)
+    名 = _名前を整える(引数.get("name"))
+    かな = _かなを整える(引数.get("kana"))
+    電話 = _電話を寄せる(引数.get("phone"))
+    生年月日 = _日付を寄せる(引数.get("birthday"))
+    if not 名 and not かな and not 電話 and not 生年月日:
+        return {"status": "ok", "candidates": []}
+
+    候補 = []
+    for m in Member.objects.all():
+        # **退会の印がある方は出さない。**（復元そのものは通すが、一覧には出さない）
+        if m.deleted:
+            continue
+        理由 = []
+        if 名 and _名前を整える(m.name) == 名:
+            理由.append("氏名")
+        if かな and m.kana and _かなを整える(m.kana) == かな:
+            理由.append("フリガナ")
+        if 電話 and _電話を寄せる(m.phone) and _電話を寄せる(m.phone) == 電話:
+            理由.append("電話番号")
+        if 生年月日 and _日付を寄せる(m.birthday) and _日付を寄せる(m.birthday) == 生年月日:
+            理由.append("生年月日")
+        if not 理由:
+            continue
+        点 = sum(2 if r in ("氏名", "フリガナ") else 3 for r in 理由)
+        候補.append((点, m.changed_at or m.imported_at, m, 理由))
+
+    候補.sort(key=lambda x: (x[0], x[1]), reverse=True)
+
+    return {
+        "status": "ok",
+        "candidates": [
+            {"memberId": m.member_id, "name": _お名前を伏せる(m.name), "reasons": 理由}
+            for _, _, m, 理由 in 候補[:5]
+        ],
+    }
+
+
 # action の名前 → 返す中身を作る関数
 _できること = {
     "getNews": _お知らせ,
@@ -580,6 +718,8 @@ _できること = {
     "getCustomerOrders": _注文,
     "getAppRuntimeConfig": _アプリ設定,
     "getRewardGachaConfig": _ガチャ設定,
+    "getUserRewardStatus": _特典の状態を見る,
+    "getRecoveryCandidates": _復元の候補,
 }
 
 
