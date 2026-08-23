@@ -723,6 +723,63 @@ _できること = {
 }
 
 
+
+# GAS の PUBLIC_ACTIONS（管理者・お客様.js 1914行）と**同じにすること。**
+#
+# ## なぜ、合鍵なしで通すのか
+#
+# **お客様アプリは、合鍵を1つも送っていない。**
+# `fetchFromGAS()` は `fetch(url)` を呼ぶだけで、ヘッダーを付けていない
+# （`app.js` 1496行）。GASのWebアプリが「全員に公開」で動いているため。
+#
+# サーバー側で全部に合鍵を求めると、**切り替えた瞬間に全部が403になる。**
+# 2026-08-23、切り替えの段取りを書いていて気づいた。
+#
+# ## 合鍵をアプリに埋めない
+#
+# お客様アプリは GitHub Pages で公開されている。**埋めれば誰でも読める。**
+# 「秘密情報をコードに書かない」（CLAUDE.md）にも反する。
+#
+# ## ここに無いものは、管理者専用
+#
+# 管理アプリは合鍵（と管理者の札）を送る。**この一覧を安易に増やさない。**
+# 増やすときは、GAS の PUBLIC_ACTIONS にもあるかを必ず確かめる。
+公開アクション = {
+    # 公開している中身
+    "getNews", "getProducts", "getCalendar", "getMenus",
+    "getCategories", "getInitialData", "getSupportFaq",
+    "getAppRuntimeConfig", "getRewardGachaConfig", "getPushNotices",
+    # お客様ご自身に関するもの
+    "getCustomerOrders", "getUserRewardStatus", "getUserDevices",
+    "getRecoveryCandidates",
+    # お客様の操作
+    "order", "cancel", "confirmReceipt", "updateUser",
+    "recoverAccount", "issueTransferCode", "resetForgottenPasscode",
+    "syncUserDeviceSession", "removeUserDeviceSession",
+    "unsubscribePush", "syncUserRewardStatus", "drawRewardGacha",
+    "uploadImage", "askSupportChat",
+    # ビジリスのGASが札を確かめに来る窓口。有効か否かしか返さない。
+    "checkAdminToken", "checkMemberToken",
+}
+
+
+def _何をしようとしているか(request):
+    """読み取りなら `?action=`、書き込みなら POST の `type` を取り出す。
+
+    **本文を読んでも、あとで読み直せるようにする。**
+    Django の `request.body` は何度でも読めるので問題ない。
+    """
+    if request.method == "POST":
+        import json as _json
+
+        try:
+            中 = _json.loads(request.body.decode("utf-8") or "{}")
+        except (ValueError, UnicodeDecodeError):
+            return ""
+        return str(中.get("type") or "").strip() if isinstance(中, dict) else ""
+    return request.GET.get("action", "").strip()
+
+
 @csrf_exempt
 def 窓口(request):
     """GAS の doGet / doPost と同じ入口。
@@ -733,12 +790,21 @@ def 窓口(request):
     まだ作っていない action は、**素直に「まだありません」と答える。**
     黙って空を返すと、切り替えたときに「データが消えた」ように見える。
 
-    `csrf_exempt` を付けるのは、アプリが別の場所（GitHub Pages）から
-    呼ぶため。**代わりに合鍵（API_KEY）で守っている。**
+    `csrf_exempt` を付けるのは、アプリが別の場所（GitHub Pages）から呼ぶため。
+
+    ## 合鍵は「管理者向け」だけに求める
+
+    **お客様アプリは合鍵を1つも送っていない**（GASが全員公開で動いているため）。
+    GAS の `PUBLIC_ACTIONS` と同じ一覧を持ち、そこに載っているものは通す。
+    載っていないものは管理者専用として、合鍵を求める。
+
+    **ここを「全部に合鍵」にすると、切り替えた瞬間に全部が403になる。**
     """
-    断り = _合鍵を確かめる(request)
-    if 断り:
-        return 断り
+    やること = _何をしようとしているか(request)
+    if やること not in 公開アクション:
+        断り = _合鍵を確かめる(request)
+        if 断り:
+            return 断り
 
     # 書き込み。GAS の doPost にあたる。
     if request.method == "POST":
