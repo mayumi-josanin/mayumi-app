@@ -8459,7 +8459,11 @@
       notices.forEach(n => {
         const tr = document.createElement('tr');
         const dateStr = formatDisplayDate(n.sentAt || n.scheduledAt || n.updatedAt || n.date);
-        const deleteTitle = JSON.stringify(n.title || '');
+        // **JSON.stringify の二重引用符を &quot; に直す。**
+        // 直さないと onclick="deletePushNotice(3, "お知らせ")" となり、
+        // 属性が途中で閉じて **JavaScript の文法エラー**になる。
+        // 画面に「画面表示中に問題が発生しました」と出る原因（2026-08-25）。
+        const deleteTitle = JSON.stringify(n.title || '').replace(/"/g, '&quot;');
         tr.innerHTML = `
           <td><input type="checkbox" class="push-sel" data-idx="${n.rowIdx}"></td>
           <td style="font-size:11px;">${escapeHtml(dateStr)}</td>
@@ -12021,7 +12025,12 @@
 
     function buildProductRowHtml(product) {
       const isPrivate = product.status === '非公開';
-      const deleteName = JSON.stringify(product.name || '');
+      // **JSON.stringify の二重引用符を &quot; に直す。**
+      // 直さないと onclick="deleteProduct(5, "冷え取りパット（1枚）")" となり、
+      // 属性が途中で閉じて **JavaScript の文法エラー**になる。
+      // 商品管理を開くだけで「画面表示中に問題が発生しました」と出ていた（2026-08-25）。
+      // **削除ボタンも押せていなかった。**
+      const deleteName = JSON.stringify(product.name || '').replace(/"/g, '&quot;');
       const stockQty = Number(product.stockQty || 0);
       const lowStockThreshold = Number(product.lowStockThreshold || 0);
       const soldOutStatus = normalizeAdminProductSoldOutStatus(product.soldOutStatus);
