@@ -3280,7 +3280,12 @@ function savePhotoFiles_(files, responseId, questionId, customerName, survey, ra
     var fileName = sanitizeFileName_(fileBaseName + String(index + 1).padStart(2, "0") + "." + extension);
     var blob = Utilities.newBlob(Utilities.base64Decode(match[2]), mimeType, fileName);
     var driveFile = folder.createFile(blob);
-    driveFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        // お客様の計測写真。**公開しない。**アプリが ?action=photoData で取りに来る
+        // 2026-08-25 まで「リンクを知っている全員が閲覧可」にしていた。
+        // **URLが一度でも漏れれば、誰でもお客様のお体の写真を見られた。**
+        // 公開のままでよいのは投稿用の3つだけ
+        // （saveBijirisPdfCoverFile_ / saveBijirisPostImageFiles_ /
+        //   saveBijirisPostDocumentFiles_）。ここはお客様のもの。
     var fileId = driveFile.getId();
     return {
       name: fileName,
@@ -6754,7 +6759,12 @@ function copyPhotosIntoFolder_(photos, folder, baseName) {
     var name = sanitizeFileName_((baseName || "monitor") + "_" + ("0" + (index + 1)).slice(-2)) + extension;
     var copy = source.makeCopy(name, folder);
     try {
-      copy.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          // モニター用に複製した写真。**元と同じく公開しない。**
+          // 2026-08-25 まで「リンクを知っている全員が閲覧可」にしていた。
+          // **URLが一度でも漏れれば、誰でもお客様のお体の写真を見られた。**
+          // 公開のままでよいのは投稿用の3つだけ
+          // （saveBijirisPdfCoverFile_ / saveBijirisPostImageFiles_ /
+          //   saveBijirisPostDocumentFiles_）。ここはお客様のもの。
     } catch (error) {
       // 共有設定を変更できない環境ではサムネイル表示のみ諦める。
     }
@@ -6846,7 +6856,12 @@ function resolveAfterPhotos_(response) {
     var existing = folder.getFilesByName(targetName);
     var file = existing.hasNext() ? existing.next() : DriveApp.getFileById(photo.fileId).makeCopy(targetName, folder);
     try {
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          // 測定フォルダへ複製した写真。**公開しない。**
+          // 2026-08-25 まで「リンクを知っている全員が閲覧可」にしていた。
+          // **URLが一度でも漏れれば、誰でもお客様のお体の写真を見られた。**
+          // 公開のままでよいのは投稿用の3つだけ
+          // （saveBijirisPdfCoverFile_ / saveBijirisPostImageFiles_ /
+          //   saveBijirisPostDocumentFiles_）。ここはお客様のもの。
     } catch (error) {
       // ignore
     }
@@ -6927,7 +6942,12 @@ function seedMonitorReferenceImages_() {
       try {
         var copy = DriveApp.getFileById(img.fileId).makeCopy(img.name, store);
         try {
-          copy.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+              // 参考画像として複製した写真。**公開しない。**
+              // 2026-08-25 まで「リンクを知っている全員が閲覧可」にしていた。
+              // **URLが一度でも漏れれば、誰でもお客様のお体の写真を見られた。**
+              // 公開のままでよいのは投稿用の3つだけ
+              // （saveBijirisPdfCoverFile_ / saveBijirisPostImageFiles_ /
+              //   saveBijirisPostDocumentFiles_）。ここはお客様のもの。
         } catch (error) {
           // ignore
         }
