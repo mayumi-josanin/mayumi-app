@@ -39,6 +39,67 @@ var 共有外し_除外 = ['ビジリス通信', '分析シート'];
 function 写真の共有の下見() {
   var r = 共有外し_数える_(false);
   共有外し_出す_(r, false);
+  共有を外しても読めるか_();
+}
+
+// **共有を外したあとも、アプリから写真を出せるか**を先に確かめる。
+//
+// `photoData` は `DriveApp.getFileById(id).getBlob()` で中身を読む。
+// これはスクリプトの持ち主として読むので、共有を外しても読めるはず。
+// **「はず」で進めない。**実際に何件か読んでみる。
+//
+// 読めないものがあるとしたら、それは**持ち主が違うファイル**。
+// （モニターの参考画像に、他の方が持っているフォルダから来たものがある）
+function 共有を外しても読めるか_() {
+  var 見る件数 = 8;
+  var 根 = getRootPhotoFolder_();
+  var 集めた = [];
+  共有外し_ファイルを集める_(根, 集めた, 見る件数);
+
+  Logger.log('');
+  Logger.log('■ **共有を外しても中身を読めるか**（' + 集めた.length + '件で試します）');
+  Logger.log('   ※ photoData はスクリプトの持ち主として読むので、');
+  Logger.log('     共有を外しても読めるはずです。念のため実際に試します。');
+  Logger.log('');
+
+  var 読めた = 0;
+  var 読めない = 0;
+  集めた.forEach(function (f) {
+    try {
+      var b = f.getBlob();
+      var 大きさ = b.getBytes().length;
+      if (大きさ > 0) 読めた++; else 読めない++;
+    } catch (e) {
+      読めない++;
+      Logger.log('     読めません: ' + f.getName());
+    }
+  });
+
+  Logger.log('     読めた:   ' + 読めた + '件');
+  Logger.log('     読めない: ' + 読めない + '件');
+  if (読めない) {
+    Logger.log('');
+    Logger.log('   **読めないものがあります。**そのファイルは持ち主が違う可能性が高く、');
+    Logger.log('   共有を外すとアプリからも出せなくなります。外す前にご相談ください。');
+  } else {
+    Logger.log('');
+    Logger.log('   すべて読めました。**共有を外してもアプリからは出せます。**');
+  }
+}
+
+function 共有外し_ファイルを集める_(folder, 入れ物, 上限) {
+  if (入れ物.length >= 上限) return;
+  var 除外 = 共有外し_除外;
+  var files = folder.getFiles();
+  while (files.hasNext() && 入れ物.length < 上限) {
+    入れ物.push(files.next());
+  }
+  var subs = folder.getFolders();
+  while (subs.hasNext() && 入れ物.length < 上限) {
+    var f = subs.next();
+    if (除外.indexOf(f.getName()) >= 0) continue;
+    共有外し_ファイルを集める_(f, 入れ物, 上限);
+  }
 }
 
 function 写真の共有を外す() {
