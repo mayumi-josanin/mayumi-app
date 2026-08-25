@@ -36,27 +36,32 @@
 window.BijirisPhotoLoader = (() => {
   "use strict";
 
+  // SVG を data URI にする。
+  //
+  // **btoa は使わない。**Latin1 しか扱えず、日本語を入れると
+  // InvalidCharacterError で落ちる（2026-08-25 に実際に落とした）。
+  // percent-encoding なら日本語のまま入れられる。
+  function 絵にする(svg) {
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
   // 読み込み中に見せる絵。薄いグレーの四角。
-  const 仮の絵 =
-    "data:image/svg+xml;base64," +
-    btoa(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">' +
-        '<rect width="240" height="240" fill="#efeae2"/>' +
-        '<circle cx="120" cy="120" r="26" fill="none" stroke="#c9bfb2" stroke-width="6" ' +
-        'stroke-dasharray="120" stroke-dashoffset="40"/></svg>',
-    );
+  const 仮の絵 = 絵にする(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">' +
+      '<rect width="240" height="240" fill="#efeae2"/>' +
+      '<circle cx="120" cy="120" r="26" fill="none" stroke="#c9bfb2" stroke-width="6" ' +
+      'stroke-dasharray="120" stroke-dashoffset="40"/></svg>',
+  );
 
   // 取れなかったときの絵。**黙って空白にしない。**
-  const だめだった絵 =
-    "data:image/svg+xml;base64," +
-    btoa(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">' +
-        '<rect width="240" height="240" fill="#f6efe9"/>' +
-        '<text x="120" y="116" text-anchor="middle" font-size="15" fill="#a4795f">' +
-        "写真を読み込めません</text>" +
-        '<text x="120" y="140" text-anchor="middle" font-size="12" fill="#b9a897">' +
-        "時間をおいてお試しください</text></svg>",
-    );
+  const だめだった絵 = 絵にする(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">' +
+      '<rect width="240" height="240" fill="#f6efe9"/>' +
+      '<text x="120" y="116" text-anchor="middle" font-size="15" fill="#a4795f">' +
+      "写真を読み込めません</text>" +
+      '<text x="120" y="140" text-anchor="middle" font-size="12" fill="#b9a897">' +
+      "時間をおいてお試しください</text></svg>",
+  );
 
   const 覚えたもの = new Map();   // ファイルID → data URI
   const 取りに行き中 = new Map(); // ファイルID → Promise
