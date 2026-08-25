@@ -17,7 +17,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v126";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v159";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 // 前回開いたときの中身。Apps Script は応答までに数秒かかるので、
@@ -3372,6 +3372,8 @@ function 捨てるべき合鍵なら捨てる_() {
   const 持ち主 = normalizeText(loadLocal(BIJIRIS_SESSION_OWNER_KEY, ""));
   if (持ち主 === いまの会員) return;
   api.clearCustomerToken();
+  // **覚えている写真も捨てる。**同じ端末を別の方が使うことがある。
+  window.BijirisPhotoLoader?.忘れる();
   mayumiLoginTried = false;
 }
 
@@ -3503,6 +3505,8 @@ async function loadHistory() {
     // トークンの期限切れ・無効化。捨てて、設定し直してもらう。
     if (String(error?.message || "").indexOf("お客様のログインが必要です") >= 0) {
       api.clearCustomerToken();
+  // **覚えている写真も捨てる。**同じ端末を別の方が使うことがある。
+  window.BijirisPhotoLoader?.忘れる();
     }
     appState.history = [];
     appState.measurements = [];
@@ -5458,28 +5462,57 @@ function getActiveTicketCardState() {
   };
 }
 
+// 計測写真のファイルIDを取り出す。
+//
+// 記録には `fileId` が入っているが、古い記録は Drive のURLしか持たない。
+// **どちらでも拾えるようにする。**拾えなければ空を返す。
+function 写真のファイルID(file) {
+  return (
+    normalizeText(file?.fileId) ||
+    extractDriveFileId(
+      file?.thumbnailUrl || file?.previewUrl || file?.downloadUrl || file?.url || "",
+    )
+  );
+}
+
+// 写真は **アプリ経由でしか見せない。**
+//
+// 以前は `drive.google.com/thumbnail?id=…` を直接入れていたが、それには
+// Drive 側を「リンクを知っている全員が閲覧可」にする必要があった。
+// **URLが一度でも漏れれば、誰でもお客様のお体の写真を見られる。**
+//
+// いまは印だけを返し、`shared/photo-loader.js` が
+// `?action=photoData`（お客様の札が要る）で取ってきて差し替える。
+//
+// その場で撮った写真（dataUrl）だけは、まだ送っていないので直接見せる。
+function 写真の差し込み先(file) {
+  const 撮ったばかり = normalizeText(file?.dataUrl);
+  if (撮ったばかり) return 撮ったばかり;
+  const id = 写真のファイルID(file);
+  if (id && window.BijirisPhotoLoader) return window.BijirisPhotoLoader.印を付ける(id);
+  // ファイルIDが取れない古い記録。**空にして、壊れた絵を出さない。**
+  return "";
+}
+
 function getPhotoPreviewSrc(file) {
-  return normalizeText(file?.thumbnailUrl || file?.previewUrl || file?.dataUrl || file?.url || "");
+  return 写真の差し込み先(file);
 }
 
 function getBijirisPhotoPreviewSrc(file) {
-  const photoFileId =
-    normalizeText(file?.fileId) ||
-    extractDriveFileId(file?.thumbnailUrl || file?.previewUrl || file?.downloadUrl || file?.url || "");
-  return buildDriveThumbnailUrl(photoFileId) ||
-    normalizeText(file?.thumbnailUrl || file?.previewUrl || file?.downloadUrl || file?.url || file?.dataUrl || "");
+  return 写真の差し込み先(file);
 }
 
 function getPhotoOpenHref(file) {
-  return normalizeText(
-    file?.previewUrl || file?.url || file?.downloadUrl || file?.thumbnailUrl || file?.dataUrl || "#",
-  );
+  const 撮ったばかり = normalizeText(file?.dataUrl);
+  if (撮ったばかり) return 撮ったばかり;
+  const id = 写真のファイルID(file);
+  if (id && window.BijirisPhotoLoader) return window.BijirisPhotoLoader.印を付ける(id);
+  return "#";
 }
 
 function getPhotoDownloadHref(file) {
-  return normalizeText(
-    file?.downloadUrl || file?.url || file?.previewUrl || file?.thumbnailUrl || file?.dataUrl || "#",
-  );
+  // 保存も同じ扱い。**Drive の直リンクは出さない。**
+  return getPhotoOpenHref(file);
 }
 
 function getTicketProgressStampDates(ticketPlan, ticketSheetLabel, ticketCount) {
@@ -6974,3 +7007,13 @@ renderBijirisPosts();
 // この取得だけで1.7〜3.5秒かかっており、開くまでの待ち時間に乗っていた。
 void loadSurveys();
 setPage(hasCustomerSession() ? "home" : "login");
+
+
+// 計測写真の見張りを始める。
+//
+// 写真は `<img src>` に印だけ入っていて、中身はまだ無い。
+// ここから `?action=photoData`（お客様の札が要る）で取ってきて差し替える。
+// **画面が描き直されるたびに拾う**ので、19か所ある差し込み側は触っていない。
+if (window.BijirisPhotoLoader) {
+  window.BijirisPhotoLoader.見張りを始める();
+}

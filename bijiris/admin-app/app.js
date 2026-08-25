@@ -1,6 +1,6 @@
 const TOKEN_KEY = "mayumi_survey_admin_token";
 const CACHE_PREFIX = "mayumi-admin-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v102";
+const ACTIVE_CACHE_NAME = "mayumi-admin-survey-v118";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_admin_cache_maintenance_at";
 const STATUS_LABELS = {
@@ -2254,6 +2254,16 @@ function extractDriveFileId(url) {
   return match ? match[1] : "";
 }
 
+// ファイルIDがあればアプリ経由の印を、無ければ元の値をそのまま返す。
+// **元の値が Drive の直リンクなら、それは表示できない**（共有を外すため）が、
+// 印を作れない以上ここでは判断しない。表示側で「読み込めません」と出る。
+function 写真の印(driveFileId, 元の値) {
+  if (driveFileId && window.BijirisPhotoLoader) {
+    return window.BijirisPhotoLoader.印を付ける(driveFileId);
+  }
+  return String(元の値 || "").trim();
+}
+
 function buildDrivePreviewUrl(fileId) {
   return fileId ? `https://drive.google.com/uc?export=view&id=${encodeURIComponent(fileId)}` : "";
 }
@@ -2278,9 +2288,11 @@ function ensureDownloadablePhotoFile(file, index = 0) {
     name: String(file.name || `写真${index + 1}`).trim(),
     fileId: driveFileId || "",
     url: String(file.url || fallbackUrl).trim(),
-    previewUrl: String(file.previewUrl || buildDrivePreviewUrl(driveFileId) || fallbackUrl).trim(),
-    thumbnailUrl: String(file.thumbnailUrl || buildDriveThumbnailUrl(driveFileId) || fallbackUrl).trim(),
-    downloadUrl: String(file.downloadUrl || buildDriveDownloadUrl(driveFileId) || fallbackUrl).trim(),
+    // **Drive の直リンクは作らない。**アプリ経由の印にする。
+    // 記録に previewUrl 等が残っている古い分も、ここで印に置き換える。
+    previewUrl: 写真の印(driveFileId, fallbackUrl),
+    thumbnailUrl: 写真の印(driveFileId, fallbackUrl),
+    downloadUrl: 写真の印(driveFileId, fallbackUrl),
   };
 }
 
@@ -2293,8 +2305,35 @@ function derivePhotoFileFromUrl(url, index = 0) {
   }, index);
 }
 
+// 計測写真のファイルIDを取り出す。
+// 記録には `fileId` が入っているが、古い記録は Drive のURLしか持たない。
+function 写真のファイルID(file) {
+  return String(
+    file?.fileId ||
+      extractDriveFileId(
+        file?.thumbnailUrl || file?.previewUrl || file?.downloadUrl || file?.url || file?.value || "",
+      ),
+  ).trim();
+}
+
+// 写真は **アプリ経由でしか見せない。**
+//
+// 以前は `drive.google.com/…` を直接入れていたが、それには Drive 側を
+// 「リンクを知っている全員が閲覧可」にする必要があった。
+// **URLが一度でも漏れれば、誰でもお客様のお体の写真を見られる。**
+//
+// いまは印だけを返し、`shared/photo-loader.js` が `?action=photoData` で
+// 取ってきて差し替える。管理者の札を渡すので、**全員分が見られる。**
+function 写真の差し込み先(file) {
+  const 撮ったばかり = String(file?.dataUrl || "").trim();
+  if (撮ったばかり) return 撮ったばかり;
+  const id = 写真のファイルID(file);
+  if (id && window.BijirisPhotoLoader) return window.BijirisPhotoLoader.印を付ける(id);
+  return "";
+}
+
 function getPhotoPreviewSrc(file) {
-  return String(file?.thumbnailUrl || file?.previewUrl || file?.dataUrl || file?.url || "").trim();
+  return 写真の差し込み先(file);
 }
 
 function getPhotoLightboxSrc(file) {
@@ -8676,6 +8715,8 @@ setLoggedIn(Boolean(state.token));
 if (state.token) {
   loadAdminData().catch((error) => {
     localStorage.removeItem(TOKEN_KEY);
+    // **覚えている写真も捨てる。**受付の端末は共有で使われる。
+    window.BijirisPhotoLoader?.忘れる();
     state.token = "";
     setLoggedIn(false);
     showToast(error.message || "入口の画面からお入りください。");
@@ -9099,3 +9140,13 @@ document.querySelector("#ticketSurveyStatusFilter")?.addEventListener("change", 
   state.ticketSurveyStatusFilter = event.target.value;
   renderTicketSurvey();
 });
+
+
+// 計測写真の見張りを始める。
+//
+// **管理者は自分の札を渡す。**GAS 側で管理者と分かれば、全員分の写真が返る
+// （`Code.gs` の `getPhotoData_`）。
+// 札はログインのたびに変わるので、その都度読み直せるよう関数で渡す。
+if (window.BijirisPhotoLoader) {
+  window.BijirisPhotoLoader.見張りを始める({ 札: () => state.token });
+}

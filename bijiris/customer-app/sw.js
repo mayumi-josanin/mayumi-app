@@ -1,5 +1,5 @@
-const CACHE_NAME = "mayumi-customer-survey-v158";
-const ASSET_VERSION = "20260816-05";
+const CACHE_NAME = "mayumi-customer-survey-v159";
+const ASSET_VERSION = "20260825-01";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -13,6 +13,7 @@ const APP_ASSETS = [
   `./img/stamp-bijiris.png?v=${ASSET_VERSION}`,
   `../default-surveys.js?v=${ASSET_VERSION}`,
   `../shared/api.js?v=${ASSET_VERSION}`,
+  `../shared/photo-loader.js?v=${ASSET_VERSION}`,
 ];
 const APP_ASSET_URLS = new Set(APP_ASSETS.map((asset) => new URL(asset, self.location.href).toString()));
 
