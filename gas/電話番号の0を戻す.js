@@ -59,7 +59,9 @@ function 電話番号の0を戻す() {
 
   // **先に列を「書式なしテキスト」にする。**
   // これをしないと、書き戻した先頭の0がまた落ちる。
-  sheet.getRange(2, 電話戻し_列, sheet.getLastRow() - 1, 1).setNumberFormat('@');
+  // **getMaxRows() まで。**使っている行だけにすると、次に足された行が
+  // 数値のままになる。2026-08-25 にそれをやって、2日で元に戻った。
+  sheet.getRange(2, 電話戻し_列, Math.max(sheet.getMaxRows() - 1, 1), 1).setNumberFormat('@');
 
   r.直す.forEach(function (x) {
     sheet.getRange(x.行番号, 電話戻し_列).setValue(x.あと);
@@ -82,7 +84,10 @@ function 電話番号の下見() {
 }
 
 function 電話戻し_調べる_() {
-  var sheet = getOrCreateSpreadsheet().getSheetByName(電話戻し_シート名);
+  // **getOrCreateUsersSheet_ を通す。**この中の ensurePhoneColumnIsText_ が
+  // 列全体（これから増える行も含めて）を「書式なしテキスト」にしてくれる。
+  // getSheetByName で直に取ると、書式の手当てが走らない（2026-08-27に気づいた）。
+  var sheet = getOrCreateUsersSheet_(getOrCreateSpreadsheet());
   if (!sheet) throw new Error('「' + 電話戻し_シート名 + '」が見つかりません。');
 
   var 最終行 = sheet.getLastRow();

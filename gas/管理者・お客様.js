@@ -2068,13 +2068,68 @@ const ACCOUNT_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90日
 // 新しくパスワードを覚えていただくのではなく、これをそのままログインに使う。
 // パスコードは数字に見えるが、0505 のような値は数値として扱われると
 // 先頭の 0 が落ちて 505 になってしまう。列ごと「書式なしテキスト」にして防ぐ。
+// 電話番号の列を「書式なしテキスト」にする。
+//
+// **スプレッドシートは数値に見える文字を数値にしてしまう。**
+// 08012345678 → 8012345678 のように、先頭の 0 が落ちる。
+//
+// 2026-08-25 に既存の127件を直したが、そのとき**すでにある行だけ**を
+// 文字にしていた。**新しく足された行には書式が付かず、また落ちていた。**
+// ここは `getOrCreateUsersSheet_` から毎回呼ばれるので、
+// **シート全体（これから増える行も含めて）**を文字にしておく。
+function ensurePhoneColumnIsText_(sheet) {
+  if (!sheet) return;
+  try {
+    // **getMaxRows() まで取る。**いま使っている行だけにすると、
+    // 次に足された行が数値のままになる（それが2026-08-27の再発）。
+    const maxRows = sheet.getMaxRows();
+    const rows = Math.max(maxRows - 1, 1);
+
+    // **いちばん下の行で判定する。**先頭で判定すると、シートの行数が
+    // 増えたときに「もう文字になっている」と誤って早く抜けてしまい、
+    // 増えたぶんが数値のまま残る。下が文字なら、全体が文字。
+    if (sheet.getRange(maxRows, USER_COL.PHONE).getNumberFormat() === '@') return;
+
+    sheet.getRange(2, USER_COL.PHONE, rows, 1).setNumberFormat('@');
+  } catch (err) {
+    // 書式を変えられなくても、保存時に0を戻すので致命的ではない
+  }
+}
+
+// 保存する電話番号を整える。**消えた先頭の0を戻す。**
+//
+// 書式だけに頼らない。書式が外れていても、ここで正しい形にしておけば
+// 記録は壊れない。**片方だけに頼ると、また同じことが起きる。**
+//
+// 足すのは、足した結果が日本の電話番号の形になるときだけ。
+// 形にならないものは**そのまま持つ**（推測で作り変えない）。
+function normalizePhoneForStore_(value) {
+  const text = String(value == null ? '' : value).trim();
+  if (!text) return '';
+  const digits = text.replace(/\D/g, '');
+  if (!digits || digits.charAt(0) === '0') return text;
+
+  // 国番号81で始まっている（例: 817055600662 → 07055600662）
+  if (digits.length === 12 && digits.slice(0, 2) === '81') return '0' + digits.slice(2);
+
+  const candidate = '0' + digits;
+  // 携帯（070/080/090 の11桁）
+  if (candidate.length === 11 && /^0(70|80|90)/.test(candidate)) return candidate;
+  // 固定電話（0で始まる10桁。07x は固定の市外局番に無い）
+  if (candidate.length === 10 && /^0[1-9]/.test(candidate) && !/^07/.test(candidate)) return candidate;
+
+  return text;
+}
+
 function ensurePasscodeColumnIsText_(sheet) {
   if (!sheet) return;
   try {
-    const rows = Math.max(sheet.getMaxRows() - 1, 1);
-    const range = sheet.getRange(2, USER_COL.PASSCODE, rows, 1);
-    if (range.getNumberFormat() === '@') return;
-    range.setNumberFormat('@');
+    // **電話番号と同じ理由で、いちばん下の行で判定する。**
+    // 先頭で判定すると、シートの行数が増えたぶんが数値のまま残る。
+    const maxRows = sheet.getMaxRows();
+    const rows = Math.max(maxRows - 1, 1);
+    if (sheet.getRange(maxRows, USER_COL.PASSCODE).getNumberFormat() === '@') return;
+    sheet.getRange(2, USER_COL.PASSCODE, rows, 1).setNumberFormat('@');
   } catch (err) {
     // 書式を変えられなくても、照合側で桁を揃えるので致命的ではない
   }
@@ -2304,7 +2359,7 @@ function registerAccount(data) {
       // すでにある記録には触らない。空いている欄だけ、入力があれば埋める。
       const row = target.values.slice();
       if (kana && !String(row[USER_COL.KANA - 1] || '').trim()) row[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
-      if (phone && !String(row[USER_COL.PHONE - 1] || '').trim()) row[USER_COL.PHONE - 1] = phone;
+      if (phone && !String(row[USER_COL.PHONE - 1] || '').trim()) row[USER_COL.PHONE - 1] = normalizePhoneForStore_(phone);
       if (address && !String(row[USER_COL.ADDRESS - 1] || '').trim()) row[USER_COL.ADDRESS - 1] = address;
       row[USER_COL.PASSCODE - 1] = passcode;
       store.sheet.getRange(target.rowIdx, 1, 1, USER_HEADERS.length).setValues([row]);
@@ -2367,7 +2422,7 @@ function registerAccount(data) {
     row[USER_COL.TIMESTAMP - 1] = timestamp;
     row[USER_COL.NAME - 1] = normalizeStoredName_(rawName);
     row[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
-    row[USER_COL.PHONE - 1] = phone;
+    row[USER_COL.PHONE - 1] = normalizePhoneForStore_(phone);
     row[USER_COL.BIRTHDAY - 1] = birthday;
     row[USER_COL.ADDRESS - 1] = address;
     row[USER_COL.PASSCODE - 1] = passcode;
@@ -3834,6 +3889,7 @@ function ensureUsersSheetStructure_(sheet) {
     configureUsersSheet_(sheet);
   }
   ensurePasscodeColumnIsText_(sheet);
+  ensurePhoneColumnIsText_(sheet);
   return sheet;
 }
 
@@ -6797,7 +6853,7 @@ function handleUpdateUser(data) {
       rowData[USER_COL.TIMESTAMP - 1] = timestamp;
       rowData[USER_COL.NAME - 1] = normalizeStoredName_(rawName);
       rowData[USER_COL.KANA - 1] = normalizeStoredKana_(data.kana || '');
-      rowData[USER_COL.PHONE - 1] = data.phone || '';
+      rowData[USER_COL.PHONE - 1] = normalizePhoneForStore_(data.phone || '');
       rowData[USER_COL.AVATAR_URL - 1] = data.avatar || '';
       rowData[USER_COL.MEMO - 1] = data.memo || '';
       rowData[USER_COL.PUSH - 1] = data.pushSubscription || '';
@@ -6835,7 +6891,7 @@ function handleUpdateUser(data) {
       updatedRow[USER_COL.TIMESTAMP - 1] = timestamp;
       updatedRow[USER_COL.NAME - 1] = normalizeStoredName_(data.name !== undefined ? rawName : currentValues[USER_COL.NAME - 1]);
       updatedRow[USER_COL.KANA - 1] = normalizeStoredKana_(data.kana !== undefined ? data.kana : currentValues[USER_COL.KANA - 1]);
-      updatedRow[USER_COL.PHONE - 1] = data.phone !== undefined ? data.phone : currentValues[USER_COL.PHONE - 1];
+      updatedRow[USER_COL.PHONE - 1] = normalizePhoneForStore_(data.phone !== undefined ? data.phone : currentValues[USER_COL.PHONE - 1]);
       updatedRow[USER_COL.AVATAR_URL - 1] = data.avatar !== undefined ? data.avatar : currentValues[USER_COL.AVATAR_URL - 1];
       updatedRow[USER_COL.MEMO - 1] = data.memo !== undefined ? data.memo : currentValues[USER_COL.MEMO - 1];
       updatedRow[USER_COL.PUSH - 1] = data.pushSubscription !== undefined ? data.pushSubscription : currentValues[USER_COL.PUSH - 1];
@@ -6997,7 +7053,7 @@ function ensureUserRowFromActivity_(sheet, data) {
     rowData[USER_COL.TIMESTAMP - 1] = timestamp;
     rowData[USER_COL.NAME - 1] = normalizeStoredName_(name);
     rowData[USER_COL.KANA - 1] = normalizeStoredKana_(kana);
-    rowData[USER_COL.PHONE - 1] = phone;
+    rowData[USER_COL.PHONE - 1] = normalizePhoneForStore_(phone);
     rowData[USER_COL.AVATAR_URL - 1] = avatar;
     rowData[USER_COL.MEMO - 1] = memo;
     rowData[USER_COL.PUSH - 1] = pushSubscription;
@@ -7796,7 +7852,7 @@ function handleUpdateAdminUser(data) {
     const updatedRow = currentRow.slice();
     updatedRow[USER_COL.NAME - 1] = normalizeStoredName_(data.name !== undefined ? data.name : currentRow[USER_COL.NAME - 1]);
     updatedRow[USER_COL.KANA - 1] = normalizeStoredKana_(data.kana !== undefined ? data.kana : currentRow[USER_COL.KANA - 1]);
-    updatedRow[USER_COL.PHONE - 1] = data.phone !== undefined ? data.phone : currentRow[USER_COL.PHONE - 1];
+    updatedRow[USER_COL.PHONE - 1] = normalizePhoneForStore_(data.phone !== undefined ? data.phone : currentRow[USER_COL.PHONE - 1]);
     updatedRow[USER_COL.MEMO - 1] = data.memo !== undefined ? data.memo : currentRow[USER_COL.MEMO - 1];
     updatedRow[USER_COL.BIRTHDAY - 1] = data.birthday !== undefined ? data.birthday : currentRow[USER_COL.BIRTHDAY - 1];
     updatedRow[USER_COL.ADDRESS - 1] = data.address !== undefined ? data.address : currentRow[USER_COL.ADDRESS - 1];
