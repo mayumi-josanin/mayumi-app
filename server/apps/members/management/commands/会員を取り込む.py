@@ -18,7 +18,7 @@ import json
 import re as _re
 from datetime import datetime
 
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import check_password, make_password
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
@@ -219,9 +219,19 @@ class Command(BaseCommand):
 
             # 平文のパスコードは持ち込まない。ここでハッシュにする。
             # すでに入っている方は触らない（毎回作り直すと値が変わり続けるため）。
+            # パスコードは平文で持ち込まない。ここでハッシュにする。
+            #
+            # **すでにハッシュがあっても、合わなければ入れ直す。**
+            # 2026-08-27、表のパスコード36件で**先頭の0が消えていた**ことが分かった
+            # （0123 が 123 になっていた）。表を直しても、ここで
+            # 「すでにハッシュがあるから」と飛ばすと、**古い間違ったハッシュが残る。**
+            # GAS は照合時に0を補うので通っていたが、**ハッシュは補えない。**
+            # 切り替えた瞬間に、その36名が入れなくなる。
             平文 = 文字(r.get("passcode"))
-            if 平文 and not (既存 and 既存.passcode_hash):
-                値["passcode_hash"] = make_password(平文)
+            if 平文:
+                古い = 既存.passcode_hash if 既存 else ""
+                if not 古い or not check_password(平文, 古い):
+                    値["passcode_hash"] = make_password(平文)
                 パスコードを作った += 1
 
             if not 既存:
