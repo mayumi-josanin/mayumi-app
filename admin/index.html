@@ -8925,9 +8925,15 @@
         productNames.add(productName);
 
         const productMaster = getProductMasterByName(productName);
-        const sortOrder = Number.isFinite(Number(productMaster && productMaster.sortOrder))
-          ? Number(productMaster.sortOrder)
-          : 1000;
+        // **商品管理に無い商品名でも落ちないようにする。**
+        //   Number.isFinite(Number(productMaster && productMaster.sortOrder))
+        // と書いていたが、productMaster が null のとき Number(null) は 0 で、
+        // **有限と判定されてしまう。**そのまま productMaster.sortOrder を読みに行き
+        //   Cannot read properties of null (reading 'sortOrder')
+        // で分析画面が丸ごと出なくなっていた（2026-09-01）。
+        // 商品管理から消した・名前を変えた商品の売上記録が残っていると起きる。
+        const sortOrderValue = productMaster ? Number(productMaster.sortOrder) : NaN;
+        const sortOrder = Number.isFinite(sortOrderValue) ? sortOrderValue : 1000;
         const priceEntries = parseProductRevenuePriceBreakdownEntries(record);
         const detailEntries = priceEntries.length
           ? priceEntries.map(function (entry) {
@@ -9469,8 +9475,12 @@
         const nameA = String(a && a.name || '');
         const nameB = String(b && b.name || '');
         if (nameA !== nameB) return nameA.localeCompare(nameB);
-        const orderA = Number.isFinite(Number(a && a.sortOrder)) ? Number(a.sortOrder) : 1000;
-        const orderB = Number.isFinite(Number(b && b.sortOrder)) ? Number(b.sortOrder) : 1000;
+        // 上と同じ落とし穴。a が null だと Number(null) === 0 が有限と判定され、
+        // そのあと a.sortOrder を読んで落ちる。**先に有無を確かめる。**
+        const rawA = a ? Number(a.sortOrder) : NaN;
+        const rawB = b ? Number(b.sortOrder) : NaN;
+        const orderA = Number.isFinite(rawA) ? rawA : 1000;
+        const orderB = Number.isFinite(rawB) ? rawB : 1000;
         if (orderA !== orderB) return orderA - orderB;
         return Number(b && b.price || 0) - Number(a && a.price || 0);
       });
