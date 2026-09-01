@@ -8635,6 +8635,20 @@
       }
     }
 
+    // 分析画面は部品が多い。**どれか1つが転んだだけで、画面ごと真っ白になっていた。**
+    // 部品ごとに囲って、壊れた部分だけを切り離す。どこで転んだかはコンソールに残す。
+    function runAnalyticsStep(stepLabel, fn) {
+      try {
+        fn();
+        return true;
+      } catch (err) {
+        console.error('[分析画面]', stepLabel, err);
+        showToast('分析の「' + stepLabel + '」を表示できませんでした（'
+          + (err && err.message ? String(err.message).slice(0, 100) : '原因不明') + '）');
+        return false;
+      }
+    }
+
     async function loadAnalytics() {
       const tbody = document.getElementById('analyticsBody');
       const pbody = document.getElementById('profitBody');
@@ -8652,25 +8666,28 @@
 
       if (cachedRecords && cachedRecords.status === 'ok') {
         allMenuRevenueRecords = cachedRecords.records || [];
-        updateMenuRevenueMonthFilterOptions();
-        renderMenuRevenueRecords();
-        usedCachedRecords = true;
+        usedCachedRecords = runAnalyticsStep('メニュー収益（控え）', function () {
+          updateMenuRevenueMonthFilterOptions();
+          renderMenuRevenueRecords();
+        });
       } else {
         recordsBody.innerHTML = '<div style="text-align:center; color:var(--text-mid);">読み込み中...</div>';
       }
 
       if (cachedProductRecords && cachedProductRecords.status === 'ok') {
         allProductRevenueRecords = cachedProductRecords.records || [];
-        updateProductRevenueMonthFilterOptions();
-        renderProductRevenueRecords();
-        usedCachedProductRecords = true;
+        usedCachedProductRecords = runAnalyticsStep('商品収益（控え）', function () {
+          updateProductRevenueMonthFilterOptions();
+          renderProductRevenueRecords();
+        });
       } else {
         productRecordsBody.innerHTML = '<div style="text-align:center; color:var(--text-mid);">読み込み中...</div>';
       }
 
       if (cachedAnalytics && cachedAnalytics.status === 'ok') {
-        renderAnalytics(buildAnalyticsWithManualProductRevenue(cachedAnalytics, allProductRevenueRecords));
-        usedCachedAnalytics = true;
+        usedCachedAnalytics = runAnalyticsStep('集計表（控え）', function () {
+          renderAnalytics(buildAnalyticsWithManualProductRevenue(cachedAnalytics, allProductRevenueRecords));
+        });
       } else {
         tbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
         pbody.innerHTML = '<tr><td colspan="1" style="text-align:center;">読み込み中...</td></tr>';
@@ -8684,10 +8701,10 @@
             console.warn('商品マスタの取得に失敗しました', err);
           })
           .finally(function () {
-            renderProductRevenueDraftEntries();
+            runAnalyticsStep('商品売上の入力欄', renderProductRevenueDraftEntries);
           });
       } else {
-        renderProductRevenueDraftEntries();
+        runAnalyticsStep('商品売上の入力欄', renderProductRevenueDraftEntries);
       }
 
       const wrapSettled = function (promise) {
@@ -8712,16 +8729,20 @@
 
       if (recordsRes && recordsRes.status === 'ok') {
         allMenuRevenueRecords = recordsRes.records || [];
-        updateMenuRevenueMonthFilterOptions();
-        renderMenuRevenueRecords();
+        runAnalyticsStep('メニュー収益', function () {
+          updateMenuRevenueMonthFilterOptions();
+          renderMenuRevenueRecords();
+        });
       } else if (!usedCachedRecords) {
         recordsBody.innerHTML = '<div style="text-align:center; color:red;">メニュー収益の取得に失敗しました</div>';
       }
 
       if (productRecordsRes && productRecordsRes.status === 'ok') {
         allProductRevenueRecords = productRecordsRes.records || [];
-        updateProductRevenueMonthFilterOptions();
-        renderProductRevenueRecords();
+        runAnalyticsStep('商品収益', function () {
+          updateProductRevenueMonthFilterOptions();
+          renderProductRevenueRecords();
+        });
       } else if (!usedCachedProductRecords) {
         productRecordsBody.innerHTML = '<div style="text-align:center; color:red;">商品収益の取得に失敗しました</div>';
       }
@@ -13584,7 +13605,14 @@
       const now = Date.now();
       if (now - adminUiErrorToastAt < 1500) return;
       adminUiErrorToastAt = now;
-      showToast((actionLabel || '操作') + '中に問題が発生しました。もう一度お試しください。');
+      // **何が壊れたのかを、画面にも出す。**
+      // 理由が出ないと、お使いの方は「また出た」としか伝えようがなく、
+      // こちらも原因にたどり着けない。実際に「最近こんなことが多い」と
+      // ご指摘をいただくまで、分析画面が壊れていたことに気づけなかった
+      // （2026-09-01）。長い英文になるので120字で切る。
+      const reason = error && error.message ? String(error.message) : '';
+      showToast((actionLabel || '操作') + '中に問題が発生しました。もう一度お試しください。'
+        + (reason ? '（' + reason.slice(0, 120) + '）' : ''));
     }
 
     function wrapAdminActionSafely(fnName, actionLabel) {
