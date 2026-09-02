@@ -8747,9 +8747,16 @@
         productRecordsBody.innerHTML = '<div style="text-align:center; color:red;">商品収益の取得に失敗しました</div>';
       }
 
-      const mergedAnalytics = buildAnalyticsWithManualProductRevenue(res && res.status === 'ok' ? res : null, allProductRevenueRecords);
+      // **組み立ても囲う。**描画（renderAnalytics）だけ try で囲ってあり、
+      // その手前の組み立ては裸だった。実際、組み立て側で落ちて画面が
+      // 止まっていた（2026-09-02）。囲ってある所と裸の所の混在は、
+      // この画面で3度目。
+      let mergedAnalytics = null;
+      runAnalyticsStep('集計の組み立て', function () {
+        mergedAnalytics = buildAnalyticsWithManualProductRevenue(res && res.status === 'ok' ? res : null, allProductRevenueRecords);
+      });
 
-      if ((res && res.status === 'ok') || allProductRevenueRecords.length) {
+      if (mergedAnalytics && ((res && res.status === 'ok') || allProductRevenueRecords.length)) {
         try {
           renderAnalytics(mergedAnalytics);
         } catch (err) {
