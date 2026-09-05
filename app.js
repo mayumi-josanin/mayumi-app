@@ -7560,7 +7560,13 @@ async function saveProfile() {
       birthday: birthday,
       address: address,
       kana: kana,
-      memo: '',
+      // **memo は送らない。**（2026-09-05 に削除）
+      // `memo: ''` を送っていたため、お客様がプロフィールを保存するたびに
+      // **受付の覚え書きが空で上書きされていた。**
+      // 受け取る側は、送られてこなければ今の値を残す作りになっている
+      //   GAS    data.memo !== undefined ? data.memo : 今の値（管理者・お客様.js 6902行）
+      //   サーバー "memo" in d のときだけ書き換える（writes.py 439行）
+      // 消したいときは管理アプリから消す。
       passcode: isNew ? passcode : undefined,
       pushSubscription: getCurrentPushSubscriptionValue(isPushEnabled())
     });
