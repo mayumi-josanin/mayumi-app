@@ -1332,6 +1332,21 @@ _まとめて消す = _宛先で振り分ける(_お知らせまとめて消す,
                                 _カレンダー("まとめて消す"))
 
 
+def _会員(名):
+    def 呼ぶ(d):
+        from . import admin_member
+
+        return getattr(admin_member, 名)(d)
+    return 呼ぶ
+
+
+_会員書き換える = _会員("会員を書き換える")
+_会員特典 = _会員("特典を書き換える")
+_会員消す = _会員("会員を消す")
+_お礼スタンプ = _会員("お礼スタンプを付ける")
+_引き継ぎコード = _会員("引き継ぎコードを出す")
+
+
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
     "removeUserDeviceSession": 端末を外す,
@@ -1357,6 +1372,12 @@ _まとめて消す = _宛先で振り分ける(_お知らせまとめて消す,
     "saveSupportFaq": _FAQ保存,
     "deleteSupportFaq": _FAQ消す,
     # カテゴリ。表をまたがない。
+    # 会員（第2段・管理側の書き込み）。**handleMergeUsers はまだ**
+    "updateAdminUser": _会員書き換える,
+    "updateAdminRewardStatus": _会員特典,
+    "deleteUser": _会員消す,
+    "grantSurveyStamp": _お礼スタンプ,
+    "issueTransferCode": _引き継ぎコード,
     "addCalendar": _カレンダー足す,
     "updateCalendar": _カレンダー書き換える,
     "addProduct": _商品足す,
