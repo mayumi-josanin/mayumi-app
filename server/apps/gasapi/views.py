@@ -144,7 +144,10 @@ def _お知らせ():
             continue
 
         category = n.category or "お知らせ"
-        画像 = [u for u in [(n.image_url or "").strip()] if u]
+        # **_画像() を通す。**シートは JSON の配列の文字列で持っていることがある。
+        # 以前ここで1行だけ書いていたため、**91件中82件の画像が
+        # `["https://…"]` のまま返っていた**（2026-09-05 に本番と突き合わせて判明）。
+        画像 = _画像(n.image_url)
         画像1 = 画像[0] if 画像 else ""
 
         一覧.append({
@@ -161,7 +164,12 @@ def _お知らせ():
             "imageUrls": 画像,
             "updatedAt": _日時(n.updated_at),
             "linkUrl": (n.link_url or "").strip(),
-            "linkButtonText": (n.link_label or n.button_text or "").strip(),
+            # **「ボタンテキスト」の列だけを見る。**GAS もそうしている
+            #   （LINK_BUTTON_TEXT_HEADER = 'ボタンテキスト'・管理者・お客様.js 139行）。
+            # 以前は「リンクボタン名」も拾っていたため、**いま本番でボタンが
+            # 出ていない2件に、ボタンが出てしまうところだった**（2026-09-05）。
+            # 移行では見た目を変えない。直すなら切り替えが済んでから。
+            "linkButtonText": (n.button_text or "").strip(),
             "publishAt": _日時(n.publish_at),
             "noticeStatus": "公開" if n.notice_listed else "非公開",
             "sortOrder": n.sort_order or 0,
@@ -177,13 +185,52 @@ def _お知らせ():
 
 
 def _画像(値):
-    """GAS の parseStoredImageUrls_ と同じ考え方。
+    """GAS の parseStoredImageUrls_（管理者・お客様.js 3297行）と同じに解く。
 
-    1枚だけの列でも、GAS は配列にして返している。
-    空なら空の配列。**None を返さない。**
+    **シートは画像URLを JSON の配列の文字列で持っている。**
+
+        ["https://drive.google.com/thumbnail?id=…","https://…"]
+
+    以前はこれを1本の文字列としてそのまま返していた。**91件中81件の
+    お知らせで画像が出なくなる**ところだった（2026-09-05 に本番と
+    突き合わせて判明）。
+
+    順序が大事。**先に JSON として試し、駄目なら改行で分ける。**
+    逆にすると、配列の文字列が1行として扱われて解けない。
     """
-    v = (値 or "").strip()
-    return [v] if v else []
+    if isinstance(値, (list, tuple)):
+        出 = []
+        for x in 値:
+            出.extend(_画像(x))
+        return 出
+
+    生 = str(値 or "").strip()
+    if not 生:
+        return []
+
+    if 生.startswith("["):
+        import json as _json
+
+        try:
+            解 = _json.loads(生)
+            if isinstance(解, list):
+                return _画像(解)
+        except ValueError:
+            pass  # 壊れた JSON。下の改行分けに任せる
+
+    並び = [x.strip() for x in 生.splitlines() if x.strip()]
+    候補 = 並び if len(並び) > 1 else [生]
+    # **同じURLは1つだけ。**GAS も indexOf で重複を落としている。
+    出, 見た = [], set()
+    for x in 候補:
+        if not (x.startswith("http://") or x.startswith("https://")
+                or x.lower().startswith("data:image/")):
+            continue
+        if x in 見た:
+            continue
+        見た.add(x)
+        出.append(x)
+    return 出
 
 
 def _メニュー():
@@ -706,6 +753,13 @@ def _復元の候補(request):
 
 
 # action の名前 → 返す中身を作る関数
+def _管理お知らせ():
+    """管理アプリの「お知らせ管理」。GAS の getAdminBlogs が転送してくる。"""
+    from . import admin_news
+
+    return admin_news.一覧()
+
+
 _できること = {
     "getNews": _お知らせ,
     "getMenus": _メニュー,
@@ -747,13 +801,6 @@ _できること = {
 #
 # 管理アプリは合鍵（と管理者の札）を送る。**この一覧を安易に増やさない。**
 # 増やすときは、GAS の PUBLIC_ACTIONS にもあるかを必ず確かめる。
-def _管理お知らせ():
-    """管理アプリの「お知らせ管理」。GAS の getAdminBlogs が転送してくる。"""
-    from . import admin_news
-
-    return admin_news.一覧()
-
-
 公開アクション = {
     # 公開している中身
     "getNews", "getProducts", "getCalendar", "getMenus",
