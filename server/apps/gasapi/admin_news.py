@@ -76,7 +76,14 @@ def _日付(v):
 
 
 def _一件(n):
-    """GAS の getAdminBlogs が返す1件と同じ形。**項目名を変えない。**"""
+    """GAS の getAdminBlogs が返す1件と同じ形。**項目名を変えない。**
+
+    **効いている定義は8816行のほう。**同じ名前の関数が5000行にもあり、
+    JavaScript は後の定義が前を上書きする。最初に5000行を読んで形を決めて
+    しまい、**6項目足りなかった**（2026-09-05）。足りないままだと、
+    管理画面でリンクも画像も並び順も消える。
+    """
+    画像 = [x.strip() for x in (n.image_url or "").split("\n") if x.strip()]
     return {
         "rowIdx": n.sheet_row,
         "date": n.posted_on.strftime("%Y-%m-%d") if n.posted_on else "",
@@ -85,10 +92,19 @@ def _一件(n):
         "icon": n.icon or "📢",
         "body": n.body or "",
         "status": _状態の字(n.published),
-        "imageUrl": n.image_url or "",
-        "publishAt": n.publish_at.strftime("%Y-%m-%dT%H:%M:%S+09:00") if n.publish_at else "",
+        # GAS は同じ値を2つの名前で返している。**片方だけにしない。**
+        # 管理画面がどちらを読んでいるかは確かめきれない。
+        "publishStatus": _状態の字(n.published),
         "updatedAt": n.updated_at.strftime("%Y-%m-%dT%H:%M:%S+09:00") if n.updated_at else "",
+        "imageUrl": 画像[0] if 画像 else "",
+        "imageUrls": 画像,
+        "linkUrl": n.link_url or "",
+        "linkButtonText": n.button_text or "",
+        "publishAt": n.publish_at.strftime("%Y-%m-%dT%H:%M:%S+09:00") if n.publish_at else "",
         "noticeStatus": _状態の字(n.notice_listed),
+        "noticeDeletedAt": (n.notice_delisted_at.strftime("%Y-%m-%dT%H:%M:%S+09:00")
+                            if n.notice_delisted_at else ""),
+        "sortOrder": n.sort_order or 0,
     }
 
 
@@ -97,10 +113,11 @@ def _一件(n):
 def 一覧():
     """GAS の getAdminBlogs と同じ。**消した分は返さない。**
 
-    GAS は最後に `blogs.reverse()` している。シートは古い順に並ぶので、
-    新しいものが先頭に来る。ここでは並び順を明示して同じにする。
+    **並べ替えない。**効いている定義（8816行）はシートの順のまま返している。
+    5000行のほうは最後に reverse しているが、そちらは上書きされていて動かない。
+    順番を変えると、管理画面の並びが今日と明日で変わってしまう。
     """
-    件 = News.objects.filter(deleted=False).exclude(title="").order_by("-sheet_row")
+    件 = News.objects.filter(deleted=False).exclude(title="").order_by("sheet_row")
     return {"status": "ok", "blogs": [_一件(n) for n in 件]}
 
 
