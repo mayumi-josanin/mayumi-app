@@ -777,6 +777,13 @@ def _復元の候補(request):
 
 
 # action の名前 → 返す中身を作る関数
+def _商品の原価表():
+    """分析画面の原価。GAS の getProductRevenueMasterMap_ が転送してくる。"""
+    from . import admin_product
+
+    return admin_product.原価の対応表()
+
+
 def _管理商品():
     """管理アプリの「商品管理」。GAS の getAdminProducts が転送してくる。"""
     from . import admin_product
@@ -834,6 +841,7 @@ _できること = {
     "getCategories": _カテゴリ一覧,
     "getAdminMenus": _管理メニュー,
     "getAdminProducts": _管理商品,
+    "getProductRevenueMasterMap": _商品の原価表,
 }
 
 
