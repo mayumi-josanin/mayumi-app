@@ -166,9 +166,29 @@ function サーバーへの道を確かめる() {
     Logger.log('  **届きません。**上の行き先を確かめてください。');
     return;
   }
-  var 件数 = (中.news || 中.blogs || []).length;
-  Logger.log('  届きました（' + かかった + 'ミリ秒）');
-  Logger.log('  サーバーのお知らせ: ' + 件数 + '件');
+  Logger.log('  お客様向けの窓口: 届きました（' + かかった + 'ミリ秒）');
+  Logger.log('    お知らせ ' + (中.news || 中.blogs || []).length + '件');
+  Logger.log('');
+
+  // **管理者向けの窓口も試す。**ここは合鍵が要る。
+  // 2026-09-05、合鍵を確かめずに切り替えようとした。お客様向けだけを見て
+  // 「届いている」と判断していたが、**管理アプリは合鍵が無いと弾かれ、
+  // 黙って古いシートを見続ける。**気づくのが遅れるところだった。
+  var 管理 = サーバーから読む_('getAdminBlogs');
+  if (管理 && 管理.blogs) {
+    Logger.log('  管理者向けの窓口: 届きました');
+    Logger.log('    お知らせ ' + 管理.blogs.length + '件');
+    Logger.log('');
+    Logger.log('  **両方とも届いています。SERVER_TABLES に news と入れれば切り替わります。**');
+  } else {
+    Logger.log('  管理者向けの窓口: **届きません**');
+    Logger.log('');
+    Logger.log('  **まだ切り替えないでください。**このまま SERVER_TABLES を入れると、');
+    Logger.log('  お客様のアプリはサーバーを、管理アプリは古いシートを見ることになります。');
+    Logger.log('');
+    Logger.log('  スクリプトプロパティ SERVER_API_KEY に、サーバーの API_KEY と');
+    Logger.log('  同じ値を入れてください（サーバーPCの server/.env にあります）。');
+  }
   Logger.log('');
   Logger.log('  ※ これは見るだけです。渡す設定は変わっていません。');
 }
