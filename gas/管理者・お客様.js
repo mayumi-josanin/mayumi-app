@@ -5081,6 +5081,25 @@ function _お知らせの通知を送る_(data, 題, 答) {
   }
 }
 
+function _カレンダーの通知を送る_(data, 題, 答) {
+  // **通知はGASに残してある。**判断に使う状態はサーバーが返したものを優先する。
+  var 状態 = (答 && 答.effectiveStatus) || (data && (data.publishStatus || data.status)) || '公開';
+  var 公開日時 = (答 && 答.effectivePublishAt !== undefined)
+    ? 答.effectivePublishAt : (data && data.publishAt);
+  if (shouldSendManagedContentPush_(data)
+      && String(状態 || '公開') !== '非公開'
+      && isPublishAtAvailable_(公開日時)) {
+    sendAutoPush(題, 'カレンダーが更新されました', { targetPage: 'calendar' });
+  }
+}
+
+function _カレンダーをサーバーへ_(type, data) {
+  // **サーバーへ渡す表なら、シートには書かない。**
+  var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
+  if (答) return 答;
+  return { status: 'error', message: 'サーバーに届きませんでした。もう一度お試しください。' };
+}
+
 function _商品の通知を送る_(data, 題, 答) {
   // **通知はGASに残してある。**判断に使う状態はサーバーが返したものを優先する。
   var 状態 = (答 && 答.effectiveStatus) || (data && data.status) || '公開';
@@ -5276,6 +5295,9 @@ function handleUpdateRecordStatus(data) {
   if (data && data.sheet === 'PRODUCTS' && サーバーへ渡すか_('product')) {
     return _商品をサーバーへ_('updateRecordStatus', data);
   }
+  if (data && data.sheet === 'CALENDAR' && サーバーへ渡すか_('calendar')) {
+    return _カレンダーをサーバーへ_('updateRecordStatus', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5323,6 +5345,9 @@ function handleUpdateNoticeVisibility(data) {
   }
   if (data && data.sheet === 'PRODUCTS' && サーバーへ渡すか_('product')) {
     return _商品をサーバーへ_('updateNoticeVisibility', data);
+  }
+  if (data && data.sheet === 'CALENDAR' && サーバーへ渡すか_('calendar')) {
+    return _カレンダーをサーバーへ_('updateNoticeVisibility', data);
   }
   try {
     const ss = getOrCreateSpreadsheet();
@@ -5380,6 +5405,9 @@ function handleDeleteNoticeListing(data) {
   }
   if (data && data.sheet === 'PRODUCTS' && サーバーへ渡すか_('product')) {
     return _商品をサーバーへ_('deleteNoticeListing', data);
+  }
+  if (data && data.sheet === 'CALENDAR' && サーバーへ渡すか_('calendar')) {
+    return _カレンダーをサーバーへ_('deleteNoticeListing', data);
   }
   try {
     const ss = getOrCreateSpreadsheet();
@@ -5684,6 +5712,9 @@ function handleDeleteRow(data) {
   if (data && data.sheet === 'PRODUCTS' && サーバーへ渡すか_('product')) {
     return _商品をサーバーへ_('deleteRow', data);
   }
+  if (data && data.sheet === 'CALENDAR' && サーバーへ渡すか_('calendar')) {
+    return _カレンダーをサーバーへ_('deleteRow', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5718,6 +5749,9 @@ function handleDeleteRows(data) {
   }
   if (data && data.sheet === 'PRODUCTS' && サーバーへ渡すか_('product')) {
     return _商品をサーバーへ_('deleteRows', data);
+  }
+  if (data && data.sheet === 'CALENDAR' && サーバーへ渡すか_('calendar')) {
+    return _カレンダーをサーバーへ_('deleteRows', data);
   }
   try {
     const ss = getOrCreateSpreadsheet();
@@ -6840,6 +6874,11 @@ function getAdminCalendar() {
 // ========== 管理者用：カレンダー追加 ==========
 
 function handleAddCalendar(data) {
+  if (サーバーへ渡すか_('calendar')) {
+    var 答 = _カレンダーをサーバーへ_('addCalendar', data);
+    if (答 && 答.status === 'ok') _カレンダーの通知を送る_(data, '📅 ' + (data.title || 'カレンダー更新'), 答);
+    return 答;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheet = ss.getSheetByName(SHEETS.CALENDAR);
@@ -6937,6 +6976,11 @@ function handleAddCalendar(data) {
 // ========== 管理者用：カレンダー更新 ==========
 
 function handleUpdateCalendar(data) {
+  if (サーバーへ渡すか_('calendar')) {
+    var 答 = _カレンダーをサーバーへ_('updateCalendar', data);
+    if (答 && 答.status === 'ok') _カレンダーの通知を送る_(data, '📅 ' + (data.title || 'カレンダー更新'), 答);
+    return 答;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.CALENDAR);
@@ -8548,6 +8592,11 @@ function broadcastPush(data) {
 }
 
 function getCalendarEvents() {
+  // **効く定義はこちら（後の定義が前を上書きする）。**
+  if (サーバーへ渡すか_('calendar')) {
+    var 中 = サーバーから読む_('getCalendar');
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.CALENDAR);
@@ -8604,6 +8653,11 @@ function getCalendarEvents() {
 }
 
 function getAdminCalendar() {
+  // **効く定義はこちら（後の定義が前を上書きする）。**
+  if (サーバーへ渡すか_('calendar')) {
+    var 中 = サーバーから読む_('getAdminCalendar');
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.CALENDAR);
