@@ -1237,6 +1237,18 @@ _お知らせ消す = _お知らせの窓口("消す")
 _お知らせまとめて消す = _お知らせの窓口("まとめて消す")
 
 
+def _FAQ保存(d):
+    from . import admin_faq
+
+    return admin_faq.保存(d)
+
+
+def _FAQ消す(d):
+    from . import admin_faq
+
+    return admin_faq.消す(d)
+
+
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
     "removeUserDeviceSession": 端末を外す,
@@ -1257,6 +1269,9 @@ _お知らせまとめて消す = _お知らせの窓口("まとめて消す")
     "deleteNoticeListing": _お知らせ一覧から外す,
     "deleteRow": _お知らせ消す,
     "deleteRows": _お知らせまとめて消す,
+    # 使い方FAQ。表をまたがない窓口なので、振り分けの守りは要らない。
+    "saveSupportFaq": _FAQ保存,
+    "deleteSupportFaq": _FAQ消す,
 }
 
 

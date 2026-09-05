@@ -5077,6 +5077,14 @@ function _お知らせの通知を送る_(data, 題, 答) {
   }
 }
 
+function _FAQをサーバーへ_(type, data) {
+  // **サーバーへ渡す表なら、シートには書かない。**
+  // 落ちる先を作ると、どちらが正か分からなくなる。
+  var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
+  if (答) return 答;
+  return { status: 'error', message: 'サーバーに届きませんでした。もう一度お試しください。' };
+}
+
 function _お知らせをサーバーへ_(type, data) {
   // **サーバーへ渡す表なら、シートには書かない。**
   // 書けなかったぶんをシートに書くと、どちらが正か分からなくなる。
@@ -9062,6 +9070,25 @@ function splitSupportKeywords_(keywords) {
 }
 
 function getSupportFaqEntries_(includePrivate) {
+  // **ここ1か所で渡す。**この関数は3か所から呼ばれている。
+  //
+  //   getSupportFaq        お客様の「お困りのとき」
+  //   getAdminSupportFaq   管理アプリのFAQ管理
+  //   askSupportChat       **チャットボットの答え**
+  //
+  // 入口ごとに入れると、チャットボットだけがシートを読み続ける。
+  // 表を移したあとシートは更新されないので、**ボットの答えだけが古くなる。**
+  // 実際、入口2つに入れて済ませかけた（2026-09-05）。呼び出し元を数えて気づいた。
+  if (サーバーへ渡すか_('faq')) {
+    var 中 = サーバーから読む_('getAdminSupportFaq');
+    if (中 && 中.faqs) {
+      return 中.faqs.filter(function (item) {
+        if (!item.question || !item.answer) return false;
+        return includePrivate ? true : item.status === '公開';
+      });
+    }
+    // 読めなければシートに落ちる。真っ白より古い中身のほうが害が小さい。
+  }
   const sheet = getSupportFaqSheet_();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
@@ -9184,6 +9211,9 @@ function getAdminSupportFaq() {
 }
 
 function handleSaveSupportFaq(data) {
+  // **この窓口は使い方FAQ専用。**（data.sheet で分かれていないことを
+  //   7つ全部数え直して確かめた・2026-09-05）
+  if (サーバーへ渡すか_('faq')) return _FAQをサーバーへ_('saveSupportFaq', data);
   try {
     const question = String(data.question || '').trim();
     const answer = String(data.answer || '').trim();
@@ -9215,6 +9245,9 @@ function handleSaveSupportFaq(data) {
 }
 
 function handleDeleteSupportFaq(data) {
+  // **この窓口は使い方FAQ専用。**（data.sheet で分かれていないことを
+  //   7つ全部数え直して確かめた・2026-09-05）
+  if (サーバーへ渡すか_('faq')) return _FAQをサーバーへ_('deleteSupportFaq', data);
   try {
     const rowIdx = Number(data.rowIdx || 0);
     if (rowIdx <= 1) throw new Error('削除対象が見つかりません');
