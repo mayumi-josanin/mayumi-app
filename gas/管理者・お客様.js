@@ -2226,6 +2226,13 @@ function checkMemberToken(params) {
     const memberId = token ? verifyMemberToken_(token) : '';
     if (!memberId) return { status: 'ok', valid: false };
 
+    // **札の検証（verifyMemberToken_）はGASに残す。**
+    // ADMIN_TOKEN_SECRET で署名しており、ここを動かすと発行済みの札が
+    // 全部無効になる。**会員を見に行く部分だけ**をサーバーへ渡す。
+    if (サーバーへ渡すか_('member')) {
+      var 中 = サーバーから読む_('checkMemberOnServer', { memberId: memberId });
+      if (中) return 中;
+    }
     const sheet = getOrCreateUsersSheet_(getOrCreateSpreadsheet());
     const rowIdx = findUserRowByMemberId_(sheet, memberId);
     if (rowIdx < 2) return { status: 'ok', valid: false };
@@ -2317,6 +2324,7 @@ function touchLastOnline_(sheet, rowIdx) {
 }
 
 function registerAccount(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('registerAccount', data);
   try {
     const rawName = String((data && data.name) || '').trim();
     const name = normalizeNameForMatch_(rawName);
@@ -2489,6 +2497,7 @@ function findAccountRowsByName_(name) {
 }
 
 function loginAccount(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('loginAccount', data);
   try {
     const name = normalizeNameForMatch_(data && data.name);
     // 入口の入力欄はパスコードに統一した。古い呼び出しのために password も受ける。
@@ -2546,6 +2555,7 @@ function loginAccount(data) {
 // 本人であることをパスワードで確認したうえで「ビジリス」列に印を付ける。
 // 以後、ログインするとアプリ一覧にビジリスが並ぶ。
 function registerBijirisUse(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('registerBijirisUse', data);
   try {
     const name = normalizeNameForMatch_(data && data.name);
     const kana = String((data && data.kana) || '').trim();
@@ -4508,6 +4518,7 @@ function addSurveyStampToRow_(sheet, rowIdx, row) {
 }
 
 function handleGrantSurveyStamp(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('grantSurveyStamp', data);
   try {
     const memberId = String((data && data.memberId) || '').trim();
     if (!memberId) return { status: 'error', message: '会員IDが指定されていません' };
@@ -5091,6 +5102,15 @@ function _カレンダーの通知を送る_(data, 題, 答) {
       && isPublishAtAvailable_(公開日時)) {
     sendAutoPush(題, 'カレンダーが更新されました', { targetPage: 'calendar' });
   }
+}
+
+function _会員をサーバーへ_(type, data) {
+  // **サーバーへ渡す表なら、シートには書かない。**
+  // 会員はとくに、落ちる先を作ってはいけない。片方にだけ書かれると
+  // お客様が「入れたのに入れない」状態になる。
+  var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
+  if (答) return 答;
+  return { status: 'error', message: 'サーバーに届きませんでした。もう一度お試しください。' };
 }
 
 function _カレンダーをサーバーへ_(type, data) {
@@ -7639,6 +7659,7 @@ function handleRecoverAccount(data) {
 }
 
 function handleIssueTransferCode(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('issueTransferCode', data);
   try {
     const memberId = String(data.memberId || '').trim();
     if (!memberId) return { status: 'error', message: '会員IDが指定されていません。' };
@@ -8068,6 +8089,7 @@ function findUserRowForAdminMutation_(sheet, data) {
 }
 
 function handleUpdateAdminUser(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('updateAdminUser', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
@@ -8094,6 +8116,7 @@ function handleUpdateAdminUser(data) {
 }
 
 function handleDeleteUser(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('deleteUser', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
@@ -8113,6 +8136,7 @@ function handleDeleteUser(data) {
 }
 
 function handleUpdateAdminRewardStatus(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('updateAdminRewardStatus', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
@@ -8199,6 +8223,10 @@ function buildOrderStatsByMemberId_() {
 }
 
 function getAdminUsers() {
+  if (サーバーへ渡すか_('member')) {
+    var 中 = サーバーから読む_('getAdminUsers');
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
@@ -8365,6 +8393,7 @@ function getDuplicateUsers() {
 }
 
 function handleMergeUsers(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('mergeUsers', data);
   try {
     const targetMemberId = String(data && data.targetMemberId || '').trim();
     const sourceMemberIds = Array.isArray(data && data.sourceMemberIds)
@@ -8502,6 +8531,10 @@ function getPushNotices() {
  * Push通知対象のユーザーを取得
  */
 function getPushUsers() {
+  if (サーバーへ渡すか_('member')) {
+    var 中 = サーバーから読む_('getPushUsers');
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);

@@ -795,6 +795,18 @@ def _商品の原価表():
     return admin_product.原価の対応表()
 
 
+def _会員の札(request):
+    """GAS の checkMemberToken のうち、**会員を見に行く部分だけ。**
+
+    札の検証は GAS に残してある（`ADMIN_TOKEN_SECRET` で署名しており、
+    動かすと発行済みの札が全部無効になる）。ここは
+    「その会員IDが生きているか」だけを答える。
+    """
+    from . import admin_member
+
+    return admin_member.札を確かめる(_引数(request).get("memberId"))
+
+
 def _管理会員():
     """管理アプリの会員一覧。GAS の getAdminUsers が転送してくる。"""
     from . import admin_member
@@ -877,6 +889,7 @@ _できること = {
     "getAdminCalendar": _管理カレンダー,
     "getAdminUsers": _管理会員,
     "getPushUsers": _通知の届け先,
+    "checkMemberOnServer": _会員の札,
 }
 
 
