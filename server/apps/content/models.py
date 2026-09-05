@@ -383,6 +383,10 @@ class CalendarEvent(掲載の共通):
     detail = models.TextField("詳細", blank=True)
     color = models.CharField("カラー", max_length=32, blank=True)
 
+    # 2026-09-05 追加。**書き出しに列が無く、70件のカテゴリが落ちていた。**
+    # お知らせ・商品・メニューと同じく、カテゴリ名を文字列で参照する。
+    category = models.CharField("カテゴリ", max_length=100, blank=True, db_index=True)
+
     # 「対象メニュー行」。メニュー表の行を指している。
     # メニューを移すときに、正しい結びつきへ直す。
     menu_row = models.IntegerField("対象メニュー行", null=True, blank=True)
