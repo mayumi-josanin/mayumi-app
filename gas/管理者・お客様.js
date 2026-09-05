@@ -5077,6 +5077,13 @@ function _お知らせの通知を送る_(data, 題, 答) {
   }
 }
 
+function _カテゴリをサーバーへ_(type, data) {
+  // **サーバーへ渡す表なら、シートには書かない。**
+  var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
+  if (答) return 答;
+  return { status: 'error', message: 'サーバーに届きませんでした。もう一度お試しください。' };
+}
+
 function _FAQをサーバーへ_(type, data) {
   // **サーバーへ渡す表なら、シートには書かない。**
   // 落ちる先を作ると、どちらが正か分からなくなる。
@@ -8734,6 +8741,18 @@ function getCategorySheet_() {
 }
 
 function getCategories() {
+  // **ここ1か所で渡す。**この関数は4か所から呼ばれている
+  // （doGet / getBlogNews のカテゴリ種別 / getInitialData / getAdminBlogs）。
+  // 入口ごとに入れると、どれかがシートを読み続ける。
+  //
+  // **お知らせを移した時点で、ここは食い違っていた。**
+  // getNews はカテゴリの一覧も一緒に返すが、お知らせがサーバーから返る
+  // ようになったので、そこに載るカテゴリもサーバーの写しになっていた。
+  // 院長がカテゴリを足しても、シートに入るだけでお客様には出なかった。
+  if (サーバーへ渡すか_('category')) {
+    var 中 = サーバーから読む_('getCategories');
+    if (中) return 中;
+  }
   try {
     const sheet = getCategorySheet_();
     const lastRow = sheet.getLastRow();
@@ -8764,6 +8783,8 @@ function getCategories() {
 }
 
 function handleAddCategory(data) {
+  // **この窓口はカテゴリ専用。**（data.sheet で分かれていないことを確認済み）
+  if (サーバーへ渡すか_('category')) return _カテゴリをサーバーへ_('addCategory', data);
   try {
     const name = String(data.name || '').trim();
     if (!name) throw new Error('カテゴリ名を入力してください');
@@ -8789,6 +8810,8 @@ function handleAddCategory(data) {
 }
 
 function handleUpdateCategory(data) {
+  // **この窓口はカテゴリ専用。**（data.sheet で分かれていないことを確認済み）
+  if (サーバーへ渡すか_('category')) return _カテゴリをサーバーへ_('updateCategory', data);
   try {
     const oldName = String(data.oldName || '').trim();
     const newName = String(data.newName || '').trim();
@@ -8960,6 +8983,8 @@ function getAdminBlogs() {
 }
 
 function handleDeleteCategory(data) {
+  // **この窓口はカテゴリ専用。**（data.sheet で分かれていないことを確認済み）
+  if (サーバーへ渡すか_('category')) return _カテゴリをサーバーへ_('deleteCategory', data);
   try {
     const name = String(data.name || '').trim();
     if (!name) throw new Error('削除対象のカテゴリが見つかりません');

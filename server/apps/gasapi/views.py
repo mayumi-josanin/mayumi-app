@@ -176,10 +176,15 @@ def _お知らせ():
         })
 
     # GAS は categories も一緒に返している。アプリが同じ呼び出しで使うため。
-    カテゴリ = [
-        {"name": c.name, "type": c.kind or "ブログ", "rowIdx": c.sheet_row}
-        for c in Category.objects.all()
-    ]
+    #
+    # **GAS と同じ規則を通す。**ここで自前に組み立てていたため、
+    #   ・同じ名前が2つあっても両方返る（GAS は最初の1つだけ）
+    #   ・種別が「お知らせ/ブログ/メニュー/通知」以外でもそのまま返る
+    #     （GAS は当てはまらなければ「ブログ」に直す）
+    # という違いがあった（2026-09-05）。カテゴリの窓口と1か所にまとめる。
+    from . import admin_category
+
+    カテゴリ = admin_category.一覧()["categories"]
     return {"status": "ok", "news": 一覧, "categories": カテゴリ}
 
 
@@ -772,6 +777,13 @@ def _復元の候補(request):
 
 
 # action の名前 → 返す中身を作る関数
+def _カテゴリ一覧():
+    """GAS の getCategories。**お客様アプリも管理アプリも同じものを見る。**"""
+    from . import admin_category
+
+    return admin_category.一覧()
+
+
 def _管理FAQ():
     """管理アプリの「使い方FAQ」。GAS の getAdminSupportFaq が転送してくる。"""
     from . import admin_faq
@@ -804,6 +816,8 @@ _できること = {
     # GAS が SERVER_API_KEY を付けて転送してくる。
     "getAdminBlogs": _管理お知らせ,
     "getAdminSupportFaq": _管理FAQ,
+    # カテゴリはお客様アプリも呼ぶので、**公開アクションにも入れる。**
+    "getCategories": _カテゴリ一覧,
 }
 
 
