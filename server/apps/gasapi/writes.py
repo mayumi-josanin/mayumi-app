@@ -1216,6 +1216,27 @@ def 通知の届け先を外す(d):
     return {"status": "ok", "message": "通知を止めました"}
 
 
+def _お知らせの窓口(名):
+    """お知らせの窓口を呼ぶ。**お知らせ以外の表なら、まだ無いと答える。**"""
+    def 呼ぶ(d):
+        from . import admin_news
+
+        if not admin_news.お知らせ宛てか(d):
+            return {"status": "error", "notImplemented": True,
+                    "message": "お知らせ以外の表は、まだサーバーにありません。"}
+        return getattr(admin_news, 名)(d)
+    return 呼ぶ
+
+
+_お知らせ足す = _お知らせの窓口("足す")
+_お知らせ書き換える = _お知らせの窓口("書き換える")
+_お知らせ公開 = _お知らせの窓口("公開を変える")
+_お知らせ一覧掲載 = _お知らせの窓口("一覧掲載を変える")
+_お知らせ一覧から外す = _お知らせの窓口("一覧から外す")
+_お知らせ消す = _お知らせの窓口("消す")
+_お知らせまとめて消す = _お知らせの窓口("まとめて消す")
+
+
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
     "removeUserDeviceSession": 端末を外す,
@@ -1226,6 +1247,16 @@ def 通知の届け先を外す(d):
     "resetForgottenPasscode": パスコードを付け直す,
     "uploadImage": 写真を受け取る,
     "unsubscribePush": 通知の届け先を外す,
+    # 管理アプリ向け（お知らせの表）。**公開アクションに入れない**ので合鍵が要る。
+    # deleteRow / updateRecordStatus は表をまたぐ窓口なので、
+    # お知らせ以外が来たら notImplemented を返す（GAS がシートで処理する）。
+    "addBlog": _お知らせ足す,
+    "updateBlog": _お知らせ書き換える,
+    "updateRecordStatus": _お知らせ公開,
+    "updateNoticeVisibility": _お知らせ一覧掲載,
+    "deleteNoticeListing": _お知らせ一覧から外す,
+    "deleteRow": _お知らせ消す,
+    "deleteRows": _お知らせまとめて消す,
 }
 
 
