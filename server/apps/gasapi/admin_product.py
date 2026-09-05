@@ -53,12 +53,20 @@ def _状態の字(公開):
 
 
 def _原価の表():
-    """GAS の getProductCostMap_ と同じ。**商品名で引く。**"""
+    """GAS の getProductCostMap_ と同じ。**商品名で引く。**
+
+    **数として返す。**データベースは Decimal で持っており、そのまま返すと
+    JSON では `"1875.000000"` という**文字列**になる。GAS は
+    `Number(costMap[name] || 0)` として数を期待している（2026-09-05）。
+    小数が出ないもの（1875.0）は整数にする。GAS の見た目に合わせる。
+    """
     出 = {}
     for s in SupplierPrice.objects.all():
         名 = (s.product_name or "").strip()
-        if 名:
-            出[名] = s.price or 0
+        if not 名:
+            continue
+        v = float(s.price or 0)
+        出[名] = int(v) if v == int(v) else v
     return 出
 
 
@@ -99,6 +107,31 @@ def 一覧():
     return {"status": "ok",
             "products": [_一件(p, 原価)
                          for p in Product.objects.filter(deleted=False).order_by("sheet_row")]}
+
+
+def 原価の対応表():
+    """GAS の getProductRevenueMasterMap_ と同じ。分析画面が使う。
+
+    **削除済みの商品も含める。**`一覧()` は消した分を除くが、こちらは含める。
+    過去の売上の記録は、消したあとの商品も指しているため、
+    除くと**その分の原価が0になり、粗利が実際より大きく出る。**
+
+    お知らせの `sortOrder` でも同じ形の取りこぼしをした
+    （商品管理に無い商品名で落ちていた）。**消えたものを指す記録がある。**
+    """
+    原価 = _原価の表()
+    出 = {}
+    for p in Product.objects.all():
+        名 = (p.name or "").strip()
+        if not 名:
+            continue
+        出[名] = {
+            "name": 名,
+            "price": p.price or 0,
+            "costPrice": 原価.get(名, 0),
+            "status": _状態の字(p.published),
+        }
+    return {"status": "ok", "products": 出}
 
 
 def 足す(d):

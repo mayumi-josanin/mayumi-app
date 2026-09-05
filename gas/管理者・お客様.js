@@ -3479,6 +3479,10 @@ function getCalendarEvents() {
 // ========== 商品マスタの取得（将来拡張用）==========
 
 function getProducts() {
+  if (サーバーへ渡すか_('product')) {
+    var 中 = サーバーから読む_('getProducts');
+    if (中) return 中;
+  }
   const ss = getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.PRODUCTS);
   if (!sheet) return { status: 'ok', products: [] };
@@ -5077,6 +5081,25 @@ function _お知らせの通知を送る_(data, 題, 答) {
   }
 }
 
+function _商品の通知を送る_(data, 題, 答) {
+  // **通知はGASに残してある。**判断に使う状態はサーバーが返したものを優先する。
+  var 状態 = (答 && 答.effectiveStatus) || (data && data.status) || '公開';
+  var 公開日時 = (答 && 答.effectivePublishAt !== undefined)
+    ? 答.effectivePublishAt : (data && data.publishAt);
+  if (shouldSendManagedContentPush_(data)
+      && String(状態 || '公開') !== '非公開'
+      && isPublishAtAvailable_(公開日時)) {
+    sendAutoPush(題, 'ショップの商品情報が更新されました', { targetPage: 'shop' });
+  }
+}
+
+function _商品をサーバーへ_(type, data) {
+  // **サーバーへ渡す表なら、シートには書かない。**
+  var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
+  if (答) return 答;
+  return { status: 'error', message: 'サーバーに届きませんでした。もう一度お試しください。' };
+}
+
 function _メニューの通知を送る_(data, 題, 答) {
   // **通知はGASに残してある。**判断に使う状態はサーバーが返したものを優先する。
   var 状態 = (答 && 答.effectiveStatus) || (data && data.publishStatus) || '非公開';
@@ -5250,6 +5273,9 @@ function handleUpdateRecordStatus(data) {
   if (data && data.sheet === 'BLOG' && サーバーへ渡すか_('news')) {
     return _お知らせをサーバーへ_('updateRecordStatus', data);
   }
+  if (data && data.sheet === 'PRODUCTS' && サーバーへ渡すか_('product')) {
+    return _商品をサーバーへ_('updateRecordStatus', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5294,6 +5320,9 @@ function handleUpdateNoticeVisibility(data) {
   }
   if (data && data.sheet === 'MENUS' && サーバーへ渡すか_('menu')) {
     return _メニューをサーバーへ_('updateNoticeVisibility', data);
+  }
+  if (data && data.sheet === 'PRODUCTS' && サーバーへ渡すか_('product')) {
+    return _商品をサーバーへ_('updateNoticeVisibility', data);
   }
   try {
     const ss = getOrCreateSpreadsheet();
@@ -5349,6 +5378,9 @@ function handleDeleteNoticeListing(data) {
   if (data && data.sheet === 'MENUS' && サーバーへ渡すか_('menu')) {
     return _メニューをサーバーへ_('deleteNoticeListing', data);
   }
+  if (data && data.sheet === 'PRODUCTS' && サーバーへ渡すか_('product')) {
+    return _商品をサーバーへ_('deleteNoticeListing', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5391,6 +5423,10 @@ function handleDeleteNoticeListing(data) {
 // ========== 管理者用：商品一覧取得 ==========
 
 function getAdminProducts() {
+  if (サーバーへ渡すか_('product')) {
+    var 中 = サーバーから読む_('getAdminProducts');
+    if (中) return 中;
+  }
   const ss = getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.PRODUCTS);
   if (!sheet) return { status: 'ok', products: [] };
@@ -5443,6 +5479,11 @@ function getAdminProducts() {
 // ========== 管理者用：商品追加 ==========
 
 function handleAddProduct(data) {
+  if (サーバーへ渡すか_('product')) {
+    var 答 = _商品をサーバーへ_('addProduct', data);
+    if (答 && 答.status === 'ok') _商品の通知を送る_(data, '🛍 ' + (data.name || '商品更新'), 答);
+    return 答;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const prodSheet = ss.getSheetByName(SHEETS.PRODUCTS);
@@ -5503,6 +5544,11 @@ function handleAddProduct(data) {
 // ========== 管理者用：商品更新（価格・公開設定） ==========
 
 function handleUpdateProduct(data) {
+  if (サーバーへ渡すか_('product')) {
+    var 答 = _商品をサーバーへ_('updateProduct', data);
+    if (答 && 答.status === 'ok') _商品の通知を送る_(data, '🛍 ' + (data.name || '商品更新'), 答);
+    return 答;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.PRODUCTS);
@@ -5635,6 +5681,9 @@ function handleDeleteRow(data) {
   if (data && data.sheet === 'BLOG' && サーバーへ渡すか_('news')) {
     return _お知らせをサーバーへ_('deleteRow', data);
   }
+  if (data && data.sheet === 'PRODUCTS' && サーバーへ渡すか_('product')) {
+    return _商品をサーバーへ_('deleteRow', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5666,6 +5715,9 @@ function handleDeleteRows(data) {
   // 他の表はこれまでどおりシートで処理する。
   if (data && data.sheet === 'BLOG' && サーバーへ渡すか_('news')) {
     return _お知らせをサーバーへ_('deleteRows', data);
+  }
+  if (data && data.sheet === 'PRODUCTS' && サーバーへ渡すか_('product')) {
+    return _商品をサーバーへ_('deleteRows', data);
   }
   try {
     const ss = getOrCreateSpreadsheet();
@@ -6053,6 +6105,16 @@ function handleDeleteMenuRevenueRecord(data) {
 }
 
 function getProductRevenueMasterMap_() {
+  // **分析画面の原価。商品シートを直接読んでいる別経路。**
+  // 商品を移したあと、ここだけシートを読み続けると原価が古いまま止まる。
+  //
+  // **削除済みの商品も含める。**`getAdminProducts` は消した分を除くので、
+  // そちらから作ると、過去の売上に紐づく原価が0になり粗利が実際より大きく出る。
+  // だから専用の窓口を持たせた。
+  if (サーバーへ渡すか_('product')) {
+    var 中 = サーバーから読む_('getProductRevenueMasterMap');
+    if (中 && 中.products) return 中.products;
+  }
   const ss = getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.PRODUCTS);
   const costMap = getProductCostMap_();
