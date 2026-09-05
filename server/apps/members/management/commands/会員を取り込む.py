@@ -213,6 +213,9 @@ class Command(BaseCommand):
                 "registration_source_detail": 文字(r.get("registrationSourceDetail")),
                 "registration_source_updated_at": 日時(r.get("registrationSourceUpdatedAt")),
                 "last_online_at": 日時(r.get("lastOnlineAt")),
+                # 空文字ではなく None にする。unique 制約は空文字を重複と見なすため、
+                # **2人目で必ず落ちる。**
+                "line_user_id": (文字(r.get("lineUserId")) or None),
                 "bijiris_registered": 真偽(r.get("bijirisRegistered")),
                 "created_at": 日時(r.get("createdAt")),
             }
