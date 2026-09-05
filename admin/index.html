@@ -1285,7 +1285,12 @@
       <div class="nav-item" onclick="switchPage('category-master', this)">
         <span>🏷️</span>カテゴリ管理
       </div>
-      <div class="nav-item" onclick="switchPage('support-bot', this)">
+      <!-- 【2026-09-05 非表示】チャットボット管理（FAQもこの中）。
+           院長のご判断で外した。**一度も使われていない。**
+           SUPPORT_CHAT_LOG の相談の記録が **0件**（実測）。FAQ の表は46件あるが、
+           それを見に来たお客様が1人もいない。
+           画面もFAQの表も消していない。戻すときは display:none を外すだけ。 -->
+      <div class="nav-item" onclick="switchPage('support-bot', this)" style="display:none;">
         <span>🤖</span>チャットボット管理
       </div>
       <div class="nav-item" onclick="switchPage('stamp-rewards', this)">
