@@ -915,6 +915,8 @@ _できること = {
     "syncUserDeviceSession", "removeUserDeviceSession",
     "unsubscribePush", "syncUserRewardStatus", "drawRewardGacha",
     "uploadImage", "askSupportChat",
+    # 入口（start/）。**お客様は合鍵を持っていない。**
+    "loginAccount", "registerAccount", "registerBijirisUse",
     # ビジリスのGASが札を確かめに来る窓口。有効か否かしか返さない。
     "checkAdminToken", "checkMemberToken",
 }

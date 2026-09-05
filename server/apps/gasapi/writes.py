@@ -1348,6 +1348,19 @@ _引き継ぎコード = _会員("引き継ぎコードを出す")
 _会員統合 = _会員("会員を統合する")
 
 
+def _入口(名):
+    def 呼ぶ(d):
+        from . import entrance
+
+        return getattr(entrance, 名)(d)
+    return 呼ぶ
+
+
+_ログイン = _入口("ログイン")
+_新規登録 = _入口("新規登録")
+_ビジリス登録 = _入口("ビジリス登録")
+
+
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
     "removeUserDeviceSession": 端末を外す,
@@ -1380,6 +1393,10 @@ _会員統合 = _会員("会員を統合する")
     "grantSurveyStamp": _お礼スタンプ,
     "issueTransferCode": _引き継ぎコード,
     "mergeUsers": _会員統合,
+    # 第3段・お客様の入口。**ここが止まるとアプリに入れなくなる。**
+    "loginAccount": _ログイン,
+    "registerAccount": _新規登録,
+    "registerBijirisUse": _ビジリス登録,
     "addCalendar": _カレンダー足す,
     "updateCalendar": _カレンダー書き換える,
     "addProduct": _商品足す,
