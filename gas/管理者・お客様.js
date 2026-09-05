@@ -5249,7 +5249,13 @@ function handleUpdateRecordStatus(data) {
 }
 
 function handleUpdateNoticeVisibility(data) {
-  if (サーバーへ渡すか_('news')) return _お知らせをサーバーへ_('updateNoticeVisibility', data);
+  // **この窓口は表をまたぐ。**BLOG / PRODUCTS / CALENDAR / MENUS で使われる。
+  // お知らせ専用だと思い込んで無条件に転送し、**ショップの項目を
+  // 一覧から削除しようとして「サーバーに届きませんでした」になった**
+  // （2026-09-05）。関数名に Notice と付いていても、扱う表は1つとは限らない。
+  if (data && data.sheet === 'BLOG' && サーバーへ渡すか_('news')) {
+    return _お知らせをサーバーへ_('updateNoticeVisibility', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5292,7 +5298,13 @@ function handleUpdateNoticeVisibility(data) {
 }
 
 function handleDeleteNoticeListing(data) {
-  if (サーバーへ渡すか_('news')) return _お知らせをサーバーへ_('deleteNoticeListing', data);
+  // **この窓口は表をまたぐ。**BLOG / PRODUCTS / CALENDAR / MENUS で使われる。
+  // お知らせ専用だと思い込んで無条件に転送し、**ショップの項目を
+  // 一覧から削除しようとして「サーバーに届きませんでした」になった**
+  // （2026-09-05）。関数名に Notice と付いていても、扱う表は1つとは限らない。
+  if (data && data.sheet === 'BLOG' && サーバーへ渡すか_('news')) {
+    return _お知らせをサーバーへ_('deleteNoticeListing', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
