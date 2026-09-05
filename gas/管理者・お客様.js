@@ -82,7 +82,12 @@ const USER_HEADERS = [
   // アプリを最後に開いた日時。ログイン時に更新する。
   '最終オンライン日時',
   // ビジリスをご利用の方に「登録済み」が入る。どなたが利用中かを把握するため。
-  'ビジリス'
+  'ビジリス',
+  // 2026-09-05 追加。**お客様台帳を1つにするため。**
+  // 予約システムはお客様を LINE のユーザーIDで見分けている。ここに同じIDを
+  // 持たせることで、会員台帳と予約システムが同じ方を指せるようになる。
+  // お名前では結ばない（同姓同名・改名・表記ゆれで別の方に行き着くため）。
+  'LINEユーザーID'
 ];
 
 const USER_COL = {
@@ -118,7 +123,8 @@ const USER_COL = {
   PASSWORD_SALT: 30,
   ROLE: 31,
   LAST_ONLINE_AT: 32,
-  BIJIRIS: 33
+  BIJIRIS: 33,
+  LINE_USER_ID: 34
 };
 const ACCOUNT_ADMIN_ROLE = '管理者';
 const ACCOUNT_BIJIRIS_REGISTERED = '登録済み';

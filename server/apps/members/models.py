@@ -31,6 +31,17 @@ class Member(models.Model):
     address = models.CharField("住所", max_length=255, blank=True)
     avatar_url = models.TextField("アイコンURL", blank=True)
 
+    # **予約システムと同じ方を指すための鍵。**（2026-09-05 追加）
+    # 予約システムはお客様を LINE のユーザーIDで見分けている。ここに同じ値を
+    # 持たせることで、会員台帳を「お客様台帳」として1つにまとめられる。
+    #
+    # **お名前では結ばない。**同姓同名・改名・表記ゆれで別の方に行き着く。
+    # 空を許すのは、会員のうち多くがまだLINE連携をしていないため。
+    # unique にしているのは、2人の会員が同じLINEを指すと予約が混ざるため。
+    line_user_id = models.CharField(
+        "LINEユーザーID", max_length=64, unique=True, null=True, blank=True, db_index=True
+    )
+
     push_enabled = models.BooleanField("Push設定", default=False)
 
     # **通知の届け先そのもの。**会員データの8列目（PUSH）の中身をそのまま持つ。

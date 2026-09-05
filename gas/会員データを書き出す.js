@@ -159,7 +159,9 @@ function 会員書出_集める_() {
       registrationSourceDetail: 会員書出_文字_(row[USER_COL.REGISTRATION_SOURCE_DETAIL - 1]),
       registrationSourceUpdatedAt: 会員書出_日時_(row[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1]),
       lastOnlineAt: 会員書出_日時_(row[USER_COL.LAST_ONLINE_AT - 1]),
-      bijirisRegistered: 会員書出_文字_(row[USER_COL.BIJIRIS - 1])
+      bijirisRegistered: 会員書出_文字_(row[USER_COL.BIJIRIS - 1]),
+      // 予約システムと同じ方を指すための鍵。空の方も多い（2026-09-05 時点では全員空）
+      lineUserId: 会員書出_文字_(row[USER_COL.LINE_USER_ID - 1])
     });
   });
 
