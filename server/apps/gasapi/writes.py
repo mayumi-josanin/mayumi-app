@@ -1249,6 +1249,19 @@ def _FAQ消す(d):
     return admin_faq.消す(d)
 
 
+def _カテゴリ(名):
+    def 呼ぶ(d):
+        from . import admin_category
+
+        return getattr(admin_category, 名)(d)
+    return 呼ぶ
+
+
+_カテゴリ足す = _カテゴリ("足す")
+_カテゴリ書き換える = _カテゴリ("書き換える")
+_カテゴリ消す = _カテゴリ("消す")
+
+
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
     "removeUserDeviceSession": 端末を外す,
@@ -1272,6 +1285,10 @@ def _FAQ消す(d):
     # 使い方FAQ。表をまたがない窓口なので、振り分けの守りは要らない。
     "saveSupportFaq": _FAQ保存,
     "deleteSupportFaq": _FAQ消す,
+    # カテゴリ。表をまたがない。
+    "addCategory": _カテゴリ足す,
+    "updateCategory": _カテゴリ書き換える,
+    "deleteCategory": _カテゴリ消す,
 }
 
 
