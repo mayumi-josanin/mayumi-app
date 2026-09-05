@@ -56,6 +56,11 @@ services:
       - "127.0.0.1:${WEB_PORT:-8002}:8000"
     volumes:
       - .:/app
+      # **お客様の写真は volume に置く。**`.:/app` の中に置くと、
+      # 手元のリポジトリに入り込み、git に載りかねない。
+      # 作り直しても消えないようにするためでもある。
+      - mayumi_media:/app/media
 
 volumes:
   mayumi_pgdata:
+  mayumi_media:

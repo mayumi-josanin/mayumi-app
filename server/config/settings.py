@@ -116,6 +116,26 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# お客様が上げた画像（いまのところプロフィール写真だけ）。
+#
+# **WhiteNoise では配れない。**起動したときに一度だけ走査する作りなので、
+# あとから足したファイルは 404 になる。写真は上げた直後に見えないと意味がない。
+# そのため `apps/gasapi/media.py` の専用の窓口で配る。
+#
+# **入れ物は docker の volume にしてある。**`.:/app` の中に置くと、
+# 手元のリポジトリにお客様の写真が入り込み、git にも載りかねない。
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# 写真のURLを組み立てるための、外から見たときのこのサーバーの住所。
+#
+# **request から組み立てない。**書き込みの窓口は data しか受け取らない作りで、
+# request を渡すために全部の窓口の形を変えるのは割に合わない。
+# それに、間に Funnel が入ると request が見ている host は内側の名前になる。
+PUBLIC_BASE_URL = os.environ.get(
+    "PUBLIC_BASE_URL", "https://mayumi-api.tail8efe0d.ts.net"
+).rstrip("/")
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},

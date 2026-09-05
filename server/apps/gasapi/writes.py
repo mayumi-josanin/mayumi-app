@@ -14,11 +14,17 @@
 4. **書く前に必ず会員を確かめる**（無い会員に書かない）
 """
 
+import base64
+import binascii
 import hashlib
 import json
 import random
 import re
+import secrets
 import unicodedata
+from pathlib import Path
+
+from django.conf import settings
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.cache import cache
@@ -1118,6 +1124,98 @@ def _パスコード再設定を記録する(m, 照合数):
 
 
 # action の名前 → 書き込む関数
+def 写真を受け取る(d):
+    """GAS の handleUploadImage（管理者・お客様.js 5491行）と同じ形で答える。
+
+        受け取る  {type:'uploadImage', filename, mimeType, base64}
+        返す      {status:'ok', url:…, fileId:…}
+
+    アプリは返ってきた `url` を、そのまま会員の「アイコンURL」に入れる。
+    **だから URL の形が違っても構わないが、返さないと写真が消える。**
+
+    ## GAS との違い
+
+    GAS は Google Drive に上げ、**リンクを知れば誰でも見られる**共有URLを返す。
+    ここでは同じ見え方に揃えてある（切り替えで見え方まで変えると、写真が
+    出ないときに原因を切り分けられなくなるため）。
+    ただし**ファイル名に乱数を入れて推測できないようにしてある。**
+    会員IDから名前が決まると、他の方の写真を順に見て回れてしまう。
+
+    ## 受け付ける大きさ
+
+    アプリは写真を縮めてから送ってくるが、**信じない。**
+    大きすぎるものは断る。ディスクを埋められると、予約も記録も止まる。
+    """
+    生 = d.get("base64") or ""
+    if not 生:
+        return {"status": "error", "message": "画像がありませんでした。"}
+
+    # data URL の頭が付いたまま来ることがある。落としてから読む。
+    文 = str(生)
+    if "," in 文[:64] and 文[:5] == "data:":
+        文 = 文.split(",", 1)[1]
+
+    try:
+        中身 = base64.b64decode(文, validate=True)
+    except (binascii.Error, ValueError):
+        return {"status": "error", "message": "画像を読み取れませんでした。"}
+
+    if not 中身:
+        return {"status": "error", "message": "画像が空でした。"}
+    if len(中身) > 8 * 1024 * 1024:
+        return {"status": "error", "message": "画像が大きすぎます。8MBまでにしてください。"}
+
+    # **中身を見て種類を決める。**送られてきた mimeType は信じない。
+    # 拡張子だけで判断すると、画像でないものを置かれる。
+    先頭 = 中身[:12]
+    if 先頭[:3] == b"\xff\xd8\xff":
+        拡張子 = "jpg"
+    elif 先頭[:8] == b"\x89PNG\r\n\x1a\n":
+        拡張子 = "png"
+    elif 先頭[:6] in (b"GIF87a", b"GIF89a"):
+        拡張子 = "gif"
+    elif 先頭[:4] == b"RIFF" and 先頭[8:12] == b"WEBP":
+        拡張子 = "webp"
+    else:
+        return {"status": "error", "message": "画像として読めない形式でした。"}
+
+    名前 = secrets.token_hex(16) + "." + 拡張子
+    置き場 = Path(settings.MEDIA_ROOT) / "avatars"
+    置き場.mkdir(parents=True, exist_ok=True)
+    (置き場 / 名前).write_bytes(中身)
+
+    return {
+        "status": "ok",
+        "url": (settings.PUBLIC_BASE_URL.rstrip("/") + "/media/avatars/" + 名前),
+        # GAS は Drive のファイルIDを返している。アプリは使っていないが、
+        # **形をそろえておく。**返ってこない項目があると、あとで困る。
+        "fileId": 名前,
+    }
+
+
+def 通知の届け先を外す(d):
+    """GAS の handleUnsubscribePush と同じ。通知を切ったときに呼ばれる。
+
+    **届け先を空にするだけ。**会員の他の項目には触らない。
+
+    2026-09-05 時点で、届け先を持つ会員は**0名**。動いていない経路だが、
+    「通知を切りたい」に応えられないのは、機能の欠落ではなく信頼の問題。
+    """
+    会員ID = str(d.get("memberId") or "").strip()
+    if not 会員ID:
+        return {"status": "error", "message": "会員IDが必要です"}
+
+    with transaction.atomic():
+        m = Member.objects.select_for_update().filter(pk=会員ID).first()
+        if not m:
+            return {"status": "error", "message": "会員が見つかりませんでした"}
+        m.push_subscription = ""
+        m.push_enabled = False
+        m.save(update_fields=["push_subscription", "push_enabled"])
+
+    return {"status": "ok", "message": "通知を止めました"}
+
+
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
     "removeUserDeviceSession": 端末を外す,
@@ -1126,6 +1224,8 @@ def _パスコード再設定を記録する(m, 照合数):
     "drawRewardGacha": ガチャを引く,
     "recoverAccount": 会員を復元する,
     "resetForgottenPasscode": パスコードを付け直す,
+    "uploadImage": 写真を受け取る,
+    "unsubscribePush": 通知の届け先を外す,
 }
 
 
