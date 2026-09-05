@@ -195,6 +195,7 @@ class Command(BaseCommand):
                     "event_on": 日付(r.get("event_on")),
                     "detail": 文字(r.get("detail")),
                     "color": 文字(r.get("color"))[:32],
+                    "category": 文字(r.get("category"))[:100],
                     "menu_row": 数(r.get("menu_row")),
                 })
 
