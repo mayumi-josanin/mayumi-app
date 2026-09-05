@@ -1276,7 +1276,7 @@ _メニュー消す = _メニュー("消す")
 _メニュー動かす = _メニュー("動かす")
 
 
-def _宛先で振り分ける(お知らせの関数, メニューの関数):
+def _宛先で振り分ける(お知らせの関数, メニューの関数, 商品の関数=None):
     """`sheet` を見て、その表の窓口へ渡す。
 
     `updateNoticeVisibility` と `deleteNoticeListing` は
@@ -1289,15 +1289,31 @@ def _宛先で振り分ける(お知らせの関数, メニューの関数):
         表 = str((d or {}).get("sheet") or "").strip().upper()
         if 表 in ("", "BLOG"):
             return お知らせの関数(d)
-        if 表 == "MENUS":
+        if 表 == "MENUS" and メニューの関数:
             return メニューの関数(d)
+        if 表 == "PRODUCTS" and 商品の関数:
+            return 商品の関数(d)
         return {"status": "error", "notImplemented": True,
                 "message": f"{表} の表は、まだサーバーにありません。"}
     return 呼ぶ
 
 
-_一覧掲載を変える = _宛先で振り分ける(_お知らせ一覧掲載, _メニュー("一覧掲載を変える"))
-_一覧から外す = _宛先で振り分ける(_お知らせ一覧から外す, _メニュー("一覧から外す"))
+def _商品(名):
+    def 呼ぶ(d):
+        from . import admin_product
+
+        return getattr(admin_product, 名)(d)
+    return 呼ぶ
+
+
+_商品足す = _商品("足す")
+_商品書き換える = _商品("書き換える")
+
+_一覧掲載を変える = _宛先で振り分ける(_お知らせ一覧掲載, _メニュー("一覧掲載を変える"), _商品("一覧掲載を変える"))
+_一覧から外す = _宛先で振り分ける(_お知らせ一覧から外す, _メニュー("一覧から外す"), _商品("一覧から外す"))
+_公開を変える = _宛先で振り分ける(_お知らせ公開, None, _商品("公開を変える"))
+_消す = _宛先で振り分ける(_お知らせ消す, None, _商品("消す"))
+_まとめて消す = _宛先で振り分ける(_お知らせまとめて消す, None, _商品("まとめて消す"))
 
 
 書けること = {
@@ -1315,16 +1331,18 @@ _一覧から外す = _宛先で振り分ける(_お知らせ一覧から外す,
     # お知らせ以外が来たら notImplemented を返す（GAS がシートで処理する）。
     "addBlog": _お知らせ足す,
     "updateBlog": _お知らせ書き換える,
-    "updateRecordStatus": _お知らせ公開,
+    "updateRecordStatus": _公開を変える,
     # **表をまたぐ窓口。**GAS が sheet を付けてくるので、宛先で振り分ける。
     "updateNoticeVisibility": _一覧掲載を変える,
     "deleteNoticeListing": _一覧から外す,
-    "deleteRow": _お知らせ消す,
-    "deleteRows": _お知らせまとめて消す,
+    "deleteRow": _消す,
+    "deleteRows": _まとめて消す,
     # 使い方FAQ。表をまたがない窓口なので、振り分けの守りは要らない。
     "saveSupportFaq": _FAQ保存,
     "deleteSupportFaq": _FAQ消す,
     # カテゴリ。表をまたがない。
+    "addProduct": _商品足す,
+    "updateProduct": _商品書き換える,
     "addMenu": _メニュー足す,
     "updateMenu": _メニュー書き換える,
     "deleteMenu": _メニュー消す,
