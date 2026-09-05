@@ -795,6 +795,22 @@ def _商品の原価表():
     return admin_product.原価の対応表()
 
 
+def _注文の窓口(名):
+    def 呼ぶ(request=None):
+        from . import orders
+
+        f = getattr(orders, 名)
+        import inspect
+
+        return f(request) if inspect.signature(f).parameters else f()
+    return 呼ぶ
+
+
+_お客様の注文 = _注文の窓口("お客様の注文")
+_管理の注文 = _注文の窓口("管理の注文")
+_会員の注文 = _注文の窓口("会員の注文")
+
+
 def _会員の札(request):
     """GAS の checkMemberToken のうち、**会員を見に行く部分だけ。**
 
@@ -872,7 +888,10 @@ _できること = {
     "getProducts": _商品,
     # 会員IDが要るもの。request を受け取る。
     "getUserDevices": _端末,
-    "getCustomerOrders": _注文,
+    # **注文の表を作ったので、本物を返す。**以前は常に空を返していた。
+    "getCustomerOrders": _お客様の注文,
+    "getAdminOrders": _管理の注文,
+    "getAdminUserOrders": _会員の注文,
     "getAppRuntimeConfig": _アプリ設定,
     "getRewardGachaConfig": _ガチャ設定,
     "getUserRewardStatus": _特典の状態を見る,

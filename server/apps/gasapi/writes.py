@@ -1356,6 +1356,21 @@ def _入口(名):
     return 呼ぶ
 
 
+def _注文(名):
+    def 呼ぶ(d):
+        from . import orders
+
+        return getattr(orders, 名)(d)
+    return 呼ぶ
+
+
+_注文する = _注文("注文する")
+_注文取消 = _注文("取り消す")
+_受取報告 = _注文("受け取りを報告する")
+_注文書換 = _注文("注文を書き換える")
+_注文削除 = _注文("注文を消す")
+
+
 _ログイン = _入口("ログイン")
 _新規登録 = _入口("新規登録")
 _ビジリス登録 = _入口("ビジリス登録")
@@ -1394,6 +1409,12 @@ _ビジリス登録 = _入口("ビジリス登録")
     "issueTransferCode": _引き継ぎコード,
     "mergeUsers": _会員統合,
     # 第3段・お客様の入口。**ここが止まるとアプリに入れなくなる。**
+    # 注文
+    "order": _注文する,
+    "cancel": _注文取消,
+    "confirmReceipt": _受取報告,
+    "updateOrder": _注文書換,
+    "deleteOrders": _注文削除,
     "loginAccount": _ログイン,
     "registerAccount": _新規登録,
     "registerBijirisUse": _ビジリス登録,

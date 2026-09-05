@@ -58,18 +58,26 @@ def _特典の状態(m):
     }
 
 
-def _注文の集計():
-    """**注文はまだ移していない。**GAS も 0件なので同じ形の 0 を返す。"""
-    return {"orderCount": 0, "pendingOrderCount": 0, "lastOrderAt": "", "orderTotal": 0}
+_空の集計 = {"orderCount": 0, "pendingOrderCount": 0, "lastOrderAt": "", "orderTotal": 0}
+
+
+def _注文の集計(表=None, 会員ID=""):
+    """会員ごとの注文の数。**注文の表から作る。**（2026-09-05 に本物へ）"""
+    if 表 is None:
+        return dict(_空の集計)
+    return 表.get(会員ID) or dict(_空の集計)
 
 
 def 一覧():
     """GAS の getAdminUsers。**消した会員は返さない。**"""
+    from . import orders as _注
+
+    表 = _注.会員ごとの集計()
     出 = []
     for m in Member.objects.exclude(deleted=True).order_by("member_id"):
         特典 = _特典の状態(m)
         端末 = list(m.device_sessions or [])
-        注文 = _注文の集計()
+        注文 = _注文の集計(表, m.member_id)
         # GAS は「スタンプの動きの、いちばん新しい日時」を出している
         最新 = max([x for x in (_時刻の字(m.last_stamp_at), _時刻の字(m.stamp_achieved_at)) if x] or [""])
         出.append({
@@ -115,13 +123,16 @@ def 通知の届け先():
     `subscription` は届け先そのもの。**真偽値にしない。**
     ここを取り違えると、通知が1件も届かなくなる。
     """
+    from . import orders as _注
+
+    表 = _注.会員ごとの集計()
     出 = []
     for m in Member.objects.exclude(deleted=True).order_by("member_id"):
         届け先 = _文(m.push_subscription).strip()
         if not 届け先:
             continue
         特典 = _特典の状態(m)
-        注文 = _注文の集計()
+        注文 = _注文の集計(表, m.member_id)
         出.append({
             "memberId": m.member_id,
             "name": m.name or "",

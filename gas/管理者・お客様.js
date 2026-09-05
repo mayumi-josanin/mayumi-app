@@ -3002,6 +3002,7 @@ function doPost(e) {
 // 同じ注文IDの全行のステータスを「キャンセル済」に更新
 
 function handleCancel(data) {
+  if (サーバーへ渡すか_('order')) return _注文をサーバーへ_('cancel', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.ORDERS);
@@ -3040,6 +3041,14 @@ function normalizeOrderStatus_(status) {
 // 商品ごとに1行ずつ記録します
 
 function handleOrder(data) {
+  // **注文の本体。**通知とメールはこの関数の後半にあるので、
+  //   書いたあとに続きを走らせる形にはできない（作りが大きい）。
+  //   サーバーへ渡すときは、**注文を書いたあとGAS側の通知だけを呼ぶ。**
+  if (サーバーへ渡すか_('order')) {
+    var 答 = _注文をサーバーへ_('order', data);
+    if (答 && 答.status === 'ok' && !答.duplicated) _注文の知らせを送る_(data, 答);
+    return 答;
+  }
   const ss = getOrCreateSpreadsheet();
   const sheet = ensureOrdersSheetStructure_(ss.getSheetByName(SHEETS.ORDERS));
   const usersSheet = getOrCreateUsersSheet_(ss);
@@ -4782,6 +4791,10 @@ function clearUserPushSubscription_(memberId) {
 // ========== 管理者用：注文一覧取得 ==========
 
 function getAdminOrders(params) {
+  if (サーバーへ渡すか_('order')) {
+    var 中 = サーバーから読む_('getAdminOrders', params);
+    if (中) return 中;
+  }
   const showAll = params && params.showAll === true;
   const ss = getOrCreateSpreadsheet();
   const sheet = ensureOrdersSheetStructure_(ss.getSheetByName(SHEETS.ORDERS));
@@ -4841,6 +4854,10 @@ function getAdminOrders(params) {
 }
 
 function getAdminUserOrders(params) {
+  if (サーバーへ渡すか_('order')) {
+    var 中 = サーバーから読む_('getAdminUserOrders', params);
+    if (中) return 中;
+  }
   const memberId = String(params && params.memberId || '').trim();
   if (!memberId) return { status: 'error', message: '会員IDが必要です' };
 
@@ -4904,6 +4921,7 @@ function getAdminUserOrders(params) {
 // ========== 管理者用：注文ステータス更新 ==========
 
 function handleUpdateOrder(data) {
+  if (サーバーへ渡すか_('order')) return _注文をサーバーへ_('updateOrder', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.ORDERS);
@@ -4944,6 +4962,10 @@ function handleUpdateOrder(data) {
 // ========== 会員用：自分の注文履歴取得 ==========
 
 function getCustomerOrders(params) {
+  if (サーバーへ渡すか_('order')) {
+    var 中 = サーバーから読む_('getCustomerOrders', params);
+    if (中) return 中;
+  }
   if (!params || !params.memberId) {
     return { status: 'error', message: '会員IDが必要です' };
   }
@@ -5102,6 +5124,43 @@ function _カレンダーの通知を送る_(data, 題, 答) {
       && isPublishAtAvailable_(公開日時)) {
     sendAutoPush(題, 'カレンダーが更新されました', { targetPage: 'calendar' });
   }
+}
+
+/**
+ * 注文が入ったことを知らせる。**通知とメールはGASに残してある。**
+ *
+ * サーバーへ移したのは保存だけ。`handleOrder` の後半にある
+ * 通知・メールの組み立てをそのまま使いたいが、作りが大きく絡んでいるため、
+ * **知らせるのに要る最低限をここで組み立て直す。**
+ */
+function _注文の知らせを送る_(data, 答) {
+  try {
+    var 品 = (data && data.items) || [];
+    var 明細 = 品.map(function (i) {
+      return '  ・' + i.name + '　×' + i.qty + '個';
+    }).join('\n');
+    sendAutoPush('🛍 ご注文をうけたまわりました',
+      (data && data.customerName ? data.customerName + '様の' : '') + 'ご注文が入りました',
+      { targetPage: 'shop' });
+    if (CONFIG && CONFIG.GMAIL_TO) {
+      MailApp.sendEmail(CONFIG.GMAIL_TO,
+        '【まゆみ助産院】ご注文が入りました',
+        'ご注文者: ' + (data.customerName || '') + '\n'
+        + '注文ID: ' + ((答 && 答.orderId) || '') + '\n'
+        + '合計: ¥' + Number(data.total || 0).toLocaleString() + '\n'
+        + '支払: ' + (data.payment || '') + '\n\n' + 明細);
+    }
+  } catch (e) {
+    // **知らせが送れなくても、注文は残っている。**ここで止めない。
+    Logger.log('_注文の知らせを送る_ error: ' + e);
+  }
+}
+
+function _注文をサーバーへ_(type, data) {
+  // **サーバーへ渡す表なら、シートには書かない。**
+  var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
+  if (答) return 答;
+  return { status: 'error', message: 'サーバーに届きませんでした。もう一度お試しください。' };
 }
 
 function _会員をサーバーへ_(type, data) {
@@ -5810,6 +5869,7 @@ function handleDeleteRows(data) {
  * data.orderIds: 削除対象の注文ID配列
  */
 function handleDeleteOrders(data) {
+  if (サーバーへ渡すか_('order')) return _注文をサーバーへ_('deleteOrders', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.ORDERS);
@@ -5852,6 +5912,7 @@ function handleDeleteOrders(data) {
  * data.orderId: 更新対象の注文ID
  */
 function handleConfirmReceipt(data) {
+  if (サーバーへ渡すか_('order')) return _注文をサーバーへ_('confirmReceipt', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.ORDERS);
