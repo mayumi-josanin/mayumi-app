@@ -313,7 +313,9 @@ def _カレンダー():
             "color": c.color or "",
             # カレンダーのカテゴリ列は、サーバーでは持っていない。
             # **無いものを作らない。**空文字で返す（GASも空のことが多い）。
-            "category": "",
+            # **空固定だった。**モデルにも書き出しにも列が無く、
+            # 本番では70件に入っているカテゴリが落ちていた（2026-09-05）。
+            "category": c.category or "",
             "image": 画像[0] if 画像 else "",
             "imageUrls": 画像,
             "updatedAt": _日時(c.updated_at),
@@ -793,6 +795,13 @@ def _商品の原価表():
     return admin_product.原価の対応表()
 
 
+def _管理カレンダー():
+    """管理アプリの「カレンダー」。GAS の getAdminCalendar が転送してくる。"""
+    from . import admin_calendar
+
+    return admin_calendar.一覧()
+
+
 def _管理商品():
     """管理アプリの「商品管理」。GAS の getAdminProducts が転送してくる。"""
     from . import admin_product
@@ -851,6 +860,7 @@ _できること = {
     "getAdminMenus": _管理メニュー,
     "getAdminProducts": _管理商品,
     "getProductRevenueMasterMap": _商品の原価表,
+    "getAdminCalendar": _管理カレンダー,
 }
 
 
