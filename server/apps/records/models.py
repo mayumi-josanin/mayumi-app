@@ -350,3 +350,65 @@ class AppSetting(models.Model):
 
     def __str__(self):
         return self.key
+
+
+class OrderLine(models.Model):
+    """注文。**シートの1行 ＝ この表の1行。**
+
+    スプレッドシートの「注文管理」にあたる。2026-09-05 時点で**0行**。
+    移すべきデータは無いが、院長から「アプリからの注文を使う予定がある」
+    と伺ったので、使い始める前に用意しておく。
+
+    ## 1つの注文が、商品ごとに複数行になる
+
+    シートがそうなっている。3品買えば3行。**合計金額・支払方法・
+    ステータス・管理メモは、最初の1行にだけ入る。**
+    ここを1行にまとめたくなるが、**まとめると管理画面の見え方が変わる。**
+    移行では形を変えない。
+
+    ## 数式を、書き込み時の計算に置き換える
+
+    シートは仕入値・小計・純利益を数式で持っている。
+
+        G  =IFERROR(VLOOKUP(D5, '管理マスタ'!A:B, 2, FALSE), 0)   仕入値
+        H  =E5*F5                                                 小計
+        I  =E5*(F5-G5)                                            純利益
+
+    **データベースに数式は無い。**書き込むときに計算して入れる。
+    仕入値は仕入の表（SupplierPrice）から商品名で引く。
+    **この置き換えを間違えると、粗利の数字が静かにずれる。**
+    """
+
+    sheet_row = models.IntegerField("シートの行", null=True, blank=True, db_index=True)
+
+    order_id = models.CharField("注文ID", max_length=64, db_index=True)
+    ordered_at = models.DateTimeField("注文日時", null=True, blank=True, db_index=True)
+    customer_name = models.CharField("注文者名", max_length=100, blank=True)
+
+    product_name = models.CharField("商品名", max_length=255, blank=True)
+    quantity = models.IntegerField("個数", default=0)
+    unit_price = models.DecimalField("単価", max_digits=12, decimal_places=2, default=0)
+    cost_price = models.DecimalField("仕入値", max_digits=12, decimal_places=2, default=0)
+    subtotal = models.DecimalField("小計", max_digits=12, decimal_places=2, default=0)
+    profit = models.DecimalField("純利益", max_digits=12, decimal_places=2, default=0)
+
+    # **最初の1行にだけ入る。**シートと同じ。
+    total_label = models.CharField("合計金額", max_length=32, blank=True)
+    payment = models.CharField("支払方法", max_length=64, blank=True)
+    status = models.CharField("ステータス", max_length=32, blank=True, db_index=True)
+    received = models.BooleanField("受取確認", default=False)
+    internal_note = models.TextField("管理メモ", blank=True)
+
+    member_id = models.CharField("会員ID", max_length=32, blank=True, db_index=True)
+
+    created_at = models.DateTimeField("作成日時", auto_now_add=True)
+    changed_at = models.DateTimeField("変更日時", auto_now=True)
+
+    class Meta:
+        verbose_name = "注文"
+        verbose_name_plural = "注文"
+        ordering = ["-ordered_at", "order_id", "id"]
+        indexes = [models.Index(fields=["order_id", "id"])]
+
+    def __str__(self):
+        return f"{self.order_id} {self.product_name}"
