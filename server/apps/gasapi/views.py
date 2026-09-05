@@ -720,6 +720,9 @@ _できること = {
     "getRewardGachaConfig": _ガチャ設定,
     "getUserRewardStatus": _特典の状態を見る,
     "getRecoveryCandidates": _復元の候補,
+    # 管理アプリ向け。**公開アクションに入れない**ので合鍵が要る。
+    # GAS が SERVER_API_KEY を付けて転送してくる。
+    "getAdminBlogs": _管理お知らせ,
 }
 
 
@@ -744,6 +747,13 @@ _できること = {
 #
 # 管理アプリは合鍵（と管理者の札）を送る。**この一覧を安易に増やさない。**
 # 増やすときは、GAS の PUBLIC_ACTIONS にもあるかを必ず確かめる。
+def _管理お知らせ():
+    """管理アプリの「お知らせ管理」。GAS の getAdminBlogs が転送してくる。"""
+    from . import admin_news
+
+    return admin_news.一覧()
+
+
 公開アクション = {
     # 公開している中身
     "getNews", "getProducts", "getCalendar", "getMenus",
