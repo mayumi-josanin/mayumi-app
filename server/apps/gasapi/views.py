@@ -324,6 +324,23 @@ def _カレンダー():
     return {"status": "ok", "events": 一覧}
 
 
+def _FAQの日時(d):
+    """GAS が返している形（`2026/4/4 0:32`）にそろえる。
+
+    FAQ は `getDisplayValues()` で読んでいるので、**シートの表示そのまま**が
+    返る。ISO の形にすると管理画面の見え方が変わる。
+    移行では見た目を変えない。直すなら切り替えが済んでから。
+
+    月・日・時は**先頭の0を付けない。**分は付ける（シートの表示がそう）。
+    """
+    if not d:
+        return ""
+    from django.utils import timezone
+
+    t = timezone.localtime(d)
+    return f"{t.year}/{t.month}/{t.day} {t.hour}:{t.minute:02d}"
+
+
 def _使い方FAQ():
     """GAS の getSupportFaq()（8994行）と同じ形で返す。
 
@@ -338,7 +355,9 @@ def _使い方FAQ():
             "keywords": f.keywords or "",
             "answer": f.answer or "",
             "priority": f.priority or 0,
-            "updatedAt": _日時(f.updated_at),
+            # **ISO ではなくシートの表示の形。**GAS は getDisplayValues() で
+            # 読んでいるので `2026/4/4 0:32` が返る（2026-09-05 に突き合わせて判明）。
+            "updatedAt": _FAQの日時(f.updated_at),
         }
         # GAS は question と answer が両方ある公開のものだけを出す
         for f in SupportFaq.objects.filter(published=True).exclude(question="").exclude(answer="")
@@ -753,6 +772,13 @@ def _復元の候補(request):
 
 
 # action の名前 → 返す中身を作る関数
+def _管理FAQ():
+    """管理アプリの「使い方FAQ」。GAS の getAdminSupportFaq が転送してくる。"""
+    from . import admin_faq
+
+    return admin_faq.一覧()
+
+
 def _管理お知らせ():
     """管理アプリの「お知らせ管理」。GAS の getAdminBlogs が転送してくる。"""
     from . import admin_news
@@ -777,6 +803,7 @@ _できること = {
     # 管理アプリ向け。**公開アクションに入れない**ので合鍵が要る。
     # GAS が SERVER_API_KEY を付けて転送してくる。
     "getAdminBlogs": _管理お知らせ,
+    "getAdminSupportFaq": _管理FAQ,
 }
 
 
