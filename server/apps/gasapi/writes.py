@@ -1262,6 +1262,44 @@ _カテゴリ書き換える = _カテゴリ("書き換える")
 _カテゴリ消す = _カテゴリ("消す")
 
 
+def _メニュー(名):
+    def 呼ぶ(d):
+        from . import admin_menu
+
+        return getattr(admin_menu, 名)(d)
+    return 呼ぶ
+
+
+_メニュー足す = _メニュー("足す")
+_メニュー書き換える = _メニュー("書き換える")
+_メニュー消す = _メニュー("消す")
+_メニュー動かす = _メニュー("動かす")
+
+
+def _宛先で振り分ける(お知らせの関数, メニューの関数):
+    """`sheet` を見て、その表の窓口へ渡す。
+
+    `updateNoticeVisibility` と `deleteNoticeListing` は
+    **BLOG / PRODUCTS / CALENDAR / MENUS の4つで使い回されている。**
+    お知らせ専用だと思い込んで無条件に渡し、ショップの項目で
+    「サーバーに届きませんでした」を出した（2026-09-05）。
+    **まだ移していない表は notImplemented を返し、GAS がシートで処理する。**
+    """
+    def 呼ぶ(d):
+        表 = str((d or {}).get("sheet") or "").strip().upper()
+        if 表 in ("", "BLOG"):
+            return お知らせの関数(d)
+        if 表 == "MENUS":
+            return メニューの関数(d)
+        return {"status": "error", "notImplemented": True,
+                "message": f"{表} の表は、まだサーバーにありません。"}
+    return 呼ぶ
+
+
+_一覧掲載を変える = _宛先で振り分ける(_お知らせ一覧掲載, _メニュー("一覧掲載を変える"))
+_一覧から外す = _宛先で振り分ける(_お知らせ一覧から外す, _メニュー("一覧から外す"))
+
+
 書けること = {
     "syncUserDeviceSession": 端末をそろえる,
     "removeUserDeviceSession": 端末を外す,
@@ -1278,14 +1316,19 @@ _カテゴリ消す = _カテゴリ("消す")
     "addBlog": _お知らせ足す,
     "updateBlog": _お知らせ書き換える,
     "updateRecordStatus": _お知らせ公開,
-    "updateNoticeVisibility": _お知らせ一覧掲載,
-    "deleteNoticeListing": _お知らせ一覧から外す,
+    # **表をまたぐ窓口。**GAS が sheet を付けてくるので、宛先で振り分ける。
+    "updateNoticeVisibility": _一覧掲載を変える,
+    "deleteNoticeListing": _一覧から外す,
     "deleteRow": _お知らせ消す,
     "deleteRows": _お知らせまとめて消す,
     # 使い方FAQ。表をまたがない窓口なので、振り分けの守りは要らない。
     "saveSupportFaq": _FAQ保存,
     "deleteSupportFaq": _FAQ消す,
     # カテゴリ。表をまたがない。
+    "addMenu": _メニュー足す,
+    "updateMenu": _メニュー書き換える,
+    "deleteMenu": _メニュー消す,
+    "moveMenu": _メニュー動かす,
     "addCategory": _カテゴリ足す,
     "updateCategory": _カテゴリ書き換える,
     "deleteCategory": _カテゴリ消す,

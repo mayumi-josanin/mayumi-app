@@ -777,6 +777,13 @@ def _復元の候補(request):
 
 
 # action の名前 → 返す中身を作る関数
+def _管理メニュー():
+    """管理アプリの「メニュー管理」。GAS の getAdminMenus が転送してくる。"""
+    from . import admin_menu
+
+    return admin_menu.一覧()
+
+
 def _カテゴリ一覧():
     """GAS の getCategories。**お客様アプリも管理アプリも同じものを見る。**"""
     from . import admin_category
@@ -818,6 +825,7 @@ _できること = {
     "getAdminSupportFaq": _管理FAQ,
     # カテゴリはお客様アプリも呼ぶので、**公開アクションにも入れる。**
     "getCategories": _カテゴリ一覧,
+    "getAdminMenus": _管理メニュー,
 }
 
 
