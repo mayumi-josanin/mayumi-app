@@ -216,7 +216,23 @@ function 掲載書出_1枚_(sheet, 定義, 日付の鍵, 名前の鍵) {
       var i = 位[鍵];
       if (i < 0) { o[鍵] = null; return; }
       var x = row[i];
-      if (鍵 === 'posted_on' || 鍵 === 'event_on') o[鍵] = 掲載書出_日付_(x);
+      // **日付は、名前ではなく中身で見分ける。**
+      //
+      // 以前は `posted_on` と `event_on` だけを日付として扱っていた。
+      // **`registered_on`（メニューの登録日）が漏れていて**、Date が
+      // `Mon Mar 30 2026 00:00:00 GMT+0900` という文字列のまま書き出され、
+      // 取り込み側が読めずに **13件すべて空になっていた**（2026-09-05）。
+      //
+      // 取り込み側は黙って null にするので、**気づけない。**
+      // 名前の一覧で判断していると、列が増えるたびに同じことが起きる。
+      if (x instanceof Date) {
+        // 時刻を持たない（0時0分0秒）なら日付として、持つなら日時として書く。
+        // `_at` で終わる列は時刻に意味があるので、そちらを優先する。
+        var 時刻あり = 鍵.indexOf('_at') >= 0
+          || x.getHours() !== 0 || x.getMinutes() !== 0 || x.getSeconds() !== 0;
+        o[鍵] = 時刻あり ? 掲載書出_日時_(x) : 掲載書出_日付_(x);
+      }
+      else if (鍵 === 'posted_on' || 鍵 === 'event_on') o[鍵] = 掲載書出_日付_(x);
       else if (鍵.indexOf('_at') >= 0) o[鍵] = 掲載書出_日時_(x);
       else if (鍵 === 'sort_order' || 鍵 === 'menu_row' || 鍵 === 'sort_key' ||
                鍵 === 'price' || 鍵 === 'special_price' ||

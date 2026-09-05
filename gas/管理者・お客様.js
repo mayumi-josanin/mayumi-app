@@ -5077,6 +5077,25 @@ function _お知らせの通知を送る_(data, 題, 答) {
   }
 }
 
+function _メニューの通知を送る_(data, 題, 答) {
+  // **通知はGASに残してある。**判断に使う状態はサーバーが返したものを優先する。
+  var 状態 = (答 && 答.effectiveStatus) || (data && data.publishStatus) || '非公開';
+  var 公開日時 = (答 && 答.effectivePublishAt !== undefined)
+    ? 答.effectivePublishAt : (data && data.publishAt);
+  if (shouldSendManagedContentPush_(data)
+      && String(状態 || '非公開') === '公開'
+      && isPublishAtAvailable_(公開日時)) {
+    sendAutoPush(題, 'ホームのメニュー一覧が更新されました', { targetPage: 'home' });
+  }
+}
+
+function _メニューをサーバーへ_(type, data) {
+  // **サーバーへ渡す表なら、シートには書かない。**
+  var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
+  if (答) return 答;
+  return { status: 'error', message: 'サーバーに届きませんでした。もう一度お試しください。' };
+}
+
 function _カテゴリをサーバーへ_(type, data) {
   // **サーバーへ渡す表なら、シートには書かない。**
   var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
@@ -5268,8 +5287,13 @@ function handleUpdateNoticeVisibility(data) {
   // お知らせ専用だと思い込んで無条件に転送し、**ショップの項目を
   // 一覧から削除しようとして「サーバーに届きませんでした」になった**
   // （2026-09-05）。関数名に Notice と付いていても、扱う表は1つとは限らない。
+  // **この窓口は BLOG / PRODUCTS / CALENDAR / MENUS で使い回されている。**
+  // 宛先ごとに、その表を渡しているときだけ転送する。
   if (data && data.sheet === 'BLOG' && サーバーへ渡すか_('news')) {
     return _お知らせをサーバーへ_('updateNoticeVisibility', data);
+  }
+  if (data && data.sheet === 'MENUS' && サーバーへ渡すか_('menu')) {
+    return _メニューをサーバーへ_('updateNoticeVisibility', data);
   }
   try {
     const ss = getOrCreateSpreadsheet();
@@ -5317,8 +5341,13 @@ function handleDeleteNoticeListing(data) {
   // お知らせ専用だと思い込んで無条件に転送し、**ショップの項目を
   // 一覧から削除しようとして「サーバーに届きませんでした」になった**
   // （2026-09-05）。関数名に Notice と付いていても、扱う表は1つとは限らない。
+  // **この窓口は BLOG / PRODUCTS / CALENDAR / MENUS で使い回されている。**
+  // 宛先ごとに、その表を渡しているときだけ転送する。
   if (data && data.sheet === 'BLOG' && サーバーへ渡すか_('news')) {
     return _お知らせをサーバーへ_('deleteNoticeListing', data);
+  }
+  if (data && data.sheet === 'MENUS' && サーバーへ渡すか_('menu')) {
+    return _メニューをサーバーへ_('deleteNoticeListing', data);
   }
   try {
     const ss = getOrCreateSpreadsheet();
@@ -9397,6 +9426,10 @@ function ensureMenusSheetStructure_(sheet) {
  * ユーザー用：公開済みメニュー一覧取得
  */
 function getMenus() {
+  if (サーバーへ渡すか_('menu')) {
+    var 中 = サーバーから読む_('getMenus');
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ensureMenusSheetStructure_(ss.getSheetByName(SHEETS.MENUS));
@@ -9449,6 +9482,10 @@ function getMenus() {
  * 管理者用：全メニュー一覧取得
  */
 function getAdminMenus() {
+  if (サーバーへ渡すか_('menu')) {
+    var 中 = サーバーから読む_('getAdminMenus');
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ensureMenusSheetStructure_(ss.getSheetByName(SHEETS.MENUS));
@@ -9497,6 +9534,12 @@ function getAdminMenus() {
  * メニュー追加
  */
 function handleAddMenu(data) {
+  if (サーバーへ渡すか_('menu')) {
+    var 答 = _メニューをサーバーへ_('addMenu', data);
+    // **通知を飛ばさない。**シートに書いていた頃はこの関数の最後で送っていた。
+    if (答 && 答.status === 'ok') _メニューの通知を送る_(data, '🍴 ' + (data.name || 'ホーム更新'), 答);
+    return 答;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheet = ss.getSheetByName(SHEETS.MENUS);
@@ -9545,6 +9588,12 @@ function handleAddMenu(data) {
  * メニュー更新
  */
 function handleUpdateMenu(data) {
+  if (サーバーへ渡すか_('menu')) {
+    var 答 = _メニューをサーバーへ_('updateMenu', data);
+    // **通知を飛ばさない。**シートに書いていた頃はこの関数の最後で送っていた。
+    if (答 && 答.status === 'ok') _メニューの通知を送る_(data, '🍴 ' + (data.name || 'ホーム更新'), 答);
+    return 答;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ensureMenusSheetStructure_(ss.getSheetByName(SHEETS.MENUS));
@@ -9589,6 +9638,7 @@ function handleUpdateMenu(data) {
  * メニュー削除
  */
 function handleDeleteMenu(data) {
+  if (サーバーへ渡すか_('menu')) return _メニューをサーバーへ_('deleteMenu', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ensureMenusSheetStructure_(ss.getSheetByName(SHEETS.MENUS));
@@ -9608,6 +9658,7 @@ function handleDeleteMenu(data) {
  * メニューの並び替え（行の入れ替え）
  */
 function handleMoveMenu(data) {
+  if (サーバーへ渡すか_('menu')) return _メニューをサーバーへ_('moveMenu', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ensureMenusSheetStructure_(ss.getSheetByName(SHEETS.MENUS));

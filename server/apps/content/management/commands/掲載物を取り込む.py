@@ -12,6 +12,7 @@
 """
 
 import json
+import re
 from datetime import datetime
 
 from django.core.management.base import BaseCommand, CommandError
@@ -40,14 +41,28 @@ def 数(値):
         return None
 
 
+# 読めなかった日付を覚えておく。**黙って捨てない。**
+# メニューの登録日13件が、読めない書き方（`Mon Mar 30 2026 …`）で来ていて
+# 全部 None になっていた。取り込みは成功したように見えていた（2026-09-05）。
+読めなかった日付 = []
+
+
 def 日付(値):
-    s = 文字(値)[:10]
-    if not s:
+    元 = 文字(値)
+    if not 元:
         return None
     try:
-        return datetime.strptime(s, "%Y-%m-%d").date()
+        return datetime.strptime(元[:10], "%Y-%m-%d").date()
     except ValueError:
-        return None
+        pass
+    # JavaScript の Date が文字列になった形（`Mon Mar 30 2026 00:00:00 GMT+0900 …`）
+    m = re.match(r"^[A-Za-z]{3} ([A-Za-z]{3}) (\d{1,2}) (\d{4})", 元)
+    if m:
+        月 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].index(m.group(1)) + 1
+        return datetime(int(m.group(3)), 月, int(m.group(2))).date()
+    読めなかった日付.append(元[:40])
+    return None
 
 
 def 日時(値):
@@ -386,3 +401,15 @@ class Command(BaseCommand):
             for row, 値 in 更新:
                 Category.objects.filter(sheet_row=row).update(**値)
         self.stdout.write(f"    → いま {Category.objects.count()}件")
+
+        # **読めなかった日付を、必ず最後に報せる。**
+        # 黙って None にしていたため、メニューの登録日13件が空のまま
+        # 取り込みが「成功」していた（2026-09-05）。
+        if 読めなかった日付:
+            self.stdout.write("")
+            self.stdout.write(self.style.WARNING(
+                f"■ 読めなかった日付が {len(読めなかった日付)}件ありました。空のまま取り込んでいます。"))
+            for x in 読めなかった日付[:5]:
+                self.stdout.write(f"    {x}")
+            if len(読めなかった日付) > 5:
+                self.stdout.write(f"    …ほか {len(読めなかった日付) - 5}件")
