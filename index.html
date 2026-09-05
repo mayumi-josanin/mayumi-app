@@ -548,7 +548,11 @@
           </div>
         </div>
       </div>
-      <div class="section" style="padding-top:20px">
+      <!-- 【2026-09-05 非表示】使い方サポート（チャットボット）
+           院長のご判断で画面から外した。**一度も使われていない。**
+           SUPPORT_CHAT_LOG シートの相談の記録が **0件**（実測）。
+           コードもFAQの表も消していない。戻すときは display:none を外すだけ。 -->
+      <div class="section" style="padding-top:20px; display:none;">
         <h2 class="sec-title">🤖 使い方サポート</h2>
         <div class="card"
           style="padding:16px; border-radius:14px; background:linear-gradient(135deg,#fffdf8,#f6f8f2); border:1px solid var(--border);">
@@ -662,7 +666,8 @@
     </div>
   </nav>
 
-  <button class="support-fab" id="supportFab" onclick="openSupportChat()">
+  <!-- 【2026-09-05 非表示】使い方相談のボタン。上と同じ理由。 -->
+  <button class="support-fab" id="supportFab" onclick="openSupportChat()" style="display:none;">
     <span style="font-size:16px;">💬</span><span>使い方相談</span>
   </button>
 
@@ -1015,7 +1020,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-  <script src="app.js?v=20260905-1"></script>
+  <script src="app.js?v=20260905-2"></script>
 </body>
 
 </html>
