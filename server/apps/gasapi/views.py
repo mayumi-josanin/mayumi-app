@@ -795,6 +795,20 @@ def _商品の原価表():
     return admin_product.原価の対応表()
 
 
+def _管理会員():
+    """管理アプリの会員一覧。GAS の getAdminUsers が転送してくる。"""
+    from . import admin_member
+
+    return admin_member.一覧()
+
+
+def _通知の届け先():
+    """GAS の getPushUsers。**届け先そのものを返す。**真偽値にしない。"""
+    from . import admin_member
+
+    return admin_member.通知の届け先()
+
+
 def _管理カレンダー():
     """管理アプリの「カレンダー」。GAS の getAdminCalendar が転送してくる。"""
     from . import admin_calendar
@@ -861,6 +875,8 @@ _できること = {
     "getAdminProducts": _管理商品,
     "getProductRevenueMasterMap": _商品の原価表,
     "getAdminCalendar": _管理カレンダー,
+    "getAdminUsers": _管理会員,
+    "getPushUsers": _通知の届け先,
 }
 
 
