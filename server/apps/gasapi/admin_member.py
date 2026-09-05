@@ -380,3 +380,108 @@ def 引き継ぎコードを出す(d):
         "expiresAt": _時刻の字(期限),
         "expiresAtLabel": timezone.localtime(期限).strftime("%Y年%-m月%-d日 %H:%M"),
     }
+
+
+def 会員を統合する(d):
+    """GAS の handleMergeUsers。同じ方が2つの会員IDを持ってしまったときに使う。
+
+    ## 何をするか（GAS 8367行と同じ）
+
+    1. **統合先の空いている項目だけを、元の会員から埋める。**上書きはしない
+    2. スタンプは**多いほう**を採る。特典と履歴と端末は**合わせる**
+    3. 元の会員に**削除の印と「統合先」**を付ける（行は残す）
+    4. 統合先の削除の印を**外す**（消えていた方へ統合することがある）
+    5. 注文の会員IDを付け替える
+
+    ## 5は、まだできない
+
+    **注文の表をまだ移していない。**注文は0件なので今は害が無いが、
+    注文を移すときに**ここも直す。**忘れると、統合した方の注文が
+    元の会員IDのまま取り残される。
+
+    ## お名前では探さない
+
+    会員IDで探す。**同姓同名の方を統合したら、取り返しがつかない。**
+    """
+    統合先ID = _文(d.get("targetMemberId")).strip()
+    元ID = d.get("sourceMemberIds")
+    元ID = [_文(x).strip() for x in 元ID if _文(x).strip()] if isinstance(元ID, list) else []
+    元ID = [x for x in 元ID if x != 統合先ID]
+    if not 統合先ID or not 元ID:
+        return {"status": "error", "message": "統合対象が不足しています"}
+
+    埋める項目 = ["name", "kana", "phone", "avatar_url", "memo",
+                  "push_subscription", "status", "birthday", "address", "passcode_hash"]
+
+    with transaction.atomic():
+        先 = Member.objects.select_for_update().filter(pk=統合先ID).first()
+        if not 先:
+            return {"status": "error", "message": "統合先会員が見つかりません"}
+
+        統合した = []
+        for mid in 元ID:
+            m = Member.objects.select_for_update().filter(pk=mid).first()
+            if not m:
+                continue
+            # すでに他へ統合済みの行は触らない（GAS と同じ）
+            if m.deleted and _文(m.merged_into_id).strip():
+                continue
+
+            # ① 空いている項目だけ埋める。**上書きしない**
+            for f in 埋める項目:
+                いま = getattr(先, f, None)
+                あちら = getattr(m, f, None)
+                if not _文(いま).strip() and _文(あちら).strip():
+                    setattr(先, f, あちら)
+
+            # ② スタンプは多いほう
+            先.stamp_count = max(先.stamp_count or 0, m.stamp_count or 0)
+            先.stamp_card_number = max(先.stamp_card_number or 1, m.stamp_card_number or 1)
+            先.reward_history = _合わせる(先.reward_history, m.reward_history)
+            先.stamp_history = _合わせる(先.stamp_history, m.stamp_history)
+            先.device_sessions = _合わせる(先.device_sessions, m.device_sessions)
+            先.last_stamp_at = 先.last_stamp_at or m.last_stamp_at
+            先.stamp_achieved_at = 先.stamp_achieved_at or m.stamp_achieved_at
+
+            # ③ 元の会員に印を付ける。**行は残す**
+            m.deleted = True
+            m.deleted_at = timezone.now()
+            m.merged_into_id = 統合先ID
+            m.save()
+            統合した.append(mid)
+
+        # ④ 統合先の削除の印を外す
+        先.deleted = False
+        先.deleted_at = None
+        先.merged_into_id = ""
+        先.registration_source = "重複候補からの復旧"
+        先.registration_source_detail = "会員統合で情報を集約"
+        先.registration_source_updated_at = timezone.now()
+        先.save()
+
+    # ⑤ 注文の付け替えは、注文の表を移してから
+    return {"status": "ok", "targetMemberId": 統合先ID, "merged": 統合した,
+            "mergedCount": len(統合した)}
+
+
+def _合わせる(a, b):
+    """2つの並びを合わせる。**同じものは1つだけ。**順番は元のまま。
+
+    中身が dict のこともあるので、比べるときは中身を並べ直した文字で見る。
+    """
+    import json as _json
+
+    出, 見た = [], set()
+    for 並び in (a or [], b or []):
+        if not isinstance(並び, list):
+            continue
+        for x in 並び:
+            try:
+                鍵 = _json.dumps(x, ensure_ascii=False, sort_keys=True)
+            except (TypeError, ValueError):
+                鍵 = str(x)
+            if 鍵 in 見た:
+                continue
+            見た.add(鍵)
+            出.append(x)
+    return 出
