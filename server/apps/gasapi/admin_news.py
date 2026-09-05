@@ -44,6 +44,19 @@ def _状態の字(公開):
     return "公開" if 公開 else "非公開"
 
 
+def _時刻の字(d):
+    """GAS が返している形（`2026-09-05T14:30:00+09:00`）にそろえる。
+
+    **必ず日本時間へ直してから並べる。**データベースは UTC で持っている。
+    直さずに strftime して末尾に「+09:00」と書き足していたため、
+    **9時間ずれた時刻を返していた**（2026-09-05 に試験で判明）。
+    `09:00` に作った記事が、読み直すと `00:00` になっていた。
+    """
+    if not d:
+        return ""
+    return timezone.localtime(d).strftime("%Y-%m-%dT%H:%M:%S+09:00")
+
+
 def _日時(v):
     from django.utils.dateparse import parse_datetime
 
@@ -95,15 +108,14 @@ def _一件(n):
         # GAS は同じ値を2つの名前で返している。**片方だけにしない。**
         # 管理画面がどちらを読んでいるかは確かめきれない。
         "publishStatus": _状態の字(n.published),
-        "updatedAt": n.updated_at.strftime("%Y-%m-%dT%H:%M:%S+09:00") if n.updated_at else "",
+        "updatedAt": _時刻の字(n.updated_at),
         "imageUrl": 画像[0] if 画像 else "",
         "imageUrls": 画像,
         "linkUrl": n.link_url or "",
         "linkButtonText": n.button_text or "",
-        "publishAt": n.publish_at.strftime("%Y-%m-%dT%H:%M:%S+09:00") if n.publish_at else "",
+        "publishAt": _時刻の字(n.publish_at),
         "noticeStatus": _状態の字(n.notice_listed),
-        "noticeDeletedAt": (n.notice_delisted_at.strftime("%Y-%m-%dT%H:%M:%S+09:00")
-                            if n.notice_delisted_at else ""),
+        "noticeDeletedAt": _時刻の字(n.notice_delisted_at),
         "sortOrder": n.sort_order or 0,
     }
 
@@ -151,7 +163,12 @@ def 足す(d):
             publish_at=_日時(d.get("publishAt")),
             updated_at=timezone.now(),
         )
-    return {"status": "ok", "rowIdx": n.sheet_row}
+    # **書いたあとの状態を返す。**GAS はこれを見て通知を送るか決める。
+    # 通知はGASに残してあるので、GASが状態を知る手立てが要る
+    # （シートを読めなくなったため）。
+    return {"status": "ok", "rowIdx": n.sheet_row,
+            "effectiveStatus": _状態の字(n.published),
+            "effectivePublishAt": _時刻の字(n.publish_at)}
 
 
 def _画像(d):
@@ -197,7 +214,10 @@ def 書き換える(d):
         n.button_text = _文(d.get("linkButtonText")).strip()
     n.updated_at = timezone.now()
     n.save()
-    return {"status": "ok"}
+    # 通知を送るかの判断に要る。GAS はもうシートを読めない。
+    return {"status": "ok",
+            "effectiveStatus": _状態の字(n.published),
+            "effectivePublishAt": _時刻の字(n.publish_at)}
 
 
 def 公開を変える(d):

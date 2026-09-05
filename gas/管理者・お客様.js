@@ -5056,7 +5056,44 @@ function shouldSendManagedContentPush_(data) {
     || value === 'yes';
 }
 
+/**
+ * お知らせの通知を送る。**通知はGASに残してある。**
+ *
+ * サーバーへ移したのは保存だけ。分けておかないと
+ * 「保存はできたが通知が飛ばない」ときにどちらの落ち度か分からない。
+ *
+ * 判断に使う状態は、**サーバーが書いたあとに返してきたもの**を優先する。
+ * シートを読めなくなったので、GAS 自身では今の状態を知れない。
+ */
+function _お知らせの通知を送る_(data, 題, 答) {
+  var 状態 = (答 && 答.effectiveStatus) || (data && data.status) || '公開';
+  var 公開日時 = (答 && 答.effectivePublishAt !== undefined)
+    ? 答.effectivePublishAt
+    : (data && data.publishAt);
+  if (shouldSendManagedContentPush_(data)
+      && String(状態 || '公開') !== '非公開'
+      && isPublishAtAvailable_(公開日時)) {
+    sendAutoPush(題, 'NEWSが更新されました', { targetPage: 'news' });
+  }
+}
+
+function _お知らせをサーバーへ_(type, data) {
+  // **サーバーへ渡す表なら、シートには書かない。**
+  // 書けなかったぶんをシートに書くと、どちらが正か分からなくなる。
+  // 分からなくなるくらいなら、その場で失敗させてやり直していただく。
+  var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
+  if (答) return 答;
+  return { status: 'error', message: 'サーバーに届きませんでした。もう一度お試しください。' };
+}
+
 function handleAddBlog(data) {
+  if (サーバーへ渡すか_('news')) {
+    var 答 = _お知らせをサーバーへ_('addBlog', data);
+    // **通知を飛ばさない。**シートに書いていた頃は、この関数の
+    //   最後で送っていた。早く return すると通知だけが消える。
+    if (答 && 答.status === 'ok') _お知らせの通知を送る_(data, '📝 ' + (data.title || '新しい投稿'), 答);
+    return 答;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.BLOG);
@@ -5110,6 +5147,13 @@ function handleAddBlog(data) {
  * 管理者用：ブログ更新
  */
 function handleUpdateBlog(data) {
+  if (サーバーへ渡すか_('news')) {
+    var 答 = _お知らせをサーバーへ_('updateBlog', data);
+    // **通知を飛ばさない。**シートに書いていた頃は、この関数の
+    //   最後で送っていた。早く return すると通知だけが消える。
+    if (答 && 答.status === 'ok') _お知らせの通知を送る_(data, '📝 ' + (data.title || 'ブログ更新'), 答);
+    return 答;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.BLOG);
@@ -5167,6 +5211,11 @@ function handleUpdateBlog(data) {
 // ========== 管理者用：レコードの公開/非公開切替 ==========
 
 function handleUpdateRecordStatus(data) {
+  // **この窓口は表をまたぐ。**お知らせのときだけ渡し、
+  // 他の表はこれまでどおりシートで処理する。
+  if (data && data.sheet === 'BLOG' && サーバーへ渡すか_('news')) {
+    return _お知らせをサーバーへ_('updateRecordStatus', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5200,6 +5249,7 @@ function handleUpdateRecordStatus(data) {
 }
 
 function handleUpdateNoticeVisibility(data) {
+  if (サーバーへ渡すか_('news')) return _お知らせをサーバーへ_('updateNoticeVisibility', data);
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5242,6 +5292,7 @@ function handleUpdateNoticeVisibility(data) {
 }
 
 function handleDeleteNoticeListing(data) {
+  if (サーバーへ渡すか_('news')) return _お知らせをサーバーへ_('deleteNoticeListing', data);
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5523,6 +5574,11 @@ function handleUploadImage(data) {
 // ========== 管理者用：行削除 ==========
 
 function handleDeleteRow(data) {
+  // **この窓口は表をまたぐ。**お知らせのときだけ渡し、
+  // 他の表はこれまでどおりシートで処理する。
+  if (data && data.sheet === 'BLOG' && サーバーへ渡すか_('news')) {
+    return _お知らせをサーバーへ_('deleteRow', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5550,6 +5606,11 @@ function handleDeleteRow(data) {
 }
 
 function handleDeleteRows(data) {
+  // **この窓口は表をまたぐ。**お知らせのときだけ渡し、
+  // 他の表はこれまでどおりシートで処理する。
+  if (data && data.sheet === 'BLOG' && サーバーへ渡すか_('news')) {
+    return _お知らせをサーバーへ_('deleteRows', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -8745,6 +8806,13 @@ function handleUpdateCategory(data) {
 }
 
 function getBlogNews() {
+  // **お知らせの表を移したら、サーバーから読む。**
+  // 読めなかったらシートに落ちる（下へ進む）。真っ白な画面を出すより、
+  // 少し古い中身を出すほうがお客様の害が小さい。
+  if (サーバーへ渡すか_('news')) {
+    var 中 = サーバーから読む_('getNews');
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.BLOG);
@@ -8814,6 +8882,12 @@ function getBlogNews() {
 }
 
 function getAdminBlogs() {
+  // 管理アプリの「お知らせ管理」。お客様アプリと**同じ場所**を見せる。
+  // ここを移し忘れると、院長が投稿したものがお客様に出ない。
+  if (サーバーへ渡すか_('news')) {
+    var 中 = サーバーから読む_('getAdminBlogs');
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.BLOG);
