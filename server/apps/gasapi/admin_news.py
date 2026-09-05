@@ -96,7 +96,11 @@ def _一件(n):
     しまい、**6項目足りなかった**（2026-09-05）。足りないままだと、
     管理画面でリンクも画像も並び順も消える。
     """
-    画像 = [x.strip() for x in (n.image_url or "").split("\n") if x.strip()]
+    # **JSON の配列の文字列で入っていることがある。**改行で分けるだけでは解けない。
+    # views.py の _画像 と同じ解き方を使う（1か所にまとめておく）。
+    from .views import _画像
+
+    画像 = _画像(n.image_url)
     return {
         "rowIdx": n.sheet_row,
         "date": n.posted_on.strftime("%Y-%m-%d") if n.posted_on else "",
