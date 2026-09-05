@@ -469,8 +469,17 @@ def _商品():
             "descriptionImage": 説明画像[0] if 説明画像 else (p.description_image_url or ""),
             "descriptionImageUrls": 説明画像,
             "updatedAt": _日時(p.updated_at),
-            "stockQty": 在庫,
-            "lowStockThreshold": 閾値,
+            # **在庫の欄が数字でないときは、GAS も数にできず null を返す。**
+            #   const stockQty = Number(row[9] || 0);   → NaN → JSON では null
+            # ここで 0 にすると、本番と食い違う（2026-09-05 に4件で判明）。
+            # 判定（isLowStock）には 0 として扱った値を使い、**返す値は元のまま**。
+            "stockQty": p.stock,
+            # **こちらは 0 になる。**GAS の書き方が在庫と違う。
+            #   stockQty          Number(row[9] || 0)    … 文字なら NaN → null
+            #   lowStockThreshold Number(row[10] || 0)   … 同じ式に見えるが、
+            # 実際の欄には数字か空しか入っていないため 0 になる（実測）。
+            # **式が同じでも、入っている値が違えば結果は違う。**
+            "lowStockThreshold": p.stock_warning or 0,
             "soldOutStatus": "売切" if 売切 else "在庫あり",
             "isSoldOut": 売切,
             # **売切でない かつ 閾値>0 かつ 在庫>0 かつ 在庫<=閾値**
