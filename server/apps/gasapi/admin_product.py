@@ -90,7 +90,8 @@ def _一件(p, 原価):
         "descriptionImage": 説明画像[0] if 説明画像 else (p.description_image_url or ""),
         "descriptionImageUrls": 説明画像,
         "updatedAt": _時刻の字(p.updated_at),
-        "stockQty": p.stock or 0,
+        # **在庫が数字でないときは null のまま返す。**（views.py と同じ理由）
+        "stockQty": p.stock,
         "lowStockThreshold": p.stock_warning or 0,
         "soldOutStatus": 売切,
         "isSoldOut": 売切 == "売切",
