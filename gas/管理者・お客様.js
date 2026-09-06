@@ -2086,17 +2086,20 @@ const ACCOUNT_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90日
 function ensurePhoneColumnIsText_(sheet) {
   if (!sheet) return;
   try {
-    // **getMaxRows() まで取る。**いま使っている行だけにすると、
-    // 次に足された行が数値のままになる（それが2026-08-27の再発）。
-    const maxRows = sheet.getMaxRows();
-    const rows = Math.max(maxRows - 1, 1);
-
-    // **いちばん下の行で判定する。**先頭で判定すると、シートの行数が
-    // 増えたときに「もう文字になっている」と誤って早く抜けてしまい、
-    // 増えたぶんが数値のまま残る。下が文字なら、全体が文字。
-    if (sheet.getRange(maxRows, USER_COL.PHONE).getNumberFormat() === '@') return;
-
-    sheet.getRange(2, USER_COL.PHONE, rows, 1).setNumberFormat('@');
+    // **毎回そのまま書式を当てる。早く抜けない。**
+    //
+    // 以前は「いちばん下の行が @ なら、もう全部 @ だろう」と考えて
+    // 抜けていた。**それが穴だった**（2026-09-07 に判明）。
+    // 下の行は @ のまま、途中の行（162〜165行目など）が数値に戻っていて、
+    // 8/31〜9/4 に登録された方の電話番号とパスコードの0が落ちていた。
+    //
+    // **書式が数値だと、コードが正しく「080…」と書いてもシートが数値に
+    // 変換して0を落とす。**書き込み側の normalize では防げない。
+    // だから、書式そのものを毎回そろえる。
+    //
+    // 1回の setNumberFormat で済むので、抜ける工夫をする値打ちがない。
+    var maxRows = sheet.getMaxRows();
+    sheet.getRange(2, USER_COL.PHONE, Math.max(maxRows - 1, 1), 1).setNumberFormat('@');
   } catch (err) {
     // 書式を変えられなくても、保存時に0を戻すので致命的ではない
   }
@@ -2130,14 +2133,22 @@ function normalizePhoneForStore_(value) {
 function ensurePasscodeColumnIsText_(sheet) {
   if (!sheet) return;
   try {
-    // **電話番号と同じ理由で、いちばん下の行で判定する。**
-    // 先頭で判定すると、シートの行数が増えたぶんが数値のまま残る。
-    const maxRows = sheet.getMaxRows();
-    const rows = Math.max(maxRows - 1, 1);
-    if (sheet.getRange(maxRows, USER_COL.PASSCODE).getNumberFormat() === '@') return;
-    sheet.getRange(2, USER_COL.PASSCODE, rows, 1).setNumberFormat('@');
+    // **毎回そのまま書式を当てる。早く抜けない。**
+    //
+    // 以前は「いちばん下の行が @ なら、もう全部 @ だろう」と考えて
+    // 抜けていた。**それが穴だった**（2026-09-07 に判明）。
+    // 下の行は @ のまま、途中の行（162〜165行目など）が数値に戻っていて、
+    // 8/31〜9/4 に登録された方の電話番号とパスコードの0が落ちていた。
+    //
+    // **書式が数値だと、コードが正しく「080…」と書いてもシートが数値に
+    // 変換して0を落とす。**書き込み側の normalize では防げない。
+    // だから、書式そのものを毎回そろえる。
+    //
+    // 1回の setNumberFormat で済むので、抜ける工夫をする値打ちがない。
+    var maxRows = sheet.getMaxRows();
+    sheet.getRange(2, USER_COL.PASSCODE, Math.max(maxRows - 1, 1), 1).setNumberFormat('@');
   } catch (err) {
-    // 書式を変えられなくても、照合側で桁を揃えるので致命的ではない
+    // 書式を変えられなくても、保存時に0を戻すので致命的ではない
   }
 }
 
