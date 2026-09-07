@@ -3165,6 +3165,7 @@ function handleOrder(data) {
 
 // ========== 管理者用：新規注文作成 ==========
 function createOrder(data) {
+  if (サーバーへ渡すか_('order')) return _注文をサーバーへ_('order', data);
   const ss = getOrCreateSpreadsheet();
   const sheet = ensureOrdersSheetStructure_(ss.getSheetByName(SHEETS.ORDERS));
   if (!sheet) return { status: 'error', message: 'ORDERS sheet not found' };
@@ -3222,6 +3223,7 @@ function createOrder(data) {
 
 // ========== 管理者用：注文詳細更新 ==========
 function updateAdminOrder(data) {
+  if (サーバーへ渡すか_('order')) return _注文をサーバーへ_('updateOrder', data);
   const ss = getOrCreateSpreadsheet();
   const sheet = ensureOrdersSheetStructure_(ss.getSheetByName(SHEETS.ORDERS));
   if (!sheet) return { status: 'error', message: 'ORDERS sheet not found' };
@@ -3290,6 +3292,9 @@ function updateAdminOrder(data) {
 
 // 行ごとの簡易更新（ステータス・チェックのみ）
 function handleUpdateOrder(data) {
+  // **同名が2つある。**効くのは後の定義だが、**両方に入れる。**
+  //   どちらが効くかを取り違えると、片方だけシートに書き続ける。
+  if (サーバーへ渡すか_('order')) return _注文をサーバーへ_('updateOrder', data);
   const ss = getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.ORDERS);
   if (!sheet) return { status: 'error', message: 'ORDERS sheet not found' };
