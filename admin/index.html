@@ -1837,7 +1837,7 @@
             </thead>
             <tbody id="usersList">
               <tr>
-                <td colspan="12" style="text-align:center;">読み込み中...</td>
+                <td colspan="13" style="text-align:center;">読み込み中...</td>
               </tr>
             </tbody>
           </table>
@@ -5505,7 +5505,7 @@
         applyUserFilters();
         applyRewardStatusFilters();
       } else {
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">読み込み中...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;">読み込み中...</td></tr>';
         if (rewardTbody) {
           rewardTbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">読み込み中...</td></tr>';
         }
@@ -5519,7 +5519,7 @@
         applyUserFilters();
         applyRewardStatusFilters();
       } else {
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:red;">会員情報の取得に失敗しました</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:red;">会員情報の取得に失敗しました</td></tr>';
         if (rewardTbody) {
           rewardTbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:red;">スタンプ・特典状況の取得に失敗しました</td></tr>';
         }
@@ -5693,7 +5693,7 @@
 
       if (users.length === 0) {
         const message = allUsers.length === 0 ? '登録されている会員はいません' : '条件に一致する会員はいません';
-        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;">${message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;">${message}</td></tr>`;
         return;
       }
 
@@ -5737,15 +5737,183 @@
           </td>
           <td>
             <div class="flex" style="gap:5px;">
+              <button type="button" class="btn" title="この行で編集する" style="padding:4px 8px; font-size:11px;" onclick="toggleUserInline('${escapeHtml(u.memberId || '')}')">✏️ その場で</button>
               <button type="button" class="btn btn-outline" title="会員サマリー" style="padding:4px 8px; font-size:11px;" onclick='openUserSummaryModal(${memberIdExpr}, ${rowIdxExpr})'>ℹ️</button>
               <button type="button" class="btn" title="会員情報を編集" style="padding:4px 8px; font-size:11px;" onclick='editUser(${memberIdExpr}, ${u.rowIdx})'>📝</button>
               <button type="button" class="btn" title="会員を削除" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick='deleteUser(${memberIdExpr}, ${u.rowIdx}, ${deleteName})'>🗑</button>
             </div>
           </td>
         </tr>
+        <!-- 【2026-09-07 追加】その場で開く編集欄。既定では隠してある。
+             一覧を見ながら1人ずつ開いて直せるようにするため。
+             **開いている人だけが編集の対象**なので、隣の方を誤って
+             書き換えることがない（一覧に入力欄を並べる案は採らなかった）。 -->
+        <tr class="user-inline-row" id="inline-${escapeHtml(u.memberId || '')}" style="display:none;">
+          <td colspan="13" style="background:#faf8f4; padding:14px 18px;"></td>
+        </tr>
       `;
       }).join('');
     }
+
+    /**
+     * 一覧の行の下に、編集欄を開く／閉じる。
+     *
+     * **開くたびに中身を作り直す。**作り置きすると、一覧を読み直したあとに
+     * 古い値が残る。153人ぶんを最初から作らないので、表示も重くならない。
+     */
+    function toggleUserInline(memberId) {
+      const id = String(memberId || '').trim();
+      const 行 = document.getElementById('inline-' + id);
+      if (!行) return;
+
+      // 開いている他の行は閉じる。**一度に1人だけ。**
+      document.querySelectorAll('.user-inline-row').forEach(function (r) {
+        if (r !== 行) { r.style.display = 'none'; r.firstElementChild.innerHTML = ''; }
+      });
+
+      if (行.style.display !== 'none') {
+        行.style.display = 'none';
+        行.firstElementChild.innerHTML = '';
+        return;
+      }
+
+      const u = (allUsers || []).find(x => String(x.memberId || '').trim() === id);
+      if (!u) return;
+      行.firstElementChild.innerHTML = buildUserInlineForm(u);
+      行.style.display = '';
+      const 最初 = 行.querySelector('input');
+      if (最初) 最初.focus();
+    }
+
+    /** 開いた欄の中身。編集画面と同じ項目をそろえる。 */
+    function buildUserInlineForm(u) {
+      const v = x => escapeHtml(x == null ? '' : String(x));
+      const id = v(u.memberId || '');
+      const 日時 = String(u.lastStampAt || '').slice(0, 16).replace(' ', 'T');
+      const ビ = (u.bijirisRegistered === true || u.bijirisRegistered === '登録済み') ? '登録済み' : '';
+      return `
+        <div style="font-size:12px; font-weight:700; margin-bottom:10px;">
+          ${v(u.name || '')}　<span style="color:var(--text-light); font-weight:400;">${id}</span>
+        </div>
+        <div class="flex" style="gap:10px; flex-wrap:wrap;">
+          ${[['氏名','name',u.name,'text'],['カナ','kana',u.kana,'text'],
+             ['電話番号','phone',u.phone,'text'],['生年月日','birthday',(u.birthday||'').replace(/\//g,'-'),'date'],
+             ['住所','address',u.address,'text'],['ご状況','status',u.status,'text']]
+            .map(f => `<div class="form-group" style="flex:1; min-width:140px; margin-bottom:8px;">
+                 <label style="font-size:11px;">${f[0]}</label>
+                 <input type="${f[3]}" id="il-${f[1]}-${id}" value="${v(f[2])}" style="font-size:12px;">
+               </div>`).join('')}
+        </div>
+        <div class="flex" style="gap:10px; flex-wrap:wrap;">
+          <div class="form-group" style="flex:1; min-width:110px; margin-bottom:8px;">
+            <label style="font-size:11px;">権限</label>
+            <select id="il-role-${id}" style="font-size:12px;">
+              <option value=""${u.role ? '' : ' selected'}>（一般）</option>
+              <option value="管理者"${u.role === '管理者' ? ' selected' : ''}>管理者</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:110px; margin-bottom:8px;">
+            <label style="font-size:11px;">ビジリス</label>
+            <select id="il-bijiris-${id}" style="font-size:12px;">
+              <option value=""${ビ ? '' : ' selected'}>未登録</option>
+              <option value="登録済み"${ビ ? ' selected' : ''}>登録済み</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:100px; margin-bottom:8px;">
+            <label style="font-size:11px;">スタンプ数</label>
+            <input type="number" min="0" id="il-stampCount-${id}" value="${v(u.stampCount)}" style="font-size:12px;">
+          </div>
+          <div class="form-group" style="flex:1; min-width:100px; margin-bottom:8px;">
+            <label style="font-size:11px;">カード番号</label>
+            <input type="number" min="0" id="il-stampCardNum-${id}" value="${v(u.stampCardNum)}" style="font-size:12px;">
+          </div>
+          <div class="form-group" style="flex:1; min-width:160px; margin-bottom:8px;">
+            <label style="font-size:11px;">最終スタンプ取得</label>
+            <input type="datetime-local" id="il-lastStampAt-${id}" value="${v(日時)}" style="font-size:12px;">
+          </div>
+        </div>
+        <div class="flex" style="gap:10px; flex-wrap:wrap;">
+          <div class="form-group" style="flex:1; min-width:130px; margin-bottom:8px;">
+            <label style="font-size:11px;">登録経路</label>
+            <input type="text" id="il-regSource-${id}" value="${v(u.registrationSource)}" style="font-size:12px;">
+          </div>
+          <div class="form-group" style="flex:2; min-width:160px; margin-bottom:8px;">
+            <label style="font-size:11px;">経路の詳細</label>
+            <input type="text" id="il-regDetail-${id}" value="${v(u.registrationSourceDetail)}" style="font-size:12px;">
+          </div>
+          <div class="form-group" style="flex:2; min-width:180px; margin-bottom:8px;">
+            <label style="font-size:11px;">LINEユーザーID</label>
+            <input type="text" id="il-lineId-${id}" value="${v(u.lineUserId)}" style="font-size:12px;">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:8px;">
+          <label style="font-size:11px;">メモ</label>
+          <textarea id="il-memo-${id}" rows="2" style="font-size:12px;">${v(u.memo)}</textarea>
+        </div>
+        <div class="flex" style="gap:8px; flex-wrap:wrap; margin-top:6px;">
+          <button type="button" class="btn" style="font-size:12px;"
+            onclick="saveUserInline('${id}')">保存</button>
+          <button type="button" class="btn btn-outline" style="font-size:12px;"
+            onclick="toggleUserInline('${id}')">閉じる</button>
+          <span style="flex:1;"></span>
+          <button type="button" class="btn btn-outline" style="font-size:11px;"
+            onclick="setUserPasscodeFor('${id}')">🔑 パスコード</button>
+          <button type="button" class="btn btn-outline" style="font-size:11px;"
+            onclick="issueUserTransferCodeFor('${id}')">📱 引き継ぎ</button>
+          <button type="button" class="btn btn-outline" style="font-size:11px;"
+            onclick="stopUserPushFor('${id}')">🔕 通知を止める</button>
+        </div>
+        <div style="font-size:11px; color:var(--text-light); margin-top:8px; line-height:1.8;">
+          登録 ${v(u.timestamp)}　最終オンライン ${v(u.lastOnlineAt) || '—'}　端末 ${v(u.deviceCount)}台　通知 ${u.pushEnabled ? 'あり' : 'なし'}
+        </div>
+      `;
+    }
+
+    /** 開いた欄から保存する。**編集画面と同じ窓口へ送る。** */
+    async function saveUserInline(memberId) {
+      const id = String(memberId || '').trim();
+      const g = k => { const e = document.getElementById('il-' + k + '-' + id); return e ? String(e.value || '').trim() : ''; };
+      const n = k => { const x = g(k); return x === '' ? undefined : Number(x); };
+      const 氏名 = g('name');
+      if (!氏名) { alert('氏名を入力してください。'); return; }
+
+      const u = (allUsers || []).find(x => String(x.memberId || '').trim() === id);
+      showToast('会員情報を保存中...');
+      const res = await apiRequest('', {
+        type: 'updateAdminUser',
+        rowIdx: u ? u.rowIdx : 0,
+        memberId: id,
+        name: 氏名, kana: g('kana'), phone: g('phone'),
+        birthday: g('birthday'), address: g('address'), memo: g('memo'),
+        status: g('status'), role: g('role'),
+        bijirisRegistered: g('bijiris') === '登録済み',
+        stampCount: n('stampCount'), stampCardNum: n('stampCardNum'),
+        lastStampAt: g('lastStampAt'),
+        registrationSource: g('regSource'),
+        registrationSourceDetail: g('regDetail'),
+        lineUserId: g('lineId')
+      }, true);
+
+      if (res && res.status === 'ok') {
+        showToast('保存しました');
+        invalidateAdminApiCache(['getAdminUsers']);
+        await loadAdminUsers();
+      } else {
+        // **失敗したら開いたままにする。**閉じると、直した内容が消えたように見える。
+        showToast((res && res.message) || '保存できませんでした');
+      }
+    }
+
+    // 開いた欄からのボタン。編集画面のものと同じ処理を、会員番号を指定して呼ぶ。
+    function _会員を選んでから(id, 関数) {
+      const 欄 = document.getElementById('editUserMemberId');
+      const 元 = 欄 ? 欄.value : '';
+      if (欄) 欄.value = id;
+      return Promise.resolve(関数()).finally(() => { if (欄) 欄.value = 元; });
+    }
+    function setUserPasscodeFor(id) { return _会員を選んでから(id, setUserPasscode); }
+    function issueUserTransferCodeFor(id) { return _会員を選んでから(id, issueUserTransferCode); }
+    function stopUserPushFor(id) { return _会員を選んでから(id, stopUserPush); }
 
     function updateUsersSummary(filteredUsers) {
       renderSummaryCards('usersSummaryCards', [
