@@ -1364,6 +1364,20 @@ def _注文(名):
     return 呼ぶ
 
 
+def _売上(名):
+    def 呼ぶ(d):
+        from . import revenue
+
+        return getattr(revenue, 名)(d)
+    return 呼ぶ
+
+
+_メニュー収益保存 = _売上("メニューを保存")
+_メニュー収益削除 = _売上("メニューを消す")
+_商品収益保存 = _売上("商品を保存")
+_商品収益削除 = _売上("商品を消す")
+
+
 _注文する = _注文("注文する")
 _注文取消 = _注文("取り消す")
 _受取報告 = _注文("受け取りを報告する")
@@ -1410,6 +1424,11 @@ _ビジリス登録 = _入口("ビジリス登録")
     "mergeUsers": _会員統合,
     # 第3段・お客様の入口。**ここが止まるとアプリに入れなくなる。**
     # 注文
+    # 売上の記録（分析の元）
+    "saveMenuRevenueRecord": _メニュー収益保存,
+    "deleteMenuRevenueRecord": _メニュー収益削除,
+    "saveProductRevenueRecord": _商品収益保存,
+    "deleteProductRevenueRecord": _商品収益削除,
     "order": _注文する,
     "cancel": _注文取消,
     "confirmReceipt": _受取報告,

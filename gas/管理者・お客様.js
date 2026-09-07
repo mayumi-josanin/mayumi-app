@@ -5167,6 +5167,13 @@ function _注文の知らせを送る_(data, 答) {
   }
 }
 
+function _売上をサーバーへ_(type, data) {
+  // **サーバーへ渡す表なら、シートには書かない。**
+  var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
+  if (答) return 答;
+  return { status: 'error', message: 'サーバーに届きませんでした。もう一度お試しください。' };
+}
+
 function _注文をサーバーへ_(type, data) {
   // **サーバーへ渡す表なら、シートには書かない。**
   var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
@@ -6108,6 +6115,10 @@ function sanitizeMenuRevenueRecord_(data) {
 
 
 function getMenuRevenueRecords() {
+  if (サーバーへ渡すか_('order')) {
+    var 中 = サーバーから読む_('getMenuRevenueRecords');
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.MENU_REVENUE);
@@ -6152,6 +6163,9 @@ function getMenuRevenueRecords() {
 }
 
 function handleSaveMenuRevenueRecord(data) {
+  // **分析の元になる表。**分析だけ移して、ここを移し忘れた（2026-09-07）。
+  //   入力はシートに、集計はサーバーに、で食い違った。
+  if (サーバーへ渡すか_('order')) return _売上をサーバーへ_('saveMenuRevenueRecord', data);
   try {
     const recordsInput = Array.isArray(data && data.records) && data.records.length ? data.records : [data];
     const records = recordsInput.map(function (item) {
@@ -6216,6 +6230,9 @@ function handleSaveMenuRevenueRecord(data) {
 }
 
 function handleDeleteMenuRevenueRecord(data) {
+  // **分析の元になる表。**分析だけ移して、ここを移し忘れた（2026-09-07）。
+  //   入力はシートに、集計はサーバーに、で食い違った。
+  if (サーバーへ渡すか_('order')) return _売上をサーバーへ_('deleteMenuRevenueRecord', data);
   try {
     const rowIdx = Number(data && data.rowIdx);
     if (!rowIdx || rowIdx < 2) return { status: 'error', message: '削除対象が不正です' };
@@ -6329,6 +6346,10 @@ function sanitizeProductRevenueRecord_(data, productMap) {
 }
 
 function getProductRevenueRecords() {
+  if (サーバーへ渡すか_('order')) {
+    var 中 = サーバーから読む_('getProductRevenueRecords');
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.PRODUCT_REVENUE);
@@ -6374,6 +6395,9 @@ function getProductRevenueRecords() {
 }
 
 function handleSaveProductRevenueRecord(data) {
+  // **分析の元になる表。**分析だけ移して、ここを移し忘れた（2026-09-07）。
+  //   入力はシートに、集計はサーバーに、で食い違った。
+  if (サーバーへ渡すか_('order')) return _売上をサーバーへ_('saveProductRevenueRecord', data);
   try {
     const recordsInput = Array.isArray(data && data.records) && data.records.length ? data.records : [data];
     const productMap = getProductRevenueMasterMap_();
@@ -6446,6 +6470,9 @@ function handleSaveProductRevenueRecord(data) {
 }
 
 function handleDeleteProductRevenueRecord(data) {
+  // **分析の元になる表。**分析だけ移して、ここを移し忘れた（2026-09-07）。
+  //   入力はシートに、集計はサーバーに、で食い違った。
+  if (サーバーへ渡すか_('order')) return _売上をサーバーへ_('deleteProductRevenueRecord', data);
   try {
     const rowIdx = Number(data && data.rowIdx);
     if (!rowIdx || rowIdx < 2) return { status: 'error', message: '削除対象が不正です' };
