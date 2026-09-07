@@ -1805,7 +1805,7 @@
               <option value="age_desc">並び替え: 年齢が高い順</option>
               <option value="age_asc">並び替え: 年齢が低い順</option>
               <option value="city_asc">並び替え: 市区町村順</option>
-              <option value="kana_asc">並び替え: フリガナ順</option>
+              <option value="kana_asc">並び替え: 50音順（フリガナ）</option>
             </select>
             <select id="userPushFilter" onchange="applyUserFilters()" style="width:180px;">
               <option value="all">Push状態: 全て</option>
@@ -6006,6 +6006,31 @@
         if (ageB === null) return -1;
         return (ageA - ageB) * direction;
       };
+      // 50音順。**フリガナだけで並べる。**
+      //
+      // 以前は「フリガナが空なら漢字のお名前で代用」していたが、
+      // localeCompare は漢字を**読みではなく文字の並び**で比べるので、
+      // 五十音の位置に入らない（「一之瀬」が「渡辺」より後に来る）。
+      // フリガナも名前も空の方は、先頭に固まって出ていた。
+      //
+      // フリガナが無い方は、年齢順と同じく**末尾にまとめる。**
+      // 五十音のどこに置いても嘘になるので、混ぜない。
+      const kanaKey = (user) => String(user && user.kana || '')
+        // ﾊﾝｶｸのフリガナを全角へ。濁点も1文字にまとまる（ﾀﾞ → ダ）
+        .normalize('NFKC')
+        // 姓と名の間の空白は、並びに影響させない。
+        // 「ヤマダ ハナコ」と「ヤマダイチロウ」で空白の位置が効いてしまう
+        .replace(/[\s\u3000]+/g, '');
+      const byKana = (a, b) => {
+        const ka = kanaKey(a);
+        const kb = kanaKey(b);
+        if (!ka && !kb) return String(a.name || '').localeCompare(String(b.name || ''), 'ja');
+        if (!ka) return 1;
+        if (!kb) return -1;
+        const 差 = ka.localeCompare(kb, 'ja');
+        // 同じ読みの方が続くときは、並びが毎回変わらないようお名前で決める
+        return 差 !== 0 ? 差 : String(a.name || '').localeCompare(String(b.name || ''), 'ja');
+      };
       switch (mode) {
         case 'age_desc': sorted.sort(byAge(-1)); break;
         case 'age_asc': sorted.sort(byAge(1)); break;
@@ -6019,9 +6044,7 @@
             return cityA.localeCompare(cityB, 'ja');
           });
           break;
-        case 'kana_asc':
-          sorted.sort((a, b) => String(a.kana || a.name || '').localeCompare(String(b.kana || b.name || ''), 'ja'));
-          break;
+        case 'kana_asc': sorted.sort(byKana); break;
         case 'registered_asc': sorted.reverse(); break;
         default: break; // registered_desc: getAdminUsers が新しい順で返す
       }
