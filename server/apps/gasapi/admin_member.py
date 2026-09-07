@@ -221,7 +221,22 @@ def _探す(d):
 
 
 def 会員を書き換える(d):
-    """GAS の handleUpdateAdminUser。**送られてこなかった項目は触らない。**"""
+    """GAS の handleUpdateAdminUser。**送られてこなかった項目は触らない。**
+
+    2026-09-07 に扱える項目を広げた。設計は
+    [会員管理の画面を作り直す](docs/design/会員管理の画面を作り直す.md)。
+
+    **移行後はシートを直しても反映されない。**いまシートで直している項目が
+    ここでできないと、誰にも直せなくなる。
+
+    ## ここで受け付けないもの
+
+        会員ID              変えるとお客様が入れなくなる
+        パスワードハッシュ・ソルト  中途半端な値でその方が入れなくなる
+        引き継ぎコード       手で入れると他の方と重なる（発行の窓口を使う）
+        Push設定（届け先）   入/切ではなく届け先そのもの（止める窓口を使う）
+        統合先会員ID         統合の履歴。手で変えると辻褄が合わなくなる
+    """
     m = _探す(d)
     if not m:
         return {"status": "error", "message": "会員が見つかりません"}
@@ -235,6 +250,8 @@ def 会員を書き換える(d):
     if "kana" in d:
         m.kana = _文(d.get("kana")).strip()
     if "phone" in d:
+        # **入力のたびに先頭の0を戻す。**2026-08 に121件、9/7 にさらに4件
+        # 落ちていた。書式に頼らず、ここでも整える。
         m.phone = _電話を整える(d.get("phone"))
     if "memo" in d:
         m.memo = _文(d.get("memo"))
@@ -245,8 +262,84 @@ def 会員を書き換える(d):
         m.birthday = parse_date(文[:10].replace("/", "-")) if 文 else None
     if "address" in d:
         m.address = _文(d.get("address")).strip()
+
+    # ── ここから 2026-09-07 に足した分 ──
+    if "status" in d:
+        m.status = _文(d.get("status")).strip()
+    if "role" in d:
+        m.role = _文(d.get("role")).strip()
+    if "bijirisRegistered" in d or "bijiris" in d:
+        値 = d.get("bijirisRegistered", d.get("bijiris"))
+        m.bijiris_registered = (値 is True or _文(値).strip() in ("登録済み", "true", "1"))
+    if "stampCount" in d:
+        m.stamp_count = max(0, _数(d.get("stampCount")))
+    if "stampCardNum" in d:
+        m.stamp_card_number = max(0, _数(d.get("stampCardNum")))
+    if "lastStampAt" in d:
+        m.last_stamp_at = _日時(d.get("lastStampAt"))
+    if "stampAchievedAt" in d:
+        m.stamp_achieved_at = _日時(d.get("stampAchievedAt"))
+    if "registrationSource" in d:
+        m.registration_source = _文(d.get("registrationSource")).strip()
+        m.registration_source_updated_at = timezone.now()
+    if "registrationSourceDetail" in d:
+        m.registration_source_detail = _文(d.get("registrationSourceDetail")).strip()
+
+    if "lineUserId" in d:
+        # **2人に同じIDを付けない。**付けると予約システムで記録が混ざる。
+        # 空にするのは許す（結びつきを外したいことがある）。
+        値 = _文(d.get("lineUserId")).strip()
+        if 値:
+            他 = Member.objects.filter(line_user_id=値).exclude(pk=m.member_id).first()
+            if 他:
+                return {"status": "error",
+                        "message": f"そのLINEユーザーIDは、ほかの会員（{他.member_id}）に付いています。"}
+            m.line_user_id = 値
+        else:
+            m.line_user_id = None
+
     m.save()
     return {"status": "ok"}
+
+
+def パスコードを設定する(d):
+    """受付で「パスコードを忘れた」と言われたときに使う。
+
+    **いまのパスコードは見られない。**移行後はハッシュで保存するため。
+    ここでできるのは「新しく設定する」ことだけ。
+
+    GAS には無い窓口。シートでは平文が見えていたので要らなかった。
+    **平文をやめる代わりに、この窓口が要る。**
+    """
+    from django.contrib.auth.hashers import make_password
+
+    m = _探す(d)
+    if not m:
+        return {"status": "error", "message": "会員が見つかりません"}
+    新 = _文(d.get("passcode")).strip()
+    if not re.match(r"^\d{4}$|^\d{6}$", 新):
+        return {"status": "error", "message": "パスコードは数字4桁または6桁で入力してください。"}
+    m.passcode_hash = make_password(新)
+    # **古いパスワードの形が残っていると、そちらでも入れてしまう。**消す。
+    m.password_hash = ""
+    m.password_salt = ""
+    m.save(update_fields=["passcode_hash", "password_hash", "password_salt", "changed_at"])
+    return {"status": "ok", "message": "パスコードを設定しました"}
+
+
+def 通知を止める(d):
+    """届け先を消す。**手で書き換えさせない。**
+
+    この欄は入/切ではなく、端末が発行した届け先そのもの。
+    再開はお客様の端末からになる（端末が新しい届け先を発行するため）。
+    """
+    m = _探す(d)
+    if not m:
+        return {"status": "error", "message": "会員が見つかりません"}
+    m.push_subscription = ""
+    m.push_enabled = False
+    m.save(update_fields=["push_subscription", "push_enabled", "changed_at"])
+    return {"status": "ok", "message": "通知を止めました"}
 
 
 def 特典を書き換える(d):
