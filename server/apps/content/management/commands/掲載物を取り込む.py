@@ -196,6 +196,8 @@ class Command(BaseCommand):
                     "detail": 文字(r.get("detail")),
                     "color": 文字(r.get("color"))[:32],
                     "category": 文字(r.get("category"))[:100],
+                    "link_url": 文字(r.get("link_url")),
+                    "button_text": 文字(r.get("button_text"))[:100],
                     "menu_row": 数(r.get("menu_row")),
                 })
 

@@ -112,33 +112,58 @@ def 一覧():
 
 
 def 足す(d):
+    """GAS の handleAddCalendar。
+
+    **`dates` が複数来る。**管理画面はカレンダーで日付を複数選べる作りで、
+    選んだぶんだけ行を作る（GAS 6858行）。`date` だけを見ていたため
+    「追加に失敗しました」になった（2026-09-07 に院長のご指摘で判明）。
+
+        data.dates が1つ以上あれば   その数だけ作る
+        無ければ                     data.date で1つ作る
+    """
     題 = _文(d.get("title")).strip()
     if not 題:
         return {"status": "error", "message": "イベント名を入力してください"}
     from .views import _画像
 
+    # **複数の日付。**空の要素は落とす。
+    並び = d.get("dates")
+    日付たち = [x for x in ([_日付(v) for v in 並び] if isinstance(並び, list) else []) if x]
+    if not 日付たち:
+        一つ = _日付(d.get("date"))
+        if not 一つ:
+            return {"status": "error", "message": "日付を選んでください"}
+        日付たち = [一つ]
+
+    画像 = "\n".join(_画像(d.get("imageUrls") or d.get("image")))
+    作った = []
     with transaction.atomic():
         最大 = CalendarEvent.objects.select_for_update().order_by("-sheet_row").values_list(
             "sheet_row", flat=True).first() or 1
-        c = CalendarEvent.objects.create(
-            sheet_row=最大 + 1,
-            event_on=_日付(d.get("date")) or timezone.localdate(),
-            title=題,
-            detail=_文(d.get("desc")),
-            color=_文(d.get("color")).strip(),
-            category=_文(d.get("category")).strip(),
-            published=_公開か(d.get("publishStatus") or d.get("status")),
-            image_url="\n".join(_画像(d.get("imageUrls") or d.get("image"))),
-            link_url=_文(d.get("linkUrl")).strip(),
-            button_text=_文(d.get("linkButtonText")).strip(),
-            menu_row=_数(d.get("menuRowIdx")) or None,
-            notice_listed=_公開か(d.get("noticeStatus") or d.get("publishStatus")),
-            publish_at=_日時(d.get("publishAt")),
-            updated_at=timezone.now(),
-        )
-    return {"status": "ok", "rowIdx": c.sheet_row,
-            "effectiveStatus": _状態の字(c.published),
-            "effectivePublishAt": _時刻の字(c.publish_at)}
+        for 日 in 日付たち:
+            最大 += 1
+            c = CalendarEvent.objects.create(
+                sheet_row=最大,
+                event_on=日,
+                title=題,
+                detail=_文(d.get("desc")),
+                color=_文(d.get("color")).strip(),
+                category=_文(d.get("category")).strip(),
+                published=_公開か(d.get("publishStatus") or d.get("status")),
+                image_url=画像,
+                link_url=_文(d.get("linkUrl")).strip(),
+                button_text=_文(d.get("linkButtonText")).strip(),
+                menu_row=_数(d.get("menuRowIdx")) or None,
+                notice_listed=_公開か(d.get("noticeStatus") or d.get("publishStatus")),
+                publish_at=_日時(d.get("publishAt")),
+                updated_at=timezone.now(),
+            )
+            作った.append(c)
+
+    先 = 作った[0]
+    return {"status": "ok", "rowIdx": 先.sheet_row, "created": len(作った),
+            "effectiveStatus": _状態の字(先.published),
+            "effectivePublishAt": _時刻の字(先.publish_at)}
 
 
 def 書き換える(d):
