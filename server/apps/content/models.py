@@ -387,6 +387,14 @@ class CalendarEvent(掲載の共通):
     # お知らせ・商品・メニューと同じく、カテゴリ名を文字列で参照する。
     category = models.CharField("カテゴリ", max_length=100, blank=True, db_index=True)
 
+    # 2026-09-07 追加。**書き出しには最初から入っていたのに、列が無かった。**
+    # 「イベント詳細」ボタンの行き先と、その文言。お知らせ（News）には
+    # 同じものがあった。**カレンダーだけ抜けていた。**
+    # 気づいたのは、管理画面からイベントを追加して「追加に失敗しました」と
+    # 出たとき。それまで誰も書き込んでいなかったので、読みだけでは出なかった。
+    link_url = models.TextField("リンクURL", blank=True)
+    button_text = models.CharField("ボタンテキスト", max_length=100, blank=True)
+
     # 「対象メニュー行」。メニュー表の行を指している。
     # メニューを移すときに、正しい結びつきへ直す。
     menu_row = models.IntegerField("対象メニュー行", null=True, blank=True)
