@@ -3422,6 +3422,95 @@
         <label>メモ</label>
         <textarea id="editUserMemo" rows="3"></textarea>
       </div>
+
+      <!-- 【2026-09-07 追加】ここから下は、これまでスプレッドシートでしか
+           直せなかった項目。会員をサーバーへ移すとシートを直しても反映されない
+           ので、ここでできるようにした。
+           設計: docs/design/会員管理の画面を作り直す.md -->
+      <div class="flex" style="gap:12px; flex-wrap:wrap;">
+        <div class="form-group" style="flex:1; min-width:150px;">
+          <label>ご状況</label>
+          <input type="text" id="editUserStatus" placeholder="妊娠中・産後 など">
+        </div>
+        <div class="form-group" style="flex:1; min-width:150px;">
+          <label>権限</label>
+          <select id="editUserRole">
+            <option value="">（一般の会員）</option>
+            <option value="管理者">管理者</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1; min-width:150px;">
+          <label>ビジリス</label>
+          <select id="editUserBijiris">
+            <option value="">未登録</option>
+            <option value="登録済み">登録済み</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex" style="gap:12px; flex-wrap:wrap;">
+        <div class="form-group" style="flex:1; min-width:120px;">
+          <label>現在スタンプ数</label>
+          <input type="number" id="editUserStampCount" min="0">
+        </div>
+        <div class="form-group" style="flex:1; min-width:120px;">
+          <label>スタンプカード番号</label>
+          <input type="number" id="editUserStampCardNum" min="0">
+        </div>
+        <div class="form-group" style="flex:1; min-width:170px;">
+          <label>最終スタンプ取得日時</label>
+          <input type="datetime-local" id="editUserLastStampAt">
+        </div>
+      </div>
+
+      <div class="flex" style="gap:12px; flex-wrap:wrap;">
+        <div class="form-group" style="flex:1; min-width:150px;">
+          <label>登録経路</label>
+          <input type="text" id="editUserRegSource" placeholder="紹介・チラシ など">
+        </div>
+        <div class="form-group" style="flex:2; min-width:180px;">
+          <label>登録経路の詳細</label>
+          <input type="text" id="editUserRegSourceDetail">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>LINEユーザーID
+          <span style="font-size:11px; color:var(--text-light);">
+            （予約システムと結ぶ鍵。ほかの会員と同じ値は入れられません）</span></label>
+        <input type="text" id="editUserLineId" placeholder="U から始まる文字列">
+      </div>
+
+      <!-- ここからは自由入力にしないもの。理由は設計書に書いてある -->
+      <div style="margin-top:14px; padding:12px; border-radius:10px; background:#faf8f4;
+                  border:1px solid var(--border);">
+        <div style="font-size:12px; font-weight:700; margin-bottom:8px;">この会員に対して行う操作</div>
+        <div class="flex" style="gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline" style="font-size:12px;"
+            onclick="setUserPasscode()">🔑 パスコードを設定</button>
+          <button type="button" class="btn btn-outline" style="font-size:12px;"
+            onclick="issueUserTransferCode()">📱 引き継ぎコードを発行</button>
+          <button type="button" class="btn btn-outline" style="font-size:12px;"
+            onclick="stopUserPush()">🔕 通知を止める</button>
+        </div>
+        <div style="font-size:11px; color:var(--text-light); line-height:1.7; margin-top:8px;">
+          パスコードは保存された値を見ることができません（暗号にして保管しているため）。
+          忘れた方には、新しいものを設定してください。<br>
+          引き継ぎコードは重複しない8桁が自動で作られます。1週間で切れます。<br>
+          通知は止められますが、再開はお客様の端末から行っていただきます。
+        </div>
+      </div>
+
+      <!-- 見えるだけ。触ると壊れるもの -->
+      <div style="margin-top:12px; font-size:11px; color:var(--text-light); line-height:1.9;">
+        <div><strong>会員番号</strong> <span id="viewUserMemberId">—</span>
+          　<strong>登録日時</strong> <span id="viewUserTimestamp">—</span></div>
+        <div><strong>最終オンライン</strong> <span id="viewUserLastOnline">—</span>
+          　<strong>端末</strong> <span id="viewUserDevices">—</span>
+          　<strong>通知の届け先</strong> <span id="viewUserPush">—</span></div>
+        <div><strong>引き継ぎコード</strong> <span id="viewUserTransferCode">—</span></div>
+      </div>
+
       <div class="flex" style="margin-top: 15px;">
         <button class="btn" onclick="saveUserEdit()" style="flex:1;">保存</button>
         <button class="btn btn-outline" onclick="document.getElementById('userEditModal').classList.remove('active')"
@@ -7071,6 +7160,29 @@
       document.getElementById('editUserAddress').value = u.address || '';
       document.getElementById('editUserMemo').value = u.memo || '';
 
+      // 【2026-09-07 追加】これまでシートでしか直せなかった項目
+      const 入れる = (id, v) => { const e = document.getElementById(id); if (e) e.value = v == null ? '' : v; };
+      入れる('editUserStatus', u.status);
+      入れる('editUserRole', u.role);
+      入れる('editUserBijiris', u.bijirisRegistered === true || u.bijirisRegistered === '登録済み' ? '登録済み' : '');
+      入れる('editUserStampCount', u.stampCount);
+      入れる('editUserStampCardNum', u.stampCardNum);
+      // datetime-local は `2026-09-07T14:30` の形しか受け取らない
+      入れる('editUserLastStampAt', String(u.lastStampAt || '').slice(0, 16).replace(' ', 'T'));
+      入れる('editUserRegSource', u.registrationSource);
+      入れる('editUserRegSourceDetail', u.registrationSourceDetail);
+      入れる('editUserLineId', u.lineUserId);
+
+      // 見えるだけの欄。**触らせない。**
+      const 出す = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v || '—'; };
+      出す('viewUserMemberId', u.memberId);
+      出す('viewUserTimestamp', u.timestamp);
+      出す('viewUserLastOnline', u.lastOnlineAt);
+      出す('viewUserDevices', (u.deviceCount != null ? u.deviceCount + '台' : '—'));
+      // **届け先そのものは出さない。**長い英数字で、見ても意味がない。
+      出す('viewUserPush', u.pushEnabled ? '設定あり' : 'なし');
+      出す('viewUserTransferCode', u.transferCode);
+
       document.getElementById('userEditModal').classList.add('active');
     }
 
@@ -7114,6 +7226,74 @@
       document.getElementById('userSummaryModal').classList.add('active');
     }
 
+    // 入力欄の値を取り出す小さな助け。**無い欄は空として扱う。**
+    // 画面を作り替えている途中で欄が消えても、保存が落ちないように。
+    function 値(id) {
+      const e = document.getElementById(id);
+      return e ? String(e.value || '').trim() : '';
+    }
+
+    function 数(id) {
+      const v = 値(id);
+      return v === '' ? undefined : Number(v);
+    }
+
+    /** 受付で「パスコードを忘れた」と言われたときに使う。 */
+    async function setUserPasscode() {
+      const memberId = 値('editUserMemberId');
+      if (!memberId) return;
+      const 新 = prompt('新しいパスコードを入力してください（数字4桁または6桁）');
+      if (新 === null) return;
+      if (!/^\d{4}$|^\d{6}$/.test(String(新).trim())) {
+        alert('パスコードは数字4桁または6桁で入力してください。');
+        return;
+      }
+      showToast('パスコードを設定中...');
+      const res = await apiRequest('', {
+        type: 'setUserPasscode', memberId: memberId, passcode: String(新).trim()
+      }, true);
+      if (res && res.status === 'ok') {
+        showToast('パスコードを設定しました');
+      } else {
+        showToast((res && res.message) || 'パスコードを設定できませんでした');
+      }
+    }
+
+    /** 機種変更のときに使う8桁のコード。**手で入れさせない**（重複すると別の方の記録が復元される）。 */
+    async function issueUserTransferCode() {
+      const memberId = 値('editUserMemberId');
+      if (!memberId) return;
+      showToast('引き継ぎコードを発行中...');
+      const res = await apiRequest('', { type: 'issueTransferCode', memberId: memberId }, true);
+      if (res && res.status === 'ok') {
+        const 欄 = document.getElementById('viewUserTransferCode');
+        if (欄) 欄.textContent = res.transferCode || '';
+        alert('引き継ぎコード: ' + (res.transferCode || '')
+          + '\n\n有効期限: ' + (res.expiresAtLabel || '1週間')
+          + '\n\nお客様にお伝えください。');
+        await loadAdminUsers();
+      } else {
+        showToast((res && res.message) || '発行できませんでした');
+      }
+    }
+
+    /** 通知を止める。**再開はお客様の端末から。** */
+    async function stopUserPush() {
+      const memberId = 値('editUserMemberId');
+      if (!memberId) return;
+      if (!confirm('この会員への通知を止めます。\n\n再開はお客様の端末から行っていただく必要があります。\nよろしいですか。')) return;
+      showToast('通知を止めています...');
+      const res = await apiRequest('', { type: 'stopUserPush', memberId: memberId }, true);
+      if (res && res.status === 'ok') {
+        showToast('通知を止めました');
+        const 欄 = document.getElementById('viewUserPush');
+        if (欄) 欄.textContent = 'なし';
+        await loadAdminUsers();
+      } else {
+        showToast((res && res.message) || '止められませんでした');
+      }
+    }
+
     async function saveUserEdit() {
       const rowIdx = Number(document.getElementById('editUserRowIdx').value || 0);
       const memberId = document.getElementById('editUserMemberId').value || '';
@@ -7139,7 +7319,19 @@
         phone: phone,
         birthday: birthday,
         address: address,
-        memo: memo
+        memo: memo,
+        // 【2026-09-07 追加】これまでシートでしか直せなかった項目。
+        // **会員をサーバーへ移すまでは、GAS 側がこれらを無視する。**
+        // 送っても害はなく、移した日から効き始める。
+        status: 値('editUserStatus'),
+        role: 値('editUserRole'),
+        bijirisRegistered: 値('editUserBijiris') === '登録済み',
+        stampCount: 数('editUserStampCount'),
+        stampCardNum: 数('editUserStampCardNum'),
+        lastStampAt: 値('editUserLastStampAt'),
+        registrationSource: 値('editUserRegSource'),
+        registrationSourceDetail: 値('editUserRegSourceDetail'),
+        lineUserId: 値('editUserLineId')
       }, true);
 
       if (res && res.status === 'ok') {
