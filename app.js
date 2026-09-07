@@ -3471,18 +3471,42 @@ function compareCalendarEventsByDateAsc(a, b) {
   return aDesc.localeCompare(bDesc, 'ja');
 }
 
+// カレンダーの区分（休診・往診・訪問産後ケア・イベント）の見分け方。
+//
+// **区分が入っていれば、それに従う。文面から当てない。**
+// 「秋の味噌作り教室」は区分が「イベント」なのに、説明文の
+// 「4月から**お休み**していた大好評の…」の「お休み」を拾って
+// 休診として出ていた（2026-09-07 院長のご指摘）。
+// 教室の日がお客様に休診と見えるので、間違いの害が大きい。
+//
+// 区分が空のときだけ、昔どおり題と説明から当てる。
+// 本番123件のうち52件は区分が空（古い登録）。ここを変えると
+// その52件の見え方が変わってしまうので、falls back させる。
+//
+//   本番の区分   休診30 / イベント29 / 往診10 / 訪問産後ケア2 / 空52
+//   変わるもの   2件だけ（実測。2026-09-07）
+function getCalendarEventCategory(event) {
+  return String(event && event.category || '').trim();
+}
+
 function isCalendarHolidayEvent(event) {
+  const category = getCalendarEventCategory(event);
+  if (category) return /休診|休み|休業/.test(category);
   const title = String(event && event.title || '');
   const desc = String(event && event.desc || '');
   return /休診|休み|休業/.test(title + ' ' + desc);
 }
 
 function isCalendarVisitEvent(event) {
+  const category = getCalendarEventCategory(event);
+  if (category) return category.indexOf('往診') !== -1;
   const title = String(event && event.title || '');
   return title.indexOf('往診') !== -1;
 }
 
 function isCalendarPostpartumCareEvent(event) {
+  const category = getCalendarEventCategory(event);
+  if (category) return category.indexOf('訪問産後ケア') !== -1;
   const title = String(event && event.title || '');
   return title.indexOf('訪問産後ケア') !== -1;
 }

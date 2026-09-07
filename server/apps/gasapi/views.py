@@ -320,10 +320,13 @@ def _カレンダー():
             "imageUrls": 画像,
             "updatedAt": _日時(c.updated_at),
             "publishAt": _日時(c.publish_at),
-            # リンクURL・ボタンテキストはシートに列があるが**どちらも0件**なので
-            # 移していない。使われ始めたら移す（2026-08-22 の点検で確認）。
-            "linkUrl": "",
-            "linkButtonText": "",
+            # **空固定だった。**「0件だから移さない」と決めたが、
+            # 管理画面には入力欄があり、保存できる（handleAddCalendar）。
+            # お客様アプリは linkUrl があれば「詳しく見る」を出す
+            # （app.js の buildCalendarEventListItem）。空を返し続けると、
+            # 院長がリンクを入れてもお客様には出ない（2026-09-07 に判明）。
+            "linkUrl": c.link_url or "",
+            "linkButtonText": c.button_text or "",
             "menuRowIdx": c.menu_row or 0,
             "noticeStatus": "公開" if c.notice_listed else "非公開",
             "sortOrder": c.sort_order or 0,
