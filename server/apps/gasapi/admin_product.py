@@ -84,7 +84,9 @@ def _一件(p, 原価):
         "costPrice": 原価.get((p.name or "").strip(), 0),
         "icon": 画像[0] if 画像 else (p.icon_url or "🌿"),
         "imageUrls": 画像,
-        "bg": "c1",
+        # **背景色。**以前は "c1" と決め打ちだった（2026-09-07 に判明）。
+        # 管理画面は bg を送ってくるのに、サーバーが受けず、返しもしなかった。
+        "bg": p.background_color or "",
         "status": _状態の字(p.published),
         "description": p.description or "",
         "descriptionImage": 説明画像[0] if 説明画像 else (p.description_image_url or ""),
@@ -150,6 +152,7 @@ def 足す(d):
             name=名,
             price=_数(d.get("price")),
             icon_url="\n".join(_画像(d.get("imageUrls") or d.get("icon"))) or _文(d.get("icon")).strip(),
+            background_color=_文(d.get("bg")).strip(),
             published=_公開か(d.get("status")),
             description=_文(d.get("description")),
             description_image_url="\n".join(_画像(d.get("descriptionImageUrls")
@@ -194,6 +197,8 @@ def 書き換える(d):
         p.price = _数(d.get("price"))
     if "icon" in d or "imageUrls" in d:
         p.icon_url = "\n".join(_画像(d.get("imageUrls") or d.get("icon"))) or _文(d.get("icon")).strip()
+    if "bg" in d:
+        p.background_color = _文(d.get("bg")).strip()
     if d.get("status"):
         p.published = _公開か(d["status"])
     if "description" in d:
