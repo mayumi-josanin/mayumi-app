@@ -795,6 +795,13 @@ def _商品の原価表():
     return admin_product.原価の対応表()
 
 
+def _分析():
+    """分析画面。GAS の getAnalyticsData が転送してくる。"""
+    from . import analytics
+
+    return analytics.集計()
+
+
 def _注文の窓口(名):
     def 呼ぶ(request=None):
         from . import orders
@@ -892,6 +899,7 @@ _できること = {
     "getCustomerOrders": _お客様の注文,
     "getAdminOrders": _管理の注文,
     "getAdminUserOrders": _会員の注文,
+    "getAnalytics": _分析,
     "getAppRuntimeConfig": _アプリ設定,
     "getRewardGachaConfig": _ガチャ設定,
     "getUserRewardStatus": _特典の状態を見る,
