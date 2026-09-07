@@ -6591,6 +6591,23 @@ function buildCategoryUsageAnalytics_() {
 }
 
 function getAnalyticsData() {
+  // **分析は注文と売上の両方を読む。**注文だけ移すと、分析が注文を
+  // 0件として計算する。だから `order` と一緒に渡す。
+  //
+  // 登録経路とカテゴリの利用状況は**会員の表から作る。**
+  // 会員をまだ移していないあいだは、サーバーが空で返す。
+  // **会員を移すとき（member を足すとき）に、サーバー側を埋める。**
+  if (サーバーへ渡すか_('order')) {
+    var 中 = サーバーから読む_('getAnalytics');
+    if (中 && 中.status === 'ok') {
+      // 会員から作る2つは、まだGASのほうが正しい。**そこだけ差し替える。**
+      if (!サーバーへ渡すか_('member')) {
+        中.registrationRoutes = buildRegistrationRouteAnalytics_();
+        中.categoryUsage = buildCategoryUsageAnalytics_();
+      }
+      return 中;
+    }
+  }
   const ss = getOrCreateSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.ORDERS);
   const menuSheet = ss.getSheetByName(SHEETS.MENU_REVENUE);
