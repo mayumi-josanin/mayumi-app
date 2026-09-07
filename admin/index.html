@@ -7953,18 +7953,40 @@
       };
     }
 
+    // カレンダーの区分の見分け方。**app.js と同じ規則にそろえる。**
+    //
+    // **区分が入っていれば、それに従う。文面から当てない。**
+    // 「秋の味噌作り教室」は区分が「イベント」なのに、説明文の
+    // 「4月から**お休み**していた大好評の…」の「お休み」を拾って
+    // 休診として出ていた（2026-09-07 院長のご指摘）。
+    //
+    // ここは日付の詳細（区分: ○○）と、お知らせ一覧に載せるかの
+    // 判定の両方で使う。休診と往診はお知らせ一覧に並べない作りなので、
+    // **間違えると教室の案内がお知らせから消える。**
+    //
+    // 区分が空のときだけ、昔どおり題と説明から当てる（本番123件中52件）。
+    function getAdminCalendarEventCategory(event) {
+      return String(event && event.category || '').trim();
+    }
+
     function isAdminNoticeCalendarHolidayEvent(event) {
+      const category = getAdminCalendarEventCategory(event);
+      if (category) return /休診|休み|休業/.test(category);
       const title = String(event && event.title || '');
       const desc = String(event && event.desc || '');
       return /休診|休み|休業/.test(title + ' ' + desc);
     }
 
     function isAdminNoticeCalendarVisitEvent(event) {
+      const category = getAdminCalendarEventCategory(event);
+      if (category) return category.indexOf('往診') !== -1;
       const title = String(event && event.title || '');
       return title.indexOf('往診') !== -1;
     }
 
     function isAdminNoticeCalendarPostpartumCareEvent(event) {
+      const category = getAdminCalendarEventCategory(event);
+      if (category) return category.indexOf('訪問産後ケア') !== -1;
       const title = String(event && event.title || '');
       return title.indexOf('訪問産後ケア') !== -1;
     }
