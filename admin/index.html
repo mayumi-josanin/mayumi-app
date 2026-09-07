@@ -5737,9 +5737,11 @@
           </td>
           <td>
             <div class="flex" style="gap:5px;">
+              <!-- 【2026-09-07】サマリー（ℹ️）と編集（📝）の2つを外した。
+                   その場で編集が同じことをするため（院長のご判断）。
+                   **関数は残してある。**openUserSummaryModal / editUser は
+                   他からも呼ばれうるので、消すのは切り替えが落ち着いてから。 -->
               <button type="button" class="btn" title="この行で編集する" style="padding:4px 8px; font-size:11px;" onclick="toggleUserInline('${escapeHtml(u.memberId || '')}')">✏️ その場で</button>
-              <button type="button" class="btn btn-outline" title="会員サマリー" style="padding:4px 8px; font-size:11px;" onclick='openUserSummaryModal(${memberIdExpr}, ${rowIdxExpr})'>ℹ️</button>
-              <button type="button" class="btn" title="会員情報を編集" style="padding:4px 8px; font-size:11px;" onclick='editUser(${memberIdExpr}, ${u.rowIdx})'>📝</button>
               <button type="button" class="btn" title="会員を削除" style="padding:4px 8px; font-size:11px; background:var(--danger); color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick='deleteUser(${memberIdExpr}, ${u.rowIdx}, ${deleteName})'>🗑</button>
             </div>
           </td>
