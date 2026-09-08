@@ -2763,8 +2763,7 @@ const SUPPORT_FAQ_FALLBACK = [
   { category: 'NEWS', question: 'お知らせ一覧の見方を知りたい', keywords: 'お知らせ一覧,通知一覧,拡声器,📢', answer: '画面上部の📢ボタンを押すと「お知らせ一覧」を開けます。ここでは NEWS、カレンダー、ショップ、ホームの更新情報を新しい順で確認できます。カテゴリの絞り込みもできます。', priority: 84 },
   { category: 'NEWS', question: 'NEWSのカテゴリ切り替え方法を知りたい', keywords: 'NEWS,カテゴリ,切り替え,絞り込み,全て', answer: 'NEWSページ右上のカテゴリ選択を押すと、カテゴリごとに絞り込みできます。「全て」を選ぶとすべての記事が表示されます。', priority: 82 },
   { category: 'NEWS', question: 'まゆみのつぶやきはどこで見られますか？', keywords: 'つぶやき,NEWS,カテゴリ,まゆみのつぶやき', answer: '「まゆみのつぶやき」は NEWS ページ右上のカテゴリ選択から「まゆみのつぶやき」を選ぶと表示されます。院長からの短いメッセージや大切なお知らせを確認できます。', priority: 80 },
-  { category: 'NEWS', question: 'まゆみのブログとは何ですか？', keywords: 'まゆみのブログ,ブログ,外部ブログ', answer: '「まゆみのブログ」はマイページやホームの「🔗 公式サイト・SNS」から開ける外部ブログです。NEWS内の「まゆみのつぶやき」とは別の場所です。', priority: 78 },
-  { category: 'リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'LINE,ライン,instagram,facebook,ホームページ,公式サイト,SNS,問い合わせ', answer: 'ホーム画面またはマイページの「🔗 公式サイト・SNS」を開くと、公式ホームページ、Instagram、Facebook、公式LINE、まゆみのブログを選んで開けます。', priority: 76 },
+  { category: 'リンク', question: '公式LINEやSNSの開き方を知りたい', keywords: 'LINE,ライン,instagram,facebook,ホームページ,公式サイト,SNS,問い合わせ', answer: 'ホーム画面またはマイページの「🔗 公式サイト・SNS」を開くと、公式ホームページ、Instagram、Facebook、公式LINEを選んで開けます。', priority: 76 },
   { category: '使い方サポート', question: '使い方チャットでは何を質問できますか？', keywords: 'チャット,サポート,ボット,相談,何が聞ける', answer: '使い方チャットでは、登録、復元、パスコード、注文、注文履歴、スタンプ、特典、通知、NEWS、お知らせ一覧、カレンダー、メニュー一覧、更新方法など、アプリの使い方について質問できます。診療相談や個別予約は公式LINEをご利用ください。', priority: 74 },
   { category: '引き継ぎ', question: '再インストールしたあとの入り方を知りたい', keywords: '再インストール,削除,アンインストール,復元,入り方', answer: 'アプリを入れ直したあとは、新しく登録し直さず、アプリ一覧の入口の画面からこれまでと同じお名前とパスコードでお入りください。パスコードが分からない場合は「お困りのとき」から設定し直せます。', priority: 72 },
   { category: 'トラブル', question: '画面表示がおかしい・アプリが重いときはどうすればいいですか？', keywords: '表示されない,おかしい,崩れ,不具合,バグ,重い,遅い,フリーズ', answer: 'まず画面上部の🔄ボタンで最新情報を再取得してください。それでも改善しない場合は、アプリを一度閉じて再起動し、通信状態もご確認ください。再インストールが必要な場合は、先に引き継ぎコードを発行するか、復元方法を確認してから行ってください。', priority: 70 },
@@ -2782,14 +2781,13 @@ const SUPPORT_APP_GUIDE = [
   { category: '更新', question: 'アップデートが必要と表示されたらどうすればいいですか？', keywords: 'アップデート,更新が必要,app store,最新版', answer: '起動時に「アップデートが必要です」と表示された場合は、案内に従って最新版へ更新してください。軽微な情報更新は「🔄」ボタンで反映できます。', priority: 94 },
   { category: '予約', question: '予約はアプリからできますか？', keywords: '予約,よやく,line,予約方法', answer: 'このアプリから予約確定はできません。予約や個別相談は公式LINEからご連絡ください。メニュー一覧では内容確認のみできます。', priority: 93 },
   { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。ガチャ結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。', priority: 92 },
-  { category: 'NEWS', question: 'まゆみのブログとは何ですか？', keywords: 'まゆみのブログ,ブログ,外部ブログ', answer: '「まゆみのブログ」はマイページの「🔗 公式サイト・SNS」内にある外部ブログへのリンクです。院長の日々の想いや詳しい記事を読むことができます。ニュース内の「つぶやき」とは別物です。', priority: 88 },
   { category: 'NEWS', question: 'まゆみのつぶやきってどこで見られますか？', keywords: 'つぶやき,NEWS,カテゴリ,告知,メッセージ', answer: '「まゆみのつぶやき」はNEWSページの右上のカテゴリ選択で「まゆみのつぶやき」を選ぶと表示されます。アプリ内で手軽に読める院長からの短いメッセージや、大切なお知らせが配信されます。', priority: 86 }
 ];
 
 const SUPPORT_APP_KEYWORDS = [
   'アプリ', '使い方', 'プロフィール', 'アイコン', '通知', '注文', '履歴', 'スタンプ', '特典',
   'ガチャ', '予約', 'メニュー', 'カレンダー', 'news', '更新', 'アップデート', '公式line',
-  'ブログ', 'つぶやき', 'まゆみのブログ', 'まゆみのつぶやき', 'パスコード', 'ログイン',
+  'ブログ', 'つぶやき', 'まゆみのつぶやき', 'パスコード', 'ログイン',
   '引き継ぎ', '引き継ぎコード', '復元', '機種変更', '再インストール', 'ホーム画面',
   '会員id', '会員番号', 'お知らせ一覧', 'カート', '受け取り', '受取', 'カテゴリ'
 ];
@@ -5723,7 +5721,7 @@ function detectSupportTopic(messageNorm) {
   if (hasAnySupportKeyword(messageNorm, ['プロフィール', '会員id', 'memberid', '会員番号', 'アイコン', 'アバター', 'バナー', '画像'])) return 'profile';
   if (hasAnySupportKeyword(messageNorm, ['メニュー', '施術'])) return 'menu';
   if (hasAnySupportKeyword(messageNorm, ['カレンダー', 'イベント', '予定', '日程'])) return 'calendar';
-  if (hasAnySupportKeyword(messageNorm, ['news', 'ニュース', 'お知らせ', 'ブログ', 'お知らせ一覧', '通知一覧', '📢', '新着', 'つぶやき', 'まゆみのブログ', 'まゆみのつぶやき'])) return 'news';
+  if (hasAnySupportKeyword(messageNorm, ['news', 'ニュース', 'お知らせ', 'ブログ', 'お知らせ一覧', '通知一覧', '📢', '新着', 'つぶやき', 'まゆみのつぶやき'])) return 'news';
   if (hasAnySupportKeyword(messageNorm, ['line', 'ライン', 'instagram', 'facebook', 'ホームページ', '公式サイト', 'sns', '問い合わせ', 'お問い合わせ'])) return 'links';
   if (hasAnySupportKeyword(messageNorm, ['チャット', 'サポート', 'ボット', '相談'])) return 'support-chat';
   if (hasAnySupportKeyword(messageNorm, ['ホーム', 'トップ'])) return 'home';
@@ -6161,17 +6159,6 @@ function getFeatureSupportReply(messageNorm) {
         ['NEWSページの使い方を知りたい', 'まゆみのつぶやきはどこで見られますか？']
       );
     }
-    if (hasAnySupportKeyword(messageNorm, ['まゆみのブログ', 'ブログ'])) {
-      return buildFeatureSupportReply(
-        topic,
-        [
-          '「まゆみのブログ」は、マイページの「🔗 公式サイト・SNS」から閲覧できる外部ブログです。',
-          '以前から続いている院長のブログ記事をじっくり読むことができます。',
-          'NEWSにある「まゆみのつぶやき」とは内容が異なりますので、ぜひ両方チェックしてみてくださいね。'
-        ],
-        ['まゆみのブログとは何ですか？', 'まゆみのつぶやきはどこで見られますか？']
-      );
-    }
     if (hasAnySupportKeyword(messageNorm, ['まゆみのつぶやき', 'つぶやき'])) {
       return buildFeatureSupportReply(
         topic,
@@ -6181,7 +6168,7 @@ function getFeatureSupportReply(messageNorm) {
           '2. 右上のカテゴリ選択から「まゆみのつぶやき」を選んでください。',
           'アプリ内で手軽に読める院長からのメッセージや、最新の活動報告などが掲載されています。'
         ],
-        ['まゆみのつぶやきはどこで見られますか？', 'まゆみのブログとは何ですか？']
+        ['まゆみのつぶやきはどこで見られますか？', 'NEWSページの使い方を知りたい']
       );
     }
     return buildFeatureSupportReply(
@@ -6197,7 +6184,7 @@ function getFeatureSupportReply(messageNorm) {
           '2. 画面上部の📢ボタンでは、NEWS、カレンダー、ショップ、ホームの更新情報をまとめて確認できます。',
           '3. 新着があるとアイコンに赤いドットが表示されます。'
         ],
-      ['ブログや過去のお知らせの見方を知りたい', 'まゆみのブログとは何ですか？']
+      ['ブログや過去のお知らせの見方を知りたい', 'まゆみのつぶやきはどこで見られますか？']
     );
   }
 
