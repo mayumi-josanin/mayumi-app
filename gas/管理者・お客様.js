@@ -8221,13 +8221,89 @@ function handleUpdateAdminUser(data) {
 
     const range = sheet.getRange(rowIdx, 1, 1, USER_HEADERS.length);
     const currentRow = range.getValues()[0];
-    const updatedRow = currentRow.slice();
+    let updatedRow = currentRow.slice();
+
+    // **お名前を空にしない。**空の会員が作られた事故がある（2026-08-24）。
+    // サーバー側（admin_member.py の 会員を書き換える）も同じ守りを持つ。
+    if (data.name !== undefined && !String(data.name || '').trim()) {
+      return { status: 'error', message: 'お名前は空にできません' };
+    }
+
     updatedRow[USER_COL.NAME - 1] = normalizeStoredName_(data.name !== undefined ? data.name : currentRow[USER_COL.NAME - 1]);
     updatedRow[USER_COL.KANA - 1] = normalizeStoredKana_(data.kana !== undefined ? data.kana : currentRow[USER_COL.KANA - 1]);
     updatedRow[USER_COL.PHONE - 1] = normalizePhoneForStore_(data.phone !== undefined ? data.phone : currentRow[USER_COL.PHONE - 1]);
     updatedRow[USER_COL.MEMO - 1] = data.memo !== undefined ? data.memo : currentRow[USER_COL.MEMO - 1];
     updatedRow[USER_COL.BIRTHDAY - 1] = data.birthday !== undefined ? data.birthday : currentRow[USER_COL.BIRTHDAY - 1];
     updatedRow[USER_COL.ADDRESS - 1] = data.address !== undefined ? data.address : currentRow[USER_COL.ADDRESS - 1];
+
+    // ── ここから 2026-09-08 に足した分 ─────────────────────
+    //
+    // **会員管理の画面は15項目を送るが、ここは6項目しか書いていなかった。**
+    // サーバーへ渡している間は _会員をサーバーへ_ が全部書くので出ないが、
+    // **戻したとき（SERVER_TABLES を空にする緊急手順）に9項目が黙って捨てられる。**
+    // 戻す操作は当日いちばんありうる操作なので、そのときに限って壊れるのは避ける。
+    // 受け付ける項目は admin_member.py の 会員を書き換える() とそろえてある。
+    if (data.status !== undefined) {
+      updatedRow[USER_COL.STATUS - 1] = String(data.status || '').trim();
+    }
+    if (data.role !== undefined) {
+      updatedRow[USER_COL.ROLE - 1] = String(data.role || '').trim();
+    }
+    if (data.bijirisRegistered !== undefined || data.bijiris !== undefined) {
+      const ビ = data.bijirisRegistered !== undefined ? data.bijirisRegistered : data.bijiris;
+      const 登録 = (ビ === true || ['登録済み', 'true', '1'].indexOf(String(ビ || '').trim()) !== -1);
+      updatedRow[USER_COL.BIJIRIS - 1] = 登録 ? ACCOUNT_BIJIRIS_REGISTERED : '';
+    }
+
+    // **スタンプの列は手で書かない。**
+    // 個数だけ書き換えると、最終取得日・達成日時・履歴・特典との
+    // 辻褄が合わなくなる。既存の道具に通す。
+    if (data.stampCount !== undefined || data.stampCardNum !== undefined ||
+        data.lastStampAt !== undefined) {
+      const 状態 = getRewardStatusFromRow_(currentRow);
+      if (data.stampCount !== undefined) 状態.stampCount = Number(data.stampCount) || 0;
+      if (data.stampCardNum !== undefined) 状態.stampCardNum = Number(data.stampCardNum) || 0;
+      if (data.lastStampAt !== undefined) {
+        状態.lastStampAt = data.lastStampAt;
+        // 日付の列も一緒に直す。**片方だけ直すと、古いほうが優先される**
+        // （getRewardStatusFromRow_ は lastStampDate を先に見る）
+        状態.lastStampDate = '';
+      }
+      updatedRow = applyRewardStatusToRow_(updatedRow, sanitizeRewardStatus_(状態));
+    }
+
+    if (data.registrationSource !== undefined) {
+      updatedRow[USER_COL.REGISTRATION_SOURCE - 1] = String(data.registrationSource || '').trim();
+      updatedRow[USER_COL.REGISTRATION_SOURCE_UPDATED_AT - 1] = getCurrentTime();
+    }
+    if (data.registrationSourceDetail !== undefined) {
+      updatedRow[USER_COL.REGISTRATION_SOURCE_DETAIL - 1] = String(data.registrationSourceDetail || '').trim();
+    }
+
+    if (data.lineUserId !== undefined) {
+      // **2人に同じIDを付けない。**付けると予約システムで記録が混ざる。
+      // サーバー側は列に unique が付いているが、シートには無いので**ここで見る。**
+      // 空にするのは許す（結びつきを外したいことがある）。
+      const 新ID = String(data.lineUserId || '').trim();
+      if (新ID) {
+        const 最終行 = sheet.getLastRow();
+        if (最終行 > 1) {
+          const 一覧 = sheet.getRange(2, 1, 最終行 - 1, USER_COL.LINE_USER_ID).getValues();
+          for (let i = 0; i < 一覧.length; i++) {
+            if (i + 2 === rowIdx) continue;
+            if (String(一覧[i][USER_COL.LINE_USER_ID - 1] || '').trim() === 新ID) {
+              return {
+                status: 'error',
+                message: 'そのLINEユーザーIDは、ほかの会員（'
+                  + String(一覧[i][USER_COL.MEMBER_ID - 1] || '') + '）に付いています。'
+              };
+            }
+          }
+        }
+      }
+      updatedRow[USER_COL.LINE_USER_ID - 1] = 新ID;
+    }
+
     range.setValues([updatedRow]);
     return { status: 'ok' };
   } catch (err) {
