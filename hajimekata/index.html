@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>まゆみ助産院アプリ｜はじめ方</title>
+<link rel="icon" href="../icon.png">
+<!--
+  QRコードを読んだお客様が、いちばん最初に見る画面。
+
+  ─────────────────────────────────────────────────────────
+  なぜ作ったのか
+
+  それまでQRの行き先は入口（start/）で、**いきなり登録画面が出ていた。**
+  マニュアルにはこう書いてある:
+
+    「このアプリでいちばん多いトラブルは、ブラウザで先に登録したあと、
+      ホーム画面に追加してもう一度新規登録してしまうことです」
+
+  **つまり、いちばん事故の起きる順番のまま案内していた。**
+  注意はマニュアルにあったが、お客様がそれを必要とする瞬間には出ていなかった。
+
+  この画面は「先に追加 → アイコンから開く → そこで登録」の順に誘導する。
+
+  ─────────────────────────────────────────────────────────
+  作りの決めごと
+
+  ・**端末を見分けて、その端末の手順だけ出す。**
+    iPhoneの方にAndroidの手順を読ませない。迷いが増えるだけ。
+  ・**LINEの中で開かれたときを、いちばん先に見る。**
+    QRはLINEで配られることが多く、LINEの中のブラウザでは
+    ホーム画面に追加できない。ここで気づけないと、お客様は
+    「追加が出てこない」と詰まる。
+  ・**もう追加済みの方には、手順を出さない。**アプリを開く道だけ出す。
+  ・画像は必要な端末のぶんだけ読む（loading="lazy"）。
+    iPhone用の3枚で372KB。Androidの方には読ませない。
+-->
+<style>
+  :root {
+    --sage: #5b8c5a;
+    --sage-dark: #47703f;
+    --bg: #f7f5ef;
+    --card: #ffffff;
+    --text: #2f3327;
+    --muted: #6d7266;
+    --line: #e2ded2;
+    --warn-bg: #fdf3ec;
+    --warn-line: #e2b58b;
+    --warn-text: #8a4b1d;
+    --danger: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 20px 16px 56px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.75;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 22px; }
+  header img { width: 64px; height: 64px; border-radius: 16px; display: block; margin: 0 auto 10px; }
+  h1 { font-size: 19px; margin: 0 0 4px; letter-spacing: .02em; }
+  .lead { color: var(--muted); font-size: 14px; margin: 0; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 16px;
+    margin-bottom: 14px;
+  }
+  .card h2 { font-size: 16px; margin: 0 0 10px; color: var(--sage-dark); }
+
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; }
+  ol.steps > li {
+    counter-increment: s;
+    position: relative;
+    padding: 0 0 0 38px;
+    margin-bottom: 18px;
+  }
+  ol.steps > li:last-child { margin-bottom: 0; }
+  ol.steps > li::before {
+    content: counter(s);
+    position: absolute; left: 0; top: 1px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--sage); color: #fff;
+    font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.steps .t { font-size: 15px; font-weight: 700; }
+  ol.steps .d { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+  ol.steps img {
+    display: block; width: 100%; max-width: 260px;
+    margin: 10px 0 0; border-radius: 10px; border: 1px solid var(--line);
+  }
+
+  .warn {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    border-radius: 12px;
+    padding: 14px 15px;
+    margin-bottom: 14px;
+  }
+  .warn h2 { color: var(--warn-text); font-size: 15px; margin: 0 0 6px; }
+  .warn p { margin: 0; font-size: 14px; }
+
+  .btn {
+    display: block; width: 100%;
+    padding: 15px 16px;
+    background: var(--sage); color: #fff;
+    border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 700;
+    text-align: center; text-decoration: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn.quiet {
+    background: #fff; color: var(--sage-dark);
+    border: 1px solid var(--sage);
+  }
+  .btn + .btn { margin-top: 10px; }
+
+  .url-box {
+    background: #f2efe6; border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; font-size: 12.5px; word-break: break-all;
+    color: var(--muted); margin: 10px 0;
+  }
+  .foot {
+    text-align: center; font-size: 13px; color: var(--muted);
+    margin-top: 26px; line-height: 1.9;
+  }
+  .foot a { color: var(--sage-dark); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img src="../icon.png" alt="">
+    <h1>まゆみ助産院アプリ</h1>
+    <p class="lead">はじめ方のご案内</p>
+  </header>
+
+  <!-- ① LINEなどのアプリの中で開かれた場合。**いちばん先に見る。** -->
+  <div id="inapp" hidden>
+    <div class="warn">
+      <h2>このままでは追加できません</h2>
+      <p><strong id="inapp-name">LINE</strong>の中で開いています。ここではホーム画面に追加できないため、
+        <strong id="inapp-browser">Safari</strong>で開き直してください。</p>
+    </div>
+    <div class="card">
+      <h2>開き直しかた</h2>
+      <ol class="steps">
+        <li>
+          <div class="t">画面のすみにある <strong id="inapp-menu">…</strong> を押す</div>
+          <div class="d">右下、または右上にあります</div>
+        </li>
+        <li>
+          <div class="t">「<span id="inapp-open">Safariで開く</span>」を選ぶ</div>
+          <div class="d">「ブラウザで開く」と書かれていることもあります</div>
+        </li>
+        <li>
+          <div class="t">開いたら、この画面がもう一度出ます</div>
+          <div class="d">そこから続けてください</div>
+        </li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>うまくいかないとき</h2>
+      <p style="margin:0 0 4px; font-size:14px;">下のアドレスをコピーして、ご自分でブラウザに貼り付けてください。</p>
+      <div class="url-box" id="url-text"></div>
+      <button class="btn quiet" type="button" id="copy-btn">アドレスをコピーする</button>
+    </div>
+  </div>
+
+  <!-- ② もうホーム画面から開いている場合。手順は出さない -->
+  <div id="installed" hidden>
+    <div class="card" style="text-align:center;">
+      <h2 style="color:var(--sage-dark);">追加できています</h2>
+      <p style="font-size:14px; margin:0 0 14px;">
+        いまホーム画面のアイコンから開いています。<br>これからは、このアイコンからお使いください。
+      </p>
+      <a class="btn" href="../start/">アプリを開く</a>
+    </div>
+  </div>
+
+  <!-- ③ iPhone / iPad（Safari） -->
+  <div id="ios" hidden>
+    <div class="card">
+      <h2>iPhone の方（3ステップ）</h2>
+      <ol class="steps">
+        <li>
+          <div class="t">画面の下にある <strong>共有ボタン</strong> を押す</div>
+          <div class="d">四角から矢印が出ている印です</div>
+          <img src="ios-1.png" alt="画面の下の共有ボタンを押す" loading="lazy" width="512" height="640">
+        </li>
+        <li>
+          <div class="t">「ホーム画面に追加」を選ぶ</div>
+          <div class="d">少し下にスクロールすると出てきます</div>
+          <img src="ios-2.png" alt="メニューからホーム画面に追加を選ぶ" loading="lazy" width="512" height="640">
+        </li>
+        <li>
+          <div class="t">アイコンが変わったら「追加」を押す</div>
+          <div class="d">はじめは緑の「ま」ですが、少し待つと本来のアイコンに変わります。<strong>変わってから</strong>押してください</div>
+          <img src="ios-3.png" alt="アイコンが変わるのを待ってから追加を押す" loading="lazy" width="512" height="640">
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ④ Android（Chrome） -->
+  <div id="android" hidden>
+    <div class="card">
+      <h2>Android の方（3ステップ）</h2>
+      <ol class="steps">
+        <li>
+          <div class="t">画面の右上にある <strong>︙</strong> を押す</div>
+          <div class="d">点が縦に3つ並んだ印です</div>
+        </li>
+        <li>
+          <div class="t">「ホーム画面に追加」を選ぶ</div>
+          <div class="d">「アプリをインストール」と出ることもあります。どちらでも構いません</div>
+        </li>
+        <li>
+          <div class="t">「追加」または「インストール」を押す</div>
+          <div class="d">ホーム画面にアイコンができます</div>
+        </li>
+      </ol>
+    </div>
+    <!-- Chrome が「入れられます」と教えてくれたときだけ出す。
+         出せない端末のほうが多いので、**出ないのが普通**という作りにしてある。 -->
+    <button class="btn" type="button" id="install-btn" hidden>この端末に追加する</button>
+  </div>
+
+  <!-- ⑤ パソコン -->
+  <div id="pc" hidden>
+    <div class="card">
+      <h2>スマートフォンでお開きください</h2>
+      <p style="font-size:14px; margin:0;">
+        このアプリは、スマートフォンのホーム画面に追加してお使いいただくものです。
+        お手持ちのスマートフォンのカメラで、受付でお渡しした紙のQRコードを読み取ってください。
+      </p>
+    </div>
+  </div>
+
+  <!-- ⑥ 追加のあと。**いちばん大事な注意。** -->
+  <div id="after" hidden>
+    <div class="warn">
+      <h2>この画面では登録しないでください</h2>
+      <p>ホーム画面にできた<strong>アイコンから開いて</strong>、そこでご登録ください。<br>
+        先にこの画面で登録すると、<strong>同じお名前で2つできてしまい</strong>、スタンプが分かれてしまいます。</p>
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:6px;">すでに会員の方へ</h2>
+      <p style="font-size:14px; margin:0;">
+        アイコンから開いたあと、これまでと同じ<strong>お名前とパスコード</strong>でお入りいただけます。
+        <strong>新しく登録し直さないでください。</strong>これまでの記録が分かれてしまいます。
+      </p>
+    </div>
+  </div>
+
+  <p class="foot">
+    うまくいかないときは、受付にお声がけください。<br>
+    <a href="../manuals/お客様アプリ操作マニュアル.html">くわしい使い方を見る</a>
+  </p>
+
+</div>
+
+<script>
+(function () {
+  var ua = navigator.userAgent || '';
+  var show = function (id) { var e = document.getElementById(id); if (e) e.hidden = false; };
+
+  // **もうホーム画面から開いているか。**ここが最優先。
+  // 追加済みの方に追加の手順を出すと、二度追加してしまう。
+  var standalone = (window.navigator.standalone === true) ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+
+  // アプリの中のブラウザ。**ここでは追加できない。**
+  // LINEで配られることが多いので、いちばん多い詰まりどころ。
+  var inapp = null;
+  if (/\bLine\//i.test(ua)) inapp = 'LINE';
+  else if (/Instagram/i.test(ua)) inapp = 'Instagram';
+  else if (/FBAN|FBAV/i.test(ua)) inapp = 'Facebook';
+
+  var isIOS = /iPad|iPhone|iPod/.test(ua) ||
+    // iPadOS は Mac を名乗る。指で触れるかどうかで見分ける
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isAndroid = /Android/.test(ua);
+  // iOS では Safari 以外（Chrome・Firefox）から追加できない
+  var iosOtherBrowser = isIOS && /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+
+  if (standalone) {
+    show('installed');
+    return;
+  }
+
+  if (inapp || iosOtherBrowser) {
+    document.getElementById('inapp-name').textContent = inapp || 'このブラウザ';
+    var browser = isIOS ? 'Safari' : 'Chrome';
+    document.getElementById('inapp-browser').textContent = browser;
+    document.getElementById('inapp-open').textContent = browser + 'で開く';
+    document.getElementById('inapp-menu').textContent = isIOS ? '…' : '︙';
+    document.getElementById('url-text').textContent = location.href;
+    show('inapp');
+
+    var btn = document.getElementById('copy-btn');
+    btn.addEventListener('click', function () {
+      var done = function () { btn.textContent = 'コピーしました'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(location.href).then(done, function () {
+          btn.textContent = '長押しで選んでコピーしてください';
+        });
+      } else {
+        btn.textContent = '上のアドレスを長押しでコピーしてください';
+      }
+    });
+    return;
+  }
+
+  if (isIOS) { show('ios'); show('after'); return; }
+  if (isAndroid) { show('android'); show('after'); return; }
+  show('pc');
+})();
+
+// Chrome が「入れられます」と教えてくれたときだけボタンを出す。
+// **出ないのが普通**なので、出ない前提で手順を先に書いてある。
+var machiuke = null;
+window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault();
+  machiuke = e;
+  var b = document.getElementById('install-btn');
+  if (!b) return;
+  b.hidden = false;
+  b.addEventListener('click', function () {
+    b.hidden = true;
+    machiuke.prompt();
+    machiuke = null;
+  });
+});
+</script>
+</body>
+</html>

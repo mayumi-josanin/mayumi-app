@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>まゆみ助産院アプリ はじめ方（A4・配布用）</title>
+<!--
+  受付でお渡しする紙。**A4・1枚。**
+
+  ブラウザで開いて、そのまま印刷してください（Ctrl+P / ⌘P）。
+  用紙 A4・余白なし・背景のグラフィックを印刷する、で刷れます。
+
+  ─────────────────────────────────────────────────────────
+  作りの決めごと
+
+  ・**白黒コピーでも読めるようにする。**院内でコピーして配ることを見込む。
+    赤枠は白黒だと灰色になるので、**色に頼らず数字と文章で分かる**ようにした。
+  ・QRは誤り訂正を最大（H）で作ってある。折れても汚れても読める。
+  ・**「先に追加、あとで登録」の順番をいちばん目立たせる。**
+    ここを外すと、同じお名前で2つ登録される事故が起きる。
+    実際に起きているので、注意ではなく手順の一部として書いた。
+  ・iPhone と Android を左右に並べる。自分の側だけ読めばよい形。
+-->
+<style>
+  @page { size: A4 portrait; margin: 12mm 12mm 10mm; }
+
+  :root {
+    --sage: #4d7a4c;
+    --ink: #23261f;
+    --muted: #5f645a;
+    --line: #cfcabb;
+    --tint: #f4f2ea;
+    --warn: #8a4b1d;
+    --warn-bg: #fbf1e8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+                 YuGothic, "Noto Sans JP", sans-serif;
+    color: var(--ink);
+    background: #fff;
+    line-height: 1.6;
+    font-size: 10.5pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .sheet {
+    width: 186mm;
+    margin: 0 auto;
+    padding: 6mm 0 0;
+  }
+
+  /* ---- 見出し ---- */
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 6mm;
+    border-bottom: 2.5pt solid var(--sage);
+    padding-bottom: 4mm;
+    margin-bottom: 5mm;
+  }
+  .head .icon { width: 16mm; height: 16mm; border-radius: 4mm; flex: none; }
+  .head h1 { font-size: 17pt; margin: 0 0 1mm; letter-spacing: .04em; }
+  .head p { font-size: 10pt; color: var(--muted); margin: 0; }
+
+  /* ---- QR ---- */
+  .qr-row {
+    display: flex; align-items: center; gap: 7mm;
+    background: var(--tint);
+    border: 0.8pt solid var(--line);
+    border-radius: 3mm;
+    padding: 5mm 6mm;
+    margin-bottom: 5mm;
+  }
+  .qr-row img { width: 34mm; height: 34mm; flex: none; }
+  .qr-row .n { font-size: 13pt; font-weight: 700; margin: 0 0 1.5mm; }
+  .qr-row .s { font-size: 9.5pt; color: var(--muted); margin: 0; }
+  .qr-row .u {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 8pt; color: var(--muted); margin-top: 2mm; word-break: break-all;
+  }
+
+  /* ---- 手順（左右） ---- */
+  .cols { display: flex; gap: 5mm; margin-bottom: 5mm; }
+  .col {
+    flex: 1 1 0;
+    border: 0.8pt solid var(--line);
+    border-radius: 3mm;
+    padding: 4mm 4.5mm 4.5mm;
+    min-width: 0;
+  }
+  .col h2 {
+    font-size: 11.5pt; margin: 0 0 3mm;
+    padding-bottom: 2mm; border-bottom: 1pt solid var(--line);
+    color: var(--sage);
+  }
+  ol { margin: 0; padding: 0; list-style: none; counter-reset: k; }
+  ol li {
+    counter-increment: k; position: relative;
+    padding-left: 8mm; margin-bottom: 3.5mm;
+  }
+  ol li:last-child { margin-bottom: 0; }
+  ol li::before {
+    content: counter(k);
+    position: absolute; left: 0; top: 0.3mm;
+    width: 5.5mm; height: 5.5mm; border-radius: 50%;
+    background: var(--sage); color: #fff;
+    font-size: 8.5pt; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol .t { font-size: 10pt; font-weight: 700; line-height: 1.5; }
+  ol .d { font-size: 8.8pt; color: var(--muted); line-height: 1.5; }
+  ol img {
+    display: block; width: 100%; max-width: 40mm;
+    margin: 1.5mm 0 0; border: 0.5pt solid var(--line); border-radius: 1.5mm;
+  }
+
+  .shots { display: flex; gap: 3mm; margin-top: 3.5mm; }
+  .shots figure { flex: 1 1 0; margin: 0; min-width: 0; }
+  .shots img {
+    display: block; width: 100%; max-width: none; margin: 0;
+    border: 0.5pt solid var(--line); border-radius: 1.5mm;
+  }
+  .shots figcaption {
+    font-size: 8pt; color: var(--muted); text-align: center; margin-top: 1mm;
+  }
+
+  /* ---- いちばん大事な注意 ---- */
+  .warn {
+    background: var(--warn-bg);
+    border: 1.2pt solid var(--warn);
+    border-radius: 3mm;
+    padding: 4mm 5mm;
+    margin-bottom: 4mm;
+  }
+  .warn h2 { font-size: 11.5pt; margin: 0 0 2mm; color: var(--warn); }
+  .warn p { margin: 0; font-size: 10pt; line-height: 1.65; }
+  .warn strong { border-bottom: 1.5pt solid var(--warn); }
+
+  .foot {
+    font-size: 9pt; color: var(--muted);
+    border-top: 0.8pt solid var(--line);
+    padding-top: 3mm;
+    display: flex; justify-content: space-between; gap: 4mm;
+  }
+
+  /* ---- 画面で見るとき（印刷のときは出さない） ---- */
+  .hint {
+    max-width: 186mm; margin: 8mm auto; padding: 4mm 5mm;
+    background: #eef3ec; border: 1pt solid #b9cdb6; border-radius: 3mm;
+    font-size: 10pt; color: #2f4a2e;
+  }
+  @media print { .hint { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="hint">
+  <strong>印刷のしかた</strong>　この画面で <code>⌘P</code>（Windows は <code>Ctrl+P</code>）を押し、
+  用紙を <strong>A4・縦</strong>、倍率を <strong>100%</strong>、
+  <strong>「背景のグラフィック」をオン</strong>にして印刷してください。1枚に収まります。
+</div>
+
+<div class="sheet">
+
+  <div class="head">
+    <img class="icon" src="../icon.png" alt="">
+    <div>
+      <h1>まゆみ助産院アプリ　はじめ方</h1>
+      <p>スマートフォンのホーム画面に追加して、アイコンからお使いいただけます。</p>
+    </div>
+  </div>
+
+  <div class="qr-row">
+    <img src="assets/hajimekata-qr.png" alt="はじめ方の案内ページのQRコード">
+    <div>
+      <p class="n">まず、このQRコードを読み取ってください</p>
+      <p class="s">
+        カメラアプリを向けるだけで開きます。<br>
+        お使いの機種に合わせた手順が、画面に出ます。
+      </p>
+      <p class="u">https://mayumi-josanin.github.io/mayumi-app/hajimekata/</p>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <h2>iPhone をお使いの方</h2>
+      <ol>
+        <li>
+          <div class="t">画面の下の「共有ボタン」を押す</div>
+          <div class="d">四角から矢印が出ている印（下の写真 ①）</div>
+        </li>
+        <li>
+          <div class="t">「ホーム画面に追加」を選ぶ</div>
+          <div class="d">少し下にスクロールすると出ます（下の写真 ②）</div>
+        </li>
+        <li>
+          <div class="t">アイコンが変わってから「追加」を押す</div>
+          <div class="d">はじめは緑の「ま」。少し待つと本来の絵に変わります</div>
+        </li>
+      </ol>
+      <!-- **写真は横に並べる。**縦に積むとA4に収まらない（34mm はみ出した） -->
+      <div class="shots">
+        <figure><img src="assets/ios-1.png" alt=""><figcaption>① 共有ボタン</figcaption></figure>
+        <figure><img src="assets/ios-2.png" alt=""><figcaption>② ホーム画面に追加</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="col">
+      <h2>Android をお使いの方</h2>
+      <ol>
+        <li>
+          <div class="t">画面の右上の「︙」を押す</div>
+          <div class="d">点が縦に3つ並んだ印</div>
+        </li>
+        <li>
+          <div class="t">「ホーム画面に追加」を選ぶ</div>
+          <div class="d">「アプリをインストール」と出ることもあります。どちらでも構いません</div>
+        </li>
+        <li>
+          <div class="t">「追加」または<br>「インストール」を押す</div>
+          <div class="d">ホーム画面にアイコンができます</div>
+        </li>
+      </ol>
+      <p style="font-size:8.8pt; color:var(--muted); margin:4mm 0 0; border-top:0.5pt dashed var(--line); padding-top:3mm;">
+        <strong>LINEから開いた方へ</strong><br>
+        LINEの中では追加できません。画面のすみの「…」から
+        <strong>「Safariで開く」「Chromeで開く」</strong>を選んでから、上の手順を行ってください。
+      </p>
+    </div>
+  </div>
+
+  <div class="warn">
+    <h2>いちばん大切なお願い</h2>
+    <p>
+      ホーム画面に<strong>追加してから</strong>、そのアイコンで開いてご登録ください。<br>
+      追加する前に登録してしまうと、<strong>同じお名前で2つ</strong>できてしまい、スタンプが分かれてしまいます。<br>
+      すでに会員の方は、<strong>新しく登録し直さず</strong>、これまでと同じお名前とパスコードでお入りください。
+    </p>
+  </div>
+
+  <div class="foot">
+    <span>うまくいかないときは、受付にお声がけください。</span>
+    <span>まゆみ助産院</span>
+  </div>
+
+</div>
+
+</body>
+</html>
