@@ -5,338 +5,311 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>まゆみ助産院アプリ はじめてのご利用（画面つき手順）</title>
 <!--
-  QRコードを読んでから、ログインするまでの流れを、実際の画面で追う資料。
+  QRコードを読んでから、ログインしてアプリが開くまでを、**いまの画面**で追う資料。
+  2026-09-12 に一から作り直した（院長のご指示）。古い写真は使っていない。
 
-  ブラウザで開いて ⌘P（Windows は Ctrl+P）→「PDFとして保存」で
-  PDFになります。用紙 A4・縦・倍率100%・背景のグラフィックをオン。
-
-  ─────────────────────────────────────────────────────────
-  画面はどこから撮ったか
-
-  ・②⑦⑧  確認用（develop）の実物を撮った（2026-09-12）
-  ・③④⑤  以前から assets にあった iPhone の実機写真
-  ・①⑥    写真ではなく、QRとアイコンそのものを置いた
-           （カメラを向けている様子・ホーム画面は、実機で撮らないと出せない）
-
-  **画面を変えたら、この資料の写真も古くなる。**
-  撮り直しは、確認用サーバーを立てて hajimekata と start を開けばできる。
+  ブラウザで開いて ⌘P（Windows は Ctrl+P）→「PDFに保存」。
+  用紙 A4・縦・倍率100%・背景のグラフィックをオン。3ページ。
 
   ─────────────────────────────────────────────────────────
-  なぜ「先に追加、あとで登録」を繰り返し書くのか
+  画面はどこから撮ったか（assets/cur/）
 
-  マニュアルにこうある:
-    「このアプリでいちばん多いトラブルは、ブラウザで先に登録したあと、
-      ホーム画面に追加してもう一度新規登録してしまうことです」
+    hajimekata.jpg  はじめ方の画面（iPhone の枝）       確認用 develop の実物
+    line.jpg        LINEの中で開いたときの画面          同上
+    login.jpg       入口のログイン                       同上
+    register.jpg    入口のはじめての方（全体）           同上（縮小して1枚に）
+    apps.jpg        ログイン後のアプリ一覧               同上。表示部分だけをブラウザ内で出した
+                                                        （サーバーへは何も送っていない。お名前は見本）
+    forgot.jpg      パスコードを忘れた方                 同上
 
-  同じお名前で会員が2つでき、スタンプが分かれる。**実際に起きている。**
-  だから注意書きではなく、手順の順番そのもので防ぐ。
+  **撮れないもの**（iPhone本体の画面・ログイン後のアプリ本体）は、
+  差し替え用の枠にしてある。枠の中に撮り方を書いた。
+  実機で撮った写真を assets/cur/ に置き、<img> に差し替えれば完成する。
+
+  ─────────────────────────────────────────────────────────
+  流れの根拠（app.js / start/index.html を読んで確かめた）
+
+    ホーム画面のアイコン → index.html
+      → 未ログインなら start/ へ（app.js initApp: shouldSendToLauncher）
+      → 入口で「ログイン」か「はじめての方」
+      → 成功すると アプリ一覧（appsView）
+      → 「まゆみ助産院」を押すとアプリ本体。入口の記録からお名前を引き継ぐので
+        ここで登録は聞かれない（app.js 冒頭のコメント）
+
+  だから「先に追加 → アイコンから開く → 入口で登録」の順で書く。
+  ブラウザで先に登録すると同じお名前で2つできる事故が実際に起きている。
 -->
 <style>
   @page { size: A4 portrait; margin: 12mm 12mm 10mm; }
-
   :root {
-    --sage: #4d7a4c;
-    --sage-pale: #eef3ec;
-    --ink: #23261f;
-    --muted: #5f645a;
-    --line: #cfcabb;
-    --tint: #f4f2ea;
-    --warn: #8a4b1d;
-    --warn-bg: #fbf1e8;
+    --sage: #4d7a4c; --sage-pale: #eef3ec;
+    --ink: #23261f; --muted: #5f645a; --line: #cfcabb; --tint: #f4f2ea;
+    --warn: #8a4b1d; --warn-bg: #fbf1e8;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic",
-                 YuGothic, "Noto Sans JP", sans-serif;
-    color: var(--ink);
-    background: #fff;
-    line-height: 1.6;
-    font-size: 10pt;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", YuGothic, "Noto Sans JP", sans-serif;
+    color: var(--ink); background: #fff; line-height: 1.6; font-size: 10pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   .sheet { width: 186mm; margin: 0 auto; padding: 4mm 0 0; }
   .sheet + .sheet { page-break-before: always; }
 
-  /* ---- 見出し ---- */
-  .head {
-    display: flex; align-items: center; gap: 5mm;
-    border-bottom: 2.5pt solid var(--sage);
-    padding-bottom: 3.5mm; margin-bottom: 5mm;
-  }
+  .head { display: flex; align-items: center; gap: 5mm; border-bottom: 2.5pt solid var(--sage); padding-bottom: 3.5mm; margin-bottom: 5mm; }
   .head img { width: 14mm; height: 14mm; border-radius: 3.5mm; flex: none; }
   .head h1 { font-size: 16pt; margin: 0 0 0.8mm; letter-spacing: .03em; }
   .head p { font-size: 9.5pt; color: var(--muted); margin: 0; }
   .head .page { margin-left: auto; font-size: 9pt; color: var(--muted); white-space: nowrap; }
 
-  .lead {
-    background: var(--tint); border: 0.8pt solid var(--line); border-radius: 3mm;
-    padding: 3.5mm 5mm; margin-bottom: 5mm; font-size: 10pt;
-  }
+  .lead { background: var(--tint); border: 0.8pt solid var(--line); border-radius: 3mm; padding: 3.5mm 5mm; margin-bottom: 5mm; font-size: 10pt; }
   .lead strong { color: var(--sage); }
 
-  /* ---- 手順 ---- */
   .steps { display: flex; gap: 5mm; }
+  .steps + .steps { margin-top: 5mm; }
   .step { flex: 1 1 0; min-width: 0; }
   .step .cap { display: flex; align-items: flex-start; gap: 2.5mm; margin-bottom: 2.5mm; }
-  .step .no {
-    width: 6.5mm; height: 6.5mm; border-radius: 50%; flex: none;
-    background: var(--sage); color: #fff;
-    font-size: 9.5pt; font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-    margin-top: 0.3mm;
-  }
+  .step .no { width: 6.5mm; height: 6.5mm; border-radius: 50%; flex: none; background: var(--sage); color: #fff; font-size: 9.5pt; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 0.3mm; }
   .step .t { font-size: 10.5pt; font-weight: 700; line-height: 1.45; }
   .step .d { font-size: 9pt; color: var(--muted); line-height: 1.5; margin-top: 0.5mm; }
-  .shot {
-    border: 0.8pt solid var(--line); border-radius: 2mm;
-    overflow: hidden; background: #fff;
-  }
+
+  .shot { border: 0.8pt solid var(--line); border-radius: 2mm; overflow: hidden; background: #fff; }
   .shot img { display: block; width: 100%; }
-  .shot.small { max-width: 46mm; margin: 0 auto; }
-  /* **⑤だけ小さくする。**③④と同じ大きさだと 289.9mm になり、
-     A4（275mm）を超えて4ページ目にこぼれた。押す場所が要るのは③④で、
-     ⑤は「待ってから押す」が伝わればよい */
   .shot.mid { max-width: 62mm; margin: 0 auto; }
 
-  /* ①と⑥ の代わりに置くもの */
-  .stand {
-    border: 0.8pt solid var(--line); border-radius: 2mm;
-    background: var(--tint);
-    padding: 6mm 4mm; text-align: center;
+  /* ---- 実機で撮る写真の枠 ----
+     iPhone本体の画面はここでは撮れない。枠だけ置き、撮り方を中に書く。
+     写真を assets/cur/ に置いて <img> に差し替える。比率は画面写真と同じ 4:5 */
+  .slot {
+    border: 1.2pt dashed #b9a98f; border-radius: 2mm; background: #fbf9f4;
+    aspect-ratio: 4 / 5; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 4mm; color: var(--warn);
   }
+  .slot .k { font-size: 9.5pt; font-weight: 700; margin-bottom: 1.5mm; }
+  .slot .h { font-size: 8.5pt; line-height: 1.5; color: #7a6a52; }
+  .slot.mid { max-width: 56mm; margin: 0 auto; }
+
+  .stand { border: 0.8pt solid var(--line); border-radius: 2mm; background: var(--tint); padding: 6mm 4mm; text-align: center; }
   .stand img.qr { width: 40mm; height: 40mm; display: block; margin: 0 auto 3mm; }
-  .stand img.ic { width: 22mm; height: 22mm; border-radius: 5mm; display: block; margin: 0 auto 3mm; }
   .stand .n { font-size: 9pt; color: var(--muted); }
 
-  /* ---- 注意 ---- */
-  .warn {
-    background: var(--warn-bg); border: 1.2pt solid var(--warn);
-    border-radius: 3mm; padding: 4mm 5mm; margin-top: 5mm;
-  }
+  .warn { background: var(--warn-bg); border: 1.2pt solid var(--warn); border-radius: 3mm; padding: 4mm 5mm; margin-top: 5mm; }
   .warn h2 { font-size: 11pt; margin: 0 0 1.5mm; color: var(--warn); }
   .warn p { margin: 0; font-size: 9.5pt; line-height: 1.6; }
   .warn strong { border-bottom: 1.5pt solid var(--warn); }
 
-  .note {
-    background: var(--sage-pale); border: 0.8pt solid #b9cdb6;
-    border-radius: 3mm; padding: 4mm 5mm; margin-top: 5mm; font-size: 9.5pt;
-  }
+  .note { background: var(--sage-pale); border: 0.8pt solid #b9cdb6; border-radius: 3mm; padding: 4mm 5mm; margin-top: 5mm; font-size: 9.5pt; }
   .note h2 { font-size: 10.5pt; margin: 0 0 1.5mm; color: var(--sage); }
   .note ul { margin: 0; padding-left: 5mm; }
   .note li { margin-bottom: 1mm; }
+  .note.row { display: flex; gap: 5mm; align-items: flex-start; }
+  .note.row .txt { flex: 1 1 0; }
+  .note.row .shot { flex: 0 0 40mm; }
 
-  .foot {
-    font-size: 8.5pt; color: var(--muted);
-    border-top: 0.8pt solid var(--line);
-    padding-top: 2.5mm; margin-top: 5mm;
-    display: flex; justify-content: space-between;
-  }
+  .foot { font-size: 8.5pt; color: var(--muted); border-top: 0.8pt solid var(--line); padding-top: 2.5mm; margin-top: 5mm; display: flex; justify-content: space-between; }
 
-  /* ---- 画面で見るときだけ ---- */
-  .hint {
-    max-width: 186mm; margin: 8mm auto; padding: 4mm 5mm;
-    background: #eef3ec; border: 1pt solid #b9cdb6; border-radius: 3mm;
-    font-size: 10pt; color: #2f4a2e;
-  }
+  .hint { max-width: 186mm; margin: 8mm auto; padding: 4mm 5mm; background: #eef3ec; border: 1pt solid #b9cdb6; border-radius: 3mm; font-size: 10pt; color: #2f4a2e; }
   @media print { .hint { display: none; } }
 </style>
 </head>
 <body>
 
 <div class="hint">
-  <strong>PDFにするには</strong>　この画面で <code>⌘P</code>（Windows は <code>Ctrl+P</code>）を押し、
-  送信先を <strong>「PDFに保存」</strong>、用紙 <strong>A4・縦</strong>、倍率 <strong>100%</strong>、
-  <strong>「背景のグラフィック」をオン</strong>にしてください。3ページになります。
+  <strong>PDFにするには</strong>　この画面で <code>⌘P</code>（Windows は <code>Ctrl+P</code>）→ 送信先「<strong>PDFに保存</strong>」、
+  用紙 <strong>A4・縦</strong>、倍率 <strong>100%</strong>、<strong>背景のグラフィックをオン</strong>。3ページになります。
+  点線の枠は、iPhone本体で撮った写真を入れる場所です。
 </div>
 
-<!-- ============ 1ページ目 ============ -->
+<!-- ============ 1 ============ -->
 <div class="sheet">
   <div class="head">
     <img src="assets/icon-192.png" alt="">
     <div>
       <h1>まゆみ助産院アプリ　はじめてのご利用</h1>
-      <p>QRコードを読み取ってから、ログインするまでの流れ</p>
+      <p>QRコードを読み取ってから、ログインしてアプリが開くまで</p>
     </div>
     <div class="page">1 / 3</div>
   </div>
 
   <div class="lead">
-    お手持ちのスマートフォンのホーム画面に追加して、アイコンからお使いいただきます。
-    <strong>先にホーム画面へ追加してから、ご登録ください。</strong>
+    お手持ちのスマートフォンの<strong>ホーム画面に追加</strong>して、アイコンからお使いいただきます。
+    <strong>先にホーム画面へ追加し、アイコンから開いてからご登録ください。</strong>
     順番が逆になると、同じお名前で会員が2つできてしまいます。
   </div>
 
   <div class="steps">
     <div class="step">
-      <div class="cap">
-        <div class="no">1</div>
-        <div>
-          <div class="t">QRコードを読み取る</div>
-          <div class="d">カメラアプリを向けるだけで開きます。受付でお渡しした紙のQRコードをお使いください。</div>
-        </div>
-      </div>
+      <div class="cap"><div class="no">1</div><div>
+        <div class="t">QRコードを読み取る</div>
+        <div class="d">カメラアプリを向けるだけで開きます。受付でお渡しした紙のQRコードをお使いください。</div>
+      </div></div>
       <div class="stand">
         <img class="qr" src="assets/hajimekata-qr.png" alt="はじめ方の案内ページのQRコード">
         <div class="n">このQRコードです</div>
       </div>
     </div>
-
     <div class="step">
-      <div class="cap">
-        <div class="no">2</div>
-        <div>
-          <div class="t">はじめ方の画面が出ます</div>
-          <div class="d">お使いの機種を見分けて、その機種の手順だけが出ます。<strong>この画面ではまだ登録しません。</strong></div>
-        </div>
-      </div>
-      <div class="shot"><img src="assets/step-hajimekata.jpg" alt="はじめ方の画面"></div>
+      <div class="cap"><div class="no">2</div><div>
+        <div class="t">はじめ方の画面が出ます</div>
+        <div class="d">お使いの機種を見分けて、その機種の手順だけが出ます。<strong>この画面ではまだ登録しません。</strong></div>
+      </div></div>
+      <div class="shot"><img src="assets/cur/hajimekata.jpg" alt="はじめ方の画面（iPhone）"></div>
     </div>
   </div>
 
-  <div class="note">
-    <h2>LINEから開いた方へ</h2>
-    LINEの中のブラウザでは、ホーム画面に追加できません。
-    画面のすみの「…」から <strong>「Safariで開く」「Chromeで開く」</strong> を選んでから、次へお進みください。
-    この画面がそのことを教えてくれます。
+  <div class="note row">
+    <div class="txt">
+      <h2>LINEから開いた方へ</h2>
+      LINEの中のブラウザでは、ホーム画面に追加できません。そのときは右の画面が出ます。
+      画面のすみの「…」から <strong>「Safariで開く」「Chromeで開く」</strong> を選んでから、次へお進みください。
+    </div>
+    <div class="shot"><img src="assets/cur/line.jpg" alt="LINEの中で開いたときの画面"></div>
   </div>
 
   <div class="foot"><span>まゆみ助産院</span><span>1 / 3</span></div>
 </div>
 
-<!-- ============ 2ページ目 ============ -->
+<!-- ============ 2 ============ -->
 <div class="sheet">
   <div class="head">
     <img src="assets/icon-192.png" alt="">
     <div>
       <h1>ホーム画面に追加する</h1>
-      <p>iPhone の画面です（Android の方は次のページ下をご覧ください）</p>
+      <p>iPhone の画面です（Android の方は 3ページ目の下をご覧ください）</p>
     </div>
     <div class="page">2 / 3</div>
   </div>
 
-  <!-- **2列にして写真を大きくする。**3列だと赤枠が小さく、
-       どこを押すのか紙の上で読み取れない。1ページに余白もあった（142mm / 275mm） -->
+  <!-- ③④⑤ は1段3列。2段にすると 303mm で A4 を超えた（2026-09-12 計測） -->
   <div class="steps">
     <div class="step">
-      <div class="cap">
-        <div class="no">3</div>
-        <div>
-          <div class="t">共有ボタンを押す</div>
-          <div class="d">画面の下にある、四角から矢印が出ている印です（赤い枠のところ）</div>
-        </div>
+      <div class="cap"><div class="no">3</div><div>
+        <div class="t">画面の下の「共有ボタン」を押す</div>
+        <div class="d">四角から矢印が出ている印です</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">iPhoneの写真をここに</div>
+        <div class="h">Safariではじめ方の画面を開き、下に共有ボタンが見えている状態</div>
       </div>
-      <div class="shot"><img src="assets/ios-1.png" alt="共有ボタンを押す"></div>
     </div>
-
     <div class="step">
-      <div class="cap">
-        <div class="no">4</div>
-        <div>
-          <div class="t">「ホーム画面に追加」を選ぶ</div>
-          <div class="d">少し下にスクロールすると出てきます</div>
-        </div>
+      <div class="cap"><div class="no">4</div><div>
+        <div class="t">「ホーム画面に追加」を選ぶ</div>
+        <div class="d">少し下にスクロールすると出てきます</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">iPhoneの写真をここに</div>
+        <div class="h">共有ボタンを押したあと、「ホーム画面に追加」が見えている状態</div>
       </div>
-      <div class="shot"><img src="assets/ios-2.png" alt="ホーム画面に追加を選ぶ"></div>
+    </div>
+    <div class="step">
+      <div class="cap"><div class="no">5</div><div>
+        <div class="t">「追加」を押す</div>
+        <div class="d">右上の「追加」で、ホーム画面にアイコンができます。名前は「まゆみ助産院」です。</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">iPhoneの写真をここに</div>
+        <div class="h">「ホーム画面に追加」の確認画面（右上に「追加」）</div>
+      </div>
     </div>
   </div>
 
-  <div class="steps" style="margin-top:5mm;">
-    <div class="step">
-      <div class="cap">
-        <div class="no">5</div>
-        <div>
-          <div class="t">アイコンが変わってから「追加」を押す</div>
-          <div class="d">
-            はじめは緑の「ま」が出ます。少し待つと、本来のアイコンに変わります。<br>
-            <strong>変わってから「追加」を押してください。</strong>
-            緑のまま押しても使えますが、ホーム画面のアイコンが緑のままになります。
-          </div>
-        </div>
-      </div>
+  <div class="steps">
+    <div class="step" style="flex: 1.4 1 0;">
+      <div class="cap"><div class="no">6</div><div>
+        <div class="t">ホーム画面のアイコンから開く</div>
+        <div class="d"><strong>これからは必ずこのアイコンから開いてください。</strong>Safariから開くと記録が分かれることがあります。アイコンを押すと、次のページの「入口」の画面が出ます。</div>
+      </div></div>
     </div>
     <div class="step">
-      <div class="shot mid"><img src="assets/ios-3.png" alt="アイコンが変わるのを待って追加を押す"></div>
+      <div class="slot mid">
+        <div class="k">iPhoneの写真をここに</div>
+        <div class="h">ホーム画面に「まゆみ助産院」のアイコンができた状態</div>
+      </div>
     </div>
   </div>
 
   <div class="foot"><span>まゆみ助産院</span><span>2 / 3</span></div>
 </div>
 
-<!-- ============ 3ページ目 ============ -->
+<!-- ============ 3 ============ -->
 <div class="sheet">
   <div class="head">
     <img src="assets/icon-192.png" alt="">
     <div>
-      <h1>アイコンから開いて、ログインする</h1>
-      <p>ここからが、実際にお使いいただく画面です</p>
+      <h1>入口でログインして、アプリを開く</h1>
+      <p>アイコンを押すと、はじめに「入口」の画面が出ます</p>
     </div>
     <div class="page">3 / 3</div>
   </div>
 
   <div class="steps">
     <div class="step">
-      <div class="cap">
-        <div class="no">6</div>
-        <div>
-          <div class="t">ホーム画面のアイコンから開く</div>
-          <div class="d"><strong>必ずこのアイコンから開いてください。</strong>ブラウザから開くと、記録が分かれることがあります</div>
-        </div>
-      </div>
-      <div class="stand">
-        <img class="ic" src="assets/icon-192.png" alt="ホーム画面にできるアイコン">
-        <div class="n">ホーム画面に、このアイコンができます</div>
-      </div>
+      <div class="cap"><div class="no">7</div><div>
+        <div class="t">すでに会員の方は「ログイン」</div>
+        <div class="d">これまでと同じ<strong>お名前とパスコード</strong>でお入りいただけます</div>
+      </div></div>
+      <div class="shot"><img src="assets/cur/login.jpg" alt="入口のログイン画面"></div>
     </div>
-
     <div class="step">
-      <div class="cap">
-        <div class="no">7</div>
-        <div>
-          <div class="t">すでに会員の方は「ログイン」</div>
-          <div class="d">これまでと同じ<strong>お名前とパスコード</strong>でお入りいただけます</div>
-        </div>
-      </div>
-      <div class="shot"><img src="assets/step-login.jpg" alt="ログインの画面"></div>
+      <div class="cap"><div class="no">8</div><div>
+        <div class="t">はじめての方は「はじめての方」</div>
+        <div class="d">お名前・生年月日・ふりがな・電話番号・ご住所と、<strong>パスコード（数字4桁か6桁）</strong>を決めて「登録する」</div>
+      </div></div>
+      <div class="shot"><img src="assets/cur/register.jpg" alt="はじめての方の登録画面"></div>
     </div>
-
     <div class="step">
-      <div class="cap">
-        <div class="no">8</div>
-        <div>
-          <div class="t">はじめての方は「はじめての方」</div>
-          <div class="d">お名前・生年月日・ふりがな・電話番号・ご住所と、<strong>パスコード（数字4桁か6桁）</strong>をお決めください</div>
-        </div>
-      </div>
-      <div class="shot"><img src="assets/step-register.jpg" alt="はじめての方の登録画面"></div>
+      <div class="cap"><div class="no">9</div><div>
+        <div class="t">アプリ一覧から「まゆみ助産院」を押す</div>
+        <div class="d">ログインできると、お名前とアプリの一覧が出ます。「まゆみ助産院」を押すとアプリが開きます。<strong>登録はもう聞かれません。</strong></div>
+      </div></div>
+      <div class="shot"><img src="assets/cur/apps.jpg" alt="ログイン後のアプリ一覧"></div>
     </div>
   </div>
 
-  <div class="warn">
-    <h2>いちばん大切なお願い</h2>
-    <p>
-      すでに会員の方は、<strong>新しく登録し直さないでください。</strong>
-      これまでのスタンプや記録が、2つに分かれてしまいます。<br>
-      パスコードが分からないときは、ログインの画面の下にある「<strong>お困りのとき</strong>」からお進みください。
-      お名前と、電話番号または生年月日で確認のうえ、その場で設定できます。
-    </p>
+  <div class="steps">
+    <div class="step">
+      <div class="cap"><div class="no">10</div><div>
+        <div class="t">アプリのホーム画面が開きます</div>
+        <div class="d">スタンプカード・お知らせ・メニュー・ショップがお使いいただけます。次からはアイコンを押すだけで、この画面が開きます。</div>
+      </div></div>
+      <div class="slot" style="aspect-ratio: 5 / 2.4;">
+        <div class="k">iPhoneの写真をここに</div>
+        <div class="h">ログイン後のアプリのホーム画面（院長ご自身のアカウントで）</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="note row" style="margin-top:0;">
+        <div class="txt">
+          <h2>パスコードが分からないとき</h2>
+          ログイン画面の下の「<strong>お困りのとき</strong>」→「パスコードを忘れた方」。お名前と、電話番号または生年月日で確認のうえ、<strong>その場で新しいパスコードを設定できます。</strong>まだ決めていない方も同じところからです。
+        </div>
+        <div class="shot" style="flex: 0 0 30mm;"><img src="assets/cur/forgot.jpg" alt="パスコードを忘れた方の画面"></div>
+      </div>
+    </div>
   </div>
 
-  <div class="note">
-    <h2>Android をお使いの方</h2>
-    <ul>
-      <li>③〜⑤の代わりに、画面の右上の「<strong>︙</strong>」を押します</li>
-      <li>「ホーム画面に追加」または「アプリをインストール」を選びます</li>
-      <li>「追加」または「インストール」を押すと、ホーム画面にアイコンができます</li>
-      <li>⑥からあとは、iPhone と同じです</li>
-    </ul>
+  <!-- 注意と Android は横並び。縦に積むと 335mm で A4 を超えた（2026-09-12 計測） -->
+  <div class="steps" style="margin-top:5mm;">
+    <div class="step" style="flex: 1.3 1 0;">
+      <div class="warn" style="margin-top:0;">
+        <h2>いちばん大切なお願い</h2>
+        <p>すでに会員の方は、<strong>「はじめての方」から登録し直さないでください。</strong>これまでのスタンプや記録が、2つに分かれてしまいます。パスコードが分からないときは、上の「お困りのとき」からお進みください。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="note" style="margin-top:0;">
+        <h2>Android をお使いの方</h2>
+        <ul>
+          <li>③〜⑤の代わりに、右上の「<strong>︙</strong>」→「ホーム画面に追加」（または「アプリをインストール」）→「追加」</li>
+          <li>⑥からあとは iPhone と同じです</li>
+        </ul>
+      </div>
+    </div>
   </div>
 
-  <div class="foot">
-    <span>うまくいかないときは、受付にお声がけください。</span>
-    <span>まゆみ助産院　3 / 3</span>
-  </div>
+  <div class="foot"><span>うまくいかないときは、受付にお声がけください。</span><span>まゆみ助産院　3 / 3</span></div>
 </div>
 
 </body>

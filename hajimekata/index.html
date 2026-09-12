@@ -8,6 +8,12 @@
      それを読ませると、QRを読んだ直後の画面が携帯回線で重くなる。
      この画面用に小さくしたものを置いてある（40KB） -->
 <link rel="icon" href="icon-192.png">
+<!-- **この2行が無いと、iPhoneの「ホーム画面に追加」はアプリではなく
+     この案内ページ自体を登録してしまう。**iOS は開いているページの manifest を
+     見て start_url（アプリ本体）をアイコンの行き先にする。アイコンの絵も
+     apple-touch-icon から取る。無いとページの縮小画像になる（2026-09-12 に気づいた） -->
+<link rel="manifest" href="../manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
 <!--
   QRコードを読んだお客様が、いちばん最初に見る画面。
 
