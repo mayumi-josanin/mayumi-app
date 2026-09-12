@@ -74,10 +74,45 @@ if ($大きさ -lt 1024) {
 
 Write-Host "  できました: $(Split-Path -Leaf $ファイル)（$([math]::Round($大きさ/1KB,1)) KB）"
 
+# ---- そのときの件数を、控えの隣に書き残す ----
+#
+# **「戻せるか」を確かめるには、取った時点の件数が要る。**
+# 本番と比べると、控えを取ったあとに増えた分まで「不一致」になる。
+# 実際、日中に 控えを試す.ps1 を流したら content_news が
+# 105 対 104 になり、**正常な控えを「戻せません」と言った**（2026-09-12）。
+# 増えた1件は、その日の 6:51 に投稿されたものだった。
+#
+# **毎回そう出る道具は、誰も信じなくなる。**だから取った時点を記録する。
+$件数ファイル = [System.IO.Path]::ChangeExtension($ファイル, ".counts.txt")
+try {
+  $表の一覧 = docker compose exec -T db psql -U postgres -d mayumi -t -A `
+    -c "SELECT relname FROM pg_stat_user_tables ORDER BY relname;"
+  $行 = @()
+  foreach ($t in $表の一覧) {
+    $名 = "$t".Trim()
+    if (-not $名) { continue }
+    # **引用は文字列を組み立てて作る。**
+    # PowerShell の二重引用符の中で \" は逃がし文字にならず、そのまま渡って
+    # 「unterminated quoted identifier」になる（2026-09-12 に踏んだ）。
+    $sql = 'SELECT count(*) FROM "' + $名 + '";'
+    $n = docker compose exec -T db psql -U postgres -d mayumi -t -A -c $sql
+    $行 += ("{0}|{1}" -f $名, ("$n" -join "").Trim())
+  }
+  # **ASCII で書く。**PowerShell の既定は UTF-16 で、あとで読むときに壊れる。
+  [System.IO.File]::WriteAllLines($件数ファイル, $行, [System.Text.UTF8Encoding]::new($false))
+  Write-Host "  そのときの件数も残しました: $(Split-Path -Leaf $件数ファイル)（$($行.Count) 表）"
+} catch {
+  # 件数が残せなくても控えは取れている。**控えのほうを止めない。**
+  Write-Host "  ※ 件数を残せませんでした（控えそのものは取れています）: $_"
+}
+
 # ---- 古いものを片付ける ----
 $境目 = (Get-Date).AddDays(-$残す日数)
 $消した = 0
 Get-ChildItem -Path $置き場 -Filter "mayumi-*.dump" | Where-Object { $_.LastWriteTime -lt $境目 } | ForEach-Object {
+  # 隣の件数ファイルも一緒に捨てる。**残すと、どの控えのものか分からなくなる。**
+  $そえ = [System.IO.Path]::ChangeExtension($_.FullName, ".counts.txt")
+  if (Test-Path $そえ) { Remove-Item $そえ -Force }
   Remove-Item $_.FullName -Force
   $消した++
 }
