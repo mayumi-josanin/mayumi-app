@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>まゆみ助産院アプリ QRコード（掲示・配布用）</title>
+<!--
+  受付に置く・お渡しする、QRだけの紙。A4・1枚。
+  ⌘P（Windows は Ctrl+P）→「PDFに保存」。用紙 A4・縦・倍率100%・背景のグラフィックをオン。
+
+  読み取り先は「はじめ方」の案内ページ（main に出ている）:
+    https://mayumi-josanin.github.io/mayumi-app/hajimekata/
+  アプリ本体ではなく案内ページを指す理由は はじめ方A4.html と同じ。
+  いきなり登録画面へ行くと「ブラウザで登録→追加→もう一度登録」の二重登録が起きる。
+
+  QR は SVG（拡大しても粗くならない）。誤り訂正 H なので、折れ・汚れに強い。
+  文字は最小限。手順は案内ページが機種ごとに出すので、紙には書かない。
+-->
+<style>
+  @page { size: A4 portrait; margin: 0; }
+  :root { --sage: #4d7a4c; --ink: #23261f; --muted: #5f645a; --line: #cfcabb; --tint: #f4f2ea; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", YuGothic, "Noto Sans JP", sans-serif;
+    color: var(--ink); background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  /* height を固定すると、子の margin が漏れて 333mm になり 2枚目へこぼれた
+     （2026-09-13 計測）。min-height にして、はみ出しは詰めて防ぐ */
+  .sheet {
+    width: 210mm; min-height: 297mm; margin: 0 auto;
+    padding: 14mm 20mm 10mm;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .brand { display: flex; align-items: center; gap: 6mm; margin-bottom: 4mm; }
+  .brand img { width: 22mm; height: 22mm; border-radius: 5.5mm; }
+  .brand .n { font-size: 22pt; font-weight: 700; letter-spacing: .04em; text-align: left; line-height: 1.25; }
+  .brand .s { font-size: 11pt; color: var(--muted); text-align: left; }
+
+  h1 { font-size: 24pt; margin: 0 0 3mm; letter-spacing: .05em; }
+  .lead { font-size: 12.5pt; color: var(--muted); margin: 0 0 5mm; line-height: 1.6; }
+
+  .qr-box {
+    background: #fff; border: 1.2pt solid var(--line); border-radius: 6mm;
+    padding: 5mm; margin-bottom: 4mm;
+  }
+  .qr-box img { width: 90mm; height: 90mm; display: block; }
+
+  .how { font-size: 14pt; font-weight: 700; margin: 0 0 2mm; }
+  .how small { display: block; font-size: 11pt; font-weight: 400; color: var(--muted); margin-top: 2mm; line-height: 1.7; }
+
+  .steps {
+    display: flex; gap: 6mm; margin: 4mm 0 0; width: 100%;
+  }
+  .step {
+    flex: 1 1 0; background: var(--tint); border: 0.8pt solid var(--line); border-radius: 4mm;
+    padding: 4mm 4mm; font-size: 10.5pt; line-height: 1.5;
+  }
+  .step .no {
+    width: 9mm; height: 9mm; border-radius: 50%; background: var(--sage); color: #fff;
+    font-size: 12pt; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 2.5mm;
+  }
+  .step strong { display: block; font-size: 12pt; margin-bottom: 1mm; }
+
+  .url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9.5pt; color: var(--muted); margin-top: 4mm; word-break: break-all; }
+  .foot { margin-top: 4mm; font-size: 10.5pt; color: var(--muted); line-height: 1.6; }
+
+  .hint { max-width: 210mm; margin: 8mm auto; padding: 4mm 5mm; background: #eef3ec; border: 1pt solid #b9cdb6; border-radius: 3mm; font-size: 10pt; color: #2f4a2e; }
+  @media print { .hint { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="hint">
+  <strong>PDFにするには</strong>　<code>⌘P</code>（Windows は <code>Ctrl+P</code>）→ 送信先「<strong>PDFに保存</strong>」、
+  用紙 <strong>A4・縦</strong>、倍率 <strong>100%</strong>、余白「<strong>なし</strong>」、<strong>背景のグラフィックをオン</strong>。1枚になります。
+</div>
+
+<div class="sheet">
+  <div class="brand">
+    <img src="assets/icon-192.png" alt="">
+    <div>
+      <div class="n">まゆみ助産院<br>公式アプリ</div>
+      <div class="s">スタンプ・お知らせ・メニュー・ショップ</div>
+    </div>
+  </div>
+
+  <h1>アプリのはじめ方</h1>
+  <p class="lead">スマートフォンのカメラで、下のQRコードを読み取ってください。<br>お使いの機種に合わせた手順が、画面に出ます。</p>
+
+  <div class="qr-box">
+    <img src="assets/hajimekata-qr.svg" alt="まゆみ助産院アプリ はじめ方のQRコード">
+  </div>
+
+  <p class="how">カメラを向けるだけで開きます
+    <small>iPhone は「カメラ」アプリ、Android は「カメラ」または「Googleレンズ」で。<br>LINE のQRリーダーで読んだときは、開いた画面の案内に沿って Safari / Chrome で開き直してください。</small>
+  </p>
+
+  <div class="steps">
+    <div class="step"><div class="no">1</div><strong>QRを読む</strong>はじめ方の画面が開きます</div>
+    <div class="step"><div class="no">2</div><strong>ホーム画面に追加</strong>画面の手順のとおりに</div>
+    <div class="step"><div class="no">3</div><strong>アイコンから開く</strong>そこで登録・ログイン</div>
+  </div>
+
+  <div class="url">https://mayumi-josanin.github.io/mayumi-app/hajimekata/</div>
+
+  <div class="foot">
+    すでに会員の方は、新しく登録し直さず「ログイン」からお入りください。<br>
+    うまくいかないときは、受付にお声がけください。
+  </div>
+</div>
+
+</body>
+</html>
