@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+<rect width="390" height="844" rx="40" fill="#2b5f9e"/>
+<text x="28" y="44" font-size="15" font-weight="700" fill="#111">22:39</text>
+<g fill="#111"><rect x="318" y="34" width="3" height="10"/><rect x="323" y="31" width="3" height="13"/><rect x="328" y="28" width="3" height="16"/><rect x="333" y="25" width="3" height="19"/></g>
+<rect x="352" y="30" width="24" height="12" rx="3" fill="none" stroke="#111" stroke-width="1.5"/><rect x="354" y="32" width="16" height="8" rx="1.5" fill="#111"/>
+
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cb7e6"/><stop offset="1" stop-color="#2b5f9e"/></linearGradient></defs>
+<rect width="390" height="844" rx="40" fill="url(#g)"/>
+<text x="28" y="44" font-size="15" font-weight="700" fill="#fff">22:41</text>
+<rect x="28" y="110" width="62" height="62" rx="14" fill="#34c759"/><text x="59" y="192" font-size="11" text-anchor="middle" fill="#fff">メッセージ</text><rect x="114" y="110" width="62" height="62" rx="14" fill="#f0a03a"/><text x="145" y="192" font-size="11" text-anchor="middle" fill="#fff">写真</text><rect x="200" y="110" width="62" height="62" rx="14" fill="#3ba7ff"/><text x="231" y="192" font-size="11" text-anchor="middle" fill="#fff">マップ</text><rect x="286" y="110" width="62" height="62" rx="14" fill="#5aa9f2"/><text x="317" y="192" font-size="11" text-anchor="middle" fill="#fff">天気</text><rect x="28" y="210" width="62" height="62" rx="14" fill="#f7d94c"/><text x="59" y="292" font-size="11" text-anchor="middle" fill="#fff">メモ</text><rect x="114" y="210" width="62" height="62" rx="14" fill="#111"/><text x="145" y="292" font-size="11" text-anchor="middle" fill="#fff">時計</text><rect x="200" y="210" width="62" height="62" rx="14" fill="#8e8e93"/><text x="231" y="292" font-size="11" text-anchor="middle" fill="#fff">設定</text><rect x="286" y="210" width="62" height="62" rx="13.64" fill="#f7dcc6"/><text x="317.0" y="253.4" font-size="34.720000000000006" font-weight="700" text-anchor="middle" fill="#e9836b">ま</text><text x="317" y="292" font-size="11" text-anchor="middle" fill="#fff">まゆみ助産院</text><rect x="278" y="202" width="78" height="100" rx="10" fill="none" stroke="#e5484d" stroke-width="4"/>
+<rect x="24" y="740" width="342" height="84" rx="26" fill="rgba(255,255,255,0.35)"/>
+<g><rect x="44" y="752" width="60" height="60" rx="14" fill="#34c759"/><rect x="124" y="752" width="60" height="60" rx="14" fill="#1e7bf5"/><rect x="204" y="752" width="60" height="60" rx="14" fill="#f0a03a"/><rect x="284" y="752" width="60" height="60" rx="14" fill="#8e8e93"/></g>
+</svg>

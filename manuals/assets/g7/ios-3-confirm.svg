@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+<rect width="390" height="844" rx="40" fill="#f2f2f7"/>
+<text x="28" y="44" font-size="15" font-weight="700" fill="#111">22:39</text>
+<g fill="#111"><rect x="318" y="34" width="3" height="10"/><rect x="323" y="31" width="3" height="13"/><rect x="328" y="28" width="3" height="16"/><rect x="333" y="25" width="3" height="19"/></g>
+<rect x="352" y="30" width="24" height="12" rx="3" fill="none" stroke="#111" stroke-width="1.5"/><rect x="354" y="32" width="16" height="8" rx="1.5" fill="#111"/>
+
+<rect x="0" y="60" width="390" height="784" fill="#f2f2f7"/>
+<rect x="0" y="60" width="390" height="72" fill="#f9f9fb"/><line x1="0" y1="132" x2="390" y2="132" stroke="#d9d9de"/>
+<circle cx="40" cy="96" r="18" fill="#fff"/><path d="M33 89 l14 14 M47 89 l-14 14" stroke="#111" stroke-width="2.2" fill="none"/>
+<text x="195.0" y="102" font-size="17" font-weight="700" text-anchor="middle" fill="#111">ホーム画面に追加</text>
+<rect x="306" y="78" width="66" height="36" rx="18" fill="#2b7fff"/><text x="339" y="102" font-size="16" font-weight="700" text-anchor="middle" fill="#fff">追加</text>
+<rect x="0" y="150" width="390" height="96" fill="#fff"/><rect x="18" y="162" width="64" height="64" rx="14.08" fill="#f7dcc6"/><text x="50.0" y="206.8" font-size="35.84" font-weight="700" text-anchor="middle" fill="#e9836b">ま</text>
+<text x="98" y="190" font-size="17" fill="#111">まゆみ助産院</text><line x1="98" y1="202" x2="372" y2="202" stroke="#e5e5ea"/>
+<text x="98" y="232" font-size="14" fill="#a0a0a5">https://mayumi-josanin.github.io/may…</text>
+<rect x="0" y="286" width="390" height="52" fill="#fff"/><text x="18" y="319" font-size="17" fill="#111">Webアプリとして開く</text>
+<rect x="318" y="296" width="54" height="32" rx="16" fill="#34c759"/><circle cx="356" cy="312" r="13" fill="#fff"/>
+<text x="18" y="366" font-size="12" fill="#8a8a8e">このWebサイトにすばやくアクセスできるようにホーム画面にアイコンを追加します。</text>
+<rect x="300" y="72" width="78" height="48" rx="10" fill="none" stroke="#e5484d" stroke-width="4"/>
+</svg>

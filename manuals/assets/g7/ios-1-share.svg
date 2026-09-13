@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+<rect width="390" height="844" rx="40" fill="#f2f2f7"/>
+<text x="28" y="44" font-size="15" font-weight="700" fill="#111">22:39</text>
+<g fill="#111"><rect x="318" y="34" width="3" height="10"/><rect x="323" y="31" width="3" height="13"/><rect x="328" y="28" width="3" height="16"/><rect x="333" y="25" width="3" height="19"/></g>
+<rect x="352" y="30" width="24" height="12" rx="3" fill="none" stroke="#111" stroke-width="1.5"/><rect x="354" y="32" width="16" height="8" rx="1.5" fill="#111"/>
+
+<rect x="0" y="60" width="390" height="700" fill="#f7f5ef"/>
+<rect x="163" y="90" width="64" height="64" rx="16" fill="#fff" stroke="#e5e2d8"/><rect x="171" y="98" width="48" height="48" rx="10.56" fill="#f7dcc6"/><text x="195.0" y="131.6" font-size="26.880000000000003" font-weight="700" text-anchor="middle" fill="#e9836b">ま</text>
+<text x="195.0" y="184" font-size="17" font-weight="700" text-anchor="middle" fill="#2f3327">まゆみ助産院アプリ</text>
+<text x="195.0" y="208" font-size="13" text-anchor="middle" fill="#6d7266">はじめ方のご案内</text>
+<rect x="24" y="232" width="342" height="470" rx="14" fill="#fff" stroke="#e2ded2"/>
+<text x="40" y="264" font-size="14" font-weight="700" fill="#47703f">iPhone の方（3ステップ）</text>
+<circle cx="52" cy="298" r="12" fill="#5b8c5a"/><text x="52" y="303" font-size="12" font-weight="700" text-anchor="middle" fill="#fff">1</text>
+<text x="72" y="302" font-size="13" font-weight="700" fill="#2f3327">画面の下にある 共有ボタン を押す</text>
+<rect x="0" y="760" width="390" height="84" fill="#fafafa"/><line x1="0" y1="760" x2="390" y2="760" stroke="#d9d9de"/>
+<rect x="18" y="764" width="354" height="34" rx="10" fill="#e9e9ee"/><text x="195.0" y="787" font-size="13" text-anchor="middle" fill="#333">mayumi-josanin.github.io</text>
+<g stroke="#2b7fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+<path d="M52 830 l-10 -10 l10 -10"/><path d="M338 810 l10 10 l-10 10"/>
+<path d="M195.0 826 v-22 M187.0 812 l8 -8 l8 8"/><rect x="181.0" y="818" width="28" height="20" rx="4"/>
+</g>
+<rect x="167.0" y="798" width="56" height="46" rx="10" fill="none" stroke="#e5484d" stroke-width="4"/>
+</svg>
