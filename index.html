@@ -6,8 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>まゆみ助産院</title>
   <!-- ▼アプリアイコンの設定（ご自身で用意した icon.png をNetlifyにアップロードしてください）▼ -->
-  <link rel="apple-touch-icon" href="icon.png">
-  <link rel="icon" type="image/png" href="icon.png">
+  <!-- icon.png は 2048x2048・4.7MB。iOS が読み終わるまで「ホーム画面に追加」の
+       確認画面がグレーのままになる。実サイズの小さい画像を先に渡す（2026-09-13） -->
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,7 +27,7 @@
   <div class="onboarding-overlay" id="onboardingScreen">
     <div class="onboarding-content">
       <div style="text-align:center;margin-bottom:20px;">
-        <img src="icon.png" alt="Logo"
+        <img src="icons/icon-192.png" alt="Logo"
           style="width:80px;height:80px;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,0.15);object-fit:cover;">
       </div>
       <div class="onboarding-title">ようこそ</div>
@@ -77,7 +80,7 @@
   <header class="header">
     <div class="header-inner">
       <div class="logo">
-        <img src="icon.png" alt="Logo" class="logo-img"
+        <img src="icons/icon-192.png" alt="Logo" class="logo-img"
           style="width:36px;height:36px;border-radius:10px;margin-right:10px;object-fit:cover;">
         <div>
           <div class="logo-text">まゆみ助産院</div>
@@ -936,7 +939,7 @@
   <div class="setup-overlay" id="setupOverlay">
     <div class="setup-sheet">
       <div class="setup-icon">
-        <img src="icon.png" alt="Logo" style="width:64px;height:64px;border-radius:15px;object-fit:cover;">
+        <img src="icons/icon-192.png" alt="Logo" style="width:64px;height:64px;border-radius:15px;object-fit:cover;">
       </div>
       <div id="setupFormContent">
         <div class="setup-title" id="setupTitle">ようこそ！</div>
@@ -1008,7 +1011,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-  <script src="app.js?v=20260908-3"></script>
+  <script src="app.js?v=20260913-1"></script>
 </body>
 
 </html>
