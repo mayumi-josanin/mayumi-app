@@ -26,7 +26,7 @@
   .sheet { width: 186mm; margin: 0 auto; padding: 3mm 0 0; display: flex; flex-direction: column; }
   .sheet + .sheet { page-break-before: always; }
 
-  .head { display: flex; align-items: center; gap: 5mm; border-bottom: 2.5pt solid var(--sage); padding-bottom: 3mm; margin-bottom: 4.5mm; }
+  .head { display: flex; align-items: center; gap: 5mm; border-bottom: 2.5pt solid var(--sage); padding-bottom: 2.5mm; margin-bottom: 3.5mm; }
   .head img { width: 14mm; height: 14mm; border-radius: 3.5mm; flex: none; }
   .head h1 { font-size: 17pt; margin: 0 0 0.8mm; letter-spacing: .03em; }
   .head p { font-size: 10pt; color: var(--muted); margin: 0; }
@@ -57,22 +57,24 @@
   /* ---- 説明ページ（2枚の画面を横に） ---- */
   .two { display: flex; gap: 8mm; align-items: flex-start; }
   .two .col { flex: 1 1 0; min-width: 0; }
-  .cap { display: flex; align-items: flex-start; gap: 3mm; margin-bottom: 3mm; }
+  .cap { display: flex; align-items: flex-start; gap: 3mm; margin-bottom: 2.5mm; }
   .cap .no { width: 8mm; height: 8mm; border-radius: 50%; flex: none; background: var(--sage); color:#fff; font-size: 11pt; font-weight: 700; display:flex; align-items:center; justify-content:center; margin-top: 0.5mm; }
-  .cap .t { font-size: 13pt; font-weight: 700; line-height: 1.45; }
-  .cap .d { font-size: 10.5pt; color: var(--muted); line-height: 1.55; margin-top: 1mm; }
+  .cap .t { font-size: 12.5pt; font-weight: 700; line-height: 1.4; }
+  .cap .d { font-size: 10pt; color: var(--muted); line-height: 1.5; margin-top: 0.8mm; }
   /* 縦長の画面をそのまま並べると 300mm を超えた（2026-09-13 計測）。高さを 150mm でそろえて切る */
-  .shot { border: 0.8pt solid var(--line); border-radius: 3mm; overflow: hidden; background: #fff; height: 150mm; }
+  /* 高さで切らない。切ると入力欄やボタンが見えなくなる（2026-09-13 院長のご指摘） */
+  /* 切らずに全体を出す。縦長の図が 193mm あって A4 を超えたので、幅を 76mm に絞って高さを下げる（2026-09-13） */
+  .shot { border: 0.8pt solid var(--line); border-radius: 3mm; overflow: hidden; background: #fff; width: 76mm; margin: 0 auto; }
   .shot img { display: block; width: 100%; }
   .shot.fig img { background: #f2f2f7; }
-  .note { background: var(--sage-pale); border: 0.8pt solid #b9cdb6; border-radius: 3mm; padding: 3.5mm 5mm; margin-top: 4.5mm; font-size: 10.5pt; line-height: 1.6; }
+  .note { background: var(--sage-pale); border: 0.8pt solid #b9cdb6; border-radius: 3mm; padding: 3mm 4.5mm; margin-top: 3.5mm; font-size: 10pt; line-height: 1.55; }
   .note h2 { font-size: 11pt; margin: 0 0 1.5mm; color: var(--sage); }
   .note p { margin: 0; }
-  .warn { background: var(--warn-bg); border: 1.2pt solid var(--warn); border-radius: 3mm; padding: 3.5mm 5mm; margin-top: 4.5mm; font-size: 10.5pt; line-height: 1.6; }
+  .warn { background: var(--warn-bg); border: 1.2pt solid var(--warn); border-radius: 3mm; padding: 3mm 4.5mm; margin-top: 3.5mm; font-size: 10pt; line-height: 1.55; }
   .warn h2 { font-size: 11pt; margin: 0 0 1.5mm; color: var(--warn); }
   .warn p { margin: 0; }
   .warn strong { border-bottom: 1.5pt solid var(--warn); }
-  .foot { margin-top: 4mm; font-size: 9pt; color: var(--muted); border-top: 0.8pt solid var(--line); padding-top: 2.5mm; display: flex; justify-content: space-between; }
+  .foot { margin-top: 3mm; font-size: 9pt; color: var(--muted); border-top: 0.8pt solid var(--line); padding-top: 2.5mm; display: flex; justify-content: space-between; }
   .figcap { font-size: 8.5pt; color: var(--muted); text-align: center; margin-top: 1.5mm; }
 
   .hint { max-width: 186mm; margin: 8mm auto; padding: 4mm 5mm; background:#eef3ec; border:1pt solid #b9cdb6; border-radius:3mm; font-size:10pt; color:#2f4a2e; }
@@ -110,7 +112,7 @@
   <div class="two">
     <div class="col">
       <div class="cap"><div class="no">1</div><div><div class="t">QRを読むと、この画面（入口）が出ます</div><div class="d"><strong>ここではまだログイン・登録をしません。</strong>先にホーム画面へ追加します。</div></div></div>
-      <div class="shot"><img src="assets/g7/login.jpg" alt="入口の画面"></div>
+      <div class="shot"><img src="assets/g7/login-full.jpg" alt="入口の画面"></div>
       <div class="figcap">実際の画面</div>
     </div>
     <div class="col">
@@ -153,7 +155,7 @@
     </div>
     <div class="col">
       <div class="cap"><div class="no">6</div><div><div class="t">「入口」でログイン、または登録</div><div class="d"><strong>すでに会員の方は「ログイン」</strong>。これまでと同じお名前とパスコードで。<strong>はじめての方は「はじめての方」</strong>から登録します。</div></div></div>
-      <div class="shot"><img src="assets/g7/login.jpg" alt="入口の画面"></div>
+      <div class="shot"><img src="assets/g7/login-full.jpg" alt="入口の画面"></div>
       <div class="figcap">実際の画面</div>
     </div>
   </div>
@@ -167,7 +169,7 @@
   <div class="two">
     <div class="col">
       <div class="cap"><div class="no">1</div><div><div class="t">QRを読むと、この画面（入口）が出ます</div><div class="d"><strong>ここではまだログイン・登録をしません。</strong>先にホーム画面へ追加します。</div></div></div>
-      <div class="shot"><img src="assets/g7/login.jpg" alt="入口の画面"></div>
+      <div class="shot"><img src="assets/g7/login-full.jpg" alt="入口の画面"></div>
       <div class="figcap">実際の画面</div>
     </div>
     <div class="col">
@@ -210,7 +212,7 @@
     </div>
     <div class="col">
       <div class="cap"><div class="no">6</div><div><div class="t">「入口」でログイン、または登録</div><div class="d"><strong>すでに会員の方は「ログイン」</strong>。これまでと同じお名前とパスコードで。<strong>はじめての方は「はじめての方」</strong>から登録します。</div></div></div>
-      <div class="shot"><img src="assets/g7/login.jpg" alt="入口の画面"></div>
+      <div class="shot"><img src="assets/g7/login-full.jpg" alt="入口の画面"></div>
       <div class="figcap">実際の画面</div>
     </div>
   </div>
