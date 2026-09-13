@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>まゆみ助産院 公式アプリのご案内</title>
+<!--
+  A4・7ページ。院長のご指定の構成（2026-09-13）:
+    1 QRコード / 2-4 iPhone ①②③ / 5-7 Android ①②③
+
+  画面の出どころ（manuals/assets/g7/）
+    本物の画面写真（確認用 develop）: ios-hajimekata / android-hajimekata / login / apps / register / installed
+    描いた図（実物に似せた SVG）    : ios-1-share / ios-2-menu / ios-3-confirm / ios-4-home
+                                       and-1-menu / and-2-list / and-3-confirm / and-4-home
+  **本体（iOS/Android）の画面はブラウザの自動操作では撮れない。**
+  実機の写真をもらったら、同じ名前で .jpg を置いて <img> を差し替える。
+
+  ⌘P →「PDFに保存」。A4・縦・倍率100%・背景のグラフィックをオン。
+-->
+<style>
+  @page { size: A4 portrait; margin: 12mm 12mm 10mm; }
+  :root { --sage:#4d7a4c; --sage-pale:#eef3ec; --ink:#23261f; --muted:#5f645a; --line:#cfcabb; --tint:#f4f2ea; --warn:#8a4b1d; --warn-bg:#fbf1e8; --ios:#2b6cb0; --ios-pale:#e9f1fb; --and:#2f7d4f; --and-pale:#e8f4ec; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: "Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",YuGothic,"Noto Sans JP",sans-serif; color: var(--ink); background: #fff; line-height: 1.65; font-size: 11pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet { width: 186mm; margin: 0 auto; padding: 3mm 0 0; display: flex; flex-direction: column; }
+  .sheet + .sheet { page-break-before: always; }
+
+  .head { display: flex; align-items: center; gap: 5mm; border-bottom: 2.5pt solid var(--sage); padding-bottom: 3mm; margin-bottom: 4.5mm; }
+  .head img { width: 14mm; height: 14mm; border-radius: 3.5mm; flex: none; }
+  .head h1 { font-size: 17pt; margin: 0 0 0.8mm; letter-spacing: .03em; }
+  .head p { font-size: 10pt; color: var(--muted); margin: 0; }
+  .head .page { margin-left: auto; font-size: 9.5pt; color: var(--muted); white-space: nowrap; }
+  .tag { display: inline-block; font-size: 9pt; font-weight: 700; padding: 0.6mm 2.5mm; border-radius: 2mm; margin-right: 2mm; vertical-align: middle; }
+  .tag.ios { background: var(--ios-pale); color: var(--ios); }
+  .tag.and { background: var(--and-pale); color: var(--and); }
+
+  /* ---- 1ページ目（QR） ---- */
+  .qrpage { align-items: center; text-align: center; }
+  .qrpage .brand { display: flex; align-items: center; gap: 5mm; margin: 4mm 0 4mm; }
+  .qrpage .brand img { width: 20mm; height: 20mm; border-radius: 5mm; }
+  .qrpage .brand .n { font-size: 20pt; font-weight: 700; letter-spacing: .04em; text-align: left; line-height: 1.25; }
+  .qrpage .brand .s { font-size: 11pt; color: var(--muted); text-align: left; }
+  .qrpage h1 { font-size: 24pt; margin: 0 0 2mm; letter-spacing: .05em; }
+  .qrpage .lead { font-size: 12.5pt; color: var(--muted); margin: 0 0 6mm; line-height: 1.6; }
+  .qrbox { background:#fff; border: 1.2pt solid var(--line); border-radius: 6mm; padding: 5mm; margin-bottom: 5mm; }
+  .qrbox img { width: 80mm; height: 80mm; display: block; }
+  .qrpage .how { font-size: 15pt; font-weight: 700; margin: 0 0 2mm; }
+  .qrpage .how small { display: block; font-size: 11pt; font-weight: 400; color: var(--muted); margin-top: 2mm; line-height: 1.7; }
+  .flow { display: flex; gap: 5mm; width: 100%; margin-top: 6mm; }
+  .flow .f { flex: 1 1 0; background: var(--tint); border: 0.8pt solid var(--line); border-radius: 4mm; padding: 4.5mm 4mm; font-size: 11pt; line-height: 1.6; }
+  .flow .no { width: 9mm; height: 9mm; border-radius: 50%; background: var(--sage); color:#fff; font-size: 12pt; font-weight: 700; display:flex; align-items:center; justify-content:center; margin: 0 auto 2.5mm; }
+  .flow strong { display:block; font-size: 12pt; margin-bottom: 1mm; }
+  .qrpage .url { font-family: ui-monospace, Menlo, monospace; font-size: 9.5pt; color: var(--muted); margin-top: 6mm; }
+  .qrpage .foot { margin-top: 6mm; padding-top: 0; font-size: 10.5pt; color: var(--muted); line-height: 1.7; }
+
+  /* ---- 説明ページ（2枚の画面を横に） ---- */
+  .two { display: flex; gap: 8mm; align-items: flex-start; }
+  .two .col { flex: 1 1 0; min-width: 0; }
+  .cap { display: flex; align-items: flex-start; gap: 3mm; margin-bottom: 3mm; }
+  .cap .no { width: 8mm; height: 8mm; border-radius: 50%; flex: none; background: var(--sage); color:#fff; font-size: 11pt; font-weight: 700; display:flex; align-items:center; justify-content:center; margin-top: 0.5mm; }
+  .cap .t { font-size: 13pt; font-weight: 700; line-height: 1.45; }
+  .cap .d { font-size: 10.5pt; color: var(--muted); line-height: 1.55; margin-top: 1mm; }
+  /* 縦長の画面をそのまま並べると 300mm を超えた（2026-09-13 計測）。高さを 150mm でそろえて切る */
+  .shot { border: 0.8pt solid var(--line); border-radius: 3mm; overflow: hidden; background: #fff; height: 150mm; }
+  .shot img { display: block; width: 100%; }
+  .shot.fig img { background: #f2f2f7; }
+  .note { background: var(--sage-pale); border: 0.8pt solid #b9cdb6; border-radius: 3mm; padding: 3.5mm 5mm; margin-top: 4.5mm; font-size: 10.5pt; line-height: 1.6; }
+  .note h2 { font-size: 11pt; margin: 0 0 1.5mm; color: var(--sage); }
+  .note p { margin: 0; }
+  .warn { background: var(--warn-bg); border: 1.2pt solid var(--warn); border-radius: 3mm; padding: 3.5mm 5mm; margin-top: 4.5mm; font-size: 10.5pt; line-height: 1.6; }
+  .warn h2 { font-size: 11pt; margin: 0 0 1.5mm; color: var(--warn); }
+  .warn p { margin: 0; }
+  .warn strong { border-bottom: 1.5pt solid var(--warn); }
+  .foot { margin-top: 4mm; font-size: 9pt; color: var(--muted); border-top: 0.8pt solid var(--line); padding-top: 2.5mm; display: flex; justify-content: space-between; }
+  .figcap { font-size: 8.5pt; color: var(--muted); text-align: center; margin-top: 1.5mm; }
+
+  .hint { max-width: 186mm; margin: 8mm auto; padding: 4mm 5mm; background:#eef3ec; border:1pt solid #b9cdb6; border-radius:3mm; font-size:10pt; color:#2f4a2e; }
+  @media print { .hint { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="hint"><strong>PDFにするには</strong>　<code>⌘P</code>（Windows は <code>Ctrl+P</code>）→ 送信先「<strong>PDFに保存</strong>」、用紙 <strong>A4・縦</strong>、倍率 <strong>100%</strong>、<strong>背景のグラフィックをオン</strong>。7ページになります。</div>
+
+<!-- ===== 1 QR ===== -->
+<div class="sheet qrpage">
+  <div class="brand">
+    <img src="assets/icon-192.png" alt="">
+    <div><div class="n">まゆみ助産院<br>公式アプリ</div><div class="s">スタンプ・お知らせ・メニュー・ショップ</div></div>
+  </div>
+  <h1>アプリのはじめ方</h1>
+  <p class="lead">スマートフォンのカメラで、下のQRコードを読み取ってください。<br>お使いの機種（iPhone・Android）に合わせた手順が、画面に出ます。</p>
+  <div class="qrbox"><img src="assets/hajimekata-qr.png" alt="はじめ方のQRコード"></div>
+  <p class="how">カメラを向けるだけで開きます
+    <small>iPhone は「カメラ」アプリ、Android は「カメラ」または「Googleレンズ」で。<br>LINE のQRリーダーで読んだときは、開いた画面の案内に沿って Safari / Chrome で開き直してください。</small>
+  </p>
+  <div class="flow">
+    <div class="f"><div class="no">1</div><strong>QRを読む</strong>はじめ方の画面が開きます</div>
+    <div class="f"><div class="no">2</div><strong>ホーム画面に追加</strong>次のページの手順で</div>
+    <div class="f"><div class="no">3</div><strong>アイコンから開く</strong>そこで登録・ログイン</div>
+  </div>
+  <div class="url">https://mayumi-josanin.github.io/mayumi-app/hajimekata/</div>
+  <div class="foot">iPhone の方は 2〜4 ページ、Android の方は 5〜7 ページをご覧ください。<br>すでに会員の方は、新しく登録し直さず「ログイン」からお入りください。</div>
+</div>
+
+<!-- ===== 2 iPhone ① ===== -->
+<div class="sheet">
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明①　QRを読んで、共有ボタンを押す</h1><p><span class="tag ios">iPhone</span>Safari で開きます</p></div><div class="page">2 / 7</div></div>
+  <div class="two">
+    <div class="col">
+      <div class="cap"><div class="no">1</div><div><div class="t">QRを読むと、この画面が出ます</div><div class="d">iPhone の手順だけが表示されます。<strong>ここではまだ何も入力しません。</strong></div></div></div>
+      <div class="shot"><img src="assets/g7/ios-hajimekata.jpg" alt="はじめ方の画面"></div>
+      <div class="figcap">実際の画面</div>
+    </div>
+    <div class="col">
+      <div class="cap"><div class="no">2</div><div><div class="t">画面のいちばん下、中央の「共有ボタン」を押す</div><div class="d">四角から上に矢印が出ている印です（赤い枠のところ）。</div></div></div>
+      <div class="shot fig"><img src="assets/g7/ios-1-share.svg" alt="Safari の共有ボタン"></div>
+      <div class="figcap">画面の図（赤い枠が押すところ）</div>
+    </div>
+  </div>
+  <div class="note"><h2>共有ボタンが見当たらないとき</h2><p>LINE の中で開いていると出ません。画面のすみの「…」から「<strong>Safariで開く</strong>」を選び、Safari で開き直してください。Chrome など Safari 以外のブラウザでも同じです。</p></div>
+  <div class="foot"><span>まゆみ助産院</span><span>2 / 7</span></div>
+</div>
+
+<!-- ===== 3 iPhone ② ===== -->
+<div class="sheet">
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明②　「ホーム画面に追加」して「追加」を押す</h1><p><span class="tag ios">iPhone</span></p></div><div class="page">3 / 7</div></div>
+  <div class="two">
+    <div class="col">
+      <div class="cap"><div class="no">3</div><div><div class="t">「ホーム画面に追加」を選ぶ</div><div class="d">メニューが出るので、少し下にスクロールします。「ホーム画面に追加」が出たら押します。</div></div></div>
+      <div class="shot fig"><img src="assets/g7/ios-2-menu.svg" alt="共有メニュー"></div>
+      <div class="figcap">画面の図（赤い枠が押すところ）</div>
+    </div>
+    <div class="col">
+      <div class="cap"><div class="no">4</div><div><div class="t">右上の「追加」を押す</div><div class="d">名前は「まゆみ助産院」と入っています。そのまま「追加」で構いません。「Webアプリとして開く」はオンのままにしてください。</div></div></div>
+      <div class="shot fig"><img src="assets/g7/ios-3-confirm.svg" alt="ホーム画面に追加の確認"></div>
+      <div class="figcap">画面の図（赤い枠が押すところ）</div>
+    </div>
+  </div>
+  <div class="warn"><h2>アイコンがグレーの「ま」になっているとき</h2><p>そのまま「追加」して構いません。少し待つと本来の絵に変わります。変わらない場合は、一度ホーム画面から削除して、QRからやり直してください。</p></div>
+  <div class="foot"><span>まゆみ助産院</span><span>3 / 7</span></div>
+</div>
+
+<!-- ===== 4 iPhone ③ ===== -->
+<div class="sheet">
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明③　アイコンから開いて、ログイン・登録する</h1><p><span class="tag ios">iPhone</span></p></div><div class="page">4 / 7</div></div>
+  <div class="two">
+    <div class="col">
+      <div class="cap"><div class="no">5</div><div><div class="t">ホーム画面のアイコンから開く</div><div class="d">「ま」の絵のアイコンです。<strong>これからは必ずこのアイコンから開いてください。</strong>Safari から開くと記録が分かれることがあります。</div></div></div>
+      <div class="shot fig"><img src="assets/g7/ios-4-home.svg" alt="ホーム画面のアイコン"></div>
+      <div class="figcap">画面の図</div>
+    </div>
+    <div class="col">
+      <div class="cap"><div class="no">6</div><div><div class="t">「入口」でログイン、または登録</div><div class="d"><strong>すでに会員の方は「ログイン」</strong>。これまでと同じお名前とパスコードで。<strong>はじめての方は「はじめての方」</strong>から登録します。</div></div></div>
+      <div class="shot"><img src="assets/g7/login.jpg" alt="入口の画面"></div>
+      <div class="figcap">実際の画面</div>
+    </div>
+  </div>
+  <div class="warn"><h2>いちばん大切なお願い</h2><p>すでに会員の方は、<strong>「はじめての方」から登録し直さないでください。</strong>スタンプや記録が2つに分かれます。パスコードが分からないときは、入口の下の「お困りのとき」からその場で設定できます。</p></div>
+  <div class="foot"><span>まゆみ助産院</span><span>4 / 7</span></div>
+</div>
+
+<!-- ===== 5 Android ① ===== -->
+<div class="sheet">
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明①　QRを読んで、右上の「︙」を押す</h1><p><span class="tag and">Android</span>Chrome で開きます</p></div><div class="page">5 / 7</div></div>
+  <div class="two">
+    <div class="col">
+      <div class="cap"><div class="no">1</div><div><div class="t">QRを読むと、この画面が出ます</div><div class="d">Android の手順だけが表示されます。緑の「この端末に追加する」が出る機種は、<strong>それを押すだけで④まで進めます。</strong></div></div></div>
+      <div class="shot"><img src="assets/g7/android-hajimekata.jpg" alt="はじめ方の画面（Android）"></div>
+      <div class="figcap">実際の画面</div>
+    </div>
+    <div class="col">
+      <div class="cap"><div class="no">2</div><div><div class="t">画面の右上の「︙」を押す</div><div class="d">点が縦に3つ並んだ印です。Chrome のいちばん上、右端にあります（赤い枠のところ）。</div></div></div>
+      <div class="shot fig"><img src="assets/g7/and-1-menu.svg" alt="Chrome の右上メニュー"></div>
+      <div class="figcap">画面の図（赤い枠が押すところ）</div>
+    </div>
+  </div>
+  <div class="note"><h2>「︙」が見当たらないとき</h2><p>LINE の中で開いていると出ません。画面のすみの「︙」から「<strong>Chromeで開く</strong>」（「ブラウザで開く」と出ることもあります）を選び、Chrome で開き直してください。</p></div>
+  <div class="foot"><span>まゆみ助産院</span><span>5 / 7</span></div>
+</div>
+
+<!-- ===== 6 Android ② ===== -->
+<div class="sheet">
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明②　「ホーム画面に追加」して「追加」を押す</h1><p><span class="tag and">Android</span></p></div><div class="page">6 / 7</div></div>
+  <div class="two">
+    <div class="col">
+      <div class="cap"><div class="no">3</div><div><div class="t">「ホーム画面に追加」を選ぶ</div><div class="d">メニューの中にあります。「<strong>アプリをインストール</strong>」と出る機種もあります。どちらでも同じです。</div></div></div>
+      <div class="shot fig"><img src="assets/g7/and-2-list.svg" alt="Chrome のメニュー"></div>
+      <div class="figcap">画面の図（赤い枠が押すところ）</div>
+    </div>
+    <div class="col">
+      <div class="cap"><div class="no">4</div><div><div class="t">「追加」（または「インストール」）を押す</div><div class="d">確認の画面が出ます。名前は「まゆみ助産院」と入っています。機種によっては、もう一度「追加」と聞かれます。</div></div></div>
+      <div class="shot fig"><img src="assets/g7/and-3-confirm.svg" alt="追加の確認"></div>
+      <div class="figcap">画面の図（赤い枠が押すところ）</div>
+    </div>
+  </div>
+  <div class="note"><h2>Chrome 以外のブラウザをお使いのとき</h2><p>Samsung ブラウザなどにも同じ名前のメニューがあります。見つからなければ Chrome でお試しください。</p></div>
+  <div class="foot"><span>まゆみ助産院</span><span>6 / 7</span></div>
+</div>
+
+<!-- ===== 7 Android ③ ===== -->
+<div class="sheet">
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明③　アイコンから開いて、ログイン・登録する</h1><p><span class="tag and">Android</span></p></div><div class="page">7 / 7</div></div>
+  <div class="two">
+    <div class="col">
+      <div class="cap"><div class="no">5</div><div><div class="t">ホーム画面のアイコンから開く</div><div class="d">「ま」の絵のアイコンです。<strong>これからは必ずこのアイコンから開いてください。</strong>Chrome から開くと記録が分かれることがあります。</div></div></div>
+      <div class="shot fig"><img src="assets/g7/and-4-home.svg" alt="ホーム画面のアイコン"></div>
+      <div class="figcap">画面の図</div>
+    </div>
+    <div class="col">
+      <div class="cap"><div class="no">6</div><div><div class="t">「入口」でログイン、または登録</div><div class="d"><strong>すでに会員の方は「ログイン」</strong>。これまでと同じお名前とパスコードで。<strong>はじめての方は「はじめての方」</strong>から登録します。</div></div></div>
+      <div class="shot"><img src="assets/g7/login.jpg" alt="入口の画面"></div>
+      <div class="figcap">実際の画面</div>
+    </div>
+  </div>
+  <div class="warn"><h2>いちばん大切なお願い</h2><p>すでに会員の方は、<strong>「はじめての方」から登録し直さないでください。</strong>スタンプや記録が2つに分かれます。パスコードが分からないときは、入口の下の「お困りのとき」からその場で設定できます。</p></div>
+  <div class="foot"><span>うまくいかないときは、受付にお声がけください。</span><span>まゆみ助産院　7 / 7</span></div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+<rect width="390" height="844" rx="40" fill="#e8e8e8"/>
+<text x="28" y="44" font-size="15" font-weight="700" fill="#111">22:39</text>
+<g fill="#111"><rect x="318" y="34" width="3" height="10"/><rect x="323" y="31" width="3" height="13"/><rect x="328" y="28" width="3" height="16"/><rect x="333" y="25" width="3" height="19"/></g>
+<rect x="352" y="30" width="24" height="12" rx="3" fill="none" stroke="#111" stroke-width="1.5"/><rect x="354" y="32" width="16" height="8" rx="1.5" fill="#111"/>
+
+<rect x="0" y="60" width="390" height="784" fill="#e8e8e8"/>
+<rect x="150" y="66" width="230" height="560" rx="8" fill="#fff" stroke="#dadce0"/>
+<g fill="#3c4043" font-size="15">
+<g font-size="20" fill="#5f6368"><text x="176" y="98">→</text><text x="216" y="98">☆</text><text x="256" y="98">⬇</text><text x="296" y="98">ⓘ</text><text x="336" y="98">↻</text></g>
+<line x1="150" y1="112" x2="380" y2="112" stroke="#e8eaed"/>
+<text x="176" y="146">新しいタブ</text><text x="176" y="190">シークレット タブ</text><text x="176" y="234">履歴</text><text x="176" y="278">ダウンロード</text><text x="176" y="322">ブックマーク</text><text x="176" y="366">最近使ったタブ</text>
+<line x1="150" y1="384" x2="380" y2="384" stroke="#e8eaed"/>
+<text x="176" y="416">共有…</text><text x="176" y="460">ページ内検索</text>
+<text x="176" y="504" font-weight="700">ホーム画面に追加</text>
+<text x="176" y="548">PC 版サイト</text><text x="176" y="592">設定</text>
+</g>
+<rect x="156" y="480" width="218" height="40" rx="10" fill="none" stroke="#e5484d" stroke-width="4"/>
+<text x="195.0" y="700" font-size="12" text-anchor="middle" fill="#5f6368">「アプリをインストール」と出ることもあります</text>
+</svg>

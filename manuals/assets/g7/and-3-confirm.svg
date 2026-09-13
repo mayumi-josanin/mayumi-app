@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" font-family="Hiragino Sans, Noto Sans JP, sans-serif">
+<rect width="390" height="844" rx="40" fill="#8e8e8e"/>
+<text x="28" y="44" font-size="15" font-weight="700" fill="#111">22:39</text>
+<g fill="#111"><rect x="318" y="34" width="3" height="10"/><rect x="323" y="31" width="3" height="13"/><rect x="328" y="28" width="3" height="16"/><rect x="333" y="25" width="3" height="19"/></g>
+<rect x="352" y="30" width="24" height="12" rx="3" fill="none" stroke="#111" stroke-width="1.5"/><rect x="354" y="32" width="16" height="8" rx="1.5" fill="#111"/>
+
+<rect x="0" y="60" width="390" height="784" fill="#8e8e8e"/>
+<rect x="28" y="300" width="334" height="232" rx="22" fill="#fff"/>
+<text x="52" y="344" font-size="19" font-weight="600" fill="#1f1f1f">ホーム画面に追加</text>
+<rect x="52" y="370" width="56" height="56" rx="12.32" fill="#f7dcc6"/><text x="80.0" y="409.2" font-size="31.360000000000003" font-weight="700" text-anchor="middle" fill="#e9836b">ま</text><text x="124" y="392" font-size="16" fill="#1f1f1f">まゆみ助産院</text><text x="124" y="414" font-size="12" fill="#5f6368">mayumi-josanin.github.io</text>
+<text x="52" y="456" font-size="13" fill="#5f6368">ホーム画面にショートカットを追加します</text>
+<text x="176" y="506" font-size="15" font-weight="600" fill="#1a73e8">キャンセル</text>
+<rect x="296" y="484" width="52" height="34" rx="17" fill="none"/><text x="322" y="506" font-size="15" font-weight="600" text-anchor="middle" fill="#1a73e8">追加</text>
+<rect x="286" y="478" width="72" height="46" rx="10" fill="none" stroke="#e5484d" stroke-width="4"/>
+</svg>
