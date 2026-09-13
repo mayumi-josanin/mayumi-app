@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>まゆみ助産院アプリ ホーム画面への追加のしかた（iPhone・Android）</title>
+<!--
+  QRを読んだあと、ホーム画面にアイコンを追加するところまでを、
+  iPhone と Android の両方の画面で説明する資料。2026-09-13。
+
+  ⌘P（Windows は Ctrl+P）→「PDFに保存」。A4・縦・倍率100%・背景のグラフィックをオン。
+  1ページ目 iPhone、2ページ目 Android、3ページ目 追加したあと（共通）。
+
+  ─────────────────────────────────────────────────────────
+  画面の出どころ（assets/cur/）
+
+    hajimekata.jpg  はじめ方の画面（iPhone の枝）   確認用 develop の実物
+    android.jpg     はじめ方の画面（Android の枝）  同上
+    installed.jpg   追加後にQRを読んだときの画面     同上
+    line.jpg        LINEの中で開いたときの画面      同上
+
+  **OS 側の画面（共有メニュー・ホーム画面に追加・確認画面・ホーム画面）は
+  ここでは撮れない。**ブラウザの自動操作で出せるのはページの中身だけ。
+  差し替え用の枠にし、枠の中に撮り方を書いた。
+  写真を assets/cur/ に置き、<img> に差し替えれば完成する。
+  iPhone 4枚・Android 4枚。
+
+  ─────────────────────────────────────────────────────────
+  順番の根拠
+
+  「先に追加 → アイコンから開く → 入口で登録」。
+  ブラウザで先に登録すると同じお名前で会員が2つできる事故が実際に起きている。
+  この資料は「追加するまで」なので、最後に必ず「登録はアイコンから」と書く。
+-->
+<style>
+  @page { size: A4 portrait; margin: 12mm 12mm 10mm; }
+  :root {
+    --sage: #4d7a4c; --sage-pale: #eef3ec;
+    --ink: #23261f; --muted: #5f645a; --line: #cfcabb; --tint: #f4f2ea;
+    --warn: #8a4b1d; --warn-bg: #fbf1e8;
+    --ios: #2b6cb0; --ios-pale: #e9f1fb; --and: #2f7d4f; --and-pale: #e8f4ec;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", YuGothic, "Noto Sans JP", sans-serif;
+    color: var(--ink); background: #fff; line-height: 1.6; font-size: 10pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .sheet { width: 186mm; margin: 0 auto; padding: 4mm 0 0; }
+  .sheet + .sheet { page-break-before: always; }
+
+  .head { display: flex; align-items: center; gap: 5mm; border-bottom: 2.5pt solid var(--sage); padding-bottom: 3.5mm; margin-bottom: 4.5mm; }
+  .head img { width: 14mm; height: 14mm; border-radius: 3.5mm; flex: none; }
+  .head h1 { font-size: 16pt; margin: 0 0 0.8mm; letter-spacing: .03em; }
+  .head p { font-size: 9.5pt; color: var(--muted); margin: 0; }
+  .head .page { margin-left: auto; font-size: 9pt; color: var(--muted); white-space: nowrap; }
+
+  .tag { display: inline-block; font-size: 8.5pt; font-weight: 700; padding: 0.6mm 2.5mm; border-radius: 2mm; margin-right: 2mm; vertical-align: middle; }
+  .tag.ios { background: var(--ios-pale); color: var(--ios); }
+  .tag.and { background: var(--and-pale); color: var(--and); }
+
+  .lead { background: var(--tint); border: 0.8pt solid var(--line); border-radius: 3mm; padding: 3.5mm 5mm; margin-bottom: 4.5mm; font-size: 10pt; }
+  .lead strong { color: var(--sage); }
+
+  .steps { display: flex; gap: 4.5mm; }
+  .steps + .steps { margin-top: 4.5mm; }
+  .step { flex: 1 1 0; min-width: 0; }
+  .step .cap { display: flex; align-items: flex-start; gap: 2.5mm; margin-bottom: 2.5mm; }
+  .step .no { width: 6.5mm; height: 6.5mm; border-radius: 50%; flex: none; background: var(--sage); color: #fff; font-size: 9.5pt; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 0.3mm; }
+  .step .t { font-size: 10.5pt; font-weight: 700; line-height: 1.45; }
+  .step .d { font-size: 9pt; color: var(--muted); line-height: 1.5; margin-top: 0.5mm; }
+
+  /* 写真は上端をそろえて高さを 70mm で切る。縦長のまま並べると
+     1ページ目が 281.6mm、3ページ目が 320.3mm で A4（275mm）を超えた（2026-09-13 計測）。
+     手順に要るのは上のほうなので、下を切っても伝わる */
+  .shot { border: 0.8pt solid var(--line); border-radius: 2mm; overflow: hidden; background: #fff; height: 62mm; }
+  .shot img { display: block; width: 100%; }
+  .shot.tall { height: 80mm; }
+
+  .slot {
+    border: 1.2pt dashed #b9a98f; border-radius: 2mm; background: #fbf9f4;
+    height: 62mm; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 4mm; color: var(--warn);
+  }
+  .slot .k { font-size: 9.5pt; font-weight: 700; margin-bottom: 1.5mm; }
+  .slot .h { font-size: 8.5pt; line-height: 1.5; color: #7a6a52; }
+
+  .warn { background: var(--warn-bg); border: 1.2pt solid var(--warn); border-radius: 3mm; padding: 4mm 5mm; margin-top: 4.5mm; }
+  .warn h2 { font-size: 11pt; margin: 0 0 1.5mm; color: var(--warn); }
+  .warn p { margin: 0; font-size: 9.5pt; line-height: 1.6; }
+  .warn strong { border-bottom: 1.5pt solid var(--warn); }
+
+  .note { background: var(--sage-pale); border: 0.8pt solid #b9cdb6; border-radius: 3mm; padding: 4mm 5mm; margin-top: 4.5mm; font-size: 9.5pt; }
+  .note h2 { font-size: 10.5pt; margin: 0 0 1.5mm; color: var(--sage); }
+  .note p { margin: 0; }
+  .note.row { display: flex; gap: 5mm; align-items: flex-start; }
+  .note.row .txt { flex: 1 1 0; }
+  .note.row .shot { flex: 0 0 38mm; }
+
+  .foot { font-size: 8.5pt; color: var(--muted); border-top: 0.8pt solid var(--line); padding-top: 2.5mm; margin-top: 4.5mm; display: flex; justify-content: space-between; }
+
+  .hint { max-width: 186mm; margin: 8mm auto; padding: 4mm 5mm; background: #eef3ec; border: 1pt solid #b9cdb6; border-radius: 3mm; font-size: 10pt; color: #2f4a2e; }
+  @media print { .hint { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="hint">
+  <strong>PDFにするには</strong>　<code>⌘P</code>（Windows は <code>Ctrl+P</code>）→ 送信先「<strong>PDFに保存</strong>」、
+  用紙 <strong>A4・縦</strong>、倍率 <strong>100%</strong>、<strong>背景のグラフィックをオン</strong>。3ページになります。
+  点線の枠は、実機（iPhone・Android）で撮った写真を入れる場所です。
+</div>
+
+<!-- ============ 1: iPhone ============ -->
+<div class="sheet">
+  <div class="head">
+    <img src="assets/icon-192.png" alt="">
+    <div>
+      <h1>ホーム画面への追加のしかた</h1>
+      <p><span class="tag ios">iPhone</span>Safari で開いたときの手順です</p>
+    </div>
+    <div class="page">1 / 3</div>
+  </div>
+
+  <div class="lead">
+    アプリは、スマートフォンの<strong>ホーム画面にアイコンを追加</strong>してお使いいただきます。
+    QRコードを読み取ると「はじめ方」の画面が出るので、そこから始めます。
+    <strong>追加が終わるまで、登録はしないでください。</strong>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="cap"><div class="no">1</div><div>
+        <div class="t">QRを読み取ると、この画面が出ます</div>
+        <div class="d">iPhone の手順だけが表示されます。ここではまだ何も入力しません。</div>
+      </div></div>
+      <div class="shot"><img src="assets/cur/hajimekata.jpg" alt="はじめ方の画面（iPhone）"></div>
+    </div>
+    <div class="step">
+      <div class="cap"><div class="no">2</div><div>
+        <div class="t">画面の下の「共有ボタン」を押す</div>
+        <div class="d">四角から上に矢印が出ている印です。Safari の画面のいちばん下、中央にあります。</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">iPhoneの写真をここに</div>
+        <div class="h">Safariではじめ方の画面を開き、<br>下に共有ボタンが見えている状態</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="cap"><div class="no">3</div><div>
+        <div class="t">「ホーム画面に追加」を選ぶ</div>
+        <div class="d">メニューが出るので、少し下にスクロールします。「ホーム画面に追加」が出たら押します。</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">iPhoneの写真をここに</div>
+        <div class="h">共有メニューで<br>「ホーム画面に追加」が見えている状態</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="cap"><div class="no">4</div><div>
+        <div class="t">右上の「追加」を押す</div>
+        <div class="d">名前は「まゆみ助産院」と入っています。そのまま「追加」で構いません。<br>はじめに緑の「ま」が出たら、本来の絵に変わるまで少し待ってから押してください。</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">iPhoneの写真をここに</div>
+        <div class="h">「ホーム画面に追加」の確認画面<br>（右上に「追加」がある画面）</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="cap"><div class="no">5</div><div>
+        <div class="t">ホーム画面にアイコンができます</div>
+        <div class="d">「ま」の絵のアイコンです。<strong>これからは、必ずこのアイコンから開いてください。</strong>Safari から開くと、記録が分かれることがあります。</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">iPhoneの写真をここに</div>
+        <div class="h">ホーム画面に「まゆみ助産院」の<br>アイコンができた状態</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="note" style="margin-top:0;">
+        <h2>「ホーム画面に追加」が出ないとき</h2>
+        <p>LINE の中で開いていると出ません。画面のすみの「…」から「<strong>Safariで開く</strong>」を選び、Safari で開き直してから②へ。<br><br>Chrome など Safari 以外のブラウザでも出ません。同じく Safari で開き直してください。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><span>まゆみ助産院</span><span>1 / 3</span></div>
+</div>
+
+<!-- ============ 2: Android ============ -->
+<div class="sheet">
+  <div class="head">
+    <img src="assets/icon-192.png" alt="">
+    <div>
+      <h1>ホーム画面への追加のしかた</h1>
+      <p><span class="tag and">Android</span>Chrome で開いたときの手順です</p>
+    </div>
+    <div class="page">2 / 3</div>
+  </div>
+
+  <div class="lead">
+    Android では、Chrome のメニューから追加します。機種によって「ホーム画面に追加」と出るものと「アプリをインストール」と出るものがありますが、<strong>どちらでも同じ</strong>です。
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="cap"><div class="no">1</div><div>
+        <div class="t">QRを読み取ると、この画面が出ます</div>
+        <div class="d">Android の手順だけが表示されます。緑の「この端末に追加する」が出る機種は、それを押すだけで④まで進めます。</div>
+      </div></div>
+      <div class="shot"><img src="assets/cur/android.jpg" alt="はじめ方の画面（Android）"></div>
+    </div>
+    <div class="step">
+      <div class="cap"><div class="no">2</div><div>
+        <div class="t">画面の右上の「︙」を押す</div>
+        <div class="d">点が縦に3つ並んだ印です。Chrome の画面のいちばん上、右端にあります。</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">Androidの写真をここに</div>
+        <div class="h">Chromeではじめ方の画面を開き、<br>右上に「︙」が見えている状態</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="cap"><div class="no">3</div><div>
+        <div class="t">「ホーム画面に追加」を選ぶ</div>
+        <div class="d">メニューの中にあります。「アプリをインストール」と出ることもあります。どちらでも構いません。</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">Androidの写真をここに</div>
+        <div class="h">「︙」のメニューで「ホーム画面に追加」<br>または「アプリをインストール」が見えている状態</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="cap"><div class="no">4</div><div>
+        <div class="t">「追加」または「インストール」を押す</div>
+        <div class="d">確認の画面が出ます。名前は「まゆみ助産院」と入っています。そのまま押してください。機種によっては、もう一度「追加」と聞かれます。</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">Androidの写真をここに</div>
+        <div class="h">確認の画面<br>（「追加」または「インストール」がある画面）</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="cap"><div class="no">5</div><div>
+        <div class="t">ホーム画面にアイコンができます</div>
+        <div class="d">「ま」の絵のアイコンです。<strong>これからは、必ずこのアイコンから開いてください。</strong>Chrome から開くと、記録が分かれることがあります。</div>
+      </div></div>
+      <div class="slot">
+        <div class="k">Androidの写真をここに</div>
+        <div class="h">ホーム画面に「まゆみ助産院」の<br>アイコンができた状態</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="note" style="margin-top:0;">
+        <h2>「ホーム画面に追加」が出ないとき</h2>
+        <p>LINE の中で開いていると出ません。画面のすみの「︙」から「<strong>Chromeで開く</strong>」（「ブラウザで開く」と出ることもあります）を選び、Chrome で開き直してから②へ。<br><br>Chrome 以外のブラウザ（Samsung ブラウザなど）でも同じ名前のメニューがあります。見つからなければ Chrome でお試しください。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><span>まゆみ助産院</span><span>2 / 3</span></div>
+</div>
+
+<!-- ============ 3: 追加したあと（共通） ============ -->
+<div class="sheet">
+  <div class="head">
+    <img src="assets/icon-192.png" alt="">
+    <div>
+      <h1>追加したあと</h1>
+      <p><span class="tag ios">iPhone</span><span class="tag and">Android</span>どちらも同じです</p>
+    </div>
+    <div class="page">3 / 3</div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="cap"><div class="no">6</div><div>
+        <div class="t">アイコンを押すと「入口」が開きます</div>
+        <div class="d"><strong>すでに会員の方は「ログイン」</strong>。これまでと同じお名前とパスコードで。<strong>はじめての方は「はじめての方」</strong>から登録します。</div>
+      </div></div>
+      <div class="shot tall"><img src="assets/cur/login.jpg" alt="入口のログイン画面"></div>
+    </div>
+    <div class="step">
+      <div class="cap"><div class="no">7</div><div>
+        <div class="t">もう一度QRを読むと、こう出ます</div>
+        <div class="d">追加が終わった端末でQRを読むと、手順ではなく「追加できています」と出ます。これが出れば成功です。</div>
+      </div></div>
+      <div class="shot tall"><img src="assets/cur/installed.jpg" alt="追加できていますの画面"></div>
+    </div>
+    <div class="step">
+      <div class="cap"><div class="no">!</div><div>
+        <div class="t">LINE から開いた方へ</div>
+        <div class="d">LINE の中のブラウザでは追加できず、右の画面が出ます。すみの「…」（Android は「︙」）から<strong>「Safariで開く」「Chromeで開く」</strong>を選び、開き直してから手順へ。</div>
+      </div></div>
+      <div class="shot tall"><img src="assets/cur/line.jpg" alt="LINEの中で開いたときの画面"></div>
+    </div>
+  </div>
+
+  <div class="warn">
+    <h2>いちばん大切なお願い</h2>
+    <p>
+      登録は、<strong>ホーム画面のアイコンから開いた入口で</strong>行ってください。
+      QRを読んだ直後の画面（Safari や Chrome の中）で先に登録すると、<strong>同じお名前で会員が2つできてしまい</strong>、スタンプや記録が分かれます。
+      すでに会員の方は<strong>「はじめての方」から登録し直さないでください。</strong>パスコードが分からないときは、ログイン画面の下の「お困りのとき」からその場で設定できます。
+    </p>
+  </div>
+
+  <div class="note">
+    <h2>うまくいかないとき</h2>
+    <p>受付にお声がけください。その場でご一緒に追加します。機種変更や再インストールのときも、新しく登録し直さず「ログイン」または「お困りのとき」からお入りください。</p>
+  </div>
+
+  <div class="foot"><span>まゆみ助産院</span><span>3 / 3</span></div>
+</div>
+
+</body>
+</html>
