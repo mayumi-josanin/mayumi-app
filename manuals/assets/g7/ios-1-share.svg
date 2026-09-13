@@ -6,12 +6,12 @@
 
 <rect x="0" y="60" width="390" height="700" fill="#f7f5ef"/>
 <rect x="163" y="90" width="64" height="64" rx="16" fill="#fff" stroke="#e5e2d8"/><rect x="171" y="98" width="48" height="48" rx="10.56" fill="#f7dcc6"/><text x="195.0" y="131.6" font-size="26.880000000000003" font-weight="700" text-anchor="middle" fill="#e9836b">ま</text>
-<text x="195.0" y="184" font-size="17" font-weight="700" text-anchor="middle" fill="#2f3327">まゆみ助産院アプリ</text>
-<text x="195.0" y="208" font-size="13" text-anchor="middle" fill="#6d7266">はじめ方のご案内</text>
+<text x="195.0" y="184" font-size="17" font-weight="700" text-anchor="middle" fill="#2f3327">まゆみ助産院 アプリ</text>
+<text x="195.0" y="208" font-size="13" text-anchor="middle" fill="#6d7266">ログインすると、ご利用いただけるアプリが表示されます</text>
 <rect x="24" y="232" width="342" height="470" rx="14" fill="#fff" stroke="#e2ded2"/>
-<text x="40" y="264" font-size="14" font-weight="700" fill="#47703f">iPhone の方（3ステップ）</text>
+<text x="40" y="264" font-size="14" font-weight="700" fill="#47703f">ログイン</text>
 <circle cx="52" cy="298" r="12" fill="#5b8c5a"/><text x="52" y="303" font-size="12" font-weight="700" text-anchor="middle" fill="#fff">1</text>
-<text x="72" y="302" font-size="13" font-weight="700" fill="#2f3327">画面の下にある 共有ボタン を押す</text>
+<text x="72" y="302" font-size="13" font-weight="700" fill="#2f3327">お名前（漢字・フルネーム）</text>
 <rect x="0" y="760" width="390" height="84" fill="#fafafa"/><line x1="0" y1="760" x2="390" y2="760" stroke="#d9d9de"/>
 <rect x="18" y="764" width="354" height="34" rx="10" fill="#e9e9ee"/><text x="195.0" y="787" font-size="13" text-anchor="middle" fill="#333">mayumi-josanin.github.io</text>
 <g stroke="#2b7fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
