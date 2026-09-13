@@ -23,36 +23,50 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body { font-family: "Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",YuGothic,"Noto Sans JP",sans-serif; color: var(--ink); background: #fff; line-height: 1.65; font-size: 11pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .sheet { width: 186mm; margin: 0 auto; padding: 3mm 0 0; display: flex; flex-direction: column; }
+  .sheet { width: 186mm; margin: 0 auto; padding: 1.5mm 0 0; display: flex; flex-direction: column; }
   .sheet + .sheet { page-break-before: always; }
 
-  .head { display: flex; align-items: center; gap: 5mm; border-bottom: 2.5pt solid var(--sage); padding-bottom: 2.5mm; margin-bottom: 3.5mm; }
-  .head img { width: 14mm; height: 14mm; border-radius: 3.5mm; flex: none; }
+  .head { display: flex; align-items: center; gap: 4mm; border-bottom: 2.5pt solid var(--sage); padding-bottom: 2mm; margin-bottom: 3mm; }
+  .head img { width: 11mm; height: 11mm; border-radius: 2.8mm; flex: none; }
   .head h1 { font-size: 17pt; margin: 0 0 0.8mm; letter-spacing: .03em; }
-  .head p { font-size: 10pt; color: var(--muted); margin: 0; }
+  .head p { font-size: 9.5pt; color: var(--muted); margin: 0; }
   .head .page { margin-left: auto; font-size: 9.5pt; color: var(--muted); white-space: nowrap; }
   .tag { display: inline-block; font-size: 9pt; font-weight: 700; padding: 0.6mm 2.5mm; border-radius: 2mm; margin-right: 2mm; vertical-align: middle; }
+  /* 機種の帯。ページを開いた瞬間に iPhone か Android か分かるように、見出しの上に大きく出す
+     （2026-09-13 院長のご指摘「iPhone と Android が分かるように。字を大きく」） */
+  .band { display: flex; align-items: center; gap: 4mm; border-radius: 3mm; padding: 2.5mm 5mm; margin-bottom: 3mm; }
+  .band.ios { background: var(--ios); color: #fff; }
+  .band.and { background: var(--and); color: #fff; }
+  .band .os { font-size: 22pt; font-weight: 800; letter-spacing: .04em; line-height: 1; }
+  .band .sub { font-size: 11pt; font-weight: 700; opacity: .95; }
+  .band .step { margin-left: auto; font-size: 12pt; font-weight: 700; background: rgba(255,255,255,.22); padding: 1.5mm 4mm; border-radius: 2mm; }
+  .head h1 { font-size: 15pt; margin: 0; }
   .tag.ios { background: var(--ios-pale); color: var(--ios); }
   .tag.and { background: var(--and-pale); color: var(--and); }
 
   /* ---- 1ページ目（QR） ---- */
   .qrpage { align-items: center; text-align: center; }
-  .qrpage .brand { display: flex; align-items: center; gap: 5mm; margin: 4mm 0 4mm; }
+  .qrpage .brand { display: flex; align-items: center; gap: 5mm; margin: 2mm 0 3mm; }
   .qrpage .brand img { width: 20mm; height: 20mm; border-radius: 5mm; }
   .qrpage .brand .n { font-size: 20pt; font-weight: 700; letter-spacing: .04em; text-align: left; line-height: 1.25; }
   .qrpage .brand .s { font-size: 11pt; color: var(--muted); text-align: left; }
   .qrpage h1 { font-size: 24pt; margin: 0 0 2mm; letter-spacing: .05em; }
-  .qrpage .lead { font-size: 12.5pt; color: var(--muted); margin: 0 0 6mm; line-height: 1.6; }
-  .qrbox { background:#fff; border: 1.2pt solid var(--line); border-radius: 6mm; padding: 5mm; margin-bottom: 5mm; }
-  .qrbox img { width: 80mm; height: 80mm; display: block; }
-  .qrpage .how { font-size: 15pt; font-weight: 700; margin: 0 0 2mm; }
-  .qrpage .how small { display: block; font-size: 11pt; font-weight: 400; color: var(--muted); margin-top: 2mm; line-height: 1.7; }
-  .flow { display: flex; gap: 5mm; width: 100%; margin-top: 6mm; }
-  .flow .f { flex: 1 1 0; background: var(--tint); border: 0.8pt solid var(--line); border-radius: 4mm; padding: 4.5mm 4mm; font-size: 11pt; line-height: 1.6; }
+  .qrpage .lead { font-size: 12pt; color: var(--muted); margin: 0 0 4mm; line-height: 1.55; }
+  .qrbox { background:#fff; border: 1.2pt solid var(--line); border-radius: 6mm; padding: 4mm; margin-bottom: 4mm; }
+  .qrbox img { width: 72mm; height: 72mm; display: block; }
+  .qrpage .how { font-size: 14pt; font-weight: 700; margin: 0 0 1.5mm; }
+  .qrpage .how small { display: block; font-size: 10.5pt; font-weight: 400; color: var(--muted); margin-top: 1.5mm; line-height: 1.6; }
+  .flow { display: flex; gap: 5mm; width: 100%; margin-top: 4mm; }
+  .flow .f { flex: 1 1 0; background: var(--tint); border: 0.8pt solid var(--line); border-radius: 4mm; padding: 3.5mm 4mm; font-size: 10.5pt; line-height: 1.5; }
   .flow .no { width: 9mm; height: 9mm; border-radius: 50%; background: var(--sage); color:#fff; font-size: 12pt; font-weight: 700; display:flex; align-items:center; justify-content:center; margin: 0 auto 2.5mm; }
   .flow strong { display:block; font-size: 12pt; margin-bottom: 1mm; }
-  .qrpage .url { font-family: ui-monospace, Menlo, monospace; font-size: 9.5pt; color: var(--muted); margin-top: 6mm; }
-  .qrpage .foot { margin-top: 6mm; padding-top: 0; font-size: 10.5pt; color: var(--muted); line-height: 1.7; }
+  .qrpage .url { font-family: ui-monospace, Menlo, monospace; font-size: 9.5pt; color: var(--muted); margin-top: 4mm; }
+  .which { display: flex; gap: 6mm; width: 100%; margin-top: 5mm; }
+  .which .w { flex: 1 1 0; border-radius: 4mm; padding: 4mm 5mm; color: #fff; text-align: center; }
+  .which .w.ios { background: var(--ios); } .which .w.and { background: var(--and); }
+  .which .os { font-size: 22pt; font-weight: 800; letter-spacing: .04em; line-height: 1.1; }
+  .which .p { font-size: 12pt; margin-top: 1.5mm; } .which .p strong { font-size: 14pt; }
+  .qrpage .foot { margin-top: 4mm; padding-top: 0; font-size: 10.5pt; color: var(--muted); line-height: 1.7; }
 
   /* ---- 説明ページ（2枚の画面を横に） ---- */
   .two { display: flex; gap: 8mm; align-items: flex-start; }
@@ -64,7 +78,7 @@
   /* 縦長の画面をそのまま並べると 300mm を超えた（2026-09-13 計測）。高さを 150mm でそろえて切る */
   /* 高さで切らない。切ると入力欄やボタンが見えなくなる（2026-09-13 院長のご指摘） */
   /* 切らずに全体を出す。縦長の図が 193mm あって A4 を超えたので、幅を 76mm に絞って高さを下げる（2026-09-13） */
-  .shot { border: 0.8pt solid var(--line); border-radius: 3mm; overflow: hidden; background: #fff; width: 76mm; margin: 0 auto; }
+  .shot { border: 0.8pt solid var(--line); border-radius: 3mm; overflow: hidden; background: #fff; width: 72mm; margin: 0 auto; }
   .shot img { display: block; width: 100%; }
   .shot.fig img { background: #f2f2f7; }
   .note { background: var(--sage-pale); border: 0.8pt solid #b9cdb6; border-radius: 3mm; padding: 3mm 4.5mm; margin-top: 3.5mm; font-size: 10pt; line-height: 1.55; }
@@ -75,7 +89,7 @@
   .warn p { margin: 0; }
   .warn strong { border-bottom: 1.5pt solid var(--warn); }
   .foot { margin-top: 3mm; font-size: 9pt; color: var(--muted); border-top: 0.8pt solid var(--line); padding-top: 2.5mm; display: flex; justify-content: space-between; }
-  .figcap { font-size: 8.5pt; color: var(--muted); text-align: center; margin-top: 1.5mm; }
+  .figcap { font-size: 8.5pt; color: var(--muted); text-align: center; margin-top: 1mm; }
 
   .hint { max-width: 186mm; margin: 8mm auto; padding: 4mm 5mm; background:#eef3ec; border:1pt solid #b9cdb6; border-radius:3mm; font-size:10pt; color:#2f4a2e; }
   @media print { .hint { display: none; } }
@@ -103,12 +117,17 @@
     <div class="f"><div class="no">3</div><strong>アイコンから開く</strong>そこで登録・ログイン</div>
   </div>
   <div class="url">https://mayumi-josanin.github.io/mayumi-app/start/</div>
-  <div class="foot">iPhone の方は 2〜4 ページ、Android の方は 5〜7 ページをご覧ください。<br>すでに会員の方は、新しく登録し直さず「ログイン」からお入りください。</div>
+  <div class="which">
+    <div class="w ios"><div class="os">iPhone</div><div class="p">の方は <strong>2〜4 ページ</strong></div></div>
+    <div class="w and"><div class="os">Android</div><div class="p">の方は <strong>5〜7 ページ</strong></div></div>
+  </div>
+  <div class="foot">すでに会員の方は、新しく登録し直さず「ログイン」からお入りください。</div>
 </div>
 
 <!-- ===== 2 iPhone ① ===== -->
 <div class="sheet">
-  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明①　QRを読んで、共有ボタンを押す</h1><p><span class="tag ios">iPhone</span>Safari で開きます</p></div><div class="page">2 / 7</div></div>
+  <div class="band ios"><div class="os">iPhone</div><div class="sub">をお使いの方</div><div class="step">説明 ① / ③</div></div>
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明①　QRを読んで、共有ボタンを押す</h1><p>Safari で開きます</p></div><div class="page">2 / 7</div></div>
   <div class="two">
     <div class="col">
       <div class="cap"><div class="no">1</div><div><div class="t">QRを読むと、この画面（入口）が出ます</div><div class="d"><strong>ここではまだログイン・登録をしません。</strong>先にホーム画面へ追加します。</div></div></div>
@@ -127,7 +146,8 @@
 
 <!-- ===== 3 iPhone ② ===== -->
 <div class="sheet">
-  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明②　「ホーム画面に追加」して「追加」を押す</h1><p><span class="tag ios">iPhone</span></p></div><div class="page">3 / 7</div></div>
+  <div class="band ios"><div class="os">iPhone</div><div class="sub">をお使いの方</div><div class="step">説明 ② / ③</div></div>
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明②　「ホーム画面に追加」して「追加」を押す</h1><p>ホーム画面に追加する</p></div><div class="page">3 / 7</div></div>
   <div class="two">
     <div class="col">
       <div class="cap"><div class="no">3</div><div><div class="t">「ホーム画面に追加」を選ぶ</div><div class="d">メニューが出るので、少し下にスクロールします。「ホーム画面に追加」が出たら押します。</div></div></div>
@@ -146,7 +166,8 @@
 
 <!-- ===== 4 iPhone ③ ===== -->
 <div class="sheet">
-  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明③　アイコンから開いて、ログイン・登録する</h1><p><span class="tag ios">iPhone</span></p></div><div class="page">4 / 7</div></div>
+  <div class="band ios"><div class="os">iPhone</div><div class="sub">をお使いの方</div><div class="step">説明 ③ / ③</div></div>
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明③　アイコンから開いて、ログイン・登録する</h1><p>ホーム画面に追加する</p></div><div class="page">4 / 7</div></div>
   <div class="two">
     <div class="col">
       <div class="cap"><div class="no">5</div><div><div class="t">ホーム画面のアイコンから開く</div><div class="d">「ま」の絵のアイコンです。<strong>これからは必ずこのアイコンから開いてください。</strong>Safari から開くと記録が分かれることがあります。</div></div></div>
@@ -165,7 +186,8 @@
 
 <!-- ===== 5 Android ① ===== -->
 <div class="sheet">
-  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明①　QRを読んで、右上の「︙」を押す</h1><p><span class="tag and">Android</span>Chrome で開きます</p></div><div class="page">5 / 7</div></div>
+  <div class="band and"><div class="os">Android</div><div class="sub">をお使いの方</div><div class="step">説明 ① / ③</div></div>
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明①　QRを読んで、右上の「︙」を押す</h1><p>Chrome で開きます</p></div><div class="page">5 / 7</div></div>
   <div class="two">
     <div class="col">
       <div class="cap"><div class="no">1</div><div><div class="t">QRを読むと、この画面（入口）が出ます</div><div class="d"><strong>ここではまだログイン・登録をしません。</strong>先にホーム画面へ追加します。</div></div></div>
@@ -184,7 +206,8 @@
 
 <!-- ===== 6 Android ② ===== -->
 <div class="sheet">
-  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明②　「ホーム画面に追加」して「追加」を押す</h1><p><span class="tag and">Android</span></p></div><div class="page">6 / 7</div></div>
+  <div class="band and"><div class="os">Android</div><div class="sub">をお使いの方</div><div class="step">説明 ② / ③</div></div>
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明②　「ホーム画面に追加」して「追加」を押す</h1><p>ホーム画面に追加する</p></div><div class="page">6 / 7</div></div>
   <div class="two">
     <div class="col">
       <div class="cap"><div class="no">3</div><div><div class="t">「ホーム画面に追加」を選ぶ</div><div class="d">メニューの中にあります。「<strong>アプリをインストール</strong>」と出る機種もあります。どちらでも同じです。</div></div></div>
@@ -203,7 +226,8 @@
 
 <!-- ===== 7 Android ③ ===== -->
 <div class="sheet">
-  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明③　アイコンから開いて、ログイン・登録する</h1><p><span class="tag and">Android</span></p></div><div class="page">7 / 7</div></div>
+  <div class="band and"><div class="os">Android</div><div class="sub">をお使いの方</div><div class="step">説明 ③ / ③</div></div>
+  <div class="head"><img src="assets/icon-192.png" alt=""><div><h1>説明③　アイコンから開いて、ログイン・登録する</h1><p>ホーム画面に追加する</p></div><div class="page">7 / 7</div></div>
   <div class="two">
     <div class="col">
       <div class="cap"><div class="no">5</div><div><div class="t">ホーム画面のアイコンから開く</div><div class="d">「ま」の絵のアイコンです。<strong>これからは必ずこのアイコンから開いてください。</strong>Chrome から開くと記録が分かれることがあります。</div></div></div>
