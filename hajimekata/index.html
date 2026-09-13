@@ -13,7 +13,11 @@
      見て start_url（アプリ本体）をアイコンの行き先にする。アイコンの絵も
      apple-touch-icon から取る。無いとページの縮小画像になる（2026-09-12 に気づいた） -->
 <link rel="manifest" href="../manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<!-- **iPhone は 180px を先に探す。**192 だけだと取り直しが入り、
+     確認画面がグレーのまま出る。sizes を明示し、実サイズの画像を渡す
+     （2026-09-13、院長のご指摘「最初から本来のアイコンにならないか」） -->
+<link rel="apple-touch-icon" sizes="180x180" href="../icons/icon-180.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
 <!--
   QRコードを読んだお客様が、いちばん最初に見る画面。
 
