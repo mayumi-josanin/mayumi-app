@@ -81,6 +81,9 @@
   .shot { border: 0.8pt solid var(--line); border-radius: 3mm; overflow: hidden; background: #fff; width: 72mm; margin: 0 auto; }
   .shot img { display: block; width: 100%; }
   .shot.fig img { background: #f2f2f7; }
+  /* 本物の写真に、押す場所の赤枠を重ねる（位置は写真に対する割合） */
+  .shot.photo { position: relative; }
+  .shot.photo .mark { position: absolute; border: 1.2mm solid #e5484d; border-radius: 2.5mm; box-sizing: border-box; }
   .note { background: var(--sage-pale); border: 0.8pt solid #b9cdb6; border-radius: 3mm; padding: 3mm 4.5mm; margin-top: 3.5mm; font-size: 10pt; line-height: 1.55; }
   .note h2 { font-size: 11pt; margin: 0 0 1.5mm; color: var(--sage); }
   .note p { margin: 0; }
@@ -125,8 +128,8 @@
     </div>
     <div class="col">
       <div class="cap"><div class="no">2</div><div><div class="t">画面のいちばん下、中央の「共有ボタン」を押す</div><div class="d">四角から上に矢印が出ている印です（赤い枠のところ）。</div></div></div>
-      <div class="shot fig"><img src="assets/g7/ios-1-share.svg" alt="Safari の共有ボタン"></div>
-      <div class="figcap">画面の図（赤い枠が押すところ）</div>
+      <div class="shot photo"><img src="assets/g7/ios-1-share.jpg" alt="iPhone の実際の画面（下に共有ボタン）"><div class="mark" style="left:56%;bottom:1.6%;width:11%;height:6%;"></div></div>
+      <div class="figcap">実際の画面（赤い枠が共有ボタン）</div>
     </div>
   </div>
   <div class="note"><h2>共有ボタンが見当たらないとき</h2><p>LINE の中で開いていると出ません。画面のすみの「…」から「<strong>Safariで開く</strong>」を選び、Safari で開き直してください。Chrome など Safari 以外のブラウザでも同じです。</p></div>
