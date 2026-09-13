@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>まゆみ助産院 Wi-Fi のご案内（院内掲示用）</title>
+<!--
+  院内に掲示する Wi-Fi の案内。A4・1枚。
+  ⌘P（Windows は Ctrl+P）→「PDFに保存」。用紙 A4・縦・倍率100%・余白なし・背景のグラフィックをオン。
+
+  QR は WIFI: 形式（読み取ると「接続」の案内が出る。iPhone のカメラ・Android のカメラ/Googleレンズ対応）。
+  QR に埋めているのは -5G のみ。文字では -2G も載せる（古い端末・遠い場所向け）。
+
+  **管理画面のログイン ID/パスワード（user/user）は載せない。**
+  ルーターのラベルには載っているが、これが漏れると外から設定を変えられる。
+  Wi-Fi のパスワードだけを載せる。
+
+  値はルーターのラベル（2026-09-13 に院長が実物で確認）:
+    SSID 2.4GHz  C48E8F37C971-2G
+    SSID 5GHz    C48E8F37C971-5G
+    暗号キー      2215081340749 （PSK-AES = WPA2）
+-->
+<style>
+  @page { size: A4 portrait; margin: 0; }
+  :root { --sage: #4d7a4c; --ink: #23261f; --muted: #5f645a; --line: #cfcabb; --tint: #f4f2ea; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", YuGothic, "Noto Sans JP", sans-serif;
+    color: var(--ink); background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .sheet {
+    width: 210mm; min-height: 297mm; margin: 0 auto;
+    padding: 16mm 20mm 12mm;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .brand { display: flex; align-items: center; gap: 5mm; margin-bottom: 5mm; }
+  .brand img { width: 16mm; height: 16mm; border-radius: 4mm; }
+  .brand .n { font-size: 16pt; font-weight: 700; letter-spacing: .04em; }
+
+  h1 { font-size: 34pt; margin: 0 0 3mm; letter-spacing: .06em; }
+  .lead { font-size: 14pt; color: var(--muted); margin: 0 0 7mm; line-height: 1.6; }
+
+  /* ---- 大事な2行。離れても読めるように、等幅で大きく ---- */
+  .cred { width: 100%; border: 1.2pt solid var(--line); border-radius: 6mm; overflow: hidden; margin-bottom: 8mm; }
+  .cred .row { display: flex; align-items: center; padding: 6mm 9mm; }
+  .cred .row + .row { border-top: 0.8pt solid var(--line); }
+  .cred .k { flex: 0 0 40mm; text-align: left; font-size: 12.5pt; color: var(--muted); line-height: 1.4; }
+  .cred .k small { display: block; font-size: 10.5pt; }
+  .cred .v { flex: 1 1 0; text-align: left; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 24pt; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+  .cred .row.main { background: var(--tint); }
+  .cred .row.main .v { font-size: 24pt; }
+
+  .qr-wrap { display: flex; align-items: center; gap: 10mm; width: 100%; margin-bottom: 8mm; }
+  .qr-box { flex: none; background: #fff; border: 1.2pt solid var(--line); border-radius: 6mm; padding: 5mm; }
+  .qr-box img { width: 80mm; height: 80mm; display: block; }
+  .qr-text { flex: 1 1 0; text-align: left; }
+  .qr-text .h { font-size: 16pt; font-weight: 700; margin: 0 0 3mm; }
+  .qr-text ol { margin: 0; padding-left: 6mm; font-size: 13pt; line-height: 1.9; }
+  .qr-text .s { font-size: 10pt; color: var(--muted); margin-top: 3mm; line-height: 1.6; }
+
+  .note { width: 100%; background: var(--tint); border: 0.8pt solid var(--line); border-radius: 4mm; padding: 5mm 7mm; font-size: 11.5pt; color: var(--muted); line-height: 1.7; text-align: left; }
+  .note strong { color: var(--ink); }
+  .foot { margin-top: auto; padding-top: 5mm; font-size: 10.5pt; color: var(--muted); }
+
+  .hint { max-width: 210mm; margin: 8mm auto; padding: 4mm 5mm; background: #eef3ec; border: 1pt solid #b9cdb6; border-radius: 3mm; font-size: 10pt; color: #2f4a2e; }
+  @media print { .hint { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="hint">
+  <strong>PDFにするには</strong>　<code>⌘P</code>（Windows は <code>Ctrl+P</code>）→ 送信先「<strong>PDFに保存</strong>」、
+  用紙 <strong>A4・縦</strong>、倍率 <strong>100%</strong>、余白「<strong>なし</strong>」、<strong>背景のグラフィックをオン</strong>。1枚になります。
+</div>
+
+<div class="sheet">
+  <div class="brand">
+    <img src="assets/icon-192.png" alt="">
+    <div class="n">まゆみ助産院</div>
+  </div>
+
+  <h1>Wi-Fi をご利用いただけます</h1>
+  <p class="lead">ご来院中は、無料でお使いいただけます。</p>
+
+  <div class="cred">
+    <div class="row main">
+      <div class="k">ネットワーク名<small>（Wi-Fi名・SSID）</small></div>
+      <div class="v">C48E8F37C971-5G</div>
+    </div>
+    <div class="row">
+      <div class="k">パスワード</div>
+      <div class="v">2215081340749</div>
+    </div>
+  </div>
+
+  <div class="qr-wrap">
+    <div class="qr-box"><img src="assets/wifi-qr.svg" alt="Wi-Fi 接続用QRコード"></div>
+    <div class="qr-text">
+      <div class="h">QRコードなら、打たずにつながります</div>
+      <ol>
+        <li>スマートフォンの<strong>カメラ</strong>を QR に向ける</li>
+        <li>画面に出る「<strong>接続</strong>」「ネットワークに参加」を押す</li>
+        <li>つながります（パスワードの入力は不要です）</li>
+      </ol>
+      <div class="s">iPhone は標準の「カメラ」アプリで読めます。Android は「カメラ」または「Googleレンズ」で読み取ってください。</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>つながりにくいときは</strong>　ネットワーク名 <strong>C48E8F37C971-2G</strong>（パスワードは同じ）をお試しください。少し遅くなりますが、電波が届きやすくなります。<br>
+    Wi-Fi は院内でのみご利用ください。
+  </div>
+
+  <div class="foot">まゆみ助産院</div>
+</div>
+
+</body>
+</html>
