@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mayumi-app-v71';
+const CACHE_NAME = 'mayumi-app-v72';
 // 同一オリジンに管理者アプリ (/admin/) の Service Worker も同居しているため、
 // 後片付けはお客様アプリ自身のキャッシュだけに限定する。
 const CACHE_PREFIX = 'mayumi-app-';
@@ -8,7 +8,10 @@ const ASSETS = [
   './stamp-launch.html',
   './app.js',
   './style.css',
-  './icon.png',
+  // icon.png（4.7MB）は配らない。入れる方全員が読むことになっていた（2026-09-13）
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   './logo-mayumi.png',
   './manifest.json'
 ];
@@ -66,8 +69,8 @@ self.addEventListener('push', (event) => {
     : ('./index.html' + (targetPage ? ('?open=' + encodeURIComponent(targetPage)) : ''));
   const options = {
     body: data.body,
-    icon: './icon.png',
-    badge: './icon.png',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
     vibrate: [200, 100, 200],
     data: {
       url: targetUrl,
