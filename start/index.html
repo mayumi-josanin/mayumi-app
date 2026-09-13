@@ -4,7 +4,15 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>まゆみ助産院 アプリ</title>
-<link rel="icon" href="data:," />
+<!-- **ここから「ホーム画面に追加」されることがある。**
+     QRの行き先は はじめ方 だが、そこから入口へ進んだあとに追加する方がいる。
+     manifest と apple-touch-icon が無いと、iOS はタイトルの1文字「ま」を
+     グレーで作る（2026-09-13、院長の写真で判明）。行き先も入口ではなく
+     アプリ本体（manifest の start_url）にそろえる -->
+<link rel="manifest" href="../manifest.json" />
+<link rel="apple-touch-icon" sizes="180x180" href="../icons/icon-180.png" />
+<link rel="apple-touch-icon" href="../icons/icon-180.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png" />
 <style>
   :root {
     --sage: #5b8c5a;
