@@ -1,19 +1,21 @@
 {% comment %}
-フォームの1項目。label_tag ではなく label を直に出しているのは、
-Django が付けるコロン（「お名前:」）を消すため。
+フォームの1項目（KEM の .form-group / .form-control / .form-hint / .errorlist と同じ形）。
+label_tag ではなく label を直に出しているのは、Django が付けるコロンを消すため。
 {% endcomment %}
 {% if field.field.widget.input_type == 'checkbox' %}
-  <div class="field field-check">
-    {{ field }}
-    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-    {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
-    {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+  <div class="form-group">
+    <div class="form-check">
+      {{ field }}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    </div>
+    {% if field.help_text %}<div class="form-hint">{{ field.help_text }}</div>{% endif %}
+    {% for error in field.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
   </div>
 {% else %}
-  <div class="field">
+  <div class="form-group">
     <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="required">必須</span>{% endif %}</label>
     {{ field }}
-    {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
-    {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+    {% if field.help_text %}<div class="form-hint">{{ field.help_text }}</div>{% endif %}
+    {% for error in field.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
   </div>
 {% endif %}
