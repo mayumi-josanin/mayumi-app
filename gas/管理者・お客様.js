@@ -9305,6 +9305,13 @@ function getAdminBlogs() {
   if (サーバーへ渡すか_('news')) {
     var 中 = サーバーから読む_('getAdminBlogs');
     if (中) return 中;
+    // **シートへ落とさない。**表をサーバーへ移したあとはシートに書いていないので、
+    // 落ちた先は必ず古い（9/2 で止まった一覧が出て「投稿が消えた」に見える。2026-09-14）。
+    // 管理アプリは失敗の答えを受けると、手元に控えた前回の一覧を出す。
+    return {
+      status: 'error',
+      message: 'サーバーから読めませんでした。少し待ってから「更新」を押してください。'
+    };
   }
   try {
     const ss = getOrCreateSpreadsheet();

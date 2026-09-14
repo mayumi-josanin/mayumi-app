@@ -142,6 +142,29 @@ function 渡す_書き留める_(向き, 名, 理由) {
   try {
     Logger.log('[サーバーへ渡す] ' + 向き + ' ' + (名 || '?') + ' → ' + 理由);
   } catch (e) { /* ログが取れなくても本筋を止めない */ }
+  // **Logger は Web アプリの実行では残らない。**管理アプリの「9/5以降が出ない」
+  // （2026-09-14）で、いつ・なぜサーバーから読めなかったかを誰も確かめられなかった。
+  // 失敗だけをプロパティに最新30件まで残し、`サーバーとのやり取りの失敗を見る()` で読む。
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var 今 = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+    var 一覧 = [];
+    try { 一覧 = JSON.parse(props.getProperty(渡す_失敗記録キー) || '[]'); } catch (e2) { 一覧 = []; }
+    一覧.push(今 + ' ' + 向き + ' ' + (名 || '?') + ' → ' + String(理由).slice(0, 200));
+    while (一覧.length > 30) 一覧.shift();
+    props.setProperty(渡す_失敗記録キー, JSON.stringify(一覧));
+  } catch (e3) { /* 記録が書けなくても本筋を止めない */ }
+}
+
+var 渡す_失敗記録キー = 'SERVER_TRANSFER_FAILURES';
+
+/** サーバーから読めなかった・書けなかった記録（最新30件）。**何も書きません。** */
+function サーバーとのやり取りの失敗を見る() {
+  var 一覧 = [];
+  try { 一覧 = JSON.parse(PropertiesService.getScriptProperties().getProperty(渡す_失敗記録キー) || '[]'); } catch (e) {}
+  Logger.log('■ サーバーとのやり取りの失敗（古い順・最新30件）');
+  if (!一覧.length) Logger.log('  記録なし');
+  一覧.forEach(function (行) { Logger.log('  ' + 行); });
 }
 
 // ═════════════════════════════════════════════════════════

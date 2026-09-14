@@ -12259,7 +12259,16 @@
       }
 
       const res = await apiRequest('getAdminBlogs');
-      const targetRes = (res && res.status === 'ok') ? res : cachedRes;
+      let targetRes = (res && res.status === 'ok') ? res : cachedRes;
+      if (!(targetRes && targetRes.status === 'ok')) {
+        // GAS が「サーバーから読めませんでした」と答えたとき。15分より古くても、
+        // 前回の一覧を出すほうが「投稿が消えた」と見えるより害が小さい。
+        const stale = readAdminApiCache('getAdminBlogs', null, 0);
+        if (stale && stale.status === 'ok') {
+          targetRes = stale;
+          showToast((res && res.message) || '通信エラーのため、以前取得した一覧を表示しています。');
+        }
+      }
       if (targetRes && targetRes.status === 'ok') {
         allBlogs = targetRes.blogs || [];
         tbodyPub.innerHTML = '';
