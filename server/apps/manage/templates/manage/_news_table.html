@@ -1,0 +1,37 @@
+<div class="wide-table-wrap">
+<table class="grid news-table">
+  <tr>
+    <th></th><th>日付</th><th>カテゴリ</th><th>種別</th><th>タイトル</th><th>公開</th><th></th>
+  </tr>
+  {% for item in items %}
+    <tr>
+      <td class="thumb-cell">
+        {% if item.image %}<img class="thumb" src="{{ item.image }}" alt="">{% else %}<span class="icon">{{ item.n.icon|default:"📢" }}</span>{% endif %}
+      </td>
+      <td class="nowrap">{{ item.n.posted_on|date:"Y/n/j" }}</td>
+      <td><span class="badge">{{ item.n.category }}</span></td>
+      <td><span class="badge {% if item.kind == 'お知らせ' %}badge-notice{% else %}badge-blog{% endif %}">{{ item.kind }}</span></td>
+      <td class="title-cell">
+        <a href="{% url 'manage:news_edit' item.n.sheet_row %}">{{ item.n.title }}</a>
+        {% if item.n.publish_at %}<div class="sub">公開開始 {{ item.n.publish_at|date:"n/j H:i" }}</div>{% endif %}
+        {% if not item.n.notice_listed %}<div class="sub">お知らせ一覧には出さない</div>{% endif %}
+      </td>
+      <td class="nowrap">
+        <form method="post" action="{% url 'manage:news_toggle' item.n.sheet_row %}">
+          {% csrf_token %}
+          <button type="submit" class="button button-small button-quiet">{% if item.n.published %}非公開にする{% else %}公開する{% endif %}</button>
+        </form>
+      </td>
+      <td class="nowrap actions">
+        <a class="button button-small button-quiet" href="{% url 'manage:news_edit' item.n.sheet_row %}">編集</a>
+        <form method="post" action="{% url 'manage:news_delete' item.n.sheet_row %}" onsubmit="return confirm('「{{ item.n.title|escapejs }}」を削除します。よろしいですか？');">
+          {% csrf_token %}
+          <button type="submit" class="button button-small button-danger">削除</button>
+        </form>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="7" class="empty">{{ empty }}</td></tr>
+  {% endfor %}
+</table>
+</div>

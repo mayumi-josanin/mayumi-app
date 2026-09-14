@@ -23,15 +23,23 @@ from django.http import FileResponse, Http404
 
 
 def 写真(request, 名前):
-    """`/media/avatars/<名前>` を配る。
+    """`/media/avatars/<名前>` を配る（お客様のプロフィール写真）。"""
+    return _配る("avatars", 名前)
 
-    **名前は英数字と一部の記号だけを通す。**`..` を含む名前で
+
+def お知らせ画像(request, 名前):
+    """`/media/news/<名前>` を配る（管理画面で上げたお知らせの画像）。"""
+    return _配る("news", 名前)
+
+
+def _配る(置き場名, 名前):
+    """**名前は英数字と一部の記号だけを通す。**`..` を含む名前で
     サーバーの別の場所を読み出されるのを防ぐ。
     """
     if not 名前 or "/" in 名前 or "\\" in 名前 or ".." in 名前:
         raise Http404
 
-    置き場 = Path(settings.MEDIA_ROOT) / "avatars"
+    置き場 = Path(settings.MEDIA_ROOT) / 置き場名
     道 = (置き場 / 名前).resolve()
 
     # **解決したあとの道が、置き場の中にあることを確かめる。**

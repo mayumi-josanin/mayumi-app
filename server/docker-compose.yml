@@ -61,6 +61,40 @@ services:
       # 作り直しても消えないようにするためでもある。
       - mayumi_media:/app/media
 
+  # 院の管理画面（/manage/）。web と同じ中身・同じデータベースだが、
+  # **Funnel には出さない。**Tailscale の中にだけ出す（予約システムの管理画面と同じ分け方）:
+  #
+  #     tailscale serve --bg --https=10002 http://127.0.0.1:8005
+  #
+  # → https://desktop-rmsk0vg.tail8efe0d.ts.net:10002/manage/
+  manage:
+    build: .
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MANAGE_ENABLED: "true"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-in-production}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+      DJANGO_ALLOWED_HOSTS: ${MANAGE_ALLOWED_HOSTS:-desktop-rmsk0vg.tail8efe0d.ts.net,localhost,127.0.0.1}
+      CSRF_TRUSTED_ORIGINS: ${MANAGE_CSRF_TRUSTED_ORIGINS:-https://desktop-rmsk0vg.tail8efe0d.ts.net:10002}
+      API_KEY: ${API_KEY:-}
+      ADMIN_TOKEN_SECRET: ${ADMIN_TOKEN_SECRET:-}
+      # 上げた画像の公開URL。お客様は Funnel（web）側から見るので、そちらの住所を書く
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://mayumi-api.tail8efe0d.ts.net}
+      DB_NAME: mayumi
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: "5432"
+    ports:
+      - "127.0.0.1:${MANAGE_PORT:-8005}:8000"
+    volumes:
+      - .:/app
+      # 画像は web と同じ volume。管理画面で上げたものを web が配る。
+      - mayumi_media:/app/media
+
 volumes:
   mayumi_pgdata:
   mayumi_media:
