@@ -21,6 +21,28 @@ const CONFIG = {
 };
 const ONE_SIGNAL_APP_SCOPE_KEY = 'app_scope';
 const ONE_SIGNAL_APP_SCOPE_VALUE = 'mayumi_josanin_app';
+
+// OneSignal の鍵は**スクリプトプロパティ**から読む（ONESIGNAL_APP_ID / ONESIGNAL_REST_API_KEY）。
+// CONFIG に書いてあるのは置き換え用の印（__SET_IN_APPS_SCRIPT__）で、
+// clasp push のたびにその印がエディタへ上書きされる。実際、2026-04-25 を最後に
+// お客様への通知が一通も届いていなかった（通知シートの送信IDが空のまま48件）。
+// 印が入ったままだと「送った」と記録して失敗するので、印は鍵として扱わない。
+function oneSignal鍵_(名) {
+  var v = '';
+  try { v = PropertiesService.getScriptProperties().getProperty(名) || ''; } catch (e) { v = ''; }
+  if (!v && CONFIG[名] && CONFIG[名] !== '__SET_IN_APPS_SCRIPT__') v = CONFIG[名];
+  return String(v).trim();
+}
+function oneSignalAppId_() { return oneSignal鍵_('ONESIGNAL_APP_ID'); }
+function oneSignalRestKey_() { return oneSignal鍵_('ONESIGNAL_REST_API_KEY'); }
+
+/** 通知の鍵が入っているかを見る。**値は出さない。何も書かない。** */
+function 通知の鍵を確かめる() {
+  Logger.log('ONESIGNAL_APP_ID      : ' + (oneSignalAppId_() ? '設定あり' : '**未設定**'));
+  Logger.log('ONESIGNAL_REST_API_KEY: ' + (oneSignalRestKey_() ? '設定あり' : '**未設定**'));
+  Logger.log('→ どちらかが未設定なら、お客様への通知は送られていません。');
+  Logger.log('  プロジェクトの設定 → スクリプト プロパティ に2つを入れてください。');
+}
 // ★★★★★★★★★★★★★★★★★★★★
 
 const SHEETS = {
@@ -1798,7 +1820,7 @@ function parsePushTargetUsers_(value) {
 
 function buildOneSignalPayload_(record) {
   const payload = {
-    app_id: CONFIG.ONESIGNAL_APP_ID,
+    app_id: oneSignalAppId_(),
     contents: { en: record.body, ja: record.body },
     headings: { en: record.title, ja: record.title },
     url: buildAppNotificationUrl_(record.targetPage),
@@ -1830,7 +1852,7 @@ function sendPushNoticePayload_(record) {
     method: 'post',
     contentType: 'application/json',
     headers: {
-      Authorization: 'Basic ' + CONFIG.ONESIGNAL_REST_API_KEY
+      Authorization: 'Basic ' + oneSignalRestKey_()
     },
     payload: JSON.stringify(buildOneSignalPayload_(record)),
     muteHttpExceptions: true
@@ -8065,14 +8087,14 @@ function handleUnsubscribePush(data) {
     const memberId = String(data.memberId || '').trim();
     const playerId = String(data.playerId || '').trim();
 
-    if (playerId && CONFIG.ONESIGNAL_APP_ID && CONFIG.ONESIGNAL_REST_API_KEY) {
+    if (playerId && oneSignalAppId_() && oneSignalRestKey_()) {
       try {
         const response = UrlFetchApp.fetch(
-          'https://onesignal.com/api/v1/players/' + encodeURIComponent(playerId) + '?app_id=' + encodeURIComponent(CONFIG.ONESIGNAL_APP_ID),
+          'https://onesignal.com/api/v1/players/' + encodeURIComponent(playerId) + '?app_id=' + encodeURIComponent(oneSignalAppId_()),
           {
             method: 'delete',
             headers: {
-              Authorization: 'Basic ' + CONFIG.ONESIGNAL_REST_API_KEY
+              Authorization: 'Basic ' + oneSignalRestKey_()
             },
             muteHttpExceptions: true
           }
@@ -8971,7 +8993,7 @@ function handleUpdateItemOrder(data) {
  */
 function sendAutoPush(title, body, options) {
   try {
-    if (!CONFIG.ONESIGNAL_APP_ID || !CONFIG.ONESIGNAL_REST_API_KEY) return;
+    if (!oneSignalAppId_() || !oneSignalRestKey_()) return;
     const record = buildPushNoticeRowFromInput_({
       title: title,
       body: body,
