@@ -3631,7 +3631,9 @@
     const API_GET_TIMEOUT_MS = 60000;
     const API_POST_TIMEOUT_MS = 60000;
     const API_IMAGE_UPLOAD_TIMEOUT_MS = 120000;
-    const API_GET_RETRY_COUNT = 2;
+    // GAS は混み合うと JSON ではなく 404 の HTML を数秒だけ返すことがある
+    // （2026-09-14 本番で確認。直後の再試行は通った）。3回まで間を空けて試す。
+    const API_GET_RETRY_COUNT = 3;
     const API_RETRY_DELAY_MS = 1200;
     const pendingGetRequests = new Map();
     const ADMIN_API_CACHE_PREFIX = 'mayumi-admin-api-cache:';
@@ -5230,6 +5232,7 @@
       if (!error) return false;
       if (error.name === 'AbortError') return true;
       if (error instanceof TypeError) return true;
+      if (error.retryable) return true;
       return false;
     }
 
@@ -11230,7 +11233,20 @@
             }
 
             const res = await fetch(url, options);
-            let json = await res.json();
+            const rawText = await res.text();
+            let json;
+            try {
+              json = JSON.parse(rawText);
+            } catch (parseError) {
+              // GAS が「Sorry, unable to open the file」の HTML（404）を返したとき。
+              // 壊れているのではなく一時的な混雑なので、再試行の対象にする。
+              const gasError = new Error(res.ok
+                ? 'GASの応答が読めませんでした'
+                : 'GASが一時的に応答できませんでした（HTTP ' + res.status + '）');
+              gasError.name = 'GasUnavailableError';
+              gasError.retryable = true;
+              throw gasError;
+            }
 
             // トークンが無い／期限切れのとき。
             // 一度も入口を通っていない場合は、そちらへ案内する（二重に聞かない）。
@@ -11254,17 +11270,22 @@
               await wait(API_RETRY_DELAY_MS * attempt);
               continue;
             }
+            if (cachedFallback && cachedFallback.status === 'ok') {
+              showToast(e && e.name === 'AbortError'
+                ? '通信が遅いため、前回取得したデータを表示しています。'
+                : '通信エラーのため、前回取得したデータを表示しています。');
+              return cachedFallback;
+            }
+            // 15分より古くても、真っ白にするより前回の中身を出すほうが害が小さい。
+            // 再試行しても届かないときだけここに来る。
+            const staleFallback = !isPost ? readAdminApiCache(action, data, 0) : null;
+            if (staleFallback && staleFallback.status === 'ok') {
+              showToast('通信エラーのため、以前取得したデータを表示しています。少し待ってから「更新」を押してください。');
+              return staleFallback;
+            }
             if (e && e.name === 'AbortError') {
-              if (cachedFallback && cachedFallback.status === 'ok') {
-                showToast('通信が遅いため、前回取得したデータを表示しています。');
-                return cachedFallback;
-              }
               showToast('通信に時間がかかっています。再試行しても取得できませんでした。');
             } else {
-              if (cachedFallback && cachedFallback.status === 'ok') {
-                showToast('通信エラーのため、前回取得したデータを表示しています。');
-                return cachedFallback;
-              }
               showToast('通信エラーが発生しました: ' + e.message);
             }
             return null;
