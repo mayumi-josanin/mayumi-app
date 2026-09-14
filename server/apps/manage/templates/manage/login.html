@@ -1,31 +1,48 @@
-{% extends "manage/base.html" %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ログイン | まゆみ助産院 管理画面</title>
+<meta name="theme-color" content="#4f5e43">
+<link rel="icon" href="{% static 'manage/img/icon-192.png' %}">
+<link rel="apple-touch-icon" href="{% static 'manage/img/apple-touch-icon.png' %}">
+<link rel="manifest" href="{% static 'manage/manifest.webmanifest' %}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="まゆみ管理">
+<link rel="stylesheet" href="{% static 'manage/style.css' %}">
+</head>
+<body>
+<div class="login-page">
+  <div class="login-card">
+    <img class="login-logo" src="{% static 'manage/img/icon-192.png' %}" alt="">
+    <h1>まゆみ助産院 管理画面</h1>
+    <p class="subtitle">役割を選んで、パスコードでお入りください</p>
 
-{% block content %}
-<div class="login-center">
-<h2>ログイン</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      {% if error %}<div class="form-errors">{{ error }}</div>{% endif %}
 
-<form method="post" class="role-login">
-  {% csrf_token %}
-  <input type="hidden" name="next" value="{{ next }}">
+      <div class="role-pick">
+        {% for name in roles %}
+          <label class="role-choice">
+            <input type="radio" name="role" value="{{ name }}"{% if name == role %} checked{% endif %} required>
+            <span>{{ name }}</span>
+          </label>
+        {% endfor %}
+      </div>
 
-  {% if error %}<div class="form-errors">{{ error }}</div>{% endif %}
+      <div class="form-group">
+        <label for="passcode">パスコード</label>
+        <input id="passcode" class="form-control passcode" type="password" name="passcode"
+               autocomplete="current-password" inputmode="numeric" required>
+      </div>
 
-  <p class="lead">どちらでお入りになりますか。</p>
-  <div class="role-pick">
-    {% for name in roles %}
-      <label class="role-choice{% if name == role %} on{% endif %}">
-        <input type="radio" name="role" value="{{ name }}"{% if name == role %} checked{% endif %} required>
-        <span class="role-choice-name">{{ name }}</span>
-      </label>
-    {% endfor %}
+      <button type="submit" class="btn btn-primary">ログイン</button>
+    </form>
   </div>
-
-  <label class="role-passcode">
-    <span>パスコード</span>
-    <input type="password" name="passcode" autocomplete="current-password" required inputmode="numeric">
-  </label>
-
-  <button type="submit" class="button">入る</button>
-</form>
 </div>
-{% endblock %}
+</body>
+</html>

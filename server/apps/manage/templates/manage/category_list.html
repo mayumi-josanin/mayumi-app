@@ -1,53 +1,68 @@
 {% extends "manage/base.html" %}
 
 {% block title %}カテゴリ管理 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}カテゴリ管理{% endblock %}
 
-{% block manage_content %}
-<div class="page-head">
-  <h2>カテゴリ管理</h2>
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>カテゴリ管理</h1>
+    <div class="lead">お知らせ・商品・メニューを分けるための名前です。種別「お知らせ」は NEWS のお知らせ側、「ブログ」はブログ側に出ます。</div>
+  </div>
 </div>
-<p class="lead">お知らせ・商品・メニューを分けるための名前です。種別が「お知らせ」のカテゴリは NEWS のお知らせ側に、「ブログ」はブログ側に出ます。</p>
 
-<h3>新しく足す</h3>
-<form method="post" action="{% url 'manage:category_add' %}" class="inline-form">
-  {% csrf_token %}
-  <input type="text" name="name" placeholder="カテゴリ名" required maxlength="100">
-  <select name="kind">
-    {% for k in kinds %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
-  </select>
-  <button type="submit" class="button button-small">足す</button>
-</form>
-
-<h3>いまのカテゴリ <span class="count">{{ rows|length }}件</span></h3>
-<div class="wide-table-wrap">
-<table class="grid category-table">
-  <tr><th>カテゴリ名</th><th>種別</th><th>使っている記事</th><th></th></tr>
-  {% for row in rows %}
-    <tr>
-      <form method="post" action="{% url 'manage:category_update' %}">
-        {% csrf_token %}
-        <input type="hidden" name="old_name" value="{{ row.c.name }}">
-        <td><input type="text" name="name" value="{{ row.c.name }}" required maxlength="100"></td>
-        <td>
-          <select name="kind">
-            {% for k in kinds %}<option value="{{ k }}" {% if row.c.kind == k %}selected{% endif %}>{{ k }}</option>{% endfor %}
-          </select>
-        </td>
-        <td class="nowrap">{{ row.used }}件</td>
-        <td class="nowrap actions">
-          <button type="submit" class="button button-small button-quiet">保存</button>
-      </form>
-          <form method="post" action="{% url 'manage:category_delete' %}" onsubmit="return confirm('カテゴリ「{{ row.c.name|escapejs }}」を削除します。{% if row.used %}このカテゴリの記事 {{ row.used }} 件は、カテゴリ名がそのまま残ります。{% endif %}よろしいですか？');">
-            {% csrf_token %}
-            <input type="hidden" name="name" value="{{ row.c.name }}">
-            <button type="submit" class="button button-small button-danger">削除</button>
-          </form>
-        </td>
-    </tr>
-  {% empty %}
-    <tr><td colspan="4" class="empty">カテゴリはまだありません。</td></tr>
-  {% endfor %}
-</table>
+<div class="card">
+  <div class="card-header"><h2>新しく足す</h2></div>
+  <div class="card-body">
+    <form method="post" action="{% url 'manage:category_add' %}" class="inline-form">
+      {% csrf_token %}
+      <input type="text" name="name" class="form-control" placeholder="カテゴリ名" required maxlength="100">
+      <select name="kind" class="form-control">
+        {% for k in kinds %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn btn-primary">足す</button>
+    </form>
+  </div>
 </div>
-<p class="note">名前を変えても、その名前を使っていた記事のカテゴリは変わりません（旧管理アプリと同じ）。変えたときは記事側も直してください。</p>
+
+<div class="card">
+  <div class="card-header"><h2>いまのカテゴリ<span class="count">{{ rows|length }}件</span></h2></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>カテゴリ名</th><th>種別</th><th>使っている記事</th><th></th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <form method="post" action="{% url 'manage:category_update' %}">
+          {% csrf_token %}
+          <input type="hidden" name="old_name" value="{{ row.c.name }}">
+          <td><input type="text" name="name" class="form-control" value="{{ row.c.name }}" required maxlength="100"></td>
+          <td class="nowrap">
+            <select name="kind" class="form-control">
+              {% for k in kinds %}<option value="{{ k }}" {% if row.c.kind == k %}selected{% endif %}>{{ k }}</option>{% endfor %}
+            </select>
+          </td>
+          <td class="nowrap">{{ row.used }}件</td>
+          <td class="nowrap">
+            <div class="row-actions">
+              <button type="submit" class="btn btn-outline btn-sm">保存</button>
+        </form>
+              <form method="post" action="{% url 'manage:category_delete' %}" onsubmit="return confirm('カテゴリ「{{ row.c.name|escapejs }}」を削除します。{% if row.used %}このカテゴリの記事 {{ row.used }} 件は、カテゴリ名がそのまま残ります。{% endif %}よろしいですか？');">
+                {% csrf_token %}
+                <input type="hidden" name="name" value="{{ row.c.name }}">
+                <button type="submit" class="btn btn-outline btn-sm danger">削除</button>
+              </form>
+            </div>
+          </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4"><div class="empty"><div class="empty-icon">🏷️</div><p>カテゴリはまだありません。</p></div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="card-body">
+    <p class="note">名前を変えても、その名前を使っていた記事のカテゴリは変わりません（旧管理アプリと同じ）。変えたときは記事側も直してください。</p>
+  </div>
+</div>
 {% endblock %}

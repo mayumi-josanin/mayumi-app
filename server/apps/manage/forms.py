@@ -60,7 +60,7 @@ class NewsForm(forms.ModelForm):
             "posted_on": forms.DateInput(attrs={"type": "date"}),
             "publish_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "body": forms.Textarea(attrs={"rows": 12, "placeholder": "お知らせの内容を入力..."}),
-            "icon": forms.TextInput(attrs={"style": "width:5em", "placeholder": "📢"}),
+            "icon": forms.TextInput(attrs={"placeholder": "📢"}),
             "link_url": forms.URLInput(attrs={"placeholder": "https://"}),
         }
 
@@ -74,4 +74,8 @@ class NewsForm(forms.ModelForm):
             choices.append((current, current))
         self.fields["category"] = forms.ChoiceField(label="カテゴリ", choices=choices)
         self.fields["title"].widget.attrs["placeholder"] = "例：夏の産後ヨガ体験会"
+        # 入力欄の見た目は KEM と同じ .form-control（チェックボックスは除く）
+        for name, field in self.fields.items():
+            if getattr(field.widget, "input_type", "") != "checkbox":
+                field.widget.attrs["class"] = (field.widget.attrs.get("class", "") + " form-control").strip()
         self.fields["publish_at"].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S"]

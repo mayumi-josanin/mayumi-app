@@ -1,50 +1,63 @@
 {% extends "manage/base.html" %}
 
 {% block title %}{% if news %}お知らせを修正{% else %}お知らせを投稿{% endif %} | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}お知らせ管理{% endblock %}
 
-{% block manage_content %}
-<div class="page-head">
-  <h2>{% if news %}お知らせを修正{% else %}新しいお知らせ{% endif %}</h2>
-  <a class="button button-small button-quiet" href="{% url 'manage:news_list' %}">一覧へ戻る</a>
+{% block content %}
+<div class="page-header">
+  <h1>{% if news %}お知らせを修正{% else %}新しいお知らせ{% endif %}</h1>
+  <div class="page-header-actions">
+    <a class="btn btn-outline" href="{% url 'manage:news_list' %}">一覧へ戻る</a>
+  </div>
 </div>
 
-<form method="post" enctype="multipart/form-data" class="news-form">
-  {% csrf_token %}
-  {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+<div class="card">
+  <div class="card-header"><h2>{% if news %}{{ news.title }}{% else %}投稿の内容{% endif %}</h2></div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
 
-  {% include "manage/_field.html" with field=form.posted_on %}
-  {% include "manage/_field.html" with field=form.title %}
-
-  {% if existing_images %}
-    <div class="field">
-      <label>いまの画像（外すものはチェックを外す）</label>
-      <div class="image-keep">
-        {% for url in existing_images %}
-          <label class="image-keep-item">
-            <input type="checkbox" name="keep_image" value="{{ url }}" checked>
-            <img src="{{ url }}" alt="">
-          </label>
-        {% endfor %}
+      <div class="form-row">
+        {% include "manage/_field.html" with field=form.posted_on %}
+        {% include "manage/_field.html" with field=form.publish_at %}
       </div>
-    </div>
-  {% endif %}
-  {% include "manage/_field.html" with field=form.images %}
+      {% include "manage/_field.html" with field=form.title %}
+      <div class="form-row icon-row">
+        {% include "manage/_field.html" with field=form.category %}
+        {% include "manage/_field.html" with field=form.icon %}
+      </div>
+      {% include "manage/_field.html" with field=form.body %}
 
-  <div class="field-row">
-    {% include "manage/_field.html" with field=form.category %}
-    {% include "manage/_field.html" with field=form.icon %}
+      {% if existing_images %}
+        <div class="form-group">
+          <label>いまの画像（外すものはチェックを外す）</label>
+          <div class="image-keep">
+            {% for url in existing_images %}
+              <label class="image-keep-item">
+                <input type="checkbox" name="keep_image" value="{{ url }}" checked>
+                <img src="{{ url }}" alt="">
+                <span>残す</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+      {% include "manage/_field.html" with field=form.images %}
+
+      <div class="form-row">
+        {% include "manage/_field.html" with field=form.link_url %}
+        {% include "manage/_field.html" with field=form.button_text %}
+      </div>
+      {% include "manage/_field.html" with field=form.notice_listed %}
+      {% include "manage/_field.html" with field=form.send_push %}
+
+      <div class="form-actions">
+        <button type="submit" name="status" value="公開" class="btn btn-primary">{% if news %}修正して公開する{% else %}公開して投稿する{% endif %}</button>
+        <button type="submit" name="status" value="非公開" class="btn btn-outline">下書き保存</button>
+        <a class="btn btn-outline" href="{% url 'manage:news_list' %}">キャンセル</a>
+      </div>
+    </form>
   </div>
-
-  {% include "manage/_field.html" with field=form.body %}
-  {% include "manage/_field.html" with field=form.publish_at %}
-  {% include "manage/_field.html" with field=form.link_url %}
-  {% include "manage/_field.html" with field=form.button_text %}
-  {% include "manage/_field.html" with field=form.notice_listed %}
-  {% include "manage/_field.html" with field=form.send_push %}
-
-  <div class="form-actions">
-    <button type="submit" name="status" value="公開" class="button">{% if news %}修正して公開する{% else %}公開して投稿する{% endif %}</button>
-    <button type="submit" name="status" value="非公開" class="button button-quiet">下書き保存</button>
-  </div>
-</form>
+</div>
 {% endblock %}

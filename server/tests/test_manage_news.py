@@ -58,7 +58,7 @@ def test_一覧に投稿済みと下書きが分かれて出る(as_owner, news):
     assert "下書きの記事" in page
     assert "消した記事" not in page
     # 種別はカテゴリ側が持つ
-    assert "badge-notice" in page and "badge-blog" in page
+    assert "badge-red" in page and "badge-green" in page
 
 
 def test_種別で絞れる(as_owner, news):
