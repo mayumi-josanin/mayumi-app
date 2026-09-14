@@ -1,0 +1,26 @@
+{% extends "manage/base.html" %}
+
+{% block title %}メニュー管理 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}メニュー管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>メニュー管理</h1>
+    <div class="lead">お客様アプリのホームに出る教室・施術の一覧です。上から順に並びます。</div>
+  </div>
+  <div class="page-header-actions">
+    <a class="btn btn-primary" href="{% url 'manage:menu_create' %}">＋ 新しく追加する</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>公開中<span class="count">{{ published|length }}件</span></h2></div>
+  {% include "manage/_menu_table.html" with items=published empty="公開中のメニューはありません。" movable=True %}
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>下書き（非公開）<span class="count">{{ drafts|length }}件</span></h2></div>
+  {% include "manage/_menu_table.html" with items=drafts empty="下書きはありません。" movable=False %}
+</div>
+{% endblock %}

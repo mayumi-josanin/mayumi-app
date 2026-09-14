@@ -32,6 +32,14 @@ def お知らせ画像(request, 名前):
     return _配る("news", 名前)
 
 
+def メニュー画像(request, 名前):
+    return _配る("menus", 名前)
+
+
+def 商品画像(request, 名前):
+    return _配る("products", 名前)
+
+
 def _配る(置き場名, 名前):
     """**名前は英数字と一部の記号だけを通す。**`..` を含む名前で
     サーバーの別の場所を読み出されるのを防ぐ。

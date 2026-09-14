@@ -1,0 +1,26 @@
+{% extends "manage/base.html" %}
+
+{% block title %}商品管理 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}商品管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>商品管理</h1>
+    <div class="lead">お客様アプリのショップに出る商品です。「売切」は在庫数とは別で、この印だけでお客様に売切と出ます。</div>
+  </div>
+  <div class="page-header-actions">
+    <a class="btn btn-primary" href="{% url 'manage:product_create' %}">＋ 新しく追加する</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>公開中<span class="count">{{ published|length }}件</span></h2></div>
+  {% include "manage/_product_table.html" with items=published empty="公開中の商品はありません。" %}
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>下書き（非公開）<span class="count">{{ drafts|length }}件</span></h2></div>
+  {% include "manage/_product_table.html" with items=drafts empty="下書きはありません。" %}
+</div>
+{% endblock %}
