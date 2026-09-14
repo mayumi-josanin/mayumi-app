@@ -1,0 +1,77 @@
+{% extends "manage/base.html" %}
+
+{% block title %}カレンダー | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}カレンダー{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>カレンダー</h1>
+    <div class="lead">お客様アプリのカレンダーに出る予定・教室・休診です。カテゴリに「休診」を含むものは休診として表示されます。</div>
+  </div>
+  <div class="page-header-actions">
+    <a class="btn btn-primary" href="{% url 'manage:calendar_create' %}">＋ 予定を追加する</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="filter-form">
+      <div class="form-group">
+        <label for="f-year">年</label>
+        <select id="f-year" name="year" class="form-control" onchange="this.form.submit()">
+          {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}年</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="f-month">月</label>
+        <select id="f-month" name="month" class="form-control" onchange="this.form.submit()">
+          <option value="0" {% if not month %}selected{% endif %}>すべて</option>
+          {% for m in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}月</option>{% endfor %}
+        </select>
+      </div>
+      <a class="btn btn-outline" href="{% url 'manage:calendar_list' %}?year={{ today.year }}&month={{ today.month }}">今月</a>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>{{ year }}年{% if month %}{{ month }}月{% endif %}の予定<span class="count">{{ items|length }}件</span></h2></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>日付</th><th></th><th>予定</th><th>カテゴリ</th><th>対象メニュー</th><th>公開</th><th></th></tr></thead>
+    <tbody>
+    {% for item in items %}
+      <tr {% if item.past %}style="opacity:.6"{% endif %}>
+        <td class="nowrap">{{ item.c.event_on|date:"n/j (D)" }}</td>
+        <td class="nowrap"><span style="display:inline-block;width:14px;height:14px;border-radius:4px;background:{{ item.c.color|default:'#e57373' }}"></span></td>
+        <td>
+          <a class="title-link" href="{% url 'manage:calendar_edit' item.c.sheet_row %}">{{ item.c.title }}</a>
+          {% if item.image %}<div class="sub">画像あり</div>{% endif %}
+          {% if item.c.publish_at %}<div class="sub">公開開始 {{ item.c.publish_at|date:"n/j H:i" }}</div>{% endif %}
+          {% if not item.c.published %}<div class="sub">非公開（下書き）</div>{% endif %}
+        </td>
+        <td class="nowrap"><span class="badge {% if '休診' in item.c.category %}badge-red{% else %}badge-gray{% endif %}">{{ item.c.category|default:"—" }}</span></td>
+        <td class="nowrap">{{ item.menu|default:"—" }}</td>
+        <td class="nowrap">
+          <form method="post" action="{% url 'manage:calendar_toggle' item.c.sheet_row %}">{% csrf_token %}
+            <button type="submit" class="btn btn-outline btn-sm">{% if item.c.published %}非公開にする{% else %}公開する{% endif %}</button>
+          </form>
+        </td>
+        <td class="nowrap">
+          <div class="row-actions">
+            <a class="btn btn-outline btn-sm" href="{% url 'manage:calendar_edit' item.c.sheet_row %}">編集</a>
+            <form method="post" action="{% url 'manage:calendar_delete' item.c.sheet_row %}" onsubmit="return confirm('「{{ item.c.title|escapejs }}」（{{ item.c.event_on|date:'n/j' }}）を削除します。よろしいですか？');">{% csrf_token %}
+              <button type="submit" class="btn btn-outline btn-sm danger">削除</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7"><div class="empty"><div class="empty-icon">📅</div><p>この期間の予定はありません。</p></div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

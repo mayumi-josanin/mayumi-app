@@ -33,9 +33,10 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       <span class="nav-section">ホーム・ショップ</span>
       <a href="{% url 'manage:menu_list' %}" class="{% if 'menu' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🍴</span> メニュー管理</a>
       <a href="{% url 'manage:product_list' %}" class="{% if 'product' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🛍️</span> 商品管理</a>
+      <a href="{% url 'manage:calendar_list' %}" class="{% if 'calendar' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📅</span> カレンダー</a>
       <span class="nav-section">旧管理アプリ</span>
       <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-muted"><span class="nav-icon">↗</span> 旧管理アプリを開く</a>
-      <span class="nav-note">注文・カレンダー・会員・分析は、いまは旧管理アプリで。順に移します。</span>
+      <span class="nav-note">注文・会員・分析は、いまは旧管理アプリで。順に移します。</span>
     </nav>
     {% if request.user.is_authenticated %}
     <div class="sidebar-footer">
