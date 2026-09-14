@@ -1,0 +1,130 @@
+{% extends "manage/base.html" %}
+
+{% block title %}{% if product %}商品を修正{% else %}商品を追加{% endif %} | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}商品管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{% if product %}商品を修正{% else %}新しい商品{% endif %}</h1>
+  <div class="page-header-actions"><a class="btn btn-outline" href="{% url 'manage:product_list' %}">一覧へ戻る</a></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>{% if product %}{{ product.name }}{% else %}商品の内容{% endif %}</h2></div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-row">
+        <div class="form-group">
+          <label for="p-name">商品名<span class="required">必須</span></label>
+          <input id="p-name" name="name" class="form-control" required maxlength="255" value="{{ values.name|default:'' }}">
+        </div>
+        <div class="form-group">
+          <label for="p-cat">カテゴリ<span class="required">必須</span></label>
+          <input id="p-cat" name="category" class="form-control" list="prod-cats" required value="{{ values.category|default:'' }}" placeholder="例：よもぎ茶">
+          <datalist id="prod-cats">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="p-price">価格（円）<span class="required">必須</span></label>
+          <input id="p-price" name="price" type="number" min="0" class="form-control" required value="{{ values.price|default:'' }}">
+        </div>
+        <div class="form-group">
+          <label for="p-cost">原価（円）</label>
+          <input id="p-cost" name="costPrice" type="number" min="0" step="1" class="form-control" value="{{ values.costPrice|default:'' }}">
+          <div class="form-hint">分析画面の利益計算に使います。仕入の表に商品名で保存します。</div>
+        </div>
+      </div>
+
+      {% if existing_images %}
+        <div class="form-group">
+          <label>いまの商品画像（外すものはチェックを外す）</label>
+          <div class="image-keep">
+            {% for url in existing_images %}
+              <label class="image-keep-item"><input type="checkbox" name="keep_image" value="{{ url }}" checked><img src="{{ url }}" alt=""><span>残す</span></label>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+      <div class="form-row">
+        <div class="form-group">
+          <label for="p-img">商品画像を追加</label>
+          <input id="p-img" name="images" type="file" class="form-control" accept="image/*" multiple>
+          <div class="form-hint">画像が無いときは下の絵文字が出ます。</div>
+        </div>
+        <div class="form-group">
+          <label for="p-icon">絵文字（画像が無いとき）</label>
+          <input id="p-icon" name="icon" class="form-control" maxlength="8" value="{{ values.icon|default:'' }}" placeholder="🌿">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="p-bg">背景色</label>
+        <input id="p-bg" name="bg" type="color" class="form-control" style="width:120px;height:44px;padding:4px" value="{{ values.bg|default:'#d4e8c8' }}">
+      </div>
+
+      <div class="form-group">
+        <label for="p-desc">商品説明</label>
+        <textarea id="p-desc" name="description" class="form-control" rows="8">{{ values.description|default:'' }}</textarea>
+      </div>
+      {% if existing_desc_images %}
+        <div class="form-group">
+          <label>いまの説明画像（外すものはチェックを外す）</label>
+          <div class="image-keep">
+            {% for url in existing_desc_images %}
+              <label class="image-keep-item"><input type="checkbox" name="keep_desc_image" value="{{ url }}" checked><img src="{{ url }}" alt=""><span>残す</span></label>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+      <div class="form-group">
+        <label for="p-dimg">説明画像を追加</label>
+        <input id="p-dimg" name="desc_images" type="file" class="form-control" accept="image/*" multiple>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="p-stock">在庫数（空欄なら管理しない）</label>
+          <input id="p-stock" name="stockQty" type="number" min="0" class="form-control" value="{{ values.stockQty|default_if_none:'' }}">
+        </div>
+        <div class="form-group">
+          <label for="p-low">在庫が少ないと知らせる数</label>
+          <input id="p-low" name="lowStockThreshold" type="number" min="0" class="form-control" value="{{ values.lowStockThreshold|default_if_none:'' }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="p-sold">売切</label>
+          <select id="p-sold" name="soldOutStatus" class="form-control">
+            {% for s in sold_out_choices %}<option value="{{ s }}" {% if values.soldOutStatus == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select>
+          <div class="form-hint">在庫数とは別に、この印だけでお客様に「売切」と出ます。</div>
+        </div>
+        <div class="form-group">
+          <label for="p-at">公開開始日時（空欄ならすぐ公開）</label>
+          <input id="p-at" name="publishAt" type="datetime-local" class="form-control" value="{{ values.publishAt|default:'' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-check">
+          <input type="checkbox" id="p-notice" name="notice_listed" {% if values.notice_listed %}checked{% endif %}>
+          <label for="p-notice">お客様アプリの「お知らせ一覧」にも出す</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-check">
+          <input type="checkbox" id="p-push" name="send_push">
+          <label for="p-push">お客様のアプリに通知を送る（公開するときだけ）</label>
+        </div>
+        <div class="form-hint">「ショップの商品情報が更新されました」の通知が届きます。</div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" name="status" value="公開" class="btn btn-primary">{% if product %}修正して公開する{% else %}公開して追加する{% endif %}</button>
+        <button type="submit" name="status" value="非公開" class="btn btn-outline">下書き保存</button>
+        <a class="btn btn-outline" href="{% url 'manage:product_list' %}">キャンセル</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

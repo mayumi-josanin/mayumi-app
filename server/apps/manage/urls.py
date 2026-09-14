@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.views.generic import RedirectView
 
-from . import views_category, views_login, views_news, views_push
+from . import views_category, views_login, views_menu, views_news, views_product, views_push
 
 app_name = "manage"
 
@@ -23,4 +23,16 @@ urlpatterns = [
     path("push/", views_push.push_list, name="push_list"),
     path("push/send/", views_push.push_send, name="push_send"),
     path("push/<int:row>/delete/", views_push.push_delete, name="push_delete"),
+    path("menus/", views_menu.menu_list, name="menu_list"),
+    path("menus/new/", views_menu.menu_create, name="menu_create"),
+    path("menus/<int:row>/", views_menu.menu_edit, name="menu_edit"),
+    path("menus/<int:row>/toggle/", views_menu.menu_toggle, name="menu_toggle"),
+    path("menus/<int:row>/move/", views_menu.menu_move, name="menu_move"),
+    path("menus/<int:row>/delete/", views_menu.menu_delete, name="menu_delete"),
+    path("products/", views_product.product_list, name="product_list"),
+    path("products/new/", views_product.product_create, name="product_create"),
+    path("products/<int:row>/", views_product.product_edit, name="product_edit"),
+    path("products/<int:row>/toggle/", views_product.product_toggle, name="product_toggle"),
+    path("products/<int:row>/sold-out/", views_product.product_sold_out, name="product_sold_out"),
+    path("products/<int:row>/delete/", views_product.product_delete, name="product_delete"),
 ]

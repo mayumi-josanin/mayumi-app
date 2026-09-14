@@ -1,0 +1,44 @@
+<div class="table-wrap">
+<table>
+  <thead><tr><th></th><th>メニュー名</th><th>カテゴリ</th><th>予約</th><th>公開</th><th>並び</th><th></th></tr></thead>
+  <tbody>
+  {% for m in items %}
+    <tr>
+      <td class="nowrap">
+        {% if m.image_urls %}<img class="thumb" src="{{ m.image_urls.0 }}" alt="">{% else %}<span class="thumb-icon">🍴</span>{% endif %}
+      </td>
+      <td>
+        <a class="title-link" href="{% url 'manage:menu_edit' m.sheet_row %}">{{ m.name }}</a>
+        {% if m.publish_at %}<div class="sub">公開開始 {{ m.publish_at|date:"n/j H:i" }}</div>{% endif %}
+        {% if not m.notice_listed %}<div class="sub">お知らせ一覧には出さない</div>{% endif %}
+      </td>
+      <td class="nowrap"><span class="badge badge-gray">{{ m.category|default:"—" }}</span></td>
+      <td class="nowrap"><span class="badge {% if m.booking_status == '予約受付中' %}badge-green{% else %}badge-gray{% endif %}">{{ m.booking_status|default:"予約対象外" }}</span></td>
+      <td class="nowrap">
+        <form method="post" action="{% url 'manage:menu_toggle' m.sheet_row %}">{% csrf_token %}
+          <button type="submit" class="btn btn-outline btn-sm">{% if m.published %}非公開にする{% else %}公開する{% endif %}</button>
+        </form>
+      </td>
+      <td class="nowrap">
+        {% if movable %}
+        <div class="row-actions">
+          <form method="post" action="{% url 'manage:menu_move' m.sheet_row %}">{% csrf_token %}<input type="hidden" name="direction" value="up"><button type="submit" class="btn btn-outline btn-sm" title="上へ">▲</button></form>
+          <form method="post" action="{% url 'manage:menu_move' m.sheet_row %}">{% csrf_token %}<input type="hidden" name="direction" value="down"><button type="submit" class="btn btn-outline btn-sm" title="下へ">▼</button></form>
+        </div>
+        {% endif %}
+      </td>
+      <td class="nowrap">
+        <div class="row-actions">
+          <a class="btn btn-outline btn-sm" href="{% url 'manage:menu_edit' m.sheet_row %}">編集</a>
+          <form method="post" action="{% url 'manage:menu_delete' m.sheet_row %}" onsubmit="return confirm('「{{ m.name|escapejs }}」を削除します。よろしいですか？');">{% csrf_token %}
+            <button type="submit" class="btn btn-outline btn-sm danger">削除</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="7"><div class="empty"><div class="empty-icon">🍴</div><p>{{ empty }}</p></div></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

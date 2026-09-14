@@ -1,0 +1,81 @@
+{% extends "manage/base.html" %}
+
+{% block title %}{% if menu %}メニューを修正{% else %}メニューを追加{% endif %} | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}メニュー管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{% if menu %}メニューを修正{% else %}新しいメニュー{% endif %}</h1>
+  <div class="page-header-actions"><a class="btn btn-outline" href="{% url 'manage:menu_list' %}">一覧へ戻る</a></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>{% if menu %}{{ menu.name }}{% else %}メニューの内容{% endif %}</h2></div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="m-name">メニュー名<span class="required">必須</span></label>
+        <input id="m-name" name="name" class="form-control" required maxlength="255" value="{{ values.name|default:'' }}" placeholder="例：産後ケア（訪問）">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="m-cat">カテゴリ<span class="required">必須</span></label>
+          <input id="m-cat" name="category" class="form-control" list="menu-cats" required value="{{ values.category|default:'' }}" placeholder="例：産後ケア">
+          <datalist id="menu-cats">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+        </div>
+        <div class="form-group">
+          <label for="m-res">予約</label>
+          <select id="m-res" name="reservationStatus" class="form-control">
+            {% for s in booking_statuses %}<option value="{{ s }}" {% if values.reservationStatus == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="m-desc">概要説明</label>
+        <textarea id="m-desc" name="description" class="form-control" rows="8">{{ values.description|default:'' }}</textarea>
+      </div>
+
+      {% if existing_images %}
+        <div class="form-group">
+          <label>いまの画像（外すものはチェックを外す）</label>
+          <div class="image-keep">
+            {% for url in existing_images %}
+              <label class="image-keep-item"><input type="checkbox" name="keep_image" value="{{ url }}" checked><img src="{{ url }}" alt=""><span>残す</span></label>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+      <div class="form-group">
+        <label for="m-img">画像を追加</label>
+        <input id="m-img" name="images" type="file" class="form-control" accept="image/*" multiple>
+        <div class="form-hint">大きな写真は自動で縮めます。複数選べます。</div>
+      </div>
+
+      <div class="form-group">
+        <label for="m-at">公開開始日時（空欄ならすぐ公開）</label>
+        <input id="m-at" name="publishAt" type="datetime-local" class="form-control" value="{{ values.publishAt|default:'' }}">
+      </div>
+      <div class="form-group">
+        <div class="form-check">
+          <input type="checkbox" id="m-notice" name="notice_listed" {% if values.notice_listed %}checked{% endif %}>
+          <label for="m-notice">お客様アプリの「お知らせ一覧」にも出す</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-check">
+          <input type="checkbox" id="m-push" name="send_push">
+          <label for="m-push">お客様のアプリに通知を送る（公開するときだけ）</label>
+        </div>
+        <div class="form-hint">「ホームのメニュー一覧が更新されました」の通知が届きます。</div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" name="status" value="公開" class="btn btn-primary">{% if menu %}修正して公開する{% else %}公開して追加する{% endif %}</button>
+        <button type="submit" name="status" value="非公開" class="btn btn-outline">下書き保存</button>
+        <a class="btn btn-outline" href="{% url 'manage:menu_list' %}">キャンセル</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
