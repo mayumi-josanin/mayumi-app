@@ -1,0 +1,31 @@
+{% extends "manage/base.html" %}
+
+{% block content %}
+<div class="login-center">
+<h2>ログイン</h2>
+
+<form method="post" class="role-login">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+
+  {% if error %}<div class="form-errors">{{ error }}</div>{% endif %}
+
+  <p class="lead">どちらでお入りになりますか。</p>
+  <div class="role-pick">
+    {% for name in roles %}
+      <label class="role-choice{% if name == role %} on{% endif %}">
+        <input type="radio" name="role" value="{{ name }}"{% if name == role %} checked{% endif %} required>
+        <span class="role-choice-name">{{ name }}</span>
+      </label>
+    {% endfor %}
+  </div>
+
+  <label class="role-passcode">
+    <span>パスコード</span>
+    <input type="password" name="passcode" autocomplete="current-password" required inputmode="numeric">
+  </label>
+
+  <button type="submit" class="button">入る</button>
+</form>
+</div>
+{% endblock %}

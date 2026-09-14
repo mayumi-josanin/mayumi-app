@@ -1,0 +1,150 @@
+/* まゆみ助産院 管理画面
+ *
+ * 色は旧管理アプリ（admin/index.html）に合わせた。
+ *   深緑 #6b7a5a（ヘッダー）／ 若草 #a5b891（選択中）／ 生成り #f7f5ef（下地）／ こげ茶 #3d3a34
+ * 組み方は予約システムの管理画面（mayumi-reserve/static/css/style.css）と同じ。
+ */
+
+:root {
+  --green: #6b7a5a;
+  --green-soft: #a5b891;
+  --green-pale: #e9eee2;
+  --bg: #f7f5ef;
+  --ink: #3d3a34;
+  --ink-light: #7d776d;
+  --line: #e2ddd2;
+  --ok: #4caf50;
+  --ng: #c0392b;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.7;
+  font-size: 16px;
+}
+
+.app-header {
+  background: var(--green);
+  color: #fff;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.app-header-title { color: #fff; text-decoration: none; font-weight: bold; font-size: 18px; }
+.header-logout { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 14px; }
+.header-logout button {
+  background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.5);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 14px;
+}
+
+.app-main { max-width: 1100px; margin: 0 auto; padding: 16px 16px 64px; }
+
+h2 { font-size: 22px; margin: 0 0 4px; }
+h3 { font-size: 16px; margin: 28px 0 8px; }
+h3 .count { font-weight: normal; color: var(--ink-light); font-size: 14px; margin-left: 6px; }
+.lead { color: var(--ink-light); font-size: 14px; margin: 0 0 16px; }
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* --- 並び --- */
+.manage-layout { display: grid; grid-template-columns: 180px 1fr; gap: 24px; }
+.manage-nav { display: flex; flex-direction: column; gap: 6px; position: sticky; top: 72px; align-self: start; }
+.manage-nav a {
+  display: block; padding: 10px 14px; border-radius: var(--radius);
+  color: var(--ink); text-decoration: none; background: #fff; border: 1px solid var(--line);
+}
+.manage-nav a.active { background: var(--green-soft); color: #fff; border-color: var(--green-soft); font-weight: bold; }
+.manage-nav a.nav-old { color: var(--ink-light); }
+.manage-nav .nav-rule { height: 1px; background: var(--line); margin: 8px 4px; }
+.manage-nav .nav-note { font-size: 12px; color: var(--ink-light); padding: 0 6px; line-height: 1.5; }
+@media (max-width: 760px) {
+  .manage-layout { grid-template-columns: 1fr; }
+  .manage-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  .manage-nav .nav-rule, .manage-nav .nav-note { display: none; }
+}
+
+/* --- 押すもの --- */
+.button {
+  display: inline-block; padding: 12px 20px; border: none; border-radius: var(--radius);
+  background: var(--green); color: #fff; font-size: 15px; font-weight: bold;
+  text-align: center; text-decoration: none; cursor: pointer;
+}
+.button-quiet { background: #fff; color: var(--green); border: 1px solid var(--green); }
+.button-danger { background: #fff; color: var(--ng); border: 1px solid var(--ng); }
+.button-small { padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+.form-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+.form-actions .button { padding: 14px 24px; }
+
+/* --- 入力 --- */
+.field { margin-bottom: 16px; }
+.field label { display: block; font-weight: bold; font-size: 14px; margin-bottom: 4px; }
+.field label .required { font-size: 11px; color: #fff; background: var(--ng); border-radius: 4px; padding: 1px 6px; margin-left: 6px; font-weight: normal; }
+.field input, .field select, .field textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+  font-size: 16px; background: #fff; color: var(--ink); font-family: inherit;
+}
+.field textarea { line-height: 1.6; }
+.field .help { font-size: 13px; color: var(--ink-light); margin-top: 4px; }
+.field .error { color: var(--ng); font-size: 14px; margin-top: 4px; }
+.field-check { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.field-check input { width: auto; }
+.field-check label { margin: 0; }
+.field-check .help { width: 100%; }
+.field-row { display: grid; grid-template-columns: 1fr 120px; gap: 12px; }
+.form-errors { background: #fdecea; color: var(--ng); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+.note { font-size: 13px; color: var(--ink-light); background: var(--green-pale); border-radius: 8px; padding: 10px 12px; }
+.news-form { max-width: 760px; }
+.image-keep { display: flex; gap: 10px; flex-wrap: wrap; }
+.image-keep-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-weight: normal; }
+.image-keep-item img { width: 110px; height: 110px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+.image-keep-item input { width: auto; }
+
+/* --- 絞り込み --- */
+.filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.filters select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; background: #fff; }
+.filters-clear { font-size: 13px; }
+
+/* --- 表 --- */
+.wide-table-wrap { overflow-x: auto; }
+table.grid { width: 100%; border-collapse: collapse; background: #fff; border-radius: var(--radius); }
+table.grid th, table.grid td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; font-size: 14px; }
+table.grid th { background: #f1efe8; font-size: 13px; }
+table.grid .nowrap { white-space: nowrap; }
+table.grid .empty { text-align: center; color: var(--ink-light); padding: 24px; }
+.news-table .thumb-cell { width: 56px; text-align: center; }
+.news-table .thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; }
+.news-table .icon { font-size: 22px; }
+.news-table .title-cell a { color: var(--ink); font-weight: bold; text-decoration: none; }
+.news-table .title-cell a:hover { text-decoration: underline; }
+.news-table .sub { font-size: 12px; color: var(--ink-light); }
+.news-table .actions { display: flex; gap: 6px; align-items: center; }
+.news-table form { margin: 0; display: inline; }
+.badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eeece5; }
+.badge-notice { background: #fbe3e1; color: var(--ng); }
+.badge-blog { background: var(--green-pale); color: var(--green); }
+
+/* --- 知らせ --- */
+.messages { margin-bottom: 16px; }
+.message { padding: 10px 14px; border-radius: 8px; background: var(--green-pale); color: var(--green); font-weight: bold; }
+.message-error { background: #fdecea; color: var(--ng); }
+
+/* --- ログイン --- */
+.login-center { max-width: 420px; margin: 40px auto; }
+.role-pick { display: grid; gap: 10px; margin: 10px 0 18px; }
+.role-choice { display: block; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; cursor: pointer; }
+.role-choice:has(input:checked) { border-color: var(--green); background: var(--green-pale); }
+.role-choice input { margin-right: 8px; }
+.role-choice-name { font-weight: bold; }
+.role-passcode { display: block; margin-bottom: 16px; }
+.role-passcode > span { display: block; font-weight: bold; margin-bottom: 4px; }
+.role-passcode input { width: 100%; padding: 12px; font-size: 20px; border: 1px solid var(--line); border-radius: 8px; letter-spacing: .3em; }
+.role-login .button { width: 100%; padding: 14px; font-size: 16px; }

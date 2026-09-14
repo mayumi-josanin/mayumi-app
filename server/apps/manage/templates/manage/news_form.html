@@ -1,0 +1,51 @@
+{% extends "manage/base.html" %}
+
+{% block title %}{% if news %}お知らせを修正{% else %}お知らせを投稿{% endif %} | まゆみ助産院 管理画面{% endblock %}
+
+{% block manage_content %}
+<div class="page-head">
+  <h2>{% if news %}お知らせを修正{% else %}新しいお知らせ{% endif %}</h2>
+  <a class="button button-small button-quiet" href="{% url 'manage:news_list' %}">一覧へ戻る</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="news-form">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+
+  {% include "manage/_field.html" with field=form.posted_on %}
+  {% include "manage/_field.html" with field=form.title %}
+
+  {% if existing_images %}
+    <div class="field">
+      <label>いまの画像（外すものはチェックを外す）</label>
+      <div class="image-keep">
+        {% for url in existing_images %}
+          <label class="image-keep-item">
+            <input type="checkbox" name="keep_image" value="{{ url }}" checked>
+            <img src="{{ url }}" alt="">
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+  {% include "manage/_field.html" with field=form.images %}
+
+  <div class="field-row">
+    {% include "manage/_field.html" with field=form.category %}
+    {% include "manage/_field.html" with field=form.icon %}
+  </div>
+
+  {% include "manage/_field.html" with field=form.body %}
+  {% include "manage/_field.html" with field=form.publish_at %}
+  {% include "manage/_field.html" with field=form.link_url %}
+  {% include "manage/_field.html" with field=form.button_text %}
+  {% include "manage/_field.html" with field=form.notice_listed %}
+
+  <p class="note">お客様への通知（プッシュ）は、いまは旧管理アプリからの投稿でだけ送られます。通知を出したい投稿は旧管理アプリで行ってください。</p>
+
+  <div class="form-actions">
+    <button type="submit" name="status" value="公開" class="button">{% if news %}修正して公開する{% else %}公開して投稿する{% endif %}</button>
+    <button type="submit" name="status" value="非公開" class="button button-quiet">下書き保存</button>
+  </div>
+</form>
+{% endblock %}

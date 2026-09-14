@@ -46,7 +46,13 @@ INSTALLED_APPS = [
     "apps.content",
     "apps.records",
     "apps.gasapi",
+    "apps.manage",
 ]
+
+# 院の管理画面（/manage/）を持つ箱かどうか。**既定は持たない。**
+# Funnel（mayumi-api）に出ている web には立てず、Tailscale の中にしか出さない
+# manage の箱にだけ立てる（docker-compose.yml の manage）。
+MANAGE_ENABLED = env_bool("MANAGE_ENABLED", False)
 
 MIDDLEWARE = [
     # CORS を一番外に置く。中で断ったとき（429 など）にも許可のヘッダが要るため。
@@ -62,6 +68,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # 管理画面のパスコード総当たりを待たせる（失敗した POST だけ数える）
+    "apps.manage.middleware.ログイン制限ミドルウェア",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -77,6 +85,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.manage.context_processors.roles",
             ],
         },
     },
@@ -142,6 +151,18 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ── 管理画面のログイン ──
+LOGIN_URL = "/manage/login/"
+LOGIN_REDIRECT_URL = "/manage/"
+LOGOUT_REDIRECT_URL = "/manage/login/"
+# Tailscale serve / Funnel が TLS を終端して http で渡してくる。
+# これが無いと is_secure() が偽になり、CSRF の origin 確認と secure cookie が効かない。
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = int(env("SESSION_HOURS", "12") or 12) * 3600
 
 # ---------------------------------------------------------------
 # GAS からの呼び出しを確かめる合鍵。

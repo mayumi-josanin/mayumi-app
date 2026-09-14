@@ -1,0 +1,32 @@
+{% extends "manage/base.html" %}
+
+{% block title %}お知らせ管理 | まゆみ助産院 管理画面{% endblock %}
+
+{% block manage_content %}
+<div class="page-head">
+  <h2>お知らせ管理</h2>
+  <a class="button button-small" href="{% url 'manage:news_create' %}">＋ 新しく投稿する</a>
+</div>
+<p class="lead">お客様アプリの NEWS に出るお知らせです。ここで直したものは、お客様アプリに最長10分ほどで反映されます。</p>
+
+<form method="get" class="filters">
+  <select name="kind" onchange="this.form.submit()">
+    <option value="">種別：すべて</option>
+    <option value="お知らせ" {% if filter_kind == "お知らせ" %}selected{% endif %}>お知らせ</option>
+    <option value="ブログ" {% if filter_kind == "ブログ" %}selected{% endif %}>ブログ</option>
+  </select>
+  <select name="category" onchange="this.form.submit()">
+    <option value="">カテゴリ：すべて</option>
+    {% for c in categories %}
+      <option value="{{ c.name }}" {% if filter_category == c.name %}selected{% endif %}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+  {% if filter_kind or filter_category %}<a href="{% url 'manage:news_list' %}" class="filters-clear">絞り込みを外す</a>{% endif %}
+</form>
+
+<h3>投稿済み <span class="count">{{ published|length }}件</span></h3>
+{% include "manage/_news_table.html" with items=published empty="投稿済みのお知らせはありません。" %}
+
+<h3>下書き（非公開） <span class="count">{{ drafts|length }}件</span></h3>
+{% include "manage/_news_table.html" with items=drafts empty="下書きはありません。" %}
+{% endblock %}

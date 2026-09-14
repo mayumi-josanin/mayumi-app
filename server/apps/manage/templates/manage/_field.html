@@ -1,0 +1,19 @@
+{% comment %}
+フォームの1項目。label_tag ではなく label を直に出しているのは、
+Django が付けるコロン（「お名前:」）を消すため。
+{% endcomment %}
+{% if field.field.widget.input_type == 'checkbox' %}
+  <div class="field field-check">
+    {{ field }}
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+    {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+  </div>
+{% else %}
+  <div class="field">
+    <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="required">必須</span>{% endif %}</label>
+    {{ field }}
+    {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+    {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
+  </div>
+{% endif %}

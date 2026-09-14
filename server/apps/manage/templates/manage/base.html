@@ -1,0 +1,53 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}まゆみ助産院 管理画面{% endblock %}</title>
+<meta name="theme-color" content="#6b7a5a">
+<link rel="stylesheet" href="{% static 'manage/style.css' %}">
+</head>
+<body class="manage">
+
+<header class="app-header">
+  <a class="app-header-title" href="{% url 'manage:home' %}">まゆみ助産院 管理画面</a>
+  {% if request.user.is_authenticated %}
+    <form method="post" action="{% url 'manage:logout' %}" class="header-logout">
+      {% csrf_token %}
+      <span class="whoami">{% if my_roles %}{{ my_roles|join:"・" }}{% else %}{{ request.user.username }}{% endif %}</span>
+      <button type="submit">ログアウト</button>
+    </form>
+  {% endif %}
+</header>
+
+<main class="app-main">
+  {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+        <div class="message message-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% block content %}
+  <div class="manage-layout">
+    <nav class="manage-nav">
+      {% comment %}
+      旧管理アプリ（GitHub Pages）から1画面ずつ移す。まだ無い画面は
+      旧アプリへのリンクにしておく。並行運用なので、どちらで直しても同じ表。
+      {% endcomment %}
+      <a href="{% url 'manage:news_list' %}" class="{% if 'news' in request.resolver_match.url_name %}active{% endif %}">お知らせ管理</a>
+      <span class="nav-rule" aria-hidden="true"></span>
+      <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-old">旧管理アプリ ↗</a>
+      <span class="nav-note">注文・商品・カレンダー・会員・通知は、いまは旧管理アプリで。</span>
+    </nav>
+    <div class="manage-body">
+      {% block manage_content %}{% endblock %}
+    </div>
+  </div>
+  {% endblock %}
+</main>
+
+</body>
+</html>
