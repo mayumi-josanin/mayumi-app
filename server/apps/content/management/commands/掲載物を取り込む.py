@@ -98,6 +98,11 @@ class Command(BaseCommand):
         parser.add_argument("json_path")
         parser.add_argument("--下見", action="store_true", dest="preview",
                             help="何が起きるか見るだけ。書き込まない")
+        # **表を移したあとは、その表をシートから取り込み直してはいけない。**
+        # サーバーのほうが新しいので、シートの古い値で上書きしてしまう（2026-09-14 に気づいた）。
+        # まだ移していない表だけを名指しで取り込む。
+        parser.add_argument("--only", dest="only", default="",
+                            help="取り込む表だけを , 区切りで（news,calendar,menus,products,categories,faq,push_notices）")
 
     def handle(self, *args, **options):
         try:
@@ -107,13 +112,25 @@ class Command(BaseCommand):
             raise CommandError(f"読み込めませんでした: {e}")
 
         下見 = options["preview"]
-        self._取り込む(News, 生.get("news") or [], "お知らせ", 下見)
-        self._取り込む(CalendarEvent, 生.get("calendar") or [], "カレンダー", 下見)
-        self._取り込む(Menu, 生.get("menus") or [], "メニュー", 下見)
-        self._取り込む(Product, 生.get("products") or [], "商品", 下見)
-        self._カテゴリを取り込む(生.get("categories") or [], 下見)
-        self._FAQを取り込む(生.get("faq") or [], 下見)
-        self._プッシュ通知を取り込む(生.get("push_notices") or [], 下見)
+        選んだ = {x.strip() for x in (options["only"] or "").split(",") if x.strip()}
+
+        def 対象か(名):
+            return not 選んだ or 名 in 選んだ
+
+        if 対象か("news"):
+            self._取り込む(News, 生.get("news") or [], "お知らせ", 下見)
+        if 対象か("calendar"):
+            self._取り込む(CalendarEvent, 生.get("calendar") or [], "カレンダー", 下見)
+        if 対象か("menus"):
+            self._取り込む(Menu, 生.get("menus") or [], "メニュー", 下見)
+        if 対象か("products"):
+            self._取り込む(Product, 生.get("products") or [], "商品", 下見)
+        if 対象か("categories"):
+            self._カテゴリを取り込む(生.get("categories") or [], 下見)
+        if 対象か("faq"):
+            self._FAQを取り込む(生.get("faq") or [], 下見)
+        if 対象か("push_notices"):
+            self._プッシュ通知を取り込む(生.get("push_notices") or [], 下見)
 
         if 下見:
             self.stdout.write("")

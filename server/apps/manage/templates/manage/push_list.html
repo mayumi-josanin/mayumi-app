@@ -1,0 +1,91 @@
+{% extends "manage/base.html" %}
+
+{% block title %}通知管理 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}通知管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>通知管理</h1>
+    <div class="lead">お客様アプリへのプッシュ通知です。投稿に伴う自動送信も、ここで送ったものも、同じ履歴に残ります。</div>
+  </div>
+</div>
+
+{% if not configured %}
+  <div class="message message-error" style="margin-bottom:16px">通知の設定（OneSignal の鍵）がサーバーにありません。送れるのは設定してからです。</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header"><h2>通知を送る</h2></div>
+  <div class="card-body">
+    <form method="post" action="{% url 'manage:push_send' %}">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="p-title">タイトル<span class="required">必須</span></label>
+        <input id="p-title" name="title" class="form-control" required maxlength="255" value="{{ draft.title }}" placeholder="例：9月のベビーマッサージ教室、募集中です">
+      </div>
+      <div class="form-group">
+        <label for="p-body">本文</label>
+        <textarea id="p-body" name="body" class="form-control" rows="3" placeholder="通知に出る短い文">{{ draft.body }}</textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="p-page">開いたときに出す画面</label>
+          <select id="p-page" name="targetPage" class="form-control">
+            {% for value, label in pages %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="p-when">予約するときの配信日時</label>
+          <input id="p-when" name="scheduledAt" type="datetime-local" class="form-control">
+          <div class="form-hint">「予約する」を押したときだけ使います。5分ごとに確かめて送ります。</div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" name="mode" value="send" class="btn btn-primary" onclick="return confirm('アプリを入れている全員に今すぐ送ります。よろしいですか？');">今すぐ全員に送る</button>
+        <button type="submit" name="mode" value="schedule" class="btn btn-outline">予約する</button>
+        <button type="submit" name="mode" value="draft" class="btn btn-outline">下書き保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>履歴<span class="count">{{ items|length }}件（新しい順）</span></h2></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>日時</th><th>状態</th><th>タイトル・本文</th><th>画面</th><th>件数</th><th>結果</th><th></th></tr></thead>
+    <tbody>
+    {% for item in items %}
+      <tr>
+        <td class="nowrap">
+          {% if item.p.sent_at %}{{ item.p.sent_at|date:"n/j H:i" }}{% elif item.p.scheduled_at %}予定 {{ item.p.scheduled_at|date:"n/j H:i" }}{% else %}{{ item.p.updated_at|date:"n/j H:i" }}{% endif %}
+        </td>
+        <td class="nowrap"><span class="badge {{ item.badge }}">{{ item.p.status|default:"—" }}</span></td>
+        <td>
+          <div class="title-link">{{ item.p.title }}</div>
+          <div class="sub">{{ item.p.body|truncatechars:80 }}</div>
+        </td>
+        <td class="nowrap">{{ item.p.target_page|default:"home" }}</td>
+        <td class="nowrap">{% if item.p.recipient_count %}{{ item.p.recipient_count }}{% else %}—{% endif %}</td>
+        <td><span class="sub">{{ item.p.result|default:"—"|truncatechars:60 }}</span></td>
+        <td class="nowrap">
+          <div class="row-actions">
+            {% if item.p.status == "下書き" or item.p.status == "送信失敗" %}
+              <a class="btn btn-outline btn-sm" href="{% url 'manage:push_list' %}?title={{ item.p.title|urlencode }}&body={{ item.p.body|urlencode }}#p-title">送り直す</a>
+            {% endif %}
+            <form method="post" action="{% url 'manage:push_delete' item.p.sheet_row %}" onsubmit="return confirm('この記録を削除します。よろしいですか？');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline btn-sm danger">削除</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7"><div class="empty"><div class="empty-icon">🔔</div><p>通知の記録はまだありません。</p></div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}
