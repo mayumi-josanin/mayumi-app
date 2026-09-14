@@ -11864,7 +11864,16 @@
         let hasDrafts = false;
         let hasPublished = false;
 
-        allBlogs.forEach(b => {
+        // 新しい投稿を上に。サーバーもシートも古い順（行番号順）で返してくるため、
+        // 新しい投稿が末尾に付き「表示されない」と見えた（2026-09-14）。
+        // お客様アプリは新しい順なので、そろえる。同じ日付なら行番号の大きいほうが新しい。
+        const blogsNewestFirst = allBlogs.slice().sort(function (a, b) {
+          const diff = parseAdminNoticeTimestamp(b.date) - parseAdminNoticeTimestamp(a.date);
+          if (diff !== 0) return diff;
+          return Number(b.rowIdx || 0) - Number(a.rowIdx || 0);
+        });
+
+        blogsNewestFirst.forEach(b => {
           const catObj = allCategories.find(c => c.name === b.category) || {};
           const type = catObj.type || (b.category === 'お知らせ' ? 'お知らせ' : 'ブログ');
           const iconHtml = buildAdminBlogIconHtml(b);
