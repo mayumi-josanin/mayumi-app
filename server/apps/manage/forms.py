@@ -30,6 +30,12 @@ class NewsForm(forms.ModelForm):
         help_text="スマートフォンのライブラリから選べます。大きな写真は自動で縮めます。",
     )
 
+    send_push = forms.BooleanField(
+        label="お客様のアプリに通知を送る（公開するときだけ）",
+        required=False,
+        help_text="「NEWSが更新されました」の通知が、アプリを入れている方に届きます。下書きや公開開始が先の日時のときは送りません。",
+    )
+
     class Meta:
         model = News
         fields = [
