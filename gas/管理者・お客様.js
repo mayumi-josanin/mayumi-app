@@ -1873,6 +1873,10 @@ function sendPushNoticePayload_(record) {
 }
 
 function processScheduledPushQueue() {
+  // 時計はこのトリガー（5分ごと）のまま。表がサーバーにあるときは、送るのをサーバーに頼む。
+  if (サーバーへ渡すか_('push')) {
+    return _通知をサーバーへ_('processScheduledPushQueue', {});
+  }
   try {
     const ensured = ensurePushNoticeSheetStructure_();
     const sheet = ensured.sheet;
@@ -5839,6 +5843,9 @@ function handleDeleteRow(data) {
   if (data && data.sheet === 'CALENDAR' && サーバーへ渡すか_('calendar')) {
     return _カレンダーをサーバーへ_('deleteRow', data);
   }
+  if (data && data.sheet === 'PUSH' && サーバーへ渡すか_('push')) {
+    return _通知をサーバーへ_('deleteRow', data);
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     let sheetName = '';
@@ -5876,6 +5883,9 @@ function handleDeleteRows(data) {
   }
   if (data && data.sheet === 'CALENDAR' && サーバーへ渡すか_('calendar')) {
     return _カレンダーをサーバーへ_('deleteRows', data);
+  }
+  if (data && data.sheet === 'PUSH' && サーバーへ渡すか_('push')) {
+    return _通知をサーバーへ_('deleteRows', data);
   }
   try {
     const ss = getOrCreateSpreadsheet();
@@ -8706,6 +8716,11 @@ function handleMergeUsers(data) {
  * お知らせ（PUSH_NOTICES）を取得
  */
 function getPushNotices() {
+  // 通知の表をサーバーへ移したら、そちらを見せる（SERVER_TABLES に push）。
+  if (サーバーへ渡すか_('push')) {
+    var 中 = サーバーから読む_('getPushNotices');
+    if (中) return 中;
+  }
   try {
     const ensured = ensurePushNoticeSheetStructure_();
     const sheet = ensured.sheet;
@@ -8798,7 +8813,18 @@ function getPushUsers() {
 /**
  * 全ユーザーへ通知を配信
  */
+function _通知をサーバーへ_(type, data) {
+  // **サーバーへ渡す表なら、シートには書かない。**（_お知らせをサーバーへ_ と同じ）
+  var 答 = サーバーへ書く_(Object.assign({ type: type }, data || {}));
+  if (答) return 答;
+  return { status: 'error', message: 'サーバーに届きませんでした。もう一度お試しください。' };
+}
+
 function broadcastPush(data) {
+  if (サーバーへ渡すか_('push')) {
+    // 記録も送信もサーバーで行う（apps/gasapi/admin_push.py）。
+    return _通知をサーバーへ_('broadcastPush', data);
+  }
   try {
     const ensured = ensurePushNoticeSheetStructure_();
     const sheet = ensured.sheet;
@@ -8992,6 +9018,18 @@ function handleUpdateItemOrder(data) {
  * 自動プッシュ通知送信（ブログ・カレンダー追加時に自動呼び出し）
  */
 function sendAutoPush(title, body, options) {
+  if (サーバーへ渡すか_('push')) {
+    // 記録も送信もサーバーで行う。失敗してもここでは投稿を止めない（元の作りと同じ）。
+    try {
+      サーバーへ書く_({
+        type: 'broadcastPush', mode: 'auto', title: title, body: body,
+        targetStatus: options && options.targetStatus ? options.targetStatus : 'all',
+        targetPage: options && options.targetPage ? options.targetPage : 'home',
+        previewBody: options && options.previewBody ? options.previewBody : body
+      });
+    } catch (e) { Logger.log('sendAutoPush(server) error: ' + e); }
+    return;
+  }
   try {
     if (!oneSignalAppId_() || !oneSignalRestKey_()) return;
     const record = buildPushNoticeRowFromInput_({

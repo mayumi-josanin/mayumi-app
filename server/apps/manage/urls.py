@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.views.generic import RedirectView
 
-from . import views_category, views_login, views_news
+from . import views_category, views_login, views_news, views_push
 
 app_name = "manage"
 
@@ -20,4 +20,7 @@ urlpatterns = [
     path("categories/add/", views_category.category_add, name="category_add"),
     path("categories/update/", views_category.category_update, name="category_update"),
     path("categories/delete/", views_category.category_delete, name="category_delete"),
+    path("push/", views_push.push_list, name="push_list"),
+    path("push/send/", views_push.push_send, name="push_send"),
+    path("push/<int:row>/delete/", views_push.push_delete, name="push_delete"),
 ]

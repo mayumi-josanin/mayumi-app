@@ -11,13 +11,14 @@ import pytest
 from django.utils import timezone
 
 from apps.content.models import Category, News, PushNotice
-from apps.manage import push
+from apps.content import onesignal
+from apps.manage import push  # noqa: F401
 
 pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def onesignal(settings):
+def keys(settings):
     settings.ONESIGNAL_APP_ID = "app-0001"
     settings.ONESIGNAL_REST_API_KEY = "key-0001"
 
@@ -38,7 +39,7 @@ def fake_onesignal(monkeypatch):
         sent.append({"url": req.full_url, "headers": dict(req.header_items()), "body": json.loads(req.data)})
         return _Res(json.dumps({"id": "n-123", "recipients": 42}).encode())
 
-    monkeypatch.setattr(push.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(onesignal.urllib.request, "urlopen", fake_urlopen)
     return sent
 
 
@@ -61,7 +62,7 @@ def test_設定が無ければ送らず投稿は残る(as_owner, settings):
     assert PushNotice.objects.count() == 0
 
 
-def test_チェックすると全員へ送り記録が残る(as_owner, onesignal, fake_onesignal):
+def test_チェックすると全員へ送り記録が残る(as_owner, keys, fake_onesignal):
     r = as_owner.post("/manage/news/new/", _form(send_push="on"))
     assert r.status_code == 302
     assert len(fake_onesignal) == 1
@@ -81,23 +82,23 @@ def test_チェックすると全員へ送り記録が残る(as_owner, onesignal
     assert rec.sheet_row == 2
 
 
-def test_チェックしなければ送らない(as_owner, onesignal, fake_onesignal):
+def test_チェックしなければ送らない(as_owner, keys, fake_onesignal):
     as_owner.post("/manage/news/new/", _form())
     assert fake_onesignal == []
 
 
-def test_下書きや公開開始が先なら送らない(as_owner, onesignal, fake_onesignal):
+def test_下書きや公開開始が先なら送らない(as_owner, keys, fake_onesignal):
     as_owner.post("/manage/news/new/", _form(send_push="on", status="非公開"))
     future = (timezone.localtime() + timezone.timedelta(days=2)).strftime("%Y-%m-%dT%H:%M")
     as_owner.post("/manage/news/new/", _form(send_push="on", title="先の予定", publish_at=future))
     assert fake_onesignal == []
 
 
-def test_送れなくても投稿は残り失敗が記録される(as_owner, onesignal, monkeypatch):
+def test_送れなくても投稿は残り失敗が記録される(as_owner, keys, monkeypatch):
     def boom(req, timeout=0):
-        raise push.urllib.error.URLError("down")
+        raise onesignal.urllib.error.URLError("down")
 
-    monkeypatch.setattr(push.urllib.request, "urlopen", boom)
+    monkeypatch.setattr(onesignal.urllib.request, "urlopen", boom)
     r = as_owner.post("/manage/news/new/", _form(send_push="on"))
     assert r.status_code == 302
     assert News.objects.filter(title="マッサージ教室").exists()
