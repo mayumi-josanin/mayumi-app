@@ -1,0 +1,149 @@
+{% extends "manage/base.html" %}
+
+{% block title %}{% if event %}予定を修正{% else %}予定を追加{% endif %} | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}カレンダー{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{% if event %}予定を修正{% else %}新しい予定{% endif %}</h1>
+  <div class="page-header-actions"><a class="btn btn-outline" href="{% url 'manage:calendar_list' %}">一覧へ戻る</a></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>{% if event %}{{ event.event_on|date:"n/j" }} {{ event.title }}{% else %}予定の内容{% endif %}</h2></div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data" id="cal-form">
+      {% csrf_token %}
+
+      {% if event %}
+        <div class="form-group">
+          <label for="c-date">日付<span class="required">必須</span></label>
+          <input id="c-date" name="date" type="date" class="form-control" required value="{{ values.date|default:'' }}">
+        </div>
+      {% else %}
+        <div class="form-group">
+          <label for="c-date">日付（複数の日に同じ予定を入れるときは「この日を追加」で足す）<span class="required">必須</span></label>
+          <div class="inline-form">
+            <input id="c-date" name="date" type="date" class="form-control" value="{{ values.date|default:'' }}">
+            <button type="button" class="btn btn-outline" id="c-add-date">この日を追加</button>
+          </div>
+          <div id="c-dates" class="date-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+          <div class="form-hint">追加した日が無ければ、上の日付1つに作ります。</div>
+        </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label for="c-title">予定の名前<span class="required">必須</span></label>
+        <input id="c-title" name="title" class="form-control" required maxlength="255" value="{{ values.title|default:'' }}" placeholder="例：休診日／ベビーマッサージ教室">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="c-cat">カテゴリ</label>
+          <input id="c-cat" name="category" class="form-control" list="cal-cats" value="{{ values.category|default:'' }}" placeholder="例：教室 / 休診 / イベント">
+          <datalist id="cal-cats">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+          <div class="form-hint">「休診」を含めると休診として表示されます。</div>
+        </div>
+        <div class="form-group">
+          <label for="c-menu">対象メニュー</label>
+          <select id="c-menu" name="menuRowIdx" class="form-control">
+            <option value="">なし（休診・往診など）</option>
+            {% for row, name in menus %}<option value="{{ row }}" {% if values.menuRowIdx|stringformat:"s" == row|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}
+          </select>
+          <div class="form-hint">選ぶと、お客様アプリのメニュー一覧に「◯月◯日開催予定」と出ます。</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="c-color">カレンダー上の色</label>
+        <div class="inline-form">
+          <input id="c-color" name="color" type="color" class="form-control" style="width:80px;height:44px;padding:4px" value="{{ values.color|default:'#e57373' }}">
+          {% for hex, label in colors %}
+            <button type="button" class="btn btn-outline btn-sm" data-color="{{ hex }}" onclick="document.getElementById('c-color').value=this.dataset.color"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:{{ hex }};margin-right:6px"></span>{{ label }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="c-desc">説明</label>
+        <textarea id="c-desc" name="desc" class="form-control" rows="6">{{ values.desc|default:'' }}</textarea>
+      </div>
+
+      {% if existing_images %}
+        <div class="form-group">
+          <label>いまの画像（外すものはチェックを外す）</label>
+          <div class="image-keep">
+            {% for url in existing_images %}
+              <label class="image-keep-item"><input type="checkbox" name="keep_image" value="{{ url }}" checked><img src="{{ url }}" alt=""><span>残す</span></label>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+      <div class="form-group">
+        <label for="c-img">画像を追加</label>
+        <input id="c-img" name="images" type="file" class="form-control" accept="image/*" multiple>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="c-link">リンクURL（任意）</label>
+          <input id="c-link" name="linkUrl" type="url" class="form-control" value="{{ values.linkUrl|default:'' }}" placeholder="https://">
+        </div>
+        <div class="form-group">
+          <label for="c-linktext">リンクボタンの文字（任意）</label>
+          <input id="c-linktext" name="linkButtonText" class="form-control" value="{{ values.linkButtonText|default:'' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="c-at">公開開始日時（空欄ならすぐ公開）</label>
+        <input id="c-at" name="publishAt" type="datetime-local" class="form-control" value="{{ values.publishAt|default:'' }}">
+      </div>
+      <div class="form-group">
+        <div class="form-check">
+          <input type="checkbox" id="c-notice" name="notice_listed" {% if values.notice_listed %}checked{% endif %}>
+          <label for="c-notice">お客様アプリの「お知らせ一覧」にも出す</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-check">
+          <input type="checkbox" id="c-push" name="send_push">
+          <label for="c-push">お客様のアプリに通知を送る（公開するときだけ）</label>
+        </div>
+        <div class="form-hint">「カレンダーが更新されました」の通知が届きます。</div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" name="status" value="公開" class="btn btn-primary">{% if event %}修正して公開する{% else %}公開して追加する{% endif %}</button>
+        <button type="submit" name="status" value="非公開" class="btn btn-outline">下書き保存</button>
+        <a class="btn btn-outline" href="{% url 'manage:calendar_list' %}">キャンセル</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if not event %}
+<script>
+// 日付を複数足す。足した日は hidden の dates として送る（GAS の handleAddCalendar と同じ形）。
+(function () {
+  var box = document.getElementById('c-dates');
+  var input = document.getElementById('c-date');
+  var picked = [];
+  function draw() {
+    box.innerHTML = '';
+    picked.forEach(function (d) {
+      var chip = document.createElement('span');
+      chip.className = 'badge badge-green';
+      chip.style.fontSize = '.85rem';
+      chip.innerHTML = d + ' <a href="#" style="margin-left:6px" data-d="' + d + '">×</a><input type="hidden" name="dates" value="' + d + '">';
+      chip.querySelector('a').addEventListener('click', function (e) {
+        e.preventDefault(); picked = picked.filter(function (x) { return x !== d; }); draw();
+      });
+      box.appendChild(chip);
+    });
+  }
+  document.getElementById('c-add-date').addEventListener('click', function () {
+    var d = input.value;
+    if (!d || picked.indexOf(d) !== -1) return;
+    picked.push(d); picked.sort(); draw();
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

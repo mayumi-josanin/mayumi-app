@@ -13,6 +13,7 @@ urlpatterns = [
     path("media/news/<str:名前>", media.お知らせ画像, name="news-image"),
     path("media/menus/<str:名前>", media.メニュー画像, name="menu-image"),
     path("media/products/<str:名前>", media.商品画像, name="product-image"),
+    path("media/calendar/<str:名前>", media.カレンダー画像, name="calendar-image"),
     path("api/", include("apps.measurements.urls")),
     # GAS と同じ形の窓口（?action=...）。切り替えはアプリの GAS_URL を
     # ここに向けるだけで済む。**measurements の後ろに置くこと。**

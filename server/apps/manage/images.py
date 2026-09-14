@@ -17,7 +17,7 @@ from django.conf import settings
 MAX_EDGE = 1600
 JPEG_QUALITY = 85
 # 置き場は決め打ち。media.py の配る側と同じ一覧（増やすときは両方）
-置き場 = ("news", "menus", "products")
+置き場 = ("news", "menus", "products", "calendar")
 
 
 def 保存する(uploaded, 置き場名: str = "news") -> str:
