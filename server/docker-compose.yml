@@ -81,6 +81,9 @@ services:
       CSRF_TRUSTED_ORIGINS: ${MANAGE_CSRF_TRUSTED_ORIGINS:-https://desktop-rmsk0vg.tail8efe0d.ts.net:10002}
       API_KEY: ${API_KEY:-}
       ADMIN_TOKEN_SECRET: ${ADMIN_TOKEN_SECRET:-}
+      # お客様アプリへの通知（OneSignal）。GAS のスクリプトプロパティと同じ値を .env に
+      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
+      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
       # 上げた画像の公開URL。お客様は Funnel（web）側から見るので、そちらの住所を書く
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://mayumi-api.tail8efe0d.ts.net}
       DB_NAME: mayumi

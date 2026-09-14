@@ -136,6 +136,14 @@ table.grid .empty { text-align: center; color: var(--ink-light); padding: 24px; 
 .messages { margin-bottom: 16px; }
 .message { padding: 10px 14px; border-radius: 8px; background: var(--green-pale); color: var(--green); font-weight: bold; }
 .message-error { background: #fdecea; color: var(--ng); }
+.message-info { background: #eef3f7; color: #3b5a73; }
+
+/* --- 1行のフォーム（カテゴリを足す） --- */
+.inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.inline-form input[type="text"], .inline-form select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 15px; background: #fff; }
+.category-table input[type="text"] { width: 100%; min-width: 160px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
+.category-table select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; background: #fff; }
+.category-table .actions { display: flex; gap: 6px; }
 
 /* --- ログイン --- */
 .login-center { max-width: 420px; margin: 40px auto; }

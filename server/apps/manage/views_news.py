@@ -7,8 +7,8 @@ GAS を通らず、この Django が直接 News の表を読み書きする。
 **行番号（sheet_row）を鍵として使い続ける。**旧管理アプリが rowIdx で指しており、
 並行して使っている間に食い違わないようにするため。
 
-通知（OneSignal）はまだ送らない。旧管理アプリの投稿では GAS が送っている。
-移すまでは「通知を出したい投稿は旧管理アプリから」。
+通知（OneSignal）は「送る」にチェックがあるときだけ、このサーバーから送る
+（push.py）。旧管理アプリからの投稿では GAS が送る。どちらも同じ内容で同じ相手。
 """
 
 from django.contrib import messages
@@ -21,7 +21,7 @@ from django.views.decorators.http import require_POST
 from apps.content.models import Category, News
 from apps.gasapi.views import _画像
 
-from . import images
+from . import images, push
 from .forms import NewsForm
 
 
@@ -79,6 +79,12 @@ def _保存(request, form: NewsForm, n: News | None):
     obj.image_url = "\n".join(kept + added)
     obj.updated_at = timezone.now()
 
+    # 通知を送るか。GAS の _お知らせの通知を送る_ と同じ条件:
+    # 送るにチェック・公開・公開開始が来ている。
+    送る = bool(form.cleaned_data.get("send_push")) and obj.published and (
+        obj.publish_at is None or obj.publish_at <= timezone.now()
+    )
+
     if n is None:
         with transaction.atomic():
             # 新しい行番号は、いまの最大＋1（シートの appendRow と同じ）。
@@ -90,6 +96,14 @@ def _保存(request, form: NewsForm, n: News | None):
             obj.save()
     else:
         obj.save()
+
+    if 送る:
+        if push.全員へ送る("📝 " + obj.title, "NEWSが更新されました", page="news"):
+            messages.info(request, "お客様のアプリへ通知を送りました。")
+        elif not push.設定済みか():
+            messages.error(request, "通知の設定（OneSignal）がサーバーに無いので、通知は送っていません。")
+        else:
+            messages.error(request, "通知を送れませんでした（投稿は保存されています）。")
     return obj
 
 

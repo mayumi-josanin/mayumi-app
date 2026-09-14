@@ -38,9 +38,10 @@
       旧アプリへのリンクにしておく。並行運用なので、どちらで直しても同じ表。
       {% endcomment %}
       <a href="{% url 'manage:news_list' %}" class="{% if 'news' in request.resolver_match.url_name %}active{% endif %}">お知らせ管理</a>
+      <a href="{% url 'manage:category_list' %}" class="{% if 'category' in request.resolver_match.url_name %}active{% endif %}">カテゴリ管理</a>
       <span class="nav-rule" aria-hidden="true"></span>
       <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-old">旧管理アプリ ↗</a>
-      <span class="nav-note">注文・商品・カレンダー・会員・通知は、いまは旧管理アプリで。</span>
+      <span class="nav-note">注文・商品・メニュー・カレンダー・会員は、いまは旧管理アプリで。</span>
     </nav>
     <div class="manage-body">
       {% block manage_content %}{% endblock %}

@@ -177,6 +177,11 @@ SESSION_COOKIE_AGE = int(env("SESSION_HOURS", "12") or 12) * 3600
 # ---------------------------------------------------------------
 API_KEY = env("API_KEY", "")
 
+# お客様アプリへのプッシュ通知（OneSignal）。管理画面からの投稿で送る。
+# GAS のスクリプトプロパティと同じ値。空なら送らない（apps/manage/push.py）。
+ONESIGNAL_APP_ID = env("ONESIGNAL_APP_ID", "")
+ONESIGNAL_REST_API_KEY = env("ONESIGNAL_REST_API_KEY", "")
+
 # ---------------------------------------------------------------
 # アプリから直接呼ばれるための設定
 # ---------------------------------------------------------------

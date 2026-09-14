@@ -40,8 +40,7 @@
   {% include "manage/_field.html" with field=form.link_url %}
   {% include "manage/_field.html" with field=form.button_text %}
   {% include "manage/_field.html" with field=form.notice_listed %}
-
-  <p class="note">お客様への通知（プッシュ）は、いまは旧管理アプリからの投稿でだけ送られます。通知を出したい投稿は旧管理アプリで行ってください。</p>
+  {% include "manage/_field.html" with field=form.send_push %}
 
   <div class="form-actions">
     <button type="submit" name="status" value="公開" class="button">{% if news %}修正して公開する{% else %}公開して投稿する{% endif %}</button>
