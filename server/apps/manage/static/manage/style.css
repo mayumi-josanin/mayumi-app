@@ -494,3 +494,13 @@ td.brand { color: var(--brand); font-weight: 700; }
 .hp-log { white-space: pre-wrap; font-size: .85rem; line-height: 1.7; background: var(--surface-hover); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin: 0; }
 .hp-pvwrap { margin-top: 14px; background: #e9ece9; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; overflow: auto; }
 .hp-pv { display: block; margin: 0 auto; height: 78vh; max-width: 100%; border: 0; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+/* 公式サイト: まゆみのつぶやき（views_blog.py） */
+.hp-blog-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; color: inherit; text-decoration: none; background: var(--surface); }
+.hp-blog-item:hover { background: var(--surface-hover); }
+.hp-blog-date { font-size: .8rem; color: var(--text-muted); white-space: nowrap; min-width: 84px; }
+.hp-blog-title { flex: 1; font-size: .9rem; }
+.hp-blog-pager a, .hp-blog-pager b, .hp-blog-pager span { padding: 4px 9px; }
+.hp-imgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.hp-imgcard { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px; text-align: center; background: var(--surface); }
+.hp-imgcard img { width: 100%; height: 90px; object-fit: cover; border-radius: 4px; display: block; }
+.hp-imgcard .n { font-size: .7rem; color: var(--text-muted); word-break: break-all; margin: 4px 0; }
