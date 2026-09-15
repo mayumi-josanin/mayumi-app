@@ -49,6 +49,7 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-muted"><span class="nav-icon">↗</span> 旧管理アプリ（会員管理・スタンプ）</a>
 
       <span class="nav-section">公式サイト</span>
+      <a href="{% url 'manage:hp_news' %}" class="{% if request.resolver_match.url_name|slice:':7' == 'hp_news' %}active{% endif %}"><span class="nav-icon">📢</span> お知らせ</a>
       <a href="{% url 'manage:hp_preview' %}" class="{% if request.resolver_match.url_name == 'hp_preview' %}active{% endif %}"><span class="nav-icon">👀</span> プレビュー</a>
       <a href="{% url 'manage:hp_publish' %}" class="{% if request.resolver_match.url_name == 'hp_publish' %}active{% endif %}"><span class="nav-icon">🌐</span> 公開する</a>
       <a href="{% url 'manage:hp_git' %}" class="{% if request.resolver_match.url_name == 'hp_git' %}active{% endif %}"><span class="nav-icon">🔗</span> 保存の記録</a>
