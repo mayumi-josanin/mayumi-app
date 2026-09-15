@@ -260,9 +260,24 @@ def 特典をそろえる(data):
                     t = timezone.make_aware(t)
                 m.last_stamp_at = t
 
+        # 10個そろった日時。アプリは毎回送ってくる（app.js）。GAS 8017行と同じく、
+        # 送られてきたときだけ書く（空なら消す）。読まないと、ガチャの有効期限が
+        # 「回した日＋1か月」になってしまう（2026-09-15 の試験で判明）。
+        if "stampAchievedDate" in d:
+            from django.utils.dateparse import parse_datetime as _pd
+
+            達成 = str(d.get("stampAchievedDate") or "").strip()
+            t2 = _pd(達成) if 達成 else None
+            if 達成 and t2 is None:
+                pass  # 読めない値なら、いまの値を残す
+            else:
+                if t2 is not None and timezone.is_naive(t2):
+                    t2 = timezone.make_aware(t2)
+                m.stamp_achieved_at = t2
+
         m.save(update_fields=[
             "stamp_count", "stamp_card_number", "reward_history",
-            "stamp_history", "last_stamp_at", "changed_at",
+            "stamp_history", "last_stamp_at", "stamp_achieved_at", "changed_at",
         ])
 
         返す = {
@@ -611,6 +626,9 @@ def _一か月後(t):
     import calendar
     import datetime as _dt
 
+    # **日本時間に直してから月を進める。**UTC のままだと、月初の早朝（JST）に
+    # 達成した方の有効期限が1日短くなる（5/1 05:00 JST は UTC では 4/30）。
+    t = timezone.localtime(t)
     年 = t.year + (1 if t.month == 12 else 0)
     月 = 1 if t.month == 12 else t.month + 1
     その月の末日 = calendar.monthrange(年, 月)[1]

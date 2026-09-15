@@ -153,9 +153,6 @@ def test_公開アクションはGASのPUBLIC_ACTIONSと同じ():
 # **サーバーが埋めていないと分析画面の2項目が空になる。**
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="analytics.py 237行は registrationRoutes を {} で返す。"
-                          "GAS の buildRegistrationRouteAnalytics_（6535行）と同じ形"
-                          "（routeLabels / months / totals / matrix）で会員から作る必要がある", strict=True)
 def test_分析の登録経路は会員の表から作る(client):
     from django.utils import timezone
 

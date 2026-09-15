@@ -505,9 +505,6 @@ def test_統合_引数不足と統合先なし(client):
     assert 統合(client, 先="MYM-9999") == {"status": "error", "message": "統合先会員が見つかりません"}
 
 
-@pytest.mark.xfail(reason="GAS 8736行は注文の会員IDを統合先に付け替える。admin_member.会員を統合する は"
-                          "「注文の表を移してから」と⑤を残したままだが、注文の表（OrderLine）は"
-                          "2026-09-05 に移っている。統合した方の注文が元の会員IDのまま取り残される", strict=True)
 def test_統合_注文の会員IDも統合先に付け替える(client):
     会員を作る("MYM-1001")
     会員を作る("MYM-1002")
