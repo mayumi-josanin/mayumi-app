@@ -766,6 +766,97 @@ def ガチャを引く(data):
 
 
 # ---------------------------------------------------------------------------
+# 月別ガチャ特典設定（管理画面から）
+#
+# GAS の handleSaveRewardGachaConfig（管理者・お客様.js 684行）と同じ。
+# スクリプトプロパティ REWARD_GACHA_CONFIG にあたるのが AppSetting の同じ鍵。
+# 読むほうは views.py の `_ガチャ設定`、引くほうは上の `_その月の賞`。
+# ---------------------------------------------------------------------------
+
+_ガチャの既定確率 = {"A": 5, "B": 15, "C": 30, "D": 50}
+_ガチャの賞 = ["A", "B", "C", "D"]
+
+
+def _ガチャの月キー(値):
+    """GAS の normalizeRewardGachaMonthKey_。'2026-04' / '2026/4' / '2026年4月' → '2026-04'。"""
+    m = re.match(r"^(\d{4})[-/年](\d{1,2})", str(値 or "").strip())
+    if not m:
+        return ""
+    年, 月 = int(m.group(1)), int(m.group(2))
+    if not 1 <= 月 <= 12:
+        return ""
+    return f"{年:04d}-{月:02d}"
+
+
+def _ガチャの確率(値, 既定):
+    """GAS の normalizeRewardGachaProbability_。0〜100、小数1桁。読めなければ既定。"""
+    try:
+        n = float(値)
+    except (TypeError, ValueError):
+        return 既定
+    if n != n:  # NaN
+        return 既定
+    n = max(0.0, min(100.0, round(n * 10) / 10))
+    return int(n) if n == int(n) else n
+
+
+def ガチャ設定を整える(生, 確率を並べ替える=True):
+    """GAS の sanitizeRewardGachaConfig_ と同じ。
+
+    月ごとに1行、同じ月は先勝ち、月順に並べ、1つも無ければ今月の既定（5/15/30/50）。
+
+    **確率は A→D の順に小さいほうから並べ直す**（GAS の normalizeRewardGachaPrizes_）。
+    A賞がいちばん出にくく、D賞がいちばん出やすい、という並びを崩さないため。
+    画面に出すだけのときは並べ替えない（保存されている姿をそのまま見せる）。
+    """
+    if isinstance(生, str):
+        try:
+            生 = json.loads(生)
+        except ValueError:
+            生 = {}
+    月ごと = (生 or {}).get("monthlyPrizes") if isinstance(生, dict) else None
+    見た, 出 = set(), []
+    for e in (月ごと if isinstance(月ごと, list) else []):
+        if not isinstance(e, dict):
+            continue
+        月 = _ガチャの月キー(e.get("month"))
+        if not 月 or 月 in 見た:
+            continue
+        見た.add(月)
+        元 = e.get("prizes") if isinstance(e.get("prizes"), dict) else {}
+        確率 = {k: _ガチャの確率((元.get(k) if isinstance(元.get(k), dict) else {}).get("probability"),
+                             _ガチャの既定確率[k]) for k in _ガチャの賞}
+        並び = sorted(確率.values()) if 確率を並べ替える else [確率[k] for k in _ガチャの賞]
+        賞 = {}
+        for i, k in enumerate(_ガチャの賞):
+            p = 元.get(k) if isinstance(元.get(k), dict) else {}
+            賞[k] = {
+                "content": str(p.get("content") or "").strip(),
+                "note": str(p.get("note") or "").strip(),
+                "probability": 並び[i],
+            }
+        出.append({"month": 月, "prizes": 賞})
+    出.sort(key=lambda x: x["month"])
+    if not 出:
+        今月 = timezone.localdate().strftime("%Y-%m")
+        出 = [{"month": 今月, "prizes": {k: {"content": "", "note": "", "probability": _ガチャの既定確率[k]}
+                                          for k in _ガチャの賞}}]
+    return {"monthlyPrizes": 出}
+
+
+def ガチャ設定を保存する(data):
+    """GAS の handleSaveRewardGachaConfig と同じ形（`config` を受け、整えた `config` を返す）。"""
+    from apps.records.models import AppSetting
+
+    d = data or {}
+    次 = ガチャ設定を整える(d.get("config") if isinstance(d.get("config"), (dict, str)) else d)
+    AppSetting.objects.update_or_create(
+        pk="REWARD_GACHA_CONFIG",
+        defaults={"value": 次, "note": "月別ガチャ特典設定（管理画面から保存）"})
+    return {"status": "ok", "config": 次}
+
+
+# ---------------------------------------------------------------------------
 # 入り口（アプリに戻っていただくための2つ）
 #
 # **ここがいちばん危ない。**通れば、その会員の記録すべてが手に入る。
@@ -1478,6 +1569,8 @@ _ビジリス登録 = _入口("ビジリス登録")
     # 2026-09-07。**移行後はシートを直せないので、ここでできるようにする。**
     "setUserPasscode": _パスコード設定,
     "stopUserPush": _通知を止める,
+    # 月別ガチャ特典設定（管理画面の「スタンプ・特典」）。会員の表ではないので切り替えを待たない。
+    "saveRewardGachaConfig": ガチャ設定を保存する,
     # 第3段・お客様の入口。**ここが止まるとアプリに入れなくなる。**
     # 注文
     # 売上の記録（分析の元）

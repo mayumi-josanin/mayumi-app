@@ -1,0 +1,174 @@
+{% extends "manage/base.html" %}
+
+{% block title %}スタンプ・特典状況の編集 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}スタンプ・特典管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>🔎 会員のスタンプ・特典詳細</h1>
+  <div class="page-header-actions"><a class="btn btn-outline" href="{% url 'manage:reward_list' %}">一覧へ戻る</a></div>
+</div>
+
+<div class="sub" style="margin-bottom:12px;font-size:.9rem">{{ member.name|default:"未設定" }} / {{ member.member_id }} / 電話 {{ member.phone|default:"未設定" }}</div>
+
+{# ── 詳細（旧アプリの renderRewardStatusDetail と同じ） ── #}
+<a id="detail"></a>
+<div class="stats">
+  {% for label, value in detail_summary %}<div class="stat-card blue"><div class="stat-label">{{ label }}</div><div class="stat-value">{{ value }}</div></div>{% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>カード別スタンプ状況</h2></div>
+  <div class="card-body">
+    <div class="reward-cards">
+      {% for c in cards %}
+        <div class="reward-card">
+          <div class="reward-card-head">
+            <div class="strong">{{ c.num }}枚目</div>
+            <div class="row-actions">{% if c.current %}<span class="badge badge-blue">現在</span>{% endif %}<span class="badge {{ c.status.badge }}">{{ c.status.label }}</span></div>
+          </div>
+          <div class="reward-card-count">{{ c.stamp }} / 10</div>
+          <div class="sub">未受取 {{ c.counts.unused }}件 / 受取済み {{ c.counts.used }}件</div>
+          <div class="sub">期限切れ {{ c.counts.expired }}件 / 達成日時 {{ c.achieved }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% for c in cards %}
+<div class="card">
+  <div class="card-header"><h2>{{ c.num }}枚目のスタンプカード</h2><span class="badge {{ c.status.badge }}">{{ c.status.label }}</span></div>
+  <div class="card-body">
+    <div class="reward-card-facts">
+      <div>スタンプ状況: <strong>{{ c.stamp }} / 10</strong></div>
+      <div>達成日時: <strong>{{ c.achieved }}</strong></div>
+      <div>最終スタンプ取得日: <strong>{{ c.last_stamp }}</strong></div>
+      <div>現在カード: <strong>{% if c.current %}はい{% else %}いいえ{% endif %}</strong></div>
+    </div>
+    <div class="sub" style="margin:10px 0">このカードに紐づく特典の受け取り状況</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>記録 / 特典内容</th><th>受け取り状況</th><th>有効期限</th><th>受取日時</th></tr></thead>
+        <tbody>
+        {% for r in c.rewards %}
+          <tr>
+            <td><div class="sub">{{ forloop.counter }}件目</div><div class="strong">{{ r.rewardName }}</div>{% if r.rewardNote %}<div class="sub" style="white-space:pre-wrap">{{ r.rewardNote }}</div>{% else %}<div class="sub">説明書きなし</div>{% endif %}</td>
+            <td class="nowrap" style="text-align:center"><span class="badge {{ r.receipt.badge }}">{{ r.receipt.label }}</span></td>
+            <td class="nowrap">{{ r.expiry }}</td>
+            <td class="nowrap">{{ r.used_at }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="sub" style="text-align:center">{% if c.pending %}達成済みですが、まだ特典は発行されていません{% else %}このカードに紐づく特典履歴はありません{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{# ── 編集（旧アプリの #rewardStatusModal と同じ項目） ── #}
+<a id="edit"></a>
+<div class="card">
+  <div class="card-header"><h2>🎟️ スタンプ・特典状況の編集</h2></div>
+  <div class="card-body">
+    {% if not server_is_master %}<div class="note" style="margin-bottom:16px">{{ gate_message }}</div>{% endif %}
+    <div class="sub" style="margin-bottom:12px">{{ member.name|default:"未設定" }} / {{ member.member_id }}</div>
+    <form method="post" id="reward-form">
+      {% csrf_token %}
+      <div class="form-row">
+        <div class="form-group">
+          <label for="r-count">現在のスタンプ数</label>
+          <input id="r-count" name="stampCount" type="number" min="0" max="10" class="form-control" value="{{ values.stampCount }}">
+        </div>
+        <div class="form-group">
+          <label for="r-card">スタンプカード番号</label>
+          <input id="r-card" name="stampCardNum" type="number" min="1" class="form-control" value="{{ values.stampCardNum }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="r-last">最終スタンプ取得日</label>
+          <input id="r-last" name="lastStampDate" type="date" class="form-control" value="{{ values.lastStampDate }}">
+        </div>
+        <div class="form-group">
+          <label for="r-ach">達成日時</label>
+          <input id="r-ach" name="stampAchievedDate" type="datetime-local" class="form-control" value="{{ values.stampAchievedDate }}">
+        </div>
+      </div>
+
+      <div class="page-header" style="margin:18px 0 10px">
+        <h2 style="font-size:1rem;margin:0">獲得済み特典</h2>
+        <div class="page-header-actions"><button type="button" class="btn btn-outline" onclick="addRewardEntry()">➕ 特典を追加</button></div>
+      </div>
+      <div id="reward-entries">
+        {% for r in entries %}
+          <div class="reward-entry" data-index="{{ forloop.counter0 }}">
+            <input type="hidden" name="reward" value="{{ forloop.counter0 }}">
+            <input type="hidden" name="r_id_{{ forloop.counter0 }}" value="{{ r.id }}">
+            <div class="reward-card-head">
+              <div class="strong">{{ r.cardNum }}枚目カードの特典履歴 {{ forloop.counter }}</div>
+              <div class="row-actions"><span class="badge {{ r.receipt.badge }}">{{ r.receipt.label }}</span><button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.reward-entry').remove()">削除</button></div>
+            </div>
+            <div class="sub" style="line-height:1.6;margin-bottom:10px">
+              <div>対象カード: {{ r.cardNum }}枚目</div>
+              <div>特典内容: {{ r.rewardName }}</div>
+              <div>説明書き: {% if r.rewardNote %}<span style="white-space:pre-wrap">{{ r.rewardNote }}</span>{% else %}なし{% endif %}</div>
+              <div>有効期限: {{ r.expiry }}</div>
+              <div>受け取り状況: {{ r.receipt.label }}{% if r.usedAt %} / 受取日時 {{ r.used_at }}{% endif %}</div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>対象カード</label><input type="number" min="1" name="r_card_{{ forloop.counter0 }}" class="form-control" value="{{ r.cardNum }}"></div>
+              <div class="form-group"><label>獲得日</label><input type="date" name="r_earned_{{ forloop.counter0 }}" class="form-control" value="{{ r.earned_input }}"></div>
+              <div class="form-group"><label>有効期限</label><input type="date" name="r_expiry_{{ forloop.counter0 }}" class="form-control" value="{{ r.expiry_input }}"></div>
+            </div>
+            <div class="form-group"><label>特典内容</label><input type="text" name="r_name_{{ forloop.counter0 }}" class="form-control" value="{{ r.rewardName }}"></div>
+            <div class="form-group"><label>説明書き（注意書き）</label><textarea name="r_note_{{ forloop.counter0 }}" class="form-control" rows="3">{{ r.rewardNote }}</textarea></div>
+            <div class="form-row" style="align-items:flex-end">
+              <div class="form-group"><label>受取日時</label><input type="datetime-local" name="r_used_at_{{ forloop.counter0 }}" class="form-control" value="{{ r.used_at_input }}"></div>
+              <div class="form-group"><div class="form-check"><input type="checkbox" id="r-used-{{ forloop.counter0 }}" name="r_used_{{ forloop.counter0 }}" {% if r.used %}checked{% endif %}><label for="r-used-{{ forloop.counter0 }}">受取済みにする</label></div></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <div id="reward-entries-empty" class="reward-entries-empty" {% if entries %}hidden{% endif %}>獲得済み特典はありません。必要なら追加してください。</div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">保存</button>
+        <a class="btn btn-outline" href="{% url 'manage:reward_list' %}">キャンセル</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// 旧管理アプリの addRewardEntry / removeRewardEntry と同じ。保存するまでサーバーには書かない。
+var REWARD_DEFAULT_NAME = '{{ default_name|escapejs }}';
+function addRewardEntry() {
+  var box = document.getElementById('reward-entries');
+  var idx = 0;
+  box.querySelectorAll('.reward-entry').forEach(function (e) { idx = Math.max(idx, Number(e.dataset.index) + 1); });
+  var card = Math.max(1, Number(document.getElementById('r-card').value) || 1);
+  var div = document.createElement('div');
+  div.className = 'reward-entry'; div.dataset.index = idx;
+  div.innerHTML =
+    '<input type="hidden" name="reward" value="' + idx + '"><input type="hidden" name="r_id_' + idx + '" value="reward-' + Date.now() + '-' + (idx + 1) + '">' +
+    '<div class="reward-card-head"><div class="strong">' + card + '枚目カードの特典履歴 ' + (box.querySelectorAll('.reward-entry').length + 1) + '</div>' +
+    '<div class="row-actions"><span class="badge badge-blue">未受取</span><button type="button" class="btn btn-outline btn-sm" onclick="this.closest(\'.reward-entry\').remove(); toggleRewardEmpty()">削除</button></div></div>' +
+    '<div class="form-row"><div class="form-group"><label>対象カード</label><input type="number" min="1" name="r_card_' + idx + '" class="form-control" value="' + card + '"></div>' +
+    '<div class="form-group"><label>獲得日</label><input type="date" name="r_earned_' + idx + '" class="form-control"></div>' +
+    '<div class="form-group"><label>有効期限</label><input type="date" name="r_expiry_' + idx + '" class="form-control"></div></div>' +
+    '<div class="form-group"><label>特典内容</label><input type="text" name="r_name_' + idx + '" class="form-control" value="' + REWARD_DEFAULT_NAME + '"></div>' +
+    '<div class="form-group"><label>説明書き（注意書き）</label><textarea name="r_note_' + idx + '" class="form-control" rows="3"></textarea></div>' +
+    '<div class="form-row" style="align-items:flex-end"><div class="form-group"><label>受取日時</label><input type="datetime-local" name="r_used_at_' + idx + '" class="form-control"></div>' +
+    '<div class="form-group"><div class="form-check"><input type="checkbox" id="r-used-' + idx + '" name="r_used_' + idx + '"><label for="r-used-' + idx + '">受取済みにする</label></div></div></div>';
+  box.appendChild(div);
+  toggleRewardEmpty();
+}
+function toggleRewardEmpty() {
+  document.getElementById('reward-entries-empty').hidden = document.querySelectorAll('.reward-entry').length > 0;
+}
+document.querySelectorAll('.reward-entry .btn-sm').forEach(function (b) { b.addEventListener('click', function () { setTimeout(toggleRewardEmpty, 0); }); });
+</script>
+{% endblock %}

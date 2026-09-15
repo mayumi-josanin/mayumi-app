@@ -36,6 +36,7 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       <a href="{% url 'manage:news_list' %}" class="{% if 'news' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">💬</span> NEWS</a>
       <a href="{% url 'manage:product_list' %}" class="{% if 'product' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🌿</span> 商品管理</a>
       <a href="{% url 'manage:calendar_list' %}" class="{% if 'calendar' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📅</span> カレンダー</a>
+      <a href="{% url 'manage:reward_list' %}" class="{% if 'reward' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🎟</span> スタンプ・特典</a>
       <a href="{% url 'manage:push_list' %}" class="{% if 'push' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">👥</span> 通知管理</a>
       <a href="{% url 'manage:notice_list' %}" class="{% if 'notice' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📢</span> お知らせ管理</a>
       <a href="{% url 'manage:system' %}" class="{% if 'system' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🛠️</span> システム管理</a>
