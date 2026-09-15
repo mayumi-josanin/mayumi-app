@@ -1,47 +1,43 @@
 {% extends "manage/base.html" %}
 
-{% block title %}{% if event %}予定を修正{% else %}予定を追加{% endif %} | まゆみ助産院 管理画面{% endblock %}
-{% block topbar_title %}カレンダー{% endblock %}
+{% block title %}{{ form_title }} | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}カレンダー管理{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>{% if event %}予定を修正{% else %}新しい予定{% endif %}</h1>
+  <h1>{{ form_title }}</h1>
   <div class="page-header-actions"><a class="btn btn-outline" href="{% url 'manage:calendar_list' %}">一覧へ戻る</a></div>
 </div>
 
 <div class="card">
-  <div class="card-header"><h2>{% if event %}{{ event.event_on|date:"n/j" }} {{ event.title }}{% else %}予定の内容{% endif %}</h2></div>
+  <div class="card-header"><h2>{{ form_title }}</h2></div>
   <div class="card-body">
     <form method="post" enctype="multipart/form-data" id="cal-form">
       {% csrf_token %}
 
-      {% if event %}
+      <div class="form-row">
         <div class="form-group">
-          <label for="c-date">日付<span class="required">必須</span></label>
-          <input id="c-date" name="date" type="date" class="form-control" required value="{{ values.date|default:'' }}">
-        </div>
-      {% else %}
-        <div class="form-group">
-          <label for="c-date">日付（複数の日に同じ予定を入れるときは「この日を追加」で足す）<span class="required">必須</span></label>
+          <label for="c-date">日時選択{% if event %}<span class="required">必須</span>{% endif %}</label>
           <div class="inline-form">
-            <input id="c-date" name="date" type="date" class="form-control" value="{{ values.date|default:'' }}">
-            <button type="button" class="btn btn-outline" id="c-add-date">この日を追加</button>
+            <input id="c-date" name="date" type="date" class="form-control" {% if event %}required{% endif %} value="{{ values.date|default:'' }}">
+            {% if not event %}<button type="button" class="btn btn-primary" onclick="addSelectedDate()">追加</button>{% endif %}
           </div>
-          <div id="c-dates" class="date-chips" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
-          <div class="form-hint">追加した日が無ければ、上の日付1つに作ります。</div>
         </div>
-      {% endif %}
-
+        {% if not event %}
+        <div class="form-group">
+          <label>選択中の日付</label>
+          <div id="selectedDatesList" class="date-chips"></div>
+        </div>
+        {% endif %}
+      </div>
       <div class="form-group">
-        <label for="c-title">予定の名前<span class="required">必須</span></label>
-        <input id="c-title" name="title" class="form-control" required maxlength="255" value="{{ values.title|default:'' }}" placeholder="例：休診日／ベビーマッサージ教室">
+        <label for="c-title">イベント名<span class="required">必須</span></label>
+        <input id="c-title" name="title" class="form-control" required maxlength="255" value="{{ values.title|default:'' }}" placeholder="例：産後ヨガ教室">
       </div>
       <div class="form-row">
         <div class="form-group">
           <label for="c-cat">カテゴリ</label>
-          <input id="c-cat" name="category" class="form-control" list="cal-cats" value="{{ values.category|default:'' }}" placeholder="例：教室 / 休診 / イベント">
-          <datalist id="cal-cats">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
-          <div class="form-hint">「休診」を含めると休診として表示されます。</div>
+          <input id="c-cat" name="category" class="form-control" value="{{ values.category|default:'' }}" placeholder="例：教室 / 休診 / イベント">
         </div>
         <div class="form-group">
           <label for="c-menu">対象メニュー</label>
@@ -49,23 +45,24 @@
             <option value="">なし（休診・往診など）</option>
             {% for row, name in menus %}<option value="{{ row }}" {% if values.menuRowIdx|stringformat:"s" == row|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}
           </select>
-          <div class="form-hint">選ぶと、お客様アプリのメニュー一覧に「◯月◯日開催予定」と出ます。</div>
+          <div class="form-hint">選ぶと、お客様アプリのメニュー一覧に「◯月◯日開催予定」と表示されます</div>
         </div>
       </div>
       <div class="form-group">
-        <label for="c-color">カレンダー上の色</label>
-        <div class="inline-form">
-          <input id="c-color" name="color" type="color" class="form-control" style="width:80px;height:44px;padding:4px" value="{{ values.color|default:'#e57373' }}">
-          {% for hex, label in colors %}
-            <button type="button" class="btn btn-outline btn-sm" data-color="{{ hex }}" onclick="document.getElementById('c-color').value=this.dataset.color"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:{{ hex }};margin-right:6px"></span>{{ label }}</button>
-          {% endfor %}
+        <label for="c-desc">詳細</label>
+        <div class="inline-form" style="gap:6px;margin-bottom:6px">
+          <button type="button" class="btn btn-outline btn-sm" onclick="wrapSel('c-desc','<strong>','</strong>')" aria-label="イベント詳細を太字にする"><strong>B</strong></button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="wrapSel('c-desc','<u>','</u>')" aria-label="イベント詳細に下線を引く"><u>U</u></button>
+          <span class="sub">選択した文字に太字・下線を設定できます</span>
         </div>
-      </div>
-      <div class="form-group">
-        <label for="c-desc">説明</label>
-        <textarea id="c-desc" name="desc" class="form-control" rows="6">{{ values.desc|default:'' }}</textarea>
+        <textarea id="c-desc" name="desc" class="form-control" rows="3" placeholder="10:00〜11:30 定員5名様など...">{{ values.desc|default:'' }}</textarea>
       </div>
 
+      <div class="form-group">
+        <label for="c-img">★画像（フライヤー・写真など）をアップロード（スマホのライブラリから選択可能）</label>
+        <div class="form-hint" style="margin:0 0 5px">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
+        <input id="c-img" name="images" type="file" class="form-control" accept="image/jpeg, image/png, image/gif, image/webp" multiple>
+      </div>
       {% if existing_images %}
         <div class="form-group">
           <label>いまの画像（外すものはチェックを外す）</label>
@@ -76,19 +73,20 @@
           </div>
         </div>
       {% endif %}
-      <div class="form-group">
-        <label for="c-img">画像を追加</label>
-        <input id="c-img" name="images" type="file" class="form-control" accept="image/*" multiple>
-      </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label for="c-link">リンクURL（任意）</label>
-          <input id="c-link" name="linkUrl" type="url" class="form-control" value="{{ values.linkUrl|default:'' }}" placeholder="https://">
+      <div class="form-group">
+        <label for="c-color">カラー設定</label>
+        <div class="inline-form">
+          <input id="c-color" name="color" type="color" class="form-control" style="width:60px;min-width:60px;height:40px;padding:2px;cursor:pointer" value="{{ values.color|default:'#e57373' }}">
+          <span class="sub">※カレンダー上の表示色になります。例：休診日(赤系 #e57373)、ヨガ(ピンク系 #f48fb1)</span>
         </div>
-        <div class="form-group">
-          <label for="c-linktext">リンクボタンの文字（任意）</label>
-          <input id="c-linktext" name="linkButtonText" class="form-control" value="{{ values.linkButtonText|default:'' }}">
+        <div class="recent-colors">
+          {% if recent_colors %}
+            <span class="sub" style="width:100%">使用履歴から選択:</span>
+            {% for hex in recent_colors %}<button type="button" class="color-swatch" style="background:{{ hex }}" title="{{ hex }}" onclick="setCalendarFormColor('{{ hex }}')"></button>{% endfor %}
+          {% else %}
+            <span class="sub">使用履歴のある色がここに表示されます</span>
+          {% endif %}
         </div>
       </div>
       <div class="form-group">
@@ -96,54 +94,125 @@
         <input id="c-at" name="publishAt" type="datetime-local" class="form-control" value="{{ values.publishAt|default:'' }}">
       </div>
       <div class="form-group">
+        <label for="c-link">リンクURL（任意：イベント詳細ボタンの遷移先）</label>
+        <input id="c-link" name="linkUrl" type="url" class="form-control" value="{{ values.linkUrl|default:'' }}" placeholder="https://example.com">
+        <div class="form-hint">※入力すると、アプリ側のイベント詳細にボタンが表示されます。</div>
+      </div>
+      <div class="form-group">
+        <label for="c-linktext">ボタンのテキスト（任意）</label>
+        <input id="c-linktext" name="linkButtonText" class="form-control" value="{{ values.linkButtonText|default:'' }}" placeholder="詳しく見る （未入力ならこれになります）">
+        <div class="form-hint">※「予約はこちら」「イベント詳細を見る」など自由に入力できます。</div>
+      </div>
+      <div class="form-group">
         <div class="form-check">
-          <input type="checkbox" id="c-notice" name="notice_listed" {% if values.notice_listed %}checked{% endif %}>
-          <label for="c-notice">お客様アプリの「お知らせ一覧」にも出す</label>
+          <input type="checkbox" id="c-notice" name="notice_refresh" {% if values.notice_refresh %}checked{% endif %}>
+          <label for="c-notice">📢 この保存をお知らせ一覧に反映する</label>
         </div>
+        <div class="form-hint">新規イベントはオンのまま、軽微な修正時は必要なときだけチェックしてください。<br><strong>新規追加は既定でオンです。</strong> 編集時に未チェックならイベント情報だけ更新し、お知らせ一覧の掲載順は更新しません。</div>
       </div>
       <div class="form-group">
         <div class="form-check">
           <input type="checkbox" id="c-push" name="send_push">
-          <label for="c-push">お客様のアプリに通知を送る（公開するときだけ）</label>
+          <label for="c-push">🔔 この保存でPush通知を送信する</label>
         </div>
-        <div class="form-hint">「カレンダーが更新されました」の通知が届きます。</div>
+        <div class="form-hint">送信したいときだけ、チェックを入れて保存してください。<br><strong>未チェックでは通知されません。</strong> 公開保存のときだけ送信対象になります。</div>
       </div>
 
       <div class="form-actions">
-        <button type="submit" name="status" value="公開" class="btn btn-primary">{% if event %}修正して公開する{% else %}公開して追加する{% endif %}</button>
-        <button type="submit" name="status" value="非公開" class="btn btn-outline">下書き保存</button>
+        <button type="button" class="btn btn-outline" onclick="previewCalendarDraft()">👁 プレビュー</button>
+        <button type="submit" name="status" value="公開" class="btn btn-primary">{% if event %}📝 修正を保存する{% else %}📅 公開して追加する{% endif %}</button>
+        <button type="submit" name="status" value="非公開" class="btn btn-outline">📁 下書き保存</button>
         <a class="btn btn-outline" href="{% url 'manage:calendar_list' %}">キャンセル</a>
       </div>
     </form>
   </div>
 </div>
 
-{% if not event %}
+{# プレビュー（旧管理アプリの previewCalendarDraft と同じ中身） #}
+<div id="calPreviewModal" class="day-detail-modal" onclick="closeCalPreview(event)">
+  <div class="day-detail-content" onclick="event.stopPropagation()">
+    <div class="day-detail-header">
+      <div class="day-detail-date">カレンダープレビュー</div>
+      <button type="button" class="day-detail-close" onclick="closeCalPreview()" aria-label="閉じる">×</button>
+    </div>
+    <div id="calPreviewBody"></div>
+  </div>
+</div>
+
+{{ picked_dates|json_script:"picked-dates" }}
 <script>
+// 太字・下線（旧管理アプリの applyTextStyle と同じ: <strong> / <u> で囲む）
+function wrapSel(id, open, close) {
+  var el = document.getElementById(id); if (!el) return;
+  var s = el.selectionStart, e = el.selectionEnd, v = el.value;
+  el.value = v.slice(0, s) + open + v.slice(s, e) + close + v.slice(e);
+  el.focus(); el.selectionStart = s + open.length; el.selectionEnd = e + open.length;
+}
+function setCalendarFormColor(c) { document.getElementById('c-color').value = c.toLowerCase(); }
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function formatDesc(text) {
+  var t = String(text || '').replace(/\r\n?/g, '\n').replace(/(^|\n)\s*📷\s*https?:\/\/\S+/g, '$1');
+  t = esc(t).replace(/&lt;(\/?)(strong|b|u)&gt;/gi, '<$1$2>');
+  return t.replace(/\n/g, '<br>');
+}
+
 // 日付を複数足す。足した日は hidden の dates として送る（GAS の handleAddCalendar と同じ形）。
+var selectedDates = [];
+{% if not event %}
 (function () {
-  var box = document.getElementById('c-dates');
+  var box = document.getElementById('selectedDatesList');
   var input = document.getElementById('c-date');
-  var picked = [];
-  function draw() {
-    box.innerHTML = '';
-    picked.forEach(function (d) {
-      var chip = document.createElement('span');
-      chip.className = 'badge badge-green';
-      chip.style.fontSize = '.85rem';
-      chip.innerHTML = d + ' <a href="#" style="margin-left:6px" data-d="' + d + '">×</a><input type="hidden" name="dates" value="' + d + '">';
-      chip.querySelector('a').addEventListener('click', function (e) {
-        e.preventDefault(); picked = picked.filter(function (x) { return x !== d; }); draw();
+  selectedDates = JSON.parse(document.getElementById('picked-dates').textContent);
+  window.renderSelectedDates = function () {
+    if (!selectedDates.length) { box.innerHTML = '<span class="sub">日付を選択して追加してください</span>'; return; }
+    box.innerHTML = selectedDates.map(function (d) {
+      return '<span class="date-chip">' + d + '<a href="#" data-d="' + d + '" aria-label="外す">×</a><input type="hidden" name="dates" value="' + d + '"></span>';
+    }).join('');
+    box.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault(); selectedDates = selectedDates.filter(function (x) { return x !== a.dataset.d; }); renderSelectedDates();
       });
-      box.appendChild(chip);
     });
-  }
-  document.getElementById('c-add-date').addEventListener('click', function () {
+  };
+  window.addSelectedDate = function () {
     var d = input.value;
-    if (!d || picked.indexOf(d) !== -1) return;
-    picked.push(d); picked.sort(); draw();
-  });
+    if (!d) { alert('日付を選択してください'); return; }
+    if (selectedDates.indexOf(d) !== -1) { alert('その日付は既に追加されています'); return; }
+    selectedDates.push(d); selectedDates.sort(); renderSelectedDates();
+  };
+  renderSelectedDates();
 })();
-</script>
 {% endif %}
+
+function previewCalendarDraft() {
+  var title = document.getElementById('c-title').value.trim() || 'イベント名未入力';
+  var desc = document.getElementById('c-desc').value.trim() || '説明はまだ入力されていません。';
+  var color = document.getElementById('c-color').value || '#e57373';
+  var cur = document.getElementById('c-date').value;
+  var dates = selectedDates.length ? selectedDates.slice() : (cur ? [cur] : []);
+  var linkUrl = document.getElementById('c-link').value.trim();
+  var linkText = document.getElementById('c-linktext').value.trim() || '詳しく見る';
+  var body = document.getElementById('calPreviewBody');
+  var file = document.getElementById('c-img').files[0];
+  var kept = document.querySelector('input[name="keep_image"]:checked');
+  var imgSrc = kept ? kept.value : '';
+  function draw(src) {
+    body.innerHTML =
+      '<div class="day-detail-event" style="border-left-color:' + esc(color) + '">' +
+      '<div class="day-detail-event-title"><span class="color-dot" style="background:' + esc(color) + '"></span><span>' + esc(title) + '</span></div>' +
+      '<div class="day-detail-event-meta">対象日: ' + (dates.length ? dates.map(function (d) { return esc(d.replace(/-/g, '/')); }).join(' / ') : '未選択') + '</div>' +
+      (src ? '<div class="day-detail-event-images"><img src="' + esc(src) + '" alt="イベント画像"></div>' : '') +
+      '<div class="day-detail-event-desc">' + formatDesc(desc) + '</div>' +
+      (linkUrl ? '<div style="margin-top:16px;text-align:center"><span class="btn btn-primary">' + esc(linkText) + ' 🔗</span><div class="sub" style="margin-top:8px">※プレビューではクリックできません</div></div>' : '') +
+      '</div>';
+    document.getElementById('calPreviewModal').classList.add('is-open');
+  }
+  if (file) { var r = new FileReader(); r.onload = function () { draw(r.result); }; r.readAsDataURL(file); }
+  else draw(imgSrc);
+}
+function closeCalPreview(ev) {
+  if (ev && ev.target && ev.currentTarget && ev.target !== ev.currentTarget) return;
+  document.getElementById('calPreviewModal').classList.remove('is-open');
+}
+</script>
 {% endblock %}
