@@ -1,11 +1,14 @@
 from django.urls import path, re_path
 
-from . import views, views_blog, views_images, views_options
+from . import views, views_basic, views_blog, views_images, views_options
 
 urlpatterns = [
     path("hp/options/", views_options.hp_options, name="hp_options"),
     path("hp/blog/", views_blog.hp_blog, name="hp_blog"),
     path("hp/blog/<slug:slug>/", views_blog.hp_blog_edit, name="hp_blog_edit"),
+    path("hp/basic/", views_basic.hp_basic, name="hp_basic"),
+    path("hp/basic/save/", views_basic.hp_basic_save, name="hp_basic_save"),
+    path("hp/basic/price-preview/", views_basic.hp_basic_price_preview, name="hp_basic_price_preview"),
     path("hp/git/", views.hp_git, name="hp_git"),
     path("hp/publish/", views.hp_publish, name="hp_publish"),
     path("hp/images/", views_images.hp_images, name="hp_images"),
