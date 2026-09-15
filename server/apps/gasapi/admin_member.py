@@ -48,8 +48,9 @@ def _日付の字(d):
 def _特典の状態(m):
     """GAS の getRewardStatusFromRow_ と同じ形。"""
     return {
-        "stampCount": m.stamp_count or 0,
-        "stampCardNum": m.stamp_card_number or 0,
+        # GAS の sanitizeRewardStatus_ と同じ丸め（0〜10、カード番号は最低1）。
+        "stampCount": max(0, min(10, m.stamp_count or 0)),
+        "stampCardNum": max(1, m.stamp_card_number or 1),
         "rewards": list(m.reward_history or []),
         "stampHistory": list(m.stamp_history or []),
         "lastStampDate": _日付の字(m.last_stamp_at.date() if m.last_stamp_at else None),
@@ -246,9 +247,15 @@ def 会員を書き換える(d):
         if not 名:
             # **お名前を空にしない。**空の会員が作られた事故がある（2026-08-24）
             return {"status": "error", "message": "お名前は空にできません"}
-        m.name = 名
+        # GAS 8293行と同じ整え方（空白を取る）。お客様アプリの保存と食い違わせない。
+        from .entrance import _保存する名前
+
+        m.name = _保存する名前(名)
     if "kana" in d:
-        m.kana = _文(d.get("kana")).strip()
+        # カタカナはひらがなへ（GAS の normalizeStoredKana_）。復元候補の照合と同じ形。
+        from .entrance import _保存するかな
+
+        m.kana = _保存するかな(d.get("kana"))
     if "phone" in d:
         # **入力のたびに先頭の0を戻す。**2026-08 に121件、9/7 にさらに4件
         # 落ちていた。書式に頼らず、ここでも整える。
@@ -367,7 +374,8 @@ def 特典を書き換える(d):
     if d.get("clearLastStampDate") is True:
         m.last_stamp_at = None
     m.save()
-    return {"status": "ok", "stampCount": m.stamp_count or 0}
+    # GAS 8443行と同じ形（rewardStatus）。stampCount は古い呼び出しのために残す。
+    return {"status": "ok", "stampCount": m.stamp_count or 0, "rewardStatus": _特典の状態(m)}
 
 
 def _数(v, 既定=0):
@@ -435,6 +443,9 @@ def お礼スタンプを付ける(d):
 
         m.stamp_count = (m.stamp_count or 0) + 1
         m.last_stamp_at = いま
+        # GAS addSurveyStampToRow_（4552行）と同じく、履歴の先頭に「お礼」の1個を残す。
+        # 無いと、お客様アプリのスタンプ履歴に出ない。
+        m.stamp_history = [{"acquiredDate": _時刻の字(いま), "note": "アンケート回答のお礼"}] + list(m.stamp_history or [])
         m.survey_stamp_granted_at = いま
         m.survey_stamp_pending_at = None
         m.save()
@@ -481,8 +492,10 @@ def 引き継ぎコードを出す(d):
         "status": "ok",
         "transferCode": 符号,
         "issuedAt": _時刻の字(発行),
+        "issuedAtLabel": timezone.localtime(発行).strftime("%Y/%m/%d %H:%M"),
         "expiresAt": _時刻の字(期限),
         "expiresAtLabel": timezone.localtime(期限).strftime("%Y年%-m月%-d日 %H:%M"),
+        "ttlHours": 引き継ぎコードの有効時間,
     }
 
 
