@@ -1,0 +1,94 @@
+{% extends "manage/base.html" %}
+{% load humanize %}
+
+{% block title %}データ分析 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}データ分析{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>データ分析</h1>
+    <div class="lead">ショップの注文と、手で入れた売上の記録（メニュー収益・商品収益）を月ごとにまとめています。</div>
+  </div>
+  <div class="page-header-actions">
+    <a class="btn btn-outline" href="{% url 'manage:revenue_list' 'menu' %}">メニュー収益を入力</a>
+    <a class="btn btn-outline" href="{% url 'manage:revenue_list' 'product' %}">商品収益を入力</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat-card blue"><div class="stat-label">売上（全期間）</div><div class="stat-value">¥{{ totals.revenue|floatformat:0|intcomma }}</div></div>
+  <div class="stat-card orange"><div class="stat-label">原価</div><div class="stat-value orange">¥{{ totals.cost|floatformat:0|intcomma }}</div></div>
+  <div class="stat-card green"><div class="stat-label">粗利</div><div class="stat-value green">¥{{ totals.profit|floatformat:0|intcomma }}</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>月ごと<span class="count">{{ rows|length }}か月</span></h2></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>月</th><th>メニュー売上</th><th>商品売上</th><th>売上合計</th><th>原価</th><th>粗利</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr {% if r.key == selected %}style="background:var(--brand-light)"{% endif %}>
+        <td class="nowrap"><a class="title-link" href="?month={{ r.key }}">{{ r.label }}</a></td>
+        <td class="nowrap">¥{{ r.menu_sales|floatformat:0|intcomma }}<div class="sub">{{ r.menu_count }}件</div></td>
+        <td class="nowrap">¥{{ r.product_sales|floatformat:0|intcomma }}</td>
+        <td class="nowrap"><strong>¥{{ r.revenue|floatformat:0|intcomma }}</strong></td>
+        <td class="nowrap">¥{{ r.cost|floatformat:0|intcomma }}</td>
+        <td class="nowrap" style="color:var(--success);font-weight:600">¥{{ r.profit|floatformat:0|intcomma }}</td>
+        <td class="nowrap"><a class="btn btn-outline btn-sm" href="?month={{ r.key }}">内訳</a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7"><div class="empty"><div class="empty-icon">📊</div><p>まだ記録がありません。</p></div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+{% if detail %}
+<div class="card">
+  <div class="card-header"><h2>{{ detail.label }}の内訳 ─ メニュー</h2></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>種別</th><th>件数</th><th>売上</th><th>原価</th><th>粗利</th><th>単価ごと</th></tr></thead>
+    <tbody>
+    {% for m in detail.menu_rows %}
+      <tr>
+        <td class="nowrap">{{ m.type }}</td>
+        <td class="nowrap">{{ m.count }}件</td>
+        <td class="nowrap">¥{{ m.revenue|floatformat:0|intcomma }}</td>
+        <td class="nowrap">¥{{ m.cost|floatformat:0|intcomma }}</td>
+        <td class="nowrap" style="color:var(--success)">¥{{ m.profit|floatformat:0|intcomma }}</td>
+        <td>{% for b in m.breakdown %}<span class="badge badge-gray" style="margin:2px">¥{{ b.unitPrice|intcomma }} × {{ b.count }}</span>{% empty %}—{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>{{ detail.label }}の内訳 ─ 商品</h2></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>商品</th><th>単価</th><th>個数</th><th>売上</th><th>原価</th><th>粗利</th></tr></thead>
+    <tbody>
+    {% for p in detail.product_rows %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td class="nowrap">{{ p.priceLabel|default:p.price }}</td>
+        <td class="nowrap">{{ p.qty }}</td>
+        <td class="nowrap">¥{{ p.sales|floatformat:0|intcomma }}</td>
+        <td class="nowrap">¥{{ p.cost|floatformat:0|intcomma }}</td>
+        <td class="nowrap" style="color:var(--success)">¥{{ p.profit|floatformat:0|intcomma }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6"><div class="empty"><p>この月の商品の売上はありません。</p></div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -2,7 +2,10 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.views.generic import RedirectView
 
-from . import views_calendar, views_category, views_login, views_menu, views_news, views_order, views_product, views_push
+from . import (
+    views_analytics, views_calendar, views_category, views_login, views_menu, views_news, views_order,
+    views_product, views_push,
+)
 
 app_name = "manage"
 
@@ -45,4 +48,8 @@ urlpatterns = [
     path("orders/<str:order_id>/edit/", views_order.order_edit, name="order_edit"),
     path("orders/<str:order_id>/status/", views_order.order_status, name="order_status"),
     path("orders/<str:order_id>/delete/", views_order.order_delete, name="order_delete"),
+    path("analytics/", views_analytics.analytics_view, name="analytics"),
+    path("revenue/<str:kind>/", views_analytics.revenue_list, name="revenue_list"),
+    path("revenue/<str:kind>/save/", views_analytics.revenue_save, name="revenue_save"),
+    path("revenue/<str:kind>/<int:row>/delete/", views_analytics.revenue_delete, name="revenue_delete"),
 ]
