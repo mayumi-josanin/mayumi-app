@@ -1,0 +1,86 @@
+{% extends "manage/base.html" %}
+
+{% block title %}会員管理 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}会員管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>会員一覧</h1>
+  <div class="page-header-actions">
+    <a class="btn btn-outline" href="{{ request.get_full_path }}">🔄 更新</a>
+  </div>
+</div>
+
+{% if not writable %}<div class="note member-gate-note">⚠️ {{ gate_message }}（この画面では見るだけです）</div>{% endif %}
+
+<div class="stats">
+  {% for label, value in summary %}<div class="stat-card blue"><div class="stat-label">{{ label }}</div><div class="stat-value">{{ value }}</div></div>{% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="filter-form" id="member-filter">
+      <div class="form-group" style="flex:1;min-width:280px">
+        <label for="f-q">検索</label>
+        <input id="f-q" name="q" type="search" class="form-control" value="{{ q }}" placeholder="会員ID・氏名・フリガナ・電話番号・住所・メモで検索">
+      </div>
+      <div class="form-group">
+        <label for="f-city">市区町村</label>
+        <select id="f-city" name="city" class="form-control" onchange="this.form.submit()">
+          <option value="all">市区町村: 全て</option>
+          {% for name, count in cities %}<option value="{{ name }}" {% if city == name %}selected{% endif %}>{{ name }}（{{ count }}）</option>{% endfor %}
+          {% if unknown_city %}<option value="{{ unknown_key }}" {% if city == unknown_key %}selected{% endif %}>市区町村が不明（{{ unknown_city }}）</option>{% endif %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="f-age-min">年齢</label>
+        <div class="inline-form" style="gap:6px">
+          <input id="f-age-min" name="age_min" type="number" min="0" max="130" class="form-control" style="width:110px" value="{{ age_min }}" placeholder="年齢 下限">
+          <input id="f-age-max" name="age_max" type="number" min="0" max="130" class="form-control" style="width:110px" value="{{ age_max }}" placeholder="年齢 上限">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="f-sort">並び替え</label>
+        <select id="f-sort" name="sort" class="form-control" onchange="this.form.submit()">
+          {% for key, label in sort_choices %}<option value="{{ key }}" {% if sort == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="f-push">Push状態</label>
+        <select id="f-push" name="push" class="form-control" onchange="this.form.submit()">
+          {% for key, label in push_choices %}<option value="{{ key }}" {% if push == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-outline">検索</button>
+      <a class="btn btn-outline" href="{% url 'manage:member_list' %}">条件をクリア</a>
+      {% comment %}
+      表示する列を選べる（設計: 列が多くなるので、表示する列を選べるようにする）。
+      cols_given は「チェックを全部外した」と「何も指定していない（既定の列）」を見分けるため。
+      {% endcomment %}
+      <details class="member-cols">
+        <summary class="btn btn-outline">表示する列を選ぶ</summary>
+        <div class="member-cols-body">
+          <input type="hidden" name="cols_given" value="1">
+          {% for key, label, on in columns %}<label class="member-col-choice"><input type="checkbox" name="col" value="{{ key }}" {% if on %}checked{% endif %}> {{ label }}</label>{% endfor %}
+          <button type="submit" class="btn btn-primary btn-sm">この列で表示</button>
+        </div>
+      </details>
+    </form>
+    <div class="sub" style="margin-top:8px">{{ meta }}</div>
+  </div>
+</div>
+
+<div class="card">
+  {% include "manage/_member_table.html" with items=items empty=empty %}
+</div>
+
+{% for item in items %}{% include "manage/_member_row_forms.html" with item=item %}{% endfor %}
+<script>
+// 会員の削除は取り返しがつきにくいので、旧管理アプリ（requestDangerousConfirm）と同じく
+// 「削除」と打ってもらってから送る。
+function confirmMemberDelete(name, impact) {
+  var typed = prompt('会員「' + (name || '名前なし') + '」をゴミ箱へ移動します。\n影響: ' + (impact || '会員情報のみ確認可能') + '\n\n続けるには「削除」と入力してください。');
+  return typed !== null && typed.trim() === '削除';
+}
+</script>
+{% endblock %}
