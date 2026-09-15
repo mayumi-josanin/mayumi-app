@@ -244,6 +244,16 @@ def 特典をそろえる(data):
         m.reward_history = 次["rewards"]
         m.stamp_history = 次["stampHistory"]
 
+        # 満杯で保留にしていたお礼スタンプは、空きができたときに回収して1個足す
+        # （GAS redeemPendingSurveyStamp_ 4613行）。書く口に無いと、保留のまま永久に付かない。
+        if m.survey_stamp_pending_at and not m.survey_stamp_granted_at and m.stamp_count < 10:
+            いま = timezone.now()
+            m.stamp_count += 1
+            m.stamp_history = [{"acquiredDate": _日時の文字(いま), "note": "アンケート回答のお礼"}] + list(m.stamp_history or [])
+            m.last_stamp_at = いま
+            m.survey_stamp_granted_at = いま
+            m.survey_stamp_pending_at = None
+
         # 最終スタンプ日時。送られてきたものがあれば使う。
         生 = d.get("lastStampAt") or d.get("lastStampDate")
         if 生:
@@ -277,7 +287,8 @@ def 特典をそろえる(data):
 
         m.save(update_fields=[
             "stamp_count", "stamp_card_number", "reward_history",
-            "stamp_history", "last_stamp_at", "stamp_achieved_at", "changed_at",
+            "stamp_history", "last_stamp_at", "stamp_achieved_at",
+            "survey_stamp_granted_at", "survey_stamp_pending_at", "changed_at",
         ])
 
         返す = {

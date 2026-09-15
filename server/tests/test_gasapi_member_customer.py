@@ -367,10 +367,6 @@ def test_特典を見る_読むだけで書かない(client):
     assert m.changed_at == 前
 
 
-@pytest.mark.xfail(reason="GAS は満杯で保留にしたお礼スタンプを、空きができたときに回収して1個足す"
-                          "（redeemPendingSurveyStamp_ 4613行）。サーバーは読む口では触らない判断だが"
-                          "（views.py 特典の状態を見る）、書く口にも回収が無い。**保留のままお礼スタンプが"
-                          "永久に付かない**", strict=True)
 def test_保留のお礼スタンプは空きができたときに書く口で回収される(client):
     m = 会員を作る(stamp_count=10, survey_stamp_pending_at=timezone.now(), survey_answered_at=timezone.now())
     # 新しいカードに進んだ（アプリが 0 個・2枚目を同期してくる）

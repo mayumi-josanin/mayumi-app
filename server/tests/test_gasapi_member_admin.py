@@ -114,9 +114,6 @@ def test_会員一覧_注文の集計は注文の表から作る(client):
     assert u["lastOrderAt"] != ""
 
 
-@pytest.mark.xfail(reason="GAS 8483行は getRewardStatusFromRow_ → sanitizeRewardStatus_ を通すので"
-                          "stampCardNum は最低 1。admin_member._特典の状態 は 0 のまま返す"
-                          "（views.py の getUserRewardStatus は 1 に直している。管理側だけ違う）", strict=True)
 def test_会員一覧_カード番号が0の方は1で返す(client):
     会員を作る(stamp_card_number=0)
     assert 管理で読む(client, "getAdminUsers")["users"][0]["stampCardNum"] == 1
@@ -230,10 +227,6 @@ def test_会員更新_いない会員(client):
     assert 答 == {"status": "error", "message": "会員が見つかりません"}
 
 
-@pytest.mark.xfail(reason="GAS 8293行は normalizeStoredName_ / normalizeStoredKana_ で空白を取り"
-                          "カタカナをひらがなに寄せて保存する。admin_member.会員を書き換える は strip だけ。"
-                          "受付が「佐藤 花子」と直すと、お客様アプリの保存で「佐藤花子」に戻り、"
-                          "復元候補の照合でも別人に見える", strict=True)
 def test_会員更新_お名前の空白を取りフリガナをひらがなに寄せて保存する(client):
     m = 会員を作る()
     管理で書く(client, {"type": "updateAdminUser", "memberId": "MYM-1001", "name": "佐藤 花子", "kana": "サトウ　ハナコ"})
@@ -297,9 +290,6 @@ def test_特典の書き換え_いない会員(client):
     assert 答 == {"status": "error", "message": "会員が見つかりません"}
 
 
-@pytest.mark.xfail(reason="GAS 8443行は {status:'ok', rewardStatus: …} を返す。サーバーは"
-                          "{status:'ok', stampCount} を返す（管理アプリは status しか見ていないので"
-                          "いまは表に出ないが、形は GAS に合わせる約束）", strict=True)
 def test_特典の書き換え_返す形はGASと同じ(client):
     会員を作る(stamp_count=2)
     答 = 管理で書く(client, {"type": "updateAdminRewardStatus", "memberId": "MYM-1001", "stampCount": 3})
@@ -360,9 +350,6 @@ def test_お礼スタンプ_いない会員と会員IDなし(client):
     assert 管理で書く(client, {"type": "grantSurveyStamp"}) == {"status": "error", "message": "会員IDが指定されていません"}
 
 
-@pytest.mark.xfail(reason="GAS addSurveyStampToRow_（4552行）はスタンプ履歴の先頭に"
-                          "{acquiredDate, note:'アンケート回答のお礼'} を足す。サーバーは個数だけ足す。"
-                          "お客様アプリのスタンプ履歴に「お礼」の1個が出ない", strict=True)
 def test_お礼スタンプ_履歴にも残る(client):
     m = 会員を作る(stamp_count=3, stamp_history=[{"acquiredDate": "2026-01-01T00:00:00+09:00"}])
     お礼(client)
@@ -429,8 +416,6 @@ def test_引き継ぎコード_いない会員と会員IDなし(client):
         "status": "error", "message": "会員IDが指定されていません。"}
 
 
-@pytest.mark.xfail(reason="GAS 7850行は issuedAtLabel と ttlHours(168) も返す。サーバーは返さない"
-                          "（入口は expiresAtLabel || expiresAt しか見ていないので、いまは表に出ない）", strict=True)
 def test_引き継ぎコード_返す項目はGASと同じ(client):
     会員を作る()
     答 = 管理で書く(client, {"type": "issueTransferCode", "memberId": "MYM-1001"})
