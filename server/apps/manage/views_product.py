@@ -7,7 +7,6 @@
 from decimal import Decimal
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -18,6 +17,7 @@ from apps.gasapi import admin_product
 from apps.gasapi.views import _画像
 from apps.records.models import SupplierPrice
 
+from .permissions import owner_required
 from . import images, push
 
 SOLD_OUT = ["在庫あり", "売切"]
@@ -49,7 +49,7 @@ def _原価を書く(名: str, 値: str):
             SupplierPrice.objects.create(sheet_row=最大 + 1, product_name=名, price=金額, memo="管理画面から追加")
 
 
-@login_required
+@owner_required
 def product_list(request):
     原価 = admin_product._原価の表()
     rows = Product.objects.filter(deleted=False).order_by("sheet_row")
@@ -123,7 +123,7 @@ def _画面(request, p, values, existing, existing_desc):
     })
 
 
-@login_required
+@owner_required
 def product_create(request):
     if request.method == "POST":
         d = _入力(request, None)
@@ -137,7 +137,7 @@ def product_create(request):
     return _画面(request, None, request.POST or {"soldOutStatus": "在庫あり", "bg": "#d4e8c8", "notice_listed": "on"}, [], [])
 
 
-@login_required
+@owner_required
 def product_edit(request, row: int):
     p = get_object_or_404(Product, sheet_row=row, deleted=False)
     if request.method == "POST":
@@ -163,7 +163,7 @@ def product_edit(request, row: int):
     return _画面(request, p, values, _画像(p.icon_url), _画像(p.description_image_url))
 
 
-@login_required
+@owner_required
 @require_POST
 def product_toggle(request, row: int):
     p = get_object_or_404(Product, sheet_row=row, deleted=False)
@@ -173,7 +173,7 @@ def product_toggle(request, row: int):
     return redirect("manage:product_list")
 
 
-@login_required
+@owner_required
 @require_POST
 def product_sold_out(request, row: int):
     """売切 ⇄ 在庫あり。在庫数とは別（GAS と同じく、この印だけで判定する）。"""
@@ -185,7 +185,7 @@ def product_sold_out(request, row: int):
     return redirect("manage:product_list")
 
 
-@login_required
+@owner_required
 @require_POST
 def product_delete(request, row: int):
     p = get_object_or_404(Product, sheet_row=row, deleted=False)

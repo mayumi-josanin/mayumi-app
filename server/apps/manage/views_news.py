@@ -12,7 +12,6 @@ GAS を通らず、この Django が直接 News の表を読み書きする。
 """
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -21,6 +20,7 @@ from django.views.decorators.http import require_POST
 from apps.content.models import Category, News
 from apps.gasapi.views import _画像
 
+from .permissions import owner_required
 from . import images, push
 from .forms import NewsForm
 
@@ -32,7 +32,7 @@ def _種別(category_kinds: dict, name: str) -> str:
     return "お知らせ" if name == "お知らせ" else "ブログ"
 
 
-@login_required
+@owner_required
 def news_list(request):
     kinds = {c.name: (c.kind or "ブログ") for c in Category.objects.all()}
     filter_kind = request.GET.get("kind", "")
@@ -107,7 +107,7 @@ def _保存(request, form: NewsForm, n: News | None):
     return obj
 
 
-@login_required
+@owner_required
 def news_create(request):
     if request.method == "POST":
         form = NewsForm(request.POST, request.FILES)
@@ -127,7 +127,7 @@ def news_create(request):
     )
 
 
-@login_required
+@owner_required
 def news_edit(request, row: int):
     n = get_object_or_404(News, sheet_row=row, deleted=False)
     if request.method == "POST":
@@ -148,7 +148,7 @@ def news_edit(request, row: int):
     )
 
 
-@login_required
+@owner_required
 @require_POST
 def news_toggle(request, row: int):
     """公開 ⇄ 非公開。"""
@@ -160,7 +160,7 @@ def news_toggle(request, row: int):
     return redirect("manage:news_list")
 
 
-@login_required
+@owner_required
 @require_POST
 def news_delete(request, row: int):
     """消さずに印を付ける（GAS と同じ論理削除）。過去の掲載についての問い合わせは実際に来る。"""

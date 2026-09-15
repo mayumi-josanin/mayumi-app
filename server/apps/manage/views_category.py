@@ -6,7 +6,6 @@
 """
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
@@ -14,10 +13,12 @@ from django.views.decorators.http import require_POST
 from apps.content.models import Category, News
 from apps.gasapi import admin_category
 
+from .permissions import owner_required
+
 KINDS = admin_category.種別
 
 
-@login_required
+@owner_required
 def category_list(request):
     使用数 = dict(
         News.objects.filter(deleted=False).values_list("category").annotate(n=Count("id"))
@@ -29,7 +30,7 @@ def category_list(request):
     return render(request, "manage/category_list.html", {"rows": rows, "kinds": KINDS})
 
 
-@login_required
+@owner_required
 @require_POST
 def category_add(request):
     答 = admin_category.足す(
@@ -39,7 +40,7 @@ def category_add(request):
     return redirect("manage:category_list")
 
 
-@login_required
+@owner_required
 @require_POST
 def category_update(request):
     答 = admin_category.書き換える(
@@ -53,7 +54,7 @@ def category_update(request):
     return redirect("manage:category_list")
 
 
-@login_required
+@owner_required
 @require_POST
 def category_delete(request):
     答 = admin_category.消す({"name": request.POST.get("name", "")})

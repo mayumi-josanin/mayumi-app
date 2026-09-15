@@ -7,7 +7,6 @@
 import json
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -15,6 +14,8 @@ from django.views.decorators.http import require_POST
 from apps.content.models import Product
 from apps.gasapi import orders
 from apps.records.models import OrderLine
+
+from .permissions import owner_required
 
 STATUSES = ["受付中", "受取済", "キャンセル"]
 
@@ -53,7 +54,7 @@ def _まとめ(show_all: bool):
     return [表[k] for k in 順]
 
 
-@login_required
+@owner_required
 def order_list(request):
     status = request.GET.get("status", "pending")
     q = (request.GET.get("q") or "").strip()
@@ -84,7 +85,7 @@ def order_list(request):
     })
 
 
-@login_required
+@owner_required
 @require_POST
 def order_status(request, order_id: str):
     """一覧からの1押し（状態・受取確認・メモ）。"""
@@ -121,7 +122,7 @@ def _品を読む(request) -> list:
     return 出
 
 
-@login_required
+@owner_required
 def order_create(request):
     if request.method == "POST":
         品 = _品を読む(request)
@@ -147,7 +148,7 @@ def order_create(request):
     })
 
 
-@login_required
+@owner_required
 def order_edit(request, order_id: str):
     元 = [o for o in _まとめ(True) if o["orderId"] == order_id]
     if not 元:
@@ -181,7 +182,7 @@ def order_edit(request, order_id: str):
     })
 
 
-@login_required
+@owner_required
 @require_POST
 def order_delete(request, order_id: str):
     答 = orders.注文を消す({"orderIds": [order_id]})

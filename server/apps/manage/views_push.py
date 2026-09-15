@@ -6,13 +6,14 @@
 """
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.content import onesignal
 from apps.content.models import PushNotice
 from apps.gasapi import admin_push
+
+from .permissions import owner_required
 
 PAGE_LABELS = [
     ("home", "ホーム"), ("news", "NEWS"), ("calendar", "カレンダー"), ("shop", "ショップ"),
@@ -24,7 +25,7 @@ STATUS_BADGE = {
 }
 
 
-@login_required
+@owner_required
 def push_list(request):
     rows = PushNotice.objects.filter(deleted=False).order_by("-sheet_row")[:200]
     items = [{"p": p, "badge": STATUS_BADGE.get(p.status or "", "badge-gray")} for p in rows]
@@ -36,7 +37,7 @@ def push_list(request):
     })
 
 
-@login_required
+@owner_required
 @require_POST
 def push_send(request):
     mode = request.POST.get("mode") or "send"
@@ -58,7 +59,7 @@ def push_send(request):
     return redirect("manage:push_list")
 
 
-@login_required
+@owner_required
 @require_POST
 def push_delete(request, row: int):
     答 = admin_push.消す({"rowIdx": row})

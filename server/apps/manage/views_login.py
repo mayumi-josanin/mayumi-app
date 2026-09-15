@@ -35,6 +35,9 @@ def role_login(request):
         passcode = unicodedata.normalize("NFKC", request.POST.get("passcode") or "").strip()
         if not role:
             error = "まゆみかスタッフかを選んでください。"
+        elif role == STAFF:
+            # **スタッフはアプリ管理を見ない**（院長の決定 2026-09-15）。予約管理からお入りいただく。
+            error = "スタッフの方は予約管理からお入りください。アプリ管理はまゆみだけが使えます。"
         elif not passcode:
             error = "パスコードを入れてください。"
         else:

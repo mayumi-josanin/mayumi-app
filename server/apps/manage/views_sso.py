@@ -46,6 +46,10 @@ def sso_login(request):
     if not 中 or 中["role"] not in ROLES:
         messages.error(request, "予約管理からの受け渡しが確かめられませんでした。ログインしてください。")
         return redirect(f"/manage/login/?next={quote(next_url)}")
+    if 中["role"] != OWNER:
+        # **スタッフはアプリ管理を見ない**（院長の決定 2026-09-15）
+        messages.error(request, "アプリ管理はまゆみだけが使えます。")
+        return redirect(f"/manage/login/?next={quote(next_url)}")
     # 同じ札を二度使わせない
     if not cache.add("manage-sso-nonce:" + 中["nonce"], 1, sso.TTL_SECONDS * 2):
         messages.error(request, "この受け渡しはもう使われています。ログインしてください。")

@@ -7,7 +7,6 @@
 from datetime import date
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -16,6 +15,7 @@ from apps.content.models import CalendarEvent, Menu
 from apps.gasapi import admin_calendar
 from apps.gasapi.views import _画像
 
+from .permissions import owner_required
 from . import images, push
 
 # よく使う色（旧管理アプリの説明文にあったもの）
@@ -32,7 +32,7 @@ def _メニュー候補():
     return list(Menu.objects.filter(deleted=False).order_by("sheet_row").values_list("sheet_row", "name"))
 
 
-@login_required
+@owner_required
 def calendar_list(request):
     today = timezone.localdate()
     try:
@@ -109,7 +109,7 @@ def _画面(request, c, values, existing):
     })
 
 
-@login_required
+@owner_required
 def calendar_create(request):
     if request.method == "POST":
         d = _入力(request, None)
@@ -127,7 +127,7 @@ def calendar_create(request):
     return _画面(request, None, {"color": "#e57373", "notice_listed": "on", "date": timezone.localdate().isoformat()}, [])
 
 
-@login_required
+@owner_required
 def calendar_edit(request, row: int):
     c = get_object_or_404(CalendarEvent, sheet_row=row, deleted=False)
     if request.method == "POST":
@@ -154,7 +154,7 @@ def _戻る(c):
     return "/manage/calendar/"
 
 
-@login_required
+@owner_required
 @require_POST
 def calendar_toggle(request, row: int):
     c = get_object_or_404(CalendarEvent, sheet_row=row, deleted=False)
@@ -164,7 +164,7 @@ def calendar_toggle(request, row: int):
     return redirect(_戻る(c))
 
 
-@login_required
+@owner_required
 @require_POST
 def calendar_delete(request, row: int):
     c = get_object_or_404(CalendarEvent, sheet_row=row, deleted=False)

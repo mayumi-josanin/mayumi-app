@@ -24,7 +24,7 @@ def test_全角のパスコードでも入れる(client, owner):
 
 
 def test_違う役割のパスコードでは入れない(client, owner, staff):
-    r = client.post("/manage/login/", {"role": "スタッフ", "passcode": "0714"})
+    r = client.post("/manage/login/", {"role": "まゆみ", "passcode": "1234"})  # スタッフのパスコード
     assert r.status_code == 200
     assert "違うようです" in r.content.decode()
 
@@ -61,3 +61,21 @@ def test_パスコードは環境変数から決める(db, monkeypatch):
     user = User.objects.get(username="まゆみ")
     assert user.check_password("2026")
     assert user.groups.filter(name="まゆみ").exists()
+
+
+def test_スタッフはアプリ管理に入れない(client, staff):
+    """院長の決定（2026-09-15）: スタッフはアプリ管理を見ない。"""
+    r = client.post("/manage/login/", {"role": "スタッフ", "passcode": "1234"})
+    assert r.status_code == 200 and "まゆみだけ" in r.content.decode()
+    client.force_login(staff)
+    assert client.get("/manage/orders/").status_code == 403
+    assert client.get("/manage/news/").status_code == 403
+
+
+def test_スタッフの札では受け渡しも断る(client, staff, settings):
+    from apps.manage import sso
+
+    settings.MANAGE_SSO_SECRET = "s"
+    r = client.get(f"/manage/sso/?t={sso.札を作る('スタッフ', 's')}&next=/manage/orders/")
+    assert r["Location"].startswith("/manage/login/")
+    assert client.get("/manage/orders/").status_code == 302
