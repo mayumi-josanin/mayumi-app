@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "apps.records",
     "apps.gasapi",
     "apps.manage",
+    "apps.hp",
 ]
 
 # 院の管理画面（/manage/）を持つ箱かどうか。**既定は持たない。**
@@ -186,6 +187,13 @@ API_KEY = env("API_KEY", "")
 # **同じ値でなければ、サーバーが出した札を GAS が本物と認めない。**変えると発行済みの札が全部無効になる。
 # 手順は docs/札の秘密をサーバーへ渡す手順.md。
 ADMIN_TOKEN_SECRET = env("ADMIN_TOKEN_SECRET", "")
+
+# 公式サイト（mayumi-site）の管理。リポジトリの置き場所と、GitHub へ送るための鍵。
+# 置き場所が空なら「公式サイト」の画面は「設定がありません」と出るだけで、他は動く。
+SITE_REPO_DIR = env("SITE_REPO_DIR", "")
+SITE_GIT_TOKEN = env("SITE_GIT_TOKEN", "")
+SITE_GIT_NAME = env("SITE_GIT_NAME", "まゆみ助産院 管理画面")
+SITE_GIT_EMAIL = env("SITE_GIT_EMAIL", "manage@mayumijosanin.com")
 
 # お客様アプリへのプッシュ通知（OneSignal）。管理画面からの投稿で送る。
 # GAS のスクリプトプロパティと同じ値。空なら送らない（apps/manage/push.py）。

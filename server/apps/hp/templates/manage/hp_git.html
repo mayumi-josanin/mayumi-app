@@ -1,0 +1,39 @@
+{% extends "manage/base.html" %}
+{% block title %}保存の記録 | 公式サイト{% endblock %}
+{% block topbar_title %}公式サイト{% endblock %}
+{% block content %}
+<div class="page-header"><h1>🔗 保存の記録</h1></div>
+{% include "manage/_hp_log.html" %}
+<div class="card">
+  <div class="card-body">
+    <p class="sub">これまでの変更の履歴です。ふだんは<b>「🌐 公開する」を押せば自動で保存される</b>ので、ここを使う必要はありません。<br>
+    公開せずに途中経過だけ残したいときや、状態を確かめたいときに使ってください。ここでの保存は<b>下書き（draft）</b>に入るので、インターネットには出ません。</p>
+    {% if not st.ok %}<p class="sub">{{ st.msg }}</p>{% else %}
+      <p>いまの枝: <b>{{ st.branch }}</b>{% if st.behind %}　<span class="badge badge-red">向こうで {{ st.behind }} 件進んでいます。先に「📥 GitHubから受け取る」を押してください</span>{% endif %}{% if st.ahead %}　<span class="badge">まだ送っていない保存が {{ st.ahead }} 件</span>{% endif %}</p>
+      {% if st.changes %}
+        <p><b>まだ保存していない変更が {{ st.changes|length }} 件あります。</b></p>
+        <div class="table-wrap"><table><thead><tr><th>種類</th><th>ファイル</th></tr></thead><tbody>
+        {% for c in st.changes|slice:":40" %}<tr><td class="nowrap">{{ c.mark }}</td><td>{{ c.path }}</td></tr>{% endfor %}
+        </tbody></table></div>
+        {% if st.changes|length > 40 %}<p class="sub">ほか {{ st.changes|length|add:"-40" }} 件</p>{% endif %}
+      {% else %}<p>保存していない変更はありません。</p>{% endif %}
+      {% if st.commits %}
+        <div class="table-wrap"><table><thead><tr><th>日時</th><th>内容</th><th>印</th></tr></thead><tbody>
+        {% for c in st.commits %}<tr><td class="nowrap">{{ c.date }}</td><td>{{ c.subject }}</td><td class="nowrap sub">{{ c.hash }}</td></tr>{% endfor %}
+        </tbody></table></div>
+      {% endif %}
+    {% endif %}
+    <form method="post" class="form-group" style="margin-top:14px">{% csrf_token %}
+      <label for="gitmsg">変更の内容（履歴に残るメモ）</label>
+      <input id="gitmsg" name="message" class="form-control" placeholder="例：8月のお知らせを追加" style="max-width:520px">
+      <div class="inline-form" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline" name="action" value="commit_push">下書きとして保存する</button>
+        <button class="btn btn-outline" name="action" value="commit">記録だけ（送信しない）</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-outline" name="action" value="pull">📥 GitHubから受け取る</button>
+      </div>
+    </form>
+    <p class="sub" style="margin-top:10px"><b>別のパソコンでも編集するときは、はじめに「📥 GitHubから受け取る」を押してください。</b>向こうで直した分がこちらに入ります。押さずに編集を始めると、あとで内容が食い違って直すのが大変になります。</p>
+  </div>
+</div>
+{% endblock %}
