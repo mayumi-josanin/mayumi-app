@@ -44,6 +44,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from apps.members.models import Member
 
@@ -286,6 +287,25 @@ def ログイン(d):
     return _入口の答え(m)
 
 
+def 会員IDを採番する() -> str:
+    """`MYM-` ＋ 1000〜9999 の乱数で、使われていない番号を探す（GAS 2470行と同じ）。
+
+    **見つからなければ空を返す。呼ぶ側は必ず断ること。**黙って別の形の番号を
+    作ると、GAS・アプリ・札の作りが全部その形を知らない。
+    50回で打ち切るのは GAS と同じ。退会者の番号も「使用中」に数える
+    （行が残っている限り、その番号は他の方に渡せない）。
+
+    予約システムから台帳へ入れる窓口（ledger.py）も、ここを使う。
+    採番の方法が2つになると、いつか同じ番号を2か所で作る。
+    """
+    使用中 = set(Member.objects.values_list("member_id", flat=True))
+    for _ in range(50):
+        候補 = "MYM-" + str(random.randrange(1000, 10000))
+        if 候補 not in 使用中:
+            return 候補
+    return ""
+
+
 # ── 新規登録 ─────────────────────────────────────────
 
 def 新規登録(d):
@@ -314,13 +334,28 @@ def 新規登録(d):
     if not _パスコードとして正しいか(パス):
         return {"status": "error", "message": "パスコードは数字4桁または6桁で入力してください。"}
 
+    LINE = _文(d.get("lineUserId")).strip()
+
     with transaction.atomic():
         全員 = list(Member.objects.select_for_update().exclude(deleted=True))
 
+        # ⓪ LINEユーザーIDで照らす（2026-09-15 追加。docs/design/予約のお客様を台帳へ入れる.md ③）
+        #
+        # 予約システムから台帳へ入った行には LINEユーザーID が入っている。
+        # アプリで LINE をつないだ方は、この ID で自分の行に行き着ける。
+        # **ただしお名前も同じときだけ。**代理でご予約なさる方がいる
+        # （お母様の LINE で娘さんのご予約）。ID だけで引き受けると、
+        # 娘さんのパスコードがお母様の行に付く。お名前が違えば ID は無かったことにして、
+        # これまでどおり氏名＋生年月日で探す。
+        同じ = []
+        if LINE:
+            同じ = [m for m in 全員 if m.line_user_id == LINE and _名前で照らす(m.name) == 名]
+
         # ① お名前＋生年月日で照らす
-        同じ = [m for m in 全員
-                if _名前で照らす(m.name) == 名
-                and (m.birthday.isoformat() if m.birthday else "") == 生年月日]
+        if not 同じ:
+            同じ = [m for m in 全員
+                    if _名前で照らす(m.name) == 名
+                    and (m.birthday.isoformat() if m.birthday else "") == 生年月日]
 
         if len(同じ) > 1:
             return {"status": "error",
@@ -338,6 +373,9 @@ def 新規登録(d):
                 m.phone = _電話を整える(電話)
             if 住所 and not (m.address or "").strip():
                 m.address = 住所
+            # LINE で行き着いた行は、生年月日が空のことがある（受付の代理登録など）。
+            if not m.birthday:
+                m.birthday = parse_date(生年月日)
             m.passcode_hash = make_password(パス)
             m.last_online_at = timezone.now()
             m.save()
@@ -368,19 +406,11 @@ def 新規登録(d):
         if not 住所:
             return {"status": "error", "message": "ご住所を入力してください。"}
 
-        使用中 = set(Member.objects.values_list("member_id", flat=True))
-        会員ID = ""
-        for _ in range(50):
-            候補 = "MYM-" + str(random.randrange(1000, 10000))
-            if 候補 not in 使用中:
-                会員ID = 候補
-                break
+        会員ID = 会員IDを採番する()
         if not 会員ID:
             # **黙って番号を作らない。**別の方の記録に重なるより、断るほうがよい。
             return {"status": "error",
                     "message": "会員番号を採番できませんでした。受付にお申し出ください。"}
-
-        from django.utils.dateparse import parse_date
 
         今 = timezone.now()
         m = Member.objects.create(

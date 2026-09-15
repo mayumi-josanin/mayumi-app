@@ -1509,6 +1509,15 @@ def _入口(名):
     return 呼ぶ
 
 
+def _台帳(名):
+    """予約システムのサーバーが呼ぶ窓口。**公開アクションに入れない**（合鍵が要る）。"""
+    def 呼ぶ(d):
+        from . import ledger
+
+        return getattr(ledger, 名)(d)
+    return 呼ぶ
+
+
 def _注文(名):
     def 呼ぶ(d):
         from . import orders
@@ -1602,6 +1611,8 @@ _ビジリス登録 = _入口("ビジリス登録")
     "loginAccount": _ログイン,
     "registerAccount": _新規登録,
     "registerBijirisUse": _ビジリス登録,
+    # 予約システム → 台帳（docs/design/予約のお客様を台帳へ入れる.md）
+    "upsertLedgerFromReservation": _台帳("予約から入れる"),
     "addCalendar": _カレンダー足す,
     "updateCalendar": _カレンダー書き換える,
     "addProduct": _商品足す,
