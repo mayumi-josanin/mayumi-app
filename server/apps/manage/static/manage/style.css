@@ -452,3 +452,18 @@ td.brand { color: var(--brand); font-weight: 700; }
 .preview-title { font-size: 22px; font-weight: 700; line-height: 1.5; margin-bottom: 12px; }
 .preview-body { line-height: 1.9; }
 .preview-img { max-width: 100%; border-radius: 12px; margin-top: 12px; display: block; }
+
+/* ---- スタンプ・特典管理（reward_list / reward_form） ---- */
+.gacha-table { min-width: 1120px; }
+.gacha-table td { vertical-align: top; }
+.gacha-table label.sub { display: block; margin: 6px 0 4px; }
+.gacha-table .form-control { padding: 6px 8px; font-size: .82rem; }
+.gacha-table textarea.form-control { resize: vertical; }
+.reward-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.reward-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; background: var(--surface); }
+.reward-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.reward-card-count { font-size: 1.2rem; font-weight: 700; margin-bottom: 4px; }
+.reward-card-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; font-size: .84rem; }
+.reward-entry { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 12px; background: var(--bg); }
+.reward-entries-empty { padding: 18px; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font-size: .82rem; }
+.strong { font-weight: 600; }
