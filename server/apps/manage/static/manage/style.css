@@ -503,3 +503,13 @@ td.brand { color: var(--brand); font-weight: 700; }
 .hp-opt-color { width: 52px; height: 34px; padding: 2px; cursor: pointer; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
 .hp-opt-sp { flex: 1; }
 .news-cat { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; color: #fff; white-space: nowrap; line-height: 1.6; }
+/* 公式サイト: まゆみのつぶやき（views_blog.py） */
+.hp-blog-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; color: inherit; text-decoration: none; background: var(--surface); }
+.hp-blog-item:hover { background: var(--surface-hover); }
+.hp-blog-date { font-size: .8rem; color: var(--text-muted); white-space: nowrap; min-width: 84px; }
+.hp-blog-title { flex: 1; font-size: .9rem; }
+.hp-blog-pager a, .hp-blog-pager b, .hp-blog-pager span { padding: 4px 9px; }
+.hp-imgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.hp-imgcard { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px; text-align: center; background: var(--surface); }
+.hp-imgcard img { width: 100%; height: 90px; object-fit: cover; border-radius: 4px; display: block; }
+.hp-imgcard .n { font-size: .7rem; color: var(--text-muted); word-break: break-all; margin: 4px 0; }

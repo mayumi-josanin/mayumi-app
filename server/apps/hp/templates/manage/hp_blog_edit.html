@@ -1,0 +1,117 @@
+{% extends "manage/base.html" %}
+{% block title %}{{ title }} | 公式サイト{% endblock %}
+{% block topbar_title %}公式サイト{% endblock %}
+{% block content %}
+<div class="page-header"><h1>✍️ まゆみのつぶやき</h1><div class="page-header-actions"><a class="btn btn-outline btn-sm" href="{% url 'manage:hp_blog' %}">一覧へ戻る</a></div></div>
+{% include "manage/_hp_log.html" %}
+<form method="post" enctype="multipart/form-data" id="blogForm">{% csrf_token %}
+<input type="hidden" name="images" id="bImages" value="{{ images_text }}">
+<div class="card">
+  <div class="card-header"><h2>{{ title }}</h2>
+    <button class="btn danger btn-sm" name="action" value="del" onclick="return confirm('「{{ p.title|escapejs }}」を削除します。よろしいですか？');">この記事を削除</button>
+  </div>
+  <div class="card-body">
+    <div class="form-row">
+      <div class="form-group"><label for="bDateDisp">日付（表示）</label>
+        <input type="text" id="bDateDisp" name="date_disp" class="form-control" value="{{ p.date_disp }}" oninput="blogDirty()"></div>
+      <div class="form-group"><label for="bDate">日付（機械用・2026-04-13 の形）</label>
+        <input type="text" id="bDate" name="date" class="form-control" value="{{ p.date }}" oninput="blogDirty()"></div>
+    </div>
+    <div class="form-group"><label for="bTitle">タイトル</label>
+      <input type="text" id="bTitle" name="title" class="form-control" value="{{ p.title }}" oninput="blogDirty()"></div>
+    <div class="form-group"><label for="bSlug">URLの文字（英数字。変えると前のURLは開けなくなります）</label>
+      <input type="text" id="bSlug" name="new_slug" class="form-control" value="{{ new_slug }}"></div>
+    <div class="form-group"><label for="bText">本文</label>
+      <div class="inline-form" style="margin-bottom:6px;gap:8px">
+        <button type="button" class="btn btn-outline btn-sm" onclick="bWrap('**','**')">太字</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="bWrap('[',']( )')">リンク</button>
+        <span class="sub" style="margin:0">選んだ文字を囲みます</span>
+      </div>
+      <textarea id="bText" name="text" class="form-control" style="min-height:320px" oninput="blogDirty()">{{ p.text }}</textarea>
+      <p class="form-hint">
+        1行が1段落になります。<br>
+        リンクは <b>[表示する文字](URL)</b>、太字は <b>**はさむ**</b>、
+        写真を本文の途中に入れたいときは <b>{img:ファイル名}</b> と書きます。
+      </p></div>
+    <div class="form-group"><label>この記事の写真</label>
+      <div id="bImgs" class="hp-imgs"></div>
+      <input type="file" name="file" id="bAddImg" accept="image/*" style="margin-top:10px;font-size:12px"
+             onchange="blogAddImg()">
+      <p class="form-hint">写真を選ぶと、この記事に追加されます（自動でWebP化・縮小）。</p></div>
+    <div class="inline-form" style="gap:8px">
+      <button class="btn btn-primary" name="action" value="save">保存してページを作り直す</button>
+      <button class="btn btn-outline" name="action" value="preview">プレビューで確認</button>
+      <span class="sub" id="bDirty" style="margin:0">{% if dirty %}未保存の変更があります{% endif %}</span>
+      <span style="flex:1"></span>
+      <a class="btn btn-outline" href="{% url 'manage:hp_blog' %}">閉じる</a>
+    </div>
+  </div>
+</div>
+</form>
+
+{% if preview_url %}
+<!-- プレビュー（実際のサイトのデザインで表示） -->
+<div class="card" id="blogPv">
+  <div class="card-header"><h2>プレビュー<span class="sub" style="font-weight:400;margin-left:10px">いま入力している内容で表示しています（保存はされていません）</span></h2></div>
+  <div class="card-body">
+    <div class="inline-form" style="margin:0 0 10px;gap:8px">
+      <button type="button" class="btn btn-outline btn-sm bpvdev active" onclick="bPvW(390,this)">スマホ</button>
+      <button type="button" class="btn btn-outline btn-sm bpvdev" onclick="bPvW(820,this)">タブレット</button>
+      <button type="button" class="btn btn-outline btn-sm bpvdev" onclick="bPvW(1040,this)">PC</button>
+      <span style="flex:1"></span>
+      <button type="submit" form="blogForm" name="action" value="preview" class="btn btn-outline btn-sm">入力を反映して更新</button>
+    </div>
+    <div class="hp-pvwrap" style="margin-top:0"><iframe id="bPv" class="hp-pv" title="記事のプレビュー" style="width:390px;height:66vh" src="{{ preview_url }}?t={{ p.slug }}"></iframe></div>
+    <div class="inline-form" style="justify-content:flex-end;margin-top:14px">
+      <button type="button" class="btn btn-outline" onclick="document.getElementById('blogPv').hidden=true">閉じる</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+/* 旧サイト管理アプリの blogImgs / blogInsertImg / blogRmImg / blogAddImg / blogDirty / bWrap / bPvW と同じ動き */
+var q = function(s){ return document.querySelector(s) };
+var IMGBASE = "{% url 'manage:hp_site_file' path='assets/img/blog/' %}";
+function imgList(){ return q('#bImages').value.split('\n').filter(function(x){ return x.trim() }) }
+function esc(s){ return s.replace(/[<&"']/g, function(c){ return {'<':'&lt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c] }) }
+function blogImgs(){
+  var imgs = imgList();
+  q('#bImgs').innerHTML = imgs.map(function(f, i){ return (
+    '<div class="hp-imgcard">' +
+      '<img src="' + IMGBASE + encodeURIComponent(f) + '" alt="">' +
+      '<div class="n">' + esc(f) + '</div>' +
+      '<button type="button" class="btn btn-outline btn-sm" onclick="blogInsertImg(' + i + ')">本文に差し込む</button>' +
+      '<button type="button" class="btn danger btn-sm" style="margin-top:4px" onclick="blogRmImg(' + i + ')">外す</button>' +
+    '</div>') }).join('') || '<p class="sub">写真はありません。</p>';
+}
+function blogInsertImg(i){
+  var f = imgList()[i];
+  var ta = q('#bText'); var at = ta.selectionStart || ta.value.length;
+  ta.value = ta.value.slice(0, at) + '\n{img:' + f + '}\n' + ta.value.slice(at);
+  blogDirty();
+}
+function blogRmImg(i){ var imgs = imgList(); imgs.splice(i, 1); q('#bImages').value = imgs.join('\n'); blogImgs(); blogDirty() }
+function blogAddImg(){
+  /* 写真を選んだらすぐ取り込む（入力中の内容はそのまま画面に戻る） */
+  var f = q('#bAddImg').files[0]; if(!f) return;
+  var b = document.createElement('input'); b.type = 'hidden'; b.name = 'action'; b.value = 'addimg';
+  var form = q('#blogForm'); form.appendChild(b); form.submit();
+}
+function blogDirty(){ q('#bDirty').textContent = '未保存の変更があります' }
+/* 選んだ文字を囲む（太字・リンク） */
+function bWrap(pre, post_){
+  var ta = q('#bText'), s = ta.selectionStart, e = ta.selectionEnd;
+  var sel = ta.value.slice(s, e) || '文字';
+  ta.value = ta.value.slice(0, s) + pre + sel + post_ + ta.value.slice(e);
+  ta.focus(); ta.selectionStart = s + pre.length; ta.selectionEnd = s + pre.length + sel.length;
+  blogDirty();
+}
+function bPvW(w, btn){
+  document.querySelectorAll('.bpvdev').forEach(function(b){ b.classList.remove('active') }); btn.classList.add('active');
+  q('#bPv').style.width = w + 'px';
+}
+blogImgs();
+{% if preview_url %}q('#blogPv').scrollIntoView({behavior:'smooth', block:'start'});{% endif %}
+</script>
+{% endblock %}
