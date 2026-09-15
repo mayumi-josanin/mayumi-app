@@ -2,7 +2,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from django.views.generic import RedirectView
 
-from . import views_calendar, views_category, views_login, views_menu, views_news, views_product, views_push
+from . import views_calendar, views_category, views_login, views_menu, views_news, views_order, views_product, views_push
 
 app_name = "manage"
 
@@ -40,4 +40,9 @@ urlpatterns = [
     path("calendar/<int:row>/", views_calendar.calendar_edit, name="calendar_edit"),
     path("calendar/<int:row>/toggle/", views_calendar.calendar_toggle, name="calendar_toggle"),
     path("calendar/<int:row>/delete/", views_calendar.calendar_delete, name="calendar_delete"),
+    path("orders/", views_order.order_list, name="order_list"),
+    path("orders/new/", views_order.order_create, name="order_create"),
+    path("orders/<str:order_id>/edit/", views_order.order_edit, name="order_edit"),
+    path("orders/<str:order_id>/status/", views_order.order_status, name="order_status"),
+    path("orders/<str:order_id>/delete/", views_order.order_delete, name="order_delete"),
 ]

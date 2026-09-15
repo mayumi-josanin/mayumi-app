@@ -153,7 +153,11 @@ def 注文する(d):
 
     注文ID = _文(d.get("orderId")).strip() or ("ORD-" + timezone.now().strftime("%Y%m%d%H%M%S"))
     原価 = _原価の表()
-    いま = timezone.now()
+    # 受付が手で入れるとき（GAS の createOrder）は日時・状態・受取・支払方法「手動入力」が来る
+    手動 = bool(d.get("manual")) or _文(d.get("payment")) == "手動入力"
+    いま = (_日時を読む(d.get("date")) if 手動 else None) or timezone.now()
+    初期状態 = (_文(d.get("status")).strip() or 受付中) if 手動 else 受付中
+    受取済 = bool(d.get("checked")) if 手動 else False
 
     with transaction.atomic():
         if OrderLine.objects.filter(order_id=注文ID).exists():
@@ -179,8 +183,8 @@ def 注文する(d):
                 profit=(単価 - 仕入) * 個数,
                 total_label=("¥{:,}".format(_数(d.get("total"))) if i == 0 else ""),
                 payment=(_文(d.get("payment")) if i == 0 else ""),
-                status=(受付中 if i == 0 else ""),
-                received=False,
+                status=(初期状態 if i == 0 else ""),
+                received=受取済,
                 internal_note=(_文(d.get("internalNote")) if i == 0 else ""),
                 member_id=_文(d.get("memberId")).strip(),
             ))
@@ -217,22 +221,90 @@ def 受け取りを報告する(d):
     return {"status": "ok"}
 
 
+def _日時を読む(v):
+    """`2026/9/15 10:30`・`2026-09-15T10:30`・ISO を受ける。読めなければ None。"""
+    from django.utils.dateparse import parse_datetime
+
+    文 = _文(v).strip()
+    if not 文:
+        return None
+    t = parse_datetime(文.replace("/", "-").replace(" ", "T", 1))
+    if t is None:
+        return None
+    if timezone.is_naive(t):
+        t = timezone.make_aware(t)
+    return t
+
+
 def 注文を書き換える(d):
-    """GAS の handleUpdateOrder / updateAdminOrder。受付が直すとき。"""
+    """GAS の handleUpdateOrder / updateAdminOrder。受付が直すとき。
+
+    **商品（items）が来たら、その注文の行を作り直す。**GAS の updateAdminOrder は
+    行を全部消してから足し直している。以前ここは status/payment/note/checked しか
+    受けておらず、旧管理アプリの修正画面で商品や個数を変えても**黙って落ちていた**
+    （2026-09-15 に気づいた）。
+    """
     注文ID = _文(d.get("orderId")).strip()
     if not 注文ID:
         return {"status": "error", "message": "注文IDが必要です"}
+    品 = d.get("items")
     with transaction.atomic():
         行 = list(OrderLine.objects.select_for_update().filter(order_id=注文ID).order_by("id"))
         if not 行:
             return {"status": "error", "message": "ご注文が見つかりませんでした。"}
         頭 = 行[0]
+
+        if isinstance(品, list) and 品:
+            # 作り直し。日時・お名前・会員ID・受取・メモは、来ていなければ元のまま。
+            日時 = _日時を読む(d.get("date")) or 頭.ordered_at
+            名前 = _文(d.get("customerName")).strip() if d.get("customerName") else 頭.customer_name
+            会員 = _文(d.get("memberId")).strip() if "memberId" in d else 頭.member_id
+            状態 = _文(d.get("status")).strip() or 頭.status or 受付中
+            受取 = bool(d.get("checked")) if "checked" in d else 頭.received
+            メモ = _文(d.get("internalNote")) if "internalNote" in d else 頭.internal_note
+            支払 = "手動修正"
+            原価 = _原価の表()
+            合計 = _数(d.get("total")) if d.get("total") not in (None, "") else sum(
+                _数(x.get("qty")) * _数(x.get("price")) for x in 品 if isinstance(x, dict))
+            OrderLine.objects.filter(order_id=注文ID).delete()
+            新 = []
+            for i, item in enumerate(品):
+                名 = _文(item.get("name")).strip()
+                個数 = _数(item.get("qty")) or 1
+                単価 = Decimal(str(item.get("price") or 0))
+                仕入 = 原価.get(名, Decimal("0"))
+                新.append(OrderLine(
+                    order_id=注文ID, ordered_at=日時, customer_name=名前, product_name=名,
+                    quantity=個数, unit_price=単価, cost_price=仕入, subtotal=単価 * 個数,
+                    profit=(単価 - 仕入) * 個数,
+                    total_label=("¥{:,}".format(合計) if i == 0 else ""),
+                    payment=(支払 if i == 0 else ""),
+                    status=(状態 if i == 0 else ""), received=受取,
+                    internal_note=(メモ if i == 0 else ""), member_id=会員,
+                ))
+            OrderLine.objects.bulk_create(新)
+            return {"status": "ok", "deleted": 受取}
+
         if "status" in d:
             頭.status = _文(d.get("status")).strip() or 受付中
         if "payment" in d:
             頭.payment = _文(d.get("payment")).strip()
         if "internalNote" in d:
             頭.internal_note = _文(d.get("internalNote"))
+        if d.get("customerName"):
+            for r in 行:
+                r.customer_name = _文(d.get("customerName")).strip()
+                r.save(update_fields=["customer_name", "changed_at"])
+        if "memberId" in d:
+            for r in 行:
+                r.member_id = _文(d.get("memberId")).strip()
+                r.save(update_fields=["member_id", "changed_at"])
+        if d.get("date"):
+            日時 = _日時を読む(d.get("date"))
+            if 日時:
+                for r in 行:
+                    r.ordered_at = 日時
+                    r.save(update_fields=["ordered_at", "changed_at"])
         if "checked" in d:
             受け取り = bool(d.get("checked"))
             for r in 行:

@@ -167,6 +167,18 @@ a:hover { color: var(--brand-dark); }
 .card-body { padding: 24px; }
 .card-body p { color: var(--text-secondary); }
 
+/* ---- Stat cards（KEM と同じ） ---- */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; box-shadow: var(--shadow-xs); position: relative; overflow: hidden; }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--border); }
+.stat-card.green::before { background: linear-gradient(90deg, #38a169, #48bb78); }
+.stat-card.orange::before { background: linear-gradient(90deg, #dd6b20, #ed8936); }
+.stat-card.blue::before { background: var(--brand-gradient); }
+.stat-label { font-size: .78rem; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+.stat-value.green { color: var(--success); }
+.stat-value.orange { color: var(--warning); }
+
 /* ---- Tables ---- */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }

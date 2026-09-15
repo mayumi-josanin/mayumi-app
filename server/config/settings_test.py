@@ -9,5 +9,8 @@ import os
 os.environ.setdefault("USE_SQLITE", "true")
 os.environ.setdefault("MANAGE_ENABLED", "true")
 os.environ.setdefault("DJANGO_DEBUG", "true")
+# 呼び出し制限（1分120回）はテストの数が増えると同じ相手として引っかかる。テストでは外す。
+os.environ.setdefault("THROTTLE_PER_MINUTE", "0")
+os.environ.setdefault("THROTTLE_STRICT_PER_MINUTE", "0")
 
 from .settings import *  # noqa: E402,F401,F403
