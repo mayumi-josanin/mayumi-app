@@ -53,8 +53,6 @@ def test_画面に旧アプリと同じ項目が並ぶ(as_owner, site_repo):
     assert "📄 資料を見るボタン（産後ケアのページ）" in page and "PDFを入れ替える" in page
     # 写しには PDF が無いので「見つかりません」
     assert "が見つかりません" in page
-    # 見出し帯の写真
-    assert "🏞️ 見出し帯の写真" in page and "膜の濃さ（0〜100）" in page and "（写真なし・色だけ）" in page
     # 左メニューに「基本情報」
     assert "🏥</span> 基本情報" in page
 
@@ -229,20 +227,6 @@ def test_資料の設定の保存とPDFの入れ替え(as_owner, site_repo):
     # ファイル無し
     r = as_owner.post(SAVE, {"part": "doc_upload", "key": "bijiris"}, follow=True)
     assert "ファイルが受け取れませんでした" in r.content.decode()
-
-
-def test_見出し帯の写真の保存(as_owner, site_repo):
-    (site_repo / "assets" / "img" / "head-test.webp").write_bytes(b"x")
-    page = as_owner.get(URL).content.decode()
-    assert 'value="head-test.webp"' in page
-    r = as_owner.post(SAVE, {"part": "page_heads", "ph-show": "0", "ph-veil": "150",
-                             "ph-outpatient": "head-test.webp", "ph-news": ""}, follow=True)
-    assert "下書きを保存しました" in r.content.decode()
-    c = _read(site_repo)["page_heads"]
-    assert c["show"] is False and c["veil"] == 100
-    assert c["images"]["outpatient"] == "head-test.webp" and c["images"]["news"] == ""
-    # 送っていないページの写真はそのまま
-    assert c["images"]["care02"] == "head-care02.webp"
 
 
 def test_知らない部分は断る(as_owner, site_repo):
