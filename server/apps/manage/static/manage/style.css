@@ -328,3 +328,23 @@ input[type="file"].form-control { padding: 8px 12px; }
   td { padding: 10px 6px; font-size: .82rem; white-space: nowrap; }
   .btn-sm { padding: 4px 8px; font-size: .75rem; }
 }
+
+/* ---- データ分析（旧管理アプリの内容） ---- */
+.rate.up { color: #2e7d32; font-weight: 700; }
+.rate.down { color: var(--danger); font-weight: 700; }
+.rate.flat { color: var(--text-secondary); }
+.rate.muted { color: var(--text-muted); }
+td.strong { font-weight: 700; }
+td.brand { color: var(--brand); font-weight: 700; }
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+.chart-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; background: var(--surface); }
+.chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+.chart-title { font-weight: 700; color: var(--text-primary); }
+.monthly-chart-svg { display: block; max-width: 100%; }
+.monthly-chart-empty { padding: 32px; text-align: center; color: var(--text-muted); }
+.rev-group { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; background: var(--surface); }
+.rev-group > summary { padding: 12px 16px; cursor: pointer; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.rev-group[open] > summary { border-bottom: 1px solid var(--border-light); }
+.rev-entry { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; background: var(--surface-hover); }
+.rev-row3 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px) { .rev-row3 { grid-template-columns: 1fr 1fr; } .chart-grid { grid-template-columns: 1fr; } }

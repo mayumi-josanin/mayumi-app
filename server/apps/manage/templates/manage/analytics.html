@@ -1,5 +1,4 @@
 {% extends "manage/base.html" %}
-{% load humanize %}
 
 {% block title %}データ分析 | まゆみ助産院 管理画面{% endblock %}
 {% block topbar_title %}データ分析{% endblock %}
@@ -8,59 +7,34 @@
 <div class="page-header">
   <div>
     <h1>データ分析</h1>
-    <div class="lead">ショップの注文と、手で入れた売上の記録（メニュー収益・商品収益）を月ごとにまとめています。</div>
+    <div class="lead">「メニュー収益を記録」「商品収益を記録」で登録した内容を月ごとに集計します。ショップの注文金額はここには入りません（旧管理アプリと同じ）。</div>
   </div>
   <div class="page-header-actions">
-    <a class="btn btn-outline" href="{% url 'manage:revenue_list' 'menu' %}">メニュー収益を入力</a>
-    <a class="btn btn-outline" href="{% url 'manage:revenue_list' 'product' %}">商品収益を入力</a>
+    <a class="btn btn-outline" href="{% url 'manage:revenue_list' 'menu' %}">📝 メニュー収益を記録</a>
+    <a class="btn btn-outline" href="{% url 'manage:revenue_list' 'product' %}">🛒 商品収益を記録</a>
   </div>
 </div>
 
-<div class="stats">
-  <div class="stat-card blue"><div class="stat-label">売上（全期間）</div><div class="stat-value">¥{{ totals.revenue|floatformat:0|intcomma }}</div></div>
-  <div class="stat-card orange"><div class="stat-label">原価</div><div class="stat-value orange">¥{{ totals.cost|floatformat:0|intcomma }}</div></div>
-  <div class="stat-card green"><div class="stat-label">粗利</div><div class="stat-value green">¥{{ totals.profit|floatformat:0|intcomma }}</div></div>
-</div>
+{% if no_data %}
+  <div class="card"><div class="card-body"><div class="empty"><div class="empty-icon">📊</div><p>2026年4月以降のデータがありません</p></div></div></div>
+{% else %}
 
 <div class="card">
-  <div class="card-header"><h2>月ごと<span class="count">{{ rows|length }}か月</span></h2></div>
+  <div class="card-header"><h2>📈 月別比較</h2></div>
+  <div class="card-body" style="padding:12px 24px 0"><p class="lead">総売上と総粗利について、前月比と前年同月比を月ごとに確認できます。</p></div>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>月</th><th>メニュー売上</th><th>商品売上</th><th>売上合計</th><th>原価</th><th>粗利</th><th></th></tr></thead>
+    <thead><tr><th>月</th><th>総売上</th><th>前月比</th><th>前年同月比</th><th>総粗利</th><th>前月比</th><th>前年同月比</th></tr></thead>
     <tbody>
-    {% for r in rows %}
-      <tr {% if r.key == selected %}style="background:var(--brand-light)"{% endif %}>
-        <td class="nowrap"><a class="title-link" href="?month={{ r.key }}">{{ r.label }}</a></td>
-        <td class="nowrap">¥{{ r.menu_sales|floatformat:0|intcomma }}<div class="sub">{{ r.menu_count }}件</div></td>
-        <td class="nowrap">¥{{ r.product_sales|floatformat:0|intcomma }}</td>
-        <td class="nowrap"><strong>¥{{ r.revenue|floatformat:0|intcomma }}</strong></td>
-        <td class="nowrap">¥{{ r.cost|floatformat:0|intcomma }}</td>
-        <td class="nowrap" style="color:var(--success);font-weight:600">¥{{ r.profit|floatformat:0|intcomma }}</td>
-        <td class="nowrap"><a class="btn btn-outline btn-sm" href="?month={{ r.key }}">内訳</a></td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="7"><div class="empty"><div class="empty-icon">📊</div><p>まだ記録がありません。</p></div></td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
-</div>
-
-{% if detail %}
-<div class="card">
-  <div class="card-header"><h2>{{ detail.label }}の内訳 ─ メニュー</h2></div>
-  <div class="table-wrap">
-  <table>
-    <thead><tr><th>種別</th><th>件数</th><th>売上</th><th>原価</th><th>粗利</th><th>単価ごと</th></tr></thead>
-    <tbody>
-    {% for m in detail.menu_rows %}
+    {% for r in comparison_rows %}
       <tr>
-        <td class="nowrap">{{ m.type }}</td>
-        <td class="nowrap">{{ m.count }}件</td>
-        <td class="nowrap">¥{{ m.revenue|floatformat:0|intcomma }}</td>
-        <td class="nowrap">¥{{ m.cost|floatformat:0|intcomma }}</td>
-        <td class="nowrap" style="color:var(--success)">¥{{ m.profit|floatformat:0|intcomma }}</td>
-        <td>{% for b in m.breakdown %}<span class="badge badge-gray" style="margin:2px">¥{{ b.unitPrice|intcomma }} × {{ b.count }}</span>{% empty %}—{% endfor %}</td>
+        <td class="nowrap">{{ r.month }}</td>
+        <td class="nowrap">{{ r.revenue }}</td>
+        <td class="nowrap"><span class="rate {{ r.revenue_mom.cls }}">{{ r.revenue_mom.text }}</span></td>
+        <td class="nowrap"><span class="rate {{ r.revenue_yoy.cls }}">{{ r.revenue_yoy.text }}</span></td>
+        <td class="nowrap" style="color:var(--brand);font-weight:700">{{ r.profit }}</td>
+        <td class="nowrap"><span class="rate {{ r.profit_mom.cls }}">{{ r.profit_mom.text }}</span></td>
+        <td class="nowrap"><span class="rate {{ r.profit_yoy.cls }}">{{ r.profit_yoy.text }}</span></td>
       </tr>
     {% endfor %}
     </tbody>
@@ -69,22 +43,150 @@
 </div>
 
 <div class="card">
-  <div class="card-header"><h2>{{ detail.label }}の内訳 ─ 商品</h2></div>
+  <div class="card-header"><h2>📊 粗利サマリー</h2></div>
+  <div class="card-body">
+    <div class="stats">
+      {% for label, value in gross_cards %}
+        <div class="stat-card blue"><div class="stat-label">{{ label }}</div><div class="stat-value">{{ value }}</div></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>📊 月別データグラフ</h2></div>
+  <div class="card-body">
+    <p class="lead">メニュー売上、物販売上、総売上、総粗利を月ごとの棒グラフで確認できます。</p>
+    <div class="chart-grid">
+      {% for c in charts %}
+        <div class="chart-card">
+          <div class="chart-head">
+            <div>
+              <div class="chart-title">📊 {{ c.title }}</div>
+              <div class="sub">{{ c.subtitle }}</div>
+            </div>
+            {% if c.control %}
+              <form method="get" class="inline-form">
+                {% for k, v in query.items %}{% if k != c.control %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+                <select name="{{ c.control }}" class="form-control" style="width:auto;padding:6px 8px;font-size:.82rem" onchange="this.form.submit()">
+                  <option value="">{{ c.all_label }}</option>
+                  {% for o in c.options %}<option value="{{ o }}" {% if c.selected == o %}selected{% endif %}>{{ o }}</option>{% endfor %}
+                </select>
+              </form>
+            {% endif %}
+          </div>
+          <div class="table-wrap">{{ c.svg }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>💰 収益サマリー (月別)</h2></div>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>商品</th><th>単価</th><th>個数</th><th>売上</th><th>原価</th><th>粗利</th></tr></thead>
+    <thead><tr><th>月/項目</th>{% for c in fin_columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
     <tbody>
-    {% for p in detail.product_rows %}
-      <tr>
-        <td>{{ p.name }}</td>
-        <td class="nowrap">{{ p.priceLabel|default:p.price }}</td>
-        <td class="nowrap">{{ p.qty }}</td>
-        <td class="nowrap">¥{{ p.sales|floatformat:0|intcomma }}</td>
-        <td class="nowrap">¥{{ p.cost|floatformat:0|intcomma }}</td>
-        <td class="nowrap" style="color:var(--success)">¥{{ p.profit|floatformat:0|intcomma }}</td>
+    {% for r in profit_rows %}
+      <tr><td class="nowrap">{{ r.month }}</td>
+        {% for v in r.cells %}<td class="nowrap {% if forloop.counter == 1 %}strong{% elif forloop.counter == 3 %}brand{% endif %}">{{ v }}</td>{% endfor %}
       </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>🩺 メニュー別収益 (月別)</h2></div>
+  <div class="card-body" style="padding:12px 24px 0"><p class="lead">母乳外来 / ビジリス / 教室ごとの売上と件数を月単位で確認できます。</p></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>月/メニュー</th>{% for t in menu_types %}<th>{{ t }}</th>{% endfor %}<th>合計</th></tr></thead>
+    <tbody>
+    {% for r in menu_rows %}
+      <tr>
+        <td class="nowrap">{{ r.month }}</td>
+        {% for c in r.cells %}
+          <td style="vertical-align:top">
+            <div>{{ c.amount }}</div>
+            {% if c.count %}
+              <div class="sub">{{ c.count }}件 / 原価{{ c.cost }}</div>
+              <div class="sub" style="color:var(--brand);font-weight:700">粗利 {{ c.profit }}</div>
+              {% for b in c.breakdown %}<div class="sub">{{ b.unit }}: 売上{{ b.revenue }} / 粗利{{ b.profit }} ({{ b.count }}件)</div>{% endfor %}
+            {% endif %}
+          </td>
+        {% endfor %}
+        <td style="vertical-align:top;font-weight:700">
+          <div>{{ r.total.amount }}</div>
+          <div class="sub">{{ r.total.count }}件 / 原価{{ r.total.cost }}</div>
+          <div class="sub" style="color:var(--brand)">粗利 {{ r.total.profit }}</div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2>📦 商品別収益詳細 (月別)</h2>
+    <form method="get" class="inline-form">
+      {% for k, v in query.items %}{% if k != "month" %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+      <select name="month" class="form-control" style="width:auto;padding:6px 8px;font-size:.82rem" onchange="this.form.submit()">
+        <option value="">月を選択してください</option>
+        {% for m in months %}<option value="{{ m }}" {% if detail_month == m %}selected{% endif %}>{{ m }}</option>{% endfor %}
+      </select>
+    </form>
+  </div>
+  <div class="card-body" style="padding:12px 24px 0"><p class="lead">月を選択すると、その月に「商品収益を記録」で登録した商品の価格帯ごとの 個数 / 売上 / 利益 を確認できます。天然だし調味粉は割引価格ごとに表示します。</p></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>商品名</th><th>定価</th><th>仕入れ単価</th><th>売価帯</th><th>個数</th><th>売上</th><th>利益</th></tr></thead>
+    <tbody>
+    {% for r in product_detail_rows %}
+      <tr><td>{{ r.name }}</td><td class="nowrap">{{ r.list_price }}</td><td class="nowrap">{{ r.unit_cost }}</td><td class="nowrap">{{ r.price_label }}</td><td class="nowrap">{{ r.qty }}</td><td class="nowrap">{{ r.sales }}</td><td class="nowrap strong">{{ r.profit }}</td></tr>
     {% empty %}
-      <tr><td colspan="6"><div class="empty"><p>この月の商品の売上はありません。</p></div></td></tr>
+      <tr><td colspan="7"><div class="empty"><p>{% if detail_month %}この月の商品収益の記録はありません{% else %}月を選択してください{% endif %}</p></div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+{% if detail_month and menu_detail_rows %}
+<div class="card">
+  <div class="card-header"><h2>🍴 メニュー別収益詳細 (月別)</h2></div>
+  <div class="card-body" style="padding:12px 24px 0"><p class="lead">選択した月のメニュー別の 件数 / 売上 / 原価 / 粗利 / 単価別内訳 を確認できます。「その他」で入力した固有名称も個別に表示されます。</p></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>メニュー名</th><th>合計件数</th><th>合計売上</th><th>合計原価</th><th>合計粗利</th><th>単価別内訳</th></tr></thead>
+    <tbody>
+    {% for r in menu_detail_rows %}
+      <tr>
+        <td>{{ r.name }}</td><td class="nowrap">{{ r.count }}件</td>
+        <td class="nowrap brand">{{ r.revenue }}</td><td class="nowrap">{{ r.cost }}</td>
+        <td class="nowrap" style="color:#2e7d32;font-weight:700">{{ r.profit }}</td>
+        <td>{% for b in r.breakdown %}<div class="sub">{{ b.unit }}: {{ b.count }}件 / 売上{{ b.revenue }} / 粗利{{ b.profit }}</div>{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header"><h2>📝 商品別販売数 (推移)</h2></div>
+  <div class="card-body" style="padding:12px 24px 0"><p class="lead">「商品収益を記録」で登録した件数だけを月別に集計します。</p></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>月/商品名</th>{% for p in display_products %}<th>{{ p }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for r in qty_rows %}
+      <tr><td class="nowrap">{{ r.month }}</td>{% for v in r.cells %}<td class="nowrap">{{ v }}</td>{% endfor %}</tr>
     {% endfor %}
     </tbody>
   </table>
