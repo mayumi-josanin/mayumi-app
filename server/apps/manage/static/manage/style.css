@@ -452,3 +452,9 @@ td.brand { color: var(--brand); font-weight: 700; }
 .preview-title { font-size: 22px; font-weight: 700; line-height: 1.5; margin-bottom: 12px; }
 .preview-body { line-height: 1.9; }
 .preview-img { max-width: 100%; border-radius: 12px; margin-top: 12px; display: block; }
+/* ===== 重複会員候補: 候補の1人ずつの枠と「比較する」 ===== */
+.dup-user { padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; background: #fff; }
+.dup-user-name { font-weight: 700; }
+.dup-compare > summary { cursor: pointer; font-size: .8rem; color: var(--brand); font-weight: 600; margin: 4px 0; }
+.dup-compare-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.dup-compare-card { flex: 1; min-width: 220px; border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fff; }

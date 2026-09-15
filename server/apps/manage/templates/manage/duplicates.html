@@ -1,0 +1,85 @@
+{% extends "manage/base.html" %}
+
+{% block title %}重複会員候補 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}重複会員候補{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>🧩 重複会員候補</h1>
+  <div class="page-header-actions">
+    {# 旧アプリの「安全な候補を一括統合」。組は押した時点でサーバーが組み直す #}
+    <form method="post" action="{% url 'manage:duplicate_merge' %}" class="inline-form">{% csrf_token %}<input type="hidden" name="mode" value="safe">
+      <button type="submit" class="btn btn-primary" onclick="return confirm('安全な重複候補の一括統合\n電話番号一致、または氏名と生年月日が一致する候補だけをまとめて統合します。氏名だけ一致の候補は残します。');">安全な候補を一括統合</button>
+    </form>
+    <a class="btn btn-outline" href="{% url 'manage:duplicate_list' %}">🔄 更新</a>
+  </div>
+</div>
+
+{% if not member_writable %}
+<div class="note">会員の記録はまだスプレッドシートが正です。統合は切り替え（9/19）までは旧管理アプリで行ってください（ここでは候補を見るだけです）。</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <div class="sub">同じ電話番号、氏名と生年月日、氏名が一致する候補を一覧表示します。「安全な候補を一括統合」は「電話番号一致」「氏名＋生年月日一致」だけをまとめて処理し、「氏名だけ一致」は個別確認のまま残します。</div>
+    <div class="sub" style="margin-top:6px">候補 {{ groups|length }}組 / 一括統合できる安全な候補 {{ safe_count }}組</div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>判定理由</th><th>候補会員</th><th>統合</th></tr></thead>
+      <tbody>
+      {% for g in groups %}
+        <tr>
+          <td class="nowrap" style="white-space:pre-line;vertical-align:top">{{ g.reasons|join:" / " }}</td>
+          <td>
+            {% for u in g.users %}
+              <div class="dup-user">
+                <div class="dup-user-name">{{ u.name|default:"名前なし" }} <span class="sub" style="display:inline">({{ u.memberId }})</span></div>
+                <div class="sub">電話番号: {{ u.phone|default:"---" }} / 生年月日: {{ u.birthday|default:"---" }} / 更新: {{ u.updated_label }}</div>
+              </div>
+            {% endfor %}
+            {# 旧アプリの「比較する」（比較モーダル）。同じ項目を開いて見られるようにする #}
+            <details class="dup-compare">
+              <summary>比較する</summary>
+              <div class="dup-compare-grid">
+                {% for u in g.users %}
+                  <div class="dup-compare-card">
+                    <div class="dup-user-name">{{ u.name }}</div>
+                    <div class="sub" style="line-height:1.8">
+                      会員ID: {{ u.memberId }}<br>
+                      電話番号: {{ u.phone|default:"---" }}<br>
+                      生年月日: {{ u.birthday|default:"---" }}<br>
+                      注文: {{ u.orderCount }}件 / 受付中 {{ u.pendingOrderCount }}件<br>
+                      合計売上: ¥{{ u.orderTotal }}<br>
+                      スタンプ: {{ u.stampCount }}個<br>
+                      端末: {{ u.deviceCount }}台<br>
+                      更新: {{ u.updated_label }}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </details>
+          </td>
+          <td class="nowrap" style="vertical-align:top">
+            {% if g.sources %}
+              <button type="submit" form="dmerge-{{ forloop.counter }}" class="btn btn-primary btn-sm" onclick="return confirm('会員統合の確認\n「{{ g.target.name|default:g.target.memberId|escapejs }}」を残し、他の {{ g.sources|length }} 件を統合します。統合後、元の会員はゴミ箱へ移動します。');">最新の会員IDへ統合</button>
+            {% else %}
+              <span class="sub">統合対象なし</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" style="text-align:center">重複候補はありません</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% for g in groups %}{% if g.sources %}
+<form id="dmerge-{{ forloop.counter }}" method="post" action="{% url 'manage:duplicate_merge' %}">{% csrf_token %}
+  <input type="hidden" name="targetMemberId" value="{{ g.target.memberId }}">
+  {% for mid in g.sources %}<input type="hidden" name="sourceMemberIds" value="{{ mid }}">{% endfor %}
+</form>
+{% endif %}{% endfor %}
+{% endblock %}

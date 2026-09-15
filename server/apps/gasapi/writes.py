@@ -1397,6 +1397,19 @@ _パスコード設定 = _会員("パスコードを設定する")
 _通知を止める = _会員("通知を止める")
 
 
+def _ゴミ箱(名):
+    def 呼ぶ(d):
+        from . import trash
+
+        return getattr(trash, 名)(d)
+    return 呼ぶ
+
+
+# ゴミ箱から戻す / 完全に消す（GAS の handleRestoreDeletedRecord / handleHardDeleteRecord）
+_ゴミ箱から戻す = _ゴミ箱("戻す")
+_ゴミ箱を完全に消す = _ゴミ箱("完全に消す")
+
+
 def _入口(名):
     def 呼ぶ(d):
         from . import entrance
@@ -1478,6 +1491,9 @@ _ビジリス登録 = _入口("ビジリス登録")
     # 2026-09-07。**移行後はシートを直せないので、ここでできるようにする。**
     "setUserPasscode": _パスコード設定,
     "stopUserPush": _通知を止める,
+    # ゴミ箱（表をまたぐ窓口。sheet で宛先を見分ける）
+    "restoreDeletedRecord": _ゴミ箱から戻す,
+    "hardDeleteRecord": _ゴミ箱を完全に消す,
     # 第3段・お客様の入口。**ここが止まるとアプリに入れなくなる。**
     # 注文
     # 売上の記録（分析の元）
