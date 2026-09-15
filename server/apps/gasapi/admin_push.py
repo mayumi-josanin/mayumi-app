@@ -165,13 +165,21 @@ def 予約分を送る(d=None):
     トリガーが呼んでくる**（時計は GAS のまま。サーバーに cron を足さない）。"""
     いま = timezone.now()
     処理 = 0
-    for 記録 in PushNotice.objects.filter(status=SCHEDULED, deleted=False).order_by("sheet_row"):
-        # GAS の isPublishAtAvailable_: 予定が空なら「来ている」扱い
-        if 記録.scheduled_at and 記録.scheduled_at > いま:
-            continue
-        ids = _届け先の端末({"targetDetail": 記録.target_detail}, 記録)
-        _送って記録する(記録, ids, "予約送信済み", SENT)
-        処理 += 1
+    # **同じ予約を2回送らない。**GAS には processScheduledPushQueue のトリガーが2つの
+    # アカウントに1本ずつあり（2026-09-15 に確認）、同じ5分に2回呼ばれることがある。
+    # 1件ずつ行を掴んで（select_for_update）、掴めた側だけが送る。掴めなかった側は飛ばす。
+    候補 = list(PushNotice.objects.filter(status=SCHEDULED, deleted=False).order_by("sheet_row").values_list("pk", flat=True))
+    for pk in 候補:
+        with transaction.atomic():
+            記録 = PushNotice.objects.select_for_update(skip_locked=True).filter(pk=pk, status=SCHEDULED, deleted=False).first()
+            if not 記録:
+                continue  # もう片方が送っている・送った
+            # GAS の isPublishAtAvailable_: 予定が空なら「来ている」扱い
+            if 記録.scheduled_at and 記録.scheduled_at > いま:
+                continue
+            ids = _届け先の端末({"targetDetail": 記録.target_detail}, 記録)
+            _送って記録する(記録, ids, "予約送信済み", SENT)
+            処理 += 1
     return {"status": "ok", "processed": 処理}
 
 
