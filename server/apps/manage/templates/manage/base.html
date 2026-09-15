@@ -33,16 +33,16 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       {% endcomment %}
       <span class="nav-section">アプリ管理</span>
       <a href="{% url 'manage:order_list' %}" class="{% if 'order' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📦</span> 注文管理</a>
-      <a href="{% url 'manage:analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name or 'revenue' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📊</span> データ分析</a>
-      <a href="{% url 'manage:news_list' %}" class="{% if 'news' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📝</span> お知らせ管理</a>
-      <a href="{% url 'manage:notice_list' %}" class="{% if 'notice' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📢</span> お知らせ管理</a>
-      <a href="{% url 'manage:category_list' %}" class="{% if 'category' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🏷️</span> カテゴリ管理</a>
-      <a href="{% url 'manage:push_list' %}" class="{% if 'push' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🔔</span> 通知管理</a>
-      <a href="{% url 'manage:menu_list' %}" class="{% if 'menu' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🍴</span> メニュー管理</a>
-      <a href="{% url 'manage:product_list' %}" class="{% if 'product' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🛍️</span> 商品管理</a>
+      <a href="{% url 'manage:news_list' %}" class="{% if 'news' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">💬</span> NEWS</a>
+      <a href="{% url 'manage:product_list' %}" class="{% if 'product' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🌿</span> 商品管理</a>
       <a href="{% url 'manage:calendar_list' %}" class="{% if 'calendar' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📅</span> カレンダー</a>
+      <a href="{% url 'manage:push_list' %}" class="{% if 'push' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">👥</span> 通知管理</a>
+      <a href="{% url 'manage:notice_list' %}" class="{% if 'notice' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📢</span> お知らせ管理</a>
       <a href="{% url 'manage:system' %}" class="{% if 'system' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🛠️</span> システム管理</a>
-      <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-muted"><span class="nav-icon">↗</span> 旧管理アプリ（会員・スタンプ）</a>
+      <a href="{% url 'manage:analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name or 'revenue' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📊</span> データ分析</a>
+      <a href="{% url 'manage:menu_list' %}" class="{% if 'menu' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🍴</span> メニュー管理</a>
+      <a href="{% url 'manage:category_list' %}" class="{% if 'category' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🏷️</span> カテゴリ管理</a>
+      <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-muted"><span class="nav-icon">↗</span> 旧管理アプリ（会員管理・スタンプ）</a>
 
       <span class="nav-section">予約管理</span>
       <a href="{% url 'manage:go_reserve' %}?to=/manage/"><span class="nav-icon">🗓️</span> 予定表</a>
