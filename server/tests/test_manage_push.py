@@ -90,7 +90,7 @@ def test_チェックしなければ送らない(as_owner, keys, fake_onesignal)
 def test_下書きや公開開始が先なら送らない(as_owner, keys, fake_onesignal):
     as_owner.post("/manage/news/new/", _form(send_push="on", status="非公開"))
     future = (timezone.localtime() + timezone.timedelta(days=2)).strftime("%Y-%m-%dT%H:%M")
-    as_owner.post("/manage/news/new/", _form(send_push="on", title="先の予定", publish_at=future))
+    as_owner.post("/manage/news/new/", _form(send_push="on", title="先の予定", publishAt=future))
     assert fake_onesignal == []
 
 
