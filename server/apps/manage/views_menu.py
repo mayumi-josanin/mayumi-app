@@ -5,7 +5,6 @@
 """
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -13,6 +12,7 @@ from django.views.decorators.http import require_POST
 from apps.content.models import Category, Menu
 from apps.gasapi import admin_menu
 
+from .permissions import owner_required
 from . import images, push
 
 BOOKING_STATUSES = ["予約受付中", "予約対象外"]
@@ -24,7 +24,7 @@ def _候補の分類():
     return sorted(n for n in 名 if n)
 
 
-@login_required
+@owner_required
 def menu_list(request):
     rows = Menu.objects.filter(deleted=False).order_by("sheet_row")
     published = [m for m in rows if m.published]
@@ -71,7 +71,7 @@ def _通知(request, 答, d):
         messages.error(request, "通知を送れませんでした（メニューは保存されています）。")
 
 
-@login_required
+@owner_required
 def menu_create(request):
     if request.method == "POST":
         d = _入力(request, None)
@@ -87,7 +87,7 @@ def menu_create(request):
     })
 
 
-@login_required
+@owner_required
 def menu_edit(request, row: int):
     m = get_object_or_404(Menu, sheet_row=row, deleted=False)
     if request.method == "POST":
@@ -110,7 +110,7 @@ def menu_edit(request, row: int):
     })
 
 
-@login_required
+@owner_required
 @require_POST
 def menu_toggle(request, row: int):
     m = get_object_or_404(Menu, sheet_row=row, deleted=False)
@@ -120,7 +120,7 @@ def menu_toggle(request, row: int):
     return redirect("manage:menu_list")
 
 
-@login_required
+@owner_required
 @require_POST
 def menu_move(request, row: int):
     答 = admin_menu.動かす({"rowIdx": row, "direction": request.POST.get("direction", "up")})
@@ -129,7 +129,7 @@ def menu_move(request, row: int):
     return redirect("manage:menu_list")
 
 
-@login_required
+@owner_required
 @require_POST
 def menu_delete(request, row: int):
     m = get_object_or_404(Menu, sheet_row=row, deleted=False)

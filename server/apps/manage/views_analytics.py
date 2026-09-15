@@ -7,7 +7,6 @@
 import json
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -15,6 +14,8 @@ from django.views.decorators.http import require_POST
 from apps.content.models import Product
 from apps.gasapi import analytics, revenue
 from apps.records.models import RevenueRecord
+
+from .permissions import owner_required
 
 KINDS = {
     "menu": {"kind": RevenueRecord.MENU, "label": "メニュー収益", "name_key": "menuType", "qty_key": "count",
@@ -34,7 +35,7 @@ def _月の行(鍵, 月):
     }
 
 
-@login_required
+@owner_required
 def analytics_view(request):
     集計 = analytics.集計()
     months = 集計["months"]
@@ -64,7 +65,7 @@ def analytics_view(request):
     })
 
 
-@login_required
+@owner_required
 def revenue_list(request, kind: str):
     設定 = KINDS.get(kind)
     if not 設定:
@@ -89,7 +90,7 @@ def revenue_list(request, kind: str):
     })
 
 
-@login_required
+@owner_required
 @require_POST
 def revenue_save(request, kind: str):
     設定 = KINDS.get(kind)
@@ -122,7 +123,7 @@ def revenue_save(request, kind: str):
     return redirect(f"/manage/revenue/{kind}/?month={date[:7]}" if date else f"/manage/revenue/{kind}/")
 
 
-@login_required
+@owner_required
 @require_POST
 def revenue_delete(request, kind: str, row: int):
     設定 = KINDS.get(kind)
