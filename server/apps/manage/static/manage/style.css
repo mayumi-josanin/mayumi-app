@@ -348,3 +348,10 @@ td.brand { color: var(--brand); font-weight: 700; }
 .rev-entry { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; background: var(--surface-hover); }
 .rev-row3 { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 900px) { .rev-row3 { grid-template-columns: 1fr 1fr; } .chart-grid { grid-template-columns: 1fr; } }
+
+/* ---- システム管理（アラートの札・明細の枠。旧管理アプリの renderAdminDashboard と同じ見え方） ---- */
+.sys-alert { padding: 10px 12px; border-radius: 10px; margin-bottom: 8px; background: #f4f7fb; color: var(--text-primary); }
+.sys-alert-warning { background: #fff3e0; }
+.sys-detail { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.sys-detail-title { font-weight: 700; margin-bottom: 8px; }
+.sys-line { margin-bottom: 6px; font-size: .88rem; }
