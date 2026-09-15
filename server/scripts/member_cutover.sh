@@ -49,6 +49,16 @@ case "${1:-help}" in
     $PY 会員の正を切り替える sheet;;
   live)
     $PY 会員の正を切り替える;;
+  check)
+    # Read-only. Who could NOT get in after the switch, judged from the server ledger
+    # (run again right after the import on the day). GAS "入れるか確かめる()" looks at the sheet; this is the server side.
+    echo "no passcode at all (cannot log in):     $($PSQL "select count(*) from members_member where deleted=false and coalesce(passcode_hash,'')='' and coalesce(password_hash,'')=''")"
+    echo "old password scheme only (hash+salt):    $($PSQL "select count(*) from members_member where deleted=false and coalesce(passcode_hash,'')='' and coalesce(password_hash,'')<>''")"
+    echo "no birthday (cannot use recovery):       $($PSQL "select count(*) from members_member where deleted=false and birthday is null")"
+    echo "no birthday and no phone (no reset):     $($PSQL "select count(*) from members_member where deleted=false and birthday is null and coalesce(phone,'')=''")"
+    echo "empty name:                              $($PSQL "select count(*) from members_member where deleted=false and coalesce(name,'')=''")"
+    echo "duplicate LINE user ids:                 $($PSQL "select count(*) from (select line_user_id from members_member where coalesce(line_user_id,'')<>'' group by line_user_id having count(*)>1) t")"
+    echo "members with a role set:                 $($PSQL "select count(*)||' ('||string_agg(distinct role, ',')||')' from members_member where coalesce(role,'')<>''")";;
   probe)
     # After the switch: the customer-facing window must answer without an API key.
     for a in getNews getUserRewardStatus getRecoveryCandidates; do
@@ -68,6 +78,7 @@ usage: bash ~/member_cutover.sh <command> [file]
   shred   <json>         delete the export JSON (contains plaintext passcodes)
   live-on | live-off     raise / lower the "server is the source for members" flag (manage screens)
   live                   show the flag
+  check                  who could not get in after the switch (read only)
   probe                  after the switch: public window answers + web errors
 H
     ;;
