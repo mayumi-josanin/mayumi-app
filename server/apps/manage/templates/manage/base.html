@@ -51,6 +51,7 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       <span class="nav-section">公式サイト</span>
       <a href="{% url 'manage:hp_options' %}" class="{% if request.resolver_match.url_name == 'hp_options' %}active{% endif %}"><span class="nav-icon">🎛️</span> 選択肢の設定</a>
       <a href="{% url 'manage:hp_blog' %}" class="{% if request.resolver_match.url_name == 'hp_blog' or request.resolver_match.url_name == 'hp_blog_edit' %}active{% endif %}"><span class="nav-icon">✍️</span> まゆみのつぶやき</a>
+      <a href="{% url 'manage:hp_images' %}" class="{% if request.resolver_match.url_name == 'hp_images' %}active{% endif %}"><span class="nav-icon">🖼️</span> 写真</a>
       <a href="{% url 'manage:hp_preview' %}" class="{% if request.resolver_match.url_name == 'hp_preview' %}active{% endif %}"><span class="nav-icon">👀</span> プレビュー</a>
       <a href="{% url 'manage:hp_publish' %}" class="{% if request.resolver_match.url_name == 'hp_publish' %}active{% endif %}"><span class="nav-icon">🌐</span> 公開する</a>
       <a href="{% url 'manage:hp_git' %}" class="{% if request.resolver_match.url_name == 'hp_git' %}active{% endif %}"><span class="nav-icon">🔗</span> 保存の記録</a>
