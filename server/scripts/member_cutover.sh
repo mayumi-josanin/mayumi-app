@@ -4,6 +4,9 @@
 # Every command is safe to re-run. Nothing here touches the spreadsheet or GAS.
 set -euo pipefail
 cd ~/projects/mayumi-app/server
+# Git Bash rewrites "/app/x" into "C:/Program Files/Git/app/x" before Docker sees it. Stop that.
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL="*"
 
 PY="docker compose exec -T web python manage.py"
 PSQL="docker compose exec -T db psql -U postgres -d mayumi -t -A -c"

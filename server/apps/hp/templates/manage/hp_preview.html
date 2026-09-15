@@ -1,0 +1,26 @@
+{% extends "manage/base.html" %}
+{% block title %}プレビュー | 公式サイト{% endblock %}
+{% block topbar_title %}公式サイト{% endblock %}
+{% block content %}
+<div class="page-header"><h1>👀 プレビュー</h1></div>
+<div class="card"><div class="card-body">
+  <form method="get" class="inline-form" style="gap:10px;flex-wrap:wrap;align-items:center">
+    <label style="margin:0">ページ</label>
+    <select name="page" class="form-control" style="width:auto;min-width:180px" onchange="this.form.submit()">
+      {% for u, n in pages %}<option value="{{ u }}" {% if u == page %}selected{% endif %}>{{ n }}</option>{% endfor %}
+    </select>
+    <label style="margin:0">画面幅</label>
+    {% for nm, w in devices %}<button class="btn btn-outline btn-sm {% if width == w|stringformat:'s' %}active{% endif %}" name="w" value="{{ w }}">{{ nm }}{% if w %}（{{ w }}px）{% endif %}</button>{% endfor %}
+    <label style="margin:0;display:flex;align-items:center;gap:6px;font-weight:400">
+      <input type="checkbox" name="draft" value="1" {% if draft %}checked{% endif %} onchange="this.form.submit()"> 編集中の内容で見る
+    </label>
+    {% if not draft %}<input type="hidden" name="draft" value="0">{% endif %}
+    <a class="btn btn-sm" href="{% if draft %}{% url 'manage:hp_preview_file' path='' %}{% else %}{% url 'manage:hp_site_file' path='' %}{% endif %}{{ page|slice:'1:' }}" target="_blank" rel="noopener">別タブで開く</a>
+  </form>
+  <form method="post" style="margin-top:10px">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button class="btn btn-outline btn-sm">編集中の内容でプレビューを作り直す</button>
+    <span class="sub">「編集中の内容で見る」は、下書き（content.json）からプレビュー用の HTML を作って表示します。サイトには影響しません。</span>
+  </form>
+</div></div>
+<div class="hp-pvwrap"><iframe class="hp-pv" title="プレビュー" style="{% if width != '0' %}width:{{ width }}px;{% else %}width:100%;{% endif %}" src="{% if draft %}{% url 'manage:hp_preview_file' path='' %}{% else %}{% url 'manage:hp_site_file' path='' %}{% endif %}{{ page|slice:'1:' }}"></iframe></div>
+{% endblock %}

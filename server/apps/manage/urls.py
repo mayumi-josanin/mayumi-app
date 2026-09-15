@@ -1,5 +1,5 @@
 from django.contrib.auth import views as auth_views
-from django.urls import path
+from django.urls import include, path
 from django.views.generic import RedirectView
 
 from . import (
@@ -84,4 +84,6 @@ urlpatterns = [
     path("rewards/<str:member_id>/", views_reward.reward_edit, name="reward_edit"),
     path("system/", views_system.system_view, name="system"),
     path("system/backup/", views_system.system_backup, name="system_backup"),
+    # 公式サイト（apps/hp）。同じログイン・同じ左メニューで使う
+    path("", include("apps.hp.urls")),
 ]

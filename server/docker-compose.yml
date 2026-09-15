@@ -89,6 +89,9 @@ services:
       RESERVE_MANAGE_URL: ${RESERVE_MANAGE_URL:-https://desktop-rmsk0vg.tail8efe0d.ts.net:10001}
       # 上げた画像の公開URL。お客様は Funnel（web）側から見るので、そちらの住所を書く
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://mayumi-api.tail8efe0d.ts.net}
+      # 公式サイト（mayumi-site）。下の volume で /site に載せる。鍵は .env（setkey.ps1）
+      SITE_REPO_DIR: /site
+      SITE_GIT_TOKEN: ${SITE_GIT_TOKEN:-}
       DB_NAME: mayumi
       DB_USER: postgres
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -100,6 +103,8 @@ services:
       - .:/app
       # 画像は web と同じ volume。管理画面で上げたものを web が配る。
       - mayumi_media:/app/media
+      # 公式サイトの下書き（draft）。サーバーPCの ~/projects/mayumi-site-draft
+      - ${SITE_REPO_HOST_DIR:-../../mayumi-site-draft}:/site
 
 volumes:
   mayumi_pgdata:
