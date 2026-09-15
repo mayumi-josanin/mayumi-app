@@ -1,63 +1,167 @@
 {% extends "manage/base.html" %}
 
-{% block title %}{% if news %}お知らせを修正{% else %}お知らせを投稿{% endif %} | まゆみ助産院 管理画面{% endblock %}
-{% block topbar_title %}お知らせ管理{% endblock %}
+{% block title %}{% if news %}NEWSを修正{% else %}NEWSを投稿{% endif %} | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}NEWS配信・管理{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>{% if news %}お知らせを修正{% else %}新しいお知らせ{% endif %}</h1>
-  <div class="page-header-actions">
-    <a class="btn btn-outline" href="{% url 'manage:news_list' %}">一覧へ戻る</a>
-  </div>
+  <h1>NEWS配信・管理</h1>
+  <div class="page-header-actions"><a class="btn btn-outline" href="{% url 'manage:news_list' %}">一覧へ戻る</a></div>
 </div>
 
 <div class="card">
-  <div class="card-header"><h2>{% if news %}{{ news.title }}{% else %}投稿の内容{% endif %}</h2></div>
+  <div class="card-header"><h2>{% if news %}📝 {{ news.title }} を修正する{% else %}新しく投稿する{% endif %}</h2></div>
   <div class="card-body">
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" id="news-form">
       {% csrf_token %}
-      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
-
-      <div class="form-row">
-        {% include "manage/_field.html" with field=form.posted_on %}
-        {% include "manage/_field.html" with field=form.publish_at %}
+      <div class="form-group">
+        <label for="n-date">日時<span class="required">必須</span></label>
+        <input id="n-date" name="date" type="datetime-local" class="form-control" required value="{{ values.date|default:'' }}">
       </div>
-      {% include "manage/_field.html" with field=form.title %}
-      <div class="form-row icon-row">
-        {% include "manage/_field.html" with field=form.category %}
-        {% include "manage/_field.html" with field=form.icon %}
+      <div class="form-group">
+        <label for="n-title">タイトル<span class="required">必須</span></label>
+        <input id="n-title" name="title" class="form-control" required maxlength="255" value="{{ values.title|default:'' }}" placeholder="例：夏の産後ヨガ体験会">
       </div>
-      {% include "manage/_field.html" with field=form.body %}
 
       {% if existing_images %}
         <div class="form-group">
           <label>いまの画像（外すものはチェックを外す）</label>
-          <div class="image-keep">
-            {% for url in existing_images %}
-              <label class="image-keep-item">
-                <input type="checkbox" name="keep_image" value="{{ url }}" checked>
-                <img src="{{ url }}" alt="">
-                <span>残す</span>
-              </label>
-            {% endfor %}
-          </div>
+          <div class="image-keep">{% for url in existing_images %}<label class="image-keep-item"><input type="checkbox" name="keep_image" value="{{ url }}" checked><img src="{{ url }}" alt=""><span>残す</span></label>{% endfor %}</div>
         </div>
       {% endif %}
-      {% include "manage/_field.html" with field=form.images %}
-
-      <div class="form-row">
-        {% include "manage/_field.html" with field=form.link_url %}
-        {% include "manage/_field.html" with field=form.button_text %}
+      <div class="form-group">
+        <label for="n-img">★画像をアップロード（スマホのライブラリから選択可能）</label>
+        <div class="form-hint">※画像全体を保ったまま、アップロード用に最適化して取り込みます</div>
+        <input id="n-img" name="images" type="file" class="form-control" accept="image/jpeg, image/png, image/gif, image/webp" multiple>
       </div>
-      {% include "manage/_field.html" with field=form.notice_listed %}
-      {% include "manage/_field.html" with field=form.send_push %}
+
+      <div class="form-row icon-row">
+        <div class="form-group">
+          <label for="n-cat">カテゴリ</label>
+          <select id="n-cat" name="category" class="form-control">
+            {% for label, names in category_groups %}
+              <optgroup label="{{ label }}">
+                {% for c in names %}<option value="{{ c }}" {% if values.category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+              </optgroup>
+            {% endfor %}
+            {% for c in category_extra %}<option value="{{ c }}" {% if values.category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="n-icon">アイコン</label>
+          <input id="n-icon" name="icon" class="form-control" maxlength="16" value="{{ values.icon|default:'📢' }}" placeholder="絵文字">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="n-body">本文</label>
+        <div class="inline-form" style="gap:6px;margin-bottom:6px">
+          <button type="button" class="btn btn-outline btn-sm" onclick="wrapSel('n-body','<strong>','</strong>')" aria-label="本文を太字にする"><strong>B</strong></button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="wrapSel('n-body','<u>','</u>')" aria-label="本文に下線を引く"><u>U</u></button>
+          <span class="sub">選択した文字に太字・下線を設定できます</span>
+        </div>
+        <textarea id="n-body" name="body" class="form-control" rows="5" placeholder="お知らせの内容を入力...">{{ values.body|default:'' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label for="n-at">公開開始日時（空欄ならすぐ公開）</label>
+        <input id="n-at" name="publishAt" type="datetime-local" class="form-control" value="{{ values.publishAt|default:'' }}">
+      </div>
+      <div class="form-group">
+        <label for="n-url">リンクURL（任意：詳しく見るボタンの遷移先）</label>
+        <input id="n-url" name="linkUrl" type="url" class="form-control" value="{{ values.linkUrl|default:'' }}" placeholder="https://example.com">
+        <div class="form-hint">※入力すると、アプリ側でボタンが表示されます。</div>
+      </div>
+      <div class="form-group">
+        <label for="n-btn">ボタンのテキスト（任意）</label>
+        <input id="n-btn" name="linkButtonText" class="form-control" maxlength="100" value="{{ values.linkButtonText|default:'' }}" placeholder="詳しく見る （未入力ならこれになります）">
+        <div class="form-hint">※「予約はこちら」「インスタを見る」など自由に入力できます。</div>
+      </div>
+
+      <div class="form-group">
+        <div class="push-send-card">
+          <label class="push-send-card__top" for="n-notice">
+            <span class="push-send-card__icon">📢</span>
+            <span class="push-send-card__text">
+              <span class="push-send-card__heading">この保存をお知らせ一覧に反映する</span>
+              <span class="push-send-card__sub">初投稿はオンのまま、編集時は必要なときだけチェックしてください。</span>
+            </span>
+            <input type="checkbox" id="n-notice" name="notice_refresh" aria-label="NEWS保存時にお知らせ一覧へ反映" {% if notice_refresh %}checked{% endif %}>
+          </label>
+          <div class="push-send-card__note"><strong>新規投稿は既定でオンです。</strong> 編集時に未チェックなら通常保存のみで、お知らせ一覧の掲載順は更新しません。</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="push-send-card">
+          <label class="push-send-card__top" for="n-push">
+            <span class="push-send-card__icon">🔔</span>
+            <span class="push-send-card__text">
+              <span class="push-send-card__heading">この保存でPush通知を送信する</span>
+              <span class="push-send-card__sub">送信したいときだけ、右側のチェックを入れて保存してください。</span>
+            </span>
+            <input type="checkbox" id="n-push" name="send_push" aria-label="NEWS保存時にPush通知を送信">
+          </label>
+          <div class="push-send-card__note"><strong>未チェックでは通知されません。</strong> 公開保存のときだけ送信対象になります。</div>
+        </div>
+      </div>
 
       <div class="form-actions">
-        <button type="submit" name="status" value="公開" class="btn btn-primary">{% if news %}修正して公開する{% else %}公開して投稿する{% endif %}</button>
-        <button type="submit" name="status" value="非公開" class="btn btn-outline">下書き保存</button>
-        <a class="btn btn-outline" href="{% url 'manage:news_list' %}">キャンセル</a>
+        <button type="button" class="btn btn-outline" onclick="previewNews()">👁 プレビュー</button>
+        <button type="submit" name="status" value="公開" class="btn btn-primary">{% if news %}📝 修正して保存する{% else %}🌟 公開して投稿する{% endif %}</button>
+        <button type="submit" name="status" value="非公開" class="btn btn-outline">📁 下書き保存</button>
+        {% if news %}<a class="btn btn-outline" href="{% url 'manage:news_list' %}">キャンセル</a>{% endif %}
       </div>
     </form>
   </div>
 </div>
+
+<div class="card" id="news-preview" hidden>
+  <div class="card-header"><h2>NEWSプレビュー</h2><button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('news-preview').hidden=true">閉じる</button></div>
+  <div class="card-body"><div class="news-preview-box" id="news-preview-body"></div></div>
+</div>
+
+<script>
+// 本文の太字・下線（旧管理アプリの applyTextStyle と同じ: <strong> / <u> で囲む）
+function wrapSel(id, open, close) {
+  var el = document.getElementById(id); if (!el) return;
+  var s = el.selectionStart, e = el.selectionEnd, v = el.value;
+  el.value = v.slice(0, s) + open + v.slice(s, e) + close + v.slice(e);
+  el.focus(); el.selectionStart = s + open.length; el.selectionEnd = e + open.length;
+}
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+// 本文は太字・下線だけを効かせ、それ以外のタグは文字のまま出す（旧アプリの renderAdminFormattedTextHtml と同じ考え方）
+function richText(s) {
+  return escHtml(s)
+    .replace(/&lt;(\/?)(strong|u)&gt;/g, '<$1$2>')
+    .replace(/\n/g, '<br>');
+}
+// プレビュー（旧管理アプリの previewBlogDraft と同じ中身: カテゴリ・アイコン・日時・タイトル・本文・画像・リンクボタン）
+function previewNews() {
+  var v = function (id) { return (document.getElementById(id).value || '').trim(); };
+  var title = v('n-title') || 'タイトル未入力';
+  var category = v('n-cat') || '未設定';
+  var icon = v('n-icon');
+  var date = v('n-date').replace('T', ' ');
+  var body = v('n-body') || '本文はまだ入力されていません。';
+  var linkUrl = v('n-url');
+  var linkText = v('n-btn') || '詳しく見る';
+  var imgSrc = '';
+  var kept = document.querySelector('input[name="keep_image"]:checked');
+  if (kept) imgSrc = kept.value;
+  var files = document.getElementById('n-img').files;
+  if (files && files.length) imgSrc = URL.createObjectURL(files[0]);
+  var html = '<div class="news-preview-meta"><span class="badge badge-gray">' + escHtml(category) + '</span>'
+    + (icon ? '<span class="badge badge-green">' + escHtml(icon) + '</span>' : '')
+    + '<span class="sub">' + escHtml(date) + '</span></div>'
+    + '<div class="news-preview-title">' + escHtml(title) + '</div>'
+    + '<div class="news-preview-text">' + richText(body) + '</div>'
+    + (imgSrc ? '<img class="news-preview-img" src="' + escHtml(imgSrc) + '" alt="記事画像">' : '')
+    + (linkUrl ? '<div class="news-preview-link"><span class="btn btn-primary">' + escHtml(linkText) + ' 🔗</span><div class="sub">※プレビューではクリックできません</div></div>' : '');
+  document.getElementById('news-preview-body').innerHTML = html;
+  var box = document.getElementById('news-preview');
+  box.hidden = false;
+  box.scrollIntoView({ behavior: 'smooth' });
+}
+</script>
 {% endblock %}

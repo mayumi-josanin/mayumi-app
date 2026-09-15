@@ -1,40 +1,39 @@
+{% comment %}
+NEWS の一覧（下書き・投稿済み共用）。列と行内の操作は旧管理アプリの loadAdminBlogs と同じ:
+チェック / アイコン / 日付 / カテゴリ / 分類 / タイトル / 公開状況（select） / 操作（📝 🗑）。
+{% endcomment %}
 <div class="table-wrap">
 <table>
   <thead>
-    <tr><th></th><th>日付</th><th>カテゴリ</th><th>種別</th><th>タイトル</th><th>公開</th><th></th></tr>
+    <tr>
+      <th><input type="checkbox" onclick="this.closest('table').querySelectorAll('.blog-sel').forEach(function(c){c.checked=this.checked}.bind(this))"></th>
+      <th>アイコン</th><th>日付</th><th>カテゴリ</th><th>分類</th><th>タイトル</th><th>公開状況</th><th>操作</th>
+    </tr>
   </thead>
   <tbody>
   {% for item in items %}
     <tr>
-      <td class="nowrap">
-        {% if item.image %}<img class="thumb" src="{{ item.image }}" alt="">{% else %}<span class="thumb-icon">{{ item.n.icon|default:"📢" }}</span>{% endif %}
-      </td>
-      <td class="nowrap">{{ item.n.posted_on|date:"Y/n/j" }}</td>
-      <td class="nowrap"><span class="badge badge-gray">{{ item.n.category }}</span></td>
+      <td><input type="checkbox" class="blog-sel" form="bulk-form" name="rows" value="{{ item.b.rowIdx }}"></td>
+      <td class="nowrap">{% if item.image %}<img class="thumb" src="{{ item.image }}" alt="{{ item.b.title }}">{% else %}<span class="thumb-icon">{{ item.icon|default:"📢" }}</span>{% endif %}</td>
+      <td class="nowrap">{{ item.b.date }}</td>
+      <td class="nowrap"><span class="badge badge-gray">{{ item.b.category }}</span></td>
       <td class="nowrap"><span class="badge {% if item.kind == 'お知らせ' %}badge-red{% else %}badge-green{% endif %}">{{ item.kind }}</span></td>
-      <td>
-        <a class="title-link" href="{% url 'manage:news_edit' item.n.sheet_row %}">{{ item.n.title }}</a>
-        {% if item.n.publish_at %}<div class="sub">公開開始 {{ item.n.publish_at|date:"n/j H:i" }}</div>{% endif %}
-        {% if not item.n.notice_listed %}<div class="sub">お知らせ一覧には出さない</div>{% endif %}
-      </td>
+      <td>{{ item.b.title }}</td>
       <td class="nowrap">
-        <form method="post" action="{% url 'manage:news_toggle' item.n.sheet_row %}">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-outline btn-sm">{% if item.n.published %}非公開にする{% else %}公開する{% endif %}</button>
-        </form>
+        <select form="nstat-{{ item.b.rowIdx }}" name="status" class="form-control" style="width:auto;padding:6px 8px;font-size:.82rem" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+          <option value="公開" {% if item.b.status == '公開' %}selected{% endif %}>公開</option>
+          <option value="非公開" {% if item.b.status == '非公開' %}selected{% endif %}>非公開</option>
+        </select>
       </td>
       <td class="nowrap">
         <div class="row-actions">
-          <a class="btn btn-outline btn-sm" href="{% url 'manage:news_edit' item.n.sheet_row %}">編集</a>
-          <form method="post" action="{% url 'manage:news_delete' item.n.sheet_row %}" onsubmit="return confirm('「{{ item.n.title|escapejs }}」を削除します。よろしいですか？');">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-outline btn-sm danger">削除</button>
-          </form>
+          <a class="btn btn-outline btn-sm" href="{% url 'manage:news_edit' item.b.rowIdx %}" title="編集">📝</a>
+          <button form="ndel-{{ item.b.rowIdx }}" type="submit" class="btn btn-outline btn-sm danger" title="削除" onclick="return confirm('NEWS削除の確認\n「{{ item.b.title|escapejs }}」をゴミ箱へ移動します。よろしいですか？');">🗑</button>
         </div>
       </td>
     </tr>
   {% empty %}
-    <tr><td colspan="7"><div class="empty"><div class="empty-icon">📝</div><p>{{ empty }}</p></div></td></tr>
+    <tr><td colspan="8"><div class="empty"><div class="empty-icon">💬</div><p>{{ empty }}</p></div></td></tr>
   {% endfor %}
   </tbody>
 </table>
