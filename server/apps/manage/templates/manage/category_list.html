@@ -5,64 +5,36 @@
 
 {% block content %}
 <div class="page-header">
-  <div>
-    <h1>カテゴリ管理</h1>
-    <div class="lead">お知らせ・商品・メニューを分けるための名前です。種別「お知らせ」は NEWS のお知らせ側、「ブログ」はブログ側に出ます。</div>
-  </div>
+  <h1>🏷️ カテゴリ管理</h1>
 </div>
 
 <div class="card">
-  <div class="card-header"><h2>新しく足す</h2></div>
+  <div class="card-header"><h2>➕ 新規カテゴリ追加</h2></div>
   <div class="card-body">
     <form method="post" action="{% url 'manage:category_add' %}" class="inline-form">
       {% csrf_token %}
-      <input type="text" name="name" class="form-control" placeholder="カテゴリ名" required maxlength="100">
-      <select name="kind" class="form-control">
-        {% for k in kinds %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+      <input type="text" name="name" class="form-control" placeholder="例：健康情報" required maxlength="100" style="flex:2;min-width:200px">
+      <select name="kind" class="form-control" style="flex:1;min-width:180px">
+        {% for value, label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
       </select>
-      <button type="submit" class="btn btn-primary">足す</button>
+      <button type="submit" class="btn btn-primary">追加</button>
     </form>
   </div>
 </div>
 
 <div class="card">
-  <div class="card-header"><h2>いまのカテゴリ<span class="count">{{ rows|length }}件</span></h2></div>
-  <div class="table-wrap">
-  <table>
-    <thead><tr><th>カテゴリ名</th><th>種別</th><th>使っている記事</th><th></th></tr></thead>
-    <tbody>
-    {% for row in rows %}
-      <tr>
-        <form method="post" action="{% url 'manage:category_update' %}">
-          {% csrf_token %}
-          <input type="hidden" name="old_name" value="{{ row.c.name }}">
-          <td><input type="text" name="name" class="form-control" value="{{ row.c.name }}" required maxlength="100"></td>
-          <td class="nowrap">
-            <select name="kind" class="form-control">
-              {% for k in kinds %}<option value="{{ k }}" {% if row.c.kind == k %}selected{% endif %}>{{ k }}</option>{% endfor %}
-            </select>
-          </td>
-          <td class="nowrap">{{ row.used }}件</td>
-          <td class="nowrap">
-            <div class="row-actions">
-              <button type="submit" class="btn btn-outline btn-sm">保存</button>
-        </form>
-              <form method="post" action="{% url 'manage:category_delete' %}" onsubmit="return confirm('カテゴリ「{{ row.c.name|escapejs }}」を削除します。{% if row.used %}このカテゴリの記事 {{ row.used }} 件は、カテゴリ名がそのまま残ります。{% endif %}よろしいですか？');">
-                {% csrf_token %}
-                <input type="hidden" name="name" value="{{ row.c.name }}">
-                <button type="submit" class="btn btn-outline btn-sm danger">削除</button>
-              </form>
-            </div>
-          </td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="4"><div class="empty"><div class="empty-icon">🏷️</div><p>カテゴリはまだありません。</p></div></td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
+  <div class="card-header"><h2>📋 登録済みカテゴリ一覧</h2></div>
   <div class="card-body">
-    <p class="note">名前を変えても、その名前を使っていた記事のカテゴリは変わりません（旧管理アプリと同じ）。変えたときは記事側も直してください。</p>
+    <p class="sub">※各カテゴリはそれぞれのセクションで分類・フィルタとして使用されます。</p>
+
+    {% include "manage/_category_table.html" with heading="📰 NEWS用カテゴリ" rows=tables.news mark="news" %}
+    {% include "manage/_category_table.html" with heading="🛒 メニュー一覧用カテゴリ" rows=tables.menu mark="menu" %}
+    {% include "manage/_category_table.html" with heading="📢 お知らせ一覧（通知）用カテゴリ" rows=tables.notice mark="notice" %}
   </div>
 </div>
+
+{# 行ごとの保存・削除フォーム。表の中に form を入れると崩れるので外に置き、form= で結ぶ #}
+{% for row in tables.news %}{% include "manage/_category_row_forms.html" with row=row %}{% endfor %}
+{% for row in tables.menu %}{% include "manage/_category_row_forms.html" with row=row %}{% endfor %}
+{% for row in tables.notice %}{% include "manage/_category_row_forms.html" with row=row %}{% endfor %}
 {% endblock %}

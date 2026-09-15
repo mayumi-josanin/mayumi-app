@@ -1,0 +1,27 @@
+{# 種別ごとのカテゴリの表（旧管理アプリの categoryListBodyNews / Menu / Notice と同じ列） #}
+<h3 class="category-heading {{ mark }}">{{ heading }}</h3>
+<div class="table-wrap" style="margin-bottom:24px">
+<table>
+  <thead><tr><th>カテゴリ名</th><th class="nowrap" style="text-align:center">使用数</th><th class="nowrap" style="text-align:center">操作</th></tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td><input type="text" name="name" form="cat-upd-{{ row.no }}" class="form-control" value="{{ row.name }}" required maxlength="100"></td>
+      <td class="nowrap" style="text-align:center">{{ row.used }}</td>
+      <td class="nowrap">
+        <div class="row-actions">
+          {# 分類。種別「お知らせ」は旧管理アプリの編集にも選択肢が無く NEWS（ブログ）扱いになる #}
+          <select name="kind" form="cat-upd-{{ row.no }}" class="form-control btn-sm" title="分類">
+            {% for value, label in kinds %}<option value="{{ value }}" {% if row.type == value or forloop.first and row.type != "メニュー" and row.type != "通知" %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <button type="submit" form="cat-upd-{{ row.no }}" class="btn btn-outline btn-sm">🖊️ 保存</button>
+          <button type="submit" form="cat-del-{{ row.no }}" class="btn btn-outline btn-sm danger" onclick="return confirm('カテゴリ「{{ row.name|escapejs }}」を削除します。\n既存データのカテゴリ名はそのまま残りますが、選択肢から外れます。');">🗑 削除</button>
+        </div>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="3" style="text-align:center">カテゴリがありません</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
