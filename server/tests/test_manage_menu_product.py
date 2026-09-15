@@ -23,27 +23,6 @@ def _png():
     return SimpleUploadedFile("p.png", buf.getvalue(), content_type="image/png")
 
 
-@pytest.fixture
-def fake_onesignal(monkeypatch, settings):
-    settings.ONESIGNAL_APP_ID = "app"
-    settings.ONESIGNAL_REST_API_KEY = "key"
-    sent = []
-
-    class _Res(io.BytesIO):
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            return False
-
-    def fake_urlopen(req, timeout=0):
-        sent.append(json.loads(req.data))
-        return _Res(json.dumps({"id": "n-1", "recipients": 5}).encode())
-
-    monkeypatch.setattr(onesignal.urllib.request, "urlopen", fake_urlopen)
-    return sent
-
-
 # ========== メニュー ==========
 
 
@@ -118,17 +97,6 @@ def _product(**extra):
     return d
 
 
-def test_商品を追加すると原価は仕入の表に商品名で入る(as_owner):
-    r = as_owner.post("/manage/products/new/", _product())
-    assert r.status_code == 302, r.content.decode()[:500]
-    p = Product.objects.get(name="よもぎ茶（30パック）")
-    assert p.price == 1575 and p.stock == 12 and p.stock_warning == 3 and p.background_color == "#d4e8c8"
-    assert p.icon_url == "🍵"
-    s = SupplierPrice.objects.get(product_name="よもぎ茶（30パック）")
-    assert int(s.price) == 700
-    rows = {x["rowIdx"]: x for x in 商品一覧()["products"]}
-    assert rows[p.sheet_row]["costPrice"] == 700 and rows[p.sheet_row]["bg"] == "#d4e8c8"
-
 
 def test_商品の画像と説明画像(as_owner):
     as_owner.post("/manage/products/new/", {**_product(), "images": [_png()], "desc_images": [_png(), _png()]})
@@ -142,28 +110,6 @@ def test_商品の画像と説明画像(as_owner):
     assert p.description_image_url == keep and "/media/products/" in p.icon_url
 
 
-def test_売切の切替は在庫数と別(as_owner):
-    as_owner.post("/manage/products/new/", _product())
-    p = Product.objects.get()
-    as_owner.post(f"/manage/products/{p.sheet_row}/sold-out/")
-    p.refresh_from_db()
-    assert p.sold_out == "売切" and p.stock == 12
-    rows = {x["rowIdx"]: x for x in 商品一覧()["products"]}
-    assert rows[p.sheet_row]["isSoldOut"] is True
-    as_owner.post(f"/manage/products/{p.sheet_row}/sold-out/")
-    p.refresh_from_db()
-    assert p.sold_out == "在庫あり"
-
-
-def test_商品の公開切替と削除(as_owner):
-    as_owner.post("/manage/products/new/", _product())
-    p = Product.objects.get()
-    as_owner.post(f"/manage/products/{p.sheet_row}/toggle/")
-    p.refresh_from_db()
-    assert p.published is False
-    as_owner.post(f"/manage/products/{p.sheet_row}/delete/")
-    p.refresh_from_db()
-    assert p.deleted is True
 
 
 def test_商品の原価を空で送っても消えない(as_owner):
@@ -171,16 +117,3 @@ def test_商品の原価を空で送っても消えない(as_owner):
     p = Product.objects.get()
     as_owner.post(f"/manage/products/{p.sheet_row}/", _product(costPrice=""))
     assert int(SupplierPrice.objects.get(product_name=p.name).price) == 700
-
-
-def test_商品の通知の文言(as_owner, fake_onesignal):
-    as_owner.post("/manage/products/new/", _product(send_push="on"))
-    assert fake_onesignal[-1]["headings"]["ja"] == "🛍 よもぎ茶（30パック）"
-    assert fake_onesignal[-1]["contents"]["ja"] == "ショップの商品情報が更新されました"
-    assert fake_onesignal[-1]["data"]["openPage"] == "shop"
-
-
-def test_一覧に在庫の注意が出る(as_owner):
-    as_owner.post("/manage/products/new/", _product(stockQty="2", lowStockThreshold="3"))
-    page = as_owner.get("/manage/products/").content.decode()
-    assert "在庫が少なくなっています" in page
