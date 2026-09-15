@@ -353,3 +353,10 @@ td.brand { color: var(--brand); font-weight: 700; }
 .category-heading { font-size: .95rem; font-weight: 600; color: var(--text-primary); border-left: 4px solid var(--brand); padding-left: 10px; margin: 16px 0 10px; }
 .category-heading.menu { border-left-color: #8fae7c; }
 .category-heading.notice { border-left-color: #f09433; }
+/* ---- お知らせ管理（お客様アプリの「お知らせ一覧」の横断ビュー） ---- */
+.notice-guide { font-size: .82rem; color: var(--text-secondary); line-height: 1.7; }
+.notice-guide-danger { color: var(--danger); }
+.notice-category { background: #f7efe5; color: var(--text-primary); }
+.notice-status { width: auto; padding: 4px 8px; font-size: .78rem; font-weight: 600; border-radius: var(--radius-full); }
+.notice-status.is-public { background: #e8f5e9; color: #2e7d32; }
+.notice-status.is-private { background: #f5f5f5; color: #757575; }
