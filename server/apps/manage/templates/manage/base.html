@@ -26,6 +26,8 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       <div class="sidebar-logo-text">まゆみ助産院<span>管理画面</span></div>
     </div>
     <nav class="sidebar-nav">
+      <span class="nav-section">受付</span>
+      <a href="{% url 'manage:order_list' %}" class="{% if 'order' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📦</span> 注文管理</a>
       <span class="nav-section">コンテンツ</span>
       <a href="{% url 'manage:news_list' %}" class="{% if 'news' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📝</span> お知らせ管理</a>
       <a href="{% url 'manage:category_list' %}" class="{% if 'category' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🏷️</span> カテゴリ管理</a>
@@ -36,7 +38,7 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       <a href="{% url 'manage:calendar_list' %}" class="{% if 'calendar' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📅</span> カレンダー</a>
       <span class="nav-section">旧管理アプリ</span>
       <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-muted"><span class="nav-icon">↗</span> 旧管理アプリを開く</a>
-      <span class="nav-note">注文・会員・分析は、いまは旧管理アプリで。順に移します。</span>
+      <span class="nav-note">会員・分析は、いまは旧管理アプリで。順に移します。</span>
     </nav>
     {% if request.user.is_authenticated %}
     <div class="sidebar-footer">
