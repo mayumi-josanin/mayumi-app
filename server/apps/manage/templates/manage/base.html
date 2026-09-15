@@ -26,6 +26,10 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       <div class="sidebar-logo-text">まゆみ助産院<span>管理画面</span></div>
     </div>
     <nav class="sidebar-nav">
+      <span class="nav-section">予約</span>
+      <a href="{% url 'manage:go_reserve' %}?to=/manage/"><span class="nav-icon">🗓️</span> 予定表</a>
+      <a href="{% url 'manage:go_reserve' %}?to=/manage/reservations/"><span class="nav-icon">📋</span> 予約の管理</a>
+      <a href="{% url 'manage:go_reserve' %}?to=/manage/customers/"><span class="nav-icon">👤</span> お客様（予約）</a>
       <span class="nav-section">受付</span>
       <a href="{% url 'manage:order_list' %}" class="{% if 'order' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📦</span> 注文管理</a>
       <a href="{% url 'manage:analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name or 'revenue' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📊</span> データ分析</a>
