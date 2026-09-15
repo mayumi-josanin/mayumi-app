@@ -1,8 +1,9 @@
 from django.urls import path, re_path
 
-from . import views
+from . import views, views_options
 
 urlpatterns = [
+    path("hp/options/", views_options.hp_options, name="hp_options"),
     path("hp/git/", views.hp_git, name="hp_git"),
     path("hp/publish/", views.hp_publish, name="hp_publish"),
     path("hp/preview/", views.hp_preview, name="hp_preview"),
