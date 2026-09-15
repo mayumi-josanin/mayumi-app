@@ -22,8 +22,6 @@ GAS は `sheet.deleteRow(rowIdx)`。FAQ と同じ作法。
 お知らせ・商品のような論理削除ではない。**表ごとに今の振る舞いに合わせる。**
 """
 
-import re
-import unicodedata
 from decimal import Decimal
 
 from django.db import transaction
@@ -44,6 +42,13 @@ def _数(v, 既定=0):
         return int(float(v))
     except (TypeError, ValueError):
         return 既定
+
+
+def _小数(v):
+    try:
+        return Decimal(str(v if v not in (None, "") else 0))
+    except Exception:
+        return Decimal("0")
 
 
 def _金(v):
@@ -69,9 +74,23 @@ def _日付(v):
 
 
 def _種別をそろえる(v):
-    """GAS の normalizeMenuRevenueType_ と同じ。**当てはまらなければ「その他」。**"""
-    t = re.sub(r"[\s　]+", "", unicodedata.normalize("NFKC", _文(v)))
-    return t if t in メニュー種別 else "その他"
+    """GAS の normalizeMenuRevenueType_ と同じ。
+
+    「母乳」を含めば母乳外来、「ビジ」ならビジリス、「教室」なら教室。
+    **それ以外はそのまま残す**（「その他」で入れた固有の名前は、分析の
+    「メニュー別収益詳細」に個別に出す。以前ここで「その他」に丸めていて、
+    固有名称が消えていた。2026-09-15）。
+    """
+    t = _文(v).strip()
+    if not t:
+        return ""
+    if "母乳" in t:
+        return "母乳外来"
+    if "ビジ" in t:
+        return "ビジリス"
+    if "教室" in t:
+        return "教室"
+    return t
 
 
 def _一件(r):
@@ -130,8 +149,10 @@ def _保存(種別, d, 名の鍵, 数の鍵):
             名 = (_種別をそろえる(item.get(名の鍵)) if 種別 == RevenueRecord.MENU
                   else _文(item.get(名の鍵)).strip())
             数 = max(1, _数(item.get(数の鍵), 1))
-            単価 = max(0, _数(item.get("unitPrice")))
-            原価 = max(0, _数(item.get("unitCost")))
+            # **単価は小数を残す。**だし調味粉の「実質単価」は割引段階の平均で小数になる
+            # （GAS も Number のまま書いていた）。整数に切ると分析の売上が合わなくなる。
+            単価 = max(Decimal("0"), _小数(item.get("unitPrice")))
+            原価 = max(Decimal("0"), _小数(item.get("unitCost")))
             メモ = _文(item.get("note")).strip()
 
             行 = item.get("rowIdx", d.get("rowIdx"))
