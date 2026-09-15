@@ -494,3 +494,10 @@ td.brand { color: var(--brand); font-weight: 700; }
 .hp-log { white-space: pre-wrap; font-size: .85rem; line-height: 1.7; background: var(--surface-hover); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin: 0; }
 .hp-pvwrap { margin-top: 14px; background: #e9ece9; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; overflow: auto; }
 .hp-pv { display: block; margin: 0 auto; height: 78vh; max-width: 100%; border: 0; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+/* 公式サイト「基本情報」（hp_basic）: 旧アプリの区切り線・部の見出し・SNS カードの2段組み */
+.hp-sep { margin: 30px 0 20px; border-top: 1px dashed var(--border); }
+.hp-part-title { font-size: 1.15rem; font-weight: 700; margin: 0 0 14px; }
+.hp-label { display: block; font-size: .82rem; font-weight: 600; color: var(--text-primary); margin: 10px 0 6px; }
+.hp-sns-grid { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 18px; align-items: start; }
+.hp-sns-icon { text-align: center; background: var(--surface-hover); border-radius: var(--radius-sm); padding: 12px; }
+@media (max-width: 768px) { .hp-sns-grid { grid-template-columns: 1fr; } }
