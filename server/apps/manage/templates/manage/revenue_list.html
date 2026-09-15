@@ -1,0 +1,181 @@
+{% extends "manage/base.html" %}
+{% load humanize %}
+
+{% block title %}{{ label }} | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}データ分析{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ label }}の記録</h1>
+    <div class="lead">{% if kind == "menu" %}施術・教室の売上を、日ごとに種別と単価で記録します。{% else %}ショップ以外（院内で手渡しなど）の商品の売上を記録します。{% endif %}分析の月ごとの表に反映されます。</div>
+  </div>
+  <div class="page-header-actions">
+    <a class="btn btn-outline" href="{% url 'manage:analytics' %}">分析へ戻る</a>
+    <a class="btn btn-outline" href="{% url 'manage:revenue_list' 'product' %}" {% if kind == 'product' %}style="display:none"{% endif %}>商品収益へ</a>
+    <a class="btn btn-outline" href="{% url 'manage:revenue_list' 'menu' %}" {% if kind == 'menu' %}style="display:none"{% endif %}>メニュー収益へ</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>{% if editing %}記録を修正（{{ editing.date }}）{% else %}記録を足す{% endif %}</h2></div>
+  <div class="card-body">
+    <form method="post" action="{% url 'manage:revenue_save' kind %}" id="rev-form">
+      {% csrf_token %}
+      {% if editing %}<input type="hidden" name="rowIdx" value="{{ editing.rowIdx }}">{% endif %}
+      <div class="form-row">
+        <div class="form-group">
+          <label for="r-date">記録日</label>
+          <input id="r-date" name="date" type="date" class="form-control" required value="{% if editing %}{{ editing.date|slice:':10' }}{% else %}{{ today }}{% endif %}">
+        </div>
+      </div>
+
+      {% if editing %}
+        <div class="form-row">
+          <div class="form-group">
+            <label for="r-name">{% if kind == "menu" %}種別{% else %}商品{% endif %}</label>
+            {% if kind == "menu" %}
+              <select id="r-name" name="name" class="form-control">{% for t in menu_types %}<option value="{{ t }}" {% if editing.menuType == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+            {% else %}
+              <input id="r-name" name="name" class="form-control" list="rev-products" value="{{ editing.productName }}">
+            {% endif %}
+          </div>
+          <div class="form-group">
+            <label for="r-qty">{% if kind == "menu" %}件数{% else %}個数{% endif %}</label>
+            <input id="r-qty" name="qty" type="number" min="1" class="form-control" value="{% if kind == 'menu' %}{{ editing.count }}{% else %}{{ editing.qty }}{% endif %}">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="r-price">単価（円）</label><input id="r-price" name="unitPrice" type="number" min="0" class="form-control" value="{{ editing.unitPrice }}"></div>
+          <div class="form-group"><label for="r-cost">原価（円）</label><input id="r-cost" name="unitCost" type="number" min="0" class="form-control" value="{{ editing.unitCost }}"></div>
+        </div>
+        <div class="form-group"><label for="r-note">メモ</label><input id="r-note" name="note" class="form-control" value="{{ editing.note }}"></div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">修正を保存</button>
+          <a class="btn btn-outline" href="{% url 'manage:revenue_list' kind %}{% if month %}?month={{ month }}{% endif %}">やめる</a>
+        </div>
+      {% else %}
+        <input type="hidden" name="rows_json" id="rows_json" value="">
+        <div class="table-wrap">
+          <table id="rev-rows">
+            <thead><tr><th>{% if kind == "menu" %}種別{% else %}商品{% endif %}</th><th>{% if kind == "menu" %}件数{% else %}個数{% endif %}</th><th>単価（円）</th><th>原価（円）</th><th>メモ</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px"><button type="button" class="btn btn-outline btn-sm" id="rev-add">＋ 行を足す</button></div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">まとめて保存</button>
+        </div>
+      {% endif %}
+    </form>
+    <datalist id="rev-products">{% for name, price in products %}<option value="{{ name }}">{% endfor %}</datalist>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2>記録<span class="count">{{ records|length }}件</span></h2>
+    <form method="get" class="inline-form">
+      <select name="month" class="form-control" onchange="this.form.submit()">
+        <option value="">すべての月</option>
+        {% for m in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m|slice:':4' }}年{{ m|slice:'5:7' }}月</option>{% endfor %}
+      </select>
+    </form>
+  </div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>日付</th><th>{% if kind == "menu" %}種別{% else %}商品{% endif %}</th><th>数</th><th>単価</th><th>原価</th><th>売上</th><th>粗利</th><th>メモ</th><th></th></tr></thead>
+    <tbody>
+    {% for r in records %}
+      <tr>
+        <td class="nowrap">{{ r.date|slice:":10" }}</td>
+        <td>{% if kind == "menu" %}{{ r.menuType }}{% else %}{{ r.productName }}{% endif %}</td>
+        <td class="nowrap">{% if kind == "menu" %}{{ r.count }}{% else %}{{ r.qty }}{% endif %}</td>
+        <td class="nowrap">¥{{ r.unitPrice|intcomma }}</td>
+        <td class="nowrap">¥{{ r.unitCost|intcomma }}</td>
+        <td class="nowrap">¥{{ r.totalAmount|intcomma }}</td>
+        <td class="nowrap" style="color:var(--success)">¥{{ r.profit|intcomma }}</td>
+        <td><span class="sub">{{ r.note }}</span></td>
+        <td class="nowrap">
+          <div class="row-actions">
+            <a class="btn btn-outline btn-sm" href="?edit={{ r.rowIdx }}{% if month %}&month={{ month }}{% endif %}#rev-form">修正</a>
+            <form method="post" action="{% url 'manage:revenue_delete' kind r.rowIdx %}" onsubmit="return confirm('この記録を削除します（元に戻せません）。よろしいですか？');">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button type="submit" class="btn btn-outline btn-sm danger">削除</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="9"><div class="empty"><div class="empty-icon">🧾</div><p>記録はまだありません。</p></div></td></tr>
+    {% endfor %}
+    </tbody>
+    {% if records %}
+    <tfoot><tr><td colspan="5" style="text-align:right;font-weight:600">合計</td><td class="nowrap" style="font-weight:600">¥{{ total.amount|intcomma }}</td><td class="nowrap" style="font-weight:600;color:var(--success)">¥{{ total.profit|intcomma }}</td><td colspan="2"></td></tr></tfoot>
+    {% endif %}
+  </table>
+  </div>
+</div>
+
+{% if not editing %}
+{{ menu_types|json_script:"menu-types" }}
+{{ products|json_script:"products-data" }}
+<script>
+// 何行かまとめて入れて、rows_json で送る（旧管理アプリの「行を追加」と同じ）。
+(function () {
+  var kind = "{{ kind }}";
+  var menuTypes = JSON.parse(document.getElementById('menu-types').textContent);
+  var products = JSON.parse(document.getElementById('products-data').textContent);
+  var tbody = document.querySelector('#rev-rows tbody');
+  var hidden = document.getElementById('rows_json');
+  var rows = [];
+  function nameCell(i, r) {
+    if (kind === 'menu') {
+      return '<select class="form-control" data-i="' + i + '" data-k="name" style="padding:6px 8px">' +
+        menuTypes.map(function (t) { return '<option value="' + t + '"' + (r.name === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select>';
+    }
+    return '<input class="form-control" list="rev-products" data-i="' + i + '" data-k="name" value="' + (r.name || '') + '" style="padding:6px 8px;min-width:200px">';
+  }
+  function draw() {
+    tbody.innerHTML = '';
+    rows.forEach(function (r, i) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + nameCell(i, r) + '</td>' +
+        '<td><input type="number" min="1" class="form-control" data-i="' + i + '" data-k="qty" value="' + r.qty + '" style="width:80px;padding:6px 8px"></td>' +
+        '<td><input type="number" min="0" class="form-control" data-i="' + i + '" data-k="unitPrice" value="' + r.unitPrice + '" style="width:110px;padding:6px 8px"></td>' +
+        '<td><input type="number" min="0" class="form-control" data-i="' + i + '" data-k="unitCost" value="' + r.unitCost + '" style="width:110px;padding:6px 8px"></td>' +
+        '<td><input class="form-control" data-i="' + i + '" data-k="note" value="' + (r.note || '') + '" style="min-width:140px;padding:6px 8px"></td>' +
+        '<td><button type="button" class="btn btn-outline btn-sm danger" data-del="' + i + '">外す</button></td>';
+      tbody.appendChild(tr);
+    });
+    hidden.value = JSON.stringify(rows);
+  }
+  function add() {
+    rows.push({ name: kind === 'menu' ? menuTypes[0] : '', qty: 1, unitPrice: 0, unitCost: 0, note: '' });
+    draw();
+  }
+  tbody.addEventListener('input', function (e) {
+    var t = e.target; if (!t.dataset.k) return;
+    var i = Number(t.dataset.i), k = t.dataset.k;
+    rows[i][k] = (k === 'name' || k === 'note') ? t.value : (Number(t.value) || 0);
+    if (kind === 'product' && k === 'name') {
+      var hit = products.find(function (p) { return p[0] === t.value; });
+      if (hit && !rows[i].unitPrice) { rows[i].unitPrice = hit[1] || 0; draw(); }
+    }
+    hidden.value = JSON.stringify(rows);
+  });
+  tbody.addEventListener('change', function (e) {
+    var t = e.target; if (!t.dataset.k) return;
+    rows[Number(t.dataset.i)][t.dataset.k] = (t.dataset.k === 'name' || t.dataset.k === 'note') ? t.value : (Number(t.value) || 0);
+    hidden.value = JSON.stringify(rows);
+  });
+  tbody.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-del]'); if (!b) return;
+    rows.splice(Number(b.dataset.del), 1); draw();
+  });
+  document.getElementById('rev-add').addEventListener('click', add);
+  add();
+})();
+</script>
+{% endif %}
+{% endblock %}
