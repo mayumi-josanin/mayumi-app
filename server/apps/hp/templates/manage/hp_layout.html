@@ -1,0 +1,951 @@
+{% extends "manage/base.html" %}
+{% block title %}ページの編集 | 公式サイト{% endblock %}
+{% block topbar_title %}公式サイト{% endblock %}
+{% block content %}
+<div class="page-header"><h1>🧩 ページの編集</h1></div>
+<div class="card">
+  <div class="card-body">
+    <p class="sub">
+      母乳外来・産後ケアなど、各ページの中身をここで直せます。<br>
+      <b>「編集」</b>を押すと、お知らせと同じ形の入力欄が開きます
+      （太字・下線・リンクのボタン、写真の追加、<b>👁 プレビュー</b>つき）。<br>
+      <b>つまんで上下にドラッグ</b>で順番を入れ替え、<b>「＋」</b>でも写真や文章を追加できます。
+      写真や表は幅と寄せも選べます。<br>
+      下に結果がすぐ出ます。<b>「この配置で確定」</b>を押すまで、サイトのファイルは書き換わりません。
+    </p>
+    <div class="inline-form" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+      <label style="margin:0">ページ</label>
+      <select id="lopage" class="form-control" style="width:auto;min-width:200px" onchange="loLoad()">
+        {% for p, n in pages %}<option value="{{ p }}" {% if p == page %}selected{% endif %}>{{ n }}</option>{% endfor %}
+      </select>
+      <button type="button" class="btn btn-outline btn-sm" onclick="loLoad()">読み直す</button>
+      <span style="flex:1"></span>
+      <button type="button" class="btn btn-outline" onclick="loReset()">やり直す</button>
+      <button type="button" class="btn btn-primary" onclick="loSave()">この配置で確定</button>
+    </div>
+  </div>
+</div>
+
+<div class="lo-wrap">
+  <div class="card lo-list"><div class="card-body" id="loList"><p class="sub">読み込んでいます…</p></div></div>
+  <div class="card lo-prev">
+    <div class="card-header"><h2>見え方 ― <span id="loWLabel" style="font-weight:400;color:var(--text-muted)">スマホ（幅390px）</span></h2></div>
+    <div class="card-body">
+      <div class="inline-form" style="gap:6px;flex-wrap:wrap;margin-bottom:6px">
+        {% for nm, w in devices %}<button type="button" class="btn btn-outline btn-sm lodev{% if w == 390 %} on{% endif %}" data-w="{{ w }}" onclick="loSetW({{ w }},this)">{{ nm }}</button>{% endfor %}
+        <span style="flex:1"></span>
+        <button type="button" class="btn btn-outline btn-sm lodev on" id="loFullBtn"
+                title="押すと切り替わります。端末の画面と同じ大きさの窓で見るか、ページの縦を全部出すか"
+                onclick="loSetFull(this)">▤ 端末の画面サイズ</button>
+      </div>
+      <p class="sub" style="margin-bottom:8px">
+        幅で形が変わるものがあります。とくに<b>料金表</b>は、
+        <b>767px以下（スマホ）だと1項目ずつ縦に</b>、
+        <b>それより広いと表（横並び）</b>で出ます。<br>
+        パソコンで見たときの形を確かめたいときは「PC」を押してください。</p>
+      <div class="lo-frame"><div class="lo-scale"><iframe id="loPv" title="配置プレビュー"></iframe></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="addModal" class="lo-modal" onclick="if(event.target===this) closeModal('addModal')">
+  <div class="lo-modal-content">
+    <h3>ここに追加する</h3>
+    <div class="card">
+      <div class="card-header"><h2>📷 写真</h2></div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>写真のファイル</label>
+          <input type="file" id="addFile" accept="image/*">
+          <p class="form-hint">自動で幅1600pxまで縮小し、WebPに変換して軽くします。</p>
+        </div>
+        <div class="form-group">
+          <label>写真の説明（目の見えない方や検索エンジンに伝わる文）</label>
+          <input type="text" id="addAlt" class="form-control" placeholder="例：授乳中の赤ちゃんとお母さん">
+        </div>
+        <button type="button" class="btn btn-primary" onclick="loAddImage()">この写真を追加</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header"><h2>✍️ 文章・見出し</h2></div>
+      <div class="card-body">
+        <div class="form-group">
+          <textarea id="addText" class="form-control" placeholder="ここに文章を入力（あとから直せます）"></textarea>
+        </div>
+        <div class="inline-form" style="gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-primary" onclick="loAddText('p')">文章として追加</button>
+          <button type="button" class="btn btn-outline" onclick="loAddText('h2')">見出し（大）として追加</button>
+          <button type="button" class="btn btn-outline" onclick="loAddText('h3')">見出し（中）として追加</button>
+        </div>
+      </div>
+    </div>
+    <div class="inline-form" style="justify-content:flex-end;margin-top:16px">
+      <button type="button" class="btn btn-outline" onclick="closeModal('addModal')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="lo-toast"></div>
+
+<script>
+/* 管理画面の中の住所。中身の作り方は旧アプリ（mayumi-site/admin/app.py の lo〜）と同じ */
+const CSRF = "{{ csrf_token }}";
+const DATA_URL = "{% url 'manage:hp_layout_data' %}";
+const API_URL = "{% url 'manage:hp_layout_api' what='x' %}".replace(/x\/$/, '');
+const IMG_URL = "{% url 'manage:hp_layout_image' %}";
+const PV_URL = "{% url 'manage:hp_layout_view' page='x' %}".replace(/x\/$/, '');
+</script>
+{% verbatim %}
+<script>
+function q(s,r){return (r||document).querySelector(s)}
+function qa(s,r){return [...(r||document).querySelectorAll(s)]}
+
+/* ---------- 通知・確認 ---------- */
+let toastTimer=null;
+function showToast(msg){
+  const t=q('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'), 4000);
+}
+function openConfirm(msg, cb){ if(confirm(msg)) cb(); }
+function closeModal(id){ q('#'+id).classList.remove('active'); }
+
+/* サーバーへ JSON で頼む */
+async function post(what, body){
+  try{
+    const r = await fetch(API_URL + what + '/', {method:'POST',
+      headers:{'Content-Type':'application/json', 'X-CSRFToken':CSRF},
+      body:JSON.stringify(body)});
+    return await r.json();
+  }catch(e){ return {ok:false, log:String(e)} }
+}
+async function postFile(fd){
+  try{
+    const r = await fetch(IMG_URL, {method:'POST', headers:{'X-CSRFToken':CSRF}, body:fd});
+    return await r.json();
+  }catch(e){ return {ok:false, log:String(e)} }
+}
+
+/* ---------- 配置の調整（ドラッグで並べ替え） ---------- */
+let LO = null;          /* いま編集中のページのブロック一覧 */
+let LOPAGE = '';
+let LOW = 390;
+let loDragIdx = null;
+let LO_TXOPEN = new Set();      /* 開いている「文章を直す」欄 */
+
+/* ページを続けて切り替えると、前の読み込みが後から返ってくることがある。
+   いちばん新しい読み込みの結果だけを使う。 */
+let LOSEQ = 0;
+
+async function loLoad(){
+  const seq = ++LOSEQ;
+  const page = q('#lopage').value;
+  let r;
+  try {
+    r = await (await fetch(DATA_URL+'?page='+encodeURIComponent(page))).json();
+  } catch(e) {
+    if(seq === LOSEQ) showToast('読み込めませんでした: '+e);
+    return;
+  }
+  if(seq !== LOSEQ) return;
+  if(!r.ok){ showToast('読み込めませんでした: '+r.log); return }
+  LOPAGE = page;
+  LO = r.data;
+  LO_TXOPEN.clear();
+  history.replaceState(null, '', '?page='+encodeURIComponent(page));
+  loRender(); loPreview();
+}
+function loReset(){ loLoad(); showToast('編集前の状態に戻しました。') }
+
+/* ---- 編集欄の部品（お知らせの編集フォームと同じ形） ---- */
+let LO_FOCUS = {};
+
+function loFocus(el){
+  const box = el.closest('.lo-editbox');
+  if(box) LO_FOCUS[box.id] = el.id;
+}
+
+function loTarget(boxId){
+  const box = q('#'+boxId);
+  if(!box) return null;
+  const el = LO_FOCUS[boxId] ? q('#'+LO_FOCUS[boxId]) : null;
+  if(el && box.contains(el)) return el;
+  return box.querySelector('textarea');
+}
+
+function loStyleBar(boxId){
+  return `
+        <div class="text-style-toolbar">
+          <button type="button" class="text-style-btn" aria-label="選んだ文字を太字にする"
+                  onclick="loStyle('${boxId}','bold')"><b>B</b></button>
+          <button type="button" class="text-style-btn" aria-label="選んだ文字に下線を引く"
+                  onclick="loStyle('${boxId}','underline')"><span
+                  style="text-decoration:underline">U</span></button>
+          <button type="button" class="text-style-btn" aria-label="選んだ文字をリンクにする"
+                  style="width:auto;padding:0 10px"
+                  onclick="loStyle('${boxId}','link')">リンク</button>
+          <span class="text-style-note">文字を選んでからボタンを押してください</span>
+        </div>`;
+}
+
+function escA(s){
+  return String(s == null ? '' : s)
+    .replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+}
+function escT(s){ return String(s == null ? '' : s).replace(/[<&]/g,c=>({'<':'&lt;','&':'&amp;'}[c])) }
+
+/* ---- 料金表の編集欄（「料金表」の欄とまったく同じ形） ---- */
+function loPriceBox(b, i){
+  const p = (LO.prices || {})[b.price_key];
+  if(!p) return '';
+  const merged = !!p.merge;
+  const head = p.head || ['項目', '料金'];
+  const rows = p.rows || [];
+  const ncol = (rows[0] || head).length;
+  const th = head.slice(0, ncol).map(h=>`<th>${escA(h)}</th>`).join('')
+           + (merged ? '' : '<th style="width:56px"></th>');
+  const trs = rows.map((row, r)=>`<tr>${
+      row.map((c, k)=>`<td><input type="text" data-pr="${i}|${r}|${k}" value="${escA(c)}"${
+        merged ? ' readonly style="background:var(--surface-hover)"' : ''
+      } oninput="loTxDirty(${i})"></td>`).join('')
+    }${merged ? '' :
+      `<td><button type="button" class="btn btn-outline danger btn-sm" onclick="loPriceRowDel(${i},${r})">削除</button></td>`
+    }</tr>`).join('');
+  const name = (LO.price_labels || {})[b.price_key] || b.price_key;
+
+  return `
+      <div class="lo-editbox" id="loEd${i}" style="display:${LO_TXOPEN.has(i)?'block':'none'}">
+        <label>表の見出し（サイトの表の上に出ます）</label>
+        <div class="inline-form" style="gap:8px;flex-wrap:wrap">
+          <input type="text" id="loPCap${i}" value="${escA(p.caption)}"
+                 style="flex:2;min-width:200px;width:auto" oninput="loTxDirty(${i})"
+                 placeholder="例：イトオテルミー温熱療法">
+          <input type="text" id="loPNote${i}" value="${escA(p.note)}"
+                 style="flex:1;min-width:140px;width:auto" oninput="loTxDirty(${i})"
+                 placeholder="小さく出す注記（なくても可）">
+        </div>
+        <p class="lo-hint" style="margin-top:5px">
+          この表（<b>${escA(name)}</b>）が出るページすべてで、同じ見出しになります。
+          右の欄は「※医療費控除対象」のように小さく添える文字です。</p>
+        <label>中身</label>
+        ${merged ? `<p class="lo-hint" style="margin-top:0">
+          この表は<b>ほかの表を自動で合わせたもの</b>です。金額はそれぞれの表で直してください。</p>` : ''}
+        <div class="table-wrap"><table style="margin-top:4px"><tr>${th}</tr>${trs}</table></div>
+        ${merged ? '' :
+          `<button type="button" class="btn btn-outline btn-sm" style="margin-top:10px"
+                   onclick="loPriceRowAdd(${i})">＋ 行を追加</button>`}
+        <p class="lo-hint">
+          直すと <b>content.json</b> に保存されます。ほかのページの同じ表には、
+          「公開する」の「手元に反映」で行き渡ります。</p>
+        <div class="lo-foot">
+          <button type="button" class="btn btn-outline" onclick="loPricePreview(${i})">👁 プレビュー</button>
+          <button type="button" class="btn btn-primary" onclick="loPriceApply(${i})">この内容にする</button>
+          <span class="lo-hint" id="loTxMsg${i}" style="margin:0"></span>
+          <span style="flex:1"></span>
+          <button type="button" class="btn btn-outline btn-sm" onclick="loEdit(${i})">閉じる</button>
+        </div>
+      </div>`;
+}
+
+function loPriceGather(i){
+  const rows = [];
+  qa('[data-pr]').forEach(el=>{
+    const [bi, r, k] = el.dataset.pr.split('|');
+    if(+bi !== i) return;
+    rows[+r] = rows[+r] || [];
+    rows[+r][+k] = el.value;
+  });
+  return rows.filter(Boolean);
+}
+
+/* 入力中の内容を、画面の持ちものに写しておく（描き直しても消えないように） */
+function loPriceStash(i){
+  const p = LO.prices[LO.blocks[i].price_key];
+  p.caption = q('#loPCap'+i).value;
+  p.note = q('#loPNote'+i).value;
+  if(!p.merge) p.rows = loPriceGather(i);
+  return p;
+}
+
+function loPriceRowAdd(i){
+  const p = loPriceStash(i);
+  const ncol = (p.rows[0] || (p.head || ['項目','料金'])).length;
+  p.rows.push(new Array(ncol).fill(''));
+  LO_TXOPEN.add(i);
+  loRender(); loTxDirty(i);
+}
+
+function loPriceRowDel(i, r){
+  const p = loPriceStash(i);
+  p.rows.splice(r, 1);
+  LO_TXOPEN.add(i);
+  loRender(); loTxDirty(i);
+}
+
+async function loPriceApply(i){
+  const b = LO.blocks[i];
+  const res = await post('price-save',
+    {key:b.price_key, block:b, caption:q('#loPCap'+i).value,
+     note:q('#loPNote'+i).value, rows:loPriceGather(i)});
+  if(!res.ok){ showToast('直せませんでした: '+res.log); return }
+  LO.blocks[i] = res.block;
+  LO.prices = res.prices;
+  LO_TXOPEN.add(i);
+  loRender(); loPreview();
+  showToast('料金表を直しました。ほかのページの同じ表には「手元に反映」で行き渡ります。');
+}
+
+async function loPricePreview(i){
+  const b = LO.blocks[i];
+  const res = await post('price-preview',
+    {key:b.price_key, block:b, caption:q('#loPCap'+i).value,
+     note:q('#loPNote'+i).value, rows:loPriceGather(i)});
+  if(!res.ok){ showToast('プレビューを作れませんでした: '+res.log); return }
+  const bs = LO.blocks.slice(); bs[i] = res.block;
+  if(await loPreviewData(loCopy(bs)))
+    showToast('いまの入力で表示しました。まだ反映していません。');
+}
+
+/* 編集欄の中から写真を足す。このかたまりのすぐ下に入る。 */
+function loUpBox(i){
+  return `
+        <div class="lo-up">
+          <label>写真を足す</label>
+          <input type="file" accept="image/*" id="loUp${i}" onchange="loUpImg(${i})">
+          <p class="lo-hint" style="margin:5px 0 0">
+            選ぶと<b>この文章のすぐ下</b>に入ります（自動でWebP化・縮小）。
+            位置はドラッグ、幅と寄せは写真の行で変えられます。</p>
+        </div>`;
+}
+
+/* ---- テキスト欄への書き込み（お知らせと同じ書き方） ---- */
+function txWrap(t, open, close){
+  const s=t.selectionStart, e=t.selectionEnd;
+  if(s===e){ showToast('先に文字を選んでください。'); return false }
+  const v=t.value;
+  t.value=v.slice(0,s)+open+v.slice(s,e)+close+v.slice(e);
+  t.focus(); t.setSelectionRange(s, e+open.length+close.length);
+  return true;
+}
+function txLink(t){
+  const s=t.selectionStart, e=t.selectionEnd;
+  if(s===e){ showToast('リンクにしたい文字を選んでください。'); return false }
+  const v=t.value, word=v.slice(s,e);
+  t.value=v.slice(0,s)+'['+word+'](ここにURL)'+v.slice(e);
+  t.focus(); t.setSelectionRange(s+word.length+3, s+word.length+10);
+  return true;
+}
+/* 選んでいる行すべてのあたまの印を、押したものに付け替える */
+function txMarkLines(t, mark){
+  const v=t.value, s=t.selectionStart, e=t.selectionEnd;
+  let a=v.lastIndexOf('\n', s-1)+1;
+  let b=v.indexOf('\n', e); if(b<0) b=v.length;
+  const done=v.slice(a,b).split('\n')
+    .map(line=>mark + line.replace(/^(#{1,3}\s|-\s)/,'')).join('\n');
+  t.value=v.slice(0,a)+done+v.slice(b);
+  t.focus(); t.setSelectionRange(a, a+done.length);
+}
+function loStyle(boxId, kind){
+  const t=loTarget(boxId); if(!t) return;
+  const ok = kind==='bold'      ? txWrap(t,'**','**')
+           : kind==='underline' ? txWrap(t,'__','__')
+           :                      txLink(t);
+  if(ok){
+    const m=boxId.match(/^loEd(\d+)$/);
+    if(m) loTxDirty(+m[1]);
+  }
+}
+
+/* 1つのかたまり（行）を描く。行そのものを押すと下に編集欄が開き、もう一度押すと閉じる。 */
+function loRow(b, i){
+  const canEd = !!(b.editable || (b.parts||[]).length || (b.lists||[]).length || b.price_key);
+  const open  = canEd && LO_TXOPEN.has(i);
+  return `
+    <div class="lo-item" draggable="true" data-i="${i}"
+         onmouseenter="loToPreview(${i})">
+      <div class="lo-head${canEd ? ' lo-head--tap' : ''}"
+           ${canEd ? `onclick="loHeadTap(event,${i})" title="押すと編集欄が開きます"` : ''}>
+        <span class="lo-grip">⠿</span>
+        <span class="lo-kind">${escT(b.label)}</span>
+        <span class="lo-sum">${escT(b.summary)}</span>
+        ${canEd
+          ? `<span class="lo-caret${open ? ' on' : ''}">▾</span>
+             <button type="button" class="btn btn-primary btn-sm" onclick="loEdit(${i})">${open ? '閉じる' : '編集'}</button>` : ''}
+        <button type="button" class="btn btn-outline btn-sm" onclick="loMove(${i},-1)">↑</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="loMove(${i},1)">↓</button>
+        <button type="button" class="btn btn-outline btn-sm" title="この下に追加" onclick="loOpenAdd(${i})">＋</button>
+        <button type="button" class="btn btn-outline danger btn-sm" title="このかたまりを削除" onclick="loDel(${i})">🗑</button>
+      </div>
+      ${b.price_key ? loPriceBox(b, i) : ''}
+      ${b.editable ? `
+      <div class="lo-editbox" id="loEd${i}" style="display:${open?'block':'none'}">
+        <label>本文</label>
+        ${loStyleBar('loEd'+i)}
+        <textarea id="loTx${i}" oninput="loTxDirty(${i})" onfocus="loFocus(this)">${escT(b.text||'')}</textarea>
+        <p class="lo-hint">${
+          b.editable==='list' ? '1行が1項目になります。' :
+          b.editable==='note' ? '1行が1つの文になります。' :
+          b.editable==='dl'   ? '「見出し ｜ 中身」の形で1行ずつ書きます。' :
+          '改行するとサイトでも改行されます。'}
+          ボタンを使わずに書くこともできます。太字は <b>**はさむ**</b>、
+          下線は <b>__はさむ__</b>、リンクは <b>[表示する文字](URL)</b>。</p>
+        ${loUpBox(i)}
+        <div class="lo-foot">
+          <button type="button" class="btn btn-outline" onclick="loTxPreview(${i})">👁 プレビュー</button>
+          <button type="button" class="btn btn-primary" onclick="loTxApply(${i})">この内容にする</button>
+          <span class="lo-hint" id="loTxMsg${i}" style="margin:0"></span>
+          <span style="flex:1"></span>
+          <button type="button" class="btn btn-outline btn-sm" onclick="loEdit(${i})">閉じる</button>
+        </div>
+      </div>` : ''}
+      ${(!b.editable && ((b.parts||[]).length || (b.lists||[]).length)) ? `
+      <div class="lo-editbox" id="loEd${i}" style="display:${open?'block':'none'}">
+        <label>この中の文章</label>
+        ${loStyleBar('loEd'+i)}
+        <p class="lo-hint" style="margin-top:0">
+          直したいところだけ書き換えてください。<br>
+          ボタンは、<b>いま入力していた欄</b>の選んだ文字にかかります。</p>
+        ${(b.parts||[]).map(p=>`
+        <div class="lo-part">
+          <label>${escT(p.label)}</label>
+          <textarea id="loPt${i}_${p.i}" data-lp="${i}|${p.i}"
+                    oninput="loTxDirty(${i})" onfocus="loFocus(this)"
+                    rows="${Math.min((p.text.match(/\n/g)||[]).length + 2, 12)}">${escT(p.text)}</textarea>
+        </div>`).join('')}
+        ${(b.lists||[]).map(L=>`
+        <div class="lo-part">
+          <label>${L.new ? '資格・経歴の欄（まだありません）' : '箇条書き（いま'+L.n+'項目）'}</label>
+          <textarea id="loLs${i}_${L.i}" data-ll="${i}|${L.i}"
+                    oninput="loTxDirty(${i})" onfocus="loFocus(this)"
+                    rows="${Math.min(L.text.split('\n').length + 2, 16)}">${escT(L.text)}</textarea>
+          <p class="lo-hint" style="margin:4px 0 0">${L.new
+            ? '<b>1行が1項目です。</b>書いて「この内容にする」を押すと、資格・経歴の欄ができます。'
+            : '<b>1行が1項目です。</b>行を足せば項目が増え、消せば減ります。並び順も行のとおりになります。'}</p>
+        </div>`).join('')}
+        ${loUpBox(i)}
+        <div class="lo-foot">
+          <button type="button" class="btn btn-outline" onclick="loPartsPreview(${i})">👁 プレビュー</button>
+          <button type="button" class="btn btn-primary" onclick="loPartsApply(${i})">この内容にする</button>
+          <span class="lo-hint" id="loTxMsg${i}" style="margin:0"></span>
+          <span style="flex:1"></span>
+          <button type="button" class="btn btn-outline btn-sm" onclick="loEdit(${i})">閉じる</button>
+        </div>
+      </div>` : ''}
+      ${b.sizable ? `
+      <div class="lo-tools">
+        <label>幅</label>
+        <select class="form-control" onchange="loOpt(${i},'width',this.value)">
+          ${LO.widths.map(w=>`<option value="${escA(w[1])}"${b.opts.width===w[1]?' selected':''}>${escT(w[0])}</option>`).join('')}
+        </select>
+        <label>寄せ</label>
+        <select class="form-control" onchange="loOpt(${i},'align',this.value)">
+          ${LO.aligns.map(a=>`<option value="${escA(a[1])}"${b.opts.align===a[1]?' selected':''}>${escT(a[0])}</option>`).join('')}
+        </select>
+      </div>` : ''}
+    </div>`;
+}
+
+/* ---- 本文（見出しも段落も箇条書きも、続いているところは1つの枠） ---- */
+function loRunBox(r, ri){
+  return `
+    <div class="lo-run">
+      <div class="lo-run__head">
+        <span class="lo-run__title">本文</span>
+        <span class="lo-hint" style="margin:0">
+          そのまま書いて、見出しにしたい行を選んでボタンを押してください。</span>
+      </div>
+      <div class="text-style-toolbar" style="margin-top:0">
+        <button type="button" class="text-style-btn" aria-label="選んだ文字を太字にする"
+                onclick="loWrap(${ri},'**','**')"><b>B</b></button>
+        <button type="button" class="text-style-btn" aria-label="選んだ文字に下線を引く"
+                onclick="loWrap(${ri},'__','__')"><span
+                style="text-decoration:underline">U</span></button>
+        <button type="button" class="text-style-btn" aria-label="選んだ文字をリンクにする"
+                style="width:auto;padding:0 10px" onclick="loLink(${ri})">リンク</button>
+        <span class="text-style-note">文字を選んでからボタンを押してください</span>
+      </div>
+      <div class="text-style-toolbar" style="margin-top:0">
+        <span class="text-style-note" style="margin-right:2px">この行を：</span>
+        <button type="button" class="text-style-btn" style="width:auto;padding:0 10px"
+                onclick="loMark(${ri},'# ')">見出しにする</button>
+        <button type="button" class="text-style-btn" style="width:auto;padding:0 10px"
+                onclick="loMark(${ri},'## ')">中見出しにする</button>
+        <button type="button" class="text-style-btn" style="width:auto;padding:0 10px"
+                onclick="loMark(${ri},'### ')">小見出しにする</button>
+        <button type="button" class="text-style-btn" style="width:auto;padding:0 10px"
+                onclick="loMark(${ri},'- ')">箇条書きにする</button>
+        <button type="button" class="text-style-btn" style="width:auto;padding:0 10px"
+                onclick="loMark(${ri},'')">本文にもどす</button>
+      </div>
+      <textarea id="loRun${ri}" oninput="loRunDirty(${ri})"
+                rows="${loRunRows(r.text)}">${escT(r.text)}</textarea>
+      <p class="lo-hint">
+        <b>1行が1つのまとまりです。</b>行のあたまの
+        <b>#</b> は見出し、<b>##</b> は中見出し、<b>###</b> は小見出し、
+        <b>-</b> は箇条書きになります。<br>
+        太字は <b>**はさむ**</b>、下線は <b>__はさむ__</b>、
+        リンクは <b>[表示する文字](URL)</b>。</p>
+      <div class="lo-up">
+        <label>写真を足す</label>
+        <input type="file" accept="image/*" id="loRunUp${ri}" onchange="loRunUpImg(${ri})">
+        <p class="lo-hint" style="margin:5px 0 0">
+          <b>カーソルのある行のすぐ下</b>に入ります（自動でWebP化・縮小）。
+          入れたい場所をクリックしてから選んでください。</p>
+      </div>
+      <div class="lo-foot">
+        <button type="button" class="btn btn-outline" onclick="loRunPreview(${ri})">👁 プレビュー</button>
+        <button type="button" class="btn btn-primary" onclick="loRunApply(${ri})">この内容にする</button>
+        <span class="lo-hint" id="loRunMsg${ri}" style="margin:0"></span>
+      </div>
+    </div>`;
+}
+
+function loRunRows(text){
+  return Math.min(Math.max((text||'').split('\n').length + 2, 6), 45);
+}
+function txGrow(t){
+  if(t && t.scrollHeight > t.clientHeight + 2) t.style.height = (t.scrollHeight + 6)+'px';
+}
+function loRunDirty(ri){
+  const m=q('#loRunMsg'+ri); if(m) m.textContent='まだ反映していません';
+  txGrow(q('#loRun'+ri));
+}
+function loMark(ri, mark){
+  const t=q('#loRun'+ri); if(!t) return;
+  txMarkLines(t, mark);
+  loRunDirty(ri);
+}
+function loWrap(ri, open, close){
+  const t=q('#loRun'+ri); if(!t) return;
+  if(txWrap(t, open, close)) loRunDirty(ri);
+}
+function loLink(ri){
+  const t=q('#loRun'+ri); if(!t) return;
+  if(txLink(t)) loRunDirty(ri);
+}
+
+async function loRunApply(ri){
+  const r=LO.runs[ri], t=q('#loRun'+ri);
+  const res=await post('run', {a:r.a, z:r.z, blocks:LO.blocks, text:t.value});
+  if(!res.ok){ showToast('直せませんでした: '+res.log); return }
+  LO.blocks=res.blocks; LO.runs=res.runs;
+  loRender(); loPreview();
+  showToast('直しました。上の「この配置で確定」でファイルに書き込まれます。');
+}
+
+/* ---- ページの中身を、上から順に描く ---- */
+function loRender(){
+  const box = q('#loList');
+
+  const runAt = {}, inRun = new Set();
+  (LO.runs||[]).forEach((r,ri)=>{
+    runAt[r.a] = ri;
+    for(let i=r.a; i<r.z; i++) inRun.add(i);
+  });
+
+  let html = '';
+  LO.blocks.forEach((b,i)=>{
+    if(runAt[i] !== undefined) html += loRunBox(LO.runs[runAt[i]], runAt[i]);
+    if(!inRun.has(i)) html += loRow(b, i);
+  });
+  box.innerHTML = html || '<p class="sub">このページにはまだ何もありません。</p>';
+
+  /* ドラッグでの並べ替え */
+  qa('.lo-item', box).forEach(el=>{
+    el.addEventListener('dragstart',ev=>{
+      loDragIdx = +el.dataset.i; el.classList.add('dragging');
+      ev.dataTransfer.effectAllowed='move';
+      ev.stopPropagation();
+    });
+    el.addEventListener('dragend',()=>{
+      el.classList.remove('dragging');
+      qa('.lo-item').forEach(x=>x.classList.remove('over'));
+    });
+    el.addEventListener('dragover',ev=>{ ev.preventDefault(); el.classList.add('over') });
+    el.addEventListener('dragleave',()=>el.classList.remove('over'));
+    el.addEventListener('drop',ev=>{
+      ev.preventDefault(); ev.stopPropagation();
+      const to = +el.dataset.i;
+      if(loDragIdx===null || loDragIdx===to) return;
+      const [m] = LO.blocks.splice(loDragIdx,1);
+      LO.blocks.splice(to,0,m);
+      loDragIdx=null; loSync();
+    });
+  });
+  qa('.lo-run textarea', box).forEach(txGrow);
+  loReopenTx();
+}
+
+/* 並びが変わったら、1つの枠にまとめる範囲を計算し直してから描く */
+async function loSync(){
+  const r = await post('runs',{blocks:LO.blocks});
+  if(r.ok) LO.runs = r.runs;
+  loRender(); loPreview();
+}
+
+/* ---- 文章を直す欄（「編集」ボタンで開く） ---- */
+function loEdit(i){
+  const el = q('#loEd'+i);
+  if(!el) return;
+  const willOpen = (el.style.display === 'none');
+  el.style.display = willOpen ? 'block' : 'none';
+  const row = q(`.lo-item[data-i="${i}"]`);
+  if(row){
+    const c = row.querySelector('.lo-caret');
+    if(c) c.classList.toggle('on', willOpen);
+    const btn = [...row.querySelectorAll('.lo-head .btn')]
+                  .find(x=>/^(編集|閉じる)$/.test(x.textContent.trim()));
+    if(btn) btn.textContent = willOpen ? '閉じる' : '編集';
+  }
+  if(willOpen){
+    LO_TXOPEN.add(i);
+    const t = el.querySelector('textarea');
+    if(t) t.focus();
+  }
+  else { LO_TXOPEN.delete(i); }
+}
+
+/* 行そのものを押したとき。行の中のボタンや入力欄を押したときは開閉しない。 */
+function loHeadTap(e, i){
+  if(e.target.closest('button, input, select, textarea, a, .lo-grip')) return;
+  loEdit(i);
+}
+
+/* ---- 見え方の画面の上で直す（やり取りは postMessage） ---- */
+function loSend(o){
+  const f = q('#loPv');
+  if(f && f.contentWindow) f.contentWindow.postMessage(Object.assign({from:'ed-admin'}, o), '*');
+}
+
+function loFromPreview(i, part, list){
+  const b = LO.blocks[i];
+  const row = q(`.lo-item[data-i="${i}"]`);
+  if(row){
+    const lst = q('#loList');
+    if(lst){
+      const want = row.offsetTop - (lst.clientHeight - row.offsetHeight) / 2;
+      lst.scrollTo({top: Math.max(0, want), behavior:'smooth'});
+    }
+    row.classList.add('lo-flash');
+    setTimeout(()=>row.classList.remove('lo-flash'), 1500);
+  }
+  if(b && b.editable){
+    loSend({act:'edit', block:i, text:b.text||'', kind:b.editable, label:b.label});
+    return;
+  }
+  if(b && part != null){
+    const p = (b.parts||[]).find(x=>x.i===part);
+    if(p){
+      loSend({act:'edit', block:i, part:part, text:p.text||'', label:p.label});
+      return;
+    }
+  }
+  if(b && list != null){
+    const L = (b.lists||[]).find(x=>x.i===list);
+    if(L){
+      loSend({act:'edit', block:i, list:list, text:L.text||'', label:'箇条書き'});
+      return;
+    }
+  }
+  const h = (b && b.html) || '';
+  let where = null;
+  if(/<img|lead-photo/.test(h))        where = '「🖼️ 写真」の画面で入れかえます';
+  else if(/<iframe/.test(h))           where = '地図なので、ここでは直せません';
+  else if(/<script/.test(h))           where = 'ページのしくみの部分なので、ここでは直せません';
+  if(where){ loSend({act:'info', block:i, label:(b && b.label) || 'この部分', msg: where}); return }
+  const box = q('#loEd'+i);
+  if(box && box.style.display === 'none') loEdit(i);
+  loSend({act:'info', block:i, label:(b && b.label) || 'この部分',
+          msg: box ? '上の編集欄で直します' : '専用の画面で直します'});
+}
+
+async function loApplyFromPreview(i, text, y, part, list){
+  let r;
+  if(part != null)      r = await post('parts', {block:LO.blocks[i], values:{[part]:text}, lists:{}});
+  else if(list != null) r = await post('parts', {block:LO.blocks[i], values:{}, lists:{[list]:text}});
+  else                  r = await post('text',  {block:LO.blocks[i], text:text});
+  if(!r.ok){ loSend({act:'error', msg:r.log || ''}); return }
+  LO.blocks[i] = r.block;
+  LO_TXOPEN.add(i);
+  loRender();
+  const f = q('#loPv');
+  if(f) f.addEventListener('load', ()=>loSend({block:i, y:y}), {once:true});
+  await loPreview();
+  showToast('文章を直しました。上の「この配置で確定」でファイルに書き込まれます。');
+}
+
+/* 料金表のマス目を、見え方の画面から直す。料金はデータ側に入っているので、そのマスだけ保存する。 */
+async function loPriceCell(key, r, c, text, y){
+  const i = LO.blocks.findIndex(b=>b.price_key===key);
+  if(i < 0){ loSend({act:'error', msg:'料金表が見つかりませんでした'}); return }
+  const res = await post('price-cell', {key:key, r:r, c:c, text:text, block:LO.blocks[i]});
+  if(!res.ok){ loSend({act:'error', msg:res.log || ''}); return }
+  LO.blocks[i] = res.block;
+  LO.prices = res.prices;
+  loRender();
+  const f = q('#loPv');
+  if(f) f.addEventListener('load', ()=>loSend({y:y}), {once:true});
+  await loPreview();
+  showToast('料金を直しました。「手元に反映」で、ほかのページの同じ表にも行き渡ります。');
+}
+
+function loToPreview(i){ loSend({block:i}) }
+
+window.addEventListener('message', e => {
+  const d = e.data || {};
+  if(d.from !== 'ed-preview') return;
+  if(d.act === 'size'){
+    if(d.h && Math.abs(d.h - LOPVH) > 4){ LOPVH = d.h; loFitPv() }
+    return;
+  }
+  if(d.act === 'price') loPriceCell(d.key, d.r, d.c, d.text, d.y);
+  else if(d.act === 'apply') loApplyFromPreview(d.block, d.text, d.y, d.part, d.list);
+  else loFromPreview(d.block, d.part, d.list);
+});
+
+function loTxDirty(i){
+  const m = q('#loTxMsg'+i);
+  if(m) m.textContent = 'まだ反映していません';
+  txGrow(q('#loTx'+i));
+}
+
+function loPartsGather(i){
+  const vals={};
+  qa('[data-lp]').forEach(el=>{
+    const [bi,pi]=el.dataset.lp.split('|');
+    if(+bi===i) vals[pi]=el.value;
+  });
+  return vals;
+}
+function loListsGather(i){
+  const vals={};
+  qa('[data-ll]').forEach(el=>{
+    const [bi,li]=el.dataset.ll.split('|');
+    if(+bi===i) vals[li]=el.value;
+  });
+  return vals;
+}
+
+async function loPartsApply(i){
+  const vals=loPartsGather(i), lists=loListsGather(i);
+  const r=await post('parts',{block:LO.blocks[i], values:vals, lists:lists});
+  if(!r.ok){ showToast('直せませんでした: '+r.log); return }
+  LO.blocks[i]=r.block;
+  LO_TXOPEN.add(i);
+  loRender(); loPreview();
+  showToast('文章を直しました。上の「この配置で確定」でファイルに書き込まれます。');
+}
+
+async function loTxApply(i){
+  const el = q('#loTx'+i);
+  if(!el) return;
+  const r = await post('text',{block:LO.blocks[i], text:el.value});
+  if(!r.ok){ showToast('直せませんでした: '+r.log); return }
+  LO.blocks[i] = r.block;
+  LO_TXOPEN.add(i);
+  loRender(); loPreview();
+  showToast('文章を直しました。上の「この配置で確定」でファイルに書き込まれます。');
+}
+
+function loReopenTx(){
+  LO_TXOPEN.forEach(i=>{
+    const el = q('#loEd'+i);
+    if(el) el.style.display='block';
+  });
+}
+
+function loMove(i,dir){
+  const j=i+dir; if(j<0||j>=LO.blocks.length) return;
+  [LO.blocks[i],LO.blocks[j]]=[LO.blocks[j],LO.blocks[i]];
+  loSync();
+}
+async function loOpt(i,key,val){
+  const r = await post('opt',{page:LOPAGE, block:LO.blocks[i], key:key, value:val});
+  if(r.ok){ LO.blocks[i]=r.block; loRender(); loPreview() }
+}
+
+/* ---- 見え方の枠 ---- */
+let LOWNAME = 'スマホ';
+let LOPVH = 0;
+let LOFULL = false;
+/* それぞれの端末で「ブラウザに実際に見えている範囲」の高さ */
+const LODEVH = {390: 664, 820: 1024, 1280: 720};
+
+function loSetW(w,btn){
+  LOW=w; qa('.lodev').forEach(b=>{ if(b.id!=='loFullBtn') b.classList.remove('on') }); btn.classList.add('on');
+  LOWNAME = btn.textContent;
+  loFitPv();
+}
+function loSetFull(btn){
+  LOFULL = !LOFULL;
+  btn.textContent = LOFULL ? '⤢ 縦を全部出す' : '▤ 端末の画面サイズ';
+  loFitPv();
+}
+/* 縮小はしない。実寸で出し、枠より広いときは横スクロールで見る。 */
+function loFitPv(){
+  const fr=q('.lo-prev .lo-frame'), sc=q('.lo-scale'), pv=q('#loPv');
+  if(!fr || !sc || !pv) return;
+  const avail = Math.max(200, fr.clientWidth - 20);
+  const ih = (LOFULL && LOPVH) ? LOPVH : (LODEVH[LOW] || 800);
+  pv.style.width = LOW+'px';
+  pv.style.height = ih+'px';
+  sc.style.width = LOW+'px';
+  sc.style.height = ih+'px';
+  sc.style.transform = 'none';
+  fr.style.height = ih+'px';
+  sc.style.marginLeft = Math.max(0, Math.round((avail - LOW)/2))+'px';
+  const lab=q('#loWLabel');
+  if(lab) lab.textContent = LOWNAME
+        + (LOFULL ? '（幅'+LOW+'px・実寸・縦は全部）'
+                  : '（'+LOW+'×'+ih+'px・実寸／中をスクロールして見ます）')
+        + (LOW > avail ? '　… 枠が狭いので横にもスクロールします' : '')
+        + (LOW<768 ? '　… 料金表は縦並びになります' : '');
+}
+window.addEventListener('resize', ()=>{ if(q('.lo-scale')) loFitPv() });
+
+async function loPreviewData(data){
+  const r = await post('preview',{page:LOPAGE, data:data});
+  if(!r.ok){ showToast('プレビュー失敗: '+r.log); return false }
+  q('#loPv').src = PV_URL+LOPAGE+'/?t='+Date.now();
+  loFitPv();
+  return true;
+}
+async function loPreview(){ return loPreviewData(LO) }
+
+/* ---- 👁 プレビュー（入力中の内容で見え方だけを作り直す） ---- */
+function loCopy(blocks){ return Object.assign({}, LO, {blocks:blocks}) }
+
+async function loTxPreview(i){
+  const el = q('#loTx'+i);
+  if(!el) return;
+  const r = await post('text',{block:LO.blocks[i], text:el.value});
+  if(!r.ok){ showToast('プレビューを作れませんでした: '+r.log); return }
+  const bs = LO.blocks.slice(); bs[i] = r.block;
+  if(await loPreviewData(loCopy(bs)))
+    showToast('いまの入力で表示しました。まだ反映していません。');
+}
+async function loPartsPreview(i){
+  const vals=loPartsGather(i), lists=loListsGather(i);
+  const r = await post('parts',{block:LO.blocks[i], values:vals, lists:lists});
+  if(!r.ok){ showToast('プレビューを作れませんでした: '+r.log); return }
+  const bs = LO.blocks.slice(); bs[i] = r.block;
+  if(await loPreviewData(loCopy(bs)))
+    showToast('いまの入力で表示しました。まだ反映していません。');
+}
+async function loRunPreview(ri){
+  const r = LO.runs[ri], t = q('#loRun'+ri);
+  if(!t) return;
+  const res = await post('run', {a:r.a, z:r.z, blocks:LO.blocks, text:t.value});
+  if(!res.ok){ showToast('プレビューを作れませんでした: '+res.log); return }
+  if(await loPreviewData(loCopy(res.blocks)))
+    showToast('いまの入力で表示しました。まだ反映していません。');
+}
+
+/* 編集欄から写真を足す。このかたまりのすぐ下に入る。 */
+async function loUpImg(i){
+  const inp = q('#loUp'+i);
+  const f = inp && inp.files[0];
+  if(!f) return;
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('alt', '');
+  showToast('写真を取り込んでいます…');
+  const r = await postFile(fd);
+  inp.value = '';
+  if(!r.ok){ showToast('追加できませんでした: '+r.log); return }
+  LO.blocks.splice(i+1, 0, r.block);
+  LO_TXOPEN = new Set([...LO_TXOPEN].map(x => x > i ? x + 1 : x));
+  LO_TXOPEN.add(i);
+  loSync();
+  showToast('写真を入れました（'+r.filename+'）。位置はドラッグ、幅と寄せは写真の行で変えられます。');
+}
+
+/* 本文の枠から写真を足す。カーソルのある行のすぐ下に入る。 */
+async function loRunUpImg(ri){
+  const inp = q('#loRunUp'+ri), t = q('#loRun'+ri);
+  const f = inp && inp.files[0];
+  if(!f || !t) return;
+  const at = loRunBlockAt(t.value, t.selectionStart);
+  const r0 = LO.runs[ri];
+  const res = await post('run', {a:r0.a, z:r0.z, blocks:LO.blocks, text:t.value});
+  if(!res.ok){ showToast('入れられませんでした: '+res.log); inp.value=''; return }
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('alt', '');
+  showToast('写真を取り込んでいます…');
+  const r = await postFile(fd);
+  inp.value = '';
+  if(!r.ok){ showToast('追加できませんでした: '+r.log); return }
+  LO.blocks = res.blocks;
+  LO.blocks.splice(r0.a + at, 0, r.block);
+  loSync();
+  showToast('写真を入れました（'+r.filename+'）。位置はドラッグ、幅と寄せは写真の行で変えられます。');
+}
+
+/* 本文の枠で、カーソルの前にいくつのかたまりがあるかを数える（サーバー側と同じ数え方） */
+function loRunBlockAt(text, pos){
+  let n = 0, prevLi = false;
+  for(const raw of (text||'').slice(0, pos).split('\n')){
+    const line = raw.trim();
+    if(!line) continue;
+    const isLi = line.startsWith('- ');
+    if(isLi && prevLi) continue;
+    n++; prevLi = isLi;
+  }
+  return n;
+}
+
+function loSave(){
+  if(!LO || q('#lopage').value !== LOPAGE){
+    showToast('ページが切り替わっています。「読み直す」を押してからやり直してください。');
+    return;
+  }
+  openConfirm('この配置でサイトのファイルを書き換えます。よろしいですか？', async()=>{
+    const r = await post('save',{page:LOPAGE, data:LO});
+    showToast(Array.isArray(r.log) ? r.log.join('\n') : String(r.log||''));
+    LO=null; loLoad();
+  });
+}
+
+/* ---------- ブロックの追加・削除 ---------- */
+let loAddAt = 0;
+function loOpenAdd(i){
+  loAddAt = i;
+  q('#addFile').value = '';
+  q('#addAlt').value = '';
+  q('#addText').value = '';
+  q('#addModal').classList.add('active');
+}
+function loDel(i){
+  const b = LO.blocks[i];
+  openConfirm('「'+b.label+'：'+b.summary.slice(0,24)+'」を削除します。よろしいですか？', ()=>{
+    LO.blocks.splice(i,1); loSync();
+    showToast('削除しました。「この配置で確定」を押すまでサイトは変わりません。');
+  });
+}
+async function loAddText(kind){
+  const v = q('#addText').value.trim();
+  const r = await post('new',{kind:kind, value:v});
+  if(!r.ok){ showToast('追加できませんでした: '+r.log); return }
+  LO.blocks.splice(loAddAt+1, 0, r.block);
+  closeModal('addModal'); loSync();
+  showToast('追加しました。位置はドラッグで動かせます。');
+}
+async function loAddImage(){
+  const f = q('#addFile').files[0];
+  if(!f){ showToast('写真のファイルを選んでください。'); return }
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('alt', q('#addAlt').value);
+  showToast('写真を取り込んでいます…');
+  const r = await postFile(fd);
+  if(!r.ok){ showToast('追加できませんでした: '+r.log); return }
+  LO.blocks.splice(loAddAt+1, 0, r.block);
+  closeModal('addModal'); loSync();
+  showToast('写真を追加しました（'+r.filename+'）。位置と大きさは変えられます。');
+}
+
+loLoad();
+</script>
+{% endverbatim %}
+{% endblock %}
