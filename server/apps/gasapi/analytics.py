@@ -232,11 +232,68 @@ def 集計():
         "products": 商品名,
         "menuTypes": list(メニュー種別),
         "matrix": 月表,
-        # **この2つは会員の表から作る。**まだ移していないので空で返す。
-        # GAS 側が転送するのは会員を移したあと。
-        "registrationRoutes": {},
-        "categoryUsage": {},
+        # **この2つは会員などの表から作る。**GAS は member を渡した時点で
+        # 差し替えをやめるので、サーバーが埋めていないと分析画面の2項目が空になる。
+        "registrationRoutes": 登録経路(),
+        "categoryUsage": カテゴリの利用状況(),
     }
+
+
+経路の名 = ["新規登録", "復元", "引き継ぎコード利用", "重複候補からの復旧", "自動復旧"]
+
+
+def 登録経路():
+    """GAS の buildRegistrationRouteAnalytics_ と同じ形（routeLabels / months / totals / matrix）。"""
+    from django.utils import timezone
+
+    from apps.members.models import Member
+
+    答 = {"routeLabels": list(経路の名), "months": [], "totals": {n: 0 for n in 経路の名}, "matrix": {}}
+    for m in Member.objects.exclude(deleted=True):
+        経路 = (m.registration_source or "").strip()
+        if 経路 not in 経路の名:
+            経路 = "新規登録"
+        # 新規登録は登録日時、それ以外は経路の更新日時（無ければ登録日時）で月を決める。
+        t = m.created_at if 経路 == "新規登録" else (m.registration_source_updated_at or m.created_at)
+        if not t:
+            continue
+        月 = timezone.localtime(t).strftime("%Y-%m")
+        if 月 not in 答["matrix"]:
+            答["matrix"][月] = {n: 0 for n in 経路の名}
+        答["matrix"][月][経路] += 1
+        答["totals"][経路] += 1
+    答["months"] = sorted(答["matrix"].keys(), reverse=True)
+    return 答
+
+
+def _並べる(数え):
+    """GAS の sortCategoryUsageEntries_。多い順、同数なら名前順。"""
+    return sorted(({"category": k, "count": v} for k, v in 数え.items()),
+                  key=lambda x: (-x["count"], x["category"]))
+
+
+def カテゴリの利用状況():
+    """GAS の buildCategoryUsageAnalytics_ と同じ形。消していないものを数える（下書きも含む）。"""
+    from apps.content.models import CalendarEvent, Menu, News, Product
+
+    def 数える(行たち):
+        数え = {}
+        for c in 行たち:
+            名 = (c or "").strip() or "カテゴリ未設定"
+            数え[名] = 数え.get(名, 0) + 1
+        return 数え
+
+    表 = {
+        "news": ("NEWS", News.objects.filter(deleted=False).values_list("category", flat=True)),
+        "products": ("商品", Product.objects.filter(deleted=False).values_list("category", flat=True)),
+        "menus": ("メニュー", Menu.objects.filter(deleted=False).values_list("category", flat=True)),
+        "calendar": ("カレンダー", CalendarEvent.objects.filter(deleted=False).exclude(title="").values_list("category", flat=True)),
+    }
+    答 = {}
+    for 鍵, (見出し, 行たち) in 表.items():
+        項目 = _並べる(数える(行たち))
+        答[鍵] = {"label": 見出し, "items": 項目, "total": sum(x["count"] for x in 項目)}
+    return 答
 
 
 def _だしか含めて内訳(月, 名, 個数, 単価, 原価, 売上, 粗利):

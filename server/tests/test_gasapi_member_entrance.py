@@ -141,11 +141,6 @@ def test_ログイン_お名前の空白違いでもはずれは同じ相手と�
     assert "停止" in ログイン(client, "佐藤花子", "1234")["message"]
 
 
-@pytest.mark.xfail(reason="入口（start/index.html 677行）は json.token が無いと"
-                          "「ログインできませんでした」にする。GAS の buildAccountSession_"
-                          "（2301行）は role / bijiris / token / memberToken / expiresAt / "
-                          "missing を返すが、サーバーの entrance.ログイン は memberId / name / kana "
-                          "しか返さない。**member を渡した瞬間に誰もログインできなくなる**", strict=True)
 def test_ログイン_入口が要る項目をそろえて返す(client):
     会員を作る(name="佐藤花子", kana="さとうはなこ", passcode="1234",
             phone="09012345678", birthday="1990-04-05", address="平塚市")
@@ -157,8 +152,6 @@ def test_ログイン_入口が要る項目をそろえて返す(client):
     assert 答["missing"] == []
 
 
-@pytest.mark.xfail(reason="GAS 2301行: role が「管理者」なら role:'admin' と管理者の札を返す。"
-                          "サーバーは role を見ていない", strict=True)
 def test_ログイン_管理者には管理者の札を返す(client):
     会員を作る(name="院長", passcode="1234", role="管理者")
     答 = ログイン(client, "院長", "1234")
@@ -166,8 +159,6 @@ def test_ログイン_管理者には管理者の札を返す(client):
     assert 答["token"]
 
 
-@pytest.mark.xfail(reason="GAS 2323行: 電話・生年月日・住所・フリガナが無い方には missing を返し、"
-                          "入口がお願いする材料にする。サーバーは返さない", strict=True)
 def test_ログイン_足りない項目をmissingで知らせる(client):
     会員を作る(name="佐藤花子", passcode="1234")
     答 = ログイン(client, "佐藤花子", "1234")
@@ -180,10 +171,6 @@ def _GASの旧パスワードハッシュ(password, salt, secret):
     return base64.urlsafe_b64encode(hashlib.sha256(素).digest()).decode("ascii")
 
 
-@pytest.mark.xfail(reason="旧方式の2名（password_hash + password_salt）の照合が GAS と違う。"
-                          "GAS 2207行は sha256(salt|password|ADMIN_TOKEN_SECRET) の base64url、"
-                          "entrance.py 148行は sha256(password+salt) の hex。"
-                          "取り込んだハッシュでは一致せず、この2名は入れない", strict=True)
 def test_ログイン_旧パスワード方式の方も入れる(client, settings):
     settings.ADMIN_TOKEN_SECRET = "secret-for-test"
     会員を作る(name="旧会員", passcode="", password_salt="salt-1",
@@ -324,8 +311,6 @@ def test_新規登録_電話番号の消えた先頭の0を戻して保存する
     assert Member.objects.get(pk=答["memberId"]).phone == "09012345678"
 
 
-@pytest.mark.xfail(reason="GAS 2378行 needsKanjiName_: ひらがなだけのお名前は入口で止める"
-                          "（あとから漢字で登録し直されて二重になるため）。サーバーは通してしまう", strict=True)
 def test_新規登録_ひらがなだけのお名前は漢字をお願いする(client):
     答 = 登録(client, name="すずきいちろう")
     assert 答["status"] == "error"
@@ -333,8 +318,6 @@ def test_新規登録_ひらがなだけのお名前は漢字をお願いする(
     assert Member.objects.count() == 0
 
 
-@pytest.mark.xfail(reason="GAS 2417行: 同じお名前で生年月日が空の行があれば、本人か確かめようがないので"
-                          "受付へ案内する。サーバーは新しい行を足してしまい、同じ方が2行に分かれる", strict=True)
 def test_新規登録_同名で生年月日が無い行があれば受付へ(client):
     会員を作る("MYM-1001", name="鈴木一郎", passcode="", birthday=None)
     答 = 登録(client)
@@ -343,8 +326,6 @@ def test_新規登録_同名で生年月日が無い行があれば受付へ(cli
     assert Member.objects.count() == 1
 
 
-@pytest.mark.xfail(reason="GAS 2432行: フリガナと生年月日が同じ行があれば、お名前の書き方だけが違う"
-                          "同じ方とみなして受付へ案内する。サーバーは新しい行を足してしまう", strict=True)
 def test_新規登録_フリガナと生年月日が同じ行があれば受付へ(client):
     会員を作る("MYM-1001", name="こばやしみか", kana="こばやしみか", passcode="1234",
             birthday="1990-04-05")
@@ -354,9 +335,6 @@ def test_新規登録_フリガナと生年月日が同じ行があれば受付�
     assert Member.objects.count() == 1
 
 
-@pytest.mark.xfail(reason="GAS 2478行は normalizeStoredName_ / normalizeStoredKana_ で空白を取り"
-                          "カタカナをひらがなに寄せて保存する。サーバーは受けた文字のまま保存する"
-                          "（入口の画面が空白を取って送るので、いまは表に出にくい）", strict=True)
 def test_新規登録_お名前の空白を取りフリガナをひらがなに寄せて保存する(client):
     答 = 登録(client, name="鈴木 一郎", kana="スズキ　イチロウ")
     m = Member.objects.get(pk=答["memberId"])
@@ -364,8 +342,6 @@ def test_新規登録_お名前の空白を取りフリガナをひらがなに�
     assert m.kana == "すずきいちろう"
 
 
-@pytest.mark.xfail(reason="GAS 2487行 setUserRegistrationSource_(row, '新規登録', 'ランチャー')。"
-                          "サーバーの 新規登録 は登録経路を入れないので、分析の登録経路に出ない", strict=True)
 def test_新規登録_登録経路を新規登録_ランチャーで残す(client):
     答 = 登録(client)
     m = Member.objects.get(pk=答["memberId"])
@@ -374,9 +350,6 @@ def test_新規登録_登録経路を新規登録_ランチャーで残す(clien
     assert m.registration_source_updated_at is not None
 
 
-@pytest.mark.xfail(reason="GAS 2497行は buildAccountSession_ を返す（token / memberToken / role …）。"
-                          "サーバーは memberId / name / kana / claimed だけ。入口は token が無いと"
-                          "「ログインできませんでした」にする（start/index.html 677行）", strict=True)
 def test_新規登録_入口が要る項目をそろえて返す(client):
     答 = 登録(client)
     assert 答["role"] == "member"
@@ -397,9 +370,6 @@ def ビジリス登録(client, **項目):
     return 書く(client, 中).json()
 
 
-@pytest.mark.xfail(reason="entrance.ビジリス登録 は memberId で探す（誰も送ってこない）。"
-                          "入口は name / kana / passcode を送る（start/index.html 925行・GAS 2597行）。"
-                          "member を渡すと、ビジリスの利用登録が「会員IDが指定されていません」で全員止まる", strict=True)
 def test_ビジリス登録_お名前とパスコードで本人を確かめて印を付ける(client):
     m = 会員を作る(name="佐藤花子", passcode="1234")
     答 = ビジリス登録(client)
@@ -409,14 +379,12 @@ def test_ビジリス登録_お名前とパスコードで本人を確かめて�
     assert 読み直す(m).bijiris_registered is True
 
 
-@pytest.mark.xfail(reason="同上。GAS 2619行: フリガナが未登録の会員は、この機会にひらがなで埋める", strict=True)
 def test_ビジリス登録_フリガナが空なら埋める(client):
     m = 会員を作る(name="佐藤花子", kana="", passcode="1234")
     ビジリス登録(client, kana="サトウハナコ")
     assert 読み直す(m).kana == "さとうはなこ"
 
 
-@pytest.mark.xfail(reason="同上。GAS 2612行の文言", strict=True)
 def test_ビジリス登録_パスコードが違えば印を付けない(client):
     m = 会員を作る(name="佐藤花子", passcode="1234")
     答 = ビジリス登録(client, passcode="0000")
@@ -424,7 +392,6 @@ def test_ビジリス登録_パスコードが違えば印を付けない(client
     assert 読み直す(m).bijiris_registered is False
 
 
-@pytest.mark.xfail(reason="同上。GAS 2601行の文言", strict=True)
 def test_ビジリス登録_足りなければ入力を促す(client):
     答 = ビジリス登録(client, kana="")
     assert 答["message"] == "お名前・フリガナ・パスコードを入力してください。"

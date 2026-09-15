@@ -563,7 +563,11 @@ def 会員を統合する(d):
         先.registration_source_updated_at = timezone.now()
         先.save()
 
-    # ⑤ 注文の付け替えは、注文の表を移してから
+    # ⑤ 注文の会員IDを統合先へ付け替える（GAS 8736行）。注文の表は 2026-09-05 に移っている。
+    if 統合した:
+        from apps.records.models import OrderLine
+
+        OrderLine.objects.filter(member_id__in=統合した).update(member_id=統合先ID)
     return {"status": "ok", "targetMemberId": 統合先ID, "merged": 統合した,
             "mergedCount": len(統合した)}
 

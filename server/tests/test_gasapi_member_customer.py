@@ -314,9 +314,6 @@ def test_特典同期_会員IDが無ければ断る(client):
     assert 答 == {"status": "error", "message": "会員IDが指定されていません"}
 
 
-@pytest.mark.xfail(reason="GAS 8017行は data.stampAchievedDate を受けて保存する。お客様アプリは"
-                          "毎回送ってくる（app.js 2291行）。writes.特典をそろえる は読まないので、"
-                          "端末で10個そろった日時がサーバーに残らず、ガチャの有効期限が「回した日＋1か月」になる", strict=True)
 def test_特典同期_stampAchievedDateを受けて保存する(client):
     m = 会員を作る(stamp_count=10)
     答 = 書く(client, {"type": "syncUserRewardStatus", "memberId": "MYM-1001", "stampCount": 10,
@@ -454,10 +451,6 @@ def test_ガチャ_有効期限は達成日時の1か月後_JSのsetMonthと同�
     assert parse_datetime(答["drawnReward"]["expiryDate"]) == 日本時間(2026, 3, 3, 8, 0)
 
 
-@pytest.mark.xfail(reason="writes._一か月後 は UTC のまま月を進める。日本時間の 5/1 05:00 は UTC では"
-                          "4/30 20:00 なので「4/30 の1か月後」= 5/30 20:00 UTC = 5/31 05:00 JST になる。"
-                          "GAS は日本時間で setMonth するので 6/1。**月初の早朝に達成した方の有効期限が"
-                          "1日短くなる**。timezone.localtime に直してから月を進めるべき", strict=True)
 def test_ガチャ_有効期限は日本時間で月を進める(client):
     会員を作る(stamp_count=10, stamp_achieved_at=日本時間(2026, 5, 1, 5, 0))
     答 = ガチャ(client)
