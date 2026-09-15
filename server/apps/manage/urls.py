@@ -3,8 +3,8 @@ from django.urls import path
 from django.views.generic import RedirectView
 
 from . import (
-    views_analytics, views_calendar, views_category, views_login, views_menu, views_news, views_notice,
-    views_order, views_product, views_push, views_sso, views_system,
+    views_analytics, views_calendar, views_category, views_login, views_member_extra, views_menu, views_news,
+    views_notice, views_order, views_product, views_push, views_sso, views_system,
 )
 
 app_name = "manage"
@@ -64,6 +64,12 @@ urlpatterns = [
     path("revenue/<str:kind>/", views_analytics.revenue_list, name="revenue_list"),
     path("revenue/<str:kind>/save/", views_analytics.revenue_save, name="revenue_save"),
     path("revenue/<str:kind>/<int:row>/delete/", views_analytics.revenue_delete, name="revenue_delete"),
+    # 重複会員候補（統合）と、バックアップ / ゴミ箱
+    path("members/duplicates/", views_member_extra.duplicate_list, name="duplicate_list"),
+    path("members/duplicates/merge/", views_member_extra.duplicate_merge, name="duplicate_merge"),
+    path("trash/", views_member_extra.trash_list, name="trash_list"),
+    path("trash/restore/", views_member_extra.trash_restore, name="trash_restore"),
+    path("trash/hard-delete/", views_member_extra.trash_hard_delete, name="trash_hard_delete"),
     path("system/", views_system.system_view, name="system"),
     path("system/backup/", views_system.system_backup, name="system_backup"),
 ]

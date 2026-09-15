@@ -859,6 +859,13 @@ def _通知の届け先():
     return admin_member.通知の届け先()
 
 
+def _ゴミ箱():
+    """GAS の getAdminTrashItems。消した印の付いた行（会員・NEWS・ショップ・カレンダー・ホーム・Push通知）。"""
+    from . import trash
+
+    return trash.一覧()
+
+
 def _管理カレンダー():
     """管理アプリの「カレンダー」。GAS の getAdminCalendar が転送してくる。"""
     from . import admin_calendar
@@ -935,6 +942,8 @@ _できること = {
     "getAdminUsers": _管理会員,
     "getPushUsers": _通知の届け先,
     "checkMemberOnServer": _会員の札,
+    # ゴミ箱（管理画面の「バックアップ / ゴミ箱」）。GAS の getAdminTrashItems と同じ形。
+    "getAdminTrashItems": _ゴミ箱,
 }
 
 
