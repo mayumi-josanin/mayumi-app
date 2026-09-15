@@ -27,10 +27,22 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
     </div>
     <nav class="sidebar-nav">
       {% comment %}
-      予約管理（mayumi-reserve, :10001）の項目。押すとログインの受け渡し（go_reserve）で向こうへ。
-      向こうの左メニューにも同じ並びでこちらの項目があり、行き来しても同じ画面に見える。
+      左メニューは「アプリ管理」と「予約管理」の2つだけ（院長の希望 2026-09-15）。
+      予約管理の項目はログインの受け渡し（go_reserve）で予約システム（:10001）へ飛ぶ。
+      向こうの左メニューも同じ並び。設定系はまゆみだけに出す。
       {% endcomment %}
-      <span class="nav-section">予約</span>
+      <span class="nav-section">アプリ管理</span>
+      <a href="{% url 'manage:order_list' %}" class="{% if 'order' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📦</span> 注文管理</a>
+      <a href="{% url 'manage:analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name or 'revenue' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📊</span> データ分析</a>
+      <a href="{% url 'manage:news_list' %}" class="{% if 'news' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📝</span> お知らせ管理</a>
+      <a href="{% url 'manage:category_list' %}" class="{% if 'category' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🏷️</span> カテゴリ管理</a>
+      <a href="{% url 'manage:push_list' %}" class="{% if 'push' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🔔</span> 通知管理</a>
+      <a href="{% url 'manage:menu_list' %}" class="{% if 'menu' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🍴</span> メニュー管理</a>
+      <a href="{% url 'manage:product_list' %}" class="{% if 'product' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🛍️</span> 商品管理</a>
+      <a href="{% url 'manage:calendar_list' %}" class="{% if 'calendar' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📅</span> カレンダー</a>
+      <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-muted"><span class="nav-icon">↗</span> 旧管理アプリ（会員・スタンプ）</a>
+
+      <span class="nav-section">予約管理</span>
       <a href="{% url 'manage:go_reserve' %}?to=/manage/"><span class="nav-icon">🗓️</span> 予定表</a>
       <a href="{% url 'manage:go_reserve' %}?to=/manage/reservations/"><span class="nav-icon">📋</span> 予約の管理</a>
       <a href="{% url 'manage:go_reserve' %}?to=/manage/customers/"><span class="nav-icon">👤</span> お客様（予約）</a>
@@ -39,20 +51,6 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
         <a href="{% url 'manage:go_reserve' %}?to=/manage/blocks/grid/"><span class="nav-icon">🚫</span> 予約枠と休診</a>
         <a href="{% url 'manage:go_reserve' %}?to=/manage/sales/"><span class="nav-icon">💴</span> 売上・会員</a>
         <a href="{% url 'manage:go_reserve' %}?to=/manage/care/"><span class="nav-icon">🍼</span> 産後ケア</a>
-      {% endif %}
-      <span class="nav-section">アプリ管理</span>
-      <a href="{% url 'manage:order_list' %}" class="{% if 'order' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📦</span> 注文管理</a>
-      <a href="{% url 'manage:analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name or 'revenue' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📊</span> データ分析</a>
-
-      <a href="{% url 'manage:news_list' %}" class="{% if 'news' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📝</span> お知らせ管理</a>
-      <a href="{% url 'manage:category_list' %}" class="{% if 'category' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🏷️</span> カテゴリ管理</a>
-      <a href="{% url 'manage:push_list' %}" class="{% if 'push' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🔔</span> 通知管理</a>
-
-      <a href="{% url 'manage:menu_list' %}" class="{% if 'menu' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🍴</span> メニュー管理</a>
-      <a href="{% url 'manage:product_list' %}" class="{% if 'product' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🛍️</span> 商品管理</a>
-      <a href="{% url 'manage:calendar_list' %}" class="{% if 'calendar' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📅</span> カレンダー</a>
-      {% if is_owner %}
-        <span class="nav-section">予約の設定</span>
         <a href="{% url 'manage:go_reserve' %}?to=/manage/menus/"><span class="nav-icon">📖</span> 予約メニュー</a>
         <a href="{% url 'manage:go_reserve' %}?to=/manage/questions/"><span class="nav-icon">❓</span> 質問フォーム</a>
         <a href="{% url 'manage:go_reserve' %}?to=/manage/practitioners/"><span class="nav-icon">🧑‍⚕️</span> 担当者</a>
@@ -60,9 +58,6 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
         <a href="{% url 'manage:go_reserve' %}?to=/manage/staff/"><span class="nav-icon">👥</span> スタッフ</a>
         <a href="{% url 'manage:go_reserve' %}?to=/manage/settings/"><span class="nav-icon">⚙️</span> 予約の設定</a>
       {% endif %}
-      <span class="nav-section">旧管理アプリ</span>
-      <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-muted"><span class="nav-icon">↗</span> 旧管理アプリを開く</a>
-      <span class="nav-note">会員・スタンプは、9/19 の移行のあとにこちらへ移します。</span>
     </nav>
     {% if request.user.is_authenticated %}
     <div class="sidebar-footer">
