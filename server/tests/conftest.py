@@ -61,3 +61,28 @@ def fake_onesignal(monkeypatch, settings):
 
     monkeypatch.setattr(onesignal.urllib.request, "urlopen", fake_urlopen)
     return sent
+
+
+# ---------------------------------------------------------------------------
+# 会員の窓口（test_gasapi_member*.py）向け
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def 会員試験の下ごしらえ(settings):
+    """合鍵を入れ、回数制限の数え上げ（cache）を空にし、ハッシュを軽くする。
+
+    ・合鍵: 管理者向けの窓口は X-Api-Key が要る。空だと 503 で全部止まる。
+    ・cache: ログイン・復元の「10回はずしたらお休み」は cache で数えている。
+      試験ごとに空にしないと、前の試験のはずれが次の試験に持ち越される。
+    ・ハッシュ: 既定の PBKDF2 は1回 0.1 秒かかる。会員を何十人も作る試験で
+      積み上がるので、試験では MD5 にする。照合の作法（check_password）は同じ。
+    """
+    from django.core.cache import cache
+
+    from tests.gasapi_member_support import 合鍵
+
+    settings.API_KEY = 合鍵
+    settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+    cache.clear()
+    yield
+    cache.clear()
