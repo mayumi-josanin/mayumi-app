@@ -348,3 +348,8 @@ td.brand { color: var(--brand); font-weight: 700; }
 .rev-entry { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; background: var(--surface-hover); }
 .rev-row3 { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 900px) { .rev-row3 { grid-template-columns: 1fr 1fr; } .chart-grid { grid-template-columns: 1fr; } }
+
+/* ---- カテゴリ管理（旧管理アプリの内容: 種別ごとの見出し） ---- */
+.category-heading { font-size: .95rem; font-weight: 600; color: var(--text-primary); border-left: 4px solid var(--brand); padding-left: 10px; margin: 16px 0 10px; }
+.category-heading.menu { border-left-color: #8fae7c; }
+.category-heading.notice { border-left-color: #f09433; }
