@@ -37,6 +37,37 @@
 var 渡す_既定のURL = 'https://mayumi-api.tail8efe0d.ts.net/api';
 var 渡す_待つミリ秒 = 20000;
 
+// 2026-09-15 16:24〜18:00、GAS からだけ「DNS error」でサーバーに届かなかった
+// （サーバー・公開DNS・外からの到達はすべて正常。Google 側の名前引きの失敗）。
+// その間、お客様の NEWS は 9/5 で止まったシートに落ち、予約通知も止まった。
+//   ・名前引きの失敗は**要求が届く前**に起きるので、やり直しても二重には書かれない → 1回やり直す
+//   ・読みは、うまくいった答えを6時間だけ覚えておき、届かないときは**古いシートよりそれを返す**
+var 渡す_やり直し回数 = 2;
+var 渡す_前回の答えの寿命秒 = 21600;   // CacheService の上限（6時間）
+
+function 渡す_取りに行く_(url, options) {
+  var 最後 = null;
+  for (var i = 0; i < 渡す_やり直し回数; i++) {
+    try {
+      return UrlFetchApp.fetch(url, options);
+    } catch (e) {
+      最後 = e;
+      // 名前引き以外の失敗（証明書・タイムアウトなど）はやり直さない
+      if (!/DNS/i.test(String(e))) throw e;
+      Utilities.sleep(500);
+    }
+  }
+  throw 最後;
+}
+
+function 渡す_前回の答え_(action, 引数) {
+  try { return getCachedData_('lastgood:' + action, 引数 || {}); } catch (e) { return null; }
+}
+
+function 渡す_答えを覚える_(action, 引数, 中) {
+  try { putCachedData_('lastgood:' + action, 引数 || {}, 中, 渡す_前回の答えの寿命秒); } catch (e) { /* 覚えられなくても本筋を止めない */ }
+}
+
 function 渡す_設定_(鍵, 既定) {
   var v = PropertiesService.getScriptProperties().getProperty(鍵);
   return v === null || v === undefined || v === '' ? (既定 || '') : String(v);
@@ -76,7 +107,7 @@ function サーバーから読む_(action, 引数) {
   try {
     var url = 渡す_URL_() + '?action=' + encodeURIComponent(action) +
       (引数 ? '&data=' + encodeURIComponent(JSON.stringify(引数)) : '');
-    var res = UrlFetchApp.fetch(url, {
+    var res = 渡す_取りに行く_(url, {
       method: 'get',
       headers: 渡す_ヘッダ_(),
       muteHttpExceptions: true,
@@ -85,19 +116,25 @@ function サーバーから読む_(action, 引数) {
       escaping: false
     });
     if (res.getResponseCode() !== 200) {
-      渡す_書き留める_('読み', action, 'HTTP ' + res.getResponseCode());
-      return null;
+      return 渡す_読めなかった_(action, 引数, 'HTTP ' + res.getResponseCode());
     }
     var 中 = JSON.parse(res.getContentText());
     if (!中 || 中.notImplemented) {
       渡す_書き留める_('読み', action, 'サーバーにまだ無い');
       return null;
     }
+    渡す_答えを覚える_(action, 引数, 中);
     return 中;
   } catch (e) {
-    渡す_書き留める_('読み', action, String(e));
-    return null;
+    return 渡す_読めなかった_(action, 引数, String(e));
   }
+}
+
+/** 読めなかったとき: 6時間以内の前回の答えがあればそれを返す（シートより新しい）。無ければ null。 */
+function 渡す_読めなかった_(action, 引数, 理由) {
+  var 前回 = 渡す_前回の答え_(action, 引数);
+  渡す_書き留める_('読み', action, 理由 + (前回 ? '（前回の答えを使った）' : ''));
+  return 前回 || null;
 }
 
 /**
@@ -111,7 +148,7 @@ function サーバーから読む_(action, 引数) {
  */
 function サーバーへ書く_(中身) {
   try {
-    var res = UrlFetchApp.fetch(渡す_URL_(), {
+    var res = 渡す_取りに行く_(渡す_URL_(), {
       method: 'post',
       headers: 渡す_ヘッダ_(),
       payload: JSON.stringify(中身 || {}),
