@@ -4,7 +4,7 @@ from django.views.generic import RedirectView
 
 from . import (
     views_analytics, views_calendar, views_category, views_login, views_member, views_member_extra, views_menu, views_news,
-    views_notice, views_order, views_product, views_push, views_sso, views_system,
+    views_notice, views_order, views_product, views_push, views_reward, views_sso, views_system,
 )
 
 app_name = "manage"
@@ -78,6 +78,10 @@ urlpatterns = [
     path("trash/", views_member_extra.trash_list, name="trash_list"),
     path("trash/restore/", views_member_extra.trash_restore, name="trash_restore"),
     path("trash/hard-delete/", views_member_extra.trash_hard_delete, name="trash_hard_delete"),
+    # スタンプ・特典管理（月別ガチャ特典設定＋会員別のスタンプ・特典状況）
+    path("rewards/", views_reward.reward_list, name="reward_list"),
+    path("rewards/gacha/", views_reward.reward_gacha_save, name="reward_gacha_save"),
+    path("rewards/<str:member_id>/", views_reward.reward_edit, name="reward_edit"),
     path("system/", views_system.system_view, name="system"),
     path("system/backup/", views_system.system_backup, name="system_backup"),
 ]

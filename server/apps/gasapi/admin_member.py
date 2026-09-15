@@ -365,6 +365,18 @@ def 特典を書き換える(d):
         m.stamp_history = d["stampHistory"]
     if "lastStampAt" in d:
         m.last_stamp_at = _日時(d.get("lastStampAt"))
+    elif "lastStampDate" in d:
+        # 旧管理アプリの編集画面は「最終スタンプ取得日」を**日付だけ**で送ってくる
+        # （GAS は日付の列と日時の列を別に持つ）。サーバーは日時の1列なので、
+        # 日が同じなら時刻を残し、日が変わったときだけその日の0時にする。空なら消す。
+        from django.utils.dateparse import parse_date
+
+        文 = _文(d.get("lastStampDate")).strip()[:10].replace("/", "-")
+        日 = parse_date(文) if 文 else None
+        if not 日:
+            m.last_stamp_at = None
+        elif not (m.last_stamp_at and timezone.localtime(m.last_stamp_at).date() == 日):
+            m.last_stamp_at = timezone.make_aware(timezone.datetime.combine(日, timezone.datetime.min.time()))
     if "stampAchievedDate" in d or "stampAchievedAt" in d:
         m.stamp_achieved_at = _日時(d.get("stampAchievedAt") or d.get("stampAchievedDate"))
     # **受付が直したときは、その日時を残す。**
