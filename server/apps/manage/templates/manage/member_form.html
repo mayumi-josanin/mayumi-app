@@ -1,0 +1,178 @@
+{% extends "manage/base.html" %}
+
+{% block title %}会員情報の編集 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}会員管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>👥 会員情報の編集</h1>
+  <div class="page-header-actions"><a class="btn btn-outline" href="{% url 'manage:member_list' %}">一覧へ戻る</a></div>
+</div>
+
+{% if not writable %}<div class="note member-gate-note">⚠️ {{ gate_message }}（この画面では見るだけです）</div>{% endif %}
+
+<div class="card">
+  <div class="card-header"><h2>{{ member.name }}<span class="count">{{ member.member_id }}</span></h2></div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-row">
+        <div class="form-group">
+          <label for="m-name">氏名<span class="required">必須</span></label>
+          <input id="m-name" name="name" class="form-control" required maxlength="100" value="{{ values.name|default:'' }}">
+        </div>
+        <div class="form-group">
+          <label for="m-kana">フリガナ</label>
+          <input id="m-kana" name="kana" class="form-control" maxlength="100" value="{{ values.kana|default:'' }}">
+          <div class="form-hint">カタカナで入れても、ひらがなにそろえて保存します（復元の照合と同じ形）</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="m-phone">電話番号</label>
+          <input id="m-phone" name="phone" class="form-control" maxlength="32" value="{{ values.phone|default:'' }}">
+          <div class="form-hint">先頭の0が消えていても、保存のときに戻します</div>
+        </div>
+        <div class="form-group">
+          <label for="m-birthday">生年月日</label>
+          <input id="m-birthday" name="birthday" type="date" class="form-control" value="{{ values.birthday|default:'' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="m-address">住所</label>
+        <input id="m-address" name="address" class="form-control" maxlength="255" value="{{ values.address|default:'' }}">
+      </div>
+      <div class="form-group">
+        <label for="m-memo">メモ</label>
+        <textarea id="m-memo" name="memo" class="form-control" rows="3">{{ values.memo|default:'' }}</textarea>
+        <div class="form-hint">受付の覚え書き。お客様ご本人には見えません</div>
+      </div>
+
+      {% comment %}
+      ここから下は、これまでスプレッドシートでしか直せなかった項目（旧管理アプリ 2026-09-07 追加分と同じ）。
+      会員をサーバーへ移すとシートを直しても反映されないので、ここでできるようにした。
+      設計: docs/design/会員管理の画面を作り直す.md
+      {% endcomment %}
+      <div class="form-row form-row-3">
+        <div class="form-group">
+          <label for="m-status">ご状況</label>
+          <input id="m-status" name="status" class="form-control" maxlength="100" value="{{ values.status|default:'' }}" placeholder="妊娠中・産後 など">
+        </div>
+        <div class="form-group">
+          <label for="m-role">権限</label>
+          <select id="m-role" name="role" class="form-control">
+            <option value="" {% if not values.role %}selected{% endif %}>（一般の会員）</option>
+            <option value="管理者" {% if values.role == "管理者" %}selected{% endif %}>管理者</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="m-bijiris">ビジリス</label>
+          <select id="m-bijiris" name="bijiris" class="form-control">
+            <option value="" {% if values.bijiris != "登録済み" %}selected{% endif %}>未登録</option>
+            <option value="登録済み" {% if values.bijiris == "登録済み" %}selected{% endif %}>登録済み</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-3">
+        <div class="form-group">
+          <label for="m-stamp">現在スタンプ数</label>
+          <input id="m-stamp" name="stampCount" type="number" min="0" class="form-control" value="{{ values.stampCount|default_if_none:'0' }}">
+        </div>
+        <div class="form-group">
+          <label for="m-card">スタンプカード番号</label>
+          <input id="m-card" name="stampCardNum" type="number" min="0" class="form-control" value="{{ values.stampCardNum|default_if_none:'0' }}">
+        </div>
+        <div class="form-group">
+          <label for="m-last-stamp">最終スタンプ取得日時</label>
+          <input id="m-last-stamp" name="lastStampAt" type="datetime-local" class="form-control" value="{{ values.lastStampAt|default:'' }}">
+          <div class="form-hint">最終スタンプ取得日: {{ view.lastStampDate }}（この日時から決まります）　スタンプ達成日時: {{ view.stampAchievedAt }}</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="m-reg">登録経路</label>
+          <input id="m-reg" name="registrationSource" class="form-control" maxlength="100" value="{{ values.registrationSource|default:'' }}" placeholder="紹介・チラシ など">
+          <div class="form-hint">更新日時: {{ view.registrationSourceUpdatedAt }}</div>
+        </div>
+        <div class="form-group">
+          <label for="m-reg-detail">登録経路の詳細</label>
+          <input id="m-reg-detail" name="registrationSourceDetail" class="form-control" maxlength="255" value="{{ values.registrationSourceDetail|default:'' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="m-line">LINEユーザーID</label>
+        <input id="m-line" name="lineUserId" class="form-control" maxlength="64" value="{{ values.lineUserId|default:'' }}" placeholder="U から始まる文字列">
+        <div class="form-hint">予約システムと結ぶ鍵。ほかの会員と同じ値は入れられません</div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" {% if not writable %}disabled{% endif %}>保存</button>
+        <a class="btn btn-outline" href="{% url 'manage:member_list' %}">キャンセル</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% comment %}ここからは自由入力にしないもの。理由は設計書に書いてある{% endcomment %}
+<div class="card">
+  <div class="card-header"><h2>この会員に対して行う操作</h2></div>
+  <div class="card-body">
+    <div class="member-ops">
+      <form method="post" action="{% url 'manage:member_passcode' member.member_id %}" class="inline-form">
+        {% csrf_token %}
+        <input name="passcode" type="password" inputmode="numeric" pattern="\d{4}|\d{6}" maxlength="6" class="form-control" style="width:160px" placeholder="数字4桁または6桁" autocomplete="new-password" required>
+        <button type="submit" class="btn btn-outline" {% if not writable %}disabled{% endif %}>🔑 パスコードを設定</button>
+      </form>
+      <form method="post" action="{% url 'manage:member_transfer_code' member.member_id %}" class="inline-form">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline" {% if not writable %}disabled{% endif %}>📱 引き継ぎコードを発行</button>
+      </form>
+      <form method="post" action="{% url 'manage:member_stop_push' member.member_id %}" class="inline-form"
+        onsubmit="return confirm('この会員への通知を止めます。\n\n再開はお客様の端末から行っていただく必要があります。\nよろしいですか。');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline" {% if not writable %}disabled{% endif %}>🔕 通知を止める</button>
+      </form>
+    </div>
+    <div class="form-hint" style="margin-top:10px;line-height:1.8">
+      パスコードは保存された値を見ることができません（暗号にして保管しているため）。忘れた方には、新しいものを設定してください。<br>
+      引き継ぎコードは重複しない8桁が自動で作られます。1週間で切れます。発行したコードはこの画面の上に出ます。お客様にお伝えください。<br>
+      通知は止められますが、再開はお客様の端末から行っていただきます。
+    </div>
+  </div>
+</div>
+
+{% comment %}見えるだけ。触ると壊れるもの{% endcomment %}
+<div class="card">
+  <div class="card-header"><h2>見るだけの項目</h2></div>
+  <div class="card-body">
+    <dl class="member-view">
+      <dt>会員番号</dt><dd>{{ view.memberId }}</dd>
+      <dt>登録日時</dt><dd>{{ view.timestamp }}</dd>
+      <dt>最終オンライン</dt><dd>{{ view.lastOnline }}</dd>
+      <dt>端末</dt><dd>{{ view.deviceCount }}台</dd>
+      <dt>通知の届け先</dt><dd>{{ view.push }}</dd>
+      <dt>統合先会員ID</dt><dd>{{ view.mergedIntoId }}</dd>
+      <dt>引き継ぎコード</dt><dd>{{ view.transferCode }}{% if view.transferCode != "—" %} <span class="sub">（発行 {{ view.transferCodeIssuedAt }}）</span>{% endif %}</dd>
+      <dt>注文</dt><dd>{{ view.orderCount }}件 / 受付中 {{ view.pendingOrderCount }}件 / 未使用特典 {{ view.unusedRewards }}件</dd>
+    </dl>
+    <div class="form-hint">会員番号を変えるとお客様が入れなくなります。統合先は統合の履歴なので手で変えません。パスワードの暗号（ハッシュ・ソルト）は画面に出しません。</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" action="{% url 'manage:member_delete' member.member_id %}"
+      onsubmit="return confirmMemberDelete('{{ member.name|escapejs }}', '注文 {{ view.orderCount }}件 / 受付中 {{ view.pendingOrderCount }}件 / スタンプ {{ member.stamp_count|default:0 }}個 / 未使用特典 {{ view.unusedRewards }}件');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline danger" {% if not writable %}disabled{% endif %}>🗑 この会員を削除する（ゴミ箱へ移動）</button>
+      <div class="form-hint" style="margin-top:6px">印を付けるだけで、記録は残ります。復元の手がかりを残すためです。</div>
+    </form>
+  </div>
+</div>
+<script>
+function confirmMemberDelete(name, impact) {
+  var typed = prompt('会員「' + (name || '名前なし') + '」をゴミ箱へ移動します。\n影響: ' + (impact || '会員情報のみ確認可能') + '\n\n続けるには「削除」と入力してください。');
+  return typed !== null && typed.trim() === '削除';
+}
+</script>
+{% endblock %}
