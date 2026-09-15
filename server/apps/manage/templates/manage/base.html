@@ -35,6 +35,7 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       <a href="{% url 'manage:order_list' %}" class="{% if 'order' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📦</span> 注文管理</a>
       <a href="{% url 'manage:analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name or 'revenue' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📊</span> データ分析</a>
       <a href="{% url 'manage:news_list' %}" class="{% if 'news' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📝</span> お知らせ管理</a>
+      <a href="{% url 'manage:notice_list' %}" class="{% if 'notice' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📢</span> お知らせ管理</a>
       <a href="{% url 'manage:category_list' %}" class="{% if 'category' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🏷️</span> カテゴリ管理</a>
       <a href="{% url 'manage:push_list' %}" class="{% if 'push' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🔔</span> 通知管理</a>
       <a href="{% url 'manage:menu_list' %}" class="{% if 'menu' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🍴</span> メニュー管理</a>
