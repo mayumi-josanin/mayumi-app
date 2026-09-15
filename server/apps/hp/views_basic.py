@@ -51,9 +51,6 @@ BASIC_PARTS = [
     ("prices", "💰", "料金表", True),
     ("sns", "🔖", "SNS・ブログ", False),
     ("doc", "📄", "産後ケアの資料", False),
-    # 見出し帯の写真。旧アプリでは「写真」タブの先頭にあったが、content.json の
-    # page_heads はこの画面で受け持つことになったので、いちばん下に置く。
-    ("page_heads", "🏞️", "見出し帯の写真", False),
 ]
 
 # 旧アプリの snsAdd が足す新しいリンク
@@ -73,15 +70,6 @@ def _int(値, 既定):
 
 def _img_dir(core):
     return os.path.join(core.SITE, "assets", "img")
-
-
-def _写真の一覧(core):
-    """見出し帯に選べる写真（assets/img 直下。SNS のロゴは除く）。"""
-    d = _img_dir(core)
-    if not os.path.isdir(d):
-        return []
-    return sorted(fn for fn in os.listdir(d)
-                  if fn.lower().endswith((".webp", ".jpg", ".jpeg", ".png")) and not fn.startswith("sns-"))
 
 
 def _料金表(core, d):
@@ -135,10 +123,6 @@ def hp_basic(request):
                     "icon_exists": bool(icon) and os.path.exists(os.path.join(img_dir, icon)),
                     "icon_w": s.get("icon_w", 44), "btn_label": s.get("btn_label", ""),
                     "show": s.get("show", True)})
-    ph = d.get("page_heads") or {}
-    imgs = ph.get("images") or {}
-    pics = _写真の一覧(core)
-    heads = [{"key": k, "label": label, "cur": imgs.get(k, "")} for k, label in core.PAGE_HEAD_KEYS]
     embed = d.get("sns_embed") or {}
     bt = d.get("blog_top") or {}
     return render(request, "manage/hp_basic.html", {
@@ -154,7 +138,6 @@ def hp_basic(request):
         "blog_top": {"show": bt.get("show", True), "count": bt.get("count", 6), "height": bt.get("height", 560),
                      "n": len(blog.load().get("posts", []))},
         "doc": _資料(core, d),
-        "page_heads": {"show": ph.get("show", True), "veil": ph.get("veil", 65), "rows": heads, "pics": pics},
     })
 
 
@@ -308,17 +291,7 @@ def hp_basic_save(request):
             messages.error(request, "ファイルが受け取れませんでした。")
         return _戻る("doc")
 
-    if part == "page_heads":
-        c = d.setdefault("page_heads", {})
-        imgs = c.setdefault("images", {})
-        for k, _label in core.PAGE_HEAD_KEYS:
-            if "ph-" + k in P:
-                imgs[k] = P.get("ph-" + k, "")
-        c["show"] = P.get("ph-show") == "1"
-        c["veil"] = max(0, min(100, _int(P.get("ph-veil"), 65)))
-        core.save(d)
-        messages.success(request, 保存した)
-        return _戻る("page_heads")
+    # 見出し帯の写真（page_heads）は旧アプリどおり「写真」の画面が受け持つ（views_images）
 
     messages.error(request, "何を保存するのか分かりませんでした。")
     return _戻る()

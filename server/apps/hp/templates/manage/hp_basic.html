@@ -290,43 +290,6 @@
   </div>
 </div>
 
-{# ---------------- 🏞️ 見出し帯の写真（sec_page_heads） ---------------- #}
-<div id="sec-page_heads" class="hp-sep"></div>
-<div class="card">
-  <div class="card-header"><h2>🏞️ 見出し帯の写真</h2></div>
-  <div class="card-body">
-    <p class="sub">各ページの上にある<b>タイトルの帯</b>（「母乳外来」と大きく出ているところ）の背景に、写真を敷けます。
-    文字が読めるように、写真の上から<b>クリーム色の膜</b>をかけます。<br>
-    写真は「写真」の画面に入っているものから選びます。新しく使いたい写真は、先に「写真」の画面で差し替えるか、ページに追加して取り込んでください。</p>
-    <form method="post" action="{% url 'manage:hp_basic_save' %}" style="margin-top:14px">{% csrf_token %}
-      <input type="hidden" name="part" value="page_heads">
-      <div class="form-row" style="max-width:480px">
-        <div class="form-group"><label>写真を敷く</label>
-          <select name="ph-show" class="form-control">
-            <option value="1" {% if page_heads.show %}selected{% endif %}>敷く</option>
-            <option value="0" {% if not page_heads.show %}selected{% endif %}>敷かない（色だけ）</option>
-          </select></div>
-        <div class="form-group"><label>膜の濃さ（0〜100）</label>
-          <input type="text" name="ph-veil" class="form-control" value="{{ page_heads.veil }}">
-          <p class="form-hint">大きいほど写真が薄くなります。65くらいが目安です。</p></div>
-      </div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>ページ</th><th>いまの写真</th><th>写真を選ぶ</th></tr></thead>
-        <tbody>
-        {% for r in page_heads.rows %}
-          <tr><td style="width:150px">{{ r.label }}</td>
-            <td style="width:150px">{% if r.cur %}<img src="{% url 'manage:hp_site_file' path='assets/img/'|add:r.cur %}" alt="" style="width:100%;height:64px;object-fit:cover;border-radius:4px">{% else %}<span class="sub">なし</span>{% endif %}</td>
-            <td><select name="ph-{{ r.key }}" class="form-control">
-              <option value="" {% if not r.cur %}selected{% endif %}>（写真なし・色だけ）</option>
-              {% for fn in page_heads.pics %}<option value="{{ fn }}" {% if fn == r.cur %}selected{% endif %}>{{ fn }}</option>{% endfor %}
-            </select></td></tr>
-        {% endfor %}
-        </tbody>
-      </table></div>
-      <button class="btn btn-primary" style="margin-top:12px">保存</button>
-    </form>
-  </div>
-</div>
 
 <script>
 /* 旧アプリの fbPreview と同じ。保存せずに、Facebook の枠をこの場に出して確かめる */
