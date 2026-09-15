@@ -1,0 +1,97 @@
+{% extends "manage/base.html" %}
+{% block title %}選択肢の設定 | 公式サイト{% endblock %}
+{% block topbar_title %}公式サイト{% endblock %}
+{% block content %}
+<div class="page-header"><h1>🎛️ 選択肢の設定</h1></div>
+<form method="post" id="hpOptForm">{% csrf_token %}
+  {# Enter で送ったときに「保存」になるよう、最初の送信ボタンを隠して置く #}
+  <button type="submit" name="action" value="save" hidden aria-hidden="true" tabindex="-1"></button>
+<div class="card">
+  <div class="card-body">
+    <p class="sub">
+      管理画面のプルダウンに出る選択肢を、ここで増やしたり名前を変えたりできます。<br>
+      直したら下の<b>「保存」</b>を押してください。サイトに書き込むのは「🌐 公開する」からです。
+    </p>
+  </div>
+</div>
+
+{% for g in groups %}
+<div class="card">
+  <div class="card-header"><h2>{{ g.title }}</h2></div>
+  <div class="card-body">
+    <p class="sub">{{ g.hint }}</p>
+    <div class="hp-opt-list">
+      {% for c in g.items %}
+      <div class="hp-opt-row">
+        <span class="hp-opt-no">{{ forloop.counter }}</span>
+        <input type="text" class="form-control hp-opt-name" name="oc__{{ g.key }}__{{ forloop.counter0 }}__name" value="{{ c.name }}">
+        <input type="color" class="hp-opt-color" name="oc__{{ g.key }}__{{ forloop.counter0 }}__color" value="{{ c.color }}">
+        <span class="news-cat" style="background:{{ c.color }};color:#fff">{{ c.name }}</span>
+        <span class="hp-opt-sp"></span>
+        <button class="btn btn-outline btn-sm" name="action" value="move|{{ g.key }}|{{ forloop.counter0 }}|-1" title="上へ">↑</button>
+        <button class="btn btn-outline btn-sm" name="action" value="move|{{ g.key }}|{{ forloop.counter0 }}|1" title="下へ">↓</button>
+        <button class="btn btn-outline btn-sm danger" name="action" value="del|{{ g.key }}|{{ forloop.counter0 }}" onclick="return hpOptDel(this);">削除</button>
+      </div>
+      {% endfor %}
+    </div>
+    <button class="btn btn-outline btn-sm" style="margin-top:10px" name="action" value="add|{{ g.key }}">{{ g.add }}</button>
+  </div>
+</div>
+{% endfor %}
+
+<div class="card">
+  <div class="card-header"><h2>📐 「ページの編集」の幅</h2></div>
+  <div class="card-body">
+    <p class="sub">
+      写真や表の幅を選ぶプルダウンです。右側には <b>40%</b> のように
+      パーセントで書きます（空にすると「そのまま」の意味になります）。
+    </p>
+    <div class="hp-opt-list">
+      {% for w in widths %}
+      <div class="hp-opt-row">
+        <span class="hp-opt-no">{{ forloop.counter }}</span>
+        <input type="text" class="form-control hp-opt-name hp-opt-w" name="oc__widths__{{ forloop.counter0 }}__label" value="{{ w.label }}" placeholder="画面に出す名前">
+        <input type="text" class="form-control hp-opt-name hp-opt-w" name="oc__widths__{{ forloop.counter0 }}__value" value="{{ w.value }}" placeholder="40% など（空＝そのまま）">
+        <span class="hp-opt-sp"></span>
+        <button class="btn btn-outline btn-sm" name="action" value="move|widths|{{ forloop.counter0 }}|-1" title="上へ">↑</button>
+        <button class="btn btn-outline btn-sm" name="action" value="move|widths|{{ forloop.counter0 }}|1" title="下へ">↓</button>
+        <button class="btn btn-outline btn-sm danger" name="action" value="del|widths|{{ forloop.counter0 }}" onclick="return hpOptDel(this);">削除</button>
+      </div>
+      {% endfor %}
+    </div>
+    <button class="btn btn-outline btn-sm" style="margin-top:10px" name="action" value="add|widths">＋ 幅を追加</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>ℹ️ ここで変えられないもの</h2></div>
+  <div class="card-body">
+    <p class="sub">
+      「表示する／隠す」のような2択、寄せ（左・中央・右）、ページを選ぶプルダウンは、
+      仕組みと結びついているため設定では変えられません。
+    </p>
+  </div>
+</div>
+
+<div class="inline-form" style="margin:6px 0 20px">
+  <button class="btn btn-primary" name="action" value="save">保存</button>
+  <span class="sub">名前・色・幅の変更をまとめて保存します（追加・削除・上へ／下へはその場で保存されます）。</span>
+</div>
+</form>
+<script>
+/* 削除の確認。旧アプリと同じく、いま入力欄にある名前で聞く */
+function hpOptDel(btn){
+  var row = btn.closest('.hp-opt-row');
+  var inp = row ? row.querySelector('input[type=text]') : null;
+  var nm = inp ? inp.value : '';
+  return confirm('「' + nm + '」を選択肢から消します。よろしいですか？');
+}
+/* 色を変えたら、隣のラベルの色も追いかける */
+document.querySelectorAll('#hpOptForm input[type=color]').forEach(function(el){
+  el.addEventListener('input', function(){
+    var lab = el.parentNode.querySelector('.news-cat');
+    if (lab) lab.style.background = el.value;
+  });
+});
+</script>
+{% endblock %}
