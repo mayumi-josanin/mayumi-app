@@ -1,0 +1,82 @@
+{% extends "manage/base.html" %}
+
+{% block title %}お知らせ管理 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}お知らせ管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>お知らせ管理</h1>
+  <div class="page-header-actions">
+    <a class="btn btn-outline" href="{{ request.get_full_path }}">🔄 更新</a>
+  </div>
+</div>
+
+<div class="stats">
+  {% for label, value in summary %}<div class="stat-card blue"><div class="stat-label">{{ label }}</div><div class="stat-value">{{ value }}</div></div>{% endfor %}
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="filter-form">
+      <div class="form-group" style="flex:1;min-width:260px">
+        <label for="f-q">検索</label>
+        <input id="f-q" name="q" type="search" class="form-control" value="{{ q }}" placeholder="タイトル・内容で検索">
+      </div>
+      <div class="form-group">
+        <label for="f-source">配信元</label>
+        <select id="f-source" name="source" class="form-control" onchange="this.form.submit()">
+          <option value="all" {% if source == "all" %}selected{% endif %}>全ての配信元</option>
+          {% for value, label in sources %}<option value="{{ value }}" {% if source == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-outline">検索</button>
+      <a class="btn btn-outline" href="{% url 'manage:notice_list' %}">条件をクリア</a>
+    </form>
+    <div class="sub" style="margin-top:8px">{{ meta }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body notice-guide">
+    お客様アプリの「お知らせ一覧」に出す内容を、配信日時の新しい順で確認できます。元データの掲載内容（本文・画像など）は変わりません。編集は元データの管理画面へ移動してください。<br>
+    <strong class="notice-guide-danger">※「一覧から削除」を押すと、お知らせ一覧だけでなく ショップの商品一覧・ホームのメニュー一覧・カレンダーからも消えます。</strong>一度消すとこの一覧にも出てこなくなるため、画面からは戻せません。戻したいときは、元データの管理画面で「お知らせ一覧に出す」を公開にしてください。
+  </div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>配信日時</th><th>カテゴリ</th><th>配信元</th><th>タイトル / 内容</th><th>お知らせ一覧</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for item in items %}
+      <tr>
+        <td class="nowrap"><span class="sub">{{ item.date_label }}</span></td>
+        <td><span class="badge notice-category">{{ item.category }}</span></td>
+        <td class="nowrap">{{ item.source_label }}</td>
+        <td style="min-width:320px">
+          <div style="font-weight:600;word-break:break-word">{{ item.title|default:"タイトルなし" }}</div>
+          <div class="sub" style="white-space:pre-wrap;word-break:break-word">{{ item.summary }}</div>
+        </td>
+        <td class="nowrap" style="text-align:center">
+          <select form="nvis-{{ item.kind }}-{{ item.row }}" name="status" class="form-control notice-status {% if item.status == '公開' %}is-public{% else %}is-private{% endif %}" onchange="this.form.submit()">
+            <option value="公開" {% if item.status == "公開" %}selected{% endif %}>公開</option>
+            <option value="非公開" {% if item.status == "非公開" %}selected{% endif %}>非公開</option>
+          </select>
+        </td>
+        <td class="nowrap">
+          <div class="row-actions">
+            <a class="btn btn-outline btn-sm" href="{% url item.edit_url item.row %}" title="元データを編集">📝 元データを編集</a>
+            <button form="ndel-{{ item.kind }}-{{ item.row }}" type="submit" class="btn btn-outline btn-sm danger" onclick="return confirm('「{{ item.title|default:item.source_label|escapejs }}」を一覧から削除します。\n\n⚠ お知らせ一覧だけではありません。\n　 ショップの商品一覧・ホームのメニュー一覧・カレンダーからも消えます。\n\n⚠ この画面からは戻せません（一覧に出てこなくなるため）。\n　 戻すときは、元データの管理画面で「お知らせ一覧に出す」を公開にしてください。\n\n元データ（本文や画像）は残ります。');">一覧から削除</button>
+          </div>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6"><div class="empty"><div class="empty-icon">📢</div><p>{{ empty }}</p></div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+{% for item in items %}
+<form id="nvis-{{ item.kind }}-{{ item.row }}" method="post" action="{% url 'manage:notice_visibility' %}">{% csrf_token %}<input type="hidden" name="kind" value="{{ item.kind }}"><input type="hidden" name="row" value="{{ item.row }}"><input type="hidden" name="next" value="{{ request.get_full_path }}"></form>
+<form id="ndel-{{ item.kind }}-{{ item.row }}" method="post" action="{% url 'manage:notice_remove' %}">{% csrf_token %}<input type="hidden" name="kind" value="{{ item.kind }}"><input type="hidden" name="row" value="{{ item.row }}"><input type="hidden" name="next" value="{{ request.get_full_path }}"></form>
+{% endfor %}
+{% endblock %}

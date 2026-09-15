@@ -170,8 +170,12 @@ def 一覧掲載を変える(d):
     m.notice_listed = 出す
     if 出す:
         m.notice_listed_at = timezone.now()
-    else:
-        m.notice_delisted_at = timezone.now()
+    # **一覧削除日時は、公開でも非公開でも空に戻す。**GAS がそうしている
+    # （handleUpdateNoticeVisibility は deletedAtCol を '' にする）。
+    # 非公開のときにここへ日時を入れていたため、「非公開」にしただけで
+    # 「一覧から削除」と見分けがつかず、管理画面のお知らせ管理から消えて
+    # 公開に戻せなくなっていた（2026-09-15）。一覧から下ろすのは 一覧から外す() の役目。
+    m.notice_delisted_at = None
     m.save()
     return {"status": "ok"}
 
