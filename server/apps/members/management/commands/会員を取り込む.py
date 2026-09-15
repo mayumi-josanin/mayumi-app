@@ -235,15 +235,19 @@ class Command(BaseCommand):
                 古い = 既存.passcode_hash if 既存 else ""
                 if not 古い or not check_password(平文, 古い):
                     値["passcode_hash"] = make_password(平文)
-                パスコードを作った += 1
+                    パスコードを作った += 1
 
             if not 既存:
                 新規.append((member_id, 値, name))
                 continue
 
+            # **passcode_hash も「変わった」に数える。**値に入っているのは、作り直しが要るときだけ
+            # （無い・平文と合わない）。2026-09-15 の稽古で、表のパスコードの0を戻したあと
+            # 他の項目が変わっていない22名の新しいハッシュが**保存されず**、突き合わせで
+            # 「照合できない」になった。ハッシュは毎回値が変わるので比較はせず、あるかどうかで見る。
             変わった = [
                 k for k, v in 値.items()
-                if k != "passcode_hash" and getattr(既存, k) != v
+                if (k == "passcode_hash") or getattr(既存, k) != v
             ]
             if 変わった:
                 更新.append((member_id, 値, name, 変わった))
