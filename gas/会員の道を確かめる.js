@@ -28,8 +28,9 @@ function 会員の道を確かめる() {
     if (String(row[USER_COL.DELETE_STATUS - 1] || '').trim() === SOFT_DELETE_STATUS) return;
     シート会員 += 1;
     var 届 = String(row[USER_COL.PUSH - 1] || '').trim();
-    // "true"/"false" は届け先ではない（取り込みも空にする）
-    if (届 && 届 !== 'true' && 届 !== 'false') シート届け先 += 1;
+    // 取り込みと同じ数え方: "false"（通知オフ）は届け先なし。"true"（許可はしたが購読IDが
+    // 取れなかった端末）と本物の購読IDは届け先あり。表示値は TRUE/FALSE と大文字になるので大小を無視する。
+    if (届 && 届.toLowerCase() !== 'false') シート届け先 += 1;
   });
   Logger.log('  シート: 会員 ' + シート会員 + '名 ／ 届け先あり ' + シート届け先 + '名');
 
