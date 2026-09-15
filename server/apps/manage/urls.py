@@ -3,7 +3,7 @@ from django.urls import path
 from django.views.generic import RedirectView
 
 from . import (
-    views_analytics, views_calendar, views_category, views_login, views_member_extra, views_menu, views_news,
+    views_analytics, views_calendar, views_category, views_login, views_member, views_member_extra, views_menu, views_news,
     views_notice, views_order, views_product, views_push, views_sso, views_system,
 )
 
@@ -53,6 +53,16 @@ urlpatterns = [
     path("calendar/bulk-delete/", views_calendar.calendar_bulk_delete, name="calendar_bulk_delete"),
     path("calendar/<int:row>/status/", views_calendar.calendar_status, name="calendar_status"),
     path("calendar/<int:row>/delete/", views_calendar.calendar_delete, name="calendar_delete"),
+    # 会員管理（会員は会員番号 MYM-#### で指す。お名前では探さない）
+    # 重複候補は会員IDの経路より先に置く（<str:member_id> が duplicates を飲み込むため）
+    path("members/duplicates/", views_member_extra.duplicate_list, name="duplicate_list"),
+    path("members/duplicates/merge/", views_member_extra.duplicate_merge, name="duplicate_merge"),
+    path("members/", views_member.member_list, name="member_list"),
+    path("members/<str:member_id>/", views_member.member_edit, name="member_edit"),
+    path("members/<str:member_id>/passcode/", views_member.member_passcode, name="member_passcode"),
+    path("members/<str:member_id>/transfer-code/", views_member.member_transfer_code, name="member_transfer_code"),
+    path("members/<str:member_id>/stop-push/", views_member.member_stop_push, name="member_stop_push"),
+    path("members/<str:member_id>/delete/", views_member.member_delete, name="member_delete"),
     path("orders/", views_order.order_list, name="order_list"),
     path("orders/new/", views_order.order_create, name="order_create"),
     path("orders/csv/", views_order.order_csv, name="order_csv"),
@@ -65,8 +75,6 @@ urlpatterns = [
     path("revenue/<str:kind>/save/", views_analytics.revenue_save, name="revenue_save"),
     path("revenue/<str:kind>/<int:row>/delete/", views_analytics.revenue_delete, name="revenue_delete"),
     # 重複会員候補（統合）と、バックアップ / ゴミ箱
-    path("members/duplicates/", views_member_extra.duplicate_list, name="duplicate_list"),
-    path("members/duplicates/merge/", views_member_extra.duplicate_merge, name="duplicate_merge"),
     path("trash/", views_member_extra.trash_list, name="trash_list"),
     path("trash/restore/", views_member_extra.trash_restore, name="trash_restore"),
     path("trash/hard-delete/", views_member_extra.trash_hard_delete, name="trash_hard_delete"),
