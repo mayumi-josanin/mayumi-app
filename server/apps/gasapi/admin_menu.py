@@ -21,6 +21,8 @@ GAS の `handleMoveMenu` は、**行の中身を丸ごと隣の行と入れ替�
 GAS は `markRowSoftDeleted_`。お知らせと同じ。（FAQ・カテゴリは本当に消す）
 """
 
+import time
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -114,6 +116,9 @@ def 足す(d):
             publish_at=_日時(d.get("publishAt")),
             registered_on=timezone.localdate(),
             updated_at=timezone.now(),
+            # GAS の handleAddMenu と同じ。**表示順に今のミリ秒を入れる**ので、
+            # 新しく足したメニューがお客様のホームでいちばん上に来る。
+            sort_key=int(time.time() * 1000),
         )
     return {"status": "ok", "rowIdx": m.sheet_row,
             "effectiveStatus": _状態の字(m.published),
@@ -240,6 +245,29 @@ def 動かす(d):
         b.updated_at = いま
         a.save()
         b.save()
+    return {"status": "ok"}
+
+
+def 並び順を書く(d):
+    """GAS の handleUpdateItemOrder のうち、メニューのぶん。
+
+    管理アプリの saveMenuOrder が送る ``updates: [{rowIdx, sortOrder}]`` をそのまま受ける。
+    **表示順の列だけを書き換える。**行の中身も行番号も動かさない。
+    （お客様のホームは表示順の大きい順に並ぶ）
+    """
+    更新 = d.get("updates") or []
+    if not isinstance(更新, list):
+        return {"status": "error", "message": "updates がありません"}
+    with transaction.atomic():
+        for u in 更新:
+            m = _探す(u if isinstance(u, dict) else {})
+            if not m:
+                continue
+            try:
+                m.sort_key = int(u.get("sortOrder") or 0)
+            except (TypeError, ValueError):
+                continue
+            m.save(update_fields=["sort_key", "changed_at"])
     return {"status": "ok"}
 
 
