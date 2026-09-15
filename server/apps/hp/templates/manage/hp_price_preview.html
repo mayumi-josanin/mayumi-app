@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} | 料金表のプレビュー</title>
+<style>
+  /* サイトの料金表と同じ見え方（css/style.css の .price-table 相当を小さく写した） */
+  :root { --c-text-soft: #6b5040; }
+  body { margin: 0; padding: 24px; font-family: "Noto Serif JP", "Yu Mincho", serif; color: #3d2e1e; background: #fdf8f0; }
+  p.note { font-size: 13px; color: #6b5040; margin: 0 0 14px; }
+  table { border-collapse: collapse; width: 100%; max-width: 640px; background: #fff; }
+  caption { text-align: left; font-weight: 700; font-size: 17px; padding: 6px 2px 10px; caption-side: top; }
+  th, td { border: 1px solid rgba(122,92,62,.25); padding: 10px 12px; text-align: left; font-size: 14px; }
+  thead th { background: #eef2ea; }
+  tbody th { font-weight: 500; background: #fbf7f0; width: 46%; }
+</style>
+</head>
+<body>
+<p class="note">いま入力している内容で表示しています（まだ保存していません）。{{ title }}</p>
+<table>
+{{ table|safe }}
+</table>
+</body>
+</html>
