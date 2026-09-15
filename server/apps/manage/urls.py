@@ -29,6 +29,7 @@ urlpatterns = [
     path("push/", views_push.push_list, name="push_list"),
     path("push/send/", views_push.push_send, name="push_send"),
     path("push/<int:row>/delete/", views_push.push_delete, name="push_delete"),
+    path("push/bulk-delete/", views_push.push_bulk_delete, name="push_bulk_delete"),
     path("menus/", views_menu.menu_list, name="menu_list"),
     path("menus/new/", views_menu.menu_create, name="menu_create"),
     path("menus/<int:row>/", views_menu.menu_edit, name="menu_edit"),

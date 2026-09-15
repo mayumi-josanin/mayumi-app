@@ -180,7 +180,7 @@ def test_管理画面から全員へ送れる(as_owner, api, fake_onesignal):
 
 def test_管理画面の予約と削除(as_owner, api, fake_onesignal):
     when = (timezone.localtime() + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")
-    as_owner.post("/manage/push/send/", {"mode": "schedule", "title": "明日", "scheduledAt": when})
+    as_owner.post("/manage/push/send/", {"mode": "schedule", "title": "明日", "body": "本文", "scheduledAt": when})
     p = PushNotice.objects.get()
     assert p.status == "予約済み" and fake_onesignal == []
     as_owner.post(f"/manage/push/{p.sheet_row}/delete/")

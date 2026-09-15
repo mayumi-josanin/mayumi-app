@@ -348,3 +348,9 @@ td.brand { color: var(--brand); font-weight: 700; }
 .rev-entry { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; background: var(--surface-hover); }
 .rev-row3 { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 900px) { .rev-row3 { grid-template-columns: 1fr 1fr; } .chart-grid { grid-template-columns: 1fr; } }
+
+/* 通知管理（旧管理アプリの送信フォームのボタン並びと、プレビューの窓） */
+.push-actions { flex-wrap: wrap; }
+.push-actions .push-send-btn { flex: 2; min-width: 160px; font-size: 15px; padding: 12px; }
+.push-preview { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-hover); }
+.push-preview-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
