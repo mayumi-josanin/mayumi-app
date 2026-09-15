@@ -34,3 +34,30 @@ def staff(db):
 def as_owner(client, owner):
     client.force_login(owner)
     return client
+
+
+import io  # noqa: E402
+import json  # noqa: E402
+
+from apps.content import onesignal  # noqa: E402
+
+
+@pytest.fixture
+def fake_onesignal(monkeypatch, settings):
+    settings.ONESIGNAL_APP_ID = "app"
+    settings.ONESIGNAL_REST_API_KEY = "key"
+    sent = []
+
+    class _Res(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=0):
+        sent.append(json.loads(req.data))
+        return _Res(json.dumps({"id": "n-1", "recipients": 5}).encode())
+
+    monkeypatch.setattr(onesignal.urllib.request, "urlopen", fake_urlopen)
+    return sent
