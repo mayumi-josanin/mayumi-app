@@ -348,3 +348,20 @@ td.brand { color: var(--brand); font-weight: 700; }
 .rev-entry { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; background: var(--surface-hover); }
 .rev-row3 { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 900px) { .rev-row3 { grid-template-columns: 1fr 1fr; } .chart-grid { grid-template-columns: 1fr; } }
+
+/* ---- NEWS配信・管理（旧管理アプリの内容） ---- */
+.news-card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.push-send-card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-hover); padding: 12px 14px; }
+.push-send-card__top { display: flex; align-items: center; gap: 12px; cursor: pointer; margin: 0; }
+.push-send-card__icon { font-size: 1.4rem; }
+.push-send-card__text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.push-send-card__heading { font-weight: 700; color: var(--text-primary); }
+.push-send-card__sub { font-size: .8rem; color: var(--text-secondary); }
+.push-send-card__top input { width: 22px; height: 22px; accent-color: var(--brand); }
+.push-send-card__note { margin-top: 8px; font-size: .8rem; color: var(--text-secondary); }
+.news-preview-box { border: 1px solid var(--border); border-radius: 18px; background: var(--surface); padding: 18px; }
+.news-preview-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.news-preview-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 12px; line-height: 1.6; }
+.news-preview-text { line-height: 1.9; }
+.news-preview-img { max-width: 100%; border-radius: 12px; margin-top: 16px; display: block; }
+.news-preview-link { margin-top: 20px; text-align: center; }
