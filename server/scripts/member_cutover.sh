@@ -42,6 +42,13 @@ case "${1:-help}" in
   shred)     [ -n "${2:-}" ] || { echo "usage: shred <json in server/>"; exit 1; }
     # The export JSON holds plaintext passcodes. Remove it once imported and compared.
     rm -f -- "$2" && echo "removed $2";;
+  live-on)
+    # Tell the Django manage screens that the server is now the source of truth for members.
+    $PY 会員の正を切り替える server;;
+  live-off)
+    $PY 会員の正を切り替える sheet;;
+  live)
+    $PY 会員の正を切り替える;;
   probe)
     # After the switch: the customer-facing window must answer without an API key.
     for a in getNews getUserRewardStatus getRecoveryCandidates; do
@@ -59,6 +66,8 @@ usage: bash ~/member_cutover.sh <command> [file]
   marks-preview <json>   dry run of the per-member marks import
   marks-import  <json>   per-member marks import
   shred   <json>         delete the export JSON (contains plaintext passcodes)
+  live-on | live-off     raise / lower the "server is the source for members" flag (manage screens)
+  live                   show the flag
   probe                  after the switch: public window answers + web errors
 H
     ;;
