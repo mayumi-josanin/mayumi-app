@@ -209,7 +209,8 @@ def revenue_list(request, kind: str):
     return render(request, "manage/revenue_list.html", {
         "kind": kind, "label": 設定["label"], "groups": _grouped(shown), "months": months, "month": month,
         "menu_types": revenue.メニュー種別, "editing": editing,
-        "products_json": json.dumps([{"name": p["name"], "price": p["price"] or 0, "cost": cost_map.get(p["name"], 0)} for p in products], ensure_ascii=False),
+        # json_script で埋める（商品名に "</script>" が入っても壊れない）。
+        "products_data": [{"name": p["name"], "price": p["price"] or 0, "cost": cost_map.get(p["name"], 0)} for p in products],
         "product_names": {p["name"] for p in products},
         "today": timezone.localdate().isoformat(),
         "meta": {"count": len(shown), "amount": sum(r["totalAmount"] for r in shown), "profit": sum(r["profit"] for r in shown)},

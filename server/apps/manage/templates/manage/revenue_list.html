@@ -128,7 +128,7 @@
 {% if not editing %}
 {{ menu_types|json_script:"menu-types" }}
 {{ dashi_names|json_script:"dashi-names" }}
-<script id="products-data" type="application/json">{{ products_json|safe }}</script>
+{{ products_data|json_script:"products-data" }}
 <script>
 // 入力行（旧管理アプリの「行を追加」と同じ）。合計は 件数×単価、原価合計、粗利を行ごとに出す。
 // だし調味粉は個数で単価が決まる（実質単価は自動）。
