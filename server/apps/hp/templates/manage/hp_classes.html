@@ -1,0 +1,83 @@
+{% extends "manage/base.html" %}
+{% block title %}各種お教室 | 公式サイト{% endblock %}
+{% block topbar_title %}公式サイト{% endblock %}
+{% block content %}
+<div class="page-header"><h1>🎒 各種お教室</h1></div>
+{% include "manage/_hp_log.html" %}
+<div class="card">
+  <div class="card-body">
+    {% if stale %}
+    <div class="hp-notice">
+      <b>サイトの表示が古くなっています。</b>開催日を過ぎたのに、
+      ページがまだ「開催予定」のままのお教室があります：{{ stale }}<br>
+      <form method="post" class="inline-form" style="margin-top:8px">{% csrf_token %}
+        <span>下の<b>「手元に反映」</b>を押すと直ります。</span>
+        <button class="btn btn-outline btn-sm" name="action" value="local">手元に反映</button>
+      </form>
+    </div>
+    {% endif %}
+    <p class="form-hint">
+      <b>お教室のページ</b>（<code>/classroom/</code>）に一覧で出ます。全 <b>{{ total }}</b> 件。<br>
+      カード1枚が<b>お教室ひとつ</b>です。押すとそのお教室のページ
+      （<code>/classroom/class-01/</code> など）が開いて、
+      <b>概要</b>と、その下に<b>過去の開催</b>が並びます。<br>
+      ページのいちばん上のご案内の文と写真は、「ページの編集」で直せます。
+    </p>
+    <form method="post" class="inline-form" style="margin-top:14px">{% csrf_token %}
+      <button class="btn btn-primary" name="action" value="new">＋ 新しいお教室</button>
+      <a class="btn btn-outline" href="{% url 'manage:hp_site_file' path='classroom/' %}" target="_blank" rel="noopener">お教室のページを見る</a>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>お教室の一覧</h2>
+    <form method="post" class="inline-form">{% csrf_token %}
+      <button class="btn btn-outline btn-sm" name="action" value="new">＋ 新しく作成</button>
+    </form>
+  </div>
+  <div class="card-body">
+    <p class="form-hint">この順番でページに並びます。↑↓で並べ替えられます。</p>
+    <form method="get" id="crFilters">
+      <div class="inline-form" style="margin-top:4px">
+        <label class="sub" style="margin:0">お教室でしぼる</label>
+        <select name="cat" class="form-control" style="width:220px;min-width:0" onchange="this.form.submit()">
+          <option value="">すべて</option>
+          {% for n in cats %}<option value="{{ n }}" {% if n == cat %}selected{% endif %}>{{ n }}</option>{% endfor %}
+          <option value="__none__" {% if cat == '__none__' %}selected{% endif %}>（名称なし）</option>
+        </select>
+        <span class="sub" style="margin:0">{{ count }}</span>
+      </div>
+      <div class="inline-form" style="margin-top:4px">
+        <label class="sub" style="margin:0">分類でしぼる</label>
+        <select name="kind" class="form-control" style="width:220px;min-width:0" onchange="this.form.submit()">
+          <option value="">すべて</option>
+          {% for n in kinds %}<option value="{{ n }}" {% if n == kind %}selected{% endif %}>{{ n }}</option>{% endfor %}
+          <option value="__none__" {% if kind == '__none__' %}selected{% endif %}>（分類なし）</option>
+        </select>
+        <span class="sub" style="margin:0">{{ count }}</span>
+      </div>
+    </form>
+    <div style="margin-top:12px">
+    {% for row in rows %}
+      <div class="hp-item">
+        <span class="hp-item-name">{{ row.name|default:"（名称なし）" }}</span>
+        <span class="sub" style="margin:0">{{ row.c.date_disp|default:"" }}</span>
+        {% if row.n_img %}<span class="badge badge-gray">写真{{ row.n_img }}</span>{% endif %}
+        {% if row.n_rep %}<span class="badge badge-gray">開催{{ row.n_rep }}回</span>{% endif %}
+        {% if row.hidden %}<span class="badge badge-red">隠す</span>{% endif %}
+        <form method="post" class="inline-form" style="gap:6px;margin-left:auto">{% csrf_token %}
+          <input type="hidden" name="i" value="{{ row.i }}"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <input type="hidden" name="action" value="move">
+          <button class="btn btn-outline btn-sm" name="dir" value="up" title="上へ">↑</button>
+          <button class="btn btn-outline btn-sm" name="dir" value="down" title="下へ">↓</button>
+          <a class="btn btn-outline btn-sm" href="{% url 'manage:hp_class_edit' row.i %}">編集</a>
+        </form>
+      </div>
+    {% empty %}
+      <p class="form-hint">{% if total %}そのお教室はありません。{% else %}まだありません。「＋ 新しいお教室」から作れます。{% endif %}</p>
+    {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -542,3 +542,20 @@ td.brand { color: var(--brand); font-weight: 700; }
 .hp-style-btn { width: 34px; height: 30px; border: 1px solid var(--border); border-radius: 6px; background: var(--white); cursor: pointer; font-size: .85rem; }
 .hp-style-btn:hover { background: var(--bg); }
 @media (max-width: 768px) { .hp-news-head { grid-template-columns: 1fr; } }
+/* 公式サイト: 各種お教室（views_classes.py） */
+.hp-notice { background: #fff6e5; border: 1px solid #f3d9a4; color: #7a5a1e; border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 14px; font-size: .88rem; line-height: 1.7; }
+.hp-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); margin-bottom: 8px; }
+.hp-item-name { font-size: .95rem; font-weight: 600; color: var(--text-primary); }
+.hp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.hp-imgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.hp-imgs-sm { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+.hp-imgcard { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; background: var(--surface); text-align: center; }
+.hp-imgcard img { width: 100%; height: 90px; object-fit: cover; border-radius: 4px; display: block; }
+.hp-imgname { font-size: .7rem; color: var(--text-muted); word-break: break-all; margin: 6px 0; }
+.hp-blk { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 10px; background: var(--bg); }
+.hp-blk-title { font-size: .82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+.hp-blk textarea.form-control { min-height: 90px; resize: vertical; }
+.hp-rep { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 12px; align-items: start; }
+.hp-kind { display: inline-block; color: #fff; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.hp-hidden-submit { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+@media (max-width: 768px) { .hp-rep { grid-template-columns: 1fr; } }
