@@ -1,0 +1,315 @@
+{% extends "manage/base.html" %}
+{% block title %}診療カレンダー | 公式サイト{% endblock %}
+{% block topbar_title %}公式サイト{% endblock %}
+{% block content %}
+<div class="page-header"><h1>📅 診療カレンダー</h1></div>
+{% include "manage/_hp_log.html" %}
+
+<div class="card">
+  <div class="card-header"><h2>📅 診療カレンダー</h2></div>
+  <div class="card-body">
+    <p class="sub">
+      <b>料金・診察時間のページ</b>（<code>/reception/</code>）に出る月カレンダーです。<br>
+      予定のある日を押すとその日の内容が開き、行き先を入れておくと
+      <b>「詳しく見る」</b>でそのページへ移れます。
+    </p>
+    <p style="margin-top:12px">
+      {% for label, color, n in legend %}<span class="badge" style="background:{{ color }};color:#fff">{{ label }} {{ n }}件</span> {% endfor %}
+    </p>
+    <div class="inline-form" style="gap:8px;margin-top:14px">
+      <form method="post" style="margin:0">{% csrf_token %}
+        <button class="btn btn-primary" name="action" value="new">＋ 新しい予定</button>
+      </form>
+      <a class="btn btn-outline" href="?import=1#appCal">📥 アプリのカレンダーから取り込む</a>
+      <a class="btn btn-outline" href="{{ site_calendar }}" target="_blank" rel="noopener">サイトのカレンダーを開く</a>
+    </div>
+  </div>
+</div>
+
+{% if importing %}
+<!-- お客様アプリのカレンダーから、休診・往診・訪問産後ケアを取り込む -->
+<div class="card" id="appCal">
+  <div class="card-header"><h2>📥 アプリのカレンダーから取り込む</h2>
+    <a class="btn btn-outline btn-sm" href="{% url 'manage:hp_closed' %}">閉じる</a>
+  </div>
+  <div class="card-body">
+    <p class="sub">
+      お客様アプリのカレンダーにある<b>休診・往診・訪問産後ケア</b>を持ってきます。<br>
+      <b>イベントは持ってきません。</b>お教室の開催日が自動で入るので、二重に並ばないようにしています。<br>
+      種類ごとに1つの予定にまとめて日付を足すので、予定が増えすぎることはありません。
+    </p>
+    {% if app_error %}
+      <p class="sub">{{ app_error }}<br>もう一度ボタンを押すと、やり直せます。</p>
+    {% else %}
+    <form method="post" id="appCalForm">{% csrf_token %}
+      <input type="hidden" name="action" value="import">
+      <div class="inline-form" style="gap:10px;margin-top:12px">
+        <button type="button" class="btn btn-outline btn-sm" onclick="appCalAll(true)">すべて選ぶ</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="appCalAll(false)">選択を外す</button>
+        <label class="form-check" style="margin:0"><input type="checkbox" id="appCalFuture" checked onchange="appCalList()"> 今日以降のものだけ</label>
+        <label class="form-check" style="margin:0"><input type="checkbox" id="appCalOnlyNew" checked onchange="appCalList()"> まだ入れていないものだけ</label>
+        <span class="sub" id="appCalCount" style="margin:0 0 0 auto"></span>
+      </div>
+      <div id="appCalList" style="margin-top:12px;max-height:420px;overflow:auto">
+        {% for x in app_items %}
+        <label class="sc-row{% if x.done %} done{% endif %}" data-date="{{ x.date }}" data-done="{{ x.done|yesno:'1,0' }}">
+          <input type="checkbox" name="keys" value="{{ x.key }}" {% if x.done %}disabled{% endif %}>
+          <span class="badge" style="background:{% if x.kind == 'closed' %}#e57373{% else %}#f48fb1{% endif %};color:#fff">{{ x.label }}</span>
+          <span style="font-weight:600">{{ x.date }}</span>
+          {% if x.title and x.title != x.label %}<span class="sub" style="margin:0">{{ x.title }}</span>{% endif %}
+          {% if x.done %}<span class="badge badge-gray">入っています</span>{% endif %}
+        </label>
+        {% endfor %}
+        <p class="sub" id="appCalNone" hidden>
+          {% if app_yet == 0 %}アプリのカレンダーの休診・往診・訪問産後ケアは、すべて入っています。{% else %}見せるものがありません。上のチェックを外してみてください。{% endif %}
+        </p>
+      </div>
+      <div class="inline-form" style="margin-top:14px">
+        <button class="btn btn-primary" onclick="return appCalGo()">選んだ日を取り込む</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header"><h2>🗓️ カレンダーで見る</h2></div>
+  <div class="card-body">
+    <p class="sub">
+      <b>サイトに出るものと同じ中身</b>です。手で入れた予定も、
+      お教室から自動で入る予定も、まとめてここに出ます。<br>
+      <b>日を押すと、その日の予定が下に出ます。</b>手で入れた予定はそこから編集できます。
+    </p>
+    <div class="calv-head">
+      <a class="btn btn-outline btn-sm" href="?ym={{ prev_ym }}{% if filter %}&kind={{ filter }}{% endif %}">‹ 前の月</a>
+      <a class="btn btn-outline btn-sm" href="?ym={{ today_ym }}{% if filter %}&kind={{ filter }}{% endif %}">今月</a>
+      <a class="btn btn-outline btn-sm" href="?ym={{ next_ym }}{% if filter %}&kind={{ filter }}{% endif %}">次の月 ›</a>
+      <p class="calv-title">{{ month_title }}</p>
+    </div>
+    <div class="calv-legend">
+      {% for v in kinds %}<span class="k"><span class="calv-mark{% if v.w %} wide{% endif %}" style="background:{{ v.c }}">{{ v.m }}</span>{{ v.l }}</span>{% endfor %}
+    </div>
+    <div class="calv-grid">
+      {% for w in "日月火水木金土"|make_list %}<div class="calv-dow{% if forloop.first %} sun{% elif forloop.last %} sat{% endif %}">{{ w }}</div>{% endfor %}
+      {% for c in cells %}
+        {% if c %}
+        <a class="calv-cell{% if c.today %} today{% endif %}{% if c.sel %} sel{% endif %}" href="?ym={{ ym }}{% if not c.sel %}&day={{ c.ds }}{% endif %}{% if filter %}&kind={{ filter }}{% endif %}{% if edit >= 0 %}&edit={{ edit }}{% endif %}#calv">
+          <span class="calv-num{% if c.dow == 0 %} sun{% elif c.dow == 6 %} sat{% endif %}">{{ c.n }}</span>
+          <span class="calv-marks">{% for v in c.marks %}<span class="calv-mark{% if v.w %} wide{% endif %}" style="background:{{ v.c }}" title="{{ v.t }}">{{ v.m }}</span>{% endfor %}</span>
+          {% if c.more %}<span class="calv-more">＋{{ c.more }}</span>{% endif %}
+        </a>
+        {% else %}<div class="calv-cell empty"></div>{% endif %}
+      {% endfor %}
+    </div>
+    <div id="calv">
+    {% if sel %}
+      <div class="calv-day">
+        <div class="calv-day-title">{{ day_label }}</div>
+        {% for e in day_evs %}
+        <div class="calv-ev">
+          <span class="calv-mark{% if e.v.w %} wide{% endif %}" style="background:{{ e.v.c }}">{{ e.v.m }}</span>
+          <span style="font-weight:600">{{ e.t|default:e.v.l }}</span>
+          {% if e.n %}<span class="sub" style="margin:0">{{ e.n }}</span>{% endif %}
+          {% if e.si != None %}
+            <a class="btn btn-outline btn-sm" href="?ym={{ ym }}&day={{ sel }}&edit={{ e.si }}#scEdit">編集</a>
+          {% else %}
+            <span class="calv-auto">自動で入る予定</span>
+          {% endif %}
+          {% if e.site %}<a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="{{ e.site }}">ページを見る</a>{% endif %}
+        </div>
+        {% empty %}
+        <p class="sub">この日の予定はありません。</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if edit_item %}
+<div class="card" id="scEdit">
+  <div class="card-header"><h2>{{ edit_title }}</h2>
+    <form method="post" style="margin:0">{% csrf_token %}
+      <input type="hidden" name="index" value="{{ edit }}">
+      <button class="btn btn-outline danger btn-sm" name="action" value="del" onclick="return confirm('「{{ edit_item.title|default:'名前なしの予定'|escapejs }}」を削除します。よろしいですか？');">これを削除</button>
+    </form>
+  </div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data" id="scForm">{% csrf_token %}
+      <input type="hidden" name="action" value="save">
+      <input type="hidden" name="index" value="{{ edit }}">
+      <div class="form-row" style="grid-template-columns:280px minmax(0,1fr)">
+        <div class="form-group"><label>日付を選ぶ</label>
+          <div class="inline-form" style="gap:8px;flex-wrap:nowrap">
+            <input type="date" id="scDate" class="form-control" style="min-width:0;flex:1">
+            <button type="button" class="btn btn-primary btn-sm" style="white-space:nowrap" onclick="scAddDate()">追加</button>
+          </div>
+          <p class="form-hint">選んで「追加」を押すと右に並びます。何日でも足せます。</p>
+        </div>
+        <div class="form-group"><label>選択中の日付</label>
+          <div id="scDates" class="sc-dates">{% for x in edit_item.dates %}<span class="sc-chip">{{ x }}<input type="hidden" name="dates" value="{{ x }}"><button type="button" onclick="scRmDate(this)" aria-label="{{ x }}を外す">×</button></span>{% endfor %}</div>
+        </div>
+      </div>
+
+      <div class="form-row" style="grid-template-columns:200px minmax(0,1fr) 180px">
+        <div class="form-group"><label for="scKind">種類</label>
+          <select id="scKind" name="kind" class="form-control" onchange="scDirty()">
+            {% for k, label in kind_opts %}<option value="{{ k }}" {% if edit_item.kind|default:'closed' == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select></div>
+        <div class="form-group"><label for="scTitle">予定の名前</label>
+          <input type="text" id="scTitle" name="title" class="form-control" value="{{ edit_item.title|default:'' }}" oninput="scDirty()" placeholder="例：お盆休み／産後ヨガ教室"></div>
+        <div class="form-group"><label for="scShow">表示する</label>
+          <select id="scShow" name="show" class="form-control" onchange="scDirty()">
+            <option value="1" {% if edit_item.show != False %}selected{% endif %}>表示する</option>
+            <option value="0" {% if edit_item.show == False %}selected{% endif %}>隠す</option>
+          </select></div>
+      </div>
+
+      <div class="form-group"><label for="scNote">ひとこと（任意）</label>
+        <input type="text" id="scNote" name="note" class="form-control" value="{{ edit_item.note|default:'' }}" oninput="scDirty()" placeholder="例：午後のみ" style="max-width:320px"></div>
+
+      <div class="form-group"><label for="scText">くわしい内容（任意）</label>
+        <textarea id="scText" name="text" class="form-control" oninput="scDirty()" style="min-height:150px"
+                  placeholder="ここに書くと、カレンダーの「詳しく見る」から開けるページができます。">{{ edit_item.text|default:'' }}</textarea>
+        <p class="form-hint">
+          1行あけると段落が分かれます。リンクは <b>[表示する文字](URL)</b>、太字は <b>**はさむ**</b>。<br>
+          <b>空のままなら「詳しく見る」は出ません</b>（カレンダーに名前だけ出ます）。</p>
+      </div>
+
+      <div class="form-group"><label>写真（任意）</label>
+        <div id="scImgs" class="sc-imgs">
+          {% for im in edit_item.images %}
+          <div class="sc-imgcard">
+            <img src="{{ im.src }}" alt="">
+            <input type="hidden" name="images" value="{{ im.f }}">
+            <div class="n">{{ im.f }}</div>
+            <button type="button" class="btn btn-outline danger btn-sm" onclick="scRmImg(this)">外す</button>
+          </div>
+          {% empty %}<p class="sub" id="scNoImg" style="grid-column:1/-1">写真はまだありません。</p>{% endfor %}
+        </div>
+        <input type="file" name="photo" accept="image/*" style="margin-top:10px;font-size:12px" onchange="scDirty()">
+        <p class="form-hint">選んだ写真は「保存してカレンダーに反映」を押したときに取り込まれます。</p>
+      </div>
+
+      <div class="inline-form" style="margin-top:16px">
+        <button class="btn btn-primary" onclick="return scSave()">保存してカレンダーに反映</button>
+        <span class="sub" id="scDirtyMsg" style="margin:0"></span>
+        <a class="btn btn-outline" style="margin-left:auto" href="?ym={{ ym }}{% if sel %}&day={{ sel }}{% endif %}{% if filter %}&kind={{ filter }}{% endif %}">閉じる</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header"><h2>🗓️ 予定の一覧</h2></div>
+  <div class="card-body">
+    <p class="sub">毎週の定休日（水・日・祝）は入れなくて大丈夫です。「診療時間」タブの注記に書いてあります。</p>
+    <form method="get" class="inline-form" style="gap:10px;margin-top:4px">
+      {% if sel %}<input type="hidden" name="day" value="{{ sel }}">{% endif %}
+      <input type="hidden" name="ym" value="{{ ym }}">
+      <label class="sub" for="scFilter" style="margin:0">種類でしぼる</label>
+      <select id="scFilter" name="kind" class="form-control" style="width:220px;min-width:0" onchange="this.form.submit()">
+        <option value="">すべて</option>
+        {% for k, label in kind_opts %}<option value="{{ k }}" {% if filter == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <span class="sub" id="scFilterCount" style="margin:0">{{ count_text }}</span>
+    </form>
+    <div id="scList" style="margin-top:12px">
+      {% for r in rows %}
+      <div class="sc-row">
+        <span class="badge" style="background:{{ r.color }};color:#fff">{{ r.label }}</span>
+        <span style="font-size:13px;font-weight:600">{{ r.c.title|default:'（名前なし）' }}</span>
+        <span class="sub" style="margin:0">{{ r.shown|default:'日付なし' }}</span>
+        {% if r.ndates > 1 %}<span class="badge badge-gray">{{ r.ndates }}日</span>{% endif %}
+        {% if r.detail %}<span class="badge badge-gray">くわしい内容あり</span>{% endif %}
+        {% if r.hidden %}<span class="badge badge-red">隠す</span>{% endif %}
+        <a class="btn btn-outline btn-sm" style="margin-left:auto" href="?ym={{ ym }}{% if sel %}&day={{ sel }}{% endif %}{% if filter %}&kind={{ filter }}{% endif %}&edit={{ r.i }}#scEdit">編集</a>
+      </div>
+      {% empty %}
+      <p class="sub">{% if total %}その種類の予定はありません。{% else %}まだありません。「＋ 新しい予定」から作れます。{% endif %}</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>ℹ️ 自動で入る予定</h2></div>
+  <div class="card-body">
+    <p class="sub">
+      <b>お教室の開催日</b>だけが、ここに入れなくても自動で
+      <b>「イベント」（水色）</b>としてカレンダーに出ます。押すとそのページへ移ります。<br>
+      お知らせは、以前は自動で入っていましたが<b>いまは入りません</b>。
+      日付が「載せた日」であって「催しの日」ではないため、
+      いつ何があるのかが分かりにくかったからです。<br><br>
+      <b>休診・往診・訪問産後ケア</b>は、お客様アプリのカレンダーから
+      <b>「📥 アプリのカレンダーから取り込む」</b>で持ってこられます。
+    </p>
+  </div>
+</div>
+
+<script>
+/* 旧サイト管理アプリ（app.py）の scAddDate / scRmDate / scRmImg / appCalList と同じ動き。
+   日付と写真は hidden の入力として form に入れ、「保存」で一度に送る。 */
+function q(s){ return document.querySelector(s); }
+function qa(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); }
+function scDirty(){ var m=q('#scDirtyMsg'); if(m) m.textContent='未保存の変更があります'; }
+function scAddDate(){
+  var v=q('#scDate').value;
+  if(!v){ alert('日付を選んでください。'); return; }
+  if(qa('#scDates input[name=dates]').some(function(x){ return x.value===v; })){ alert('その日付はもう入っています。'); return; }
+  var chip=document.createElement('span'); chip.className='sc-chip';
+  chip.innerHTML='<input type="hidden" name="dates"><button type="button" aria-label="外す">×</button>';
+  chip.insertBefore(document.createTextNode(v), chip.firstChild);
+  chip.querySelector('input').value=v;
+  chip.querySelector('button').setAttribute('aria-label', v+'を外す');
+  chip.querySelector('button').onclick=function(){ scRmDate(this); };
+  /* 古い順に並べる */
+  var box=q('#scDates'), after=null;
+  qa('#scDates .sc-chip').forEach(function(c){ if(!after && c.querySelector('input').value>v) after=c; });
+  box.insertBefore(chip, after);
+  var hint=q('#scDatesHint'); if(hint) hint.remove();
+  q('#scDate').value=''; scDirty();
+}
+function scRmDate(btn){ btn.parentNode.remove(); scDirty(); scDatesHint(); }
+function scDatesHint(){
+  if(!qa('#scDates .sc-chip').length && !q('#scDatesHint')){
+    var p=document.createElement('span'); p.className='sub'; p.id='scDatesHint'; p.style.margin='0';
+    p.textContent='日付を選んで「追加」を押してください。'; q('#scDates').appendChild(p);
+  }
+}
+function scRmImg(btn){
+  btn.parentNode.remove(); scDirty();
+  if(!qa('#scImgs .sc-imgcard').length){
+    var p=document.createElement('p'); p.className='sub'; p.style.gridColumn='1/-1';
+    p.textContent='写真はまだありません。'; q('#scImgs').appendChild(p);
+  }
+}
+function scSave(){
+  if(!qa('#scDates input[name=dates]').length){ alert('日付が1つも入っていません。'); return false; }
+  return true;
+}
+if(q('#scDates')) scDatesHint();
+
+/* 取り込みの一覧。「今日以降」「まだ入れていないもの」は画面の中で隠すだけ */
+function appCalList(){
+  var fut=q('#appCalFuture').checked, onlyNew=q('#appCalOnlyNew').checked, ts='{{ today }}';
+  var rows=qa('#appCalList .sc-row'), shown=0, all=rows.length, yet=0;
+  rows.forEach(function(r){
+    var done=r.dataset.done==='1'; if(!done) yet++;
+    var ok=(!fut || r.dataset.date>=ts) && (!onlyNew || !done);
+    r.hidden=!ok; if(ok) shown++; else r.querySelector('input').checked=false;
+  });
+  q('#appCalCount').textContent='アプリ 全'+all+'日／まだ入れていないもの '+yet+'日／いま表示 '+shown+'日';
+  q('#appCalNone').hidden = shown>0;
+}
+function appCalAll(on){ qa('#appCalList input[type=checkbox]').forEach(function(c){ if(!c.disabled && !c.closest('.sc-row').hidden) c.checked=on; }); }
+function appCalGo(){
+  var n=qa('#appCalList input[type=checkbox]').filter(function(c){ return c.checked && !c.disabled; }).length;
+  if(!n){ alert('取り込む日が選ばれていません。'); return false; }
+  return confirm(n+'日を診療カレンダーに取り込みます。よろしいですか？');
+}
+if(q('#appCalList')) appCalList();
+</script>
+{% endblock %}

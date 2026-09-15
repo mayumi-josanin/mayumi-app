@@ -1,6 +1,6 @@
 from django.urls import path, re_path
 
-from . import views, views_basic, views_blog, views_classes, views_images, views_news, views_options
+from . import views, views_basic, views_blog, views_classes, views_closed, views_images, views_news, views_options
 
 urlpatterns = [
     path("hp/options/", views_options.hp_options, name="hp_options"),
@@ -13,6 +13,7 @@ urlpatterns = [
     path("hp/news/app/", views_news.hp_news_app, name="hp_news_app"),
     path("hp/news/<int:index>/", views_news.hp_news_edit, name="hp_news_edit"),
     path("hp/git/", views.hp_git, name="hp_git"),
+    path("hp/closed/", views_closed.hp_closed, name="hp_closed"),
     path("hp/publish/", views.hp_publish, name="hp_publish"),
     path("hp/images/", views_images.hp_images, name="hp_images"),
     path("hp/classes/", views_classes.hp_classes, name="hp_classes"),
