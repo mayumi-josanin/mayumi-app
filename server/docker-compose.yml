@@ -84,6 +84,9 @@ services:
       # お客様アプリへの通知（OneSignal）。GAS のスクリプトプロパティと同じ値を .env に
       ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
       ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
+      # 予約管理（mayumi-reserve）とのログインの受け渡し。両方の .env に同じ値
+      MANAGE_SSO_SECRET: ${MANAGE_SSO_SECRET:-}
+      RESERVE_MANAGE_URL: ${RESERVE_MANAGE_URL:-https://desktop-rmsk0vg.tail8efe0d.ts.net:10001}
       # 上げた画像の公開URL。お客様は Funnel（web）側から見るので、そちらの住所を書く
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://mayumi-api.tail8efe0d.ts.net}
       DB_NAME: mayumi

@@ -153,6 +153,11 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# ── 予約管理（mayumi-reserve）との行き来 ──
+# 同じ合鍵を両方の .env に入れると、ログインし直さずに行き来できる（apps/manage/sso.py）。
+MANAGE_SSO_SECRET = env("MANAGE_SSO_SECRET", "")
+RESERVE_MANAGE_URL = env("RESERVE_MANAGE_URL", "https://desktop-rmsk0vg.tail8efe0d.ts.net:10001")
+
 # ── 管理画面のログイン ──
 LOGIN_URL = "/manage/login/"
 LOGIN_REDIRECT_URL = "/manage/"

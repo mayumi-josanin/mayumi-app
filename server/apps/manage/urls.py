@@ -4,7 +4,7 @@ from django.views.generic import RedirectView
 
 from . import (
     views_analytics, views_calendar, views_category, views_login, views_menu, views_news, views_order,
-    views_product, views_push,
+    views_product, views_push, views_sso,
 )
 
 app_name = "manage"
@@ -13,7 +13,10 @@ urlpatterns = [
     path("login/", views_login.role_login, name="login"),
     # ログアウトはボタン（POST）。リンクだと先読みで勝手に落ちることがある。
     path("logout/", auth_views.LogoutView.as_view(next_page="/manage/login/"), name="logout"),
-    path("", RedirectView.as_view(pattern_name="manage:news_list", permanent=False), name="home"),
+    path("", RedirectView.as_view(pattern_name="manage:order_list", permanent=False), name="home"),
+    # 予約管理（mayumi-reserve）との行き来
+    path("go/reserve/", views_sso.go_reserve, name="go_reserve"),
+    path("sso/", views_sso.sso_login, name="sso_login"),
     path("news/", views_news.news_list, name="news_list"),
     path("news/new/", views_news.news_create, name="news_create"),
     path("news/<int:row>/", views_news.news_edit, name="news_edit"),
