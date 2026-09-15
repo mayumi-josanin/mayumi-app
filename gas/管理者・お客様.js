@@ -7214,7 +7214,11 @@ function handleUpdateCalendar(data) {
 
 // ========== 会員データ関連 ==========
 
+// お客様側の会員まわり10か所（updateUser / 端末 / 特典 / 復元 / 再設定 / 通知を切る / 読み3つ）は
+// 2026-09-15 まで転送が無かった。入口（login/register）だけ渡して、こちらをシートに書くと
+// 「入れたのにスタンプが戻る」形で正が2つになる。**member を渡すときは全部いっしょ。**
 function handleUpdateUser(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('updateUser', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
@@ -7617,6 +7621,10 @@ function clearRecoveryAttempts_(name, kana) {
 }
 
 function getRecoveryCandidates(params) {
+  if (サーバーへ渡すか_('member')) {
+    var 中 = サーバーから読む_('getRecoveryCandidates', params);
+    if (中) return 中;
+  }
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
@@ -7675,6 +7683,7 @@ function getRecoveryCandidates(params) {
 }
 
 function handleRecoverAccount(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('recoverAccount', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
@@ -7851,6 +7860,7 @@ function handleIssueTransferCode(data) {
 }
 
 function handleResetForgottenPasscode(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('resetForgottenPasscode', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
@@ -7983,6 +7993,7 @@ function recordPasscodeResetHistory_(row, checkedCount) {
 
 
 function handleSyncUserRewardStatus(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('syncUserRewardStatus', data);
   try {
     const ss = getOrCreateSpreadsheet();
     const sheet = getOrCreateUsersSheet_(ss);
@@ -8026,6 +8037,7 @@ function handleSyncUserRewardStatus(data) {
 }
 
 function handleDrawRewardGacha(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('drawRewardGacha', data);
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
@@ -8120,7 +8132,13 @@ function handleUnsubscribePush(data) {
     }
 
     if (memberId) {
-      clearUserPushSubscription_(memberId);
+      // 会員の行を空にする部分だけサーバーへ渡す（OneSignal の解除は上で済ませた）。
+      if (サーバーへ渡すか_('member')) {
+        var 答 = _会員をサーバーへ_('unsubscribePush', { memberId: memberId });
+        if (答 && 答.status !== 'ok') return 答;
+      } else {
+        clearUserPushSubscription_(memberId);
+      }
     }
 
     return {
@@ -8134,6 +8152,7 @@ function handleUnsubscribePush(data) {
 }
 
 function handleSyncUserDeviceSession(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('syncUserDeviceSession', data);
   try {
     const memberId = String(data && data.memberId || '').trim();
     const deviceId = String(data && data.deviceId || '').trim();
@@ -8154,6 +8173,10 @@ function handleSyncUserDeviceSession(data) {
 }
 
 function getUserDevices(params) {
+  if (サーバーへ渡すか_('member')) {
+    var 中 = サーバーから読む_('getUserDevices', params);
+    if (中) return 中;
+  }
   try {
     const memberId = String(params && params.memberId || '').trim();
     if (!memberId) return { status: 'error', message: '会員IDが必要です' };
@@ -8169,6 +8192,7 @@ function getUserDevices(params) {
 }
 
 function handleRemoveUserDeviceSession(data) {
+  if (サーバーへ渡すか_('member')) return _会員をサーバーへ_('removeUserDeviceSession', data);
   try {
     const memberId = String(data && data.memberId || '').trim();
     const deviceId = String(data && data.deviceId || '').trim();
@@ -8192,6 +8216,10 @@ function handleRemoveUserDeviceSession(data) {
 }
 
 function getUserRewardStatus(params) {
+  if (サーバーへ渡すか_('member')) {
+    var 中 = サーバーから読む_('getUserRewardStatus', params);
+    if (中) return 中;
+  }
   try {
     if (!params || !params.memberId) {
       return { status: 'error', message: '会員IDが必要です' };
