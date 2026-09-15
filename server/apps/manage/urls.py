@@ -20,7 +20,8 @@ urlpatterns = [
     path("news/", views_news.news_list, name="news_list"),
     path("news/new/", views_news.news_create, name="news_create"),
     path("news/<int:row>/", views_news.news_edit, name="news_edit"),
-    path("news/<int:row>/toggle/", views_news.news_toggle, name="news_toggle"),
+    path("news/bulk-delete/", views_news.news_bulk_delete, name="news_bulk_delete"),
+    path("news/<int:row>/status/", views_news.news_status, name="news_status"),
     path("news/<int:row>/delete/", views_news.news_delete, name="news_delete"),
     # お知らせ管理（お客様アプリの「お知らせ一覧」の横断ビュー）
     path("notices/", views_notice.notice_list, name="notice_list"),
