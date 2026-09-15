@@ -366,3 +366,8 @@ td.brand { color: var(--brand); font-weight: 700; }
 .sys-detail { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 .sys-detail-title { font-weight: 700; margin-bottom: 8px; }
 .sys-line { margin-bottom: 6px; font-size: .88rem; }
+/* 通知管理（旧管理アプリの送信フォームのボタン並びと、プレビューの窓） */
+.push-actions { flex-wrap: wrap; }
+.push-actions .push-send-btn { flex: 2; min-width: 160px; font-size: 15px; padding: 12px; }
+.push-preview { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-hover); }
+.push-preview-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
