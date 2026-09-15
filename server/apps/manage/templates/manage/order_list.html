@@ -6,96 +6,103 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>注文管理</h1>
-    <div class="lead">ショップの注文です。受取確認を付けると一覧から隠れます（「受取済」で見られます）。</div>
+    <h1>📦 注文管理</h1>
+    <div class="lead">ショップから入った注文を一覧で確認できます。ここに表示される注文金額はデータ分析に反映されません。</div>
   </div>
   <div class="page-header-actions">
-    <a class="btn btn-primary" href="{% url 'manage:order_create' %}">＋ 手で注文を入れる</a>
+    <form method="get" class="inline-form" style="margin:0">
+      <input type="hidden" name="status" value="{{ status }}"><input type="hidden" name="product" value="{{ product }}"><input type="hidden" name="q" value="{{ q }}">
+      <label class="form-check" style="font-size:.85rem"><input type="checkbox" name="showAll" value="1" {% if show_all %}checked{% endif %} onchange="this.form.submit()"> 受取済も含めて表示</label>
+    </form>
+    <a class="btn btn-primary" href="{% url 'manage:order_create' %}">✨ 新規注文の作成</a>
   </div>
 </div>
 
 <div class="stats">
-  <div class="stat-card orange"><div class="stat-label">受付中</div><div class="stat-value orange">{{ summary.pending }}</div></div>
-  <div class="stat-card green"><div class="stat-label">受取済</div><div class="stat-value green">{{ summary.received }}</div></div>
-  <div class="stat-card default"><div class="stat-label">キャンセル</div><div class="stat-value">{{ summary.cancelled }}</div></div>
+  {% for label, value in summary %}<div class="stat-card blue"><div class="stat-label">{{ label }}</div><div class="stat-value">{{ value }}</div></div>{% endfor %}
 </div>
 
 <div class="card">
   <div class="card-body">
     <form method="get" class="filter-form">
+      {% if show_all %}<input type="hidden" name="showAll" value="1">{% endif %}
+      <div class="form-group" style="flex:1;min-width:260px">
+        <label for="f-q">検索</label>
+        <input id="f-q" name="q" type="search" class="form-control" value="{{ q }}" placeholder="注文ID・会員ID・名前・商品で検索">
+      </div>
       <div class="form-group">
         <label for="f-status">状態</label>
         <select id="f-status" name="status" class="form-control" onchange="this.form.submit()">
+          <option value="all" {% if status == "all" %}selected{% endif %}>全ての状態</option>
           <option value="pending" {% if status == "pending" %}selected{% endif %}>受付中</option>
           <option value="received" {% if status == "received" %}selected{% endif %}>受取済</option>
-          <option value="cancelled" {% if status == "cancelled" %}selected{% endif %}>キャンセル</option>
-          <option value="all" {% if status == "all" %}selected{% endif %}>すべて</option>
         </select>
       </div>
       <div class="form-group">
         <label for="f-product">商品</label>
         <select id="f-product" name="product" class="form-control" onchange="this.form.submit()">
-          <option value="">すべて</option>
+          <option value="">全ての商品</option>
           {% for p in products %}<option value="{{ p }}" {% if product == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
         </select>
       </div>
-      <div class="form-group">
-        <label for="f-q">お名前・会員ID・注文IDで探す</label>
-        <input id="f-q" name="q" class="form-control" value="{{ q }}">
-      </div>
-      <button type="submit" class="btn btn-outline">探す</button>
+      <button type="submit" class="btn btn-outline">検索</button>
+      <a class="btn btn-outline" href="{% url 'manage:order_list' %}{% if show_all %}?showAll=1{% endif %}">条件をクリア</a>
+      <a class="btn btn-outline" href="{% url 'manage:order_csv' %}">CSV出力</a>
     </form>
+    <div class="sub" style="margin-top:8px">{{ meta }}</div>
   </div>
 </div>
 
-<div class="card">
-  <div class="card-header"><h2>注文<span class="count">{{ orders|length }}件</span></h2></div>
-  <div class="table-wrap">
-  <table>
-    <thead><tr><th>日時</th><th>お客様</th><th>商品</th><th>合計</th><th>状態</th><th>受取確認</th><th>管理メモ</th><th></th></tr></thead>
-    <tbody>
-    {% for o in orders %}
-      <tr>
-        <td class="nowrap">{{ o.date|date:"n/j H:i" }}<div class="sub">{{ o.orderId }}</div></td>
-        <td class="nowrap">{{ o.customerName|default:"—" }}{% if o.memberId %}<div class="sub">{{ o.memberId }}</div>{% endif %}</td>
-        <td>{% for i in o.items %}<div>{{ i.name }} × {{ i.qty }}</div>{% endfor %}</td>
-        <td class="nowrap">{% if o.total %}{{ o.total }}{% else %}¥{{ o.amount|floatformat:0 }}{% endif %}<div class="sub">{{ o.payment|default:"" }}</div></td>
-        <td class="nowrap">
-          <form method="post" action="{% url 'manage:order_status' o.orderId %}">{% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <select name="status" class="form-control" style="width:auto;padding:6px 8px;font-size:.82rem" onchange="this.form.submit()">
+<form method="post" action="{% url 'manage:order_bulk_status' %}" id="bulk-form">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <div class="card">
+    <div class="card-header">
+      <h2>注文一覧<span class="count">{{ orders|length }}件</span></h2>
+      <div class="inline-form">
+        <select name="bulkStatus" class="form-control" style="width:auto;padding:6px 8px;font-size:.82rem">
+          <option value="">一括変更の状態</option>
+          {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('選んだ注文の状態をまとめて変更します。よろしいですか？');">一括ステータス更新</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('.order-sel').forEach(function(c){c.checked=this.checked}.bind(this))"></th><th>日時</th><th>会員ID / 名前</th><th>注文商品一覧</th><th>ステータス</th><th>受取確認</th><th>操作</th></tr></thead>
+      <tbody>
+      {% for o in orders %}
+        <tr {% if o.checked or o.status == "受取済" %}style="background:#f9f9f9"{% endif %}>
+          <td><input type="checkbox" class="order-sel" name="selected" value="{{ o.orderId }}"></td>
+          <td class="nowrap">{% if o.date %}{{ o.date|date:"Y/m/d" }}{% else %}-{% endif %}<div class="sub">{{ o.orderId }}</div></td>
+          <td class="nowrap"><strong>{{ o.memberId|default:"" }}</strong><div class="sub">{{ o.customerName }}</div></td>
+          <td>
+            {% if o.items %}<ul style="margin:0;padding-left:18px">{% for i in o.items %}<li>{{ i.name }}{% if i.qty %} × {{ i.qty }}{% endif %}</li>{% endfor %}</ul>{% else %}商品情報なし{% endif %}
+          </td>
+          <td class="nowrap">
+            <select form="row-{{ forloop.counter }}" name="status" class="form-control" style="width:auto;padding:6px 8px;font-size:.82rem">
               {% for s in statuses %}<option value="{{ s }}" {% if o.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
             </select>
-          </form>
-        </td>
-        <td class="nowrap">
-          <form method="post" action="{% url 'manage:order_status' o.orderId %}">{% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <input type="hidden" name="checked" value="{% if o.received %}0{% else %}1{% endif %}">
-            <button type="submit" class="btn btn-sm {% if o.received %}btn-success{% else %}btn-outline{% endif %}">{% if o.received %}受取済（戻す）{% else %}受取確認{% endif %}</button>
-          </form>
-        </td>
-        <td style="min-width:180px">
-          <form method="post" action="{% url 'manage:order_status' o.orderId %}" class="inline-form">{% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <input name="internalNote" class="form-control" style="min-width:140px;padding:6px 8px;font-size:.82rem" value="{{ o.note }}" placeholder="メモ">
-            <button type="submit" class="btn btn-outline btn-sm">保存</button>
-          </form>
-        </td>
-        <td class="nowrap">
-          <div class="row-actions">
-            <a class="btn btn-outline btn-sm" href="{% url 'manage:order_edit' o.orderId %}">編集</a>
-            <form method="post" action="{% url 'manage:order_delete' o.orderId %}" onsubmit="return confirm('注文 {{ o.orderId }} を削除します（元に戻せません）。よろしいですか？');">{% csrf_token %}
-              <button type="submit" class="btn btn-outline btn-sm danger">削除</button>
-            </form>
-          </div>
-        </td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="8"><div class="empty"><div class="empty-icon">📦</div><p>当てはまる注文はありません。</p></div></td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+          </td>
+          <td class="nowrap"><input form="row-{{ forloop.counter }}" type="checkbox" name="checked" value="1" {% if o.checked %}checked{% endif %}></td>
+          <td class="nowrap">
+            <div class="row-actions">
+              <a class="btn btn-outline btn-sm" href="{% url 'manage:order_edit' o.orderId %}" title="編集">📝</a>
+              <button form="row-{{ forloop.counter }}" type="submit" class="btn btn-outline btn-sm">更新</button>
+              <button form="del-{{ forloop.counter }}" type="submit" class="btn btn-outline btn-sm danger" title="削除" onclick="return confirm('注文ID「{{ o.orderId }}」をゴミ箱へ移動します。よろしいですか？');">🗑</button>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7"><div class="empty"><div class="empty-icon">📦</div><p>{% if all_count %}条件に一致する注文はありません{% else %}注文データがありません{% endif %}</p></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
   </div>
-</div>
+</form>
+{% for o in orders %}
+  <form id="row-{{ forloop.counter }}" method="post" action="{% url 'manage:order_status' o.orderId %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"></form>
+  <form id="del-{{ forloop.counter }}" method="post" action="{% url 'manage:order_delete' o.orderId %}">{% csrf_token %}</form>
+{% endfor %}
 {% endblock %}
