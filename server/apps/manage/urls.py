@@ -4,7 +4,7 @@ from django.views.generic import RedirectView
 
 from . import (
     views_analytics, views_calendar, views_category, views_login, views_menu, views_news, views_notice,
-    views_order, views_product, views_push, views_sso,
+    views_order, views_product, views_push, views_sso, views_system,
 )
 
 app_name = "manage"
@@ -62,4 +62,6 @@ urlpatterns = [
     path("revenue/<str:kind>/", views_analytics.revenue_list, name="revenue_list"),
     path("revenue/<str:kind>/save/", views_analytics.revenue_save, name="revenue_save"),
     path("revenue/<str:kind>/<int:row>/delete/", views_analytics.revenue_delete, name="revenue_delete"),
+    path("system/", views_system.system_view, name="system"),
+    path("system/backup/", views_system.system_backup, name="system_backup"),
 ]
