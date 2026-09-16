@@ -50,3 +50,17 @@ def test_公式サイトのまとまり(as_owner, settings):
     assert 'class="active">公開する</a>' in _tabs(page) and "保存の記録" in _tabs(page)
     page = as_owner.get("/manage/hp/news/").content.decode()
     assert 'class="active">お知らせ（サイト）</a>' in _tabs(page)
+
+
+def test_開発のまとまり(as_owner):
+    """段「開発」に「開発管理」が1つ。中のタブはプロジェクトと目安箱（namespace 付きの url_name で当てる）。"""
+    page = as_owner.get("/manage/dev/").content.decode()
+    side = _sidebar(page)
+    assert ">開発</span>" in side
+    assert 'class="active"><span class="nav-icon">💻</span> 開発管理</a>' in side
+    tabs = _tabs(page)
+    assert 'class="active">プロジェクト</a>' in tabs and "目安箱" in tabs
+    page = as_owner.get("/manage/dev/meyasubako/").content.decode()
+    assert 'class="active">目安箱</a>' in _tabs(page)
+    # 開発の url_name（project_list など）がアプリ管理側のまとまりを光らせない
+    assert 'class="active"><span class="nav-icon">📱</span> アプリの掲載</a>' not in _sidebar(page)

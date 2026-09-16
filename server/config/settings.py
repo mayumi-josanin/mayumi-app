@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "apps.gasapi",
     "apps.manage",
     "apps.hp",
+    "apps.dev",
 ]
 
 # 院の管理画面（/manage/）を持つ箱かどうか。**既定は持たない。**

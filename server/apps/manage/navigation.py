@@ -59,7 +59,16 @@ from django.urls import reverse
     ]),
 ]
 
-段 = [("アプリ管理", アプリ管理), ("公式サイト", 公式サイト)]
+# 開発（apps/dev。KEM_DDENKI の「開発管理」の写し）。URL は manage の中に namespace "dev" で載せているので、
+# url_name は "dev:project_list" のように書く（アプリ管理側の product_ などと頭がかぶらない）
+開発 = [
+    ("開発管理", "💻", [
+        ("プロジェクト", "dev:project_list", ["dev:project_", "dev:task_"]),
+        ("目安箱", "dev:meyasubako_list", ["dev:meyasubako_"]),
+    ]),
+]
+
+段 = [("アプリ管理", アプリ管理), ("公式サイト", 公式サイト), ("開発", 開発)]
 
 # 予約管理のまとまり（mayumi-reserve/apps/core/navigation.py と同じ並び）。押すと go_reserve で予約システムへ飛び、
 # 向こうの画面に上部タブが出る。このメニューはまゆみだけが見る（スタッフはアプリ管理に入れない）
@@ -87,6 +96,10 @@ def 組み立てる(request):
     """テンプレートに渡す形。いまの url_name から、開いているまとまりとタブを決める。"""
     m = getattr(request, "resolver_match", None)
     url_name = (m.url_name if m else "") or ""
+    # manage の下にさらに namespace がある画面（開発 = manage:dev:...）は、"dev:project_list" の形で当てる。
+    # hp は namespace 無しで include しているので今までどおり素の url_name のまま
+    if m and len(m.namespaces) > 1:
+        url_name = ":".join(m.namespaces[1:]) + ":" + url_name
     sections = []
     active_tabs = None
     active_group = ""

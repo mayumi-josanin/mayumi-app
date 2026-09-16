@@ -194,6 +194,56 @@ a:hover { color: var(--brand-dark); }
 .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
 .stat-value.green { color: var(--success); }
 .stat-value.orange { color: var(--warning); }
+.stat-card.default::before { background: var(--border); }
+.stat-value.blue { color: var(--brand); }
+
+/* ---- 開発（apps/dev。KEM の開発管理の写し）で使う部品 ---- */
+/* 詳細の見出し＋値の2列（KEM の .detail-grid と同じ） */
+.detail-grid { display: grid; grid-template-columns: 140px 1fr; }
+.detail-grid dt { padding: 14px 20px; font-size: .82rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-light); background: var(--surface-hover); }
+.detail-grid dd { padding: 14px 20px; font-size: .9rem; border-bottom: 1px solid var(--border-light); }
+.card-body h3 { font-size: .95rem; font-weight: 600; margin: 16px 0 6px; color: var(--text-primary); }
+.card-body hr { border: 0; border-top: 1px solid var(--border-light); margin: 20px 0; }
+
+/* ガントチャート（frappe-gantt）。プロジェクトのステータスで色分けする。
+   クラス名は apps/dev/services.get_project_gantt_data の custom_class と対応。 */
+.gantt-mode.active { background: var(--brand); color: var(--white); border-color: var(--brand); }
+.gantt-legend {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-left: auto; font-size: .8rem; color: var(--text-muted);
+}
+.gantt-legend .legend-swatch { margin-left: 6px; }
+.legend-swatch {
+  display: inline-block; width: 16px; height: 16px; border-radius: 4px;
+  vertical-align: middle;
+}
+/* バー本体（.bar）に濃い色を置き、進捗（.bar-progress）はさらに濃くする。
+   淡い地色＋濃い進捗にすると、進捗0%のプロジェクトが地色だけになり
+   ほぼ白のバーになって「登録されていない」ように見えてしまうため。 */
+.gantt .bar-dev-planning .bar { fill: #9ca3af; }
+.gantt .bar-dev-planning .bar-progress { fill: #4b5563; }
+.legend-swatch.bar-dev-planning { background: #9ca3af; }
+.gantt .bar-dev-in_progress .bar { fill: #60a5fa; }
+.gantt .bar-dev-in_progress .bar-progress { fill: #1d4ed8; }
+.legend-swatch.bar-dev-in_progress { background: #60a5fa; }
+.gantt .bar-dev-completed .bar { fill: #34d399; }
+.gantt .bar-dev-completed .bar-progress { fill: #047857; }
+.legend-swatch.bar-dev-completed { background: #34d399; }
+.gantt .bar-dev-suspended .bar { fill: #fb923c; }
+.gantt .bar-dev-suspended .bar-progress { fill: #c2410c; }
+.legend-swatch.bar-dev-suspended { background: #fb923c; }
+/* 日付が未設定で推定表示しているバーは、確定した工期と見分けられるようにする。
+   バーが濃いので、輪郭は白の破線にして上に載せる。 */
+.gantt .bar-dev-inferred .bar { stroke: var(--white); stroke-width: 2; stroke-dasharray: 5 3; }
+.legend-swatch.bar-dev-inferred {
+  background: repeating-linear-gradient(45deg, #9ca3af, #9ca3af 3px, var(--white) 3px, var(--white) 6px);
+}
+/* スマートフォンではカンバンの4列とタスク詳細の2列を縦に積む */
+@media (max-width: 768px) {
+  .kanban-board { grid-template-columns: 1fr !important; }
+  .task-detail-grid { grid-template-columns: 1fr !important; }
+  .detail-grid { grid-template-columns: 110px 1fr; }
+}
 
 /* ---- Tables ---- */
 .table-wrap { overflow-x: auto; }
