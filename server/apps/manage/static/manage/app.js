@@ -3,7 +3,15 @@ document.addEventListener('DOMContentLoaded', function () {
   var hamburger = document.querySelector('.hamburger');
   var sidebar = document.querySelector('.sidebar');
   if (hamburger && sidebar) {
+    // パソコン幅では「畳む／戻す」、スマホ幅では「出す／しまう」。畳んだ状態は端末ごとに覚える。
+    var KEY = 'sidebar-collapsed';
+    try { if (localStorage.getItem(KEY) === '1') document.body.classList.add('sidebar-collapsed'); } catch (e) {}
     hamburger.addEventListener('click', function () {
+      if (window.innerWidth > 768) {
+        var collapsed = document.body.classList.toggle('sidebar-collapsed');
+        try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (e) {}
+        return;
+      }
       sidebar.classList.toggle('open');
     });
     document.addEventListener('click', function (e) {

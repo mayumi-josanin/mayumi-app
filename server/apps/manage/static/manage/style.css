@@ -155,6 +155,14 @@ a:hover { color: var(--brand-dark); }
   margin-right: 12px; transition: var(--transition);
 }
 .hamburger:hover { background: rgba(255,255,255,.1); }
+/* パソコンでも左メニューを畳める（院長の希望 2026-09-16: 編集画面を広く使う）。
+   ☰ を押すと畳み、もう一度押すと戻す。畳んだ状態は端末ごとに覚える（app.js） */
+@media (min-width: 769px) {
+  .hamburger { display: flex; align-items: center; justify-content: center; }
+  body.sidebar-collapsed .sidebar { transform: translateX(-100%); box-shadow: none; }
+  body.sidebar-collapsed .main { margin-left: 0; }
+  .main { transition: margin-left .25s cubic-bezier(.4,0,.2,1); }
+}
 .content { padding: 28px 32px; max-width: none; }
 .content.content-narrow { max-width: 1200px; }
 
