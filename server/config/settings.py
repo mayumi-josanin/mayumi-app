@@ -88,6 +88,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.manage.context_processors.roles",
+                "apps.manage.context_processors.static_version",
             ],
         },
     },
@@ -153,6 +154,12 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# 管理画面の CSS / JS の版。URL に ?v= で付けて、端末に古いものが残らないようにする。
+# 箱を作り直すたびに変わる（起動時刻）。2026-09-16、左メニューの開閉が「古い app.js のまま」で効かなかった。
+import time as _time  # noqa: E402
+
+STATIC_VERSION = env("STATIC_VERSION", str(int(_time.time())))
 
 # ── 予約管理（mayumi-reserve）との行き来 ──
 # 同じ合鍵を両方の .env に入れると、ログインし直さずに行き来できる（apps/manage/sso.py）。
