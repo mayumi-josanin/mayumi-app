@@ -105,3 +105,14 @@ def test_プレビュー_編集中の内容で作り直して見られる(as_own
     assert as_owner.get("/manage/hp/site/admin/content.json").status_code == 404
     assert as_owner.get("/manage/hp/site/../admin/content.json").status_code in (404, 400)
     assert as_owner.get("/manage/hp/site/").status_code == 200
+
+
+def test_枠に出すものは同じ出どころなら許す(as_owner, site_repo):
+    """既定の X-Frame-Options: DENY のままだと、プレビューの枠が「接続が拒否されました」になる（2026-09-16 に実地で発生）。"""
+    as_owner.post("/manage/hp/preview/")
+    for u in ("/manage/hp/preview/files/", "/manage/hp/site/", "/manage/hp/layout/pv/access/"):
+        r = as_owner.get(u)
+        assert r.status_code == 200, u
+        assert r.get("X-Frame-Options", "").upper() == "SAMEORIGIN", (u, r.get("X-Frame-Options"))
+    # 管理画面そのものは今までどおり枠に入れさせない
+    assert as_owner.get("/manage/hp/git/").get("X-Frame-Options", "").upper() == "DENY"
