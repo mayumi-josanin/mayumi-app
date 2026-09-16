@@ -82,7 +82,7 @@ def test_スタッフには左メニューの予約管理だけ(rf, staff, owner
     sections = navigation.組み立てる(req)["nav_sections"]
     assert [s["label"] for s in sections] == ["予約管理"]
     req.user = owner
-    assert [s["label"] for s in navigation.組み立てる(req)["nav_sections"]] == ["アプリ管理", "公式サイト", "開発", "予約管理"]
+    assert [s["label"] for s in navigation.組み立てる(req)["nav_sections"]] == ["アプリ管理", "公式サイト", "ビジリス", "開発", "予約管理"]
 
 
 def test_スタッフの札では受け渡しも断る(client, staff, settings):

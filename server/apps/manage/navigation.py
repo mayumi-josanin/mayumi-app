@@ -68,7 +68,20 @@ from django.urls import reverse
     ]),
 ]
 
-段 = [("アプリ管理", アプリ管理), ("公式サイト", 公式サイト), ("開発", 開発)]
+# ビジリス（apps/bijiris。院長の決定 2026-09-16: 6画面）。開発と同じく namespace "bijiris" 付きの url_name で当てる。
+# 中身はまだ「準備中」（段取り A）。段取り B で置き換えても、この並びと url_name は変えない
+ビジリス = [
+    ("ビジリス管理", "💪", [
+        ("集計", "bijiris:dashboard", ["bijiris:dashboard"]),
+        ("アンケート管理", "bijiris:survey_list", ["bijiris:survey_"]),
+        ("回答管理", "bijiris:response_list", ["bijiris:response_"]),
+        ("顧客管理", "bijiris:customer_list", ["bijiris:customer_"]),
+        ("特典", "bijiris:reward_list", ["bijiris:reward_"]),
+        ("回数券分析", "bijiris:ticket_list", ["bijiris:ticket_"]),
+    ]),
+]
+
+段 = [("アプリ管理", アプリ管理), ("公式サイト", 公式サイト), ("ビジリス", ビジリス), ("開発", 開発)]
 
 # 予約管理のまとまり（mayumi-reserve/apps/core/navigation.py と同じ並び）。押すと go_reserve で予約システムへ飛び、
 # 向こうの画面に上部タブが出る。このメニューはまゆみだけが見る（スタッフはアプリ管理に入れない）
