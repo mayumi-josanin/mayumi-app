@@ -389,22 +389,20 @@ URLS = ["/manage/bijiris/", "/manage/bijiris/surveys/", "/manage/bijiris/respons
         "/manage/bijiris/rewards/", "/manage/bijiris/tickets/"]
 
 
-def test_6つの画面が準備中で開く(as_owner):
+def test_6つの画面が開き印が立つまでは読むだけ(as_owner):
+    """6画面とも段取り B で中身が入った（中身は test_bijiris_<担当>.py）。
+    ここでは6つ全部が開くこと・「準備中」が無いこと・印が立つまで「読むだけ」の注意が出ることだけ。"""
     Survey.objects.create(survey_id="s", title="X")
-    # 回数券分析は中身が入った（test_bijiris_ticket.py）ので、準備中の確かめからは外す
-    for url, 題 in zip(URLS[:-1], ["集計", "アンケート管理", "回答管理", "顧客管理", "特典"]):
+    for url in URLS:
         page = as_owner.get(url)
         assert page.status_code == 200, url
         html = page.content.decode()
-        # 中身が入った画面（段取り B）は test_bijiris_<担当>.py で試す
-        if 題 in ("顧客管理", "特典"):
-            assert "準備中" not in html and gate.断る文() in html
-            continue
-        assert f"<h1>{題}</h1>" in html and "準備中" in html and "スプレッドシートが正" in html and gate.断る文() in html
-        assert "<td>アンケート</td><td>1件</td>" in html and "<td>回数券分析</td><td>0件</td>" in html
+        assert "準備中" not in html, url
+        if url != "/manage/bijiris/":  # 集計は読むだけの画面なので注意は要らない
+            assert gate.断る文() in html, url
     gate.切り替える("server")
-    html = as_owner.get("/manage/bijiris/").content.decode()
-    assert "サーバーが正" in html and gate.断る文() not in html
+    html = as_owner.get("/manage/bijiris/customers/").content.decode()
+    assert gate.断る文() not in html
 
 
 def test_スタッフは403で未ログインはログインへ(client, staff):

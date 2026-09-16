@@ -1,0 +1,49 @@
+{% extends "manage/base.html" %}
+{% block title %}アンケート管理 — ビジリス管理 — まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}ビジリス{% endblock %}
+
+{% block content %}
+{# 旧ビジリス管理アプリ #page-surveys の「アンケート一覧」。編集は別画面（survey_form.html） #}
+<div class="page-header">
+  <h1>アンケート管理</h1>
+  <div class="page-header-actions">
+    <a class="btn btn-primary" href="{% url 'manage:bijiris:survey_create' %}">新規作成</a>
+  </div>
+</div>
+
+{% if not server_is_source %}
+<div class="note bj-readonly-note">いまは<strong>読むだけ</strong>です。{{ refuse_text }}</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header bj-stage-head">
+    <div>
+      <h2>アンケート一覧<span class="count">{{ count }}件</span></h2>
+      <div class="sub">新規作成、編集、削除ができます。</div>
+    </div>
+  </div>
+  <div class="card-body bj-stack">
+    {% for it in items %}
+    <article class="bj-survey-card">
+      <a class="bj-survey-open" href="{% url 'manage:bijiris:survey_edit' it.s.survey_id %}">
+        <div class="bj-survey-head">
+          <strong>{{ it.no }}. {{ it.s.title }}</strong>
+          <span class="badge {{ it.badge }}">{{ it.status_label }}</span>
+        </div>
+        <div>{{ it.question_count }}問</div>
+        <div class="sub">更新: {{ it.updated }}</div>
+        <div class="sub">{{ it.accepting }}</div>
+      </a>
+      <div class="row-actions bj-survey-actions">
+        <form method="post" action="{% url 'manage:bijiris:survey_move' it.s.survey_id %}">{% csrf_token %}<input type="hidden" name="direction" value="-1"><button type="submit" class="btn btn-outline btn-sm" title="上へ">↑</button></form>
+        <form method="post" action="{% url 'manage:bijiris:survey_move' it.s.survey_id %}">{% csrf_token %}<input type="hidden" name="direction" value="1"><button type="submit" class="btn btn-outline btn-sm" title="下へ">↓</button></form>
+        <form method="post" action="{% url 'manage:bijiris:survey_duplicate' it.s.survey_id %}">{% csrf_token %}<button type="submit" class="btn btn-outline btn-sm">複製</button></form>
+        <form method="post" action="{% url 'manage:bijiris:survey_archive' it.s.survey_id %}">{% csrf_token %}<button type="submit" class="btn btn-outline btn-sm">アーカイブ</button></form>
+      </div>
+    </article>
+    {% empty %}
+    <div class="empty">アンケートはまだありません。</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
