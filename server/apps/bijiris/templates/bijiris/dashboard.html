@@ -1,0 +1,112 @@
+{% extends "manage/base.html" %}
+{% block title %}集計 — ビジリス管理 — まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}ビジリス{% endblock %}
+
+{% block content %}
+{# 旧ビジリス管理アプリ #page-dashboard と同じ並び: 数字4つ → 最新の回答・アンケート別回答数 → 質問別分析 → 月別回答件数 #}
+<div class="page-header">
+  <h1>集計</h1>
+</div>
+
+<div class="stats">
+  {% for label, value in stats %}<div class="stat-card blue"><div class="stat-label">{{ label }}</div><div class="stat-value">{{ value }}</div></div>{% endfor %}
+</div>
+
+<div class="bj-grid-two">
+  <div class="card">
+    <div class="card-header"><h2>最新の回答</h2></div>
+    <div class="card-body bj-stack">
+      {% for r in latest %}
+      <article class="bj-mini-card">
+        <strong>{{ r.name }}</strong>
+        <div class="sub">{{ r.survey_title }} / {{ r.submitted }}</div>
+        <span class="badge {{ r.badge }}">{{ r.status_label }}</span>
+      </article>
+      {% empty %}
+      <div class="empty">まだ回答はありません。</div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2>アンケート別回答数</h2></div>
+    <div class="card-body bj-stack">
+      {% for s in per_survey %}
+      <article class="bj-mini-card">
+        <strong>{{ s.title }}</strong>
+        <div class="sub">{{ s.count }}件</div>
+      </article>
+      {% empty %}
+      <div class="empty">アンケートはありません。</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bj-stage-head">
+    <div>
+      <h2>質問別分析</h2>
+      <div class="sub">アンケートごとに回答傾向を確認できます。</div>
+    </div>
+    <form method="get" class="inline-form">
+      <label for="f-survey" class="bj-inline-label">アンケート</label>
+      <select id="f-survey" name="survey" class="form-control" onchange="this.form.submit()">
+        {% for s in surveys %}<option value="{{ s.survey_id }}" {% if selected_survey and s.survey_id == selected_survey.survey_id %}selected{% endif %}>{{ s.title }}</option>{% endfor %}
+      </select>
+    </form>
+  </div>
+  <div class="card-body bj-stack">
+    {% if not selected_survey %}
+    <div class="empty">アンケートを選択してください。</div>
+    {% endif %}
+    {% for item in analytics %}
+    <article class="bj-answer-item">
+      <strong>{{ item.label }}</strong>
+      {% if item.groups %}
+      <div class="bj-group-list">
+        {% for g in item.groups %}
+        <section class="bj-group-card">
+          <div class="bj-group-head"><strong>{{ g.label }}</strong><span>{{ g.count }}件</span></div>
+          <div class="bj-analytics-list">
+            {% for row in g.rows %}<div class="bj-analytics-row"><span>{{ row.label }}</span><strong>{{ row.count }}件</strong></div>{% endfor %}
+          </div>
+        </section>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="bj-analytics-list">
+        {% for row in item.rows %}<div class="bj-analytics-row"><span>{{ row.label }}</span><strong>{{ row.count }}件</strong></div>{% endfor %}
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bj-stage-head">
+    <div>
+      <h2>月別回答件数</h2>
+      <div class="sub">アンケートごとの月別件数です。</div>
+    </div>
+  </div>
+  <div class="card-body bj-stack">
+    {% for m in monthly %}
+    <article class="bj-answer-item">
+      <strong>{{ m.month }}</strong>
+      <div class="bj-bar-list">
+        {% for b in m.bars %}
+        <div class="bj-bar-row">
+          <span>{{ b.title }}</span>
+          <div class="bj-bar-track"><div class="bj-bar-fill" style="width:{{ b.width }}%"></div></div>
+          <strong>{{ b.count }}</strong>
+        </div>
+        {% endfor %}
+      </div>
+    </article>
+    {% empty %}
+    <div class="empty">まだ集計できる回答がありません。</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

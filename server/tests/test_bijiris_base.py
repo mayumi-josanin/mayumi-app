@@ -390,15 +390,21 @@ URLS = ["/manage/bijiris/", "/manage/bijiris/surveys/", "/manage/bijiris/respons
 
 
 def test_6つの画面が準備中で開く(as_owner):
+    """集計・アンケート管理・回答管理は段取り B で中身が入った（test_bijiris_surveys / test_bijiris_responses）。
+    ここでは6つ全部が開くことと、まだ仮のもの（顧客管理・特典・回数券分析）が「準備中」であること。"""
     Survey.objects.create(survey_id="s", title="X")
+    仮のもの = ["顧客管理", "特典", "回数券分析"]
     for url, 題 in zip(URLS, ["集計", "アンケート管理", "回答管理", "顧客管理", "特典", "回数券分析"]):
         page = as_owner.get(url)
         assert page.status_code == 200, url
         html = page.content.decode()
-        assert f"<h1>{題}</h1>" in html and "準備中" in html and "スプレッドシートが正" in html and gate.断る文() in html
+        assert f"<h1>{題}</h1>" in html
+        if 題 not in 仮のもの:
+            continue
+        assert "準備中" in html and "スプレッドシートが正" in html and gate.断る文() in html
         assert "<td>アンケート</td><td>1件</td>" in html and "<td>回数券分析</td><td>0件</td>" in html
     gate.切り替える("server")
-    html = as_owner.get("/manage/bijiris/").content.decode()
+    html = as_owner.get("/manage/bijiris/customers/").content.decode()
     assert "サーバーが正" in html and gate.断る文() not in html
 
 
