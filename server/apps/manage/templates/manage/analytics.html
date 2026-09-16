@@ -100,7 +100,19 @@
 
 <div class="card">
   <div class="card-header"><h2>🩺 メニュー別収益 (月別)</h2></div>
-  <div class="card-body" style="padding:12px 24px 0"><p class="lead">メニューごとの合計売上と、売価ごとの売上と件数、月の売上合計を確認できます。</p></div>
+  <div class="card-body" style="padding:12px 24px 0">
+    <p class="lead">メニューごとの合計売上と、売価ごとの売上と件数、月の売上合計を確認できます。</p>
+    {# 月で絞る。「すべて」で全部の月。他の絞り込み（グラフの対象・詳細の月）はそのまま持ち越す #}
+    <form method="get" class="inline-form" style="gap:8px;margin:8px 0 12px" id="menu-month-form">
+      {% for k, v in request.GET.items %}{% if k != "menu_month" %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+      <label for="menu-month" style="margin:0">月で絞る</label>
+      <select id="menu-month" name="menu_month" class="form-control" style="width:auto" onchange="this.form.submit()">
+        <option value="" {% if not menu_month %}selected{% endif %}>すべて</option>
+        {% for m, label in menu_month_options %}<option value="{{ m }}" {% if m == menu_month %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <noscript><button class="btn btn-outline btn-sm">表示</button></noscript>
+    </form>
+  </div>
   <div class="table-wrap">
   <table>
     <thead><tr><th>月/メニュー</th>{% for t in menu_types %}<th>{{ t }}</th>{% endfor %}<th>合計</th></tr></thead>
