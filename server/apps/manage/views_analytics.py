@@ -106,9 +106,14 @@ def analytics_view(request):
     # d) 収益サマリー（月別）
     profit_rows = [{"month": m, "cells": [calc.num(matrix[m].get(k, 0)) for k, _ in FIN_COLUMNS]} for m in months]
 
-    # e) メニュー別収益（月別）
+    # e) メニュー別収益（月別）。月で絞れる（院長の希望 2026-09-16）。空か "all" ならすべての月
+    menu_month = request.GET.get("menu_month", "")
+    if menu_month not in months:
+        menu_month = ""
     menu_rows = []
     for m in months:
+        if menu_month and m != menu_month:
+            continue
         s = matrix[m]
         cells = []
         for t in res["menuTypes"]:
@@ -158,6 +163,7 @@ def analytics_view(request):
         "months": months, "latest": latest, "no_data": not months,
         "comparison_rows": comparison_rows, "gross_cards": gross_cards, "charts": charts,
         "fin_columns": [c for _, c in FIN_COLUMNS], "profit_rows": profit_rows,
+        "menu_month": menu_month, "menu_month_options": [(m, _label(m)) for m in months],
         "menu_types": res["menuTypes"], "menu_rows": menu_rows,
         "detail_month": detail_month, "product_detail_rows": product_detail_rows, "menu_detail_rows": menu_detail_rows,
         "display_products": display_products, "qty_rows": qty_rows,

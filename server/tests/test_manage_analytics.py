@@ -149,3 +149,20 @@ def test_記録が無ければ保存しない(as_owner):
 
 def test_知らない種別は分析へ戻す(as_owner):
     assert as_owner.get("/manage/revenue/other/")["Location"].endswith("/manage/analytics/")
+
+
+def test_メニュー別収益は月で絞れる_すべても選べる(as_owner, data):
+    """院長の希望（2026-09-16）: メニュー別収益(月別)を月で検索。「すべて」で全部の月。"""
+    page = as_owner.get("/manage/analytics/").content.decode()
+    i = page.find("メニュー別収益 (月別)")
+    assert '<option value="" selected>すべて' in page[i:]
+    assert "2026/09" in page[i:] and "2026/08" in page[i:]
+    page = as_owner.get("/manage/analytics/?menu_month=2026-09").content.decode()
+    i = page.find("メニュー別収益 (月別)")
+    j = page.find("商品別収益", i)
+    区画 = page[i:j]
+    assert "<td class=\"nowrap\">2026-09</td>" in 区画 and "<td class=\"nowrap\">2026-08</td>" not in 区画
+    assert '<option value="2026-09" selected>' in 区画
+    # 無い月を指定しても落ちず、すべてに戻る
+    page = as_owner.get("/manage/analytics/?menu_month=1999-01").content.decode()
+    assert '<option value="" selected>すべて' in page
