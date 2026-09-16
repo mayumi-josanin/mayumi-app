@@ -391,7 +391,8 @@ URLS = ["/manage/bijiris/", "/manage/bijiris/surveys/", "/manage/bijiris/respons
 
 def test_6つの画面が準備中で開く(as_owner):
     Survey.objects.create(survey_id="s", title="X")
-    for url, 題 in zip(URLS, ["集計", "アンケート管理", "回答管理", "顧客管理", "特典", "回数券分析"]):
+    # 回数券分析は中身が入った（test_bijiris_ticket.py）ので、準備中の確かめからは外す
+    for url, 題 in zip(URLS[:-1], ["集計", "アンケート管理", "回答管理", "顧客管理", "特典"]):
         page = as_owner.get(url)
         assert page.status_code == 200, url
         html = page.content.decode()

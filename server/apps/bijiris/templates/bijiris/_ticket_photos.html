@@ -1,0 +1,18 @@
+{# 回数券分析の写真の列（app.js renderTicketSurveyPhotoGrid と同じ）。url が空なら「未取り込み」 #}
+<div class="ticket-photo-column">
+  {% if not photos %}
+    <div class="sub">{{ label }}</div>
+    <div class="empty">写真なし</div>
+  {% else %}
+    <div class="sub">{{ label }}（{{ photos|length }}枚）</div>
+    <div class="ticket-photo-grid">
+      {% for p in photos %}
+        {% if p.stored %}
+          <a class="ticket-photo" href="{{ p.url }}" target="_blank" rel="noopener" title="{{ p.name|default:label }}"><img loading="lazy" src="{{ p.url }}" alt="{{ p.name|default:label }}"></a>
+        {% else %}
+          <div class="ticket-photo ticket-photo-missing" title="{{ p.name }}">未取り込み</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
