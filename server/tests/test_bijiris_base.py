@@ -395,6 +395,10 @@ def test_6つの画面が準備中で開く(as_owner):
         page = as_owner.get(url)
         assert page.status_code == 200, url
         html = page.content.decode()
+        # 中身が入った画面（段取り B）は test_bijiris_<担当>.py で試す
+        if 題 in ("顧客管理", "特典"):
+            assert "準備中" not in html and gate.断る文() in html
+            continue
         assert f"<h1>{題}</h1>" in html and "準備中" in html and "スプレッドシートが正" in html and gate.断る文() in html
         assert "<td>アンケート</td><td>1件</td>" in html and "<td>回数券分析</td><td>0件</td>" in html
     gate.切り替える("server")
