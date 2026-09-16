@@ -100,7 +100,7 @@
 
 <div class="card">
   <div class="card-header"><h2>🩺 メニュー別収益 (月別)</h2></div>
-  <div class="card-body" style="padding:12px 24px 0"><p class="lead">母乳外来 / ビジリス / 教室ごとの売上と件数を月単位で確認できます。</p></div>
+  <div class="card-body" style="padding:12px 24px 0"><p class="lead">メニューごとの合計売上と、売価ごとの売上と件数、月の売上合計を確認できます。</p></div>
   <div class="table-wrap">
   <table>
     <thead><tr><th>月/メニュー</th>{% for t in menu_types %}<th>{{ t }}</th>{% endfor %}<th>合計</th></tr></thead>
@@ -110,18 +110,17 @@
         <td class="nowrap">{{ r.month }}</td>
         {% for c in r.cells %}
           <td style="vertical-align:top">
-            <div>{{ c.amount }}</div>
+            {# メニューごとの合計売上と、売価ごとの売上と件数。粗利・原価は出さない（院長の希望 2026-09-16） #}
+            <div class="strong">{{ c.amount }}</div>
             {% if c.count %}
-              <div class="sub">{{ c.count }}件 / 原価{{ c.cost }}</div>
-              <div class="sub" style="color:var(--brand);font-weight:700">粗利 {{ c.profit }}</div>
-              {% for b in c.breakdown %}<div class="sub">{{ b.unit }}: 売上{{ b.revenue }} / 粗利{{ b.profit }} ({{ b.count }}件)</div>{% endfor %}
+              <div class="sub">{{ c.count }}件</div>
+              {% for b in c.breakdown %}<div class="sub">{{ b.unit }}: 売上{{ b.revenue }} ({{ b.count }}件)</div>{% endfor %}
             {% endif %}
           </td>
         {% endfor %}
         <td style="vertical-align:top;font-weight:700">
           <div>{{ r.total.amount }}</div>
-          <div class="sub">{{ r.total.count }}件 / 原価{{ r.total.cost }}</div>
-          <div class="sub" style="color:var(--brand)">粗利 {{ r.total.profit }}</div>
+          <div class="sub">{{ r.total.count }}件</div>
         </td>
       </tr>
     {% endfor %}

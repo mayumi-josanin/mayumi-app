@@ -110,19 +110,23 @@ def test_一覧の列と並びと空の文言(as_owner):
     assert page.index("下書き") < page.index("遅い日")  # 下書き保存一覧が上
 
 
-def test_一覧は年月で絞れる_既定は今年(as_owner):
+def test_一覧は年月で絞れる_既定は今月(as_owner):
     as_owner.post("/manage/calendar/new/", _form(date="2026-10-03"))
     as_owner.post("/manage/calendar/new/", _form(title="11月の予定", date="2026-11-03"))
     as_owner.post("/manage/calendar/new/", _form(title="来年の予定", date="2027-01-03"))
     page = as_owner.get("/manage/calendar/?year=2026&month=10").content.decode()
     assert "ベビーマッサージ教室" in page and "11月の予定" not in page and "1 / 3 件を表示" in page
-    page = as_owner.get("/manage/calendar/?year=2026").content.decode()
+    page = as_owner.get("/manage/calendar/?year=2026&month=all").content.decode()
     assert "11月の予定" in page and "来年の予定" not in page
     page = as_owner.get("/manage/calendar/?year=all&month=all").content.decode()
     assert "来年の予定" in page and "3 / 3 件を表示" in page
+    # 既定は今年・今月（院長の希望 2026-09-16: 一覧は月ごとに見る）
+    from django.utils import timezone
+
+    today = timezone.localdate()
     page = as_owner.get("/manage/calendar/").content.decode()
-    assert '<option value="2026" selected>' in page and '<option value="all" selected>全月' in page
-    assert "2027年" in page and "2025年" in page
+    assert f'<option value="{today.year}" selected>' in page and f'<option value="{today.month}" selected>{today.month}月' in page
+    assert f"{today.year + 1}年" in page and f"{today.year - 1}年" in page
 
 
 def test_月間カレンダーには公開中だけ渡す(as_owner):
