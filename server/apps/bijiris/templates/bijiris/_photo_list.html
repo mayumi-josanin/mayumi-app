@@ -1,0 +1,21 @@
+{% comment %}
+回答の写真の並び。ResponsePhoto.url があればそれを出し、空なら「未取り込み」（Drive にしか無い）。
+Drive のリンクは持っていないので、ここから Drive へは飛ばない。
+{% endcomment %}
+<div class="bj-photo-list">
+  {% for p in photos %}
+  {% if p.url %}
+  <a class="bj-photo-thumb" href="{{ p.url }}" target="_blank" rel="noopener" download>
+    <img src="{{ p.url }}" alt="{{ p.name|default:'写真' }}">
+    <span>{{ p.name|default:"写真" }}</span>
+    {% if p.captured_at %}<span class="sub">撮影日: {{ p.captured_at }}</span>{% endif %}
+  </a>
+  {% else %}
+  <div class="bj-photo-thumb bj-photo-missing">
+    <span class="badge badge-gray">未取り込み</span>
+    <span>{{ p.name|default:"写真" }}</span>
+    {% if p.captured_at %}<span class="sub">撮影日: {{ p.captured_at }}</span>{% endif %}
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
