@@ -6,6 +6,7 @@ import os
 from django.contrib import messages
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 
 from apps.manage.permissions import owner_required
@@ -122,6 +123,7 @@ def _配る(基点: str, パス: str):
 
 
 @owner_required
+@xframe_options_sameorigin  # 管理画面の枠（iframe）に出すため。既定の DENY だと Chrome が「接続が拒否されました」と出す
 def hp_preview_file(request, path=""):
     """編集中の内容で作ったプレビュー（admin/_preview）。無いページは手元のサイトの方を返す。"""
     core = repo.部品("core")
@@ -133,6 +135,7 @@ def hp_preview_file(request, path=""):
 
 
 @owner_required
+@xframe_options_sameorigin  # 管理画面の枠（iframe）に出すため。既定の DENY だと Chrome が「接続が拒否されました」と出す
 def hp_site_file(request, path=""):
     """手元のサイト（下書きの作業ツリー）。「手元に反映」したものが見える。"""
     core = repo.部品("core")

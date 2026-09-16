@@ -13,6 +13,7 @@ import os
 import re
 
 from django.http import Http404, HttpResponse, JsonResponse
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -584,6 +585,7 @@ _ABS_LINK = re.compile(r'\b(href|src|action)="(/(?!/)[^"]*)"')
 
 
 @owner_required
+@xframe_options_sameorigin  # 見え方の枠（iframe）に出すため
 def hp_layout_view(request, page):
     """見え方の枠に出すページ（編集中の配置で作った _preview/<page>/index.html）。
 
