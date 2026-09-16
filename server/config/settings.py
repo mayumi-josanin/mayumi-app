@@ -210,6 +210,10 @@ SITE_GIT_EMAIL = env("SITE_GIT_EMAIL", "manage@mayumijosanin.com")
 ONESIGNAL_APP_ID = env("ONESIGNAL_APP_ID", "")
 ONESIGNAL_REST_API_KEY = env("ONESIGNAL_REST_API_KEY", "")
 
+# ビジリス「回数券分析」の AI（Claude）の鍵。ビジリス GAS のスクリプトプロパティ ANTHROPIC_API_KEY と同じ値。
+# 空なら管理画面の「分析する」は断る（apps/bijiris/views_ticket.py）。**画面には出さない。**
+ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", "")
+
 # ---------------------------------------------------------------
 # アプリから直接呼ばれるための設定
 # ---------------------------------------------------------------

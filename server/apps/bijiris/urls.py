@@ -6,7 +6,7 @@ apps/manage/urls.py から include されるので、逆引きは manage:bijiris
 
 from django.urls import path
 
-from . import views
+from . import views, views_ticket
 
 app_name = "bijiris"
 
@@ -16,5 +16,8 @@ urlpatterns = [
     path("responses/", views.response_list, name="response_list"),
     path("customers/", views.customer_list, name="customer_list"),
     path("rewards/", views.reward_list, name="reward_list"),
-    path("tickets/", views.ticket_list, name="ticket_list"),
+    path("tickets/", views_ticket.ticket_list, name="ticket_list"),
+    path("tickets/analyze/", views_ticket.ticket_analyze, name="ticket_analyze"),
+    path("tickets/prompt/", views_ticket.ticket_prompt_save, name="ticket_prompt"),
+    path("tickets/auto/", views_ticket.ticket_auto, name="ticket_auto"),
 ]
