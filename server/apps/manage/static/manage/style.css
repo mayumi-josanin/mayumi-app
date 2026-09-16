@@ -743,3 +743,39 @@ td.brand { color: var(--brand); font-weight: 700; }
 .page-tabs a { padding: 8px 14px; border-radius: 999px; font-size: .9rem; font-weight: 600; color: var(--text-secondary); text-decoration: none; background: var(--surface); border: 1px solid var(--border); }
 .page-tabs a:hover { color: var(--text-primary); background: var(--bg); }
 .page-tabs a.active { color: var(--white); background: var(--brand); border-color: var(--brand); }
+
+/* ---- ビジリス管理: 顧客管理・特典（旧ビジリス管理アプリの ticket-stamp / admin-road / measurement の写し） ---- */
+.bj-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 6px 16px; margin-bottom: 12px; }
+.bj-summary-grid .sub { margin: 0; font-size: .84rem; }
+.bj-wide { grid-column: 1 / -1; }
+.bj-stamp-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.bj-stamp { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--radius-full); background: var(--brand-light); font-size: .8rem; }
+.bj-stamp-label { color: var(--text-muted); font-size: .72rem; }
+.bj-progress-card { margin-top: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+.bj-progress-head { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: .88rem; }
+.bj-progress { display: flex; flex-wrap: wrap; gap: 6px; }
+.bj-dot { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 54px; height: 54px; border-radius: 50%; border: 2px dashed var(--border); color: var(--text-muted); font-size: .72rem; line-height: 1.1; }
+.bj-dot.active { border-style: solid; border-color: var(--brand); background: var(--brand-light); color: var(--brand); font-weight: 600; }
+.bj-dot-step { font-size: .95rem; }
+.bj-dot-unit { font-size: .6rem; }
+.bj-dot-date { font-size: .58rem; min-height: .7em; }
+.bj-memo-timeline { display: flex; flex-direction: column; gap: 8px; }
+.bj-memo-item { border-left: 3px solid var(--brand-light); padding: 4px 12px; font-size: .88rem; }
+.bj-adjust { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.bj-road { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.bj-road li { display: flex; flex-direction: column; align-items: center; width: 40px; padding: 4px 0; border-radius: var(--radius-sm); border: 1px solid var(--border); font-size: .74rem; color: var(--text-muted); }
+.bj-road li.reached { background: var(--brand-light); color: var(--brand); border-color: var(--brand); }
+.bj-road li.has-reward { border-color: var(--warning); }
+.bj-road-mark { min-height: 1.1em; }
+tr.bj-reward-pending td { background: var(--success-light); }
+.bj-measure-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.bj-measure-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+.bj-measure-card strong { display: block; font-size: 1.15rem; margin: 2px 0; }
+.bj-delta { font-weight: 600; }
+.bj-delta.increase { color: var(--danger); }
+.bj-delta.decrease { color: var(--success); }
+.bj-delta.neutral { color: var(--text-muted); }
+.bj-survey-group { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; }
+.bj-survey-group > summary { cursor: pointer; padding: 10px 14px; list-style: none; }
+.bj-survey-group > summary::-webkit-details-marker { display: none; }
+.bj-survey-group[open] > summary { border-bottom: 1px solid var(--border-light); }
