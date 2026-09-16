@@ -87,4 +87,6 @@ urlpatterns = [
     path("", include("apps.hp.urls")),
     # 開発（apps/dev。KEM の開発管理の写し）。namespace "dev" を持つので逆引きは manage:dev:project_list
     path("dev/", include("apps.dev.urls")),
+    # ビジリス管理（apps/bijiris）。namespace "bijiris" を持つので逆引きは manage:bijiris:dashboard
+    path("bijiris/", include("apps.bijiris.urls")),
 ]

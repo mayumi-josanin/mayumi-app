@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "apps.manage",
     "apps.hp",
     "apps.dev",
+    "apps.bijiris",
 ]
 
 # 院の管理画面（/manage/）を持つ箱かどうか。**既定は持たない。**
