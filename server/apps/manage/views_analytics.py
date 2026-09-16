@@ -27,9 +27,10 @@ KINDS = {
     "product": {"kind": RevenueRecord.PRODUCT, "label": "商品収益", "name_key": "productName", "qty_key": "qty",
                 "save": revenue.商品を保存, "delete": revenue.商品を消す, "list": revenue.商品の記録},
 }
+# メニュー原価・メニュー粗利の列は出さない（院長の希望 2026-09-16）
 FIN_COLUMNS = [("combinedRevenue", "総売上(円)"), ("combinedCost", "総原価(円)"), ("combinedProfit", "総粗利(円)"),
                ("sales", "物販売上(円)"), ("cost", "物販原価(円)"), ("profit", "物販粗利(円)"),
-               ("menuRevenueTotal", "メニュー売上(円)"), ("menuCostTotal", "メニュー原価(円)"), ("menuProfitTotal", "メニュー粗利(円)")]
+               ("menuRevenueTotal", "メニュー売上(円)")]
 
 
 def _label(key: str) -> str:
@@ -67,7 +68,7 @@ def analytics_view(request):
         (f"{latest} 総売上", calc.yen(stats["combinedRevenue"])),
         (f"{latest} 総粗利", calc.yen(stats["combinedProfit"])),
         ("物販粗利率", calc.ratio_label(stats["profit"], stats["sales"])),
-        ("メニュー粗利率", calc.ratio_label(stats["menuProfitTotal"], stats["menuRevenueTotal"])),
+        # メニュー粗利率は出さない（院長の希望 2026-09-16）
         ("物販粗利", calc.yen(stats["profit"])),
         ("メニュー粗利", calc.yen(stats["menuProfitTotal"])),
     ] if latest else []

@@ -84,11 +84,16 @@ a:hover { color: var(--brand-dark); }
 
 .sidebar-nav { flex: 1; padding: 16px 12px; }
 .nav-section {
-  display: block; width: 100%;
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
   padding: 12px 12px 6px;
   font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .1em;
-  color: var(--text-muted);
+  color: var(--text-muted); cursor: pointer; user-select: none; border-radius: var(--radius-sm);
 }
+.nav-section:hover { color: var(--text-primary); background: var(--bg); }
+/* 段の開閉の印。開いていれば ▾、閉じていれば ▸ */
+.nav-section::after { content: "▾"; font-size: .8rem; }
+.nav-section.collapsed::after { content: "▸"; }
+.nav-section.collapsed { margin-bottom: 4px; }
 .sidebar-nav a {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 12px; border-radius: var(--radius-sm);
@@ -649,3 +654,9 @@ td.brand { color: var(--brand); font-weight: 700; }
 .lo-modal-content h3 { margin: 0 0 14px; font-size: 1rem; color: var(--brand); }
 .lo-modal-content .card { box-shadow: none; border: 1px solid var(--border); margin-bottom: 14px; }
 @media (max-height: 800px) { .lo-list .card-body { max-height: 44vh; } }
+
+/* カレンダーのイベント一覧: 1行の縦幅をそろえる（院長の希望 2026-09-16）。長い題名・詳細は1行で省略し、ホバーで全文 */
+.cal-table td { height: 64px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; }
+.cal-table td.cal-title, .cal-table td.cal-snippet { max-width: 260px; }
+.cal-table .cal-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-table .thumb { width: 48px; height: 48px; object-fit: cover; }

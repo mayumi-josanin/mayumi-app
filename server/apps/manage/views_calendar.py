@@ -110,7 +110,8 @@ def _メニュー候補(current: int = 0):
 def _年月(request, today):
     """絞り込み。年は既定で今年（旧アプリの初期値と同じ）、月は既定で全月。"""
     年 = request.GET.get("year") or str(today.year)
-    月 = request.GET.get("month") or "all"
+    # 既定は今月（院長の希望 2026-09-16: 一覧は月ごとに見る）。「全月」も選べる。
+    月 = request.GET.get("month") or str(today.month)
     if 年 != "all":
         try:
             年 = int(年)
