@@ -61,6 +61,11 @@ from django.urls import reverse
 
 段 = [("アプリ管理", アプリ管理), ("公式サイト", 公式サイト)]
 
+# 予約管理のまとまり（mayumi-reserve/apps/core/navigation.py と同じ並び）。押すと go_reserve で予約システムへ飛び、
+# 向こうの画面に上部タブが出る。このメニューはまゆみだけが見る（スタッフはアプリ管理に入れない）
+予約管理 = [("予約", "🗓️", "/manage/"), ("予約枠と休診", "🚫", "/manage/blocks/grid/"), ("予約メニューと質問", "📖", "/manage/menus/"),
+        ("売上・産後ケア", "💴", "/manage/sales/"), ("予約の設定", "⚙️", "/manage/staff/")]
+
 
 def _url(名):
     if isinstance(名, tuple):
@@ -101,4 +106,7 @@ def 組み立てる(request):
                 active_tabs = tabs
                 active_group = ラベル
         sections.append({"label": 段名, "groups": groups})
+    go = reverse("manage:go_reserve")
+    sections.append({"label": "予約管理", "groups": [{"label": l, "icon": i, "url": f"{go}?to={p}", "active": False, "tabs": []}
+                                                 for l, i, p in 予約管理]})
     return {"nav_sections": sections, "nav_tabs": active_tabs, "nav_group": active_group}
