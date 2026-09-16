@@ -678,3 +678,8 @@ td.brand { color: var(--brand); font-weight: 700; }
 .news-table .news-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .news-table .thumb { width: 48px; height: 48px; object-fit: cover; }
 .news-table .thumb-icon { display: inline-flex; width: 48px; height: 48px; align-items: center; justify-content: center; }
+
+/* お知らせ管理の一覧: 1行の縦幅をそろえる（院長の希望 2026-09-16） */
+.notice-table td { height: 64px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; }
+.notice-table td.notice-text { min-width: 320px; max-width: 480px; }
+.notice-table .notice-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
