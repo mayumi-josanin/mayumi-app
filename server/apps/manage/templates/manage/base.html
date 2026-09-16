@@ -42,22 +42,6 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       {% endif %}
       {% endfor %}
 
-      <span class="nav-section">予約管理</span>
-      <a href="{% url 'manage:go_reserve' %}?to=/manage/"><span class="nav-icon">🗓️</span> 予定表</a>
-      <a href="{% url 'manage:go_reserve' %}?to=/manage/reservations/"><span class="nav-icon">📋</span> 予約の管理</a>
-      <a href="{% url 'manage:go_reserve' %}?to=/manage/customers/"><span class="nav-icon">👤</span> お客様（予約）</a>
-      <a href="{% url 'manage:go_reserve' %}?to=/manage/reservations/new/"><span class="nav-icon">➕</span> 予約を作成する</a>
-      {% if is_owner %}
-        <a href="{% url 'manage:go_reserve' %}?to=/manage/blocks/grid/"><span class="nav-icon">🚫</span> 予約枠と休診</a>
-        <a href="{% url 'manage:go_reserve' %}?to=/manage/sales/"><span class="nav-icon">💴</span> 売上・会員</a>
-        <a href="{% url 'manage:go_reserve' %}?to=/manage/care/"><span class="nav-icon">🍼</span> 産後ケア</a>
-        <a href="{% url 'manage:go_reserve' %}?to=/manage/menus/"><span class="nav-icon">📖</span> 予約メニュー</a>
-        <a href="{% url 'manage:go_reserve' %}?to=/manage/questions/"><span class="nav-icon">❓</span> 質問フォーム</a>
-        <a href="{% url 'manage:go_reserve' %}?to=/manage/practitioners/"><span class="nav-icon">🧑‍⚕️</span> 担当者</a>
-        <a href="{% url 'manage:go_reserve' %}?to=/manage/hours/"><span class="nav-icon">⏰</span> 営業時間</a>
-        <a href="{% url 'manage:go_reserve' %}?to=/manage/staff/"><span class="nav-icon">👥</span> スタッフ</a>
-        <a href="{% url 'manage:go_reserve' %}?to=/manage/settings/"><span class="nav-icon">⚙️</span> 予約の設定</a>
-      {% endif %}
     </nav>
     {% if request.user.is_authenticated %}
     <div class="sidebar-footer">
