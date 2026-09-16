@@ -54,7 +54,7 @@ def test_画面に旧アプリと同じ項目が並ぶ(as_owner, site_repo):
     # 写しには PDF が無いので「見つかりません」
     assert "が見つかりません" in page
     # 左メニューに「基本情報」
-    assert "🏥</span> 基本情報" in page
+    assert 'class="active">基本情報</a>' in page  # 上部タブ（左メニューは「ページを整える」にまとめた）
 
 
 def test_基本情報の保存はvaluesだけを書く(as_owner, site_repo):

@@ -63,7 +63,7 @@ def test_一覧_項目と文言(as_owner, site_repo):
     page = as_owner.get("/manage/hp/news/?cat=ないもの").content.decode()
     assert "その種別のお知らせはありません。" in page
     # 左メニューの「公式サイト」の段に出る
-    assert 'href="/manage/hp/news/"' in page and "📢</span> お知らせ" in page
+    assert 'href="/manage/hp/news/"' in page and 'class="active">お知らせ（サイト）</a>' in page  # 上部タブ
 
 
 def test_トップに出す件数を保存(as_owner, site_repo):

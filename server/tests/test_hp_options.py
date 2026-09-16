@@ -60,7 +60,7 @@ def test_画面の見出しと選択肢と文言(as_owner, site_repo):
               "を選択肢から消します。よろしいですか？"):
         assert 文 in page, 文
     # 左メニューにも出る（診療カレンダーの次・プレビューの前）
-    assert page.index("選択肢の設定") < page.index("プレビュー")
+    assert 'class="active">選択肢</a>' in page  # 上部タブ（左メニューは「ページを整える」にまとめた）
 
 
 def test_保存_名前と色と幅が_content_json_に入る(as_owner, site_repo):

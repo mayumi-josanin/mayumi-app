@@ -687,3 +687,9 @@ td.brand { color: var(--brand); font-weight: 700; }
 .notice-table td { height: 64px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; }
 .notice-table td.notice-text { min-width: 320px; max-width: 480px; }
 .notice-table .notice-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* まとまりの中を切り替える上部タブ（apps/manage/navigation.py） */
+.page-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.page-tabs a { padding: 8px 14px; border-radius: 999px; font-size: .9rem; font-weight: 600; color: var(--text-secondary); text-decoration: none; background: var(--surface); border: 1px solid var(--border); }
+.page-tabs a:hover { color: var(--text-primary); background: var(--bg); }
+.page-tabs a.active { color: var(--white); background: var(--brand); border-color: var(--brand); }
