@@ -79,3 +79,9 @@ def test_スタッフの札では受け渡しも断る(client, staff, settings):
     r = client.get(f"/manage/sso/?t={sso.札を作る('スタッフ', 's')}&next=/manage/orders/")
     assert r["Location"].startswith("/manage/login/")
     assert client.get("/manage/orders/").status_code == 302
+
+
+def test_CSSとJSには版が付く(as_owner):
+    """端末に古い CSS / JS が残って、直したものが効かないことを防ぐ（2026-09-16）。"""
+    page = as_owner.get("/manage/orders/").content.decode()
+    assert "manage/style.css?v=" in page and "manage/app.js?v=" in page

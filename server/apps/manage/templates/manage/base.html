@@ -12,7 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="まゆみ管理">
-<link rel="stylesheet" href="{% static 'manage/style.css' %}">
+<link rel="stylesheet" href="{% static 'manage/style.css' %}?v={{ STATIC_VERSION }}">
 </head>
 <body>
 {% comment %}
@@ -117,6 +117,6 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
     </main>
   </div>
 </div>
-<script src="{% static 'manage/app.js' %}"></script>
+<script src="{% static 'manage/app.js' %}?v={{ STATIC_VERSION }}"></script>
 </body>
 </html>
