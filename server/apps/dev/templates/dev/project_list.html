@@ -1,0 +1,185 @@
+{% extends "manage/base.html" %}
+{% block title %}開発プロジェクト一覧 — まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}開発{% endblock %}
+
+{% block content %}
+{% comment %}
+KEM_DDENKI の templates/devkanri/project_list.html の写し（見出し・列・ボタン・文言・ガントは同じ）。
+会社・権限ロール・通知一覧へのリンクだけ外している。
+{% endcomment %}
+<div class="page-header">
+  <h1>プロジェクト一覧</h1>
+  <a href="{% url 'manage:dev:project_create' %}" class="btn btn-primary">+ プロジェクト作成</a>
+</div>
+
+<!-- 表示条件 -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      {% for key, label in scopes.items %}
+      <a href="?scope={{ key }}"
+         class="btn btn-sm {% if scope == key %}btn-primary{% else %}btn-outline{% endif %}">{{ label }}</a>
+      {% endfor %}
+      <span style="align-self:center;color:var(--text-muted);font-size:.82rem;">
+        {% if scope == 'active' %}計画中・進行中のプロジェクトを表示しています
+        {% elif scope == 'mine' %}自分が責任者のプロジェクトを表示しています
+        {% else %}完了・中断を含むすべてのプロジェクトを表示しています{% endif %}
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ガントチャート -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body">
+    {% if gantt_tasks_exist %}
+      <div class="gantt-controls" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-outline btn-sm gantt-mode" data-mode="Quarter Day">日</button>
+        <button class="btn btn-outline btn-sm gantt-mode active" data-mode="Week">週</button>
+        <button class="btn btn-outline btn-sm gantt-mode" data-mode="Month">月</button>
+        <span class="gantt-legend">
+          <span class="legend-swatch bar-dev-planning"></span>計画中
+          <span class="legend-swatch bar-dev-in_progress"></span>進行中
+          <span class="legend-swatch bar-dev-completed"></span>完了
+          <span class="legend-swatch bar-dev-suspended"></span>中断
+          <span class="legend-swatch bar-dev-inferred"></span>日程が推定
+        </span>
+      </div>
+      <div id="gantt-chart" style="overflow-x:auto;"></div>
+      <p style="margin:12px 0 0;font-size:.82rem;color:var(--text-muted);">
+        {{ projects|length }}件を表示しています。横スクロールで先の期間も見られます。
+      </p>
+      {% if inferred_count %}
+      <p style="margin:12px 0 0;font-size:.82rem;color:var(--text-muted);">
+        斜線のバー{{ inferred_count }}件は開始日・期限が未設定のため、
+        タスクの期限または作成日から推定して表示しています。
+        正しい工期はプロジェクトの編集画面で設定してください。
+      </p>
+      {% endif %}
+    {% else %}
+      <div class="empty">
+        <div class="empty-icon">&#x1f4c5;</div>
+        <p>
+          {% if scope == 'mine' %}自分が責任者のプロジェクトがありません
+          {% elif scope == 'active' %}稼働中のプロジェクトがありません
+          {% else %}プロジェクトがありません{% endif %}
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- プロジェクト一覧 -->
+<div class="card">
+  <div class="page-header" style="padding:12px 16px;">
+    <h2 style="font-size:1.1rem;">一覧</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>プロジェクト名</th><th>ステータス</th><th>責任者</th><th>期間</th><th>進捗</th><th>未解決バグ</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in projects %}
+        <tr>
+          <td><a href="{% url 'manage:dev:project_detail' p.pk %}">{{ p.name }}</a></td>
+          <td>
+            {% if p.status == 'in_progress' %}<span class="badge badge-blue">進行中</span>
+            {% elif p.status == 'completed' %}<span class="badge badge-green">完了</span>
+            {% elif p.status == 'planning' %}<span class="badge badge-gray">計画中</span>
+            {% elif p.status == 'suspended' %}<span class="badge badge-orange">中断</span>
+            {% endif %}
+          </td>
+          <td>{{ p.assignee|default:"-" }}</td>
+          <td>
+            {% if p.start_date and p.due_date %}
+              {{ p.start_date }} ~ {{ p.due_date }}
+            {% elif p.period %}
+              <span style="color:var(--text-muted);">{{ p.period.start }} ~ {{ p.period.end }}（推定）</span>
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>
+            {% if p.task_count > 0 %}
+              {{ p.done_count }}/{{ p.task_count }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>
+            {% if p.bug_count > 0 %}<span class="badge badge-red">{{ p.bug_count }}</span>{% else %}-{% endif %}
+          </td>
+          <td style="white-space:nowrap;">
+            <a href="{% url 'manage:dev:project_edit' p.pk %}" class="btn btn-outline btn-sm">編集</a>
+            <a href="{% url 'manage:dev:project_delete' p.pk %}" class="btn btn-outline btn-sm"
+               style="color:var(--danger);">削除</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7"><div class="empty"><div class="empty-icon">&#x1f4bb;</div><p>プロジェクトがありません</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.css">
+<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+
+{% if gantt_tasks_exist %}
+{{ gantt_rows|json_script:"gantt-data" }}
+<script>
+// frappe-gantt 0.6.1 は月名を英語で出す。日本語の月名テーブルを持たないので、描いたあとに書き換える
+// （language: 'ja' を渡すと例外で描画が止まる）。KEM の static/js/app.js の localizeGanttMonths と同じ。
+function localizeGanttMonths(container) {
+  var MONTHS = {
+    January: 1, February: 2, March: 3, April: 4, May: 5, June: 6,
+    July: 7, August: 8, September: 9, October: 10, November: 11, December: 12
+  };
+  container.querySelectorAll('.upper-text, .lower-text').forEach(function(el) {
+    // 月のみ（"August"）と 日＋月（"05 August"）の2形式が来る
+    var m = el.textContent.trim().match(/^(?:(\d{1,2})\s+)?([A-Za-z]+)$/);
+    if (!m || !MONTHS[m[2]]) return;
+    el.textContent = m[1] ? MONTHS[m[2]] + '/' + parseInt(m[1], 10) : MONTHS[m[2]] + '月';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof Gantt === 'undefined') return;  // CDN に届かない箱（Tailscale の中だけ）でも表は出す
+  var tasks = JSON.parse(document.getElementById('gantt-data').textContent);
+  var gantt = new Gantt('#gantt-chart', tasks, {
+    view_mode: 'Week',
+    custom_popup_html: function(task) {
+      var days = Math.round((task.end - task.start) / 86400000) + 1;
+      return '<div class="details-container" style="padding:12px;min-width:220px;">'
+        + '<h5 style="margin:0 0 6px;font-size:.95rem;">' + task.name + '</h5>'
+        + '<p style="margin:0;font-size:.82rem;color:#666;">'
+        + task.status_label + ' / 責任者: ' + task.assignee + '</p>'
+        + '<p style="margin:4px 0 0;font-size:.82rem;">'
+        + task.start.toLocaleDateString('ja-JP') + ' ～ ' + task.end.toLocaleDateString('ja-JP')
+        + '（' + days + '日）' + (task.inferred ? ' ※推定' : '') + '</p>'
+        + '<p style="margin:4px 0 0;font-size:.82rem;">タスク: '
+        + task.task_done + '/' + task.task_total + '（' + task.progress + '%）</p>'
+        + '<p style="margin:8px 0 0;font-size:.82rem;">'
+        + '<a href="' + task.url + '">詳細を開く</a></p>'
+        + '</div>';
+    }
+  });
+
+  var chart = document.querySelector('#gantt-chart');
+  localizeGanttMonths(chart);
+
+  document.querySelectorAll('.gantt-mode').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.gantt-mode').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      gantt.change_view_mode(this.dataset.mode);
+      // 表示切替で描き直されるため、月ラベルを付け直す
+      localizeGanttMonths(chart);
+    });
+  });
+});
+</script>
+{% endif %}
+{% endblock %}

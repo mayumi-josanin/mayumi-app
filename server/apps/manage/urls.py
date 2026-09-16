@@ -86,4 +86,6 @@ urlpatterns = [
     path("system/backup/", views_system.system_backup, name="system_backup"),
     # 公式サイト（apps/hp）。同じログイン・同じ左メニューで使う
     path("", include("apps.hp.urls")),
+    # 開発（apps/dev。KEM の開発管理の写し）。namespace "dev" を持つので逆引きは manage:dev:project_list
+    path("dev/", include("apps.dev.urls")),
 ]
