@@ -1,6 +1,5 @@
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
-from django.views.generic import RedirectView
 
 from . import (
     views_analytics, views_calendar, views_category, views_login, views_member, views_member_extra, views_menu, views_news,
@@ -13,7 +12,7 @@ urlpatterns = [
     path("login/", views_login.role_login, name="login"),
     # ログアウトはボタン（POST）。リンクだと先読みで勝手に落ちることがある。
     path("logout/", auth_views.LogoutView.as_view(next_page="/manage/login/"), name="logout"),
-    path("", RedirectView.as_view(pattern_name="manage:order_list", permanent=False), name="home"),
+    path("", views_login.home, name="home"),
     # 予約管理（mayumi-reserve）との行き来
     path("go/reserve/", views_sso.go_reserve, name="go_reserve"),
     path("sso/", views_sso.sso_login, name="sso_login"),

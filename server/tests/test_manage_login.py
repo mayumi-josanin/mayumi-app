@@ -63,13 +63,26 @@ def test_パスコードは環境変数から決める(db, monkeypatch):
     assert user.groups.filter(name="まゆみ").exists()
 
 
-def test_スタッフはアプリ管理に入れない(client, staff):
-    """院長の決定（2026-09-15）: スタッフはアプリ管理を見ない。"""
+def test_スタッフは予約管理だけ(client, staff):
+    """院長の決定（2026-09-16）: スタッフがログインしたら予約管理だけ。ログインは通し、そのまま予約管理へ受け渡す。"""
     r = client.post("/manage/login/", {"role": "スタッフ", "passcode": "1234"})
-    assert r.status_code == 200 and "まゆみだけ" in r.content.decode()
-    client.force_login(staff)
+    assert r.status_code == 302 and r["Location"] == "/manage/go/reserve/?to=/manage/"
+    # アプリ管理の画面は開けない
     assert client.get("/manage/orders/").status_code == 403
     assert client.get("/manage/news/").status_code == 403
+    assert client.get("/manage/dev/").status_code == 403
+    # 入口も予約管理へ
+    assert client.get("/manage/")["Location"] == "/manage/go/reserve/?to=/manage/"
+
+
+def test_スタッフには左メニューの予約管理だけ(rf, staff, owner):
+    from apps.manage import navigation
+
+    req = rf.get("/manage/"); req.user = staff; req.resolver_match = None
+    sections = navigation.組み立てる(req)["nav_sections"]
+    assert [s["label"] for s in sections] == ["予約管理"]
+    req.user = owner
+    assert [s["label"] for s in navigation.組み立てる(req)["nav_sections"]] == ["アプリ管理", "公式サイト", "開発", "予約管理"]
 
 
 def test_スタッフの札では受け渡しも断る(client, staff, settings):

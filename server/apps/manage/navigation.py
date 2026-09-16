@@ -94,8 +94,13 @@ def _当たる(url_name: str, タブ) -> bool:
 
 def 組み立てる(request):
     """テンプレートに渡す形。いまの url_name から、開いているまとまりとタブを決める。"""
+    from .permissions import is_owner
+
     m = getattr(request, "resolver_match", None)
     url_name = (m.url_name if m else "") or ""
+    user = getattr(request, "user", None)
+    # **スタッフには予約管理だけ**（院長の決定 2026-09-16）。アプリ管理・公式サイト・開発の段は出さない
+    まゆみ = bool(user is not None and getattr(user, "is_authenticated", False) and is_owner(user))
     # manage の下にさらに namespace がある画面（開発 = manage:dev:...）は、"dev:project_list" の形で当てる。
     # hp は namespace 無しで include しているので今までどおり素の url_name のまま
     if m and len(m.namespaces) > 1:
@@ -103,7 +108,7 @@ def 組み立てる(request):
     sections = []
     active_tabs = None
     active_group = ""
-    for 段名, まとまりたち in 段:
+    for 段名, まとまりたち in (段 if まゆみ else []):
         groups = []
         for ラベル, 絵, タブたち in まとまりたち:
             当たり = any(_当たる(url_name, t) for t in タブたち)
