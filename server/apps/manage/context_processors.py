@@ -15,3 +15,13 @@ def roles(request):
 def static_version(request):
     """CSS / JS の版（?v=）。箱を作り直すたびに変わるので、端末の古い控えが使われない。"""
     return {"STATIC_VERSION": getattr(settings, "STATIC_VERSION", "")}
+
+
+def nav(request):
+    """左メニューのまとまりと、いまの画面の上部タブ（apps/manage/navigation.py）。"""
+    from . import navigation
+
+    try:
+        return navigation.組み立てる(request)
+    except Exception:  # 逆引きできないときも画面は出す
+        return {"nav_sections": [], "nav_tabs": None, "nav_group": ""}

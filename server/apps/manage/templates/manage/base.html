@@ -31,35 +31,16 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       予約管理の項目はログインの受け渡し（go_reserve）で予約システム（:10001）へ飛ぶ。
       向こうの左メニューも同じ並び。設定系はまゆみだけに出す。
       {% endcomment %}
-      <span class="nav-section">アプリ管理</span>
-      <a href="{% url 'manage:order_list' %}" class="{% if 'order' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📦</span> 注文管理</a>
-      <a href="{% url 'manage:news_list' %}" class="{% if 'news' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">💬</span> NEWS</a>
-      <a href="{% url 'manage:product_list' %}" class="{% if 'product' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🌿</span> 商品管理</a>
-      <a href="{% url 'manage:calendar_list' %}" class="{% if 'calendar' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📅</span> カレンダー</a>
-      <a href="{% url 'manage:member_list' %}" class="{% if 'member' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">👥</span> 会員管理</a>
-      <a href="{% url 'manage:reward_list' %}" class="{% if 'reward' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🎟</span> スタンプ・特典</a>
-      <a href="{% url 'manage:duplicate_list' %}" class="{% if 'duplicate' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🧩</span> 重複候補</a>
-      <a href="{% url 'manage:trash_list' %}" class="{% if 'trash' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🛟</span> ゴミ箱</a>
-      <a href="{% url 'manage:push_list' %}" class="{% if 'push' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">👥</span> 通知管理</a>
-      <a href="{% url 'manage:notice_list' %}" class="{% if 'notice' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📢</span> お知らせ管理</a>
-      <a href="{% url 'manage:system' %}" class="{% if 'system' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🛠️</span> システム管理</a>
-      <a href="{% url 'manage:analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name or 'revenue' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">📊</span> データ分析</a>
-      <a href="{% url 'manage:menu_list' %}" class="{% if 'menu' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🍴</span> メニュー管理</a>
-      <a href="{% url 'manage:category_list' %}" class="{% if 'category' in request.resolver_match.url_name %}active{% endif %}"><span class="nav-icon">🏷️</span> カテゴリ管理</a>
-      <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-muted"><span class="nav-icon">↗</span> 旧管理アプリ（会員管理・スタンプ）</a>
-
-      <span class="nav-section">公式サイト</span>
-      <a href="{% url 'manage:hp_basic' %}" class="{% if request.resolver_match.url_name == 'hp_basic' %}active{% endif %}"><span class="nav-icon">🏥</span> 基本情報</a>
-      <a href="{% url 'manage:hp_news' %}" class="{% if request.resolver_match.url_name|slice:':7' == 'hp_news' %}active{% endif %}"><span class="nav-icon">📢</span> お知らせ</a>
-      <a href="{% url 'manage:hp_blog' %}" class="{% if request.resolver_match.url_name == 'hp_blog' or request.resolver_match.url_name == 'hp_blog_edit' %}active{% endif %}"><span class="nav-icon">✍️</span> まゆみのつぶやき</a>
-      <a href="{% url 'manage:hp_classes' %}" class="{% if request.resolver_match.url_name == 'hp_classes' or request.resolver_match.url_name == 'hp_class_edit' %}active{% endif %}"><span class="nav-icon">🎒</span> 各種お教室</a>
-      <a href="{% url 'manage:hp_closed' %}" class="{% if request.resolver_match.url_name == 'hp_closed' %}active{% endif %}"><span class="nav-icon">📅</span> 診療カレンダー</a>
-      <a href="{% url 'manage:hp_options' %}" class="{% if request.resolver_match.url_name == 'hp_options' %}active{% endif %}"><span class="nav-icon">🎛️</span> 選択肢の設定</a>
-      <a href="{% url 'manage:hp_images' %}" class="{% if request.resolver_match.url_name == 'hp_images' %}active{% endif %}"><span class="nav-icon">🖼️</span> 写真</a>
-      <a href="{% url 'manage:hp_layout' %}" class="{% if request.resolver_match.url_name == 'hp_layout' %}active{% endif %}"><span class="nav-icon">🧩</span> ページの編集</a>
-      <a href="{% url 'manage:hp_preview' %}" class="{% if request.resolver_match.url_name == 'hp_preview' %}active{% endif %}"><span class="nav-icon">👀</span> プレビュー</a>
-      <a href="{% url 'manage:hp_publish' %}" class="{% if request.resolver_match.url_name == 'hp_publish' %}active{% endif %}"><span class="nav-icon">🌐</span> 公開する</a>
-      <a href="{% url 'manage:hp_git' %}" class="{% if request.resolver_match.url_name == 'hp_git' %}active{% endif %}"><span class="nav-icon">🔗</span> 保存の記録</a>
+      {# 左メニューのまとまりは apps/manage/navigation.py で決める（院長の相談 2026-09-16: 入口を減らし、中はタブで切り替える） #}
+      {% for sec in nav_sections %}
+      <span class="nav-section">{{ sec.label }}</span>
+      {% for g in sec.groups %}
+      <a href="{{ g.url }}" class="{% if g.active %}active{% endif %}"><span class="nav-icon">{{ g.icon }}</span> {{ g.label }}</a>
+      {% endfor %}
+      {% if sec.label == "アプリ管理" %}
+      <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-muted"><span class="nav-icon">↗</span> 旧管理アプリ</a>
+      {% endif %}
+      {% endfor %}
 
       <span class="nav-section">予約管理</span>
       <a href="{% url 'manage:go_reserve' %}?to=/manage/"><span class="nav-icon">🗓️</span> 予定表</a>
@@ -113,6 +94,11 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
     {% endif %}
 
     <main class="content">
+      {% if nav_tabs %}
+      <nav class="page-tabs" aria-label="{{ nav_group }}">
+        {% for t in nav_tabs %}<a href="{{ t.url }}" class="{% if t.active %}active{% endif %}">{{ t.label }}</a>{% endfor %}
+      </nav>
+      {% endif %}
       {% block content %}{% endblock %}
     </main>
   </div>

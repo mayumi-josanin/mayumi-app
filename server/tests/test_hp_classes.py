@@ -75,7 +75,7 @@ def test_一覧_件数と文言としぼり込み(as_owner, site_repo):
         assert c["category"] in page
     assert "開催%d回" % len(d["classroom"][0]["reports"]) in page
     # 左メニューに出る
-    assert "🎒</span> 各種お教室" in page
+    assert 'class="active">お教室</a>' in page  # 上部タブ（左メニューは「記事を書く」にまとめた）
     # しぼる: 名称
     name = d["classroom"][1]["category"]
     hits = [c for c in d["classroom"] if c["category"] == name]

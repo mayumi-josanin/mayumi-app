@@ -44,7 +44,7 @@ def test_何も無いときの文言と集計カード(as_owner):
     for th in ["アイコン", "ID", "登録/更新日時", "氏名", "電話番号", "生年月日", "年齢", "住所", "Push", "アンケート", "メモ", "操作"]:
         assert f">{th}</th>" in page, th
     # 左メニューは「カレンダー」の次に「会員管理」
-    assert page.index("カレンダー</a>") < page.index("会員管理</a>") < page.index("通知管理</a>")
+    assert 'class="active">会員一覧</a>' in page and page.index("会員一覧</a>") < page.index("スタンプ・特典</a>")  # 上部タブ
     # 切り替え前は「見るだけ」と出す
     assert "まだスプレッドシートが正です" in page
 

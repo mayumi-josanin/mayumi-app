@@ -89,6 +89,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.manage.context_processors.roles",
                 "apps.manage.context_processors.static_version",
+                "apps.manage.context_processors.nav",
             ],
         },
     },
