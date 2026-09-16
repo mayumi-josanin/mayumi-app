@@ -663,3 +663,10 @@ td.brand { color: var(--brand); font-weight: 700; }
 .cal-table td.cal-title, .cal-table td.cal-snippet { max-width: 260px; }
 .cal-table .cal-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-table .thumb { width: 48px; height: 48px; object-fit: cover; }
+
+/* NEWS の一覧: 1行の縦幅をそろえる（院長の希望 2026-09-16）。長いタイトルは1行で省略し、ホバーで全文 */
+.news-table td { height: 64px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; }
+.news-table td.news-title { max-width: 360px; }
+.news-table .news-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.news-table .thumb { width: 48px; height: 48px; object-fit: cover; }
+.news-table .thumb-icon { display: inline-flex; width: 48px; height: 48px; align-items: center; justify-content: center; }
