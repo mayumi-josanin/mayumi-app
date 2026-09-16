@@ -107,6 +107,9 @@ a:hover { color: var(--brand-dark); }
   background: var(--bg); transition: var(--transition); flex-shrink: 0;
 }
 .sidebar-nav a:hover { background: var(--bg); color: var(--text-primary); }
+/* 段を閉じたときの項目。`.sidebar-nav a { display:flex }` が hidden 属性（display:none）より強いので、ここで明示して隠す
+   （2026-09-16、開閉の印は変わるのに項目が消えなかった原因） */
+.sidebar-nav a[hidden] { display: none !important; }
 .sidebar-nav a:hover .nav-icon { background: var(--brand-light); }
 .sidebar-nav a.active { background: var(--brand-light); color: var(--brand); font-weight: 600; }
 .sidebar-nav a.active .nav-icon { background: var(--brand-gradient); color: var(--white); }
