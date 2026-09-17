@@ -25,6 +25,12 @@ from django.utils import timezone
 
 from apps.members.models import Member
 
+# シートに無いからといって、サーバーにあるものを空にしない項目。
+#
+# 切り替え（9/19）より後は、サーバーが正。ここに挙げたものは**サーバー側でたまっていく**ので、
+# 古いシートで流し直すと消えてしまう。シートに値があるときは、これまでどおり上書きする。
+空なら消さない = ["line_user_id"]
+
 
 def 文字(値):
     return "" if 値 is None else str(値).strip()
@@ -215,6 +221,8 @@ class Command(BaseCommand):
                 "last_online_at": 日時(r.get("lastOnlineAt")),
                 # 空文字ではなく None にする。unique 制約は空文字を重複と見なすため、
                 # **2人目で必ず落ちる。**
+                #
+                # **空なら、サーバーに入っているものを消さない。**（下の「消さないもの」）
                 "line_user_id": (文字(r.get("lineUserId")) or None),
                 "bijiris_registered": 真偽(r.get("bijirisRegistered")),
                 "created_at": 日時(r.get("createdAt")),
@@ -236,6 +244,22 @@ class Command(BaseCommand):
                 if not 古い or not check_password(平文, 古い):
                     値["passcode_hash"] = make_password(平文)
                     パスコードを作った += 1
+
+            # ---- 消さないもの ----
+            #
+            # **シートに無いからといって、サーバーにあるものを空にしない。**
+            #
+            # 切り替え（9/19）より後は、シートではなくサーバーが正になる。
+            # LINEID は切り替えのあとに、お客様アプリや予約システムから**サーバー側にたまっていく**。
+            # そこでこの取り込みを「念のため」もう一度流すと、シートに無いぶんが
+            # 全部 None に上書きされ、**その方はLINEとつながらなくなる**。
+            # 気づくのは、お客様が「つながりません」とおっしゃったとき。
+            #
+            # シートに値があるときは、これまでどおり上書きする（シートで直した分が届く）。
+            if 既存:
+                for k in 空なら消さない:
+                    if not 値.get(k) and getattr(既存, k):
+                        値[k] = getattr(既存, k)
 
             if not 既存:
                 新規.append((member_id, 値, name))
