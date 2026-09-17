@@ -5679,7 +5679,9 @@ function renderHomeMilestoneReward() {
       <li class="stamp-road-step ${reached ? "reached" : ""} ${isCurrent ? "current" : ""} ${isNextStep ? "next" : ""} ${milestone ? "has-reward" : ""}">
         <span class="stamp-road-mark" aria-hidden="true">${milestone ? "🎁" : reached ? "●" : ""}</span>
         <span class="stamp-road-num">${step}</span>
-        ${milestone ? `<span class="stamp-road-reward">${escapeHtml(milestone.reward)}</span>` : ""}
+        ${/* 狭い画面では特典の名前が2行までに収まらず「…」で切れる。
+              長押しや読み上げで全文が伝わるよう、title にも同じ文を入れておく。 */ ""}
+        ${milestone ? `<span class="stamp-road-reward" title="${escapeHtml(milestone.reward)}">${escapeHtml(milestone.reward)}</span>` : ""}
       </li>
     `);
   }
