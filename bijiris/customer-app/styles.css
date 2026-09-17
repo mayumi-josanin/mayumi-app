@@ -11,6 +11,25 @@
   --border: rgba(122, 92, 62, 0.15);
   --danger: #c0392b;
   --shadow: 0 10px 26px rgba(60, 40, 20, 0.09);
+
+  /* ===== 文字の大きさ =====
+     以前は「12px」のように数で決め打ちしていた。
+     決め打ちだと(1)画面が狭い端末でも同じ大きさのまま入りきらず折り返す
+     (2)端末の設定で文字を大きくされている方に、その設定が効かない、の2つが起きる。
+     そこで rem（端末の文字設定を土台にした単位）で決め、
+     clamp(下限, 画面幅に応じて伸びる値, 上限) で狭い画面から広い画面まで滑らかに変える。
+     下限は「これより小さくしない」約束。補足でも 12px を下回らせない。 */
+  --fs-xs: clamp(0.75rem, 0.7rem + 0.22vw, 0.8125rem);      /* 補足・日付・単位 12〜13px */
+  --fs-sm: clamp(0.8125rem, 0.76rem + 0.25vw, 0.875rem);    /* 小さめの見出し・札 13〜14px */
+  --fs-base: clamp(0.9375rem, 0.875rem + 0.45vw, 1.0625rem);/* 本文 15〜17px */
+  --fs-md: clamp(1rem, 0.94rem + 0.35vw, 1.125rem);         /* 設問文・目立たせる値 16〜18px */
+  --fs-lg: clamp(1.0625rem, 0.97rem + 0.5vw, 1.25rem);      /* 見出し 17〜20px */
+  --fs-xl: clamp(1.25rem, 1.05rem + 1.05vw, 1.5rem);        /* 大見出し 20〜24px */
+}
+
+/* 端末の文字サイズ設定をそのまま土台にする。ここを px で固定すると設定が効かなくなる。 */
+html {
+  font-size: 100%;
 }
 
 * {
@@ -28,6 +47,8 @@ body {
   background: var(--cream);
   color: var(--text-dark);
   font-family: "Noto Serif JP", serif, system-ui, sans-serif;
+  /* 本文の大きさはここで一度だけ決める。以下の部品はここからの差分で考える。 */
+  font-size: var(--fs-base);
   letter-spacing: 0;
 }
 
@@ -83,7 +104,7 @@ button {
 
 .brand-sub {
   color: var(--text-light);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .header-button,
@@ -136,7 +157,7 @@ main {
 .eyebrow {
   margin: 0 0 6px;
   color: var(--sage-dark);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -150,14 +171,14 @@ p {
 h1 {
   margin-bottom: 8px;
   color: var(--sage-dark);
-  font-size: 25px;
+  font-size: var(--fs-xl);
   line-height: 1.4;
 }
 
 h2 {
   margin-bottom: 12px;
   color: var(--text-dark);
-  font-size: 18px;
+  font-size: var(--fs-lg);
 }
 
 p {
@@ -243,7 +264,7 @@ p {
   flex: 1 1 100%;
   margin-top: 2px;
   padding-left: 58px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--text-light, #8a8378);
   line-height: 1.5;
 }
@@ -252,7 +273,7 @@ label {
   display: grid;
   gap: 7px;
   color: var(--text-mid);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -345,7 +366,7 @@ textarea {
   border-radius: 8px;
   background: #fff;
   color: var(--text-dark);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -359,7 +380,7 @@ textarea {
   border-radius: 999px;
   background: #f3efe9;
   color: var(--text-mid);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
 }
 
@@ -404,7 +425,7 @@ textarea {
 
 .bijiris-category-node strong {
   color: var(--text-dark);
-  font-size: 15px;
+  font-size: var(--fs-md);
 }
 
 .bijiris-concern-group-list {
@@ -419,7 +440,7 @@ textarea {
 
 .bijiris-concern-group-title {
   color: var(--text-mid);
-  font-size: 13px;
+  font-size: var(--fs-sm);
 }
 
 .bijiris-concern-chip-list {
@@ -435,7 +456,7 @@ textarea {
   border-radius: 10px;
   background: #fffaf6;
   color: var(--text-dark);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   text-align: left;
 }
@@ -497,7 +518,7 @@ textarea {
   border-radius: 999px;
   background: #fbe3df;
   color: #a63e32;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   line-height: 1;
   flex: 0 0 auto;
@@ -539,7 +560,7 @@ textarea {
 .bijiris-action-button {
   min-height: 34px;
   padding: 0 12px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .bijiris-action-button.active {
@@ -575,12 +596,12 @@ textarea {
 }
 
 .bijiris-star-icon {
-  font-size: 16px;
+  font-size: var(--fs-md);
   line-height: 1;
 }
 
 .bijiris-star-label {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -721,7 +742,7 @@ textarea {
   border-radius: 999px;
   background: var(--sage);
   color: #fff;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -739,7 +760,7 @@ textarea {
 .concern-category-card > .selection-button::after {
   content: "＋";
   margin-left: auto;
-  font-size: 15px;
+  font-size: var(--fs-md);
   opacity: .7;
 }
 
@@ -855,7 +876,7 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   color: var(--text-dark);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -905,7 +926,7 @@ textarea {
 
 .logout-note {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   line-height: 1.7;
   color: var(--text-light);
 }
@@ -999,12 +1020,12 @@ textarea {
 .ticket-notice > strong {
   display: block;
   margin-bottom: 6px;
-  font-size: 14px;
+  font-size: var(--fs-md);
 }
 
 .ticket-notice > p {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   line-height: 1.7;
 }
 
@@ -1018,7 +1039,7 @@ textarea {
 
 .ticket-next-sheet-more > summary {
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--muted, #6b7280);
   list-style: none;
 }
@@ -1072,7 +1093,7 @@ textarea {
   border-radius: 999px;
   background: #fff;
   color: rgba(192, 57, 43, 0.38);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   line-height: 1;
   box-shadow: none;
@@ -1104,14 +1125,14 @@ textarea {
 .stamp-dot-step {
   align-self: end;
   margin-top: 20px;
-  font-size: 17px;
+  font-size: var(--fs-md);
   font-weight: 800;
 }
 
 .stamp-dot-unit {
   align-self: start;
   margin-top: -1px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   letter-spacing: 0;
 }
 
@@ -1124,7 +1145,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.84);
   color: var(--text-dark);
-  font-size: 8px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -1143,6 +1164,7 @@ textarea {
   display: grid;
   place-items: center;
   color: rgba(192, 57, 43, 0.9);
+  /* 読む文字ではなく、丸の中に押した印の絵。丸の大きさに合わせるので px のままにする。 */
   font-size: 28px;
   font-weight: 900;
   transform: rotate(-14deg);
@@ -1175,7 +1197,7 @@ textarea {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid var(--border);
   color: var(--text-dark);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 
@@ -1190,7 +1212,7 @@ textarea {
 
 .meta {
   color: var(--text-light);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .badge {
@@ -1202,7 +1224,7 @@ textarea {
   border-radius: 8px;
   background: #eef5e8;
   color: var(--sage-dark);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -1275,7 +1297,7 @@ legend {
 .question-legend > span:first-child,
 legend > span:first-child {
   color: var(--text-dark);
-  font-size: 15px;
+  font-size: var(--fs-md);
   font-weight: 700;
   line-height: 1.7;
 }
@@ -1349,7 +1371,7 @@ legend > span:first-child {
 
 .field-help {
   color: var(--text-light);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 400;
   line-height: 1.6;
 }
@@ -1375,7 +1397,7 @@ legend > span:first-child {
 
 .question-inline-textarea-label {
   color: var(--text-light);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 400;
   line-height: 1.6;
 }
@@ -1390,7 +1412,7 @@ legend > span:first-child {
 
 .question-caption {
   color: var(--text-light);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 400;
   line-height: 1.7;
 }
@@ -1399,7 +1421,7 @@ legend > span:first-child {
   display: grid;
   gap: 8px;
   color: var(--text-mid);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   width: 100%;
   min-width: 0;
@@ -1425,7 +1447,7 @@ legend > span:first-child {
   display: grid;
   gap: 5px;
   color: var(--sage-dark);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   text-decoration: none;
 }
@@ -1450,7 +1472,7 @@ legend > span:first-child {
 .small-button {
   min-height: 34px;
   padding: 0 10px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .confirm-list {
@@ -1565,14 +1587,14 @@ legend > span:first-child {
   display: grid;
   place-items: center;
   aspect-ratio: 4 / 5;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--text-light);
 }
 
 .measurement-photo-carousel-slide figcaption {
   display: grid;
   gap: 2px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   text-align: center;
   word-break: break-all;
 }
@@ -1590,6 +1612,7 @@ legend > span:first-child {
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   color: var(--sage-dark);
+  /* 36px の丸ボタンに収める矢印の記号。ボタンの大きさに合わせるので px のままにする。 */
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
@@ -1617,7 +1640,7 @@ legend > span:first-child {
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -1652,7 +1675,7 @@ legend > span:first-child {
 
 .measurement-photo-entry-order {
   color: var(--sage-dark);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -1669,12 +1692,12 @@ legend > span:first-child {
 .measurement-summary-card strong,
 .measurement-metric-card strong {
   color: var(--sage-dark);
-  font-size: 18px;
+  font-size: var(--fs-lg);
 }
 
 .measurement-summary-label {
   color: var(--text-light);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -1721,7 +1744,7 @@ legend > span:first-child {
   align-items: center;
   gap: 6px;
   color: var(--text-mid);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .measurement-legend-dot {
@@ -1752,7 +1775,8 @@ legend > span:first-child {
 .measurement-axis-label,
 .measurement-target-label {
   fill: var(--text-light);
-  font-size: 11px;
+  /* グラフの中の文字。グラフごと拡大縮小されるので、絵の中の寸法として px で持つ。 */
+  font-size: 12px;
 }
 
 .measurement-history-list {
@@ -1788,7 +1812,7 @@ legend > span:first-child {
   top: 0;
   background: #f8f5f1;
   color: var(--text-mid);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   z-index: 1;
 }
@@ -1820,7 +1844,7 @@ legend > span:first-child {
 
 .measurement-table-main {
   color: var(--text-dark);
-  font-size: 15px;
+  font-size: var(--fs-md);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1831,7 +1855,7 @@ legend > span:first-child {
   gap: 6px;
   margin-top: 4px;
   color: var(--text-light);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 
@@ -1850,7 +1874,7 @@ legend > span:first-child {
   gap: 6px;
   margin-top: 2px;
   color: var(--text-light);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .delta-badge {
@@ -1859,7 +1883,7 @@ legend > span:first-child {
   min-height: 24px;
   padding: 0 8px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -1945,17 +1969,18 @@ legend > span:first-child {
   border-radius: 8px;
   background: transparent;
   color: var(--text-light);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   overflow: visible;
 }
 
 .nav-icon {
+  /* 下の帯の絵文字。読む文字ではなく目印なので、帯の高さに合わせて px のままにする。 */
   font-size: 20px;
 }
 
 .nav-label {
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .nav-button.active {
@@ -1976,7 +2001,7 @@ legend > span:first-child {
   border-radius: 999px;
   background: #c0392b;
   color: #fff;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   line-height: 1;
   box-shadow: 0 2px 8px rgba(192, 57, 43, 0.28);
@@ -1997,12 +2022,12 @@ legend > span:first-child {
    どこまで来てあと何枚かが一目で分かる方が集めたくなる。 */
 .stamp-road-lead {
   margin: 10px 0 4px;
-  font-size: 14px;
+  font-size: var(--fs-base);
   color: var(--text-dark);
 }
 
 .stamp-road-lead b {
-  font-size: 17px;
+  font-size: var(--fs-lg);
   color: var(--sage-dark);
 }
 
@@ -2075,7 +2100,7 @@ legend > span:first-child {
   border: 2px solid var(--border);
   border-radius: 50%;
   background: #fff;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   line-height: 1;
   color: #fff;
 }
@@ -2097,7 +2122,7 @@ legend > span:first-child {
   height: 34px;
   border-color: var(--blush-dark);
   background: #fff;
-  font-size: 16px;
+  font-size: var(--fs-md);
 }
 
 .stamp-road-step.has-reward.reached .stamp-road-mark {
@@ -2105,7 +2130,7 @@ legend > span:first-child {
 }
 
 .stamp-road-num {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--text-light);
   font-variant-numeric: tabular-nums;
 }
@@ -2117,7 +2142,7 @@ legend > span:first-child {
 
 .stamp-road-reward {
   max-width: 72px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.35;
   color: var(--brown);
   text-align: center;
@@ -2126,6 +2151,141 @@ legend > span:first-child {
 
 .stamp-road-note {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--text-light);
+}
+
+/* ===== スマホでの折り返しと押しやすさ =====
+   幅の狭い端末（360px前後）で、1行で読ませたい所が2行に割れていた。
+   文字を小さくして押し込むのではなく、入れ物の側を直す。 */
+
+/* 上の帯。院名と「更新」「アプリ一覧」が、狭い画面でどれも2行に割れていた。
+   ボタンは縮めず1行のまま、余りが足りないときは院名の側を「…」でたたむ。 */
+.brand {
+  min-width: 0;
+}
+
+.brand-name,
+.brand-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-actions {
+  flex: 0 0 auto;
+}
+
+.header-button {
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+/* 押す所は指1本で押せる大きさ（44px四方）を保つ。
+   文字を小さくしても、押す所そのものは縮めない。 */
+.header-button,
+.ghost-button,
+.primary-button,
+.secondary-button,
+.selection-button,
+.small-button,
+.bijiris-action-button,
+.bijiris-filter-chip,
+.bijiris-concern-chip,
+.bijiris-star-toggle,
+.measurement-toggle-chip {
+  min-height: 44px;
+}
+
+/* 短い札（バッジ）は1行で読ませる。「3 / 10」が2行に割れていた。 */
+.badge,
+.delta-badge,
+.ticket-stamp,
+.bijiris-unread-label,
+.bijiris-filter-count,
+.concern-category-count,
+.nav-badge,
+.stamp-road-num,
+.nav-label {
+  white-space: nowrap;
+}
+
+/* 見出しと札を横に並べている所。札は縮めず、詰まったら見出しの側で折り返す。 */
+.ticket-home-head > .badge,
+.ticket-progress-head > span,
+.bijiris-list-head > .badge,
+.draft-status-head > .badge,
+.progress-head > span:last-child {
+  flex: 0 0 auto;
+}
+
+.ticket-home-head > div,
+.ticket-progress-head > strong,
+.progress-head > span:first-child {
+  min-width: 0;
+}
+
+/* スタンプの道のり。特典の名前が10pxで4行に折り重なって読めなかった。
+   大きさを本文の補足なみに戻したぶん入りきらないので、ここは2行までにする。
+   全文は上の案内文（あと○枚で「…」）に出ているので、読めなくなることはない。 */
+.stamp-road-reward {
+  max-width: 100%;
+  font-size: var(--fs-xs);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ===== 幅の狭い端末（Androidの360pxやiPhone SEの375px） =====
+   文字を小さくする代わりに、外側の余白をわずかに詰めて中身の幅を稼ぐ。 */
+@media (max-width: 400px) {
+  main {
+    padding: 12px;
+  }
+
+  .app-header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .welcome-card {
+    padding: 20px 16px;
+  }
+
+  .section-card {
+    padding: 14px;
+  }
+
+  .header-button {
+    padding: 0 10px;
+  }
+
+  .secondary-button,
+  .ghost-button {
+    padding: 0 10px;
+  }
+
+  /* スタンプの丸は数と日付が入る大きさが要る。並びの隙間の方を詰める。 */
+  .ticket-progress {
+    gap: 6px;
+  }
+
+  .stamp-road {
+    gap: 14px 0;
+  }
+}
+
+/* 文字だけの押し所（お知らせの見出し・「ほかのカードに切り替える」）は、
+   見た目の高さが文字のぶんしかなく、指で押すには小さかった。
+   上下に押せる余白を足し、同じだけ外へ戻して見た目の間隔は変えない。 */
+.ticket-next-sheet-more > summary {
+  padding: 12px 0;
+  margin: -12px 0;
+}
+
+.bijiris-post-title-button {
+  padding: 10px 0;
+  margin: -10px 0;
 }
