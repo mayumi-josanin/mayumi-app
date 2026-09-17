@@ -92,6 +92,9 @@ services:
       # 公式サイト（mayumi-site）。下の volume で /site に載せる。鍵は .env（setkey.ps1）
       SITE_REPO_DIR: /site
       SITE_GIT_TOKEN: ${SITE_GIT_TOKEN:-}
+      # ビジリスのお客様アプリ（bijiris/customer-app）。下の volume で /bijiris に載せる。
+      # ビジリス管理の「お客様の画面」で、いま作っている方を出すのに使う（読むだけ）
+      BIJIRIS_DIR: /bijiris
       DB_NAME: mayumi
       DB_USER: postgres
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -105,6 +108,9 @@ services:
       - mayumi_media:/app/media
       # 公式サイトの下書き（draft）。サーバーPCの ~/projects/mayumi-site-draft
       - ${SITE_REPO_HOST_DIR:-../../mayumi-site-draft}:/site
+      # ビジリス（このリポジトリの bijiris/）。**読み取り専用（:ro）**で載せる。管理画面は見るだけで書かない。
+      # web には載せない（お客様の箱に管理用のものを入れない）
+      - ${BIJIRIS_HOST_DIR:-../bijiris}:/bijiris:ro
 
 volumes:
   mayumi_pgdata:
