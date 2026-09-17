@@ -7,6 +7,7 @@ import io
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 
 from apps.content.models import Menu, PushNotice
 from apps.gasapi.admin_menu import 一覧 as メニュー一覧
@@ -84,7 +85,9 @@ def test_一覧の行は名前と説明と更新日時でカテゴリ無しは�
     m = Menu.objects.get(name="産後ケア（訪問）")
     assert "<strong>太字</strong>と<u>下線</u><br>2行目&lt;script&gt;x&lt;/script&gt;" in page
     assert "概要説明は未入力です" in page and "未設定" in page
-    assert m.updated_at.strftime("%Y/%m/%d") in page
+    # **画面は日本時間で出す。** 世界標準時のまま見比べると、
+    # 日本の午前0時〜9時（＝世界標準時の前日15時以降）に日付が1日ずれて落ちる。
+    assert timezone.localtime(m.updated_at).strftime("%Y/%m/%d") in page
     assert 'draggable="true"' in page and "☰" in page and "☰ をつまんで" in page
 
 
