@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.hp",
     "apps.dev",
     "apps.bijiris",
+    "apps.preview",
 ]
 
 # 院の管理画面（/manage/）を持つ箱かどうか。**既定は持たない。**
@@ -205,11 +206,17 @@ SITE_GIT_TOKEN = env("SITE_GIT_TOKEN", "")
 SITE_GIT_NAME = env("SITE_GIT_NAME", "まゆみ助産院 管理画面")
 SITE_GIT_EMAIL = env("SITE_GIT_EMAIL", "manage@mayumijosanin.com")
 
-# ビジリスのお客様アプリ（bijiris/customer-app）の置き場所。ビジリス管理の「お客様の画面」で、
-# いま作っている方（手元のファイル）をそのまま出すのに使う。考え方は上の SITE_REPO_DIR と同じ。
+# 「お客様の画面」（apps/preview）で出す、develop の写しの置き場所。
+# このリポジトリの根っこがそのままお客様アプリで、ビジリスはその下の bijiris/customer-app/。
+# **写しは1つだけ。**（前はビジリス用に BIJIRIS_DIR を別に持っていたが、同じ写しの下なのでやめた）
 # 箱（Docker）の中からは手元のリポジトリが見えないので、docker-compose.yml の manage に読み取り専用で載せている。
-# ここに customer-app が無いときは、画面に「手元にファイルがありません」と出すだけで、他は動く。
-BIJIRIS_DIR = env("BIJIRIS_DIR", "/bijiris")
+# ここにファイルが無いときは、画面に「手元にファイルがありません」と出すだけで、他は動く。
+PREVIEW_APP_DIR = env("PREVIEW_APP_DIR", "/develop-app")
+
+# 予約システム（mayumi-reserve）は Django なので、ファイルを配らずに住所をそのまま枠に出す。
+# 住所が変わったら .env で差し替えられるように設定にしてある。
+PREVIEW_RESERVE_DEV_URL = env("PREVIEW_RESERVE_DEV_URL", "https://desktop-rmsk0vg.tail8efe0d.ts.net:10004/")
+PREVIEW_RESERVE_LIVE_URL = env("PREVIEW_RESERVE_LIVE_URL", "https://desktop-rmsk0vg.tail8efe0d.ts.net:10000/")
 
 # お客様アプリへのプッシュ通知（OneSignal）。管理画面からの投稿で送る。
 # GAS のスクリプトプロパティと同じ値。空なら送らない（apps/manage/push.py）。

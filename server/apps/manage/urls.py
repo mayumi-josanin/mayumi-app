@@ -89,4 +89,6 @@ urlpatterns = [
     path("dev/", include("apps.dev.urls")),
     # ビジリス管理（apps/bijiris）。namespace "bijiris" を持つので逆引きは manage:bijiris:dashboard
     path("bijiris/", include("apps.bijiris.urls")),
+    # お客様の画面（apps/preview）。3つのお客様アプリを枠の中で確かめる。逆引きは manage:preview:app
+    path("preview/", include("apps.preview.urls")),
 ]
