@@ -68,7 +68,7 @@ from django.urls import reverse
     ]),
 ]
 
-# ビジリス（apps/bijiris。院長の決定 2026-09-16: 6画面）。開発と同じく namespace "bijiris" 付きの url_name で当てる。
+# ビジリス（apps/bijiris。院長の決定 2026-09-16: 6画面。2026-09-17 に「お客様の画面」を足して7つ）。開発と同じく namespace "bijiris" 付きの url_name で当てる。
 # 中身はまだ「準備中」（段取り A）。段取り B で置き換えても、この並びと url_name は変えない
 ビジリス = [
     ("ビジリス管理", "💪", [
@@ -78,6 +78,8 @@ from django.urls import reverse
         ("顧客管理", "bijiris:customer_list", ["bijiris:customer_"]),
         ("特典", "bijiris:reward_list", ["bijiris:reward_"]),
         ("回数券分析", "bijiris:ticket_list", ["bijiris:ticket_"]),
+        # お客様が見ているアンケートアプリを枠の中で確かめる（apps/bijiris/views_preview.py）
+        ("お客様の画面", "bijiris:preview", ["bijiris:preview"]),
     ]),
 ]
 

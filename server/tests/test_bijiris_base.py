@@ -425,7 +425,7 @@ def test_左メニューにビジリスの段が出る(as_owner):
     assert side.find(">公式サイト</span>") < side.find(">ビジリス</span>") < side.find(">開発</span>")
     i = page.find('<nav class="page-tabs"')
     tabs = page[i:page.find("</nav>", i)]
-    for t in ["集計", "アンケート管理", "回答管理", "顧客管理", "特典", "回数券分析"]:
+    for t in ["集計", "アンケート管理", "回答管理", "顧客管理", "特典", "回数券分析", "お客様の画面"]:
         assert t in tabs, t
     assert 'class="active">回答管理</a>' in tabs
     # アプリ管理側の reward_/ticket などと頭がかぶらない
