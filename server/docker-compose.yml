@@ -92,9 +92,9 @@ services:
       # 公式サイト（mayumi-site）。下の volume で /site に載せる。鍵は .env（setkey.ps1）
       SITE_REPO_DIR: /site
       SITE_GIT_TOKEN: ${SITE_GIT_TOKEN:-}
-      # ビジリスのお客様アプリ（bijiris/customer-app）。下の volume で /bijiris に載せる。
-      # ビジリス管理の「お客様の画面」で、いま作っている方を出すのに使う（読むだけ）
-      BIJIRIS_DIR: /bijiris
+      # develop の写し（このリポジトリ）。下の volume で /develop-app に載せる。
+      # 「お客様の画面」で、いま作っている方（まゆみ助産院アプリ・ビジリス）を出すのに使う（読むだけ）
+      PREVIEW_APP_DIR: /develop-app
       DB_NAME: mayumi
       DB_USER: postgres
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -108,9 +108,11 @@ services:
       - mayumi_media:/app/media
       # 公式サイトの下書き（draft）。サーバーPCの ~/projects/mayumi-site-draft
       - ${SITE_REPO_HOST_DIR:-../../mayumi-site-draft}:/site
-      # ビジリス（このリポジトリの bijiris/）。**読み取り専用（:ro）**で載せる。管理画面は見るだけで書かない。
+      # develop の写し（このリポジトリの根っこ。お客様アプリ本体と bijiris/customer-app/ が入っている）。
+      # **読み取り専用（:ro）**で載せる。管理画面は見るだけで書かない。
+      # 配ってよいものは apps/preview/views.py の「通してよい一覧」で決めている（server/ は出さない）。
       # web には載せない（お客様の箱に管理用のものを入れない）
-      - ${BIJIRIS_HOST_DIR:-../bijiris}:/bijiris:ro
+      - ${PREVIEW_APP_HOST_DIR:-..}:/develop-app:ro
 
 volumes:
   mayumi_pgdata:

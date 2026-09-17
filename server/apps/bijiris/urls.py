@@ -1,14 +1,23 @@
-"""ビジリス管理（/manage/bijiris/...）。院長が決めた6画面（集計／アンケート管理／回答管理／顧客管理／特典／回数券分析）と、お客様の画面。
+"""ビジリス管理（/manage/bijiris/...）。院長が決めた6画面（集計／アンケート管理／回答管理／顧客管理／特典／回数券分析）。
 
 apps/manage/urls.py から include されるので、逆引きは manage:bijiris:dashboard のように2段になる。
 段取り B で1画面ずつ置き換える。URL 名は変えない（左メニューが当てている）。
+「お客様の画面」は apps/preview へ引っ越したので、ここには転送だけが残っている。
 """
 
+from django.shortcuts import redirect
 from django.urls import path, re_path
+from django.views.generic import RedirectView
 
-from . import views_customers, views_dashboard, views_preview, views_responses, views_rewards, views_surveys, views_ticket
+from . import views_customers, views_dashboard, views_responses, views_rewards, views_surveys, views_ticket
 
 app_name = "bijiris"
+
+
+def _古いファイルの口(request, path=""):
+    """古いファイルの配り口。新しい配り口（/manage/preview/files/bijiris/...）へ送る。"""
+    return redirect(f"/manage/preview/files/bijiris/{path}")
+
 
 urlpatterns = [
     # 集計（views_dashboard）
@@ -51,8 +60,8 @@ urlpatterns = [
     path("tickets/analyze/", views_ticket.ticket_analyze, name="ticket_analyze"),
     path("tickets/prompt/", views_ticket.ticket_prompt_save, name="ticket_prompt"),
     path("tickets/auto/", views_ticket.ticket_auto, name="ticket_auto"),
-    # お客様の画面（views_preview）。url_name の頭は "preview"。顧客管理の "customer_" とかぶらせない
-    # （左メニューはタブの url_name の頭で当てているので、customer_app という名前だと顧客管理が選ばれてしまう）
-    path("preview/", views_preview.preview, name="preview"),
-    re_path(r"^preview/files/(?P<path>.*)$", views_preview.preview_file, name="preview_file"),
+    # お客様の画面は apps/preview へ引っ越した（2026-09-18。3つのお客様アプリを1か所にまとめたため）。
+    # 古い住所を覚えている人・ブックマークのために、新しい住所へ転送するだけ残す
+    path("preview/", RedirectView.as_view(pattern_name="manage:preview:bijiris", permanent=False), name="preview"),
+    re_path(r"^preview/files/(?P<path>.*)$", _古いファイルの口, name="preview_file"),
 ]

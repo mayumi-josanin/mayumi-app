@@ -78,12 +78,22 @@ from django.urls import reverse
         ("顧客管理", "bijiris:customer_list", ["bijiris:customer_"]),
         ("特典", "bijiris:reward_list", ["bijiris:reward_"]),
         ("回数券分析", "bijiris:ticket_list", ["bijiris:ticket_"]),
-        # お客様が見ているアンケートアプリを枠の中で確かめる（apps/bijiris/views_preview.py）
-        ("お客様の画面", "bijiris:preview", ["bijiris:preview"]),
+        # 「お客様の画面」はここから外した（2026-09-18）。3つのお客様アプリをまとめた下の段へ引っ越し
     ]),
 ]
 
-段 = [("アプリ管理", アプリ管理), ("公式サイト", 公式サイト), ("ビジリス", ビジリス), ("開発", 開発)]
+# お客様の画面（apps/preview。院長の依頼 2026-09-18）。お客様が見ている3つのアプリを、
+# 「いま作っている方（develop）」と「お客様に出ている方（main）」で見比べる。namespace は "preview"
+お客様の画面 = [
+    ("お客様の画面", "👀", [
+        ("まゆみ助産院アプリ", "preview:app", ["preview:app"]),
+        ("ビジリス", "preview:bijiris", ["preview:bijiris"]),
+        ("予約システム", "preview:reserve", ["preview:reserve"]),
+    ]),
+]
+
+段 = [("アプリ管理", アプリ管理), ("公式サイト", 公式サイト), ("ビジリス", ビジリス),
+     ("お客様の画面", お客様の画面), ("開発", 開発)]
 
 # 予約管理のまとまり（mayumi-reserve/apps/core/navigation.py と同じ並び）。押すと go_reserve で予約システムへ飛び、
 # 向こうの画面に上部タブが出る。このメニューはまゆみだけが見る（スタッフはアプリ管理に入れない）

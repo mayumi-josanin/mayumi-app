@@ -1,0 +1,51 @@
+{% extends "manage/base.html" %}
+{% block title %}{{ label }} — お客様の画面 — まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}お客様の画面{% endblock %}
+
+{% block content %}
+{% comment %}
+3つのタブ（まゆみ助産院アプリ・ビジリス・予約システム）で同じこの画面を使う。
+違うのは「いま作っている方」の出どころだけ（ファイルを配る口か、予約システムの住所か）。
+{% endcomment %}
+<div class="page-header"><h1>{{ label }}</h1></div>
+
+<div class="card"><div class="card-body">
+  <form method="get" class="inline-form" style="gap:10px;flex-wrap:wrap;align-items:center">
+    <input type="hidden" name="w" value="{{ width }}">
+    <label style="margin:0">どちらを見るか</label>
+    <button class="btn btn-outline btn-sm {% if which == 'dev' %}active{% endif %}" name="which" value="dev">いま作っている方</button>
+    <button class="btn btn-outline btn-sm {% if which == 'live' %}active{% endif %}" name="which" value="live">お客様に出ている方</button>
+  </form>
+  <form method="get" class="inline-form" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
+    <input type="hidden" name="which" value="{{ which }}">
+    <label style="margin:0">画面幅</label>
+    {% for nm, w in devices %}<button class="btn btn-outline btn-sm {% if width == w|stringformat:'s' %}active{% endif %}" name="w" value="{{ w }}">{{ nm }}{% if w %}（{{ w }}px）{% endif %}</button>{% endfor %}
+    {# 枠に出ないときの逃げ道。予約システムは他所の住所なので、こちらで開いてもらうことがある #}
+    <a class="btn btn-sm" href="{{ src }}" target="_blank" rel="noopener">別の窓で開く</a>
+  </form>
+  <p class="sub" style="margin-top:10px">
+    {% if which == 'live' %}
+      お客様に出ている方（本物）です。住所は {{ src }}
+    {% elif 住所だけ %}
+      いま作っている方です。確認用の予約システム（{{ src }}）をそのまま出しています。お客様にはまだ出ていません。
+    {% else %}
+      いま作っている方です。サーバーの手元にあるファイル（{{ dir }}）をそのまま出しています。お客様にはまだ出ていません。
+    {% endif %}
+  </p>
+  {% if 住所だけ %}
+    {# 予約システムは別の住所なので、向こうの決まりで枠に出ないことがある。その時のために一言添える #}
+    <p class="sub">予約システムは別の住所にあるため、下の枠に出ないことがあります。そのときは「別の窓で開く」を押してください。</p>
+  {% endif %}
+</div></div>
+
+{% if not local_ready %}
+  {# 手元に無くても落ちない。「お客様に出ている方」だけは見られるので、そちらを出す #}
+  <div class="note" style="margin-bottom:16px">手元にファイルがありません（{{ dir }}）。サーバーPCの置き場所の載せ方（docker-compose の /develop-app）を確かめてください。「お客様に出ている方」は見られます。</div>
+{% endif %}
+{% if local_ready or which == 'live' %}
+  <div class="hp-pvwrap">
+    <iframe class="hp-pv" title="{{ label }}" style="{% if width != '0' %}width:{{ width }}px;{% else %}width:100%;{% endif %}"
+            src="{{ src }}"></iframe>
+  </div>
+{% endif %}
+{% endblock %}
