@@ -4,9 +4,13 @@
 KEM は login_required ＋ 会社（tenant）で絞っていた。こちらは会社が無いので絞りは要らない。
 """
 
+import datetime
+
 from django.contrib import messages
-from django.db.models import Count, Q, Sum
+from django.db.models import Case, Count, F, IntegerField, Q, Sum, When
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from apps.manage import images
 from apps.manage.permissions import owner_required
@@ -24,6 +28,19 @@ PROJECT_SCOPES = {
     "all": "すべて",
 }
 ACTIVE_STATUSES = ["planning", "in_progress"]
+
+# タスク一覧（プロジェクトをまたいだ一覧。院長の依頼 2026-09-18）。
+# 「いま何が残っているか」を見る画面なので、**既定では完了・クローズを隠す**。
+# プロジェクト詳細だけだと、残りを見るのにプロジェクトを1つずつ開くことになっていた。
+DONE_STATUSES = ["done", "closed"]
+TASK_SORTS = {
+    "priority": "優先度の高い順",
+    "due": "期限の近い順",
+    "new": "新しい順",
+}
+# 優先度は文字なので、そのまま並べると英字順（critical→high→low→medium）になってしまう。
+# 数に置き換えてから並べる。
+PRIORITY_ORDER = ["critical", "high", "medium", "low"]
 
 
 @owner_required
@@ -65,6 +82,104 @@ def project_list(request):
         "scope": scope,
         "scopes": PROJECT_SCOPES,
         "inferred_count": sum(1 for row in gantt_rows if row["inferred"]),
+    })
+
+
+@owner_required
+def task_list(request):
+    """タスク一覧。プロジェクトをまたいで、残っているタスクをまとめて出す。
+
+    絞り込みと並べ替えは住所（クエリ文字列）に持つ。行からステータスを進めたときも
+    同じ住所に戻すので、絞り込んだ状態のまま次の行に進める。
+    """
+    today = timezone.localdate()
+    # 今週の終わり（月曜はじまりの日曜まで）。「今週が期限」の札に使う
+    週末 = today + datetime.timedelta(days=6 - today.weekday())
+
+    show_done = request.GET.get("done") == "1"
+    overdue_only = request.GET.get("overdue") == "1"
+    sort = request.GET.get("sort") or "priority"
+    if sort not in TASK_SORTS:
+        sort = "priority"
+
+    条件 = {k: (request.GET.get(k) or "") for k in ("project", "status", "priority", "category", "assignee")}
+
+    tasks = DevTask.objects.select_related("project", "assignee")
+    if not show_done:
+        tasks = tasks.exclude(status__in=DONE_STATUSES)
+    if 条件["project"].isdigit():
+        tasks = tasks.filter(project_id=int(条件["project"]))
+    if 条件["status"] in dict(DevTask.Status.choices):
+        tasks = tasks.filter(status=条件["status"])
+    else:
+        条件["status"] = ""
+    if 条件["priority"] in dict(DevTask.Priority.choices):
+        tasks = tasks.filter(priority=条件["priority"])
+    else:
+        条件["priority"] = ""
+    if 条件["category"] in dict(DevTask.Category.choices):
+        tasks = tasks.filter(category=条件["category"])
+    else:
+        条件["category"] = ""
+    if 条件["assignee"].isdigit():
+        tasks = tasks.filter(assignee_id=int(条件["assignee"]))
+    if overdue_only:
+        # 終わったものは、期限を過ぎていても「期限切れ」に数えない
+        tasks = tasks.filter(due_date__lt=today).exclude(status__in=DONE_STATUSES)
+
+    tasks = tasks.annotate(優先度順=Case(
+        *[When(priority=v, then=i) for i, v in enumerate(PRIORITY_ORDER)],
+        default=len(PRIORITY_ORDER), output_field=IntegerField(),
+    ))
+    if sort == "due":
+        # 期限なしは後ろへ（期限の近い順で見たいのは、期限のあるもの）
+        tasks = tasks.order_by(F("due_date").asc(nulls_last=True), "優先度順", "-created_at")
+    elif sort == "new":
+        tasks = tasks.order_by("-created_at")
+    else:
+        tasks = tasks.order_by("優先度順", F("due_date").asc(nulls_last=True), "-created_at")
+
+    # プロジェクトごとにまとめる。**並びは最初に出てきた順**にして、
+    # 並べ替え（優先度の高い順など）が見出しの順にもそのまま出るようにする
+    groups = {}
+    集計 = {"remaining": 0, "in_progress": 0, "overdue": 0, "this_week": 0}
+    for t in tasks:
+        終わった = t.status in DONE_STATUSES
+        t.is_overdue = bool(t.due_date and t.due_date < today and not 終わった)
+        t.is_soon = bool(t.due_date and today <= t.due_date <= today + datetime.timedelta(days=1) and not 終わった)
+        g = groups.setdefault(t.project_id, {"project": t.project, "tasks": [], "remaining": 0, "overdue": 0})
+        g["tasks"].append(t)
+        if not 終わった:
+            g["remaining"] += 1
+            集計["remaining"] += 1
+            if t.status == "in_progress":
+                集計["in_progress"] += 1
+            if t.due_date and today <= t.due_date <= 週末:
+                集計["this_week"] += 1
+        if t.is_overdue:
+            g["overdue"] += 1
+            集計["overdue"] += 1
+
+    # 絞り込みの選択肢。担当は、実際にタスクを持っている人だけ出す（使わない名前を並べない）
+    from django.contrib.auth import get_user_model
+
+    担当たち = get_user_model().objects.filter(dev_tasks__isnull=False).distinct().order_by("username")
+
+    return render(request, "dev/task_list.html", {
+        "groups": list(groups.values()),
+        "count": sum(len(g["tasks"]) for g in groups.values()),
+        "summary": 集計,
+        "sort": sort,
+        "sorts": TASK_SORTS,
+        "show_done": show_done,
+        "overdue_only": overdue_only,
+        "filters": 条件,
+        "projects": DevProject.objects.order_by("name"),
+        "assignees": 担当たち,
+        "status_choices": DevTask.Status.choices,
+        "priority_choices": DevTask.Priority.choices,
+        "category_choices": DevTask.Category.choices,
+        "here": request.get_full_path(),
     })
 
 
@@ -234,6 +349,11 @@ def task_move(request, pk):
         task.status = new_status
         task.save(update_fields=["status", "updated_at"])
         notify_task_status_changed(task, request.user, old_status)
+    # タスク一覧から進めたときは、絞り込んだままのその住所へ戻す（次の行にそのまま進める）
+    戻り先 = request.POST.get("next") or ""
+    if 戻り先 and url_has_allowed_host_and_scheme(
+            戻り先, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return redirect(戻り先)
     return redirect("manage:dev:project_detail", pk=task.project.pk)
 
 
