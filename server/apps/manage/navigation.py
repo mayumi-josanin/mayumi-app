@@ -63,7 +63,10 @@ from django.urls import reverse
 # url_name は "dev:project_list" のように書く（アプリ管理側の product_ などと頭がかぶらない）
 開発 = [
     ("開発管理", "💻", [
-        ("プロジェクト", "dev:project_list", ["dev:project_", "dev:task_"]),
+        # タスクの画面（dev:task_*）は「タスク一覧」のタブに当てる。プロジェクトのタブに当てると、
+        # タスクを開いた先で押した覚えのないタブが光る
+        ("プロジェクト", "dev:project_list", ["dev:project_"]),
+        ("タスク一覧", "dev:task_list", ["dev:task_"]),
         ("目安箱", "dev:meyasubako_list", ["dev:meyasubako_"]),
     ]),
 ]

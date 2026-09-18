@@ -17,6 +17,8 @@ urlpatterns = [
     path("<int:pk>/edit/", views.project_edit, name="project_edit"),
     path("<int:pk>/delete/", views.project_delete, name="project_delete"),
     # タスク
+    # プロジェクトをまたいだ一覧（院長の依頼 2026-09-18）。"tasks/" は <int:pk>/ に当たらないのでここでよい
+    path("tasks/", views.task_list, name="task_list"),
     path("<int:project_pk>/tasks/new/", views.task_create, name="task_create"),
     path("tasks/<int:pk>/", views.task_detail, name="task_detail"),
     path("tasks/<int:pk>/edit/", views.task_edit, name="task_edit"),

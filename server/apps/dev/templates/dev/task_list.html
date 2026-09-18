@@ -1,0 +1,182 @@
+{% extends "manage/base.html" %}
+{% block title %}タスク一覧 — 開発管理{% endblock %}
+{% block topbar_title %}開発{% endblock %}
+
+{% block content %}
+{% comment %}
+プロジェクトをまたいだタスクの一覧（院長の依頼 2026-09-18）。
+今までタスクはプロジェクト詳細の中にしか無く、「いま何が残っているか」を見るのに
+プロジェクトを1つずつ開くことになっていた。
+絞り込み・並べ替えは住所（クエリ文字列）に持つので、そのまま人に渡せる／お気に入りに入れられる。
+{% endcomment %}
+<div class="page-header">
+  <h1>タスク一覧</h1>
+  <a href="{% url 'manage:dev:project_list' %}" class="btn btn-outline btn-sm">プロジェクト一覧へ</a>
+</div>
+
+<!-- 集計の札 -->
+<div class="stats">
+  <div class="stat-card blue">
+    <div class="stat-label">残り</div>
+    <div class="stat-value blue">{{ summary.remaining }}</div>
+  </div>
+  <div class="stat-card default">
+    <div class="stat-label">作業中</div>
+    <div class="stat-value">{{ summary.in_progress }}</div>
+  </div>
+  <div class="stat-card orange">
+    <div class="stat-label">期限切れ</div>
+    <div class="stat-value orange">{{ summary.overdue }}</div>
+  </div>
+  <div class="stat-card default">
+    <div class="stat-label">今週が期限</div>
+    <div class="stat-value">{{ summary.this_week }}</div>
+  </div>
+</div>
+
+<!-- 絞り込み -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body">
+    <form method="get" class="filter-form" id="task-filter" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="form-group">
+        <label for="f-project">プロジェクト</label>
+        <select id="f-project" name="project" class="form-control" onchange="this.form.submit()">
+          <option value="">すべて</option>
+          {% for p in projects %}<option value="{{ p.pk }}" {% if filters.project == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="f-status">ステータス</label>
+        <select id="f-status" name="status" class="form-control" onchange="this.form.submit()">
+          <option value="">すべて</option>
+          {% for val, label in status_choices %}<option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="f-priority">優先度</label>
+        <select id="f-priority" name="priority" class="form-control" onchange="this.form.submit()">
+          <option value="">すべて</option>
+          {% for val, label in priority_choices %}<option value="{{ val }}" {% if filters.priority == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="f-category">カテゴリ</label>
+        <select id="f-category" name="category" class="form-control" onchange="this.form.submit()">
+          <option value="">すべて</option>
+          {% for val, label in category_choices %}<option value="{{ val }}" {% if filters.category == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="f-assignee">担当</label>
+        <select id="f-assignee" name="assignee" class="form-control" onchange="this.form.submit()">
+          <option value="">すべて</option>
+          {% for u in assignees %}<option value="{{ u.pk }}" {% if filters.assignee == u.pk|stringformat:"s" %}selected{% endif %}>{{ u }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="f-sort">並べ替え</label>
+        <select id="f-sort" name="sort" class="form-control" onchange="this.form.submit()">
+          {% for key, label in sorts.items %}<option value="{{ key }}" {% if sort == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="task-toggle">
+          <input type="checkbox" name="overdue" value="1" {% if overdue_only %}checked{% endif %} onchange="this.form.submit()"> 期限切れだけ
+        </label>
+        <label class="task-toggle">
+          <input type="checkbox" name="done" value="1" {% if show_done %}checked{% endif %} onchange="this.form.submit()"> 完了も見る
+        </label>
+      </div>
+      <div class="form-group">
+        <button type="submit" class="btn btn-primary btn-sm">絞り込む</button>
+        <a href="{% url 'manage:dev:task_list' %}" class="btn btn-outline btn-sm">絞り込みを外す</a>
+      </div>
+    </form>
+    <p style="margin:8px 0 0;font-size:.82rem;color:var(--text-muted);">
+      {{ count }}件を表示しています。
+      {% if not show_done %}終わったタスク（完了・クローズ）は隠しています。「完了も見る」で出せます。{% endif %}
+    </p>
+  </div>
+</div>
+
+<!-- プロジェクトごと -->
+{% for g in groups %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h2 style="font-size:1.05rem;">
+      <a href="{% url 'manage:dev:project_detail' g.project.pk %}">{{ g.project.name }}</a>
+      <span style="font-weight:400;color:var(--text-muted);font-size:.85rem;">残り {{ g.remaining }}件</span>
+      {% if g.overdue %}<span class="badge badge-red">期限切れ {{ g.overdue }}件</span>{% endif %}
+    </h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>タイトル</th><th>ステータス</th><th>優先度</th><th>カテゴリ</th><th>担当</th><th>期限</th><th>見積/実績</th><th>進める</th></tr>
+      </thead>
+      <tbody>
+        {% for t in g.tasks %}
+        <tr>
+          <td><a href="{% url 'manage:dev:task_detail' t.pk %}">#{{ t.pk }} {{ t.title }}</a></td>
+          <td>
+            {% if t.status == 'open' %}<span class="badge badge-gray">未着手</span>
+            {% elif t.status == 'in_progress' %}<span class="badge badge-blue">作業中</span>
+            {% elif t.status == 'review' %}<span class="badge badge-orange">レビュー中</span>
+            {% elif t.status == 'done' %}<span class="badge badge-green">完了</span>
+            {% else %}<span class="badge badge-gray">クローズ</span>{% endif %}
+          </td>
+          <td>
+            {% if t.priority == 'critical' %}<span class="badge badge-red">緊急</span>
+            {% elif t.priority == 'high' %}<span class="badge badge-orange">高</span>
+            {% elif t.priority == 'medium' %}<span class="badge badge-blue">中</span>
+            {% else %}<span class="badge badge-gray">低</span>{% endif %}
+          </td>
+          <td>{{ t.get_category_display }}</td>
+          <td>{{ t.assignee|default:"-" }}</td>
+          <td>
+            {% if t.due_date %}
+              {# 期限を過ぎたものは赤、今日・明日のものは橙。数えなくても目に入るように #}
+              {% if t.is_overdue %}<span class="task-due-over">{{ t.due_date }}（期限切れ）</span>
+              {% elif t.is_soon %}<span class="task-due-soon">{{ t.due_date }}</span>
+              {% else %}{{ t.due_date }}{% endif %}
+            {% else %}-{% endif %}
+          </td>
+          <td>{{ t.estimate_hours|default:"-" }} / {{ t.actual_hours|default:"-" }}</td>
+          <td>
+            {# 一覧から直にステータスを進める。next に今の住所を入れて、絞り込んだまま戻す #}
+            <form method="post" action="{% url 'manage:dev:task_move' t.pk %}" style="display:flex;gap:4px;">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ here }}">
+              <select name="status" class="form-control" style="font-size:.78rem;padding:2px 4px;width:auto;">
+                {% for val, label in status_choices %}<option value="{{ val }}" {% if val == t.status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+              <button type="submit" class="btn btn-outline btn-sm">変更</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% empty %}
+<div class="card">
+  <div class="card-body">
+    <div class="empty">
+      <div class="empty-icon">&#x2705;</div>
+      <p>
+        {% if overdue_only %}期限切れのタスクはありません
+        {% elif filters.project or filters.status or filters.priority or filters.category or filters.assignee %}この絞り込みに当てはまるタスクはありません
+        {% else %}残っているタスクはありません{% endif %}
+      </p>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<style>
+  .task-toggle { display:block; font-size:.85rem; white-space:nowrap; }
+  .task-due-over { color:var(--danger); font-weight:700; }
+  .task-due-soon { color:#d97706; font-weight:700; }
+</style>
+{% endblock %}
