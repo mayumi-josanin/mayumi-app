@@ -18,10 +18,25 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=Zen+Old+Mincho:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap"
     rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="style.css?v=20260816-2">
+  <style>
+    /* 起動のあいだは中身を伏せる（2026-09-19）。
+       端末の中の記録（どなたか・前にどの画面を見ていたか）を読み終えるまで、
+       下の「ホーム」が選ばれた枠だけが出て、そのあと前回の画面に切り替わっていた。
+       これが一瞬のちらつきとして見えていた。読み終えてから一度に出す。
+       **通信とは関係ないので、行き先を変えても直らない。**
+       万一 JS が動かないときに真っ白のままにならないよう、3秒たてば自動的に出る。 */
+    body.起動中 .page,
+    body.起動中 .bottom-nav,
+    body.起動中 .header {
+      visibility: hidden;
+      animation: 起動の保険 0s 3s forwards;
+    }
+    @keyframes 起動の保険 { to { visibility: visible; } }
+  </style>
 
 </head>
 
-<body>
+<body class="起動中">
 
   <!-- ONBOARDING SCREEN (Welcome) -->
   <div class="onboarding-overlay" id="onboardingScreen">
@@ -1011,7 +1026,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-  <script src="app.js?v=20260919-1"></script>
+  <script src="app.js?v=20260919-2"></script>
 </body>
 
 </html>

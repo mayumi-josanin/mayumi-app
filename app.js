@@ -7925,16 +7925,23 @@ async function promptRecoveryCandidates(candidates, formValues) {
   return true;
 }
 
+function 起動の伏せを解く_() {
+  // どの画面を出すかが決まった。ここで一度に見せる（index.html の body.起動中）。
+  try { document.body.classList.remove('起動中'); } catch (e) { /* 何があっても画面は出す */ }
+}
+
 function checkFirstLaunch() {
   if (!_profile) {
     isPasscodeAuthenticated = false;
     // 初回起動：オンボーディングを即座に表示
     const screen = document.getElementById('onboardingScreen');
     if (screen) screen.classList.add('show');
+    起動の伏せを解く_();
   } else {
     CUSTOMER_NAME = _profile.name;
     updateProfileUI();
     activatePageSilently(getPreferredStartupPage());
+    起動の伏せを解く_();
 
     if (needsRequiredPasscodeSetup()) {
       openMigrationModal();
@@ -8412,6 +8419,7 @@ async function initApp() {
 
   const versionGate = await ensureSupportedAppVersion();
   if (versionGate.blocked) {
+    起動の伏せを解く_();
     return;
   }
   if (versionGate.needsWebUpdate) {
