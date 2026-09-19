@@ -210,11 +210,13 @@ def test_一覧の1行の縦幅はどの行も同じ(as_owner):
     """行の中身が多い会員も少ない会員も、同じ高さで並ぶこと（院長の希望 2026-09-19）。
 
     氏名は3行・住所とメモとアンケートは2行あり、**中身の行数で高さが変わっていた。**
+    高さの決まりは管理画面の全部の一覧で共通（.list-table / .list-line）。
+    決まりそのものは tests/test_list_row_height.py で見張っている。
     """
     _member("MYM-0001", "山田花子", address="神奈川県厚木市中町1-1-1 コーポ山田303号室", memo="長い覚え書き" * 10)
     _member("MYM-0002", "佐藤桃子")
     page = as_owner.get("/manage/members/").content.decode()
-    assert 'class="member-table"' in page
+    assert 'class="list-table"' in page
     # はみ出す文字は「…」で省く（1行に収める印）。全文はホバーで出す
-    assert "member-line" in page
+    assert "list-line" in page
     assert 'title="神奈川県厚木市中町1-1-1 コーポ山田303号室"' in page

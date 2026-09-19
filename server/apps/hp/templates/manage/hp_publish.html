@@ -53,8 +53,8 @@
   <div class="card-body">
     {% if markers.missing %}<div class="alert alert-warning">HTMLにあるのにデータに無い目印: {{ markers.missing|join:", " }}</div>{% endif %}
     {% if markers.unused %}<div class="alert">データにあるがHTMLで使われていない: {{ markers.unused|join:", " }}</div>{% endif %}
-    <div class="table-wrap"><table><thead><tr><th style="width:190px">目印の名前</th><th>使われているページ</th></tr></thead><tbody>
-      {% for name, pages in markers.found %}<tr><td class="nowrap">{{ name }}</td><td>{{ pages }}</td></tr>{% endfor %}
+    <div class="table-wrap"><table class="list-table"><thead><tr><th style="width:190px">目印の名前</th><th>使われているページ</th></tr></thead><tbody>
+      {% for name, pages in markers.found %}<tr><td class="nowrap">{{ name }}</td><td style="max-width:520px"><div class="list-line" title="{{ pages }}">{{ pages }}</div></td></tr>{% endfor %}
     </tbody></table></div>
   </div>
 </div>

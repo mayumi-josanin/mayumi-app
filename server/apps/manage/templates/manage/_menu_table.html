@@ -3,7 +3,7 @@
 行はつまんで動かせる（draggable）。落としたときの保存は menu_list.html の JS。
 {% endcomment %}
 <div class="table-wrap">
-<table class="menu-table">
+<table class="list-table">
   <thead><tr><th style="width:40px"></th><th>画像</th><th>カテゴリ</th><th>メニュー内容</th><th>更新日時</th><th>操作</th></tr></thead>
   <tbody id="{{ list_id }}" class="sortable">
   {% for item in items %}
@@ -13,8 +13,8 @@
       <td class="nowrap">{{ item.category }}</td>
       <td class="menu-summary" title="{{ item.m.name }}&#10;{{ item.m.description }}">
         {# 1行の縦幅をそろえる（院長の希望 2026-09-16）。名前1行・説明1行で省略し、ホバーで全文 #}
-        <div class="menu-summary-name">{{ item.m.name }}</div>
-        <div class="menu-summary-desc">{{ item.description }}</div>
+        <div class="menu-summary-name list-line">{{ item.m.name }}</div>
+        <div class="menu-summary-desc list-line">{{ item.description }}</div>
       </td>
       <td class="nowrap sub">{{ item.updated }}</td>
       <td class="nowrap">

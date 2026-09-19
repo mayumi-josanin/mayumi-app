@@ -75,14 +75,14 @@ KEM_DDENKI の templates/devkanri/project_list.html の写し（見出し・列�
     <h2 style="font-size:1.1rem;">一覧</h2>
   </div>
   <div class="table-wrap">
-    <table>
+    <table class="list-table">
       <thead>
         <tr><th>プロジェクト名</th><th>ステータス</th><th>責任者</th><th>期間</th><th>進捗</th><th>未解決バグ</th><th></th></tr>
       </thead>
       <tbody>
         {% for p in projects %}
         <tr>
-          <td><a href="{% url 'manage:dev:project_detail' p.pk %}">{{ p.name }}</a></td>
+          <td style="max-width:260px"><a class="list-line" href="{% url 'manage:dev:project_detail' p.pk %}" title="{{ p.name }}">{{ p.name }}</a></td>
           <td>
             {% if p.status == 'in_progress' %}<span class="badge badge-blue">進行中</span>
             {% elif p.status == 'completed' %}<span class="badge badge-green">完了</span>

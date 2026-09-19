@@ -3,7 +3,7 @@ NEWS の一覧（下書き・投稿済み共用）。列と行内の操作は旧
 チェック / アイコン / 日付 / カテゴリ / 分類 / タイトル / 公開状況（select） / 操作（📝 🗑）。
 {% endcomment %}
 <div class="table-wrap">
-<table class="news-table">
+<table class="list-table">
   <thead>
     <tr>
       <th><input type="checkbox" onclick="this.closest('table').querySelectorAll('.blog-sel').forEach(function(c){c.checked=this.checked}.bind(this))"></th>
@@ -18,7 +18,7 @@ NEWS の一覧（下書き・投稿済み共用）。列と行内の操作は旧
       <td class="nowrap">{{ item.b.date }}</td>
       <td class="nowrap"><span class="badge badge-gray">{{ item.b.category }}</span></td>
       <td class="nowrap"><span class="badge {% if item.kind == 'お知らせ' %}badge-red{% else %}badge-green{% endif %}">{{ item.kind }}</span></td>
-      <td class="news-title"><span class="news-line" title="{{ item.b.title }}">{{ item.b.title }}</span></td>
+      <td class="news-title"><span class="list-line" title="{{ item.b.title }}">{{ item.b.title }}</span></td>
       <td class="nowrap">
         <select form="nstat-{{ item.b.rowIdx }}" name="status" class="form-control" style="width:auto;padding:6px 8px;font-size:.82rem" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
           <option value="公開" {% if item.b.status == '公開' %}selected{% endif %}>公開</option>

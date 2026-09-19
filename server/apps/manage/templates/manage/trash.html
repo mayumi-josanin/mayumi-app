@@ -39,7 +39,7 @@
     <div class="sub" style="margin-top:8px">注文は消すと行ごと無くなる（旧アプリのシートと同じ）ので、ここには並びません。</div>
   </div>
   <div class="table-wrap">
-    <table>
+    <table class="list-table">
       <thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('.trash-sel').forEach(function(c){c.checked=this.checked}.bind(this))"></th><th>削除日時</th><th>種類</th><th>内容</th><th>理由</th><th>操作</th></tr></thead>
       <tbody>
       {% for it in items %}
@@ -47,8 +47,8 @@
           <td><input type="checkbox" class="trash-sel" form="bulk-form" name="items" value="{{ it.key }}"></td>
           <td class="nowrap sub" style="margin:0">{{ it.deleted_label }}</td>
           <td class="nowrap">{{ it.source }}</td>
-          <td>{{ it.label|default:"---" }}</td>
-          <td class="sub" style="margin:0">{{ it.reason|default:"---" }}</td>
+          <td style="max-width:320px"><div class="list-line" title="{{ it.label }}">{{ it.label|default:"---" }}</div></td>
+          <td class="sub" style="margin:0;max-width:240px"><div class="list-line" title="{{ it.reason }}">{{ it.reason|default:"---" }}</div></td>
           <td class="nowrap">
             <div class="row-actions">
               <button form="trestore-{{ forloop.counter }}" type="submit" class="btn btn-outline btn-sm" onclick="return confirm('復元の確認\n「{{ it.label|default:"この項目"|escapejs }}」をゴミ箱から復元します。');">復元</button>

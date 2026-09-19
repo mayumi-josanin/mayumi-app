@@ -68,7 +68,7 @@
       </div>
     </div>
     <div class="table-wrap">
-    <table>
+    <table class="list-table">
       <thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('.order-sel').forEach(function(c){c.checked=this.checked}.bind(this))"></th><th>日時</th><th>会員ID / 名前</th><th>注文商品一覧</th><th>ステータス</th><th>受取確認</th><th>操作</th></tr></thead>
       <tbody>
       {% for o in orders %}
@@ -76,8 +76,9 @@
           <td><input type="checkbox" class="order-sel" name="selected" value="{{ o.orderId }}"></td>
           <td class="nowrap">{% if o.date %}{{ o.date|date:"Y/m/d" }}{% else %}-{% endif %}<div class="sub">{{ o.orderId }}</div></td>
           <td class="nowrap"><strong>{{ o.memberId|default:"" }}</strong><div class="sub">{{ o.customerName }}</div></td>
-          <td>
-            {% if o.items %}<ul style="margin:0;padding-left:18px">{% for i in o.items %}<li>{{ i.name }}{% if i.qty %} × {{ i.qty }}{% endif %}</li>{% endfor %}</ul>{% else %}商品情報なし{% endif %}
+          {# 商品の数で行の高さが変わらないよう、2件まで出して残りは「ほか N件」。全部はホバーで読める #}
+          <td style="max-width:280px" title="{% for i in o.items %}{{ i.name }}{% if i.qty %} × {{ i.qty }}{% endif %}{% if not forloop.last %} / {% endif %}{% endfor %}">
+            {% if o.items %}{% for i in o.items %}{% if forloop.counter < 3 %}<div class="list-line">{{ i.name }}{% if i.qty %} × {{ i.qty }}{% endif %}</div>{% endif %}{% endfor %}{% if o.items|length > 2 %}<div class="sub list-line">ほか {{ o.items|length|add:"-2" }}件</div>{% endif %}{% else %}商品情報なし{% endif %}
           </td>
           <td class="nowrap">
             <select form="row-{{ forloop.counter }}" name="status" class="form-control" style="width:auto;padding:6px 8px;font-size:.82rem">

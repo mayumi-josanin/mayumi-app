@@ -50,15 +50,15 @@
     <div class="sub">顧客を選ぶと、顧客情報とアンケート回答履歴を表示します。新しい回答がある方から上に並びます。</div>
   </div>
   <div class="table-wrap">
-    <table>
+    <table class="list-table">
       <thead><tr><th>お名前</th><th>会員番号</th><th>回答数</th><th>最新回答</th><th>操作</th></tr></thead>
       <tbody>
       {% for it in items %}
         <tr>
-          <td>
-            <a class="title-link" href="{% url 'manage:bijiris:customer_detail' it.name %}">{{ it.name }}</a>
-            {% if it.kana %}<div class="sub">{{ it.kana }}</div>{% endif %}
-            {% if it.profile and it.profile.member_id %}<div class="sub">まゆみの会員 {{ it.profile.member_id }}</div>{% endif %}
+          {# フリガナと会員番号は1行にまとめる。行ごとに数が違うと一覧の縦幅がそろわないため #}
+          <td style="max-width:260px">
+            <a class="title-link list-line" href="{% url 'manage:bijiris:customer_detail' it.name %}" title="{{ it.name }}">{{ it.name }}</a>
+            {% if it.kana or it.profile.member_id %}<div class="sub list-line">{{ it.kana }}{% if it.kana and it.profile.member_id %} / {% endif %}{% if it.profile.member_id %}まゆみの会員 {{ it.profile.member_id }}{% endif %}</div>{% endif %}
           </td>
           <td class="nowrap">{{ it.member_number|default:"-" }}</td>
           <td class="nowrap">{{ it.count }}件</td>

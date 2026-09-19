@@ -48,12 +48,12 @@
     </div>
     <div class="sub" style="margin:10px 0">このカードに紐づく特典の受け取り状況</div>
     <div class="table-wrap">
-      <table>
+      <table class="list-table">
         <thead><tr><th>記録 / 特典内容</th><th>受け取り状況</th><th>有効期限</th><th>受取日時</th></tr></thead>
         <tbody>
         {% for r in c.rewards %}
           <tr>
-            <td><div class="sub">{{ forloop.counter }}件目</div><div class="strong">{{ r.rewardName }}</div>{% if r.rewardNote %}<div class="sub" style="white-space:pre-wrap">{{ r.rewardNote }}</div>{% else %}<div class="sub">説明書きなし</div>{% endif %}</td>
+            <td style="max-width:360px"><div class="sub list-line">{{ forloop.counter }}件目</div><div class="strong list-line" title="{{ r.rewardName }}">{{ r.rewardName }}</div>{% if r.rewardNote %}<div class="sub list-line" title="{{ r.rewardNote }}">{{ r.rewardNote }}</div>{% else %}<div class="sub">説明書きなし</div>{% endif %}</td>
             <td class="nowrap" style="text-align:center"><span class="badge {{ r.receipt.badge }}">{{ r.receipt.label }}</span></td>
             <td class="nowrap">{{ r.expiry }}</td>
             <td class="nowrap">{{ r.used_at }}</td>

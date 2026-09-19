@@ -42,7 +42,7 @@
     <strong class="notice-guide-danger">※「一覧から削除」を押すと、お知らせ一覧だけでなく ショップの商品一覧・ホームのメニュー一覧・カレンダーからも消えます。</strong>一度消すとこの一覧にも出てこなくなるため、画面からは戻せません。戻したいときは、元データの管理画面で「お知らせ一覧に出す」を公開にしてください。
   </div>
   <div class="table-wrap">
-  <table class="notice-table">
+  <table class="list-table">
     <thead><tr><th>配信日時</th><th>カテゴリ</th><th>配信元</th><th>タイトル / 内容</th><th>お知らせ一覧</th><th>操作</th></tr></thead>
     <tbody>
     {% for item in items %}
@@ -52,8 +52,8 @@
         <td class="nowrap">{{ item.source_label }}</td>
         <td class="notice-text" title="{{ item.title|default:"タイトルなし" }}&#10;{{ item.summary }}">
           {# 1行の縦幅をそろえる（院長の希望 2026-09-16）。タイトル1行・内容1行で省略し、ホバーで全文 #}
-          <div class="notice-line" style="font-weight:600">{{ item.title|default:"タイトルなし" }}</div>
-          <div class="sub notice-line">{{ item.summary }}</div>
+          <div class="list-line" style="font-weight:600">{{ item.title|default:"タイトルなし" }}</div>
+          <div class="sub list-line">{{ item.summary }}</div>
         </td>
         <td class="nowrap" style="text-align:center">
           <select form="nvis-{{ item.kind }}-{{ item.row }}" name="status" class="form-control notice-status {% if item.status == '公開' %}is-public{% else %}is-private{% endif %}" onchange="this.form.submit()">
