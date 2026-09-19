@@ -738,6 +738,17 @@ td.brand { color: var(--brand); font-weight: 700; }
 .notice-table td.notice-text { min-width: 320px; max-width: 480px; }
 .notice-table .notice-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* 会員一覧: 1行の縦幅をそろえる（院長の希望 2026-09-19）。
+   氏名は3行・住所とメモとアンケートは2行あるので、**中身の行数で高さが変わっていた**。
+   どの行も同じ高さにし、はみ出す文字は「…」で省く。全文はホバーで出る（title）。
+   高さは氏名の3行が収まる 84px。ここを縮めると氏名の3行目が切れる。 */
+.member-table td { height: 84px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; overflow: hidden; }
+.member-table .member-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.member-table td.member-name { max-width: 240px; }
+.member-table td.member-wide { max-width: 220px; }
+.member-table td.member-survey { max-width: 190px; }
+.member-table .member-avatar { width: 40px; height: 40px; }
+
 /* まとまりの中を切り替える上部タブ（apps/manage/navigation.py） */
 .page-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .page-tabs a { padding: 8px 14px; border-radius: 999px; font-size: .9rem; font-weight: 600; color: var(--text-secondary); text-decoration: none; background: var(--surface); border: 1px solid var(--border); }
