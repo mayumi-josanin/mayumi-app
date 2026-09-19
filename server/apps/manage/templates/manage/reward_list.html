@@ -103,21 +103,20 @@
     <div class="sub">現在のスタンプ数、達成状況、獲得済み特典の使用状態を会員ごとに管理できます。最終スタンプ取得日時が新しい会員から上に表示します。</div>
   </div>
   <div class="table-wrap">
-    <table>
+    <table class="list-table">
       <thead><tr><th>会員ID</th><th>氏名 / 電話</th><th>カード</th><th>スタンプ</th><th>最終スタンプ</th><th>受け取り状況</th><th>有効期限</th><th>最新特典</th><th>状態</th><th>操作</th></tr></thead>
       <tbody>
       {% for it in items %}
         <tr>
           <td class="nowrap">{{ it.member_id }}</td>
-          <td><div class="strong">{{ it.name }}</div><div class="sub">{{ it.phone }}</div></td>
+          <td style="max-width:200px"><div class="strong list-line" title="{{ it.name }}">{{ it.name }}</div><div class="sub list-line">{{ it.phone }}</div></td>
           <td class="nowrap" style="text-align:center">{{ it.card }}枚目</td>
           <td class="nowrap strong" style="text-align:center">{{ it.stamp }} / 10</td>
           <td class="nowrap">{{ it.last_stamp }}</td>
+          {# 4行あると一覧の縦幅からはみ出すので2行にまとめる #}
           <td class="nowrap" style="font-size:.82rem;line-height:1.6">
-            <div>未受取 {{ it.counts.unused }}</div>
-            <div>受取済み {{ it.counts.used }}</div>
-            <div>期限切れ {{ it.counts.expired }}</div>
-            <div class="sub">総数 {{ it.counts.total }}</div>
+            <div class="list-line">未受取 {{ it.counts.unused }} / 受取済み {{ it.counts.used }}</div>
+            <div class="sub list-line">期限切れ {{ it.counts.expired }} / 総数 {{ it.counts.total }}</div>
           </td>
           <td class="nowrap">{{ it.expiry }}</td>
           <td class="nowrap">{{ it.latest_reward }}</td>

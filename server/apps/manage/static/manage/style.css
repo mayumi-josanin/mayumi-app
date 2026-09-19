@@ -265,6 +265,23 @@ td form { margin: 0; display: inline; }
 .row-actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
 .thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; display: block; }
 .thumb-icon { width: 44px; height: 44px; border-radius: 8px; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
+
+/* ---- 一覧の表（.list-table）: 1行の縦幅を管理画面の全部の一覧でそろえる（院長の希望 2026-09-19） ----
+   なぜ84pxか: 中身がいちばん多いのは会員一覧の氏名の欄で、3行ある。
+     1行目 お名前         14.08px × 行送り1.65 = 約23px
+     2行目 注文/受付中/端末  12.16px × 行送り1.65 + 上の隙間2px = 約22px
+     3行目 在席の札と最終オンライン（札は上下の余白つき）    = 約27px
+   合わせて約72px。これに上下の余白6pxずつを足して84px。
+   72pxや76pxまで縮めると氏名の3行目が切れるので、3行が収まる中でいちばん小さい値がこの84px。
+   行の中身が多くても少なくても同じ高さで並ぶよう、はみ出す文字は .list-line で「…」に省き、
+   全文は title（ホバー）で読めるようにする。3行を超える中身は「2行＋ほか N件」にまとめる。 */
+.list-table td { height: 84px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; overflow: hidden; }
+.list-table .list-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 写真や絵文字の大きさも行に収まるようそろえる */
+.list-table .thumb, .list-table .thumb-icon { width: 48px; height: 48px; }
+.list-table .thumb-icon { display: inline-flex; }
+.list-table img { max-height: 48px; }
+.list-table .member-avatar { width: 40px; height: 40px; }
 .title-link { color: var(--text-primary); font-weight: 600; }
 .title-link:hover { color: var(--brand); }
 .sub { font-size: .76rem; color: var(--text-muted); margin-top: 2px; }
@@ -508,12 +525,10 @@ td.brand { color: var(--brand); font-weight: 700; }
 /* ===== メニュー管理: 一覧をつまんで並べ替える / 説明の太字・下線 / プレビュー ===== */
 .sortable-handle { cursor: grab; color: var(--text-muted); text-align: center; user-select: none; }
 .sortable-item.dragging { opacity: .5; background: var(--surface-hover); }
-/* メニュー管理の一覧: 1行の縦幅をそろえる（院長の希望 2026-09-16）。名前1行・説明1行で省略し、ホバーで全文 */
-.menu-table td { height: 64px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; }
-.menu-table .thumb { width: 48px; height: 48px; object-fit: cover; }
+/* メニュー管理の一覧の列の幅（1行の縦幅は共通の .list-table で決めている） */
 .menu-summary { min-width: 340px; max-width: 480px; }
-.menu-summary-name { font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.menu-summary-desc { font-size: .8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-summary-name { font-weight: 600; margin-bottom: 4px; }
+.menu-summary-desc { font-size: .8rem; color: var(--text-muted); }
 .menu-summary-desc br { display: none; }
 .preview-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
 .preview-box { background: #fff; border-radius: 18px; padding: 18px; max-width: 560px; width: 100%; max-height: 90vh; overflow: auto; }
@@ -720,34 +735,15 @@ td.brand { color: var(--brand); font-weight: 700; }
 .lo-modal-content .card { box-shadow: none; border: 1px solid var(--border); margin-bottom: 14px; }
 @media (max-height: 800px) { .lo-list .card-body { max-height: 44vh; } }
 
-/* カレンダーのイベント一覧: 1行の縦幅をそろえる（院長の希望 2026-09-16）。長い題名・詳細は1行で省略し、ホバーで全文 */
-.cal-table td { height: 64px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; }
-.cal-table td.cal-title, .cal-table td.cal-snippet { max-width: 260px; }
-.cal-table .cal-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-table .thumb { width: 48px; height: 48px; object-fit: cover; }
+/* 一覧の列の幅（1行の縦幅と文字の省略は共通の .list-table / .list-line で決めている） */
+td.cal-title, td.cal-snippet { max-width: 260px; }
+td.news-title { max-width: 360px; }
+td.notice-text { min-width: 320px; max-width: 480px; }
 
-/* NEWS の一覧: 1行の縦幅をそろえる（院長の希望 2026-09-16）。長いタイトルは1行で省略し、ホバーで全文 */
-.news-table td { height: 64px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; }
-.news-table td.news-title { max-width: 360px; }
-.news-table .news-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.news-table .thumb { width: 48px; height: 48px; object-fit: cover; }
-.news-table .thumb-icon { display: inline-flex; width: 48px; height: 48px; align-items: center; justify-content: center; }
-
-/* お知らせ管理の一覧: 1行の縦幅をそろえる（院長の希望 2026-09-16） */
-.notice-table td { height: 64px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; }
-.notice-table td.notice-text { min-width: 320px; max-width: 480px; }
-.notice-table .notice-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* 会員一覧: 1行の縦幅をそろえる（院長の希望 2026-09-19）。
-   氏名は3行・住所とメモとアンケートは2行あるので、**中身の行数で高さが変わっていた**。
-   どの行も同じ高さにし、はみ出す文字は「…」で省く。全文はホバーで出る（title）。
-   高さは氏名の3行が収まる 84px。ここを縮めると氏名の3行目が切れる。 */
-.member-table td { height: 84px; vertical-align: middle; padding-top: 6px; padding-bottom: 6px; overflow: hidden; }
-.member-table .member-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.member-table td.member-name { max-width: 240px; }
-.member-table td.member-wide { max-width: 220px; }
-.member-table td.member-survey { max-width: 190px; }
-.member-table .member-avatar { width: 40px; height: 40px; }
+/* 会員一覧の列の幅（1行の縦幅は共通の .list-table で決めている） */
+td.member-name { max-width: 240px; }
+td.member-wide { max-width: 220px; }
+td.member-survey { max-width: 190px; }
 
 /* まとまりの中を切り替える上部タブ（apps/manage/navigation.py） */
 .page-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }

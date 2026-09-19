@@ -99,7 +99,7 @@
 
 <div class="card">
   <div class="table-wrap">
-  <table>
+  <table class="list-table">
     <thead><tr>
       <th style="width:40px"><input type="checkbox" onclick="document.querySelectorAll('.push-sel').forEach(function(c){c.checked=this.checked}.bind(this))"></th>
       <th>送信日時</th><th>タイトル</th><th>本文</th><th>操作</th>
@@ -109,15 +109,14 @@
       <tr>
         <td><input type="checkbox" class="push-sel" form="bulk-form" name="rows" value="{{ item.p.sheet_row }}"></td>
         <td class="nowrap">{{ item.date }}</td>
-        <td>
-          <div class="title-link">{{ item.p.title }}</div>
-          <div class="sub">{{ item.status }} / {{ item.target_page }} / {{ item.target_status }}</div>
+        <td style="max-width:260px">
+          <div class="title-link list-line" title="{{ item.p.title }}">{{ item.p.title }}</div>
+          <div class="sub list-line">{{ item.status }} / {{ item.target_page }} / {{ item.target_status }}</div>
         </td>
-        <td>
-          <div>{{ item.p.body }}</div>
-          {% if item.scheduled %}<div class="sub">予約: {{ item.scheduled }}</div>{% endif %}
-          {% if item.p.recipient_count %}<div class="sub">対象件数: {{ item.p.recipient_count }}件</div>{% endif %}
-          {% if item.p.result %}<div class="sub">結果: {{ item.p.result }}</div>{% endif %}
+        {# 予約・対象件数・結果は1行にまとめる。行ごとに数が違うと一覧の縦幅がそろわないため #}
+        <td style="max-width:360px">
+          <div class="list-line" title="{{ item.p.body }}">{{ item.p.body }}</div>
+          <div class="sub list-line">{% if item.scheduled %}予約: {{ item.scheduled }}{% endif %}{% if item.p.recipient_count %}{% if item.scheduled %} / {% endif %}対象件数: {{ item.p.recipient_count }}件{% endif %}{% if item.p.result %}{% if item.scheduled or item.p.recipient_count %} / {% endif %}結果: {{ item.p.result }}{% endif %}</div>
         </td>
         <td class="nowrap">
           <form method="post" action="{% url 'manage:push_delete' item.p.sheet_row %}" onsubmit="return confirm('通知「{{ item.p.title|escapejs }}」をゴミ箱へ移動します。よろしいですか？');">

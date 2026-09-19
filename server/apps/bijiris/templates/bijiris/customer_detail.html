@@ -172,13 +172,13 @@
     {% if milestone.has_milestones %}
       <div class="sub" style="margin-top:10px">獲得状況{% if milestone.pending %} ／ <b>未受取 {{ milestone.pending }}件</b>{% else %}（未受取はありません）{% endif %}</div>
       <div class="table-wrap">
-        <table>
+        <table class="list-table">
           <thead><tr><th>節目</th><th>特典</th><th>状態</th><th>受け取り</th></tr></thead>
           <tbody>
           {% for m in milestone.rows %}
             <tr class="{% if m.achieved and not m.handed %}bj-reward-pending{% endif %}">
               <td class="nowrap">{{ m.threshold }}個</td>
-              <td>{{ m.reward }}{% if m.description %}<div class="sub">{{ m.description }}</div>{% endif %}</td>
+              <td style="max-width:320px"><div class="list-line" title="{{ m.reward }}">{{ m.reward }}</div>{% if m.description %}<div class="sub list-line" title="{{ m.description }}">{{ m.description }}</div>{% endif %}</td>
               <td class="nowrap"><span class="badge {{ m.status.1 }}">{{ m.status.0 }}</span></td>
               <td class="nowrap">
                 {% if m.achieved %}
@@ -215,7 +215,7 @@
     {% if measurement.rows %}
       <div class="sub" style="margin:12px 0 6px">新しい測定が上に表示されます。前回比と初回比を自動計算しています。</div>
       <div class="table-wrap">
-        <table>
+        <table class="list-table">
           <thead><tr><th>測定日</th><th>ウエスト</th><th>ヒップ</th><th>太もも右</th><th>太もも左</th><th>WHR</th><th>左右差</th><th>メモ</th></tr></thead>
           <tbody>
           {% for r in measurement.rows %}
@@ -230,7 +230,7 @@
               {% endfor %}
               <td class="nowrap">{{ r.whr }}</td>
               <td class="nowrap">{{ r.gap }}</td>
-              <td style="white-space:pre-wrap">{{ r.memo }}</td>
+              <td style="max-width:220px"><div class="list-line" title="{{ r.memo }}">{{ r.memo }}</div></td>
             </tr>
           {% endfor %}
           </tbody>
@@ -250,12 +250,12 @@
       <details class="bj-survey-group" {% if forloop.first %}open{% endif %}>
         <summary><strong>{{ g.title }}</strong><div class="sub">回答数: {{ g.count }}件 / 最新: {{ g.latest }}</div></summary>
         <div class="table-wrap">
-          <table>
+          <table class="list-table">
             <thead><tr><th>回答</th><th>送信日時</th><th>回数券</th><th>写真</th><th>対応状況</th></tr></thead>
             <tbody>
             {% for r in g.responses %}
               <tr>
-                <td>{{ r.title }}</td>
+                <td style="max-width:320px"><div class="list-line" title="{{ r.title }}">{{ r.title }}</div></td>
                 <td class="nowrap">{{ r.date }}</td>
                 <td class="nowrap">{% for l, v in r.ticket %}<span class="bj-stamp"><span class="bj-stamp-label">{{ l }}</span><span>{{ v }}</span></span>{% empty %}-{% endfor %}</td>
                 <td class="nowrap">{% if r.photos %}{{ r.photos }}枚{% else %}-{% endif %}</td>

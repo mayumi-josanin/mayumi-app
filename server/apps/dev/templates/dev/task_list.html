@@ -110,14 +110,14 @@
     </h2>
   </div>
   <div class="table-wrap">
-    <table>
+    <table class="list-table">
       <thead>
         <tr><th>タイトル</th><th>ステータス</th><th>優先度</th><th>カテゴリ</th><th>担当</th><th>期限</th><th>見積/実績</th><th>進める</th></tr>
       </thead>
       <tbody>
         {% for t in g.tasks %}
         <tr>
-          <td><a href="{% url 'manage:dev:task_detail' t.pk %}">#{{ t.pk }} {{ t.title }}</a></td>
+          <td style="max-width:320px"><a class="list-line" href="{% url 'manage:dev:task_detail' t.pk %}" title="{{ t.title }}">#{{ t.pk }} {{ t.title }}</a></td>
           <td>
             {% if t.status == 'open' %}<span class="badge badge-gray">未着手</span>
             {% elif t.status == 'in_progress' %}<span class="badge badge-blue">作業中</span>

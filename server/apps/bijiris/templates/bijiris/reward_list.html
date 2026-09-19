@@ -114,7 +114,7 @@
   <div class="card-header"><h2>受け取り状況<span class="count">{{ redemptions|length }}名</span></h2></div>
   <div class="card-body" style="padding-bottom:0"><div class="sub">特典の節目に届いたお客様。未受取が多い方から上に並びます。「渡した」の付け外しは顧客管理の画面で行います。</div></div>
   <div class="table-wrap">
-    <table>
+    <table class="list-table">
       <thead><tr><th>お名前</th><th>会員番号</th><th>スタンプ</th><th>未受取</th><th>受取済み</th><th>届いた特典</th><th>操作</th></tr></thead>
       <tbody>
       {% for it in redemptions %}
@@ -124,7 +124,11 @@
           <td class="nowrap">{{ it.total }}個</td>
           <td class="nowrap">{% if it.pending %}<span class="badge badge-green">未受取 {{ it.pending }}件</span>{% else %}<span class="sub">なし</span>{% endif %}</td>
           <td class="nowrap">{{ it.handed }}件</td>
-          <td>{% for m in it.achieved %}<div>{{ m.threshold }}個 {{ m.reward }} <span class="badge {{ m.status.1 }}">{{ m.status.0 }}</span>{% if m.handed_at %} <span class="sub">{{ m.handed_at }}</span>{% endif %}</div>{% endfor %}</td>
+          {# 届いた特典は2件まで。残りは「ほか N件」。件数で行の高さが変わらないようにする #}
+          <td style="max-width:320px" title="{% for m in it.achieved %}{{ m.threshold }}個 {{ m.reward }}（{{ m.status.0 }}）{% if not forloop.last %} / {% endif %}{% endfor %}">
+            {% for m in it.achieved %}{% if forloop.counter < 3 %}<div class="list-line">{{ m.threshold }}個 {{ m.reward }} <span class="badge {{ m.status.1 }}">{{ m.status.0 }}</span>{% if m.handed_at %} <span class="sub">{{ m.handed_at }}</span>{% endif %}</div>{% endif %}{% endfor %}
+            {% if it.achieved|length > 2 %}<div class="sub list-line">ほか {{ it.achieved|length|add:"-2" }}件</div>{% endif %}
+          </td>
           <td class="nowrap"><a class="btn btn-outline btn-sm" href="{% url 'manage:bijiris:customer_detail' it.name %}">顧客情報</a></td>
         </tr>
       {% empty %}

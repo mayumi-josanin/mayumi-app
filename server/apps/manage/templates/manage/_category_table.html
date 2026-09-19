@@ -1,7 +1,7 @@
 {# 種別ごとのカテゴリの表（旧管理アプリの categoryListBodyNews / Menu / Notice と同じ列） #}
 <h3 class="category-heading {{ mark }}">{{ heading }}</h3>
 <div class="table-wrap" style="margin-bottom:24px">
-<table>
+<table class="list-table">
   <thead><tr><th>カテゴリ名</th><th class="nowrap" style="text-align:center">使用数</th><th class="nowrap" style="text-align:center">操作</th></tr></thead>
   <tbody>
   {% for row in rows %}

@@ -12,14 +12,14 @@
       <p>いまの枝: <b>{{ st.branch }}</b>{% if st.behind %}　<span class="badge badge-red">向こうで {{ st.behind }} 件進んでいます。先に「📥 GitHubから受け取る」を押してください</span>{% endif %}{% if st.ahead %}　<span class="badge">まだ送っていない保存が {{ st.ahead }} 件</span>{% endif %}</p>
       {% if st.changes %}
         <p><b>まだ保存していない変更が {{ st.changes|length }} 件あります。</b></p>
-        <div class="table-wrap"><table><thead><tr><th>種類</th><th>ファイル</th></tr></thead><tbody>
-        {% for c in st.changes|slice:":40" %}<tr><td class="nowrap">{{ c.mark }}</td><td>{{ c.path }}</td></tr>{% endfor %}
+        <div class="table-wrap"><table class="list-table"><thead><tr><th>種類</th><th>ファイル</th></tr></thead><tbody>
+        {% for c in st.changes|slice:":40" %}<tr><td class="nowrap">{{ c.mark }}</td><td style="max-width:520px"><div class="list-line" title="{{ c.path }}">{{ c.path }}</div></td></tr>{% endfor %}
         </tbody></table></div>
         {% if st.changes|length > 40 %}<p class="sub">ほか {{ st.changes|length|add:"-40" }} 件</p>{% endif %}
       {% else %}<p>保存していない変更はありません。</p>{% endif %}
       {% if st.commits %}
-        <div class="table-wrap"><table><thead><tr><th>日時</th><th>内容</th><th>印</th></tr></thead><tbody>
-        {% for c in st.commits %}<tr><td class="nowrap">{{ c.date }}</td><td>{{ c.subject }}</td><td class="nowrap sub">{{ c.hash }}</td></tr>{% endfor %}
+        <div class="table-wrap"><table class="list-table"><thead><tr><th>日時</th><th>内容</th><th>印</th></tr></thead><tbody>
+        {% for c in st.commits %}<tr><td class="nowrap">{{ c.date }}</td><td style="max-width:520px"><div class="list-line" title="{{ c.subject }}">{{ c.subject }}</div></td><td class="nowrap sub">{{ c.hash }}</td></tr>{% endfor %}
         </tbody></table></div>
       {% endif %}
     {% endif %}

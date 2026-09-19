@@ -92,18 +92,18 @@
           {% for c in g.chips %}<span class="badge badge-gray">{{ c.name }} {{ c.count }}件 / ¥{{ c.total|intcomma }}</span>{% endfor %}
         </summary>
         <div class="table-wrap">
-        <table>
+        <table class="list-table">
           <thead><tr><th>{% if kind == "menu" %}メニュー{% else %}商品名{% endif %}</th><th>{% if kind == "menu" %}件数{% else %}個数{% endif %}</th><th>単価</th><th>原価単価</th><th>合計</th><th>{% if kind == "menu" %}粗利{% else %}利益{% endif %}</th><th>メモ</th><th></th></tr></thead>
           <tbody>
           {% for r in g.rows %}
             <tr>
-              <td>{% if kind == "menu" %}{{ r.menuType }}{% else %}{{ r.productName }}{% if r.productName not in product_names %}<div class="sub">（現在は商品管理に未登録）</div>{% endif %}{% endif %}</td>
+              <td style="max-width:220px">{% if kind == "menu" %}<div class="list-line" title="{{ r.menuType }}">{{ r.menuType }}</div>{% else %}<div class="list-line" title="{{ r.productName }}">{{ r.productName }}</div>{% if r.productName not in product_names %}<div class="sub list-line">（現在は商品管理に未登録）</div>{% endif %}{% endif %}</td>
               <td class="nowrap">{% if kind == "menu" %}{{ r.count }}{% else %}{{ r.qty }}{% endif %}</td>
-              <td class="nowrap">{% if r.dashi %}<s>¥2,980</s> 実質 ¥{{ r.unitPrice|intcomma }}<div class="sub">{{ r.dashi.text }}</div>{% else %}¥{{ r.unitPrice|intcomma }}{% endif %}</td>
+              <td class="nowrap">{% if r.dashi %}<div class="list-line"><s>¥2,980</s> 実質 ¥{{ r.unitPrice|intcomma }}</div><div class="sub list-line">{{ r.dashi.text }}</div>{% else %}¥{{ r.unitPrice|intcomma }}{% endif %}</td>
               <td class="nowrap">¥{{ r.unitCost|intcomma }}</td>
               <td class="nowrap strong">¥{{ r.totalAmount|intcomma }}</td>
               <td class="nowrap brand">¥{{ r.profit|intcomma }}</td>
-              <td><span class="sub">{{ r.note|default:"メモなし" }}</span></td>
+              <td style="max-width:220px"><div class="sub list-line" title="{{ r.note }}">{{ r.note|default:"メモなし" }}</div></td>
               <td class="nowrap">
                 <div class="row-actions">
                   <a class="btn btn-outline btn-sm" href="?edit={{ r.rowIdx }}{% if month %}&month={{ month }}{% endif %}#rev-form">編集</a>
