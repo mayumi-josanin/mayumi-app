@@ -25,15 +25,14 @@
        これが一瞬のちらつきとして見えていた。読み終えてから一度に出す。
        **通信とは関係ないので、行き先を変えても直らない。**
        万一 JS が動かないときに真っ白のままにならないよう、3秒たてば自動的に出る。 */
-    /* **画面全体は伏せない。**一度そうしたら、待っているあいだ真っ白になった（2026-09-20）。
-       伏せるのはスタンプの数の所だけにする。ここは決まるまで空にしておき、
-       数が決まってから出す。**間違った数を一度も見せない**ための措置。
+    /* 伏せるのは、**設計図の見本の数字が出る一瞬**だけ（2026-09-20）。
+       ここは空にしてあるので、実際には何も見えない。JS が数を入れたらすぐ解く。
+       画面全体を伏せたことがあるが、待っているあいだ真っ白になったのでやめた。
        万一 JS が動かないときのために、3秒たてば自動的に出る。 */
     body.起動中 #homeStampNum,
     body.起動中 #homeStampCount,
     body.起動中 #homeStampCardLabel,
-    body.起動中 #homeStampMsg,
-    body.起動中 #homeStampGrid {
+    body.起動中 #homeStampMsg {
       visibility: hidden;
       animation: 起動の保険 0s 3s forwards;
     }
@@ -1032,7 +1031,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-  <script src="app.js?v=20260920-2"></script>
+  <script src="app.js?v=20260920-3"></script>
 </body>
 
 </html>
