@@ -7913,7 +7913,8 @@ function checkFirstLaunch() {
     CUSTOMER_NAME = _profile.name;
     updateProfileUI();
     activatePageSilently(getPreferredStartupPage());
-    起動の伏せを解く_();
+    // **ここではまだ見せない。**端末に残っている古いスタンプの数が先に出てしまう。
+    // サーバーの数が返ってから initApp で見せる（それまでに時間がかかっても 3秒で出る）。
 
     if (needsRequiredPasscodeSetup()) {
       openMigrationModal();
@@ -8399,8 +8400,16 @@ async function initApp() {
     return;
   }
 
-  loadStampRewards();
+  // **スタンプの数が決まってから画面を見せる。**
+  // 端末に残っている数（前に見たときの数）を先に出すと、そのあとサーバーの数に
+  // 差し替わって、一瞬だけ違う数が見える。院長の端末で 7個 → 2個 と変わっていた（2026-09-20）。
+  // ただし、いつまでも待たない。電波が悪いときは端末の数で先に出す（1.5秒）。
+  await Promise.race([
+    loadStampRewards().catch(function () { /* 取れなくても画面は出す */ }),
+    new Promise(function (done) { setTimeout(done, 1500); })
+  ]);
   updateStampUI();
+  起動の伏せを解く_();
   checkUrlParams();
   await initNativeDeepLinkHandling();
 
