@@ -118,19 +118,61 @@ function formatText(text) {
   return d.innerHTML.replace(/\[\[B\]\]/g, '<strong>').replace(/\[\[\/B\]\]/g, '</strong>')
     .replace(/\[\[U\]\]/g, '<u>').replace(/\[\[\/U\]\]/g, '</u>').replace(/\n/g, '<br>');
 }
+// **途中で止まらない作りにする**（2026-09-20）。
+// 院長の画面で、札も名前も説明も空のまま、画像だけ壊れた形で出ていた。
+// 1か所でも失敗すると後ろが全部止まるので、欄ごとに分けて、失敗しても次へ進む。
+// 何が起きたかは説明の欄に出す（次に出たときに原因が分かるように）。
+function 欄に入れる_(id, 文字, html) {
+  try {
+    var el = document.getElementById(id);
+    if (!el) return '欄がありません: ' + id;
+    if (html) el.innerHTML = 文字; else el.textContent = 文字;
+    return '';
+  } catch (e) { return id + ': ' + e; }
+}
+
+function 入力を読む_(id) {
+  var el = document.getElementById(id);
+  if (!el) return '';
+  return (el.value || '').trim();
+}
+
 function previewMenu() {
-  var v = function (id) { return (document.getElementById(id).value || '').trim(); };
-  document.getElementById('pv-cat').textContent = v('m-cat') || '未設定';
-  document.getElementById('pv-res').textContent = v('m-res') || '未設定';
-  document.getElementById('pv-name').textContent = v('m-name') || 'メニュー名未入力';
-  document.getElementById('pv-desc').innerHTML = formatText(v('m-desc') || '概要説明はまだ入力されていません。');
-  var img = document.getElementById('pv-img');
-  var file = document.getElementById('m-img').files[0];
-  var kept = document.querySelector('input[name="keep_image"]:checked');
-  if (file) { img.src = URL.createObjectURL(file); img.hidden = false; }
-  else if (kept) { img.src = kept.value; img.hidden = false; }
-  else { img.hidden = true; }
-  document.getElementById('menu-preview').hidden = false;
+  var 困った = [];
+  困った.push(欄に入れる_('pv-cat', 入力を読む_('m-cat') || '未設定'));
+  困った.push(欄に入れる_('pv-res', 入力を読む_('m-res') || '未設定'));
+  困った.push(欄に入れる_('pv-name', 入力を読む_('m-name') || 'メニュー名未入力'));
+
+  var 説明 = '';
+  try {
+    説明 = formatText(入力を読む_('m-desc') || '概要説明はまだ入力されていません。');
+  } catch (e) {
+    説明 = '説明を組み立てられませんでした（' + e + '）';
+  }
+  困った.push(欄に入れる_('pv-desc', 説明, true));
+
+  // 画像。**出せないときは出さない。**壊れた絵を見せるより、何も出さない方がよい。
+  try {
+    var img = document.getElementById('pv-img');
+    if (img) {
+      var 入れ物 = document.getElementById('m-img');
+      var file = 入れ物 && 入れ物.files ? 入れ物.files[0] : null;
+      var kept = document.querySelector('input[name="keep_image"]:checked');
+      var 場所 = file ? URL.createObjectURL(file) : (kept && kept.value ? kept.value : '');
+      img.onerror = function () { img.hidden = true; };
+      if (場所) { img.src = 場所; img.hidden = false; } else { img.removeAttribute('src'); img.hidden = true; }
+    }
+  } catch (e) {
+    困った.push('画像: ' + e);
+  }
+
+  var 残り = 困った.filter(function (x) { return x; });
+  if (残り.length) {
+    欄に入れる_('pv-desc', '<div style="color:#c53030">うまく出せませんでした<br>' +
+      残り.join('<br>') + '</div>', true);
+  }
+  var 枠 = document.getElementById('menu-preview');
+  if (枠) 枠.hidden = false;
 }
 </script>
 {% endblock %}

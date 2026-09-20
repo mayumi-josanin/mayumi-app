@@ -176,3 +176,16 @@ def test_一覧からの公開切替と上下ボタンは旧管理アプリに�
     m = Menu.objects.get()
     assert as_owner.post(f"/manage/menus/{m.sheet_row}/toggle/").status_code == 404
     assert as_owner.post(f"/manage/menus/{m.sheet_row}/move/", {"direction": "up"}).status_code == 404
+
+
+def test_プレビューは1か所失敗しても止まらない(as_owner):
+    """院長の画面で、札も名前も説明も空のまま画像だけ壊れて出ていた（2026-09-20）。
+
+    1か所でも失敗すると後ろが全部止まる作りだったので、欄ごとに分けた。
+    """
+    as_owner.post("/manage/menus/new/", _menu())
+    m = Menu.objects.get(name="産後ケア（訪問）")
+    page = as_owner.get(f"/manage/menus/{m.sheet_row}/").content.decode()
+    assert "欄に入れる_" in page          # 欄ごとに分けて入れる
+    assert "img.onerror" in page          # 出せない画像は出さない
+    assert "うまく出せませんでした" in page  # 失敗したら理由を出す
