@@ -17,8 +17,8 @@
       {% csrf_token %}
 
       {% if not event %}
-      {# 日付は月の表から選ぶのが主役。押すと選ばれ、もう一度押すと外れる。
-         月をまたいで選べるように、選んだ日は月を移しても消さない。 #}
+      {% comment %} 日付は月の表から選ぶのが主役。押すと選ばれ、もう一度押すと外れる。
+         月をまたいで選べるように、選んだ日は月を移しても消さない。 {% endcomment %}
       <div class="form-group">
         <label>日時選択（カレンダーの日付を押して選びます。いくつでも選べます）</label>
         <div class="month-calendar-card month-calendar-picker">
