@@ -114,6 +114,42 @@ services:
       # web には載せない（お客様の箱に管理用のものを入れない）
       - ${PREVIEW_APP_HOST_DIR:-..}:/develop-app:ro
 
+  # 予約したお知らせ通知を、時間どおりに送る箱（予約システムの scheduler と同じ作り）。
+  #
+  # なぜ要るか（2026-09-20）: 予約の「時間が来たら送る」役目は
+  # GAS の自動実行（processScheduledPushQueue）だけが担っていて、その GAS が
+  # 9/18〜20 の2日間で6回、名前引き（DNS）の失敗で落ちていた。
+  # 予約が1件も無かったので実害は出ていないが、次の予約は時間どおりに届かない恐れがある。
+  # この箱が1分おきに `python manage.py 予約した通知を送る` を呼ぶ。
+  #
+  # **表は作らない（migrate しない）。**表を作るのは web の箱だけ。
+  cron:
+    build: .
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-in-production}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      API_KEY: ${API_KEY:-}
+      ADMIN_TOKEN_SECRET: ${ADMIN_TOKEN_SECRET:-}
+      # **通知の鍵はこの箱にも要る。**manage にだけ入れると、
+      # 画面から送るぶんは届くのに、予約したものだけ届かない形になる。
+      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
+      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
+      DB_NAME: mayumi
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: "5432"
+    volumes:
+      # web と同じ中身・同じ画像置き場。外へは出さない（ポートを開けない）。
+      - .:/app
+      - mayumi_media:/app/media
+    entrypoint: ["sh", "/app/scripts/scheduler.sh"]
+
 volumes:
   mayumi_pgdata:
   mayumi_media:
