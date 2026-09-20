@@ -886,3 +886,18 @@ tr.bj-reward-pending td { background: var(--success-light); }
 .bj-summary-option { font-size: .85rem; padding: 2px 0; }
 .bj-checkbox-row { display: flex; flex-direction: column; gap: 4px; font-size: .88rem; }
 .bj-management { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+/* ---- 一覧の欄をその場で直す（.cell-edit）: 別画面へ移らずに直せるようにした（院長の依頼 2026-09-21） ----
+   押せる欄だと分かるよう、中身にうっすら点線を引き、触れたときに色を変える。
+   行の高さ（.list-table の 84px）を崩さないよう、入力欄は小さく作る。 */
+.cell-edit { cursor: pointer; }
+.cell-edit .cell-view { border-bottom: 1px dashed var(--border); }
+.cell-edit:hover { background: var(--bg); }
+.cell-edit:hover .cell-view { border-bottom-color: var(--brand); color: var(--brand); }
+.cell-edit[data-locked] { cursor: not-allowed; }
+.cell-edit[data-locked] .cell-view { border-bottom-style: dotted; opacity: .7; }
+.cell-edit .cell-input {
+  font: inherit; padding: 4px 6px; border: 1px solid var(--brand);
+  border-radius: var(--radius-sm); background: var(--surface); color: var(--text-primary); max-width: 100%;
+}
+.cell-edit .cell-input[hidden] { display: none; }

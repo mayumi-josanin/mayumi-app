@@ -244,6 +244,107 @@ def test_最終スタンプ取得日を変えると日付が動き空にする�
     assert m.last_stamp_at is None
 
 
+# ═════════════════════════════════════════════════════════
+# 一覧の欄をその場で直す（院長の依頼 2026-09-21）
+# ═════════════════════════════════════════════════════════
+
+def test_一覧の欄がその場で直せる形で出る(as_owner):
+    member_gate.切り替える("server")
+    _会員(stamp_count=3, stamp_card_number=2, last_stamp_at=日本時間(2026, 4, 3, 9, 0))
+    page = as_owner.get("/manage/rewards/").content.decode()
+    # 行ごとの保存のあて先（表の中に form は置けないので外に出す）
+    assert 'action="/manage/rewards/MYM-1001/row-save/"' in page
+    assert 'id="rrow-MYM-1001"' in page
+    # 直せるのはカード・スタンプ・最終スタンプの3つ
+    assert 'name="stampCardNum"' in page and 'value="2"' in page
+    assert 'name="stampCount"' in page
+    assert 'name="lastStampDate"' in page and 'value="2026-04-03"' in page
+    assert page.count('class="cell-input"') == 3
+    assert "cell-edit" in page and ">保存</button>" in page
+    # 氏名は会員管理へ（ここでは直さない）
+    assert '/manage/members/MYM-1001/' in page
+    # 絞り込みを残して戻れるよう、いまの画面の住所を持たせる
+    assert 'name="next" value="/manage/rewards/"' in page
+
+
+def test_会員IDと受け取り状況は直せない(as_owner):
+    member_gate.切り替える("server")
+    _会員(stamp_count=3, reward_history=[_特典()])
+    page = as_owner.get("/manage/rewards/").content.decode()
+    # 会員番号・特典の数・状態を送る入力欄は作らない（計算で出るもの・会員を指す鍵）
+    for name in ["memberId", "member_id", "used", "unused", "counts", "expiryDate"]:
+        assert f'name="{name}"' not in page, name
+
+
+def test_行からカードとスタンプと最終スタンプを保存できる(as_owner):
+    member_gate.切り替える("server")
+    m = _会員(stamp_count=2, stamp_card_number=1, last_stamp_at=日本時間(2026, 4, 10, 9, 15),
+           reward_history=[_特典()])
+    r = as_owner.post("/manage/rewards/MYM-1001/row-save/",
+                      {"stampCardNum": "3", "stampCount": "6", "lastStampDate": "2026-04-12"})
+    assert r.status_code == 302
+    m.refresh_from_db()
+    assert m.stamp_card_number == 3 and m.stamp_count == 6
+    assert timezone.localtime(m.last_stamp_at) == 日本時間(2026, 4, 12, 0, 0)
+    assert m.reward_admin_set_at is not None
+    # 特典の一覧は行からは触らない（直すのは詳細の画面）
+    assert m.reward_history == [_特典()]
+    assert "スタンプ・特典状況を更新しました" in as_owner.get("/manage/rewards/").content.decode()
+
+
+def test_行の保存でスタンプの上限を超えた値は丸められる(as_owner):
+    member_gate.切り替える("server")
+    m = _会員(stamp_count=2)
+    as_owner.post("/manage/rewards/MYM-1001/row-save/",
+                  {"stampCardNum": "0", "stampCount": "99", "lastStampDate": ""})
+    m.refresh_from_db()
+    assert m.stamp_count == 10 and m.stamp_card_number == 1 and m.last_stamp_at is None
+    as_owner.post("/manage/rewards/MYM-1001/row-save/",
+                  {"stampCardNum": "2", "stampCount": "-5", "lastStampDate": ""})
+    m.refresh_from_db()
+    assert m.stamp_count == 0
+
+
+def test_切り替え前は行の保存も断る(as_owner):
+    m = _会員(stamp_count=2, stamp_card_number=1)
+    r = as_owner.post("/manage/rewards/MYM-1001/row-save/",
+                      {"stampCardNum": "3", "stampCount": "6", "lastStampDate": "2026-04-12"})
+    assert r.status_code == 302
+    m.refresh_from_db()
+    assert m.stamp_count == 2 and m.stamp_card_number == 1 and m.reward_admin_set_at is None
+    page = as_owner.get("/manage/rewards/").content.decode()
+    assert member_gate.断る文() in page
+    # 直せないときは入力欄も保存ボタンも出さない
+    assert 'class="cell-input"' not in page and "row-save/" not in page and ">保存</button>" not in page
+    assert "いまは見るだけです" in page
+
+
+def test_行の保存のあとも絞り込みが残る(as_owner):
+    member_gate.切り替える("server")
+    _会員(stamp_count=2)
+    戻り = "/manage/rewards/?q=%E4%BD%90%E8%97%A4&stamp=collecting&ticket=all"
+    r = as_owner.post("/manage/rewards/MYM-1001/row-save/",
+                      {"stampCardNum": "1", "stampCount": "4", "lastStampDate": "", "next": 戻り})
+    assert r.status_code == 302 and r["Location"] == 戻り
+    # よその住所へは飛ばさない
+    r = as_owner.post("/manage/rewards/MYM-1001/row-save/",
+                      {"stampCardNum": "1", "stampCount": "4", "lastStampDate": "", "next": "https://example.com/"})
+    assert r["Location"] == "/manage/rewards/"
+
+
+def test_行の保存は他の会員を変えない(as_owner):
+    member_gate.切り替える("server")
+    _会員("MYM-1001", "佐藤花子", stamp_count=2)
+    ほか = _会員("MYM-1002", "鈴木一子", stamp_count=5, stamp_card_number=2,
+              last_stamp_at=日本時間(2026, 4, 1, 8, 0))
+    as_owner.post("/manage/rewards/MYM-1001/row-save/",
+                  {"stampCardNum": "3", "stampCount": "9", "lastStampDate": "2026-04-12"})
+    ほか.refresh_from_db()
+    assert ほか.stamp_count == 5 and ほか.stamp_card_number == 2
+    assert timezone.localtime(ほか.last_stamp_at) == 日本時間(2026, 4, 1, 8, 0)
+    assert ほか.reward_admin_set_at is None
+
+
 def test_スタッフは入れない(client, staff):
     client.force_login(staff)
     assert client.get("/manage/rewards/").status_code == 403
