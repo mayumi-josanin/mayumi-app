@@ -33,8 +33,10 @@ def データ(owner, staff, 今日):
     # 作る順にも意味がある（「新しい順」で t2 より t1 が先に来るように t2 を先に作る）
     t2 = DevTask.objects.create(project=予約, title="画面の文言を直す", status="in_progress", priority="low",
                                 category="docs", due_date=今日)
+    # **今週に入らない期限にする。**+5日だと、月曜に動かしたときだけ同じ週に入り、
+    # 「今週が期限」が 1 ではなく 2 になって落ちていた（2026-09-21 月曜に発覚）。
     t1 = DevTask.objects.create(project=予約, title="二重予約を止める", status="open", priority="critical",
-                                category="bug", assignee=owner, due_date=今日 + datetime.timedelta(days=5),
+                                category="bug", assignee=owner, due_date=今日 + datetime.timedelta(days=21),
                                 estimate_hours=3, actual_hours=1)
     t3 = DevTask.objects.create(project=予約, title="終わった仕事", status="done", priority="high")
     t4 = DevTask.objects.create(project=アプリ, title="会員の引っ越し", status="review", priority="medium",
