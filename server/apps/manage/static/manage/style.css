@@ -501,8 +501,13 @@ td.brand { color: var(--brand); font-weight: 700; }
 .month-calendar-day.is-other-month { background: #fafafa; }
 .month-calendar-day.is-other-month .day-number { color: #bbb; }
 .month-calendar-day.is-today { background: #fffdf2; box-shadow: inset 0 0 0 2px var(--brand); }
-.month-calendar-day.has-events { cursor: pointer; }
-.month-calendar-day.has-events:hover { background: var(--brand-light); }
+.month-calendar-day.is-clickable { cursor: pointer; }
+.month-calendar-day.is-clickable:hover { background: var(--brand-light); }
+/* 追加の画面で選んだ日（もう一度押すと外れる） */
+.month-calendar-day.is-picked { background: var(--brand); }
+.month-calendar-day.is-picked .day-number, .month-calendar-day.is-picked .day-number.sun, .month-calendar-day.is-picked .day-number.sat { color: #fff; }
+.month-calendar-day.is-picked:hover { background: var(--brand); filter: brightness(1.08); }
+.month-calendar-day.is-picked::after { content: "✓"; position: absolute; top: 4px; right: 5px; color: #fff; font-weight: 700; font-size: .8rem; line-height: 1; }
 .day-number { font-size: .82rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
 .day-number.sun { color: #c75450; }
 .day-number.sat { color: #4a73a8; }
@@ -522,6 +527,11 @@ td.brand { color: var(--brand); font-weight: 700; }
 .day-detail-event-desc { font-size: .8rem; color: var(--text-secondary); line-height: 1.6; }
 .day-detail-event-images { display: grid; gap: 8px; margin: 8px 0; }
 .day-detail-event-images img { display: block; width: 100%; max-height: 320px; object-fit: contain; border-radius: 10px; border: 1px solid var(--border); background: #fff; cursor: pointer; }
+.day-detail-actions { margin-bottom: 12px; }
+.day-detail-actions .btn { width: 100%; justify-content: center; }
+/* 追加の画面の月の表（日付を選ぶための表。予定の名前は出さないので背は低めでよい） */
+.month-calendar-picker .month-calendar-day { min-height: 56px; }
+.weekday-bulk { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
 @media (max-width: 720px) {
   .month-calendar-day { min-height: 70px; padding: 4px; }
   .day-event-chip { display: none; }

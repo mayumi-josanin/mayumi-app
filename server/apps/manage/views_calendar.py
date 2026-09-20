@@ -14,6 +14,7 @@ import re
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
 from apps.content.models import CalendarEvent, Menu
@@ -107,6 +108,16 @@ def _メニュー候補(current: int = 0):
     return 候補
 
 
+def _表のイベント(items):
+    """月の表（一覧・追加の画面で共通）へ渡す形。"""
+    return [{
+        "rowIdx": it["c"].sheet_row, "date": it["date"], "title": it["c"].title or "",
+        "category": it["c"].category or "", "desc": it["c"].detail or "", "color": it["color"],
+        "kind": it["kind"], "status": "公開" if it["c"].published else "非公開",
+        "imageUrls": it["image_urls"], "editUrl": f"/manage/calendar/{it['c'].sheet_row}/",
+    } for it in items]
+
+
 def _年月(request, today):
     """絞り込み。年は既定で今年（旧アプリの初期値と同じ）、月は既定で全月。"""
     年 = request.GET.get("year") or str(today.year)
@@ -151,12 +162,7 @@ def calendar_list(request):
     # 月間カレンダーの初期表示。絞り込みで年・月が決まっていればそれに従う。
     cal_year = year if year != "all" else today.year
     cal_month = month if month != "all" else today.month
-    events_json = [{
-        "rowIdx": it["c"].sheet_row, "date": it["date"], "title": it["c"].title or "",
-        "category": it["c"].category or "", "desc": it["c"].detail or "", "color": it["color"],
-        "kind": it["kind"], "status": "公開" if it["c"].published else "非公開",
-        "imageUrls": it["image_urls"], "editUrl": f"/manage/calendar/{it['c'].sheet_row}/",
-    } for it in all_items]
+    events_json = _表のイベント(all_items)
     return render(request, "manage/calendar_list.html", {
         "drafts": drafts, "published": published, "year": year, "month": month, "years": years,
         "months": range(1, 13), "today": today, "cal_year": cal_year, "cal_month": cal_month,
@@ -226,9 +232,13 @@ def _画面(request, c, values, existing):
         pass
     # 追加中に弾かれて画面に戻るとき、足してあった日付を消さないため。
     picked = values.getlist("dates") if hasattr(values, "getlist") else list(values.get("dates") or [])
+    # 追加の画面にも月の表を出す（一覧と同じ組み立て方）。既にある予定が見えるほうが選びやすい。
+    events_json = [] if c else _表のイベント(
+        [_一件(x) for x in CalendarEvent.objects.filter(deleted=False, published=True) if x.event_on])
     return render(request, "manage/calendar_form.html", {
         "event": c, "values": values, "existing_images": existing, "picked_dates": picked,
         "menus": _メニュー候補(current), "recent_colors": _最近の色(),
+        "events_json": events_json, "today": timezone.localdate(),
         "form_title": "📝 イベントを編集する" if c else "✨ 新しいイベントを追加する",
     })
 
@@ -247,8 +257,15 @@ def calendar_create(request):
             return redirect("manage:calendar_list")
         messages.error(request, 答.get("message") or "追加に失敗しました。")
         return _画面(request, None, request.POST, [])
+    # 一覧の月の表で「この日に追加する」を押すと ?date=YYYY-MM-DD で来る。その日を選んだ状態で開く。
+    try:
+        指定 = parse_date((request.GET.get("date") or "")[:10])
+    except ValueError:  # 「2026-13-40」のような、形は合っていても無い日
+        指定 = None
+    日 = 指定 or timezone.localdate()
     return _画面(request, None, {
-        "color": DEFAULT_COLOR, "notice_refresh": "on", "date": timezone.localdate().isoformat(),
+        "color": DEFAULT_COLOR, "notice_refresh": "on", "date": 日.isoformat(),
+        "dates": [日.isoformat()] if 指定 else [],
     }, [])
 
 

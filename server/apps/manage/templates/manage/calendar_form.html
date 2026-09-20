@@ -1,4 +1,5 @@
 {% extends "manage/base.html" %}
+{% load static %}
 
 {% block title %}{{ form_title }} | まゆみ助産院 管理画面{% endblock %}
 {% block topbar_title %}カレンダー管理{% endblock %}
@@ -15,21 +16,53 @@
     <form method="post" enctype="multipart/form-data" id="cal-form">
       {% csrf_token %}
 
+      {% if not event %}
+      {# 日付は月の表から選ぶのが主役。押すと選ばれ、もう一度押すと外れる。
+         月をまたいで選べるように、選んだ日は月を移しても消さない。 #}
+      <div class="form-group">
+        <label>日時選択（カレンダーの日付を押して選びます。いくつでも選べます）</label>
+        <div class="month-calendar-card month-calendar-picker">
+          <div class="month-calendar-header">
+            <div class="month-calendar-title"><span>🗓</span><span id="pickerLabel"></span></div>
+            <div class="month-calendar-nav">
+              <button type="button" class="btn btn-outline btn-sm" onclick="shiftPickerMonth(-1)">← 前月</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="shiftPickerMonth(0)">今月</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="shiftPickerMonth(1)">翌月 →</button>
+            </div>
+          </div>
+          <div class="weekday-bulk">
+            <span class="sub">同じ曜日をまとめて選ぶ:</span>
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleWeekday(0)">毎週日</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleWeekday(1)">毎週月</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleWeekday(2)">毎週火</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleWeekday(3)">毎週水</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleWeekday(4)">毎週木</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleWeekday(5)">毎週金</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleWeekday(6)">毎週土</button>
+          </div>
+          <div id="pickerGrid" class="month-calendar-grid"></div>
+          <div class="form-hint">※表示中の月の分だけまとめて選びます。もう一度押すと外れます。</div>
+        </div>
+      </div>
       <div class="form-row">
         <div class="form-group">
-          <label for="c-date">日時選択{% if event %}<span class="required">必須</span>{% endif %}</label>
+          <label for="c-date">日付を直接入力して足す</label>
           <div class="inline-form">
-            <input id="c-date" name="date" type="date" class="form-control" {% if event %}required{% endif %} value="{{ values.date|default:'' }}">
-            {% if not event %}<button type="button" class="btn btn-primary" onclick="addSelectedDate()">追加</button>{% endif %}
+            <input id="c-date" name="date" type="date" class="form-control" value="{{ values.date|default:'' }}">
+            <button type="button" class="btn btn-primary" onclick="addSelectedDate()">追加</button>
           </div>
         </div>
-        {% if not event %}
         <div class="form-group">
           <label>選択中の日付</label>
           <div id="selectedDatesList" class="date-chips"></div>
         </div>
-        {% endif %}
       </div>
+      {% else %}
+      <div class="form-group">
+        <label for="c-date">日時選択<span class="required">必須</span></label>
+        <input id="c-date" name="date" type="date" class="form-control" required value="{{ values.date|default:'' }}">
+      </div>
+      {% endif %}
       <div class="form-group">
         <label for="c-title">イベント名<span class="required">必須</span></label>
         <input id="c-title" name="title" class="form-control" required maxlength="255" value="{{ values.title|default:'' }}" placeholder="例：産後ヨガ教室">
@@ -140,6 +173,8 @@
 </div>
 
 {{ picked_dates|json_script:"picked-dates" }}
+{{ events_json|json_script:"picker-events" }}
+<script src="{% static 'manage/month_calendar.js' %}?v={{ STATIC_VERSION }}"></script>
 <script>
 // 太字・下線（旧管理アプリの applyTextStyle と同じ: <strong> / <u> で囲む）
 function wrapSel(id, open, close) {
@@ -149,28 +184,65 @@ function wrapSel(id, open, close) {
   el.focus(); el.selectionStart = s + open.length; el.selectionEnd = e + open.length;
 }
 function setCalendarFormColor(c) { document.getElementById('c-color').value = c.toLowerCase(); }
-function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+var esc = MonthCalendar.esc;
 function formatDesc(text) {
   var t = String(text || '').replace(/\r\n?/g, '\n').replace(/(^|\n)\s*📷\s*https?:\/\/\S+/g, '$1');
   t = esc(t).replace(/&lt;(\/?)(strong|b|u)&gt;/gi, '<$1$2>');
   return t.replace(/\n/g, '<br>');
 }
 
-// 日付を複数足す。足した日は hidden の dates として送る（GAS の handleAddCalendar と同じ形）。
+// 日付を複数選ぶ。選んだ日は hidden の dates として送る（GAS の handleAddCalendar と同じ形）。
+// 修正のときは1日だけなので、この仕組みは新規追加のときだけ出す。
 var selectedDates = [];
 {% if not event %}
 (function () {
   var box = document.getElementById('selectedDatesList');
   var input = document.getElementById('c-date');
+  var grid = document.getElementById('pickerGrid');
+  var label = document.getElementById('pickerLabel');
+  var events = JSON.parse(document.getElementById('picker-events').textContent);
   selectedDates = JSON.parse(document.getElementById('picked-dates').textContent);
+  var today = '{{ today|date:"Y-m-d" }}';
+  // 表の最初の月。既に選んだ日があればその月、無ければ今月。
+  var firstPicked = (selectedDates[0] || input.value || today).split('-');
+  var view = { year: parseInt(firstPicked[0], 10), month: parseInt(firstPicked[1], 10) };
+
+  function drawPicker() {
+    label.textContent = view.year + '年 ' + view.month + '月';
+    MonthCalendar.render(grid, {
+      year: view.year, month: view.month, events: events, today: today,
+      selected: selectedDates, showChips: false, onDay: toggleDate
+    });
+  }
+  function toggleDate(d) {
+    var i = selectedDates.indexOf(d);
+    if (i === -1) { selectedDates.push(d); selectedDates.sort(); } else { selectedDates.splice(i, 1); }
+    renderSelectedDates(); drawPicker();
+  }
+  window.shiftPickerMonth = function (delta) {
+    if (delta === 0) { var now = new Date(); view = { year: now.getFullYear(), month: now.getMonth() + 1 }; }
+    else { view = MonthCalendar.shift(view.year, view.month, delta); }
+    drawPicker();
+  };
+  // 表示中の月の同じ曜日をまとめて選ぶ。全部選ばれていれば、まとめて外す。
+  window.toggleWeekday = function (dow) {
+    var days = MonthCalendar.daysOfWeekday(view.year, view.month, dow);
+    var 全部ある = days.every(function (d) { return selectedDates.indexOf(d) !== -1; });
+    days.forEach(function (d) {
+      var i = selectedDates.indexOf(d);
+      if (全部ある) { if (i !== -1) selectedDates.splice(i, 1); }
+      else if (i === -1) selectedDates.push(d);
+    });
+    selectedDates.sort(); renderSelectedDates(); drawPicker();
+  };
   window.renderSelectedDates = function () {
-    if (!selectedDates.length) { box.innerHTML = '<span class="sub">日付を選択して追加してください</span>'; return; }
+    if (!selectedDates.length) { box.innerHTML = '<span class="sub">カレンダーの日付を押して選んでください</span>'; return; }
     box.innerHTML = selectedDates.map(function (d) {
       return '<span class="date-chip">' + d + '<a href="#" data-d="' + d + '" aria-label="外す">×</a><input type="hidden" name="dates" value="' + d + '"></span>';
     }).join('');
     box.querySelectorAll('a').forEach(function (a) {
       a.addEventListener('click', function (e) {
-        e.preventDefault(); selectedDates = selectedDates.filter(function (x) { return x !== a.dataset.d; }); renderSelectedDates();
+        e.preventDefault(); toggleDate(a.dataset.d);
       });
     });
   };
@@ -178,9 +250,9 @@ var selectedDates = [];
     var d = input.value;
     if (!d) { alert('日付を選択してください'); return; }
     if (selectedDates.indexOf(d) !== -1) { alert('その日付は既に追加されています'); return; }
-    selectedDates.push(d); selectedDates.sort(); renderSelectedDates();
+    toggleDate(d);
   };
-  renderSelectedDates();
+  renderSelectedDates(); drawPicker();
 })();
 {% endif %}
 

@@ -1,4 +1,5 @@
 {% extends "manage/base.html" %}
+{% load static %}
 
 {% block title %}カレンダー管理 | まゆみ助産院 管理画面{% endblock %}
 {% block topbar_title %}カレンダー管理{% endblock %}
@@ -59,7 +60,7 @@
       <span class="legend-item"><span class="cal-icon-badge icon-holiday">休</span>休診</span>
       <span class="legend-item"><span class="cal-icon-badge icon-visit">往診</span>往診</span>
       <span class="legend-item"><span class="cal-icon-badge icon-postpartum">訪問</span>訪問産後ケア</span>
-      <span style="margin-left:auto;font-size:.74rem">※日付をクリックすると詳細が表示されます</span>
+      <span style="margin-left:auto;font-size:.74rem">※日付を押すと、その日の予定と「この日に追加する」が出ます</span>
     </div>
     <div id="monthCalendarGrid" class="month-calendar-grid"></div>
   </div>
@@ -72,6 +73,7 @@
       <div class="day-detail-date" id="dayDetailDate"></div>
       <button type="button" class="day-detail-close" onclick="closeDayDetailModal()" aria-label="閉じる">×</button>
     </div>
+    <div class="day-detail-actions"><a id="dayDetailAdd" class="btn btn-primary" href="#">➕ この日に追加する</a></div>
     <div id="dayDetailBody"></div>
   </div>
 </div>
@@ -82,10 +84,12 @@
 </div>
 
 {{ events_json|json_script:"cal-events" }}
+<script src="{% static 'manage/month_calendar.js' %}?v={{ STATIC_VERSION }}"></script>
 <script>
 var allCalendarEvents = JSON.parse(document.getElementById('cal-events').textContent);
 var monthCalendarState = { year: {{ cal_year }}, month: {{ cal_month }} };
 var CAL_TODAY = '{{ today|date:"Y-m-d" }}';
+var CAL_NEW_URL = '{% url "manage:calendar_create" %}';
 
 function confirmBulkDelete() {
   var n = document.querySelectorAll('.cal-sel:checked').length;
@@ -96,79 +100,34 @@ function toggleSelectAll(box) {
   var table = box.closest('table');
   table.querySelectorAll('.cal-sel').forEach(function (c) { c.checked = box.checked; });
 }
-function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+var esc = MonthCalendar.esc;
+var calIcon = MonthCalendar.icon;
+var calTypeLabel = MonthCalendar.typeLabel;
 // 詳細の太字・下線（<strong> / <u>）だけ残し、行頭の「📷 URL」（添付画像の印）は取り除く。旧アプリの renderAdminFormattedTextHtml と同じ。
 function formatDesc(text) {
   var t = String(text || '').replace(/\r\n?/g, '\n').replace(/(^|\n)\s*📷\s*https?:\/\/\S+/g, '$1');
   t = esc(t).replace(/&lt;(\/?)(strong|b|u)&gt;/gi, '<$1$2>');
   return t.replace(/\n/g, '<br>');
 }
-function calIcon(kind) {
-  if (kind === 'holiday') return '<span class="cal-icon-badge icon-holiday" title="休診">休</span>';
-  if (kind === 'visit') return '<span class="cal-icon-badge icon-visit" title="往診">往診</span>';
-  if (kind === 'postpartum') return '<span class="cal-icon-badge icon-postpartum" title="訪問産後ケア">訪問</span>';
-  return '<span class="cal-icon-badge icon-event" title="イベント">イ</span>';
-}
-function calTypeLabel(kind) {
-  return kind === 'holiday' ? '休診' : (kind === 'visit' ? '往診' : (kind === 'postpartum' ? '訪問産後ケア' : 'イベント'));
-}
 function publishedEvents() {
   return allCalendarEvents.filter(function (e) { return e.date && e.status !== '非公開'; });
 }
 
 function renderMonthCalendar(year, month) {
-  var grid = document.getElementById('monthCalendarGrid');
   var label = document.getElementById('monthCalendarLabel');
   if (label) label.textContent = year + '年 ' + month + '月';
-  var monthStr = String(month).padStart(2, '0');
-  var byDay = {};
-  publishedEvents().forEach(function (e) {
-    var p = e.date.split('-');
-    if (p[0] !== String(year) || p[1] !== monthStr) return;
-    var d = parseInt(p[2], 10);
-    (byDay[d] = byDay[d] || []).push(e);
+  MonthCalendar.render(document.getElementById('monthCalendarGrid'), {
+    year: year, month: month, events: publishedEvents(), today: CAL_TODAY,
+    // 予定の無い日も押せる（空いている日こそ、その日で追加したいため）。
+    onDay: openDayDetailModal
   });
-  var first = new Date(year, month - 1, 1), daysInMonth = new Date(year, month, 0).getDate();
-  var startDow = first.getDay(), prevLast = new Date(year, month - 1, 0).getDate();
-  var html = '';
-  ['日', '月', '火', '水', '木', '金', '土'].forEach(function (w, i) {
-    html += '<div class="month-calendar-weekday ' + (i === 0 ? 'sun' : (i === 6 ? 'sat' : '')) + '">' + w + '</div>';
-  });
-  for (var i = 0; i < startDow; i++) {
-    html += '<div class="month-calendar-day is-other-month"><span class="day-number">' + (prevLast - startDow + i + 1) + '</span></div>';
-  }
-  var order = { event: 0, holiday: 1, visit: 2, postpartum: 3 };
-  for (var day = 1; day <= daysInMonth; day++) {
-    var dow = (startDow + day - 1) % 7;
-    var dateStr = year + '-' + monthStr + '-' + String(day).padStart(2, '0');
-    var evs = byDay[day] || [];
-    var kinds = [];
-    evs.forEach(function (e) { if (kinds.indexOf(e.kind) === -1) kinds.push(e.kind); });
-    kinds.sort(function (a, b) { return order[a] - order[b]; });
-    var chips = '';
-    evs.slice(0, 2).forEach(function (e) {
-      chips += '<div class="day-event-chip" style="border-left-color:' + esc(e.color) + '" title="' + esc(e.title) + '">' + esc(e.title) + '</div>';
-    });
-    if (evs.length > 2) chips += '<div class="day-event-more">+' + (evs.length - 2) + '件</div>';
-    var cls = 'month-calendar-day' + (dateStr === CAL_TODAY ? ' is-today' : '') + (evs.length ? ' has-events' : '');
-    html += '<div class="' + cls + '"' + (evs.length ? ' onclick="openDayDetailModal(\'' + dateStr + '\')"' : '') + '>';
-    html += '<span class="day-number ' + (dow === 0 ? 'sun' : (dow === 6 ? 'sat' : '')) + '">' + day + '</span>';
-    if (kinds.length) html += '<div class="day-icons">' + kinds.map(calIcon).join('') + '</div>';
-    if (chips) html += '<div class="day-events">' + chips + '</div>';
-    html += '</div>';
-  }
-  var trailing = (7 - ((startDow + daysInMonth) % 7)) % 7;
-  for (var t = 1; t <= trailing; t++) {
-    html += '<div class="month-calendar-day is-other-month"><span class="day-number">' + t + '</span></div>';
-  }
-  grid.innerHTML = html;
 }
 
 // 前月・今月・翌月。絞り込み（年・月）も合わせて動かし、一覧も同じ月にそろえる（旧アプリと同じ）。
 function shiftMonthCalendar(delta) {
   var y = monthCalendarState.year, m = monthCalendarState.month;
   if (delta === 0) { var now = new Date(); y = now.getFullYear(); m = now.getMonth() + 1; }
-  else { m += delta; while (m < 1) { m += 12; y -= 1; } while (m > 12) { m -= 12; y += 1; } }
+  else { var n = MonthCalendar.shift(y, m, delta); y = n.year; m = n.month; }
   var ys = document.getElementById('f-year'), ms = document.getElementById('f-month');
   if (![].some.call(ys.options, function (o) { return o.value === String(y); })) {
     var opt = document.createElement('option'); opt.value = String(y); opt.textContent = y + '年'; ys.appendChild(opt);
@@ -183,6 +142,7 @@ function openDayDetailModal(dateStr) {
   var p = dateStr.split('-');
   var dt = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
   document.getElementById('dayDetailDate').textContent = p[0] + '年' + parseInt(p[1], 10) + '月' + parseInt(p[2], 10) + '日 (' + ['日', '月', '火', '水', '木', '金', '土'][dt.getDay()] + ')';
+  document.getElementById('dayDetailAdd').href = CAL_NEW_URL + '?date=' + encodeURIComponent(dateStr);
   if (!events.length) {
     body.innerHTML = '<div class="empty"><p>この日にイベントはありません</p></div>';
   } else {
