@@ -7898,8 +7898,13 @@ async function promptRecoveryCandidates(candidates, formValues) {
 }
 
 function 起動の伏せを解く_() {
-  // どの画面を出すかが決まった。ここで一度に見せる（index.html の body.起動中）。
-  try { document.body.classList.remove('起動中'); } catch (e) { /* 何があっても画面は出す */ }
+  // **もう伏せていない**（2026-09-20）。
+  // 一時期、起動のあいだ画面やスタンプの数を伏せていたが、
+  //   ・画面全体を伏せる → 待っているあいだ真っ白になった
+  //   ・スタンプの数だけ伏せる → 解く前に何かで止まると、数が出ないままになった（実際に起きた）
+  // 設計図の見本の数字を空にしたので、**そもそも間違った数は出ない。**伏せる必要がない。
+  // 呼び出し側をそのままにしたいので、関数は残してある。
+  try { document.body.classList.remove('起動中'); } catch (e) { }
 }
 
 function checkFirstLaunch() {
