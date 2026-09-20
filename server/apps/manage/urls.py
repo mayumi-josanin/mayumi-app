@@ -80,6 +80,7 @@ urlpatterns = [
     # スタンプ・特典管理（月別ガチャ特典設定＋会員別のスタンプ・特典状況）
     path("rewards/", views_reward.reward_list, name="reward_list"),
     path("rewards/gacha/", views_reward.reward_gacha_save, name="reward_gacha_save"),
+    path("rewards/<str:member_id>/row-save/", views_reward.reward_row_save, name="reward_row_save"),
     path("rewards/<str:member_id>/", views_reward.reward_edit, name="reward_edit"),
     path("system/", views_system.system_view, name="system"),
     path("system/backup/", views_system.system_backup, name="system_backup"),

@@ -3,6 +3,9 @@
     🎁 月別ガチャ特典設定       月を足す・保存（GAS の getRewardGachaConfig / saveRewardGachaConfig）
     🎟 会員別スタンプ・特典状況  検索・絞り込み・表・詳細・編集（GAS の getAdminUsers / updateAdminRewardStatus）
 
+一覧の「カード」「スタンプ」「最終スタンプ」は、欄を押すとその場で直せる（reward_row_save。
+院長の依頼 2026-09-21）。編集画面の保存と**同じ関数**（_スタンプを書き換える → 特典を書き換える）を通す。
+
 会員の状況は gasapi/admin_member.一覧()（GAS の getAdminUsers と同じ形）から作り、
 編集の保存は admin_member.特典を書き換える()（GAS の handleUpdateAdminRewardStatus）へ渡す。
 **新しい書き込み経路は作らない。**
@@ -26,6 +29,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.gasapi import admin_member, writes
@@ -230,7 +234,9 @@ def _一件(user, 重複):
     return {
         "user": user, "member_id": user.get("memberId") or "", "name": user.get("name") or "未設定",
         "phone": user.get("phone") or "電話番号未設定", "card": card, "stamp": stamp,
-        "last_stamp": _表示日(user.get("lastStampDate")), "counts": 数,
+        "last_stamp": _表示日(user.get("lastStampDate")),
+        # 一覧の欄をその場で直すとき、日付の入力欄に入れる値（表示は '2026/04/01'、入力は '2026-04-01'）
+        "last_stamp_input": _入力用の日(user.get("lastStampDate")), "counts": 数,
         "expiry": _表示日(_近い有効期限(rewards)), "latest_reward": _表示日(_最新特典日(rewards)),
         "progress": _進み具合(stamp, 数["unused"]), "duplicate": 重複.get(user.get("memberId") or ""),
         "rewards": rewards, "activity": _最新の動き(user),
@@ -476,6 +482,28 @@ def _一か月後(t):
     return t.replace(year=年, month=月, day=1) + timedelta(days=t.day - 1)
 
 
+def _スタンプを書き換える(request, m, 追加=None):
+    """カード・スタンプ・最終スタンプの保存。**一覧の行からも編集画面からも、ここだけを通る。**
+
+    書き込みの経路を2つに増やすと、片方だけ丸め方が変わって食い違う。
+    渡していない項目は `特典を書き換える` が触らない決まりなので、一覧の行から直したときに
+    特典の一覧（別画面で直すもの）には手が入らない。
+    返すのは (保存できたか, 画面に出す言葉)。
+    """
+    d = {
+        "memberId": m.member_id,
+        # スタンプは 0〜10 に丸める。上限を超える値が入ると特典の出方が読めなくなる
+        "stampCount": max(0, min(スタンプの上限, _数(request.POST.get("stampCount")))),
+        "stampCardNum": max(1, _数(request.POST.get("stampCardNum"), 1) or 1),
+        "lastStampDate": (request.POST.get("lastStampDate") or "").strip(),
+        **(追加 or {}),
+    }
+    答 = admin_member.特典を書き換える(d)
+    if 答.get("status") == "ok":
+        return True, "スタンプ・特典状況を更新しました"
+    return False, (答.get("message") or "更新に失敗しました")
+
+
 @owner_required
 def reward_edit(request, member_id: str):
     """詳細（旧アプリの 🔎 会員のスタンプ・特典詳細）と編集（🎟️ スタンプ・特典状況の編集）。"""
@@ -484,19 +512,14 @@ def reward_edit(request, member_id: str):
         if not member_gate.会員はサーバーが正():
             messages.error(request, member_gate.断る文())
             return redirect("manage:reward_list")
-        d = {
-            "memberId": m.member_id,
-            "stampCount": max(0, min(スタンプの上限, _数(request.POST.get("stampCount")))),
-            "stampCardNum": max(1, _数(request.POST.get("stampCardNum"), 1) or 1),
-            "lastStampDate": (request.POST.get("lastStampDate") or "").strip(),
+        ok, 文 = _スタンプを書き換える(request, m, {
             "stampAchievedDate": _時刻の字(_時刻に(request.POST.get("stampAchievedDate"))),
             "rewards": _特典の入力(request),
-        }
-        答 = admin_member.特典を書き換える(d)
-        if 答.get("status") == "ok":
-            messages.success(request, "スタンプ・特典状況を更新しました")
+        })
+        if ok:
+            messages.success(request, 文)
             return redirect("manage:reward_list")
-        messages.error(request, 答.get("message") or "更新に失敗しました")
+        messages.error(request, 文)
 
     状態 = admin_member._特典の状態(m)
     user = {**状態, "memberId": m.member_id, "name": m.name, "phone": m.phone}
@@ -516,3 +539,28 @@ def reward_edit(request, member_id: str):
                      "used_at_input": _入力用の日時(r["usedAt"])} for r in rewards],
         "default_name": 特典の既定名,
     })
+
+
+@owner_required
+@require_POST
+def reward_row_save(request, member_id: str):
+    """一覧の欄をその場で直したときの保存（商品一覧の行内保存と同じ作り）。
+
+    直せるのはカード・スタンプ・最終スタンプの3つだけ。特典1件ごとの中身は詳細の画面で直す。
+    会員は会員番号（MYM-####）で探す。お名前では探さない。
+    """
+    m = get_object_or_404(Member, pk=member_id, deleted=False)
+    if not member_gate.会員はサーバーが正():
+        messages.error(request, member_gate.断る文())
+        return _一覧へ戻る(request)
+    ok, 文 = _スタンプを書き換える(request, m)
+    (messages.success if ok else messages.error)(request, 文)
+    return _一覧へ戻る(request)
+
+
+def _一覧へ戻る(request):
+    """直したあとは、絞り込みや検索をそのままにして一覧へ戻る（探し直させない）。"""
+    戻り = request.POST.get("next") or ""
+    if 戻り and url_has_allowed_host_and_scheme(戻り, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return redirect(戻り)
+    return redirect("manage:reward_list")

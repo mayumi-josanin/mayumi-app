@@ -97,10 +97,17 @@
   </div>
 </div>
 
+{# 行ごとの保存のあて先。表の中に <form> は置けないので外に出し、欄からは form="rrow-…" でつなぐ
+   （商品一覧の _product_row_forms.html と同じ作り）。直せないときは作らない #}
+{% if server_is_master %}{% for it in items %}
+<form id="rrow-{{ it.member_id }}" method="post" action="{% url 'manage:reward_row_save' it.member_id %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"></form>
+{% endfor %}{% endif %}
+
 <div class="card">
   <div class="card-header"><h2>🎟 会員別スタンプ・特典状況<span class="count">{{ items|length }}件</span></h2></div>
   <div class="card-body" style="padding-bottom:0">
     <div class="sub">現在のスタンプ数、達成状況、獲得済み特典の使用状態を会員ごとに管理できます。最終スタンプ取得日時が新しい会員から上に表示します。</div>
+    <div class="sub" style="margin-top:4px">{% if server_is_master %}点線のついた「カード」「スタンプ」「最終スタンプ」は、その欄を押すとこの表のまま直せます。Enter キーか行の「保存」で保存、Esc キーで元に戻ります。{% else %}いまは見るだけです（{{ gate_message }}）。{% endif %}</div>
   </div>
   <div class="table-wrap">
     <table class="list-table">
@@ -108,17 +115,33 @@
       <tbody>
       {% for it in items %}
         <tr>
+          {# 会員IDは会員を指す番号なので直さない（変えるとお客様の記録の行き先が分からなくなる） #}
           <td class="nowrap">{{ it.member_id }}</td>
-          <td style="max-width:200px"><div class="strong list-line" title="{{ it.name }}">{{ it.name }}</div><div class="sub list-line">{{ it.phone }}</div></td>
-          <td class="nowrap" style="text-align:center">{{ it.card }}枚目</td>
-          <td class="nowrap strong" style="text-align:center">{{ it.stamp }} / 10</td>
-          <td class="nowrap">{{ it.last_stamp }}</td>
+          {# 氏名・電話は会員の表のもの。ここで直すと2か所で別々の記録になるので、会員管理へ渡す #}
+          <td style="max-width:200px">
+            <a class="title-link list-line" href="{% url 'manage:member_edit' it.member_id %}" title="{{ it.name }}（会員管理で直せます）">{{ it.name }}</a>
+            <div class="sub list-line">{{ it.phone }}</div>
+          </td>
+          <td class="nowrap cell-edit" style="text-align:center"{% if not server_is_master %} data-locked="{{ gate_message }}"{% endif %}>
+            <span class="cell-view">{{ it.card }}枚目</span>
+            {% if server_is_master %}<input class="cell-input" hidden form="rrow-{{ it.member_id }}" type="number" name="stampCardNum" min="1" step="1" value="{{ it.card }}" aria-label="カード（何枚目）" style="width:72px">{% endif %}
+          </td>
+          <td class="nowrap cell-edit" style="text-align:center"{% if not server_is_master %} data-locked="{{ gate_message }}"{% endif %}>
+            <span class="cell-view strong">{{ it.stamp }} / 10</span>
+            {% if server_is_master %}<input class="cell-input" hidden form="rrow-{{ it.member_id }}" type="number" name="stampCount" min="0" max="10" step="1" value="{{ it.stamp }}" aria-label="スタンプの数（0〜10）" style="width:72px">{% endif %}
+          </td>
+          <td class="nowrap cell-edit"{% if not server_is_master %} data-locked="{{ gate_message }}"{% endif %}>
+            <span class="cell-view">{{ it.last_stamp }}</span>
+            {% if server_is_master %}<input class="cell-input" hidden form="rrow-{{ it.member_id }}" type="date" name="lastStampDate" value="{{ it.last_stamp_input }}" aria-label="最終スタンプの日" style="width:150px">{% endif %}
+          </td>
           {# 4行あると一覧の縦幅からはみ出すので2行にまとめる #}
           <td class="nowrap" style="font-size:.82rem;line-height:1.6">
             <div class="list-line">未受取 {{ it.counts.unused }} / 受取済み {{ it.counts.used }}</div>
             <div class="sub list-line">期限切れ {{ it.counts.expired }} / 総数 {{ it.counts.total }}</div>
           </td>
-          <td class="nowrap">{{ it.expiry }}</td>
+          {# 有効期限は特典1件ごとの期限から選んで出している（いちばん近いもの）。
+             どの特典の期限かはこの欄では決められないので、直すのは詳細の画面で #}
+          <td class="nowrap" title="有効期限は特典ごとに決まります。直すときは「詳細」を開いてください">{{ it.expiry }}</td>
           <td class="nowrap">{{ it.latest_reward }}</td>
           <td class="nowrap" style="text-align:center">
             <div><span class="badge {{ it.progress.badge }}">{{ it.progress.label }}</span></div>
@@ -128,6 +151,7 @@
           </td>
           <td class="nowrap">
             <div class="row-actions">
+              {% if server_is_master %}<button form="rrow-{{ it.member_id }}" type="submit" class="btn btn-outline btn-sm">保存</button>{% endif %}
               <a class="btn btn-outline btn-sm" href="{% url 'manage:reward_edit' it.member_id %}#detail">詳細</a>
               <a class="btn btn-primary btn-sm" href="{% url 'manage:reward_edit' it.member_id %}#edit" title="編集">📝</a>
             </div>
@@ -194,5 +218,46 @@ function removeGachaMonth(btn) {
   if (document.querySelectorAll('.gacha-row').length <= 1) { alert('設定する月は1件以上必要です。'); return; }
   btn.closest('tr').remove();
 }
+
+// ── 会員別スタンプ・特典状況: 欄を押したら、その欄だけ直せる（院長の依頼 2026-09-21）──
+// 別の画面へ移らずに直せるようにした。送り先は行ごとの <form id="rrow-会員番号">（商品一覧と同じ作り）。
+// 直せる欄は「カード」「スタンプ」「最終スタンプ」だけ。会員ID・氏名・電話・計算で出る欄は触らせない。
+function rewardCellOpen(td) {
+  var locked = td.getAttribute('data-locked');
+  if (locked) { alert(locked); return; }          // 切り替え前は直せない。理由をそのまま出す
+  var input = td.querySelector('.cell-input');
+  if (!input || td.classList.contains('is-editing')) return;
+  td.dataset.prev = input.value;                   // Esc で戻せるように、直す前の値を覚えておく
+  td.classList.add('is-editing');
+  td.querySelector('.cell-view').hidden = true;
+  input.hidden = false;
+  input.focus();
+  if (input.select) { try { input.select(); } catch (e) {} }
+}
+function rewardCellClose(td, revert) {
+  var input = td.querySelector('.cell-input');
+  if (!input) return;
+  if (revert) input.value = td.dataset.prev || '';
+  input.hidden = true;
+  td.querySelector('.cell-view').hidden = false;
+  td.classList.remove('is-editing');
+}
+document.addEventListener('click', function (e) {
+  var td = e.target.closest ? e.target.closest('td.cell-edit') : null;
+  if (td) { rewardCellOpen(td); }
+});
+document.addEventListener('keydown', function (e) {
+  var input = e.target;
+  if (!input.classList || !input.classList.contains('cell-input')) return;
+  if (e.key === 'Enter') {
+    // Enter で行ごと保存（行の「保存」を押したときと同じ）
+    e.preventDefault();
+    var form = input.form;
+    if (form) { form.requestSubmit ? form.requestSubmit() : form.submit(); }
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    rewardCellClose(input.closest('td'), true);
+  }
+});
 </script>
 {% endblock %}
