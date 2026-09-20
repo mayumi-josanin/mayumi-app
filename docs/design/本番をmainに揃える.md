@@ -57,16 +57,20 @@ bash ~/app_manage_deploy.sh
 
 **①のあとでないと巻き戻る。** 順番を守ること。
 
-### ③ 確認用の管理画面を立てる
+### ③ 確認用の管理画面を立てる — **2026-09-20 に済ませた**
 
-予約システムで作ったもの（`mayumi-reserve/docs/確認用の予約システム.md`）と同じ形。
+```
+見る場所   https://desktop-rmsk0vg.tail8efe0d.ts.net:10005/manage/
+置き場所   ~/projects/mayumi-app-kakunin（develop）
+箱の名前   -p mayumi-kakunin（本番とぶつからないように）
+口         manage 8771 / db 5770（web と tailscale の箱は動かさない）
+合言葉     通知（OneSignal）・メール・公式サイトの鍵は**空**。確認用からお客様に飛ばさない
+データ     本番の写し（会員168名・商品9件）。本番からは読むだけ
+反映       ssh rmsk '& "C:\Program Files\Git\bin\bash.exe" -lc "bash ~/app_kakunin_deploy.sh"'
+入れ直し   同じ形で ~/app_kakunin_copy_data.sh
+```
 
-- 置き場所: `~/projects/mayumi-app-kakunin`（`develop`）
-- 箱の名前: `-p mayumi-kakunin`（本番とぶつからないように）
-- 口: web 8762 / manage 8763 / db 5762、住所は `tailscale serve --https=10005`
-- **LINE・メール・通知（OneSignal）の合言葉は空にする。** 確認用からお客様に飛ばさない
-- データは本番の写し（`pg_dump` で読むだけ）
-- 反映の仕掛け: `~/app_kakunin_deploy.sh`
+本番が `main` に切り替わっても、ここは `develop` を映し続ける。
 
 ### ④ 以後の流れ
 
