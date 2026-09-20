@@ -107,9 +107,15 @@ a:hover { color: var(--brand-dark); }
   background: var(--bg); transition: var(--transition); flex-shrink: 0;
 }
 .sidebar-nav a:hover { background: var(--bg); color: var(--text-primary); }
-/* 段を閉じたときの項目。`.sidebar-nav a { display:flex }` が hidden 属性（display:none）より強いので、ここで明示して隠す
-   （2026-09-16、開閉の印は変わるのに項目が消えなかった原因） */
-.sidebar-nav a[hidden] { display: none !important; }
+/* **「隠す」の印を必ず効かせる**（2026-09-16 と 2026-09-20 の両方でつまずいた）。
+   ここに書いた display:flex や display:block が印を打ち消していて、
+   メニューのプレビューが**押してもいないのに最初から出ていた**（中身は空、画像は壊れた形）。
+   押したときだけ出る作りだったのに、隠れていなかった。
+   ブラウザの既定では印の方が弱いので、ここで一度だけ強くしておく。
+   これ以降、どの画面で display を書いても、印が付いていれば隠れる。
+   9/16 は左メニューで、段を閉じても項目が消えなかった（`.sidebar-nav a { display:flex }` のせい）。
+   そのときは左メニューだけを直したが、同じことが他でも起きた。今度は全部に効かせる。 */
+[hidden] { display: none !important; }
 .sidebar-nav a:hover .nav-icon { background: var(--brand-light); }
 .sidebar-nav a.active { background: var(--brand-light); color: var(--brand); font-weight: 600; }
 .sidebar-nav a.active .nav-icon { background: var(--brand-gradient); color: var(--white); }
