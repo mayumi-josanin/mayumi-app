@@ -97,8 +97,8 @@
   </div>
 </div>
 
-{# 行ごとの保存のあて先。表の中に <form> は置けないので外に出し、欄からは form="rrow-…" でつなぐ
-   （商品一覧の _product_row_forms.html と同じ作り）。直せないときは作らない #}
+{% comment %} 行ごとの保存のあて先。表の中に <form> は置けないので外に出し、欄からは form="rrow-…" でつなぐ
+   （商品一覧の _product_row_forms.html と同じ作り）。直せないときは作らない {% endcomment %}
 {% if server_is_master %}{% for it in items %}
 <form id="rrow-{{ it.member_id }}" method="post" action="{% url 'manage:reward_row_save' it.member_id %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"></form>
 {% endfor %}{% endif %}
@@ -139,8 +139,8 @@
             <div class="list-line">未受取 {{ it.counts.unused }} / 受取済み {{ it.counts.used }}</div>
             <div class="sub list-line">期限切れ {{ it.counts.expired }} / 総数 {{ it.counts.total }}</div>
           </td>
-          {# 有効期限は特典1件ごとの期限から選んで出している（いちばん近いもの）。
-             どの特典の期限かはこの欄では決められないので、直すのは詳細の画面で #}
+          {% comment %} 有効期限は特典1件ごとの期限から選んで出している（いちばん近いもの）。
+             どの特典の期限かはこの欄では決められないので、直すのは詳細の画面で {% endcomment %}
           <td class="nowrap" title="有効期限は特典ごとに決まります。直すときは「詳細」を開いてください">{{ it.expiry }}</td>
           <td class="nowrap">{{ it.latest_reward }}</td>
           <td class="nowrap" style="text-align:center">
