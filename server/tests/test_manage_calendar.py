@@ -94,7 +94,7 @@ def test_一覧の列と並びと空の文言(as_owner):
     page = as_owner.get("/manage/calendar/").content.decode()
     for s in ["カレンダー管理", "🗑 一括削除", "🔄 更新", "下書き保存一覧", "イベント一覧", "📅 月別フィルタ",
               "全年度", "全月", "条件をクリア", "下書き保存はありません", "投稿済みイベントはありません",
-              "表示条件に一致するイベントはありません", "凡例:", "訪問産後ケア", "※日付をクリックすると詳細が表示されます",
+              "表示条件に一致するイベントはありません", "凡例:", "訪問産後ケア", "※日付を押すと、その日の予定と「この日に追加する」が出ます",
               "← 前月", "今月", "翌月 →"]:
         assert s in page, s
     for th in ["<th>画像</th>", "<th>イベント名</th>", "<th>カテゴリ</th>", "<th>詳細</th>", "<th>カラー</th>", "<th>公開設定</th>", "<th>操作</th>"]:
@@ -211,3 +211,68 @@ def test_画像はカレンダーの置き場へ(as_owner):
     page = as_owner.get("/manage/calendar/?year=2026&month=10").content.decode()
     assert 'class="thumb"' in page
     assert as_owner.get("/media/calendar/nothing.jpg").status_code == 404
+
+
+def test_月の表から日を押すとその日で追加できる(as_owner):
+    """一覧の月の表 → 「この日に追加する」 → その日が入った追加の画面（院長の依頼 2026-09-20）。"""
+    page = as_owner.get("/manage/calendar/").content.decode()
+    # 予定の有無にかかわらず、どの日も押せて詳細が開く（空の日こそ、その日で追加したい）
+    assert 'id="dayDetailAdd"' in page and "➕ この日に追加する" in page
+    assert "CAL_NEW_URL = '/manage/calendar/new/'" in page
+    assert "onDay: openDayDetailModal" in page
+    # 押した日を ?date= に載せている
+    assert "CAL_NEW_URL + '?date=' + encodeURIComponent(dateStr)" in page
+
+
+def test_予定の無い日でも追加の入口を出す(as_owner):
+    as_owner.post("/manage/calendar/new/", _form(date="2026-10-03"))
+    page = as_owner.get("/manage/calendar/?year=2026&month=10").content.decode()
+    # 押せるかどうかを予定の有無で分けていない（renderMonthCalendar に onDay を必ず渡す）
+    assert "onDay: openDayDetailModal" in page
+    assert "この日にイベントはありません" in page and "➕ この日に追加する" in page
+
+
+def test_追加の画面は日付の指定を受け取る(as_owner):
+    page = as_owner.get("/manage/calendar/new/?date=2026-11-23").content.decode()
+    assert 'id="c-date" name="date" type="date" class="form-control" value="2026-11-23"' in page
+    assert '<script id="picked-dates" type="application/json">["2026-11-23"]</script>' in page
+    # 指定が無ければ今日を初期値にするが、選んだ日は空のまま
+    page = as_owner.get("/manage/calendar/new/").content.decode()
+    assert '<script id="picked-dates" type="application/json">[]</script>' in page
+    # おかしな指定は今日に戻す（落とさない）
+    assert as_owner.get("/manage/calendar/new/?date=2026-13-40").status_code == 200
+    assert as_owner.get("/manage/calendar/new/?date=あああ").status_code == 200
+
+
+def test_追加の画面に月の表が出る(as_owner):
+    as_owner.post("/manage/calendar/new/", _form(title="先にある予定", date="2026-10-03"))
+    as_owner.post("/manage/calendar/new/", _form(title="下書き", date="2026-10-05", status="非公開"))
+    page = as_owner.get("/manage/calendar/new/?date=2026-10-03").content.decode()
+    assert 'id="pickerGrid"' in page and "month_calendar.js" in page
+    assert "日時選択（カレンダーの日付を押して選びます。いくつでも選べます）" in page
+    assert "← 前月" in page and "翌月 →" in page
+    assert "同じ曜日をまとめて選ぶ:" in page and "毎週月" in page
+    assert "カレンダーの日付を押して選んでください" in page
+    import json
+    import re
+
+    data = json.loads(re.search(r'<script id="picker-events" type="application/json">(.*?)</script>', page).group(1))
+    # 月の表に出すのは公開中だけ（一覧の月の表と同じ考え方）
+    assert [e["title"] for e in data] == ["先にある予定"]
+
+
+def test_月をまたいで選んだ日の数だけ行を作る(as_owner):
+    r = as_owner.post("/manage/calendar/new/", {**_form(date="2026-10-03"),
+                                                "dates": ["2026-10-03", "2026-11-07", "2027-01-09"]})
+    assert r.status_code == 302
+    assert [c.event_on for c in CalendarEvent.objects.order_by("sheet_row")] == [
+        date(2026, 10, 3), date(2026, 11, 7), date(2027, 1, 9)]
+
+
+def test_修正のときは複数選択を出さない(as_owner):
+    as_owner.post("/manage/calendar/new/", _form())
+    c = CalendarEvent.objects.get()
+    page = as_owner.get(f"/manage/calendar/{c.sheet_row}/").content.decode()
+    assert 'id="pickerGrid"' not in page and "選択中の日付" not in page
+    assert "同じ曜日をまとめて選ぶ:" not in page
+    assert 'id="c-date" name="date" type="date" class="form-control" required' in page
