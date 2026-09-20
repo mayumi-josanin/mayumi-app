@@ -65,6 +65,7 @@ MIDDLEWARE = [
     "apps.core.middleware.CORSミドルウェア",
     "apps.core.middleware.呼び出し制限ミドルウェア",
     "apps.core.middleware.管理画面をしまうミドルウェア",
+    "apps.core.middleware.管理画面を覚えさせないミドルウェア",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
