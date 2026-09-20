@@ -25,9 +25,15 @@
        これが一瞬のちらつきとして見えていた。読み終えてから一度に出す。
        **通信とは関係ないので、行き先を変えても直らない。**
        万一 JS が動かないときに真っ白のままにならないよう、3秒たてば自動的に出る。 */
-    body.起動中 .page,
-    body.起動中 .bottom-nav,
-    body.起動中 .header {
+    /* **画面全体は伏せない。**一度そうしたら、待っているあいだ真っ白になった（2026-09-20）。
+       伏せるのはスタンプの数の所だけにする。ここは決まるまで空にしておき、
+       数が決まってから出す。**間違った数を一度も見せない**ための措置。
+       万一 JS が動かないときのために、3秒たてば自動的に出る。 */
+    body.起動中 #homeStampNum,
+    body.起動中 #homeStampCount,
+    body.起動中 #homeStampCardLabel,
+    body.起動中 #homeStampMsg,
+    body.起動中 #homeStampGrid {
       visibility: hidden;
       animation: 起動の保険 0s 3s forwards;
     }
@@ -127,7 +133,7 @@
                スタンプの表示と同じ高さで、右端に並べる。 -->
           <div class="banner-bottom-row">
             <div class="banner-chip">
-              <span class="chip-num" id="homeStampNum">7</span>
+              <span class="chip-num" id="homeStampNum"></span>
               <span class="chip-label">スタンプ獲得中</span>
             </div>
             <button class="banner-switch" type="button" onclick="goToAppList()">アプリ一覧 ›</button>
@@ -143,12 +149,12 @@
               <h3>ご来院スタンプ</h3>
               <p>10個でプレゼントをお渡しします</p>
             </div>
-            <div class="stamp-pill" id="homeStampCardLabel">来院カード</div>
+            <div class="stamp-pill" id="homeStampCardLabel"></div>
           </div>
           <div class="stamp-grid" id="homeStampGrid"></div>
           <div class="stamp-footer">
-            <div class="stamp-count"><b id="homeStampCount">7</b> / 10</div>
-            <div id="homeStampMsg" class="stamp-msg">あと3回でプレゼント🎁</div>
+            <div class="stamp-count"><b id="homeStampCount"></b> / 10</div>
+            <div id="homeStampMsg" class="stamp-msg"></div>
           </div>
           <div class="stamp-scan">
             <button class="btn primary stamp-scan-btn" onclick="openScannerModal()">
@@ -1026,7 +1032,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-  <script src="app.js?v=20260920-1"></script>
+  <script src="app.js?v=20260920-2"></script>
 </body>
 
 </html>
