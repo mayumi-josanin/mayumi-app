@@ -185,3 +185,32 @@ class 呼び出し制限ミドルウェア:
                 return getattr(settings, "THROTTLE_STRICT_PER_MINUTE", 10), 60
 
         return getattr(settings, "THROTTLE_PER_MINUTE", 120), 60
+
+
+class 管理画面を覚えさせないミドルウェア:
+    """管理画面の画面は、ブラウザに覚えさせない（2026-09-20）。
+
+    **直したのに古い画面が出続ける**ことがあった。メニューのプレビューを直して
+    サーバーに入れたのに、院長の画面では前のままで、しかも直しに入れた
+    「うまく出せませんでした」の赤字すら出なかった。
+    ブラウザが前に受け取った画面をそのまま使っていたため。
+
+    管理画面は院内の数人が見るだけで、毎回取りに来ても重くない。
+    **いつでも、いまの中身が出る**ことの方が大事。
+
+    画像や見た目のファイル（/static/）は別。あちらは名前に印が付くので、
+    覚えてもらった方が速い。ここでは触らない。
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if request.path.startswith("/manage/"):
+            種類 = (response.get("Content-Type") or "")
+            # 画面（HTML）だけ。書き出した CSV などは触らない
+            if 種類.startswith("text/html"):
+                response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+                response["Pragma"] = "no-cache"
+        return response

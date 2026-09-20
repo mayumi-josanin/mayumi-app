@@ -89,7 +89,7 @@
 {# 旧管理アプリの previewMenuDraft と同じ中身（カテゴリ・予約状況・公開状態・名前・説明・画像） #}
 <div id="menu-preview" class="preview-backdrop" hidden onclick="if(event.target===this)this.hidden=true">
   <div class="preview-box">
-    <div class="preview-head"><strong>メニュープレビュー</strong><button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('menu-preview').hidden=true">閉じる</button></div>
+    <div class="preview-head"><strong>メニュープレビュー</strong><span class="sub" style="margin-left:10px">版 {{ STATIC_VERSION }}</span><button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('menu-preview').hidden=true">閉じる</button></div>
     <div class="preview-badges">
       <span class="badge badge-gray" id="pv-cat"></span>
       <span class="badge badge-gray" id="pv-res"></span>
