@@ -29,7 +29,7 @@ from apps.manage.analytics_calc import record_totals
 from apps.manage.permissions import owner_required
 from apps.records.models import RevenueRecord
 
-from .models import CashbookEntry
+from .models import Cashbook, CashbookEntry
 from .views import _帳簿を用意する, _選んだ年月
 
 # 取り込んだ行だと分かるようにする印。摘要の先頭に付ける。
@@ -72,6 +72,78 @@ def _すでに入っている行(book, month: int) -> dict[int, CashbookEntry]:
         if e.day and (e.description or "").startswith(印) and e.income:
             出来上がり[e.day] = e
     return 出来上がり
+
+
+def _売上のある月() -> list[tuple[int, int]]:
+    """売上の記録がある年月を、古い順に。"""
+    月 = set()
+    for d in RevenueRecord.objects.filter(deleted=False).exclude(recorded_on=None).values_list(
+            "recorded_on", flat=True):
+        月.add((d.year, d.month))
+    return sorted(月)
+
+
+@owner_required
+def revenue_all_preview(request):
+    """**これまでの全部の月**の下見。月ごとの合計と、帳簿に入っているかを並べる。
+
+    6か月ぶん80日を1つずつ入れるのは大変なので、まとめて入れられるようにする。
+    ただし**ここでも押すまでは入れない。**月ごとの下見と同じ考え方。
+    """
+    行 = []
+    for year, month in _売上のある月():
+        売上 = _その月の日ごとの売上(year, month)
+        if not 売上:
+            continue
+        book = Cashbook.objects.filter(year=year, month=month).first()
+        既存 = _すでに入っている行(book, month) if book else {}
+        合計 = sum(v["total"] for v in 売上.values())
+        新しい = [日 for 日 in 売上 if 日 not in 既存]
+        違う = [日 for 日, v in 売上.items() if 日 in 既存 and 既存[日].income != v["total"]]
+        行.append({
+            "year": year, "month": month,
+            "days": len(売上), "total": 合計,
+            "menu": sum(v["menu"] for v in 売上.values()),
+            "product": sum(v["product"] for v in 売上.values()),
+            "new_days": len(新しい), "differ_days": len(違う),
+            "done": (not 新しい and not 違う),
+        })
+    return render(request, "keihi/revenue_all.html", {
+        "rows": 行,
+        "total": sum(r["total"] for r in 行),
+        "new_total": sum(r["new_days"] for r in 行),
+    })
+
+
+@owner_required
+def revenue_all_to_book(request):
+    """選んだ月を、まとめて出納帳へ入れる。中身は月ごとの取り込みと同じ決まり。"""
+    if request.method != "POST":
+        return redirect("manage:keihi:revenue_all_preview")
+
+    やり方 = request.POST.get("on_conflict") or "skip"
+    選んだ月 = set()
+    for x in request.POST.getlist("months"):
+        年月 = str(x).split("-")
+        if len(年月) == 2 and 年月[0].isdigit() and 年月[1].isdigit():
+            選んだ月.add((int(年月[0]), int(年月[1])))
+
+    入れた日, 直した日, 飛ばした日, 月数 = 0, 0, 0, 0
+    for year, month in sorted(選んだ月):
+        i, n, s = _1か月ぶん入れる(year, month, set(_その月の日ごとの売上(year, month)), やり方)
+        入れた日 += i
+        直した日 += n
+        飛ばした日 += s
+        if i or n:
+            月数 += 1
+
+    if 入れた日:
+        messages.success(request, f"{月数} か月ぶん・{入れた日} 日ぶんを現金出納帳に入れました")
+    if 直した日:
+        messages.success(request, f"{直した日} 日ぶんを新しい金額に直しました")
+    if 飛ばした日:
+        messages.info(request, f"{飛ばした日} 日ぶんは、すでに同じ金額が入っているので触っていません")
+    return redirect("manage:keihi:revenue_all_preview")
 
 
 @owner_required
@@ -126,6 +198,22 @@ def revenue_to_book(request):
     やり方 = request.POST.get("on_conflict") or "skip"   # replace / skip / add
     選んだ日 = {int(d) for d in request.POST.getlist("days") if str(d).isdigit()}
 
+    入れた, 直した, 飛ばした = _1か月ぶん入れる(year, month, 選んだ日, やり方)
+
+    if 入れた:
+        messages.success(request, f"{入れた} 日ぶんを現金出納帳に入れました")
+    if 直した:
+        messages.success(request, f"{直した} 日ぶんを新しい金額に直しました")
+    if 飛ばした:
+        messages.info(request, f"{飛ばした} 日ぶんは、すでに同じ金額が入っているので触っていません")
+    return redirect(f"/manage/keihi/?year={year}&month={month}")
+
+
+def _1か月ぶん入れる(year: int, month: int, 選んだ日: set, やり方: str) -> tuple[int, int, int]:
+    """1か月ぶんを出納帳へ入れる。月ごとの取り込みと、まとめての取り込みが共に通る所。
+
+    **同じ決まりを2か所に書かない。**片方だけ直すと、月ごととまとめてで動きが変わる。
+    """
     book = _帳簿を用意する(year, month)
     売上 = _その月の日ごとの売上(year, month)
     既存 = _すでに入っている行(book, month)
@@ -165,10 +253,4 @@ def revenue_to_book(request):
             空き.save()
             入れた += 1
 
-    if 入れた:
-        messages.success(request, f"{入れた} 日ぶんを現金出納帳に入れました")
-    if 直した:
-        messages.success(request, f"{直した} 日ぶんを新しい金額に直しました")
-    if 飛ばした:
-        messages.info(request, f"{飛ばした} 日ぶんは、すでに同じ金額が入っているので触っていません")
-    return redirect(f"/manage/keihi/?year={year}&month={month}")
+    return 入れた, 直した, 飛ばした

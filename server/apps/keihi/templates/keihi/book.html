@@ -22,6 +22,7 @@ JDL 会計伝票「現金出納帳（様式 777）」の紙に寄せた表。
     <span style="font-variant-numeric:tabular-nums;">{{ book.year }} 年 {{ book.month }} 月</span>
     <a class="btn btn-outline btn-sm" href="?year={{ next.year }}&month={{ next.month }}">次の月 ›</a>
     <a class="btn btn-primary btn-sm" href="{% url 'manage:keihi:revenue_preview' %}?year={{ book.year }}&month={{ book.month }}">この月の売上を取り込む</a>
+    <a class="btn btn-outline btn-sm" href="{% url 'manage:keihi:revenue_all_preview' %}">これまでの売上をまとめて</a>
     <a class="btn btn-outline btn-sm" href="{% url 'manage:keihi:csv_export' %}?year={{ book.year }}&month={{ book.month }}">CSV 書き出し</a>
     <button type="button" class="btn btn-outline btn-sm" onclick="window.print()">印刷</button>
   </div>

@@ -125,3 +125,41 @@ def test_出納帳に取り込みの入口がある(as_owner):
 def test_スタッフは入れない(client, staff):
     client.force_login(staff)
     assert client.get(下見).status_code in (302, 403)
+
+
+def test_まとめての下見に月ごとの合計が出る(as_owner, 九月の売上):
+    """6か月ぶん80日を1つずつ入れるのは大変なので、月をまとめて選べるようにした。"""
+    売上(RevenueRecord.MENU, 5, 1, 200000, "8月のぶん")   # 9月以外も混ぜる
+    RevenueRecord.objects.filter(name="8月のぶん").update(recorded_on=datetime.date(2026, 8, 5))
+
+    page = as_owner.get("/manage/keihi/revenue/all/").content.decode()
+    assert "2026年8月" in page and "2026年9月" in page
+    assert "200000" in page.replace(",", "")
+
+
+def test_まとめて取り込むと全部の月に入る(as_owner, 九月の売上):
+    売上(RevenueRecord.MENU, 5, 1, 200000, "8月のぶん")
+    RevenueRecord.objects.filter(name="8月のぶん").update(recorded_on=datetime.date(2026, 8, 5))
+
+    r = as_owner.post("/manage/keihi/revenue/all/to-book/",
+                      {"months": ["2026-8", "2026-9"], "on_conflict": "skip"})
+    assert r.status_code == 302
+    八月 = Cashbook.objects.get(year=2026, month=8)
+    九月 = Cashbook.objects.get(year=2026, month=9)
+    assert 八月.entries.exclude(income=None).count() == 1
+    assert 八月.entries.exclude(income=None).first().income == 200000
+    assert 九月.entries.exclude(income=None).count() == 2      # 9/20 と 9/21
+
+
+def test_まとめても二度入れない(as_owner, 九月の売上):
+    as_owner.post("/manage/keihi/revenue/all/to-book/", {"months": ["2026-9"], "on_conflict": "skip"})
+    as_owner.post("/manage/keihi/revenue/all/to-book/", {"months": ["2026-9"], "on_conflict": "skip"})
+    assert CashbookEntry.objects.exclude(income=None).count() == 2
+
+
+def test_選ばなかった月は入らない(as_owner, 九月の売上):
+    売上(RevenueRecord.MENU, 5, 1, 200000, "8月のぶん")
+    RevenueRecord.objects.filter(name="8月のぶん").update(recorded_on=datetime.date(2026, 8, 5))
+
+    as_owner.post("/manage/keihi/revenue/all/to-book/", {"months": ["2026-9"], "on_conflict": "skip"})
+    assert not Cashbook.objects.filter(year=2026, month=8).exists()
