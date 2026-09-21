@@ -1,101 +1,40 @@
-const ADMIN_CACHE_NAME = 'mayumi-admin-shell-v53';
-// 同一オリジンにお客様アプリの Service Worker も同居しているため、
-// 後片付けは管理者アプリ自身のキャッシュだけに限定する。
-const ADMIN_CACHE_PREFIX = 'mayumi-admin-';
-const ADMIN_ENTRY_CANDIDATES = [
-  './index.html'
-];
-const ADMIN_SHELL_ASSETS = [
-  './admin-manifest.json',
-  './admin-icon-192.png',
-  './admin-icon-512.png',
-  './admin-apple-touch-icon.png',
-  './assets/icon.png',
-  './assets/instr_ios_1.png',
-  './assets/instr_ios_2.png',
-  './assets/instr_ios_3.png'
-];
+// 旧管理アプリの「覚えさせる仕掛け」は役目を終えました（2026-09-21）。
+//
+// 管理は新しい管理画面（サーバー側）へ移りました。
+// この仕掛けが残っていると、**差し替えたあとも古い管理アプリの画面が出続けます。**
+// ブラウザは、開くたびにこのファイルを見に来ます。そのときに自分を外し、
+// 覚えさせていたものを消して、開いているページを読み直させます。
+//
+// **お客様アプリのものには触りません。**同じ住所の下に同居しているので、
+// 消すのは名前が mayumi-admin- で始まるものだけにします。
 
 self.addEventListener('install', function (event) {
-  event.waitUntil(
-    caches.open(ADMIN_CACHE_NAME)
-      .then(function (cache) {
-        return Promise.all(
-          ADMIN_SHELL_ASSETS.map(function (asset) {
-            return cache.add(asset).catch(function () {
-              return null;
-            });
-          }).concat(
-            ADMIN_ENTRY_CANDIDATES.map(function (asset) {
-              return fetch(asset, { cache: 'no-cache' })
-                .then(function (response) {
-                  if (!response || !response.ok) return null;
-                  return cache.put(asset, response.clone());
-                })
-                .catch(function () {
-                  return null;
-                });
-            })
-          )
-        );
-      })
-      .then(function () {
-        return self.skipWaiting();
-      })
-  );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', function (event) {
-  event.waitUntil(
-    caches.keys().then(function (keys) {
-      return Promise.all(keys.map(function (key) {
-        if (key.indexOf(ADMIN_CACHE_PREFIX) === 0 && key !== ADMIN_CACHE_NAME) {
-          return caches.delete(key);
-        }
-        return null;
-      }));
-    }).then(function () {
-      return self.clients.claim();
-    })
-  );
+  event.waitUntil((async function () {
+    try {
+      const 名前たち = await caches.keys();
+      await Promise.all(
+        名前たち
+          .filter(function (k) { return k.indexOf('mayumi-admin-') === 0; })
+          .map(function (k) { return caches.delete(k); })
+      );
+    } catch (e) { /* 消せなくても、下の外す処理は進める */ }
+
+    try {
+      await self.registration.unregister();
+    } catch (e) { /* 外せなくても、下の読み直しは進める */ }
+
+    // 開いているページを読み直させる。新しい「移転しました」の画面が出る。
+    try {
+      const ページたち = await self.clients.matchAll({ type: 'window' });
+      ページたち.forEach(function (c) {
+        if (String(c.url || '').indexOf('/admin') !== -1) c.navigate(c.url);
+      });
+    } catch (e) { /* 読み直せなくても、次に開いたときには新しい画面になる */ }
+  })());
 });
 
-self.addEventListener('fetch', function (event) {
-  if (!event.request || event.request.method !== 'GET') return;
-
-  const requestUrl = new URL(event.request.url);
-  if (requestUrl.origin !== self.location.origin) return;
-
-  if (event.request.mode === 'navigate') {
-    const fallbackKey = './index.html';
-    event.respondWith(
-      fetch(event.request)
-        .then(function (response) {
-          const cloned = response.clone();
-          caches.open(ADMIN_CACHE_NAME).then(function (cache) {
-            cache.put(fallbackKey, cloned);
-          });
-          return response;
-        })
-        .catch(function () {
-          return caches.match(fallbackKey);
-        })
-    );
-    return;
-  }
-
-  if (ADMIN_SHELL_ASSETS.some(function (asset) { return requestUrl.pathname.endsWith(asset.replace('./', '/')); })) {
-    event.respondWith(
-      caches.match(event.request).then(function (cached) {
-        if (cached) return cached;
-        return fetch(event.request).then(function (response) {
-          const cloned = response.clone();
-          caches.open(ADMIN_CACHE_NAME).then(function (cache) {
-            cache.put(event.request, cloned);
-          });
-          return response;
-        });
-      })
-    );
-  }
-});
+// 何も横取りしない。いつもインターネットから取りに行く。

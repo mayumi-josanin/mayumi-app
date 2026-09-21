@@ -17,7 +17,8 @@
 <body>
 {% comment %}
 KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップバー、その下に中身。
-旧管理アプリ（GitHub Pages）から1画面ずつ移す。まだ無い画面は旧アプリへのリンクにしておく。
+前の管理アプリ（GitHub Pages）から1画面ずつ移し、**2026-09-21 に全部移し終えた**。
+前のアプリは「移転しました」の画面に差し替えたので、左メニューのリンクも外した。
 {% endcomment %}
 <div class="layout">
   <aside class="sidebar">
@@ -37,9 +38,6 @@ KEM_DDENKI と同じ組み方: 左に固定のサイドバー、上にトップ�
       {% for g in sec.groups %}
       <a href="{{ g.url }}" class="{% if g.active %}active{% endif %}"><span class="nav-icon">{{ g.icon }}</span> {{ g.label }}</a>
       {% endfor %}
-      {% if sec.label == "アプリ管理" %}
-      <a href="https://mayumi-josanin.github.io/mayumi-app/admin/" target="_blank" rel="noopener" class="nav-muted"><span class="nav-icon">↗</span> 旧管理アプリ</a>
-      {% endif %}
       {% endfor %}
 
     </nav>
