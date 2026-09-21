@@ -92,6 +92,9 @@ services:
       # 公式サイト（mayumi-site）。下の volume で /site に載せる。鍵は .env（setkey.ps1）
       SITE_REPO_DIR: /site
       SITE_GIT_TOKEN: ${SITE_GIT_TOKEN:-}
+      # 経費管理のレシート読み取り（Claude）。ビジリスの回数券分析と同じ鍵。
+      # **空のままでも他の機能は動く**（写真は上がり、手で直せる。読み取りだけができない）
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # develop の写し（このリポジトリ）。下の volume で /develop-app に載せる。
       # 「お客様の画面」で、いま作っている方（まゆみ助産院アプリ・ビジリス）を出すのに使う（読むだけ）
       PREVIEW_APP_DIR: /develop-app

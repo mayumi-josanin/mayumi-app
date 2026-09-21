@@ -31,9 +31,10 @@ from django.urls import reverse
         ("データ分析", "analytics", ["analytics"]),
         ("売上の記録（メニュー）", ("revenue_list", {"kind": "menu"}), []),
         ("売上の記録（商品）", ("revenue_list", {"kind": "product"}), []),
-        # 経費管理（apps/keihi。院長の依頼 2026-09-21）。いまは現金出納帳（JDL 様式 777）だけ。
+        # 経費管理（apps/keihi。院長の依頼 2026-09-21）。
         # 入ってくるお金（注文・売上）と出ていくお金を、同じまとまりで見られるようにここへ置いた
         ("経費管理", "keihi:book", ["keihi:book"]),
+        ("レシート", "keihi:receipt_list", ["keihi:receipt_"]),
     ]),
     ("設定", "🛠️", [
         ("カテゴリ", "category_list", ["category_"]),

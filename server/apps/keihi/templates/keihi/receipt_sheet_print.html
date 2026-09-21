@@ -1,0 +1,39 @@
+{% extends "manage/base.html" %}
+{% load static humanize %}
+{% block title %}レシート台紙 — まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}経費管理{% endblock %}
+
+{% block content %}
+{% comment %}
+写真を貼った台紙。紙で保存する用・税理士さんへ渡す用。
+1ページに2枚ずつ、写真が途中で切れないようにしている。
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'keihi/receipt.css' %}?v={{ STATIC_VERSION }}">
+
+<div class="page-header no-print">
+  <h1>レシート台紙</h1>
+  <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">印刷 / PDF に保存</button>
+</div>
+
+<h2 class="print-title">レ シ ー ト 台 紙</h2>
+<p class="print-sub">まゆみ助産院　{{ receipts|length }} 枚</p>
+
+{% if not receipts %}
+<p style="text-align:center;color:#666;">写真のあるレシートがありません。</p>
+{% endif %}
+
+<div class="receipt-sheet">
+  {% for r in receipts %}
+  <div class="receipt-sheet-item">
+    <img src="{% url 'manage:keihi:receipt_image' r.image_name %}" alt="">
+    <dl>
+      <dt>日付</dt><dd>{{ r.date|date:"Y年n月j日"|default:"—" }}</dd>
+      <dt>支払先</dt><dd>{{ r.store_name|default:"—" }}</dd>
+      <dt>科目</dt><dd>{{ r.counter_account|default:"—" }}</dd>
+      <dt>金額</dt><dd>{% if r.amount != None %}{{ r.amount|intcomma }} 円（{{ r.get_kind_display }}）{% else %}—{% endif %}</dd>
+    </dl>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

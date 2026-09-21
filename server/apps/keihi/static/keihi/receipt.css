@@ -1,0 +1,115 @@
+/* レシートの一覧。1枚を1枚のカードにして、写真と読み取り結果を並べて見せる。
+   写真と見比べながら直せることが大事なので、写真は常に隣に出す。 */
+
+.receipt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.receipt-card {
+  display: flex;
+  gap: 10px;
+  border: 1px solid var(--border, #e3e3e0);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+/* 出納帳へ入れ済みのものは、見た目で分かるように落とす */
+.receipt-card.is-done { background: #f6f7f4; opacity: .75; }
+
+.receipt-photo { flex: 0 0 110px; }
+
+.receipt-photo img {
+  width: 110px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border, #e3e3e0);
+  background: #fafafa;
+}
+
+.receipt-nophoto {
+  width: 110px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 1px dashed var(--border, #d8d8d4);
+  border-radius: 4px;
+  color: var(--text-muted, #8a8a80);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+.receipt-fields { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.receipt-fields label {
+  display: block;
+  font-size: .72rem;
+  color: var(--text-muted, #8a8a80);
+}
+
+.receipt-fields input,
+.receipt-fields select {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border, #e3e3e0);
+  border-radius: 4px;
+  font-size: .86rem;
+  color: var(--text, #1a1a1a);
+  background: #fff;
+}
+
+.receipt-fields input[inputmode="numeric"] { text-align: right; font-variant-numeric: tabular-nums; }
+
+.receipt-row { display: flex; gap: 6px; }
+.receipt-row label { flex: 1 1 0; }
+
+.receipt-top { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.receipt-check { display: flex; align-items: center; gap: 4px; font-size: .75rem; }
+.receipt-check input { width: auto; }
+
+.receipt-delete {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #8a8a80);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+.receipt-delete:hover { color: #c0392b; }
+
+.receipt-error { margin: 2px 0 0; font-size: .72rem; color: #c0392b; }
+
+/* ------------------------------------------------------------------
+   印刷（A4 縦）。台帳（表）と台紙（写真貼り）で使う。
+   ------------------------------------------------------------------ */
+@media print {
+  @page { size: A4 portrait; margin: 12mm; }
+  body { background: #fff; }
+  .sidebar, .topbar, .page-tabs, .page-header, .no-print, .messages { display: none !important; }
+  .content, main, .main { margin: 0 !important; padding: 0 !important; }
+}
+
+/* 台帳（一覧表） */
+.receipt-ledger { width: 100%; border-collapse: collapse; font-size: 11px; }
+.receipt-ledger th, .receipt-ledger td { border: 0.5px solid #666; padding: 4px 6px; }
+.receipt-ledger thead th { background: #57564d; color: #fff; font-weight: 500; }
+.receipt-ledger .num { text-align: right; font-variant-numeric: tabular-nums; }
+.receipt-ledger tfoot td { font-weight: 600; }
+
+/* 台紙（写真貼り）。1ページに2枚ずつ、途中で切れないように */
+.receipt-sheet { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; }
+.receipt-sheet-item { break-inside: avoid; border: 0.5px solid #999; padding: 4mm; }
+.receipt-sheet-item img { width: 100%; max-height: 105mm; object-fit: contain; }
+.receipt-sheet-item dl { margin: 3mm 0 0; font-size: 10px; line-height: 1.6; }
+.receipt-sheet-item dt { float: left; width: 16mm; color: #666; }
+.receipt-sheet-item dd { margin: 0 0 0 16mm; }
+
+.print-title { font-size: 14px; letter-spacing: .2em; text-align: center; margin: 0 0 4mm; }
+.print-sub { font-size: 10px; color: #666; text-align: center; margin: 0 0 6mm; }
