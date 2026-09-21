@@ -22,11 +22,23 @@
     <p class="sub">このページは記録を持っていません。以前の管理アプリの記録は、新しい管理画面に引き継がれています。</p>
   </div>
   <script>
-    // 以前の管理アプリの Service Worker と保存物を外す。残っていると古い画面が出続ける。
+    // 以前の管理アプリが端末に覚えさせたものを外す。残っていると古い画面が出続ける。
+    //
+    // **お客様アプリのものまで外さない。**同じ住所の下にお客様アプリも同居しているので、
+    // 全部外すと、院長の端末でお客様アプリが一度つながらなくなる（次に開けば戻るが、驚かせる）。
+    // 管理アプリのぶん（住所に admin が入っているもの・名前が mayumi-admin- で始まるもの）だけにする。
     if (navigator.serviceWorker) {
-      navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.unregister(); }); });
+      navigator.serviceWorker.getRegistrations().then(function (rs) {
+        rs.forEach(function (r) {
+          if (String(r.scope || '').indexOf('/admin') !== -1) r.unregister();
+        });
+      });
     }
-    if (window.caches) { caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); }); }
+    if (window.caches) {
+      caches.keys().then(function (ks) {
+        ks.forEach(function (k) { if (k.indexOf('mayumi-admin-') === 0) caches.delete(k); });
+      });
+    }
   </script>
 </body>
 </html>
