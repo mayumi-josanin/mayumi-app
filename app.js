@@ -9264,4 +9264,16 @@ function calculateDashiPricing(qty) {
   };
 }
 
+// **描く前に、出す画面を決めておく**（2026-09-21）。
+// initApp は端末の記録を読むのに少し待つ作りで、そのあいだ「どの画面も選ばれていない」
+// 状態で描かれていた。枠だけが出て、少し後に中身が現れる。これがちらつきの正体。
+// ここは待たずにその場で終わるので、描く前に間に合う。
+// （設計図では最初からホームを選んである。前に見ていた画面が別なら、ここで入れ替える）
+try {
+  if (_profile) {
+    var 出す画面 = getPreferredStartupPage();
+    if (出す画面 && 出す画面 !== 'home') activatePageSilently(出す画面);
+  }
+} catch (e) { /* ここで止まっても、initApp があとで選び直す */ }
+
 if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initApp); } else { initApp(); }
