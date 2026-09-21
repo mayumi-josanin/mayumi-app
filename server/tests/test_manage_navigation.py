@@ -41,6 +41,11 @@ def test_開いている画面のまとまりが光り上部タブが出る(as_o
     assert 'class="active"><span class="nav-icon">📦</span> 注文と売上</a>' in _sidebar(page)
     page = as_owner.get("/manage/system/").content.decode()
     assert 'class="active">システム管理</a>' in _tabs(page)
+    # QRコード案内は「設定」の最後のタブ（旧管理アプリから移した 2026-09-21）
+    assert "QRコード案内" in _tabs(page)
+    page = as_owner.get("/manage/qrcode/").content.decode()
+    assert 'class="active">QRコード案内</a>' in _tabs(page)
+    assert 'class="active"><span class="nav-icon">🛠️</span> 設定</a>' in _sidebar(page)
 
 
 def test_公式サイトのまとまり(as_owner, settings):

@@ -3,7 +3,7 @@ from django.urls import include, path
 
 from . import (
     views_analytics, views_calendar, views_category, views_login, views_member, views_member_extra, views_menu, views_news,
-    views_notice, views_order, views_product, views_push, views_reward, views_sso, views_system,
+    views_notice, views_order, views_product, views_push, views_qrcode, views_reward, views_sso, views_system,
 )
 
 app_name = "manage"
@@ -82,8 +82,12 @@ urlpatterns = [
     path("rewards/gacha/", views_reward.reward_gacha_save, name="reward_gacha_save"),
     path("rewards/<str:member_id>/row-save/", views_reward.reward_row_save, name="reward_row_save"),
     path("rewards/<str:member_id>/", views_reward.reward_edit, name="reward_edit"),
+    # QRコード案内（旧管理アプリの #page-qrcode）。QRの絵はこのサーバーが描く（外の絵の作り手に頼らない）
+    path("qrcode/", views_qrcode.qrcode_view, name="qrcode"),
+    path("qrcode/image/", views_qrcode.qrcode_image, name="qrcode_image"),
     path("system/", views_system.system_view, name="system"),
     path("system/backup/", views_system.system_backup, name="system_backup"),
+    path("system/app-url/", views_system.system_app_url, name="system_app_url"),
     # 公式サイト（apps/hp）。同じログイン・同じ左メニューで使う
     path("", include("apps.hp.urls")),
     # 開発（apps/dev。KEM の開発管理の写し）。namespace "dev" を持つので逆引きは manage:dev:project_list

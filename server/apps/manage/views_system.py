@@ -40,6 +40,7 @@ from apps.records.models import BackupRecord
 
 from .permissions import owner_required
 from .views_order import _まとめ as _注文をまとめる
+from .views_qrcode import アプリの住所, 住所を決める
 
 # GAS の定数と同じ（管理者・お客様.js 277〜279行）
 未対応注文の日数 = 3          # STALE_PENDING_ORDER_DAYS
@@ -259,6 +260,8 @@ def system_view(request):
 
     取れる, 取れない理由 = _控えを取れるか()
     return render(request, "manage/system.html", {
+        # お客様アプリの住所（旧管理アプリの「初期設定 > アプリ公開用URL」）。QRコード案内がこれを使う
+        "app_url": アプリの住所(),
         "generated_at": いま,
         "summary": [("会員数", len(会員)), ("公開予約", len(公開予約)), ("重複候補", len(重複)), ("Push失敗", push失敗)],
         "alerts": alerts,
@@ -301,4 +304,22 @@ def system_backup(request):
         messages.error(request, "バックアップに失敗しました" + (f": {r.stderr.strip()[:200]}" if r.stderr else ""))
         return redirect("manage:system")
     messages.success(request, f"バックアップを作成しました（{ファイル.name}）")
+    return redirect("manage:system")
+
+
+@require_POST
+@owner_required
+def system_app_url(request):
+    """お客様アプリの住所を決める。
+
+    旧管理アプリは、この住所をそのパソコンのブラウザの中（localStorage）に置いていた。
+    そのため**パソコンを変えると消え、QRコードが出なくなった**。ここでは設定の置き場
+    （records.AppSetting）に入れるので、どの端末から入っても同じ住所になる。
+    """
+    住所 = str(request.POST.get("app_url") or "").strip()
+    if 住所 and not 住所.startswith(("http://", "https://")):
+        messages.error(request, "住所は https:// から始まる形で入れてください。")
+        return redirect("manage:system")
+    住所を決める(住所)
+    messages.success(request, "お客様アプリの住所を保存しました。" if 住所 else "お客様アプリの住所を空にしました。")
     return redirect("manage:system")

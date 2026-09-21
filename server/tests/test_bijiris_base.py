@@ -331,7 +331,9 @@ def test_顧客の取り込み(tmp_path):
 def test_設定の取り込み(tmp_path):
     p = _置く(tmp_path, "p.json", _設定())
     out = _流す("ビジリスの設定を取り込む", p, "--下見")
-    assert "秘密が混ざっていたので捨てました: ANTHROPIC_API_KEY" in out and AppSetting.objects.count() == 0
+    # 下見では何も書かない。お客様アプリの住所（app_public_url）は移行で最初から入っているので数に入れない
+    assert "秘密が混ざっていたので捨てました: ANTHROPIC_API_KEY" in out
+    assert AppSetting.objects.exclude(pk="app_public_url").count() == 0
     _流す("ビジリスの設定を取り込む", p)
     v = AppSetting.objects.get(pk="bijiris_preferences").value
     assert "ANTHROPIC_API_KEY" not in v and json.dumps(v).find("sk-secret") == -1
