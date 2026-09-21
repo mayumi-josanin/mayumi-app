@@ -149,10 +149,8 @@
                 {% endif %}
               </td>
               <td class="c-ops">
-                {% if row.r.image_name %}
-                <button type="submit" class="op" formaction="{% url 'manage:keihi:receipt_split' row.r.id %}"
-                        title="このレシートを科目ごとに分ける">分ける</button>
-                {% endif %}
+                <a class="op" href="{% url 'manage:keihi:receipt_split' row.r.id %}?order={{ order }}"
+                   title="買ったものごとに科目を分ける">分ける</a>
                 <button type="submit" class="op op-delete" formaction="{% url 'manage:keihi:receipt_delete' row.r.id %}"
                         onclick="return confirm('この行を消します。出納帳の行は残ります。よろしいですか？')"
                         title="この行を消す">×</button>

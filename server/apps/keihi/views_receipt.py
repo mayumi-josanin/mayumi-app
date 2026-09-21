@@ -20,7 +20,7 @@ from django.views.decorators.http import require_POST
 from apps.manage.permissions import owner_required
 
 from . import extract, storage
-from .models import Cashbook, CashbookEntry, Receipt
+from .models import Cashbook, CashbookEntry, Receipt, ReceiptItem
 from .services import SUGGESTED_ACCOUNTS
 
 # 1回の「読み取る」でまとめて読む枚数。ビジリスの分析と同じ考え方で、
@@ -155,8 +155,26 @@ def _まとめて読む(receipts) -> tuple[int, int]:
         r.raw = 中身.get("_raw") or ""
         r.status, r.error = "done", ""
         r.save()
+        _明細を入れ直す(r, 中身.get("items"))
         読めた += 1
     return 読めた, 読めなかった
+
+
+def _明細を入れ直す(r: Receipt, items) -> None:
+    """読み取った品物を入れ直す。1枚の中で科目を分けるときに、これを選んでもらう。"""
+    r.items.all().delete()
+    if not isinstance(items, list):
+        return
+    作る = []
+    for i, item in enumerate(items[:120], start=1):   # 長いレシート対策の上限
+        if not isinstance(item, dict):
+            continue
+        名前 = str(item.get("name") or "").strip()[:255]
+        金額 = _int(str(item.get("amount") or ""))
+        if not 名前 and 金額 is None:
+            continue
+        作る.append(ReceiptItem(receipt=r, row_order=i, name=名前, amount=金額))
+    ReceiptItem.objects.bulk_create(作る)
 
 
 def _読み取りの結果を伝える(request, 読めた: int, 読めなかった: int) -> None:
@@ -188,29 +206,74 @@ def receipt_create(request):
 
 
 @owner_required
-@require_POST
 def receipt_split(request, pk: int):
-    """1枚のレシートを2行に分ける。
+    """1枚のレシートを、買ったものごとに科目で分ける。
 
     スーパーのレシートのように、1枚の中に科目の違う買い物が混ざっていることがある。
-    **写真は同じものを指したまま**、行だけを増やして、それぞれに科目と金額を入れてもらう。
-    分けた行を出納帳へ入れると、その数だけ行になる。
+    読み取った品物を選び、その分の科目を決めると、**選んだ品物だけが別の行に移る**。
+
+    金額は自動で出す。**引き算で出す**のがこの画面の肝で、
+      分ける行 ＝ 選んだ品物の合計
+      元の行   ＝ 元の金額 − 選んだ品物の合計
+    とすれば、税や値引きがどちらに入っていても、分けたあとの合計は元の金額と必ず一致する。
+    品物を足し上げて作り直すと、税の分だけ帳簿が合わなくなる。
+
+    店名・支払先・日付・種別は元のレシートから引き継ぐので、入れ直さなくてよい。
     """
     もと = get_object_or_404(Receipt, pk=pk)
-    Receipt.objects.create(
-        image_name=もと.image_name,            # 同じ写真を指す（消すときは最後の1行まで残す）
-        original_filename=もと.original_filename,
-        date=もと.date,
-        store_name=もと.store_name,
-        kind=もと.kind,
-        status=もと.status,
-        # 金額と科目は入れない。分けた分をこれから書いてもらう
-        amount=None,
-        counter_account="",
-        memo="",
+
+    if request.method == "GET":
+        return render(request, "keihi/receipt_split.html", {
+            "receipt": もと,
+            "items": list(もと.items.all()),
+            "accounts": SUGGESTED_ACCOUNTS,
+            "query": request.GET.urlencode(),
+        })
+
+    選ばれた = [_int(i) for i in request.POST.getlist("items")]
+    品物 = list(もと.items.filter(id__in=[i for i in 選ばれた if i]))
+    科目 = (request.POST.get("acc") or "").strip()[:100]
+
+    # 品物が読めていないレシートは、金額を手で入れて分ける
+    手入力の金額 = _int(request.POST.get("amount"))
+    分ける金額 = sum(i.amount or 0 for i in 品物) if 品物 else 手入力の金額
+
+    if not 分ける金額:
+        messages.error(request, "分ける品物を選ぶか、金額を入れてください。")
+        return redirect(request.path)
+    if もと.amount is not None and 分ける金額 > もと.amount:
+        messages.error(request, "分ける金額が、元のレシートの金額を超えています。")
+        return redirect(request.path)
+
+    with transaction.atomic():
+        新しい行 = Receipt.objects.create(
+            image_name=もと.image_name,        # 同じ写真を指す（消すときは最後の1行まで残す）
+            original_filename=もと.original_filename,
+            date=もと.date,                     # 日付・店名・種別は自動で引き継ぐ
+            store_name=もと.store_name,
+            kind=もと.kind,
+            status=もと.status,
+            amount=分ける金額,
+            counter_account=科目,
+            memo="、".join(i.name for i in 品物 if i.name)[:500],
+        )
+        # 選んだ品物は、分けた行へ移す（どちらの行に何が入っているか、あとから分かる）
+        for 品 in 品物:
+            品.receipt = 新しい行
+            品.save(update_fields=["receipt", "updated_at"])
+
+        if もと.amount is not None:
+            もと.amount = もと.amount - 分ける金額
+            残り = list(もと.items.all())
+            もと.memo = "、".join(i.name for i in 残り if i.name)[:500] or もと.memo
+            もと.save(update_fields=["amount", "memo", "updated_at"])
+
+    messages.success(
+        request,
+        f"{分ける金額:,} 円を「{科目 or '科目なし'}」として分けました。元の行は {もと.amount:,} 円になりました"
+        if もと.amount is not None else f"{分ける金額:,} 円を分けました",
     )
-    messages.success(request, "行を分けました。それぞれの科目と金額を入れてください")
-    return redirect(_一覧のURL(request))
+    return redirect(reverse("manage:keihi:receipt_list") + (f"?{request.POST.get('query', '')}" if request.POST.get("query") else ""))
 
 
 @owner_required

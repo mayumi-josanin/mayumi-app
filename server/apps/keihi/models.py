@@ -106,3 +106,28 @@ class Receipt(時刻付き):
     @property
     def 出納帳へ反映済み(self) -> bool:
         return self.entry_id is not None
+
+
+class ReceiptItem(時刻付き):
+    """レシートに載っていた品物1つ。
+
+    1枚の中で科目が分かれるレシート（スーパーなど）を分けるために持つ。
+    品物を選んで科目を決めると、その品物だけが別の行に移る。
+
+    **金額はレシートに印字されたまま**を入れる。税込か税抜かはレシートによって違うので、
+    分けるときは「品物の合計」を元の金額から**引く**（足し算で作り直さない）。
+    そうすれば、税や値引きがどちらに入っていても、分けた合計は元の金額と必ず一致する。
+    """
+
+    receipt = models.ForeignKey(Receipt, on_delete=models.CASCADE, related_name="items", verbose_name="レシート")
+    row_order = models.IntegerField("並び順", default=0)
+    name = models.CharField("品名", max_length=255, blank=True, default="")
+    amount = models.IntegerField("金額", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "レシートの品物"
+        verbose_name_plural = "レシートの品物"
+        ordering = ["row_order", "id"]
+
+    def __str__(self):
+        return f"{self.name} {self.amount}"

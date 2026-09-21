@@ -12,7 +12,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.keihi import extract, storage
-from apps.keihi.models import Cashbook, Receipt
+from apps.keihi.models import Cashbook, Receipt, ReceiptItem
 
 pytestmark = pytest.mark.django_db
 
@@ -40,6 +40,10 @@ def 読める(monkeypatch):
         return {
             "date": "2026-09-03", "amount": 1280, "store_name": "まるみ文具店",
             "counter_account": "消耗品費", "kind": "payment", "note": "コピー用紙",
+            "items": [
+                {"name": "コピー用紙 A4", "amount": 880},
+                {"name": "ボールペン", "amount": 300},
+            ],
             "_raw": "{}",
         }
     monkeypatch.setattr(extract, "読み取る", fake)
@@ -203,40 +207,112 @@ def test_古い順と新しい順(as_owner):
     assert [r.store_name for r in 新しい順] == ["あと", "さき", "日付なし"]
 
 
-# ---- 1枚を科目ごとに分ける -------------------------------------------------
+# ---- 1枚を買ったものごとに分ける -------------------------------------------
 
-def test_1枚を分けると同じ写真の行が増える(as_owner, 読める):
+def test_読み取ると品物も残る(as_owner, 読める):
+    as_owner.post(f"{URL}upload/", {"photos": [写真()]})
+    r = Receipt.objects.get()
+    assert [(i.name, i.amount) for i in r.items.all()] == [
+        ("コピー用紙 A4", 880), ("ボールペン", 300),
+    ]
+
+
+def test_分ける画面に品物が出る(as_owner, 読める):
+    as_owner.post(f"{URL}upload/", {"photos": [写真()]})
+    r = Receipt.objects.get()
+    画面 = as_owner.get(f"{URL}{r.id}/split/")
+    assert 画面.status_code == 200
+    本文 = 画面.content.decode()
+    assert "コピー用紙 A4" in 本文 and "ボールペン" in 本文
+
+
+def test_選んだ品物の分だけが別の行に移る(as_owner, 読める):
+    as_owner.post(f"{URL}upload/", {"photos": [写真()]})
+    もと = Receipt.objects.get()
+    ボールペン = もと.items.get(name="ボールペン")
+
+    as_owner.post(f"{URL}{もと.id}/split/", {"items": [str(ボールペン.id)], "acc": "事務用品費"})
+
+    もと.refresh_from_db()
+    分けた = Receipt.objects.exclude(id=もと.id).get()
+
+    # 金額は自動。分けた行＝選んだ品物の合計、元の行＝元の金額−その合計
+    assert 分けた.amount == 300
+    assert もと.amount == 980
+    assert 分けた.counter_account == "事務用品費"
+    # 店名・日付・種別・写真は引き継ぐ
+    assert 分けた.store_name == もと.store_name
+    assert 分けた.date == もと.date
+    assert 分けた.kind == もと.kind
+    assert 分けた.image_name == もと.image_name
+    # 品物はそれぞれの行に分かれる
+    assert [i.name for i in 分けた.items.all()] == ["ボールペン"]
+    assert [i.name for i in もと.items.all()] == ["コピー用紙 A4"]
+
+
+def test_分けても合計は元の金額と変わらない(as_owner, 読める):
+    """税や値引きがどちらに入っていても、分けた合計が元と合うこと。"""
+    as_owner.post(f"{URL}upload/", {"photos": [写真()]})
+    もと = Receipt.objects.get()
+    元の金額 = もと.amount
+    紙 = もと.items.get(name="コピー用紙 A4")
+
+    as_owner.post(f"{URL}{もと.id}/split/", {"items": [str(紙.id)], "acc": "消耗品費"})
+
+    assert sum(r.amount for r in Receipt.objects.all()) == 元の金額
+
+
+def test_複数の品物をまとめて分けられる(as_owner, 読める):
+    as_owner.post(f"{URL}upload/", {"photos": [写真()]})
+    もと = Receipt.objects.get()
+    ids = [str(i.id) for i in もと.items.all()]
+
+    as_owner.post(f"{URL}{もと.id}/split/", {"items": ids, "acc": "福利厚生費"})
+
+    もと.refresh_from_db()
+    分けた = Receipt.objects.exclude(id=もと.id).get()
+    assert 分けた.amount == 1180          # 880 + 300
+    assert もと.amount == 100             # 1280 − 1180（税などの残り）
+    assert 分けた.memo == "コピー用紙 A4、ボールペン"
+
+
+def test_品物が読めていないレシートは金額を手で入れて分ける(as_owner, 読めない):
+    as_owner.post(f"{URL}upload/", {"photos": [写真()]})
+    もと = Receipt.objects.get()
+    もと.amount = 5000
+    もと.save()
+
+    as_owner.post(f"{URL}{もと.id}/split/", {"amount": "1,200", "acc": "消耗品費"})
+
+    もと.refresh_from_db()
+    分けた = Receipt.objects.exclude(id=もと.id).get()
+    assert 分けた.amount == 1200 and もと.amount == 3800
+
+
+def test_元の金額を超える分け方は断る(as_owner, 読める):
     as_owner.post(f"{URL}upload/", {"photos": [写真()]})
     もと = Receipt.objects.get()
 
-    as_owner.post(f"{URL}{もと.id}/split/")
+    as_owner.post(f"{URL}{もと.id}/split/", {"amount": "99999", "acc": "消耗品費"})
 
-    行 = list(Receipt.objects.order_by("id"))
-    assert len(行) == 2
-    # 写真・日付・店名は引き継ぐ。科目と金額は、これから分けて入れるので空
-    assert 行[1].image_name == もと.image_name
-    assert 行[1].date == もと.date and 行[1].store_name == もと.store_name
-    assert 行[1].amount is None and 行[1].counter_account == ""
+    assert Receipt.objects.count() == 1
+    もと.refresh_from_db()
+    assert もと.amount == 1280
 
 
 def test_分けた行はそれぞれ別の科目で出納帳に入る(as_owner, 読める):
     as_owner.post(f"{URL}upload/", {"photos": [写真()]})
     もと = Receipt.objects.get()
-    as_owner.post(f"{URL}{もと.id}/split/")
-    a, b = Receipt.objects.order_by("id")
+    ペン = もと.items.get(name="ボールペン")
+    as_owner.post(f"{URL}{もと.id}/split/", {"items": [str(ペン.id)], "acc": "事務用品費"})
 
-    as_owner.post(f"{URL}save/", {
-        f"date-{a.id}": "2026-09-03", f"amount-{a.id}": "800", f"store-{a.id}": "オーケー",
-        f"acc-{a.id}": "福利厚生費", f"kind-{a.id}": "payment", f"memo-{a.id}": "お茶",
-        f"date-{b.id}": "2026-09-03", f"amount-{b.id}": "480", f"store-{b.id}": "オーケー",
-        f"acc-{b.id}": "消耗品費", f"kind-{b.id}": "payment", f"memo-{b.id}": "洗剤",
-    })
+    a, b = Receipt.objects.order_by("id")
     as_owner.post(f"{URL}to-book/", {"selected": [str(a.id), str(b.id)]})
 
     a.refresh_from_db(); b.refresh_from_db()
     行たち = sorted([a.entry, b.entry], key=lambda e: e.payment)
     assert [(e.payment, e.counter_account) for e in 行たち] == [
-        (480, "消耗品費"), (800, "福利厚生費"),
+        (300, "事務用品費"), (980, "消耗品費"),
     ]
 
 
@@ -244,14 +320,13 @@ def test_分けた片方を消しても写真は残る(as_owner, 読める):
     """分けた行は同じ写真を指す。片方を消したときに写真まで消すと、相方が見られなくなる。"""
     as_owner.post(f"{URL}upload/", {"photos": [写真()]})
     もと = Receipt.objects.get()
-    as_owner.post(f"{URL}{もと.id}/split/")
+    ペン = もと.items.get(name="ボールペン")
+    as_owner.post(f"{URL}{もと.id}/split/", {"items": [str(ペン.id)], "acc": "事務用品費"})
     a, b = Receipt.objects.order_by("id")
 
     as_owner.post(f"{URL}{a.id}/delete/")
-
     assert storage.読み出す(b.image_name) is not None
 
-    # 最後の1行を消したときは、写真も片付ける
     as_owner.post(f"{URL}{b.id}/delete/")
     assert storage.読み出す(b.image_name) is None
 
@@ -259,16 +334,13 @@ def test_分けた片方を消しても写真は残る(as_owner, 読める):
 def test_分けた行は一覧で印と合計が付く(as_owner, 読める):
     as_owner.post(f"{URL}upload/", {"photos": [写真()]})
     もと = Receipt.objects.get()
-    as_owner.post(f"{URL}{もと.id}/split/")
-    b = Receipt.objects.order_by("id")[1]
-    b.amount = 500
-    b.save()
+    ペン = もと.items.get(name="ボールペン")
+    as_owner.post(f"{URL}{もと.id}/split/", {"items": [str(ペン.id)], "acc": "事務用品費"})
 
     行 = as_owner.get(URL).context["rows"]
     assert all(r["分けている"] for r in 行)
     assert 行[0]["分けた数"] == 2
-    # 1280（読み取った分）＋ 500（分けた分）
-    assert 行[0]["分けた合計"] == 1780
+    assert 行[0]["分けた合計"] == 1280      # 分けても元の金額と合う
 
 
 # ---- 写真の見せ方（外から見えないこと） -----------------------------------
