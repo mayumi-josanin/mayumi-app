@@ -1,0 +1,209 @@
+{% extends "manage/base.html" %}
+{% load static %}
+
+{% block title %}QRコード案内 | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}QRコード案内{% endblock %}
+
+{% block content %}
+{% comment %}
+旧管理アプリ（admin/index.html の #page-qrcode）と同じ中身。見た目だけ管理画面に合わせた。
+
+印刷のときは「配布用資料」だけが出る。旧アプリは新しい窓を開いて資料を書き込んでいたが、
+新しい窓はブラウザに止められることがあり、押しても無反応に見えるため、同じ画面に置いた。
+{% endcomment %}
+<style>
+  .qr-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: start; }
+  .qr-box { text-align: center; }
+  .qr-box img { width: 200px; height: 200px; border: 1px solid var(--border, #ddd); padding: 10px; background: #fff; }
+  .qr-url { font-size: 12px; word-break: break-all; }
+  .qr-notes { text-align: left; font-size: 12px; line-height: 1.8; background: #f8f6f2;
+              border: 1px solid var(--border, #ddd); border-radius: 14px; padding: 14px 16px; }
+  .qr-steps img { border: 1px solid #eee; border-radius: 10px; }
+
+  /* 配布用資料。画面では小さく畳んでおき、印刷するとこれだけが紙に出る */
+  .print-sheet { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 40px; color: #3d2e1e; line-height: 1.6; }
+  .print-sheet h1 { font-size: 32px; color: #5a7a4e; margin-bottom: 10px; text-align: center; }
+  .print-sheet .subtitle { font-size: 18px; color: #9a8070; letter-spacing: 0.1em; text-align: center; }
+  .print-sheet .qr-section { text-align: center; margin: 50px 0; }
+  .print-sheet .qr-frame { display: inline-block; padding: 20px; border: 2px solid #5a7a4e; border-radius: 20px; background: #fff; }
+  .print-sheet .qr-img { width: 250px; height: 250px; display: block; }
+  .print-sheet .url-text { margin-top: 15px; font-size: 14px; color: #8a9e7e; font-weight: bold; word-break: break-all; }
+  .print-sheet .instructions { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px;
+                               border-top: 1px dashed #ccc; padding-top: 40px; }
+  .print-sheet h2 { font-size: 20px; color: #5a7a4e; border-bottom: 2px solid #b5c9a8; padding-bottom: 10px; margin-bottom: 20px; }
+  .print-sheet ol { padding-left: 20px; font-size: 14px; }
+  .print-sheet li { margin-bottom: 15px; }
+  .print-sheet footer { text-align: center; margin-top: 60px; font-size: 12px; color: #9a8070; }
+
+  @media print {
+    .sidebar, .topbar, .page-tabs, .messages, .qr-screen, .no-print { display: none !important; }
+    .layout, .main, .content { display: block !important; margin: 0 !important; padding: 0 !important; }
+    body { background: #fff; }
+    .print-sheet { border: none; border-radius: 0; padding: 40px; width: 100%; }
+    .print-sheet-wrap { display: block !important; }
+  }
+</style>
+
+<div class="qr-screen">
+  <div class="page-header">
+    <h1>📱 QRコード案内</h1>
+    <div class="page-header-actions">
+      {% if app_url %}<button type="button" class="btn btn-primary" onclick="window.print()">🖨 配布用資料を印刷</button>{% endif %}
+    </div>
+  </div>
+
+  {% if not app_url %}
+    {# 住所が決まっていないときは、そこへの行き先を出す（旧アプリの「⚙ 初期設定を開く」にあたる） #}
+    <div class="card">
+      <div class="card-body">
+        <p>お客様アプリの住所が決まっていないため、QRコードを作れません。</p>
+        <p class="sub">システム管理の「お客様アプリの住所」で決めてください。</p>
+        <a class="btn btn-primary" href="{% url 'manage:system' %}#app-url">⚙ システム管理を開く</a>
+      </div>
+    </div>
+  {% else %}
+    <div class="qr-columns">
+      <div class="card">
+        <div class="card-header"><h2>アプリ配布用QRコード</h2></div>
+        <div class="card-body qr-box">
+          <p class="sub">初回登録やホーム画面追加のご案内用です。</p>
+          <img src="{% url 'manage:qrcode_image' %}?kind=app&amp;size=300" alt="アプリ配布用QRコード">
+          <p style="font-weight:bold;margin:12px 0 4px">スキャン用URL:</p>
+          <p class="qr-url">{{ app_url }}</p>
+          <div class="page-header-actions" style="justify-content:center">
+            <button type="button" class="btn btn-primary" onclick="window.print()">🖨 配布用資料を印刷</button>
+            <a class="btn btn-outline" href="{% url 'manage:qrcode_image' %}?kind=app&amp;size=600&amp;download=1">QRコードを画像で保存</a>
+            <a class="btn btn-outline" href="{% url 'manage:system' %}#app-url">URLを変更</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2>来院スタンプ用QRコード</h2></div>
+        <div class="card-body qr-box">
+          <p class="sub">院内で掲示する、アプリ起動専用のQRコードです。</p>
+          <img src="{% url 'manage:qrcode_image' %}?kind=stamp&amp;size=300" alt="来院スタンプ用QRコード">
+          <p style="font-weight:bold;margin:12px 0 4px">スキャン用URL:</p>
+          <p class="qr-url">{{ stamp_url }}</p>
+          {# 説明書き4行は旧アプリのまま #}
+          <div class="qr-notes">
+            <div>・iPhone / Android の標準カメラで読み取ると、中継ページが開いてアプリ起動だけを試します。</div>
+            <div>・中では <strong>mayumijosanin://stamp?open=home</strong> を呼び出すため、標準カメラではスタンプは付きません。</div>
+            <div>・来院スタンプは、アプリを開いた後にアプリ内の「カメラを起動して読み取る」から同じQRコードを読み取った時だけ付与されます。</div>
+            <div>・旧式の `mayumijosanin://...` 直QRは、iPhone標準カメラでは「使用可能なデータがみつかりません」になるため使わないでください。</div>
+          </div>
+          <div class="page-header-actions" style="justify-content:center">
+            <a class="btn btn-outline" href="{% url 'manage:qrcode_image' %}?kind=stamp&amp;size=600&amp;download=1">スタンプQRを画像で保存</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>インストール手順（お客様への案内用）</h2></div>
+      <div class="card-body">
+        <div class="note" style="margin-bottom:18px">
+          来院スタンプは「来院スタンプ用QRコード」をご利用ください。配布用QRコードを院内スタンプ案内に使うと、登録画面が開いて重複登録の原因になります。
+        </div>
+        <h3>🍏 iPhone (Safari) の場合</h3>
+        <ol style="line-height:1.8">
+          <li>Safariで下の<strong>共有アイコン</strong>（図①）をタップし、メニューから<strong>「ホーム画面に追加」</strong>（図②）を選択します。</li>
+          <li>「ホーム画面に追加」画面で、名前の左のアイコンが<strong>「ま」のロゴ</strong>（図③）に変わるまで<strong>数秒待ってから</strong>、右上の「追加」をタップしてください。</li>
+        </ol>
+        <div class="qr-steps" style="display:flex;gap:8px;align-items:center;overflow-x:auto">
+          <div style="flex:0 0 100px;text-align:center">
+            <img src="{% static 'manage/img/instr_ios_1.png' %}" style="width:100%" alt="図①">
+            <div class="sub" style="font-size:10px">図① 共有ボタン</div>
+          </div>
+          <div style="font-weight:bold">➜</div>
+          <div style="flex:0 0 100px;text-align:center">
+            <img src="{% static 'manage/img/instr_ios_2.png' %}" style="width:100%" alt="図②">
+            <div class="sub" style="font-size:10px">図② 項目を選択</div>
+          </div>
+          <div style="font-weight:bold">➜</div>
+          <div style="flex:0 0 100px;text-align:center">
+            <img src="{% static 'manage/img/instr_ios_3.png' %}" style="width:100%" alt="図③">
+            <div class="sub" style="font-size:10px">図③ ロゴを確認</div>
+          </div>
+        </div>
+        <h3 style="margin-top:20px">🤖 Android (Chrome) の場合</h3>
+        <ol style="line-height:1.8">
+          <li>カメラまたはQRコードリーダーで上記のQRコードをスキャンし、Chromeで開きます。</li>
+          <li>右上のメニュー（3つの点）をタップします。</li>
+          <li><strong>「ホーム画面に追加」</strong>または<strong>「アプリをインストール」</strong>をタップします。</li>
+          <li>「インストール」をタップすると、ホーム画面にアイコンが追加されます。<br>
+            <img src="{% static 'manage/img/icon-192.png' %}" style="width:60px;height:60px;border-radius:12px;margin-top:5px" alt="アプリのアイコン">
+          </li>
+        </ol>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+{% if app_url %}
+{# 配布用資料。旧アプリの showPrintMaterial と同じ内容・同じ文言 #}
+<div class="print-sheet-wrap">
+  <div class="card" style="margin-top:20px">
+    <div class="card-header"><h2>配布用資料（印刷）</h2></div>
+    <div class="card-body">
+      <div class="sub no-print" style="margin-bottom:12px">
+        下の内容がそのまま紙に出ます。A4またはB5サイズでの印刷を推奨します。
+      </div>
+      <div class="print-sheet">
+        <header>
+          <h1>まゆみ助産院</h1>
+          <div class="subtitle">公式アプリのご案内</div>
+        </header>
+        <div style="text-align:center;font-size:16px;margin-bottom:30px">
+          スマートフォンでスキャンするだけで、<br>簡単にインストールしてご利用いただけます。
+        </div>
+        <div class="qr-section">
+          <div class="qr-frame">
+            <img class="qr-img" src="{% url 'manage:qrcode_image' %}?kind=app&amp;size=400" alt="アプリ配布用QRコード">
+          </div>
+          <div class="url-text">{{ app_url }}</div>
+        </div>
+        <div class="instructions">
+          <div>
+            <h2>🍏 iPhoneの方</h2>
+            <ol>
+              <li>Safariの下にある<strong>「共有ボタン」</strong>（図①）をタップします。</li>
+              <li>メニュー内の<strong>「ホーム画面に追加」</strong>（図②）を選びます。</li>
+              <li>画面上のアイコンが<strong>ロゴ画像</strong>（図③）に変わるまで<strong>数秒待ってから</strong>、右上の「追加」をタップします。</li>
+            </ol>
+            <div style="display:flex;gap:5px;align-items:center;margin-top:15px">
+              <div style="flex:1;text-align:center">
+                <img src="{% static 'manage/img/instr_ios_1.png' %}" style="width:100%;border:1px solid #eee;border-radius:5px" alt="図①">
+                <div style="font-size:8px;color:#9a8070;margin-top:3px">図①</div>
+              </div>
+              <div style="font-size:16px;color:#b5c9a8;font-weight:bold">➜</div>
+              <div style="flex:1;text-align:center">
+                <img src="{% static 'manage/img/instr_ios_2.png' %}" style="width:100%;border:1px solid #eee;border-radius:5px" alt="図②">
+                <div style="font-size:8px;color:#9a8070;margin-top:3px">図②</div>
+              </div>
+              <div style="font-size:16px;color:#b5c9a8;font-weight:bold">➜</div>
+              <div style="flex:1;text-align:center">
+                <img src="{% static 'manage/img/instr_ios_3.png' %}" style="width:100%;border:1px solid #eee;border-radius:5px" alt="図③">
+                <div style="font-size:8px;color:#9a8070;margin-top:3px">図③</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h2>🤖 Androidの方</h2>
+            <ol>
+              <li>QRコードをスキャンし、Chromeで開きます。</li>
+              <li>右上の<strong>メニュー（3つの点）</strong>をタップします。</li>
+              <li><strong>「ホーム画面に追加」</strong>または<strong>「アプリをインストール」</strong>をタップします。</li>
+              <li>画面の指示に従って<strong>「インストール」</strong>をタップすると完了です。<br>
+                <img src="{% static 'manage/img/icon-192.png' %}" style="width:60px;height:60px;border-radius:12px;margin-top:8px" alt="アプリのアイコン">
+              </li>
+            </ol>
+          </div>
+        </div>
+        <footer>まゆみ助産院 公式アプリ</footer>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

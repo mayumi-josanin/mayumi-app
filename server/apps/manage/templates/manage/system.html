@@ -21,6 +21,19 @@
   {% for label, value in summary %}<div class="stat-card blue"><div class="stat-label">{{ label }}</div><div class="stat-value">{{ value }}</div></div>{% endfor %}
 </div>
 
+{# お客様アプリの住所。旧管理アプリの「初期設定 > アプリ公開用URL」にあたる。QRコード案内がこれを使う #}
+<div class="card" id="app-url">
+  <div class="card-header"><h2>お客様アプリの住所</h2></div>
+  <div class="card-body">
+    <div class="sub" style="margin-bottom:10px">お客様がアプリを開くときのURLです。QRコード案内のQRコードは、ここで決めた住所で作られます。</div>
+    <form method="post" action="{% url 'manage:system_app_url' %}" class="inline-form">{% csrf_token %}
+      <input type="url" name="app_url" value="{{ app_url }}" placeholder="https://mayumi-josanin.github.io/mayumi-app/" style="min-width:min(420px,100%)">
+      <button type="submit" class="btn btn-primary">保存</button>
+      <a class="btn btn-outline" href="{% url 'manage:qrcode' %}">QRコード案内を開く</a>
+    </form>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-header"><h2>アラート<span class="count">{{ alerts|length }}件</span></h2></div>
   <div class="card-body">

@@ -36,6 +36,8 @@ from django.urls import reverse
         ("カテゴリ", "category_list", ["category_"]),
         ("ゴミ箱", "trash_list", ["trash_"]),
         ("システム管理", "system", ["system"]),
+        # QRコード案内は旧管理アプリでも最後にあった（お客様アプリの住所はシステム管理で決める）
+        ("QRコード案内", "qrcode", ["qrcode"]),
     ]),
 ]
 

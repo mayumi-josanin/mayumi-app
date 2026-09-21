@@ -10,6 +10,8 @@ dependencies = [
     "whitenoise>=6.5",
     # 管理画面で上げた画像を縮める
     "pillow>=10.0",
+    # QRコードの絵をこのサーバーで描く（外の絵の作り手に頼ると、院内から外へ出られないときに出ない）
+    "segno>=1.6",
 ]
 
 [project.optional-dependencies]
