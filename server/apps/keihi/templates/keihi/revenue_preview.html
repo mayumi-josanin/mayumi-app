@@ -1,0 +1,104 @@
+{% extends "manage/base.html" %}
+
+{% block title %}売上の取り込み | まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}経費管理{% endblock %}
+
+{% block content %}
+{% comment %}
+売上の記録（メニュー・商品）を、日ごとにまとめて出納帳へ入れる下見。
+**押していきなり入れない。**何日ぶんがいくらで入るかを見てから決める。
+レシートの「確かめてから出納帳へ」と同じ考え方。
+{% endcomment %}
+<div class="page-header">
+  <h1>{{ year }}年{{ month }}月の売上を取り込む</h1>
+  <div class="page-header-actions">
+    <a class="btn btn-outline" href="/manage/keihi/?year={{ year }}&month={{ month }}">出納帳へ戻る</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <p class="sub">
+      売上の記録（メニュー）と売上の記録（商品）を日ごとに足した金額です。
+      取り込むと、<strong>1日につき1行</strong>、収入として出納帳に入ります。入れたあとは手で直せます。
+    </p>
+    <div class="sub">
+      入る日: <strong>{{ new_count }}</strong> 日 ／
+      すでに同じ金額が入っている日: {{ same_count }} 日 ／
+      <span {% if differ_count %}style="color:#c53030;font-weight:700"{% endif %}>金額が変わっている日: {{ differ_count }} 日</span>
+    </div>
+  </div>
+</div>
+
+{% if rows %}
+<form method="post" action="{% url 'manage:keihi:revenue_to_book' %}?year={{ year }}&month={{ month }}">
+  {% csrf_token %}
+
+  <div class="card">
+    <div class="card-header"><h2>日ごとの売上<span class="count">{{ rows|length }}日</span></h2></div>
+    <div class="table-wrap">
+      <table class="list-table">
+        <thead><tr>
+          <th style="width:40px"><input type="checkbox" checked onclick="document.querySelectorAll('.rv-sel').forEach(function(c){c.checked=this.checked}.bind(this))"></th>
+          <th>日</th><th>メニュー</th><th>商品</th><th>この日の売上</th><th>いま帳簿にある額</th><th>状態</th>
+        </tr></thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td><input class="rv-sel" type="checkbox" name="days" value="{{ r.day }}" {% if not r.same %}checked{% endif %}></td>
+            <td class="nowrap">{{ month }}/{{ r.day }}</td>
+            <td class="nowrap" style="text-align:right">{{ r.menu|floatformat:0 }} 円<span class="sub">（{{ r.menu_count }}件）</span></td>
+            <td class="nowrap" style="text-align:right">{{ r.product|floatformat:0 }} 円<span class="sub">（{{ r.product_count }}件）</span></td>
+            <td class="nowrap strong" style="text-align:right">{{ r.total|floatformat:0 }} 円</td>
+            <td class="nowrap" style="text-align:right">{% if r.in_book is None %}<span class="sub">—</span>{% else %}{{ r.in_book|floatformat:0 }} 円{% endif %}</td>
+            <td class="nowrap">
+              {% if r.same %}<span class="badge badge-gray">入っています</span>
+              {% elif r.differs %}<span class="badge badge-orange">金額が違います</span>
+              {% else %}<span class="badge badge-green">これから入ります</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot><tr>
+          <td colspan="4" style="text-align:right"><strong>合計</strong></td>
+          <td class="nowrap strong" style="text-align:right">{{ total|floatformat:0 }} 円</td>
+          <td colspan="2"></td>
+        </tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      {% if differ_count %}
+        <div class="form-group">
+          <label>金額が変わっている日は、どうしますか</label>
+          <select name="on_conflict" class="form-control" style="max-width:420px">
+            <option value="skip">そのままにする（帳簿を触らない）</option>
+            <option value="replace">新しい金額に直す</option>
+            <option value="add">別の行として足す</option>
+          </select>
+          <div class="form-hint">
+            手で直した行を、黙って書き換えないようにしています。迷ったら「そのままにする」を選び、
+            出納帳で中身を見てから決めてください。
+          </div>
+        </div>
+      {% else %}
+        <input type="hidden" name="on_conflict" value="skip">
+      {% endif %}
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">選んだ日を出納帳に入れる</button>
+        <a class="btn btn-outline" href="/manage/keihi/?year={{ year }}&month={{ month }}">やめる</a>
+      </div>
+    </div>
+  </div>
+</form>
+{% else %}
+<div class="card"><div class="card-body">
+  <div class="empty"><div class="empty-icon">📄</div>
+    <p>{{ year }}年{{ month }}月の売上の記録がありません。</p>
+    <p class="sub">売上の記録（メニュー・商品）に入れてから、もう一度お試しください。</p>
+  </div>
+</div></div>
+{% endif %}
+{% endblock %}
