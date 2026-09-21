@@ -1,0 +1,147 @@
+{% extends "manage/base.html" %}
+{% load static humanize %}
+{% block title %}レシートを分ける — まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}経費管理{% endblock %}
+
+{% block content %}
+{% comment %}
+1枚の中で科目が分かれるレシートを分ける画面。
+買ったものを選ぶ → その分の科目を決める → 選んだ品物だけが別の行に移る。
+
+**金額は引き算で出す。** 分ける行＝選んだ品物の合計、元の行＝元の金額−その合計。
+足し上げて作り直すと、税や値引きの分だけ帳簿が合わなくなる。
+店名・日付・種別は元のレシートから引き継ぐので、入れ直さなくてよい。
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'keihi/receipt.css' %}?v={{ STATIC_VERSION }}">
+
+<div class="page-header">
+  <h1>レシートを分ける</h1>
+  <a class="btn btn-outline btn-sm" href="{% url 'manage:keihi:receipt_list' %}{% if query %}?{{ query }}{% endif %}">やめる</a>
+</div>
+
+<form method="post" class="split-layout">
+  {% csrf_token %}
+  <input type="hidden" name="query" value="{{ query }}">
+
+  <div class="split-photo">
+    {% if receipt.image_name %}
+    <a href="{% url 'manage:keihi:receipt_image' receipt.image_name %}" target="_blank">
+      <img src="{% url 'manage:keihi:receipt_image' receipt.image_name %}" alt="レシート">
+    </a>
+    <p class="split-hint">押すと大きく見られます</p>
+    {% else %}
+    <div class="split-nophoto">写真なし</div>
+    {% endif %}
+  </div>
+
+  <div class="split-main">
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-body split-head">
+        <div><span>日付</span><strong>{{ receipt.date|date:"Y年n月j日"|default:"—" }}</strong></div>
+        <div><span>店名・支払先</span><strong>{{ receipt.store_name|default:"—" }}</strong></div>
+        <div><span>種別</span><strong>{{ receipt.get_kind_display }}</strong></div>
+        <div><span>いまの金額</span><strong id="total-amount"
+             data-total="{{ receipt.amount|default:0 }}">{% if receipt.amount != None %}{{ receipt.amount|intcomma }} 円{% else %}—{% endif %}</strong></div>
+        <p class="split-hint">日付・店名・種別は、分けた行にそのまま引き継ぎます。</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        {% if items %}
+        <p class="split-lead">分けたい品物を選んでください。</p>
+
+        <table class="split-items">
+          <thead>
+            <tr>
+              <th style="width:32px;"><input type="checkbox" id="check-all"></th>
+              <th>品名</th>
+              <th style="width:110px;text-align:right;">金額</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr>
+              <td><input type="checkbox" name="items" value="{{ item.id }}" class="item-check"
+                         data-amount="{{ item.amount|default:0 }}"></td>
+              <td>{{ item.name|default:"（品名なし）" }}</td>
+              <td style="text-align:right;font-variant-numeric:tabular-nums;">
+                {% if item.amount != None %}{{ item.amount|intcomma }}{% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="split-lead">
+          このレシートは品物が読み取れていません。分ける金額を直接入れてください。
+        </p>
+        <label class="split-amount">
+          分ける金額
+          <input type="text" inputmode="numeric" name="amount" id="manual-amount">
+        </label>
+        {% endif %}
+
+        <div class="split-result">
+          <div><span>分ける行</span><strong id="split-amount">0 円</strong></div>
+          <div><span>元の行に残る</span><strong id="rest-amount">
+            {% if receipt.amount != None %}{{ receipt.amount|intcomma }} 円{% else %}—{% endif %}</strong></div>
+        </div>
+
+        <label class="split-acc">
+          分ける分の相手科目
+          <input type="text" name="acc" list="accounts" placeholder="例：消耗品費" required>
+        </label>
+
+        <div style="margin-top:14px;display:flex;gap:8px;align-items:center;">
+          <button type="submit" class="btn btn-primary">この分を分ける</button>
+          <span class="split-hint">分けたあとも、一覧でいつでも直せます。</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<datalist id="accounts">
+  {% for name in accounts %}<option value="{{ name }}">{% endfor %}
+</datalist>
+
+<script>
+  // 選んだ品物の合計と、元の行に残る額を、選ぶそばから出す。
+  // 残りは「元の金額 − 選んだ合計」。足し上げて作り直さないのは、
+  // 税や値引きがどちらに入っていても合計が狂わないようにするため。
+  (function () {
+    var total = parseInt(document.getElementById('total-amount').dataset.total || '0', 10);
+    var checks = [].slice.call(document.querySelectorAll('.item-check'));
+    var manual = document.getElementById('manual-amount');
+
+    function yen(n) { return n.toLocaleString('ja-JP') + ' 円'; }
+
+    function update() {
+      var sum = 0;
+      if (checks.length) {
+        checks.forEach(function (c) { if (c.checked) sum += parseInt(c.dataset.amount || '0', 10); });
+      } else if (manual) {
+        sum = parseInt((manual.value || '').replace(/[^0-9]/g, ''), 10) || 0;
+      }
+      document.getElementById('split-amount').textContent = yen(sum);
+      var rest = total - sum;
+      var restEl = document.getElementById('rest-amount');
+      restEl.textContent = yen(rest);
+      restEl.classList.toggle('is-bad', rest < 0);
+    }
+
+    checks.forEach(function (c) { c.addEventListener('change', update); });
+    if (manual) manual.addEventListener('input', update);
+
+    var all = document.getElementById('check-all');
+    if (all) {
+      all.addEventListener('change', function () {
+        checks.forEach(function (c) { c.checked = all.checked; });
+        update();
+      });
+    }
+    update();
+  })();
+</script>
+{% endblock %}

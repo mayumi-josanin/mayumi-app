@@ -17,7 +17,7 @@ from .services import SUGGESTED_ACCOUNTS
 API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 MODEL = "claude-opus-5"
-MAX_TOKENS = 1000
+MAX_TOKENS = 4000  # 明細を拾うので長めに取る
 通信の待ち秒 = 120
 
 指示 = f"""レシートまたは領収書の写真です。次の項目を読み取って、JSON だけを返してください。
@@ -29,6 +29,9 @@ MAX_TOKENS = 1000
   {"、".join(SUGGESTED_ACCOUNTS)}
 - kind: 支払いなら "payment"、入金・売上なら "income"
 - note: 品目など、短い覚え書き。無ければ ""
+- items: 買ったものの明細。[{{"name": "品名", "amount": 金額(整数)}}, ...] の並び。
+  レシートに印字されているとおりに、**値引きや小計・合計の行は入れず**、品物だけを拾う。
+  金額は印字されている数字をそのまま（税込・税抜の直しはしない）。読めなければ []
 
 前置きも説明も書かず、JSON だけを出力してください。
 読み取れない項目を推測で埋めないでください。読めないものは null または "" にしてください。"""

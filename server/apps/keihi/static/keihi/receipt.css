@@ -127,3 +127,55 @@
 
 .print-title { font-size: 14px; letter-spacing: .2em; text-align: center; margin: 0 0 4mm; }
 .print-sub { font-size: 10px; color: #666; text-align: center; margin: 0 0 6mm; }
+
+/* ------------------------------------------------------------------
+   レシートを分ける画面。写真を見ながら品物を選べるよう、左右に並べる。
+   ------------------------------------------------------------------ */
+.split-layout { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.split-photo { flex: 0 0 280px; }
+.split-photo img {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--border, #e3e3e0);
+  background: #fafafa;
+  display: block;
+}
+.split-nophoto {
+  height: 320px; display: flex; align-items: center; justify-content: center;
+  border: 1px dashed var(--border, #d8d8d4); border-radius: 6px;
+  color: var(--text-muted, #8a8a80); font-size: .85rem;
+}
+.split-main { flex: 1 1 420px; min-width: 0; }
+
+.split-head { display: flex; gap: 20px; flex-wrap: wrap; }
+.split-head > div { display: flex; flex-direction: column; gap: 2px; }
+.split-head span { font-size: .72rem; color: var(--text-muted, #8a8a80); }
+.split-head strong { font-size: .95rem; font-variant-numeric: tabular-nums; }
+.split-head .split-hint { flex-basis: 100%; margin: 4px 0 0; }
+
+.split-hint { color: var(--text-muted, #8a8a80); font-size: .75rem; margin: 6px 0 0; }
+.split-lead { margin: 0 0 10px; font-size: .88rem; }
+
+.split-items { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.split-items th, .split-items td {
+  border-bottom: 1px solid var(--border, #e3e3e0); padding: 6px 8px; text-align: left;
+}
+.split-items thead th { font-size: .72rem; color: var(--text-muted, #8a8a80); background: transparent; }
+.split-items tbody tr:hover { background: #fafaf8; }
+
+.split-amount, .split-acc { display: block; margin-top: 12px; font-size: .78rem; color: var(--text-muted, #8a8a80); }
+.split-amount input, .split-acc input {
+  display: block; width: 100%; max-width: 260px; margin-top: 4px;
+  padding: 6px 8px; border: 1px solid var(--border, #e3e3e0); border-radius: 4px;
+  font-size: .9rem; background: #fff; color: var(--text, #1a1a1a);
+}
+.split-amount input { text-align: right; font-variant-numeric: tabular-nums; }
+
+.split-result {
+  display: flex; gap: 24px; margin-top: 14px; padding: 10px 12px;
+  background: var(--muted, #f4f4f1); border-radius: 6px;
+}
+.split-result > div { display: flex; flex-direction: column; gap: 2px; }
+.split-result span { font-size: .72rem; color: var(--text-muted, #8a8a80); }
+.split-result strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.split-result strong.is-bad { color: #c0392b; }
