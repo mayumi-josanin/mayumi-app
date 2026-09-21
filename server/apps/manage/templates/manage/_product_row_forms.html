@@ -1,2 +1,0 @@
-<form id="prow-{{ item.p.sheet_row }}" method="post" action="{% url 'manage:product_row_save' item.p.sheet_row %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"></form>
-<form id="pdel-{{ item.p.sheet_row }}" method="post" action="{% url 'manage:product_delete' item.p.sheet_row %}">{% csrf_token %}</form>

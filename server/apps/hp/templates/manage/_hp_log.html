@@ -1,7 +1,0 @@
-{% if log %}
-<div class="card">
-  <div class="card-header"><h2>{{ log.title|default:"結果" }}</h2></div>
-  <div class="card-body"><pre class="hp-log">{% for l in log.lines %}{{ l }}
-{% endfor %}</pre></div>
-</div>
-{% endif %}

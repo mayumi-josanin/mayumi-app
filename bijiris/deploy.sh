@@ -8,6 +8,26 @@ set -euo pipefail
 #   Web アプリ URL は変わらず、shared/gas-config.js の修正も不要。
 # ============================================================
 
+# ─────────────────────────────────────────────────────────────
+# 【2026-09-21】ここから先は、もう使いません。
+#
+# 作る場所を1つにまとめたので、このフォルダは大きなリポジトリの一部です。
+# 昔の「git add . して push」をそのまま流すと、**まだ確かめていない
+# 管理画面や予約システムの直しまで、まとめて外へ出て行きます。**
+#
+# いまの出し方:
+#   直したものを develop で確かめる → main に入れる
+#   → GitHub Actions（.github/workflows/publish.yml）が
+#     ビジリスを公開用（mayumi_bijiris）と mayumi-app の bijiris/ へ送る
+#
+# GAS（スプレッドシートの仕掛け）だけは、いままでどおり手で反映します:
+#   cd apps/bijiris/gas && clasp push -f && clasp deploy -i "<デプロイID>"
+#   ※ -i を付けないと住所が変わり、全アプリがつながらなくなります。
+# ─────────────────────────────────────────────────────────────
+echo "このスクリプトは使いません。main に入れれば GitHub Actions が送り出します。"
+echo "くわしくは .github/workflows/publish.yml を見てください。"
+exit 1
+
 message="${1:-Update survey app}"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
