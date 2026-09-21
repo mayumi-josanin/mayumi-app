@@ -69,7 +69,27 @@ def receipt_list(request):
         受け取った = 受け取った.order_by(F("date").asc(nulls_last=True), "id")
     受け取った = list(受け取った)
 
+    # 分けた行（同じ写真を指す行）は、まとまりが分かるように印と合計を添える。
+    # 分けた合計が元のレシートと合っているかを、目で確かめられるようにするため
+    同じ写真の数: dict[str, int] = {}
+    同じ写真の合計: dict[str, int] = {}
+    for r in 受け取った:
+        if not r.image_name:
+            continue
+        同じ写真の数[r.image_name] = 同じ写真の数.get(r.image_name, 0) + 1
+        同じ写真の合計[r.image_name] = 同じ写真の合計.get(r.image_name, 0) + (r.amount or 0)
+    行 = []
+    for r in 受け取った:
+        分けた数 = 同じ写真の数.get(r.image_name, 1) if r.image_name else 1
+        行.append({
+            "r": r,
+            "分けている": 分けた数 > 1,
+            "分けた数": 分けた数,
+            "分けた合計": 同じ写真の合計.get(r.image_name, 0),
+        })
+
     return render(request, "keihi/receipt_list.html", {
+        "rows": 行,
         "receipts": 受け取った,
         "order": order,
         "accounts": SUGGESTED_ACCOUNTS,
@@ -169,6 +189,32 @@ def receipt_create(request):
 
 @owner_required
 @require_POST
+def receipt_split(request, pk: int):
+    """1枚のレシートを2行に分ける。
+
+    スーパーのレシートのように、1枚の中に科目の違う買い物が混ざっていることがある。
+    **写真は同じものを指したまま**、行だけを増やして、それぞれに科目と金額を入れてもらう。
+    分けた行を出納帳へ入れると、その数だけ行になる。
+    """
+    もと = get_object_or_404(Receipt, pk=pk)
+    Receipt.objects.create(
+        image_name=もと.image_name,            # 同じ写真を指す（消すときは最後の1行まで残す）
+        original_filename=もと.original_filename,
+        date=もと.date,
+        store_name=もと.store_name,
+        kind=もと.kind,
+        status=もと.status,
+        # 金額と科目は入れない。分けた分をこれから書いてもらう
+        amount=None,
+        counter_account="",
+        memo="",
+    )
+    messages.success(request, "行を分けました。それぞれの科目と金額を入れてください")
+    return redirect(_一覧のURL(request))
+
+
+@owner_required
+@require_POST
 def receipt_save(request):
     """一覧に出ている全部をまとめて保存する（出納帳と同じ作り）。"""
     for r in Receipt.objects.all():
@@ -185,11 +231,23 @@ def receipt_save(request):
     return redirect(_一覧のURL(request))
 
 
+def _写真を片付ける(r: Receipt) -> None:
+    """その写真を使っている行が他に無ければ、写真も消す。
+
+    分けた行は同じ写真を指しているので、確かめずに消すと相方の写真が消える。
+    """
+    if not r.image_name:
+        return
+    if Receipt.objects.filter(image_name=r.image_name).exclude(pk=r.pk).exists():
+        return
+    storage.消す(r.image_name)
+
+
 @owner_required
 @require_POST
 def receipt_delete(request, pk: int):
     r = get_object_or_404(Receipt, pk=pk)
-    storage.消す(r.image_name)
+    _写真を片付ける(r)
     r.delete()
     messages.success(request, "レシートを消しました（出納帳の行は残ります）")
     return redirect(_一覧のURL(request))
@@ -202,7 +260,7 @@ def receipt_bulk_delete(request):
     対象 = Receipt.objects.filter(id__in=[_int(i) for i in 選ばれた if _int(i)])
     件数 = 対象.count()
     for r in 対象:
-        storage.消す(r.image_name)
+        _写真を片付ける(r)
     対象.delete()
     messages.success(request, f"{件数} 件を消しました（出納帳の行は残ります）")
     return redirect(_一覧のURL(request))

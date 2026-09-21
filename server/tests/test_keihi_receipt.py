@@ -203,6 +203,74 @@ def test_古い順と新しい順(as_owner):
     assert [r.store_name for r in 新しい順] == ["あと", "さき", "日付なし"]
 
 
+# ---- 1枚を科目ごとに分ける -------------------------------------------------
+
+def test_1枚を分けると同じ写真の行が増える(as_owner, 読める):
+    as_owner.post(f"{URL}upload/", {"photos": [写真()]})
+    もと = Receipt.objects.get()
+
+    as_owner.post(f"{URL}{もと.id}/split/")
+
+    行 = list(Receipt.objects.order_by("id"))
+    assert len(行) == 2
+    # 写真・日付・店名は引き継ぐ。科目と金額は、これから分けて入れるので空
+    assert 行[1].image_name == もと.image_name
+    assert 行[1].date == もと.date and 行[1].store_name == もと.store_name
+    assert 行[1].amount is None and 行[1].counter_account == ""
+
+
+def test_分けた行はそれぞれ別の科目で出納帳に入る(as_owner, 読める):
+    as_owner.post(f"{URL}upload/", {"photos": [写真()]})
+    もと = Receipt.objects.get()
+    as_owner.post(f"{URL}{もと.id}/split/")
+    a, b = Receipt.objects.order_by("id")
+
+    as_owner.post(f"{URL}save/", {
+        f"date-{a.id}": "2026-09-03", f"amount-{a.id}": "800", f"store-{a.id}": "オーケー",
+        f"acc-{a.id}": "福利厚生費", f"kind-{a.id}": "payment", f"memo-{a.id}": "お茶",
+        f"date-{b.id}": "2026-09-03", f"amount-{b.id}": "480", f"store-{b.id}": "オーケー",
+        f"acc-{b.id}": "消耗品費", f"kind-{b.id}": "payment", f"memo-{b.id}": "洗剤",
+    })
+    as_owner.post(f"{URL}to-book/", {"selected": [str(a.id), str(b.id)]})
+
+    a.refresh_from_db(); b.refresh_from_db()
+    行たち = sorted([a.entry, b.entry], key=lambda e: e.payment)
+    assert [(e.payment, e.counter_account) for e in 行たち] == [
+        (480, "消耗品費"), (800, "福利厚生費"),
+    ]
+
+
+def test_分けた片方を消しても写真は残る(as_owner, 読める):
+    """分けた行は同じ写真を指す。片方を消したときに写真まで消すと、相方が見られなくなる。"""
+    as_owner.post(f"{URL}upload/", {"photos": [写真()]})
+    もと = Receipt.objects.get()
+    as_owner.post(f"{URL}{もと.id}/split/")
+    a, b = Receipt.objects.order_by("id")
+
+    as_owner.post(f"{URL}{a.id}/delete/")
+
+    assert storage.読み出す(b.image_name) is not None
+
+    # 最後の1行を消したときは、写真も片付ける
+    as_owner.post(f"{URL}{b.id}/delete/")
+    assert storage.読み出す(b.image_name) is None
+
+
+def test_分けた行は一覧で印と合計が付く(as_owner, 読める):
+    as_owner.post(f"{URL}upload/", {"photos": [写真()]})
+    もと = Receipt.objects.get()
+    as_owner.post(f"{URL}{もと.id}/split/")
+    b = Receipt.objects.order_by("id")[1]
+    b.amount = 500
+    b.save()
+
+    行 = as_owner.get(URL).context["rows"]
+    assert all(r["分けている"] for r in 行)
+    assert 行[0]["分けた数"] == 2
+    # 1280（読み取った分）＋ 500（分けた分）
+    assert 行[0]["分けた合計"] == 1780
+
+
 # ---- 写真の見せ方（外から見えないこと） -----------------------------------
 
 def test_写真はログインしていないと見られない(as_owner, 読める):

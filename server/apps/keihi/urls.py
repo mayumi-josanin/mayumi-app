@@ -22,6 +22,7 @@ urlpatterns = [
     path("receipts/save/", views_receipt.receipt_save, name="receipt_save"),
     path("receipts/to-book/", views_receipt.receipt_to_book, name="receipt_to_book"),
     path("receipts/bulk-delete/", views_receipt.receipt_bulk_delete, name="receipt_bulk_delete"),
+    path("receipts/<int:pk>/split/", views_receipt.receipt_split, name="receipt_split"),
     path("receipts/<int:pk>/delete/", views_receipt.receipt_delete, name="receipt_delete"),
     # レシートの写真。**公開の /media/ では配らない**（管理画面の中だけ）
     path("receipts/photo/<str:名前>", views_receipt.receipt_image, name="receipt_image"),

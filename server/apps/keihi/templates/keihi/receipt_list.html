@@ -7,7 +7,13 @@
 {% comment %}
 レシートを撮る・上げる → Claude が読む → **院長が確かめて直す** → 出納帳の行にする。
 読み取った時点では帳簿に入れない（AI は金額の桁や日付を読み違えることがあるため）。
-写真は公開の /media/ では配らず、この画面と同じログインの内側からだけ見える。
+
+**1行1枚の表にしてある**（院長の指示 2026-09-21）。枚数が増えると、カードを並べる形では
+同じ項目どうしを見比べられない。日付・店名・科目・金額が縦に揃っていれば、
+おかしい行が目で見つかる。
+
+1枚の中で科目が分かれるレシート（スーパーなど）は「分ける」で行を増やす。
+写真は同じものを指したまま、科目と金額だけをそれぞれに入れる。
 {% endcomment %}
 <link rel="stylesheet" href="{% static 'keihi/receipt.css' %}?v={{ STATIC_VERSION }}">
 
@@ -26,10 +32,7 @@
   <div class="card-body" style="font-size:.85rem;">
     <strong>いまは自動の読み取りができません。</strong>
     レシート読み取りの鍵（<code>ANTHROPIC_API_KEY</code>）がサーバーに入っていないためです。
-    写真を上げること・手で日付や金額を入れること・出納帳へ入れること・印刷は、このままでもできます。<br>
-    鍵はサーバーPC のホームで
-    <code>powershell -ExecutionPolicy Bypass -File setkey.ps1 ANTHROPIC_API_KEY &lt;値&gt;</code>
-    を実行して入れてください（ビジリスの回数券分析と同じ値）。
+    写真を上げること・手で日付や金額を入れること・出納帳へ入れること・印刷は、このままでもできます。
   </div>
 </div>
 {% endif %}
@@ -78,83 +81,88 @@
                 formaction="{% url 'manage:keihi:receipt_bulk_delete' %}"
                 onclick="return confirm('選んだレシートを消します。出納帳の行は残ります。よろしいですか？')">選んだものを消す</button>
         <span style="margin-left:auto;color:var(--text-muted);font-size:.85rem;">
-          支払 {{ 支払合計|intcomma }} 円 ／ 収入 {{ 収入合計|intcomma }} 円 ／ {{ receipts|length }} 件
+          支払 {{ 支払合計|intcomma }} 円 ／ 収入 {{ 収入合計|intcomma }} 円 ／ {{ rows|length }} 行
         </span>
       </div>
 
-      {% if not receipts %}
+      {% if not rows %}
       <p style="padding:32px 0;text-align:center;color:var(--text-muted);">
         まだレシートがありません。上の「カメラで撮る」から始めてください。
       </p>
-      {% endif %}
+      {% else %}
 
-      <div class="receipt-grid">
-        {% for r in receipts %}
-        <div class="receipt-card {% if r.entry_id %}is-done{% endif %}" id="receipt-{{ r.id }}">
-          <div class="receipt-photo">
-            {% if r.image_name %}
-            <a href="{% url 'manage:keihi:receipt_image' r.image_name %}" target="_blank">
-              <img src="{% url 'manage:keihi:receipt_image' r.image_name %}" alt="{{ r.original_filename }}" loading="lazy">
-            </a>
-            {% else %}
-            <div class="receipt-nophoto">写真なし<br>（手入力）</div>
-            {% endif %}
-          </div>
-
-          <div class="receipt-fields">
-            <div class="receipt-top">
-              <label class="receipt-check">
-                <input type="checkbox" name="selected" value="{{ r.id }}" {% if r.entry_id %}disabled{% endif %}>
-                <span>選ぶ</span>
-              </label>
-              {% if r.entry_id %}
-                <span class="badge badge-green">出納帳へ入れ済み</span>
-              {% elif r.status == 'failed' %}
-                <span class="badge badge-red" title="{{ r.error }}">読み取れなかった</span>
-              {% elif r.status == 'pending' %}
-                <span class="badge badge-orange">読み取り待ち</span>
-              {% elif r.status == 'manual' %}
-                <span class="badge badge-gray">手入力</span>
-              {% else %}
-                <span class="badge badge-gray">確認してください</span>
-              {% endif %}
-              <button type="submit" class="receipt-delete"
-                      formaction="{% url 'manage:keihi:receipt_delete' r.id %}"
-                      onclick="return confirm('このレシートを消します。出納帳の行は残ります。よろしいですか？')"
-                      title="消す">×</button>
-            </div>
-
-            <label>日付
-              <input type="date" name="date-{{ r.id }}" value="{{ r.date|date:'Y-m-d' }}">
-            </label>
-            <label>店名・支払先
-              <input type="text" name="store-{{ r.id }}" value="{{ r.store_name }}">
-            </label>
-            <label>相手科目
-              <input type="text" name="acc-{{ r.id }}" list="accounts" value="{{ r.counter_account }}">
-            </label>
-            <div class="receipt-row">
-              <label>種別
-                <select name="kind-{{ r.id }}">
-                  <option value="payment" {% if r.kind == 'payment' %}selected{% endif %}>支払</option>
-                  <option value="income" {% if r.kind == 'income' %}selected{% endif %}>収入</option>
+      <div class="receipt-table-wrap">
+        <table class="receipt-table">
+          <thead>
+            <tr>
+              <th class="c-check"><input type="checkbox" id="check-all" title="すべて選ぶ"></th>
+              <th class="c-photo">写真</th>
+              <th class="c-date">日付</th>
+              <th class="c-store">店名・支払先</th>
+              <th class="c-acc">相手科目</th>
+              <th class="c-kind">種別</th>
+              <th class="c-amount">金額</th>
+              <th class="c-memo">メモ</th>
+              <th class="c-state">状態</th>
+              <th class="c-ops"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr id="receipt-{{ row.r.id }}" class="{% if row.r.entry_id %}is-done{% endif %}{% if row.分けている %} is-split{% endif %}">
+              <td class="c-check">
+                <input type="checkbox" name="selected" value="{{ row.r.id }}" {% if row.r.entry_id %}disabled{% endif %}>
+              </td>
+              <td class="c-photo">
+                {% if row.r.image_name %}
+                <a href="{% url 'manage:keihi:receipt_image' row.r.image_name %}" target="_blank" title="大きく見る">
+                  <img src="{% url 'manage:keihi:receipt_image' row.r.image_name %}" alt="" loading="lazy">
+                </a>
+                {% else %}
+                <span class="nophoto">なし</span>
+                {% endif %}
+              </td>
+              <td class="c-date"><input type="date" name="date-{{ row.r.id }}" value="{{ row.r.date|date:'Y-m-d' }}"></td>
+              <td class="c-store"><input type="text" name="store-{{ row.r.id }}" value="{{ row.r.store_name }}"></td>
+              <td class="c-acc"><input type="text" name="acc-{{ row.r.id }}" list="accounts" value="{{ row.r.counter_account }}"></td>
+              <td class="c-kind">
+                <select name="kind-{{ row.r.id }}">
+                  <option value="payment" {% if row.r.kind == 'payment' %}selected{% endif %}>支払</option>
+                  <option value="income" {% if row.r.kind == 'income' %}selected{% endif %}>収入</option>
                 </select>
-              </label>
-              <label>金額
-                <input type="text" inputmode="numeric" name="amount-{{ r.id }}"
-                       value="{% if r.amount != None %}{{ r.amount|intcomma }}{% endif %}">
-              </label>
-            </div>
-            <label>メモ
-              <input type="text" name="memo-{{ r.id }}" value="{{ r.memo }}">
-            </label>
-            {% if r.status == 'failed' and r.error %}
-            <p class="receipt-error">{{ r.error }}</p>
-            {% endif %}
-          </div>
-        </div>
-        {% endfor %}
+              </td>
+              <td class="c-amount">
+                <input type="text" inputmode="numeric" name="amount-{{ row.r.id }}"
+                       value="{% if row.r.amount != None %}{{ row.r.amount|intcomma }}{% endif %}">
+              </td>
+              <td class="c-memo"><input type="text" name="memo-{{ row.r.id }}" value="{{ row.r.memo }}"></td>
+              <td class="c-state">
+                {% if row.r.entry_id %}<span class="badge badge-green">入れ済み</span>
+                {% elif row.r.status == 'failed' %}<span class="badge badge-red" title="{{ row.r.error }}">読めず</span>
+                {% elif row.r.status == 'pending' %}<span class="badge badge-orange">読み取り待ち</span>
+                {% elif row.r.status == 'manual' %}<span class="badge badge-gray">手入力</span>
+                {% else %}<span class="badge badge-gray">要確認</span>{% endif %}
+                {% if row.分けている %}
+                <span class="split-note" title="同じ写真を {{ row.分けた数 }} 行に分けています">
+                  分割 {{ row.分けた数 }}行・計 {{ row.分けた合計|intcomma }}
+                </span>
+                {% endif %}
+              </td>
+              <td class="c-ops">
+                {% if row.r.image_name %}
+                <button type="submit" class="op" formaction="{% url 'manage:keihi:receipt_split' row.r.id %}"
+                        title="このレシートを科目ごとに分ける">分ける</button>
+                {% endif %}
+                <button type="submit" class="op op-delete" formaction="{% url 'manage:keihi:receipt_delete' row.r.id %}"
+                        onclick="return confirm('この行を消します。出納帳の行は残ります。よろしいですか？')"
+                        title="この行を消す">×</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
+      {% endif %}
     </div>
   </div>
 </form>
@@ -174,5 +182,14 @@
       document.getElementById('upload-form').submit();
     });
   });
+
+  var all = document.getElementById('check-all');
+  if (all) {
+    all.addEventListener('change', function () {
+      document.querySelectorAll('input[name="selected"]:not(:disabled)').forEach(function (c) {
+        c.checked = all.checked;
+      });
+    });
+  }
 </script>
 {% endblock %}
