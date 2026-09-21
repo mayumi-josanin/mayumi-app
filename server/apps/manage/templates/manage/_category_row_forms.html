@@ -1,2 +1,0 @@
-<form id="cat-upd-{{ row.no }}" method="post" action="{% url 'manage:category_update' %}">{% csrf_token %}<input type="hidden" name="old_name" value="{{ row.name }}"></form>
-<form id="cat-del-{{ row.no }}" method="post" action="{% url 'manage:category_delete' %}">{% csrf_token %}<input type="hidden" name="name" value="{{ row.name }}"></form>

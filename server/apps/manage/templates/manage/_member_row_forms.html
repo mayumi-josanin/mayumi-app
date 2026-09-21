@@ -1,1 +1,0 @@
-<form id="mdel-{{ item.u.memberId }}" method="post" action="{% url 'manage:member_delete' item.u.memberId %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"></form>
