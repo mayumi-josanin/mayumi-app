@@ -34,6 +34,62 @@
   </div>
 </div>
 
+{% comment %}
+アプリ更新設定。旧管理アプリの「初期設定 > アプリ更新設定」にあたる。
+保存先はサーバーがお客様アプリへ配っているのと同じ所。
+保存した値と配る値は同じとは限らないので、両方を並べて出す。
+{% endcomment %}
+<div class="card" id="app-config">
+  <div class="card-header"><h2>アプリ更新設定</h2></div>
+  <div class="card-body">
+    <div class="sub" style="margin-bottom:10px">
+      お客様のアプリに出す「更新のお願い」の設定です。「これより古いと使えない番号」より古い版をお使いの方には、
+      アプリを開いたときに更新のお願いが出ます。
+    </div>
+
+    <div class="sys-detail" style="margin-bottom:14px">
+      <div class="sys-detail-title">いまお客様へ配っている値</div>
+      <div class="sub" style="margin-bottom:6px">下の欄に保存した値と、ここに出る値が違うことがあります。お客様に届いているのは、こちらです。</div>
+      {% for label, value in app_config_live %}
+        <div class="sub">{{ label }}: {{ value }}</div>
+      {% endfor %}
+    </div>
+
+    <form method="post" action="{% url 'manage:system_app_config' %}">{% csrf_token %}
+      {% for f in app_config_fields %}
+        <div class="form-group">
+          <label for="ac-{{ f.name }}">{{ f.label }}</label>
+          {% if f.fixed %}
+            <div class="sub" style="margin-bottom:4px">ここは保存しても、お客様へ配る値は変わりません（いま配っているプログラムに合わせて固定しています）。</div>
+          {% endif %}
+          {% if f.rows > 1 %}
+            <textarea id="ac-{{ f.name }}" name="{{ f.name }}" rows="{{ f.rows }}" placeholder="{{ f.example }}">{{ f.value }}</textarea>
+          {% else %}
+            <input type="text" id="ac-{{ f.name }}" name="{{ f.name }}" value="{{ f.value }}" placeholder="{{ f.example }}">
+          {% endif %}
+        </div>
+      {% endfor %}
+      <div class="note" style="margin-bottom:12px">
+        <label style="font-weight:600">
+          <input type="checkbox" name="minimum_confirm" value="1">
+          「これより古いと使えない番号」を上げます。この値にすると、いまより古い版をお使いの方はアプリを使えなくなります。
+        </label>
+        <div class="sub">いまの値は {{ app_config_minimum }} です。上げるときだけ、この印をつけてください。</div>
+      </div>
+      <button type="submit" class="btn btn-primary">保存</button>
+    </form>
+
+    {% comment %}
+    Firebase Realtime Database 連携は移していない。
+    サーバーはこの設定をどこでも読んでいないため（views_system.py の説明を見てください）。
+    {% endcomment %}
+    <div class="sub" style="margin-top:14px">
+      在席の表示（Firebase の設定）は使っていません。会員一覧の「本日利用」などは、
+      お客様の端末が最後にアプリを使った日時から出しています。設定は要りません。
+    </div>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-header"><h2>アラート<span class="count">{{ alerts|length }}件</span></h2></div>
   <div class="card-body">
@@ -82,17 +138,24 @@
         {% for f in backup.files %}<div class="sub">{{ f.at|date:"Y/m/d H:i" }} / {{ f.name }} / {{ f.kb }} KB</div>{% endfor %}
       {% endif %}
     {% else %}
-      <div class="sys-line">最終バックアップ: サーバーからは確認できません。旧管理アプリで確認してください。</div>
+      <div class="sys-line">最終バックアップ: このサーバーには置き場がないため、ここでは分かりません。</div>
       <div class="sys-line sub">データベースの控えは院のPCで scripts/控えを取る.ps1 が Google ドライブへ置いています。このサーバーには置き場（{{ backup.dir }}）がありません。</div>
     {% endif %}
-    <div class="sys-line">日次バックアップ: サーバーからは確認できません（院のPCの予定と、スプレッドシート側は GAS のトリガーです）</div>
-    <div class="sys-line">予約Push実行トリガー: サーバーからは確認できません（GAS のトリガーです）</div>
+    <div class="sys-line">日次バックアップ: このサーバーでは分かりません（院のPCの予定表と、スプレッドシート側の自動実行で動いています）</div>
+    <div class="sys-line">予約Push実行トリガー: このサーバーでは分かりません（スプレッドシート側の自動実行です）</div>
     {% if not can_backup %}
-      <div class="note" style="margin-top:12px">今すぐバックアップ: {{ cannot_backup_reason }} スプレッドシートの控えは旧管理アプリの「今すぐバックアップ」から取れます。</div>
+      <div class="note" style="margin-top:12px">今すぐバックアップ: {{ cannot_backup_reason }}</div>
     {% endif %}
 
+    {# スプレッドシートの控えと自動実行は GAS の持ち物。旧管理アプリを閉じたあとの行き先をここに書く #}
+    <div class="note" style="margin-top:12px">
+      スプレッドシートの控えと、毎日の自動実行の確かめ方: スプレッドシートを開き、
+      「拡張機能 &gt; Apps Script」を開いて、関数 <code>runDailyMaintenance</code> を実行してください。
+      控えが1つ取られ、毎日の自動実行（<code>runDailyMaintenance</code> と <code>processScheduledPushQueue</code>）も一緒に整います。
+    </div>
+
     <div class="sys-detail-title" style="margin-top:14px">スプレッドシートの控えの記録</div>
-    <div class="sub" style="margin-bottom:6px">GAS が Google ドライブへ写した記録を、サーバーへ取り込んだ時点まで。いまの状況は旧管理アプリで確認してください。</div>
+    <div class="sub" style="margin-bottom:6px">スプレッドシートから Google ドライブへ写した記録を、サーバーへ取り込んだ時点まで。そのあとの分は、上の Apps Script の画面で確かめられます。</div>
     {% for b in sheet_backups %}
       <div class="sub">{{ b.created_at|date:"Y/m/d" }} / {{ b.kind }} / {% if b.url %}<a href="{{ b.url }}" target="_blank" rel="noopener">{{ b.file_name }}</a>{% else %}{{ b.file_name }}{% endif %}</div>
     {% empty %}

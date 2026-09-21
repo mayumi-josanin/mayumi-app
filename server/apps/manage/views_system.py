@@ -18,6 +18,24 @@ Google ドライブか server/backups に置いている。ここで分かるの
 
 「今すぐバックアップ」は、pg_dump がこの入れ物（コンテナ）に入っているときだけ押せる。
 python:3.12-slim の像には入っていないので、本番では文言だけになる。
+
+## アプリ更新設定（旧管理アプリの「初期設定」から移したもの）
+
+お客様アプリの版と更新案内の文言。保存先は records.AppSetting の鍵 `APP_RUNTIME_CONFIG` で、
+**サーバーがお客様アプリへ配っているのと同じ所**（apps/gasapi/views.py の `_アプリ設定`）。
+
+**保存した値と、お客様へ配る値は同じとは限らない。**配るときに `_アプリ設定` が整えており、
+とくに `webBundleVersion` は保存値を使わず既定値で固定している（理由は gasapi/views.py の
+`_アプリ設定` に書いてある。変えるとお客様に更新案内が出はじめる恐れがある）。
+**ここからその整え方は触らない。**代わりに、保存値と「いま配っている値」の両方を画面に出す。
+
+## 在席の表示（Firebase）は移していない
+
+旧管理アプリの「Firebase Realtime Database 連携」は、旧アプリだけが受け取っていた在席情報で
+会員一覧に「オンライン」の緑の印を出すためのもの。**サーバーはこの設定をどこでも読んでいない**
+（会員一覧の在席は端末の最終利用日時から出している。apps/manage/views_member.py の `_在席`）。
+使っていない設定を移すと、入れても何も起きない欄ができて混乱するので、移さずに
+「使っていません」と画面に出す。
 """
 
 import os
@@ -36,7 +54,8 @@ from django.views.decorators.http import require_POST
 
 from apps.content.models import CalendarEvent, Menu, News, Product, PushNotice
 from apps.gasapi import admin_member, admin_product
-from apps.records.models import BackupRecord
+from apps.gasapi.views import _アプリ設定, _版を比べる, アプリ設定の既定
+from apps.records.models import AppSetting, BackupRecord
 
 from .permissions import owner_required
 from .views_order import _まとめ as _注文をまとめる
@@ -220,6 +239,72 @@ def _控えを取れるか():
     return True, ""
 
 
+# ---- アプリ更新設定（旧管理アプリの「初期設定 > アプリ更新設定」）----
+
+アプリ更新設定の鍵 = "APP_RUNTIME_CONFIG"
+
+# (欄の名前, 画面の見出し, 入れ方の例, 何行の入力か)
+# 名前は旧管理アプリ・GAS・サーバーで共通。**変えると配る値に届かなくなる。**
+アプリ更新設定の欄 = [
+    ("latestAppVersion", "最新版の番号", "例：1.1.1", 1),
+    ("minimumSupportedVersion", "これより古いと使えない番号", "例：1.0.0", 1),
+    ("iosStoreUrl", "App Store の住所", "https://apps.apple.com/jp/app/...", 1),
+    ("updateTitle", "更新のお願いの題", "例：アップデートが必要です", 1),
+    ("updateMessage", "更新のお願いの文", "例：このアプリを引き続き利用するには、最新版へアップデートしてください。", 3),
+    ("webBundleVersion", "プログラムの版", "例：2026.04.06.63", 1),
+]
+
+# 画面に出す見出し（「いま配っている値」の並びも同じ）
+アプリ更新設定の見出し = {名: 見出し for 名, 見出し, _例, _行 in アプリ更新設定の欄}
+
+
+def _アプリ更新設定の保存値() -> dict:
+    """保存されている中身そのまま。**配る値とは違うことがある。**"""
+    行 = AppSetting.objects.filter(key=アプリ更新設定の鍵).first()
+    値 = 行.value if 行 and isinstance(行.value, dict) else {}
+    return dict(値 or {})
+
+
+def _版の形か(v: str) -> bool:
+    """1.1.1 や 2026.04.06.63 のような、数字と点だけの形か。"""
+    部 = str(v or "").split(".")
+    return bool(部) and all(x.isdigit() for x in 部)
+
+
+def _アプリ更新設定を直す(request):
+    """入力を確かめて保存する。戻り値は (保存できたか, 院長へのことば)。"""
+    保存 = _アプリ更新設定の保存値()
+    入力 = {名: str(request.POST.get(名) or "").strip() for 名, _見出し, _例, _行 in アプリ更新設定の欄}
+
+    for 名 in ("latestAppVersion", "minimumSupportedVersion", "webBundleVersion"):
+        if 入力[名] and not _版の形か(入力[名]):
+            return False, f"「{アプリ更新設定の見出し[名]}」は 1.1.1 のように数字と点だけで入れてください。"
+
+    if 入力["iosStoreUrl"] and not 入力["iosStoreUrl"].lower().startswith(("http://", "https://")):
+        return False, "「App Store の住所」は https:// から始まる形で入れてください。"
+
+    # 「これより古いと使えない番号」を上げると、古い版をお使いのお客様がアプリを開けなくなる。
+    # 押し間違いで起きると取り返しがつかないので、確かめの印が無ければ保存しない。
+    いまの下限 = str(_アプリ設定()["config"]["minimumSupportedVersion"])
+    上げる = bool(入力["minimumSupportedVersion"]) and _版を比べる(入力["minimumSupportedVersion"], いまの下限) > 0
+    if 上げる and request.POST.get("minimum_confirm") != "1":
+        return False, (f"この値にすると、{入力['minimumSupportedVersion']} より古い版をお使いの方はアプリを使えなくなります。"
+                       "よろしければ、確かめの印をつけてから保存してください。")
+
+    # **知らない項目は消さない。**旧管理アプリが同じ所へ入れていた Firebase の設定などが
+    # 一緒に保存されている。ここで扱わない項目は、そのまま残す。
+    値 = dict(保存)
+    値.update(入力)
+    AppSetting.objects.update_or_create(
+        pk=アプリ更新設定の鍵,
+        defaults={"value": 値, "note": "アプリの版・更新案内の文言（システム管理で直す）"})
+
+    ことば = "アプリ更新設定を保存しました。"
+    if 入力["webBundleVersion"] and 入力["webBundleVersion"] != _アプリ設定()["config"]["webBundleVersion"]:
+        ことば += "「プログラムの版」は保存しましたが、お客様へ配る値は変わりません。"
+    return True, ことば
+
+
 # ---- 画面 ----
 
 @owner_required
@@ -259,6 +344,18 @@ def system_view(request):
         alerts.append(("warning", "未公開予約", f"{len(未公開)}件の公開予約が予定時刻を過ぎても非公開のままです"))
 
     取れる, 取れない理由 = _控えを取れるか()
+
+    # アプリ更新設定。**保存値と「いま配っている値」の両方を出す。**
+    # 配るときに `_アプリ設定` が整えており、同じとは限らない（とくにプログラムの版）。
+    保存値 = _アプリ更新設定の保存値()
+    配る値 = _アプリ設定()["config"]
+    app_config_fields = [
+        {"name": 名, "label": 見出し, "example": 例, "rows": 行,
+         "value": str(保存値.get(名) or ""),
+         # 保存しても配る値が変わらない欄（理由は gasapi/views.py の `_アプリ設定`）
+         "fixed": 名 == "webBundleVersion"}
+        for 名, 見出し, 例, 行 in アプリ更新設定の欄
+    ]
     return render(request, "manage/system.html", {
         # お客様アプリの住所（旧管理アプリの「初期設定 > アプリ公開用URL」）。QRコード案内がこれを使う
         "app_url": アプリの住所(),
@@ -274,6 +371,9 @@ def system_view(request):
         "sheet_backups": list(BackupRecord.objects.order_by("-created_at", "-sheet_row")[:10]),
         "can_backup": 取れる,
         "cannot_backup_reason": 取れない理由,
+        "app_config_fields": app_config_fields,
+        "app_config_live": [(アプリ更新設定の見出し[k], 配る値.get(k) or "（空）") for k, _見出し, _例, _行 in アプリ更新設定の欄],
+        "app_config_minimum": 配る値.get("minimumSupportedVersion") or "",
     })
 
 
@@ -322,4 +422,17 @@ def system_app_url(request):
         return redirect("manage:system")
     住所を決める(住所)
     messages.success(request, "お客様アプリの住所を保存しました。" if 住所 else "お客様アプリの住所を空にしました。")
+    return redirect("manage:system")
+
+
+@require_POST
+@owner_required
+def system_app_config(request):
+    """アプリ更新設定を保存する（旧管理アプリの「初期設定 > アプリ更新設定」）。
+
+    保存先はサーバーがお客様アプリへ配っているのと同じ所（AppSetting の APP_RUNTIME_CONFIG）。
+    **配るときの整え方（gasapi/views.py の `_アプリ設定`）はここから触らない。**
+    """
+    できた, ことば = _アプリ更新設定を直す(request)
+    (messages.success if できた else messages.error)(request, ことば)
     return redirect("manage:system")
