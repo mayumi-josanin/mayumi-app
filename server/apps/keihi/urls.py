@@ -16,6 +16,8 @@ urlpatterns = [
     path("csv/import/", views.csv_import, name="csv_import"),
     # 売上の記録を、日ごとにまとめて出納帳へ（下見 → 取り込み の2段）
     path("revenue/", views_revenue.revenue_preview, name="revenue_preview"),
+    path("revenue/all/", views_revenue.revenue_all_preview, name="revenue_all_preview"),
+    path("revenue/all/to-book/", views_revenue.revenue_all_to_book, name="revenue_all_to_book"),
     path("revenue/to-book/", views_revenue.revenue_to_book, name="revenue_to_book"),
     # レシート
     path("receipts/", views_receipt.receipt_list, name="receipt_list"),
