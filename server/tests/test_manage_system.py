@@ -9,9 +9,10 @@ import pytest
 from django.utils import timezone
 
 from apps.content.models import CalendarEvent, Menu, News, Product, PushNotice
+from apps.gasapi.views import _アプリ設定, アプリ設定の既定
 from apps.manage import views_system
 from apps.members.models import Member
-from apps.records.models import BackupRecord, OrderLine
+from apps.records.models import AppSetting, BackupRecord, OrderLine
 
 pytestmark = pytest.mark.django_db
 
@@ -33,7 +34,7 @@ def test_何も無いときの文言(as_owner):
     assert "現在のアラートはありません。" in page
     assert "公開予約はありません。" in page
     # サーバーには控えの置き場が無い → 分からないと正直に出す（GAS のトリガーはサーバーから見えない）
-    assert "サーバーからは確認できません。旧管理アプリで確認してください。" in page
+    assert "最終バックアップ: このサーバーには置き場がないため、ここでは分かりません。" in page
     assert "バックアップが古くなっています" not in page
     # pg_dump が無い（テストは SQLite）→ 押せるボタンではなく、その旨の文言
     assert "system/backup/" not in page and "今すぐバックアップ: " in page
@@ -176,3 +177,124 @@ def test_今すぐバックアップはpg_dumpがあれば控えを1つ書く(as
     r = as_owner.post("/manage/system/backup/", follow=True)
     assert "バックアップに失敗しました" in r.content.decode()
     assert list((tmp_path / "backups2").glob("mayumi-*.dump")) == []
+
+
+# ---- アプリ更新設定（旧管理アプリの「初期設定 > アプリ更新設定」から移したもの）----
+
+def _保存値():
+    行 = AppSetting.objects.get(pk="APP_RUNTIME_CONFIG")
+    return 行.value
+
+
+def _保存する(as_owner, **上書き):
+    値 = {"latestAppVersion": "1.1.1", "minimumSupportedVersion": "0.0.0",
+          "iosStoreUrl": "", "updateTitle": "アップデートが必要です",
+          "updateMessage": "最新版へアップデートしてください。", "webBundleVersion": "2026.04.05.61"}
+    値.update(上書き)
+    return as_owner.post("/manage/system/app-config/", 値, follow=True)
+
+
+def test_アプリ更新設定の欄が出る(as_owner):
+    page = as_owner.get("/manage/system/").content.decode()
+    assert "アプリ更新設定" in page
+    for 名 in ["latestAppVersion", "minimumSupportedVersion", "iosStoreUrl",
+               "updateTitle", "updateMessage", "webBundleVersion"]:
+        assert f'name="{名}"' in page, 名
+    assert "system/app-config/" in page
+
+
+def test_いま配られている値が画面に出る(as_owner):
+    # 保存値と配る値は違うことがある（プログラムの版は固定）。配る値の側を出す
+    AppSetting.objects.create(key="APP_RUNTIME_CONFIG", value={
+        "latestAppVersion": "9.9.9", "webBundleVersion": "2099.01.01.1"})
+    page = as_owner.get("/manage/system/").content.decode()
+    assert "いまお客様へ配っている値" in page
+    assert "最新版の番号: 9.9.9" in page
+    # 配る値は既定で固定されたまま。保存値の 2099... は「配っている値」には出ない
+    assert "プログラムの版: " + アプリ設定の既定["webBundleVersion"] in page
+    assert "プログラムの版: 2099.01.01.1" not in page
+    # 保存値は入力欄の方に出る
+    assert 'name="webBundleVersion" value="2099.01.01.1"' in page
+
+
+def test_保存できる(as_owner):
+    r = _保存する(as_owner, latestAppVersion="1.2.0", updateTitle="新しくなりました",
+                  iosStoreUrl="https://apps.apple.com/jp/app/x")
+    assert "アプリ更新設定を保存しました。" in r.content.decode()
+    保存 = _保存値()
+    assert 保存["latestAppVersion"] == "1.2.0" and 保存["updateTitle"] == "新しくなりました"
+    assert _アプリ設定()["config"]["latestAppVersion"] == "1.2.0"
+    assert "1.2.0" in as_owner.get("/manage/system/").content.decode()
+
+
+def test_保存しても配るプログラムの版は変わらない(as_owner):
+    # ここが変わると、お客様に更新案内が出はじめる恐れがある
+    _保存する(as_owner, webBundleVersion="2099.01.01.1")
+    assert _保存値()["webBundleVersion"] == "2099.01.01.1"
+    assert _アプリ設定()["config"]["webBundleVersion"] == アプリ設定の既定["webBundleVersion"]
+
+
+def test_知らない項目は消さない(as_owner):
+    # 旧管理アプリが同じ鍵へ入れていた設定（Firebase など）を巻き添えで消さない
+    AppSetting.objects.create(key="APP_RUNTIME_CONFIG",
+                              value={"latestAppVersion": "1.0.0", "firebasePresence": {"enabled": True}})
+    _保存する(as_owner, latestAppVersion="1.3.0")
+    assert _保存値()["firebasePresence"] == {"enabled": True}
+
+
+def test_これより古いと使えない番号を上げるときは確かめが要る(as_owner):
+    page = as_owner.get("/manage/system/").content.decode()
+    assert "いまより古い版をお使いの方はアプリを使えなくなります" in page
+    assert 'name="minimum_confirm"' in page
+
+    r = _保存する(as_owner, minimumSupportedVersion="1.1.0")
+    assert "アプリを使えなくなります" in r.content.decode()
+    assert not AppSetting.objects.filter(key="APP_RUNTIME_CONFIG").exists()
+
+    r = _保存する(as_owner, minimumSupportedVersion="1.1.0", minimum_confirm="1")
+    assert "アプリ更新設定を保存しました。" in r.content.decode()
+    assert _アプリ設定()["config"]["minimumSupportedVersion"] == "1.1.0"
+
+    # 下げるときは確かめが要らない（使えなくなる方はいない）
+    assert "アプリ更新設定を保存しました。" in _保存する(as_owner, minimumSupportedVersion="1.0.0").content.decode()
+
+
+def test_版の形と住所を確かめる(as_owner):
+    assert "数字と点だけで入れてください" in _保存する(as_owner, latestAppVersion="v1.2").content.decode()
+    assert "https:// から始まる形" in _保存する(as_owner, iosStoreUrl="apps.apple.com/x").content.decode()
+    assert not AppSetting.objects.filter(key="APP_RUNTIME_CONFIG").exists()
+
+
+def test_在席の表示は使っていないと分かるように出す(as_owner):
+    page = as_owner.get("/manage/system/").content.decode()
+    assert "在席の表示（Firebase の設定）は使っていません。" in page
+
+
+def test_前の管理アプリへの案内は残っていない(as_owner, tmp_path, monkeypatch):
+    # 旧管理アプリは閉じるので、行き先として案内してはいけない
+    monkeypatch.setenv("BACKUP_DIR", str(tmp_path))
+    BackupRecord.objects.create(sheet_row=2, created_at=timezone.now(), kind="daily", file_name="x")
+    page = as_owner.get("/manage/system/").content.decode()
+    # 左メニューの「↗ 旧管理アプリ」は別の話なので、中身の側だけを見る
+    中身 = page.split("</aside>")[-1]
+    assert "旧管理アプリ" not in 中身 and "旧アプリ" not in 中身
+    for 消した文 in ["旧管理アプリで確認してください", "旧管理アプリの「今すぐバックアップ」から取れます"]:
+        assert 消した文 not in page, 消した文
+    # 代わりに GAS の画面で行う（実在する関数名で案内する）
+    assert "Apps Script" in 中身 and "runDailyMaintenance" in 中身 and "processScheduledPushQueue" in 中身
+
+
+def test_控えの一覧と最新の日時を出す(as_owner, tmp_path, monkeypatch):
+    monkeypatch.setenv("BACKUP_DIR", str(tmp_path))
+    for 名 in ("mayumi-20260919-0300.dump", "mayumi-20260920-0300.dump"):
+        (tmp_path / 名).write_bytes(b"x" * 2048)
+    page = as_owner.get("/manage/system/").content.decode()
+    assert "最近のバックアップ履歴" in page
+    assert "mayumi-20260919-0300.dump" in page and "mayumi-20260920-0300.dump" in page
+    assert "最終バックアップ: " + timezone.localtime().strftime("%Y/%m/%d") in page
+
+
+def test_アプリ更新設定はまゆみ以外は保存できない(client, staff):
+    client.force_login(staff)
+    assert client.post("/manage/system/app-config/", {"latestAppVersion": "9.9.9"}).status_code == 403
+    assert not AppSetting.objects.filter(key="APP_RUNTIME_CONFIG").exists()
