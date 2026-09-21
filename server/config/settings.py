@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.hp",
     "apps.dev",
     "apps.bijiris",
+    "apps.keihi",
     "apps.preview",
 ]
 

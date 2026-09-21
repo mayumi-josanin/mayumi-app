@@ -1,0 +1,140 @@
+/* 現金出納帳（JDL 様式 777）の表組み。
+   紙に寄せるため、幅は mm で固定し、画面でも印刷でも同じ割付にする。 */
+
+.ledger-wrap {
+  overflow-x: auto;   /* 狭い画面では横に送る。紙の割付は崩さない */
+}
+
+.ledger {
+  width: 194mm;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #fdfdfb;
+  font-size: 10.5px;
+  line-height: 1.1;
+  color: #1a1a1a;
+}
+
+.ledger th,
+.ledger td {
+  border: 0.4px solid #6b6b63;
+  padding: 0;
+  height: 7.2mm;
+  vertical-align: middle;
+}
+
+.ledger thead th:not(.col-no) {
+  background: #57564d;
+  color: #fff;
+  height: 6mm;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-align: center;
+}
+
+/* 見出しの帯は表の中だけ。左右の余白には掛けない */
+.ledger thead th.col-no { height: 6mm; }
+
+/* 行番号（左右の余白の目盛り）。紙と同じく 5 行ごとに数字を出す */
+.ledger .col-no {
+  border: none;
+  background: transparent;
+  color: #8a8a80;
+  font-size: 9px;
+  text-align: center;
+}
+
+/* セルいっぱいに広がる入力欄。枠線は表の罫線に任せる */
+.ledger-input {
+  width: 100%;
+  height: 7.2mm;
+  padding: 0 1.2mm;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  border-radius: 0;
+}
+
+.ledger-input:focus { background: #d6e8fb; }
+
+.ledger-amount { text-align: right; font-variant-numeric: tabular-nums; }
+.ledger-date { text-align: center; font-variant-numeric: tabular-nums; }
+.ledger td.ledger-amount { padding: 0 1.2mm; }
+
+/* 不備のある行の印。印刷には出さない */
+.ledger tr.has-error td { background: #fdeaea; }
+
+.ledger tfoot td { height: 8mm; font-weight: 600; }
+
+.ledger tfoot .band {
+  background: #57564d;
+  color: #fff;
+  text-align: center;
+  letter-spacing: 0.3em;
+}
+
+/* 行を消すボタン。行にマウスを乗せたときだけ出す */
+.row-delete {
+  border: none;
+  background: transparent;
+  color: #8a8a80;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  visibility: hidden;
+}
+.ledger tbody tr:hover .row-delete { visibility: visible; }
+.row-delete:hover { color: #c0392b; }
+
+.ledger-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  width: 194mm;
+  max-width: 100%;
+  margin-bottom: 4px;
+}
+.ledger-title { font-size: 1.1rem; letter-spacing: 0.4em; margin: 0; }
+.ledger-opening {
+  width: 28mm;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid #6b6b63;
+  background: #fdfdfb;
+  padding: 2px 4px;
+}
+
+/* ------------------------------------------------------------------
+   印刷（A4 縦）。操作の並びを落として、紙の様式だけを出す。
+   ------------------------------------------------------------------ */
+@media print {
+  @page { size: A4 portrait; margin: 8mm; }
+
+  body { background: #fff; }
+
+  /* 管理画面の枠組みは紙に出さない */
+  .sidebar, .topbar, .page-tabs, .page-header, .no-print, .messages { display: none !important; }
+  .content, main, .main { margin: 0 !important; padding: 0 !important; }
+
+  .ledger-wrap { overflow: visible; }
+  .ledger { background: #fff; }
+  .ledger th, .ledger td { border-color: #000; }
+
+  .ledger thead th:not(.col-no),
+  .ledger tfoot .band {
+    background: #4a4a4a !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 入力中の色や不備の印は紙に出さない */
+  .ledger-input:focus,
+  .ledger tr.has-error td { background: transparent !important; }
+
+  .ledger-opening { border: none; }
+  .ledger { break-inside: avoid; }
+}
