@@ -1,0 +1,53 @@
+{% extends "manage/base.html" %}
+{% load static humanize %}
+{% block title %}レシート台帳 — まゆみ助産院 管理画面{% endblock %}
+{% block topbar_title %}経費管理{% endblock %}
+
+{% block content %}
+{% comment %}台帳（一覧表）。開くとそのまま印刷の窓が出る。PDF はそこで「PDF に保存」を選ぶ。{% endcomment %}
+<link rel="stylesheet" href="{% static 'keihi/receipt.css' %}?v={{ STATIC_VERSION }}">
+
+<div class="page-header no-print">
+  <h1>レシート台帳</h1>
+  <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">印刷 / PDF に保存</button>
+</div>
+
+<h2 class="print-title">レ シ ー ト 台 帳</h2>
+<p class="print-sub">まゆみ助産院　{{ receipts|length }} 件</p>
+
+<table class="receipt-ledger">
+  <thead>
+    <tr>
+      <th style="width:8%">No.</th>
+      <th style="width:16%">日付</th>
+      <th>店名・支払先</th>
+      <th style="width:18%">相手科目</th>
+      <th style="width:10%">種別</th>
+      <th style="width:16%">金額</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in receipts %}
+    <tr>
+      <td class="num">{{ forloop.counter }}</td>
+      <td>{{ r.date|date:"Y/n/j"|default:"—" }}</td>
+      <td>{{ r.store_name|default:"—" }}{% if r.memo %}<br><span style="color:#666;font-size:9px;">{{ r.memo }}</span>{% endif %}</td>
+      <td>{{ r.counter_account|default:"—" }}</td>
+      <td>{{ r.get_kind_display }}</td>
+      <td class="num">{% if r.amount != None %}{{ r.amount|intcomma }}{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="5" style="text-align:right;">支払 合計</td>
+      <td class="num">{{ 支払合計|intcomma }}</td>
+    </tr>
+    <tr>
+      <td colspan="5" style="text-align:right;">収入 合計</td>
+      <td class="num">{{ 収入合計|intcomma }}</td>
+    </tr>
+  </tfoot>
+</table>
+
+{% endblock %}
