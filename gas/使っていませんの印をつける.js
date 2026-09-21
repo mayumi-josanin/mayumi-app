@@ -33,7 +33,9 @@ var 印をつけるシート = [
 
 
 function 使っていませんの印をつける() {
-  var ss = SpreadsheetApp.getActive();
+  // **getActive() は使えない。**この仕掛けはスプレッドシートに紐づいていない形なので null になる。
+  // 他の所と同じ getOrCreateSpreadsheet()（スクリプトプロパティの SPREADSHEET_ID で開く）を使う。
+  var ss = getOrCreateSpreadsheet();
   Logger.log('■ 使っていないシートに警告を付けます');
   Logger.log('  中身には一切触りません。行も足しません。名前も変えません。');
   Logger.log('');
@@ -65,7 +67,7 @@ function 使っていませんの印をつける() {
 
 
 function 使っていませんの印を外す() {
-  var ss = SpreadsheetApp.getActive();
+  var ss = getOrCreateSpreadsheet();
   印をつけるシート.forEach(function (もの) {
     var sheet = ss.getSheetByName(もの.名前);
     if (!sheet) return;
