@@ -1,6 +1,25 @@
 // ===== GAS設定 =====
 // ↓ GASウェブアプリURLをここに貼り付け ↓
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzf3iBSe2IFIeJJgaGxd4_MeFVErRnKdS2Y9C4xkPA1d6If5dgKhm-rjRAwqtYE6CotCA/exec';
+
+// お客様アプリの行き先。**2026-09-22 に GAS からサーバーへ向けた。**
+//
+// それまでは アプリ → GAS → サーバー の2段だった。GAS を窓口に残したのは、
+// 管理アプリも同じ GAS を見ていて、片方だけ移すと「正」が2つできるため
+// （2026-09-05 に実際にお知らせが 91件 と 88件 でずれていた）。
+// 管理画面を Django に移し終えたので、その理由が無くなった。
+//
+// **2段だと、Google の中の名前引きが失敗するとお客様が入れない。**
+// 9/15 に90分、9/17〜21 も続けて起きた。9/20 の夜はお客様の書き込みも2回落ちている。
+// ブラウザから直に呼べば、その道を通らない。速くもなる（1.6秒 → 1秒以下）。
+//
+// 住所も札も変えていないので、**お客様の入れ直し・ログインし直しは要らない。**
+const API_URL = 'https://mayumi-api.tail8efe0d.ts.net/api';
+
+// サーバーに届かないときだけ、前の道（GAS）で読む。
+// **読むときだけ。**書き込みで二度送ると、注文が重なるおそれがある。
+// GAS は読みに失敗しても「6時間以内の前回の答え」を返すので、真っ白よりましになる。
+const 読みの予備 = GAS_URL;
 const CURRENT_WEB_BUNDLE_VERSION = '2026.04.27.78';
 const APP_RUNTIME_CONFIG_STORAGE_KEY = 'mayumi_app_runtime_config';
 const DEFAULT_APP_RUNTIME_CONFIG = Object.freeze({
@@ -1493,8 +1512,8 @@ function writeApiCache(key, payload) {
   try { localStorage.removeItem(key); } catch (e3) { }
 }
 
-function fetchFromGAS(action, params) {
-  let url = GAS_URL + '?action=' + action + '&t=' + Date.now();
+function 読みに行く_(基点, action, params) {
+  let url = 基点 + '?action=' + action + '&t=' + Date.now();
   if (params) url += '&data=' + encodeURIComponent(JSON.stringify(params));
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timeoutId = controller
@@ -1503,6 +1522,15 @@ function fetchFromGAS(action, params) {
   return fetch(url, controller ? { signal: controller.signal } : undefined)
     .then(function (res) { return res.json(); })
     .finally(function () { if (timeoutId) clearTimeout(timeoutId); });
+}
+
+function fetchFromGAS(action, params) {
+  // まずサーバー。届かないときだけ前の道（GAS）で読む。
+  // 家のサーバーが止まっているときでも、GAS なら前回の答えを返せる。
+  return 読みに行く_(API_URL, action, params).catch(function (e) {
+    console.warn('サーバーに届きません。前の道で読みます:', action, e);
+    return 読みに行く_(読みの予備, action, params);
+  });
 }
 
 // 同じ action/params の通信が重ならないようにまとめる
@@ -1525,7 +1553,7 @@ function requestFromGAS(action, params, cacheKey) {
 // GASからデータ取得（doGet対応）
 // action: 'getNews' | 'getProducts'
 async function getFromGAS(action, params) {
-  if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return null;
+  if (!API_URL) return null;
   const cacheKey = API_CACHE_SHARED_ACTIONS[action] ? buildApiCacheKey(action, params) : null;
   const cached = cacheKey ? readApiCache(cacheKey) : null;
   const now = Date.now();
@@ -1554,7 +1582,7 @@ async function getFromGAS(action, params) {
 // GASへデータ送信（GET/POST自動切り替え）
 // payload: { type:'order|updateUser|uploadImage|...', ... }
 async function postToGAS(payload, options) {
-  if (!GAS_URL || GAS_URL === 'YOUR_GAS_URL_HERE') return;
+  if (!API_URL) return;
   const opts = options || {};
   try {
     const action = payload.type;
@@ -1574,7 +1602,7 @@ async function postToGAS(payload, options) {
       action === 'resetForgottenPasscode' ||
       action === 'issueTransferCode'
     ) {
-      res = await fetch(GAS_URL, {
+      res = await fetch(API_URL, {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: { 'Content-Type': 'text/plain' }, // CORS回避のため text/plain
@@ -1583,7 +1611,7 @@ async function postToGAS(payload, options) {
     } else {
       // それ以外（注文など）は従来通りGETで送る（POST不達問題の回避）
       const data = encodeURIComponent(JSON.stringify(payload));
-      const url = GAS_URL + '?action=' + action + '&data=' + data + '&t=' + Date.now();
+      const url = API_URL + '?action=' + action + '&data=' + data + '&t=' + Date.now();
       res = await fetch(url);
     }
 
