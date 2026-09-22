@@ -78,8 +78,12 @@ def _行をそろえる(book: Cashbook, minimum: int = DEFAULT_ROWS) -> None:
 
 def _入力を保存する(request, book: Cashbook) -> None:
     """画面に出ていた行をまとめて書き戻す。"""
-    book.opening_balance = _int_or_none(request.POST.get("opening")) or 0
-    book.save(update_fields=["opening_balance", "updated_at"])
+    # 前葉繰越の欄は画面から外した（院長の希望 2026-09-22「差引残高を削除」）。
+    # **送られてこないときは、いまの値をそのまま残す。**0 で上書きすると、
+    # 戻したくなったときに元の数が分からなくなる。
+    if "opening" in request.POST:
+        book.opening_balance = _int_or_none(request.POST.get("opening")) or 0
+        book.save(update_fields=["opening_balance", "updated_at"])
 
     entries = list(book.entries.all())
     for entry in entries:

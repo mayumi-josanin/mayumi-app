@@ -34,30 +34,22 @@
     return n.toLocaleString('ja-JP');
   }
 
-  /** 前葉繰越から順に足し引きして、残高と合計を出し直す。 */
+  /** 収入と支払の合計を出し直す。
+   *
+   * **差引残高は出さない**（院長の希望 2026-09-22「差引残高を削除」）。
+   * 前葉繰越の欄も画面から外したので、ここでも読まない。
+   */
   function recalc() {
-    const opening = toNumber(document.getElementById('opening').value);
-    let balance = opening;
     let incomeTotal = 0;
     let paymentTotal = 0;
 
     table.querySelectorAll('tbody tr').forEach(function (tr) {
-      const income = toNumber(tr.querySelector('[data-col="4"]').value);
-      const payment = toNumber(tr.querySelector('[data-col="5"]').value);
-      incomeTotal += income;
-      paymentTotal += payment;
-      balance += income - payment;
-
-      // 何も書かれていない行は、紙と同じく残高も空欄のままにする
-      const written = ['1', '2', '3', '4', '5'].some(function (col) {
-        return (tr.querySelector('[data-col="' + col + '"]').value || '').trim() !== '';
-      });
-      tr.querySelector('.balance').textContent = written ? format(balance) : '';
+      incomeTotal += toNumber(tr.querySelector('[data-col="4"]').value);
+      paymentTotal += toNumber(tr.querySelector('[data-col="5"]').value);
     });
 
     document.getElementById('income-total').textContent = format(incomeTotal);
     document.getElementById('payment-total').textContent = format(paymentTotal);
-    document.getElementById('closing-balance').textContent = format(opening + incomeTotal - paymentTotal);
   }
 
   table.addEventListener('keydown', function (e) {
@@ -107,7 +99,9 @@
   });
 
   table.addEventListener('input', recalc);
-  document.getElementById('opening').addEventListener('input', recalc);
+  // 前葉繰越の欄は外した（2026-09-22）。あっても無くても落ちないようにしておく
+  const openingEl = document.getElementById('opening');
+  if (openingEl) openingEl.addEventListener('input', recalc);
 
   recalc();
 })();

@@ -184,3 +184,24 @@ def test_CSVを読み込む(as_owner):
     入った = book.entries.filter(description="コピー用紙").first()
     assert 入った is not None
     assert 入った.payment == 25000 and 入った.month == 9 and 入った.day == 1
+
+
+def test_差引残高は出さない(as_owner):
+    """院長の希望（2026-09-22）で、差引残高と前葉繰越を画面から外した。
+
+    **数そのものは消していない**（Cashbook.opening_balance に残る）ので、戻せる。
+    """
+    page = as_owner.get(URL).content.decode()
+    assert "差 引 残 高" not in page
+    assert "前葉繰越" not in page.split("{% comment %}")[0]   # 注記の中は数えない
+    assert 'id="closing-balance"' not in page
+    # 収入・支払の合計は今までどおり出る
+    assert 'id="income-total"' in page and 'id="payment-total"' in page
+
+
+def test_繰越の欄が無くても保存できる(as_owner):
+    """欄を外したので、送られてこない。**0 で上書きしない**こと。"""
+    book = Cashbook.objects.create(year=2026, month=9, opening_balance=50000)
+    as_owner.post(URL, {"save": "1"})
+    book.refresh_from_db()
+    assert book.opening_balance == 50000
