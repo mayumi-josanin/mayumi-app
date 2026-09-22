@@ -214,6 +214,12 @@ SITE_GIT_EMAIL = env("SITE_GIT_EMAIL", "manage@mayumijosanin.com")
 # 箱（Docker）の中からは手元のリポジトリが見えないので、docker-compose.yml の manage に読み取り専用で載せている。
 # ここにファイルが無いときは、画面に「手元にファイルがありません」と出すだけで、他は動く。
 PREVIEW_APP_DIR = env("PREVIEW_APP_DIR", "/develop-app")
+# ビジリスだけ、別の場所に置くことがある。
+# mayumi-app の置き方では、お客様アプリの写しの下に bijiris/customer-app/ が入っている。
+# **1つにまとめた場所（mayumi）では並びになる**（apps/customer と apps/bijiris）ので、
+# お客様アプリの下にビジリスが無い。そのときだけ、ここでビジリスの場所を教える。
+# 空なら今までどおり、お客様アプリの写しの下を見る。
+PREVIEW_BIJIRIS_DIR = env("PREVIEW_BIJIRIS_DIR", "")
 
 # 予約システム（mayumi-reserve）は Django なので、ファイルを配らずに住所をそのまま枠に出す。
 # 住所が変わったら .env で差し替えられるように設定にしてある。
