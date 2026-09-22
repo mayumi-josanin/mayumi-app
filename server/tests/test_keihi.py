@@ -5,6 +5,9 @@
 書きかけの行があっても保存が止まらないこと（不備は知らせるだけ）。
 """
 
+import re
+from pathlib import Path
+
 import pytest
 
 from apps.keihi.models import Cashbook, CashbookEntry
@@ -13,6 +16,10 @@ from apps.keihi.services import DEFAULT_ROWS, entry_errors, running_balances, so
 pytestmark = pytest.mark.django_db
 
 URL = "/manage/keihi/?year=2026&month=9"
+
+静的 = Path(__file__).resolve().parent.parent / "apps" / "keihi" / "static" / "keihi"
+LEDGER_CSS = 静的 / "ledger.css"
+LEDGER_JS = 静的 / "ledger.js"
 
 
 def 行(**kwargs):
@@ -205,3 +212,37 @@ def test_繰越の欄が無くても保存できる(as_owner):
     as_owner.post(URL, {"save": "1"})
     book.refresh_from_db()
     assert book.opening_balance == 50000
+
+
+# ---- 摘要が枠に収まる（院長の希望 2026-09-22）----------------------------
+
+def test_出納帳の文字の大きさを表のセルにも言う():
+    """**受け継ぐだけでは負ける。**管理画面の共通の決まり（style.css の
+    `td { font-size: .88rem }`）は、`.ledger` から受け継ぐ 10.5px より強い。
+    そのため出納帳が 14px で出ていて、mm で決めた列に摘要が収まらなかった
+    （2026-09-22 に測って気づいた）。ledger.css の `.ledger td` でも言い直す。
+    """
+    本体 = LEDGER_CSS.read_text(encoding="utf-8").split("@media print")[0]
+    assert "font-size: 10.5px" in 本体                      # .ledger（紙の割付に合わせた大きさ）
+    セル = re.search(r"\.ledger th,\s*\.ledger td \{(.*?)\}", 本体, re.S)
+    assert セル and "font-size:" in セル.group(1)
+
+
+def test_長い摘要は枠に収まるまで小さくする():
+    """列の幅は紙の様式で決まっていて広げられないので、文字の方を縮める。
+    入力欄は、はみ出した分が横に隠れるだけで読めなくなるため。
+    """
+    js = LEDGER_JS.read_text(encoding="utf-8")
+    assert "function 摘要を収める" in js
+    assert "摘要の下限" in js
+    # 読み込んだときと、印刷の前にも測り直す（紙にも収める）
+    assert "摘要を全部収める()" in js
+    assert "beforeprint" in js
+
+
+def test_画面は摘要を収める仕掛けを読んでいる(as_owner):
+    """ledger.js を読まない画面があると、そこだけ摘要がはみ出す。"""
+    page = as_owner.get(URL).content.decode()
+    assert "keihi/ledger.js" in page
+    # 摘要の欄が、測る目印（data-col="2"）を持っていること
+    assert 'data-col="2"' in page

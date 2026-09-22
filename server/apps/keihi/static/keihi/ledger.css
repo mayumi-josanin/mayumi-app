@@ -21,6 +21,10 @@
   padding: 0;
   height: 7.2mm;
   vertical-align: middle;
+  /* **文字の大きさをここでも言う。** 管理画面の共通の決まり（style.css の `td`）が
+     `font-size: .88rem` を当てていて、上の `.ledger` から受け継ぐ 10.5px より強い。
+     言わないと 14px で出て、mm で決めた紙の割付に摘要が収まらない。 */
+  font-size: inherit;
 }
 
 .ledger thead th:not(.col-no) {
