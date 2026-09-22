@@ -39,11 +39,11 @@ JDL 会計伝票「現金出納帳（様式 777）」の紙に寄せた表。
       {{ book.month }} <span style="font-size:.75rem;color:#8a8a80;">月</span>
     </div>
     <h2 class="ledger-title">現 金 出 納 帳</h2>
-    <label style="display:flex;align-items:flex-end;gap:6px;">
-      <span style="font-size:.75rem;color:#8a8a80;">前葉繰越</span>
-      <input class="ledger-opening" id="opening" name="opening" inputmode="numeric"
-             value="{{ book.opening_balance|intcomma }}">
-    </label>
+    {% comment %}
+    前葉繰越の欄は外した（院長の希望 2026-09-22「差引残高を削除」）。
+    差引残高を出さなくなったので、繰越を入れる意味が無くなったため。
+    **数そのものは消していない**（Cashbook.opening_balance に残っている）ので、戻せる。
+    {% endcomment %}
   </div>
 
   <div class="ledger-wrap">
@@ -51,7 +51,8 @@ JDL 会計伝票「現金出納帳（様式 777）」の紙に寄せた表。
       <colgroup>
         <col style="width:8mm"><col style="width:7mm"><col style="width:7mm">
         <col style="width:56mm"><col style="width:28mm">
-        <col style="width:26mm"><col style="width:26mm"><col style="width:28mm">
+        {% comment %}差引残高の列（28mm）を外したぶん、摘要と金額を広げてある{% endcomment %}
+        <col style="width:32mm"><col style="width:32mm">
         <col style="width:8mm">
       </colgroup>
 
@@ -63,7 +64,6 @@ JDL 会計伝票「現金出納帳（様式 777）」の紙に寄せた表。
           <th>相 手 科 目</th>
           <th>収 入 金 額</th>
           <th>支 払 金 額</th>
-          <th>差 引 残 高</th>
           <th class="col-no"></th>
         </tr>
       </thead>
@@ -90,7 +90,6 @@ JDL 会計伝票「現金出納帳（様式 777）」の紙に寄せた表。
           <td><input class="ledger-input ledger-amount" data-row="{{ forloop.counter0 }}" data-col="5"
                      inputmode="numeric" name="pay-{{ r.entry.id }}"
                      value="{% if r.entry.payment != None %}{{ r.entry.payment|intcomma }}{% endif %}"></td>
-          <td class="ledger-amount balance">{% if r.balance != '' %}{{ r.balance|intcomma }}{% endif %}</td>
           <td class="col-no"><span>{{ r.tick }}</span></td>
         </tr>
         {% endfor %}
@@ -103,7 +102,6 @@ JDL 会計伝票「現金出納帳（様式 777）」の紙に寄せた表。
           <td class="band">合 計</td>
           <td class="ledger-amount" id="income-total">{{ totals.income_total|intcomma }}</td>
           <td class="ledger-amount" id="payment-total">{{ totals.payment_total|intcomma }}</td>
-          <td class="ledger-amount" id="closing-balance">{{ totals.closing_balance|intcomma }}</td>
           <td class="col-no"></td>
         </tr>
       </tfoot>
