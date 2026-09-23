@@ -3,8 +3,9 @@
  *  - Enter で右のセル、行の最後なら次の行の先頭へ（Tab と同じ並び）
  *  - 上下の矢印で同じ列の行移動
  *  - 金額は入力中は素の数字、セルを離れると 3 桁カンマ
- *  - 差引残高と合計は、入力しているそばから計算して出す
+ *  - 合計は、入力しているそばから計算して出す
  *    （保存すればサーバー側でも同じ計算をする。正は常にサーバー側）
+ *  - 摘要が長い行は、枠に収まるまで文字を小さくする
  */
 (function () {
   const table = document.querySelector('.ledger');
@@ -50,6 +51,42 @@
 
     document.getElementById('income-total').textContent = format(incomeTotal);
     document.getElementById('payment-total').textContent = format(paymentTotal);
+  }
+
+  /* ------------------------------------------------------------------
+     摘要を枠の中に収める（院長の希望 2026-09-22）
+     ------------------------------------------------------------------ */
+
+  // これ以上は小さくしない。読めなくなっては、収まっても意味がない。
+  // この大きさで、全角なら 31 文字ほどが 1 行に入る（56mm の列で確かめた）
+  const 摘要の下限 = 7;
+
+  /** 摘要の欄が枠からはみ出していたら、収まるまで文字を少し小さくする。
+   *
+   * 列の幅は紙の様式（様式 777）で決まっているので広げられない。入力欄は、
+   * はみ出した分が横に隠れるだけなので、**画面でも紙でも読めなくなる。**
+   * そこで、はみ出した行だけ文字の方を縮める。はみ出していない行は触らない
+   * （全部を小さくすると、短い摘要まで読みにくくなる）。
+   *
+   * 下限まで小さくしても入らないほど長い摘要は、そこで止める。
+   */
+  function 摘要を収める(el) {
+    if (!el) return;
+    el.style.fontSize = '';                       // いったん元に戻してから測り直す
+    if (el.scrollWidth <= el.clientWidth) return; // 収まっているなら触らない
+
+    // 元の大きさは ledger.css が決めている。ここには書き写さない（2か所になると必ずずれる）
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while (size > 摘要の下限 && el.scrollWidth > el.clientWidth) {
+      size = Math.max(摘要の下限, size - 0.25);
+      el.style.fontSize = size + 'px';
+    }
+  }
+
+  const 摘要たち = () => table.querySelectorAll('[data-col="2"]');
+
+  function 摘要を全部収める() {
+    摘要たち().forEach(摘要を収める);
   }
 
   table.addEventListener('keydown', function (e) {
@@ -98,10 +135,23 @@
     recalc();
   });
 
-  table.addEventListener('input', recalc);
+  table.addEventListener('input', function (e) {
+    recalc();
+    // 書いているそばから収める。書き終わってからでは、途中が見えないまま進む
+    if (e.target && e.target.dataset && e.target.dataset.col === '2') 摘要を収める(e.target);
+  });
   // 前葉繰越の欄は外した（2026-09-22）。あっても無くても落ちないようにしておく
   const openingEl = document.getElementById('opening');
   if (openingEl) openingEl.addEventListener('input', recalc);
 
   recalc();
+  摘要を全部収める();
+
+  // 印刷の直前にも測り直す。**2通りで見張る。**iPad の Safari は beforeprint を出さず、
+  // 代わりに print のメディアが切り替わる。どちらか片方だけだと、紙にだけはみ出しが残る
+  if (window.matchMedia) {
+    const 紙 = window.matchMedia('print');
+    if (紙.addEventListener) 紙.addEventListener('change', 摘要を全部収める);
+  }
+  window.addEventListener('beforeprint', 摘要を全部収める);
 })();

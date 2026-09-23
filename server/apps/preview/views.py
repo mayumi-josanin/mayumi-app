@@ -75,7 +75,16 @@ DEVICES = [("スマホ", 375), ("パソコン", 0)]
 
 
 def 置き場(kind: str) -> str:
-    """いま作っている方（develop の写し）の場所。"""
+    """いま作っている方（develop の写し）の場所。
+
+    ビジリスは、置き方が2通りある。
+      ・mayumi-app … お客様アプリの写しの下（bijiris/customer-app/）
+      ・まとめた場所 … apps/customer と apps/bijiris が並び。お客様アプリの下に無い
+    後者では PREVIEW_BIJIRIS_DIR でビジリスの場所を教える（決めてなければ今までどおり）。
+    """
+    別置き = settings.PREVIEW_BIJIRIS_DIR if kind == "bijiris" else ""
+    if 別置き:
+        return 別置き
     return os.path.join(settings.PREVIEW_APP_DIR or "", 種類たち[kind]["下の道"])
 
 

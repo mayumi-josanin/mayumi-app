@@ -165,3 +165,34 @@ def test_スタッフは403で未ログインはログインへ(client, staff):
     client.force_login(staff)
     for url in urls:
         assert client.get(url).status_code == 403, url
+
+
+# ---- ビジリスを別の場所に置いたとき（1つにまとめた場所）----------------------
+
+def test_ビジリスの置き場は別に決められる(as_owner, tmp_path, settings):
+    """まとめた場所（mayumi）では apps/customer と apps/bijiris が並びで、
+    お客様アプリの写しの下に bijiris/ が無い。**そのままだと、ここだけ空になる。**
+    PREVIEW_BIJIRIS_DIR で場所を教えれば、今までどおり出る。
+    """
+    お客様 = tmp_path / "customer"
+    お客様.mkdir()
+    (お客様 / "index.html").write_text("<h1>お客様アプリ</h1>", encoding="utf-8")
+    ビジリス = tmp_path / "bijiris" / "customer-app"
+    ビジリス.mkdir(parents=True)
+    (ビジリス / "index.html").write_text("<h1>まゆみ助産院 アンケート</h1>", encoding="utf-8")
+    (ビジリス / "app.js").write_text("// ビジリス", encoding="utf-8")
+
+    settings.PREVIEW_APP_DIR = str(お客様)
+    settings.PREVIEW_BIJIRIS_DIR = str(ビジリス)
+
+    r = as_owner.get("/manage/preview/files/bijiris/index.html")
+    assert r.status_code == 200 and "アンケート".encode() in b"".join(r.streaming_content)
+    # お客様アプリ側は、今までどおり写しの根っこ
+    r = as_owner.get("/manage/preview/files/app/index.html")
+    assert r.status_code == 200 and "お客様アプリ".encode() in b"".join(r.streaming_content)
+
+
+def test_決めていなければ今までどおり写しの下を見る(as_owner, 写し):
+    """PREVIEW_BIJIRIS_DIR が空のときは、mayumi-app の置き方のまま動くこと。"""
+    r = as_owner.get("/manage/preview/files/bijiris/index.html")
+    assert r.status_code == 200 and "アンケート".encode() in b"".join(r.streaming_content)
