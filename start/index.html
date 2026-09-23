@@ -340,11 +340,15 @@
   // こうしておくと、確認用サーバーでも公開先でも同じリンクで通る。
   var BIJIRIS_BASE = '../bijiris/';
 
+  // **お客様のアプリだけを出す**（院長の希望 2026-09-23）。
+  //
+  // 管理の2つ（まゆみ助産院 管理・ビジリス 管理）は、ここから外した。
+  //   ・まゆみ助産院 管理 … 2026-09-21 に閉じた。いまは「移転しました」の案内が出るだけ
+  //   ・ビジリス 管理     … 新しい管理画面（サーバー側）へ移す。ここから開く道は要らない
+  // 管理はサーバー側の管理画面から入る（院内のネットワークの中だけ）。
   var APPS = {
     mayumiCustomer: { name: 'まゆみ助産院',      desc: '予約・お知らせ・ショップ', url: '../' },
-    bijiris:        { name: 'ビジリス',          desc: 'アンケート・計測の記録',   url: BIJIRIS_BASE + 'customer-app/' },
-    mayumiAdmin:    { name: 'まゆみ助産院 管理', desc: '会員・注文・売上の管理',   url: '../admin/' },
-    bijirisAdmin:   { name: 'ビジリス 管理',     desc: '回答・計測の管理',         url: BIJIRIS_BASE + 'admin-app/' }
+    bijiris:        { name: 'ビジリス',          desc: 'アンケート・計測の記録',   url: BIJIRIS_BASE + 'customer-app/' }
   };
 
   function $(id) { return document.getElementById(id); }
@@ -473,8 +477,9 @@
     $('whoRole').textContent = session.role === 'admin' ? 'スタッフとしてログイン中' : 'ログイン中';
 
     // ビジリスは、登録済みの方にだけ出す。
+    // **管理は出さない**（院長の希望 2026-09-23）。スタッフでお入りの場合も同じ。
     var keys = session.role === 'admin'
-      ? ['mayumiCustomer', 'bijiris', 'mayumiAdmin', 'bijirisAdmin']
+      ? ['mayumiCustomer', 'bijiris']
       : (session.bijiris ? ['mayumiCustomer', 'bijiris'] : ['mayumiCustomer']);
 
     var html = '';
@@ -489,6 +494,10 @@
 
     // 管理者の方には、タップを待たずに合鍵を用意しておく。
     // 失敗してもここでは何も言わない。タップされたときに改めて試す。
+    //
+    // **入口から管理を外したあとも、ここは残す**（2026-09-23）。
+    // ビジリス管理は、切り替え（9/24 以降）まで古いアプリを住所で直に開いて使う。
+    // そのとき合鍵が要るので、この画面を通ったときに用意しておく。
     if (session.role === 'admin') {
       ensureBijirisAdminToken().catch(function () { /* タップ時にやり直す */ });
     }
