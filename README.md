@@ -181,15 +181,60 @@ Chrome / Edge で上記URLを開き、アドレスバー右端の **インスト
 
 ## リンク集
 
+**2026-09-24 に見直した。**作る場所が `mayumi` に1つにまとまり、旧管理アプリが閉じたあとの姿。
+
+### 作る場所と公開用（GitHub）
+
 | リソース | URL |
 |---------|-----|
-| **GitHub リポジトリ** | https://github.com/mayumi-josanin/mayumi-app |
-| **本番アプリ**（`main` が自動反映） | https://mayumi-josanin.github.io/mayumi-app/ |
-| **確認用アプリ**（`develop` を手元から配信） | https://macbook-air-5.tail8efe0d.ts.net/start/ |
-| ビジリスの編集ルール | [bijiris/CLAUDE.md](bijiris/CLAUDE.md) |
-| ビジリスの申し送り | [bijiris/WORK_NOTES.md](bijiris/WORK_NOTES.md) |
+| **作る場所**（直すのはここだけ。`develop` で確かめて `main` へ） | https://github.com/mayumi-josanin/mayumi |
+| 公開用: お客様アプリ・入口・ビジリス（**送り先。直さない**） | https://github.com/mayumi-josanin/mayumi-app |
+| 公開用: 公式サイト（送り先） | https://github.com/mayumi-josanin/mayumi-site |
+| 公開用: ビジリス単体（送り先。手で流したときだけ送る） | https://github.com/mayumi-josanin/mayumi_bijiris |
 
-確認用URLは **Tailscale の中からのみ** 届きます。スマホ側の Tailscale が ON である必要があります。
+`mayumi` の `main` に入ると、GitHub Actions（`.github/workflows/publish.yml`）が
+`apps/customer`（＋`apps/bijiris` を `bijiris/` として）を `mayumi-app` の `main` へ送り出し、
+GitHub Pages が公開します。**この README も `mayumi/apps/customer/README.md` から届いています。**
+`mayumi-app` を直に直しても、次の送り出しで消えます。
+
+### 本番（お客様が見るもの）
+
+| リソース | URL |
+|---------|-----|
+| **入口**（ログイン・アプリ一覧） | https://mayumi-josanin.github.io/mayumi-app/start/ |
+| お客様アプリ | https://mayumi-josanin.github.io/mayumi-app/ |
+| ビジリス（お客様） | https://mayumi-josanin.github.io/mayumi-app/bijiris/customer-app/ |
+| 公式サイト | https://mayumijosanin.com/ |
+| アプリの窓口（サーバー・Tailscale Funnel） | https://mayumi-api.tail8efe0d.ts.net/api （生存確認は `/api/health`） |
+
+### 院内だけ（Tailscale の中からのみ届く）
+
+| リソース | URL |
+|---------|-----|
+| **管理画面**（本番・`main`） | https://desktop-rmsk0vg.tail8efe0d.ts.net:10002/manage/ |
+| 管理画面（確認用・`develop` を映す） | https://desktop-rmsk0vg.tail8efe0d.ts.net:10005/manage/ |
+| 予約システム 管理（本番） | https://desktop-rmsk0vg.tail8efe0d.ts.net:10001/manage/ |
+| 予約システム（確認用） | https://desktop-rmsk0vg.tail8efe0d.ts.net:10004/ |
+
+旧管理アプリ（`/admin/`）は **2026-09-21 に閉じ**、上の管理画面へ移りました。
+役割（まゆみ／スタッフ）を選んでパスコードで入ります。パスコードの決め方・変え方は
+[docs/管理画面.md](https://github.com/mayumi-josanin/mayumi/blob/main/docs/管理画面.md)。
+
+`develop` のお客様アプリの見た目は、確認用の管理画面の「お客様の画面」（`/manage/preview/app/`）で確かめられます。
+手元の Mac から `tailscale serve` で配る方法（`docs/developer_guide.md`）も残っていますが、その Mac で立てているあいだしか届きません。
+
+### 資料（`mayumi` リポジトリの中）
+
+| 資料 | 内容 |
+|------|------|
+| [CLAUDE.md](https://github.com/mayumi-josanin/mayumi/blob/main/CLAUDE.md) | 開発規律（絶対ルール） |
+| [docs/developer_guide.md](https://github.com/mayumi-josanin/mayumi/blob/main/docs/developer_guide.md) | 編集→確認→公開を1枚で |
+| [docs/git_workflow.md](https://github.com/mayumi-josanin/mayumi/blob/main/docs/git_workflow.md) | ブランチの役割とルール |
+| [docs/管理画面.md](https://github.com/mayumi-josanin/mayumi/blob/main/docs/管理画面.md) | 管理画面の開き方・パスコード・サーバーへの反映 |
+| [docs/サーバー設置手順.md](https://github.com/mayumi-josanin/mayumi/blob/main/docs/サーバー設置手順.md) | サーバーPCの置き方・公開のしかた |
+| [docs/公開用へ送り出す仕掛け/README.md](https://github.com/mayumi-josanin/mayumi/blob/main/docs/公開用へ送り出す仕掛け/README.md) | `mayumi` → 公開用への送り出しの仕組み |
+| [apps/bijiris/CLAUDE.md](https://github.com/mayumi-josanin/mayumi/blob/main/apps/bijiris/CLAUDE.md) | ビジリスの編集ルール |
+| [apps/bijiris/WORK_NOTES.md](https://github.com/mayumi-josanin/mayumi/blob/main/apps/bijiris/WORK_NOTES.md) | ビジリスの申し送り |
 
 ## バックエンド（Google Apps Script）
 
