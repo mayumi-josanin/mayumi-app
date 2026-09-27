@@ -932,6 +932,9 @@ window.MayumiSurveyApi = (() => {
         await postToGas(gasUrl, "submitResponse", {
           responseId,
           clientId: getClientId(),
+          // 合鍵（ログインしている方だけ）。GAS が確かめて、入力のお名前ではなく本人で記録する
+          // （院長の判断 B。2026-09-27）。無くても送れる（受付で初めて書く方のため）
+          token: getCustomerToken(),
           payload: options.body || {},
         });
         const savedResponse = await waitForSavedResponse(
@@ -957,6 +960,7 @@ window.MayumiSurveyApi = (() => {
         const expectedRound = Math.max(0, Math.floor(Number(ticketCard.round) || 0));
         const saved = await postToGasAndRead(gasUrl, "updatePublicTicketCard", {
           clientId: getClientId(),
+          token: getCustomerToken(),
           customer,
           ticketCard,
         });
@@ -989,6 +993,7 @@ window.MayumiSurveyApi = (() => {
         };
         await postToGas(gasUrl, "updatePublicPushStatus", {
           clientId: getClientId(),
+          token: getCustomerToken(),
           customer,
           pushStatus: expectedPushStatus,
         });
@@ -1010,6 +1015,7 @@ window.MayumiSurveyApi = (() => {
         await postToGas(gasUrl, "updatePublicResponse", {
           responseId,
           clientId: getClientId(),
+          token: getCustomerToken(),
           payload,
         });
         const updated = await waitForPublicResponse(
