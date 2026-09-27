@@ -1,68 +1,21 @@
-const CACHE_NAME = "mayumi-admin-survey-v119";
-const ASSET_VERSION = "20260825-02";
-const APP_ASSETS = [
-  "./",
-  "./index.html",
-  `./styles.css?v=${ASSET_VERSION}`,
-  `./app.js?v=${ASSET_VERSION}`,
-  `./manifest.webmanifest?v=${ASSET_VERSION}`,
-  `./icons/icon-192.png?v=${ASSET_VERSION}`,
-  `./icons/icon-512.png?v=${ASSET_VERSION}`,
-  `../shared/assets/bijiris-stamp.png?v=${ASSET_VERSION}`,
-  `../default-surveys.js?v=${ASSET_VERSION}`,
-  `../shared/api.js?v=${ASSET_VERSION}`,
-  `../shared/photo-loader.js?v=${ASSET_VERSION}`,
-];
-const APP_ASSET_URLS = new Set(APP_ASSETS.map((asset) => new URL(asset, self.location.href).toString()));
+// 旧ビジリス管理アプリを閉じるための Service Worker（2026-09-27）。
+//
+// 前の版は画面を端末に控えていたので、ページを差し替えただけでは古い画面が出続ける。
+// この版は、入ったらすぐ前の控えを消し、開いている画面を読み込み直して「移りました」の案内を出す。
+// **消すのは管理アプリの控え（mayumi-admin-survey-…）だけ。**同じ住所にあるお客様のアプリの控えは消さない。
+const 消す頭 = "mayumi-admin-survey";
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_ASSETS)));
-  self.skipWaiting();
-});
-
-self.addEventListener("message", (event) => {
-  if (event.data?.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
+self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))),
-      ),
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k.startsWith(消す頭)).map((k) => caches.delete(k)));
+    await self.clients.claim();
+    const clients = await self.clients.matchAll({ type: "window" });
+    clients.forEach((c) => { try { c.navigate(c.url); } catch (e) { /* 読み込み直せなくても次に開いたとき案内が出る */ } });
+  })());
 });
 
-self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || url.pathname.includes("/api/")) return;
-  if (url.pathname.endsWith("/shared/gas-config.js")) return;
-
-  if (event.request.mode === "navigate") {
-    event.respondWith(fetch(event.request).catch(() => caches.match("./index.html")));
-    return;
-  }
-
-  if (url.origin !== self.location.origin) return;
-  if (!APP_ASSET_URLS.has(url.toString())) return;
-
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type === "opaque") {
-            return response;
-          }
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => caches.match(event.request));
-    }),
-  );
-});
+// 控えは使わず、いつも新しいものを取りに行く
+self.addEventListener("fetch", () => {});
