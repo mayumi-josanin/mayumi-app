@@ -529,6 +529,12 @@
     // ビジリス管理のトークンも一緒に手放す。残すと次の人がそのまま入れてしまう。
     store(BIJIRIS_ADMIN_TOKEN_KEY, '');
     store(BIJIRIS_ADMIN_EXPIRES_KEY, '');
+    // ビジリスのお名前と合鍵も手放す（2026-09-28）。残すと、次の方がビジリスのページを
+    // 直接開いたときに、前の方として送信やカード取得ができてしまう。
+    ['mayumi_survey_customer', 'mayumi_bijiris_customer_token', 'mayumi_bijiris_session_owner',
+     'mayumi_survey_drafts', 'mayumi_customer_last_snapshot'].forEach(function (key) {
+      try { localStorage.removeItem(key); } catch (e) { /* 消せなくても続ける */ }
+    });
     $('appsView').hidden = true;
     $('loginView').hidden = false;
     $('loginError').textContent = '';

@@ -17,7 +17,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v162";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v163";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 // 前回開いたときの中身。Apps Script は応答までに数秒かかるので、
@@ -894,8 +894,24 @@ function isKatakanaName(value) {
 // 入口（/start/）を通っていれば、そこで本人確認は済んでいる。
 // フリガナは会員165名中34名しか登録が無いため、ここで必須にすると
 // 大半の方が「ログインしていない」扱いになってしまう。お名前だけで判定する。
+//
+// ただし**入口の記録が今も有効なこと**も見る（2026-09-28）。入口でログアウトしても、
+// ビジリスのお名前と合鍵は端末に残っていたため、このページを直接開くと前の方として
+// 送信やカード取得ができてしまった（院の端末を何人かで使うときに起きる）。
 function hasCustomerSession() {
-  return Boolean(appState.customer.name);
+  return Boolean(appState.customer.name) && 入口にお入りか_();
+}
+
+// 入口（/start/）の記録が有効か。ログアウト・90日の期限切れ・記録なしなら false。
+// 入口の判定（start/index.html の最後）と同じく、期限の無い記録は無効とみなす。
+// 鍵の名前は MAYUMI_LAUNCHER_SESSION_KEY と同じ（定数はこれより下で決まるので文字で書く）。
+function 入口にお入りか_() {
+  try {
+    const s = JSON.parse(localStorage.getItem("mayumi_launcher_session") || "null");
+    return Boolean(s && normalizeText(s.name) && s.expiresAt && Date.now() < s.expiresAt);
+  } catch {
+    return false;
+  }
 }
 
 function getCustomerDisplayName() {
@@ -3361,6 +3377,19 @@ function 入口のお名前を取り込む_() {
     nameKana: session.kana || appState.customer?.nameKana || "",
   };
   saveLocal(CUSTOMER_KEY, appState.customer);
+}
+
+// 入口から出ていたら（ログアウト・期限切れ）、前の方のお名前・合鍵・控えを端末から消す。
+function 入口から出ていたら片付ける_() {
+  if (入口にお入りか_()) return;
+  if (!normalizeText(appState.customer?.name) && !api.getCustomerToken()) return;
+  前の方の記録を端末から消す_();
+  appState.customer = normalizeCustomerProfile({ name: "", nameKana: "", historyMatchMode: "device" });
+  removeLocal(CUSTOMER_KEY);
+  removeLocal(BIJIRIS_SESSION_OWNER_KEY);
+  api.clearCustomerToken();
+  window.BijirisPhotoLoader?.忘れる();
+  mayumiLoginTried = false;
 }
 
 // 合鍵の持ち主と、入口でお入りの方が違えば捨てる。
@@ -6986,6 +7015,7 @@ window.addEventListener("unhandledrejection", (event) => {
 // 無いとお名前が空になり、どなたのカードか出せなかった。入口の記録には
 // お名前も会員IDも入っているので、開くたびにそこから取り直す。
 入口のお名前を取り込む_();
+入口から出ていたら片付ける_();
 
 // 通信を始める前に、端末に残っている合鍵が「いま入口にお入りの方」のものか
 // 確かめる。ここを後回しにすると、起動時のまとめ（アンケート・豆知識・履歴を
