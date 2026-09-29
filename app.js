@@ -3999,7 +3999,8 @@ function openNoticeFeedItem(item) {
     imageUrls: item.imageUrls || [],
     linkUrl: item.linkUrl || '',
     linkButtonText: item.linkButtonText || '',
-    hasEmbeddedImage: item.hasEmbeddedImage === true
+    hasEmbeddedImage: item.hasEmbeddedImage === true,
+    rowIdx: item.rowIdx || 0
   });
 }
 
@@ -4059,7 +4060,8 @@ function buildNoticeFeedItems() {
       icon: item.icon || '📢',
       linkUrl: item.linkUrl || '',
       linkButtonText: item.linkButtonText || '',
-      hasEmbeddedImage: item.hasEmbeddedImage === true
+      hasEmbeddedImage: item.hasEmbeddedImage === true,
+      rowIdx: Number(item.rowIdx) || 0
     };
   }).filter(isNoticeFeedEntryVisible);
 
@@ -4226,6 +4228,7 @@ function normalizeBlogItems(items, categories) {
       linkUrl: String(item && (item.linkUrl || item.link_url) || '').trim(),
       linkButtonText: String(item && (item.linkButtonText || item.link_button_text) || '').trim(),
       hasEmbeddedImage: !!embeddedImage,
+      rowIdx: Number(item && item.rowIdx) || 0, // 読んだ人数を数えるときの記事の番号（recordNewsView）
       noticeStatus: normalizeNoticeVisibilityStatus(item && item.noticeStatus)
     };
   }).filter(function (item) {
@@ -4563,8 +4566,34 @@ function refreshActiveDetailViews() {
     openProductModal(currentProdIdx);
   }
 }
+// お知らせを読んだ人数（院長の依頼 2026-09-30）。記事を開いたら、この端末から1回だけ知らせる。
+// 届いたものだけ覚える（届かなければ次に開いたときにもう一度）。失敗しても画面には何も出さない。
+// サーバーは会員ID（無ければ端末の番号）で1人と数える（services/manage writes.お知らせを読んだ）。
+const NEWS_VIEWED_STORAGE_KEY = 'mayumi_news_viewed_v1';
+function recordNewsView(item) {
+  const rowIdx = Number(item && item.rowIdx);
+  if (!rowIdx) return;
+  let sent = [];
+  try { sent = JSON.parse(localStorage.getItem(NEWS_VIEWED_STORAGE_KEY) || '[]') || []; } catch (e) { sent = []; }
+  if (sent.indexOf(rowIdx) !== -1) return;
+  postToGAS({
+    type: 'newsView',
+    rowIdx: rowIdx,
+    memberId: (_profile && _profile.memberId) || '',
+    deviceId: getCurrentDeviceSessionId()
+  }, { skipRetryQueue: true, silent: true }).then(function (res) {
+    if (!res || res.status !== 'ok') return;
+    try {
+      const latest = JSON.parse(localStorage.getItem(NEWS_VIEWED_STORAGE_KEY) || '[]') || [];
+      if (latest.indexOf(rowIdx) === -1) latest.push(rowIdx);
+      localStorage.setItem(NEWS_VIEWED_STORAGE_KEY, JSON.stringify(latest.slice(-500)));
+    } catch (e) { }
+  }).catch(function () { });
+}
+
 function openBlogDetail(item) {
   markContentItemSeen(item && item.kind ? item.kind : 'blog', item);
+  try { recordNewsView(item); } catch (e) { }
   const detailImageHtml = !item.hasEmbeddedImage
     ? buildDetailImageGalleryHtml(item.imageUrls || item.image, item.title || 'Blog Image')
     : '';
