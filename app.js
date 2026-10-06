@@ -3572,8 +3572,19 @@ function buildCalendarDayMarkers(dayEvents) {
 
   if (normalEvents.length) {
     html += '<div class="cal-evt-container">';
+    // 丸い印は**カテゴリの最初の1文字**（院長の依頼 2026-10-04。「イベント」→「イ」「ヨガ」→「ヨ」）。カテゴリが空なら「イ」
     normalEvents.slice(0, 3).forEach(function (event) {
-      html += `<span class="cal-evt-tag" style="background:${getCalendarSafeColor(event.color)};">イ</span>`;
+      const category = String(event.category || '').trim();
+      const mark = category ? Array.from(category)[0] : 'イ';
+      const bg = getCalendarSafeColor(event.color);
+      // 淡い色（黄色・淡いピンクなど）では白い字が読みにくいので、字を濃い灰色に
+      const hex = String(bg).match(/^#([0-9a-f]{6})$/i);
+      let textColor = '';
+      if (hex) {
+        const n = parseInt(hex[1], 16);
+        if ((0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255 > 0.72) textColor = 'color:#333;';
+      }
+      html += `<span class="cal-evt-tag" style="background:${bg};${textColor}" title="${escapeHtml(category || 'イベント')}">${escapeHtml(mark)}</span>`;
     });
     if (normalEvents.length > 3) {
       html += '<span class="cal-evt-tag" style="background:#ccb3b3;">+</span>';
