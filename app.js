@@ -3700,7 +3700,11 @@ async function refreshNoticeFeed() {
   }
 }
 
+let appRefreshing = false;
 async function refreshAppData() {
+  // 更新ボタン・下のメニューの押し直し・引っぱって更新の、どこから呼ばれても1回ずつ（重ねて走らせない）
+  if (appRefreshing) return;
+  appRefreshing = true;
   const btn = document.getElementById('refresh-btn');
   const overlay = document.getElementById('refresh-overlay');
   if (btn) btn.classList.add('spinning');
@@ -3739,10 +3743,86 @@ async function refreshAppData() {
     console.error('[更新] 同期中に致命的なエラーが発生しました:', e);
     showToast('同期中に問題が発生しました。しばらく経ってから再度お試しください。');
   } finally {
+    appRefreshing = false;
     if (btn) btn.classList.remove('spinning');
     if (overlay) overlay.classList.remove('active');
   }
 }
+
+// ===== 下のメニューの押し直し・引っぱって更新（院長の依頼 2026-10-09。Instagram と同じ動き）=====
+// - 今開いている画面のメニューをもう一度押す: 途中までスクロールしていれば上に戻る。いちばん上なら更新（refreshAppData）
+// - 画面のいちばん上で下に引っぱって離す: 更新（小窓が開いているとき・中で動かせる欄の中では動かさない）
+(function setupTapAndPullRefresh() {
+  // 押し直し: メニューの onclick（switchPage）より先に、開いている画面のボタンだけ横取りする
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest && e.target.closest('.nav-btn');
+    if (!btn || !btn.classList.contains('active')) return;
+    e.stopPropagation();
+    e.preventDefault();
+    if ((window.scrollY || document.documentElement.scrollTop || 0) > 8) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // なめらかなスクロールが途中で止まることがあるので、0.6秒たっても上に着いていなければ、ぱっと上へ
+      setTimeout(function () { if ((window.scrollY || 0) > 8) window.scrollTo(0, 0); }, 600);
+    } else {
+      refreshAppData();
+    }
+  }, true);
+
+  const ptr = document.createElement('div');
+  ptr.id = 'ptr-indicator';
+  ptr.className = 'ptr-indicator';
+  ptr.innerHTML = '<span class="ptr-icon">↓</span><span class="ptr-text">引っぱって更新</span>';
+  document.body.appendChild(ptr);
+  const しきい = 70;   // これだけ引っぱったら（指の動きの 1/2.5）、離したときに更新
+  let startY = 0, pulling = false, dist = 0;
+
+  function 中で動かせる(el) {
+    while (el && el !== document.body) {
+      if (el.scrollHeight > el.clientHeight + 2) {
+        const oy = getComputedStyle(el).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && el.scrollTop > 0) return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  }
+  function 見せる() {
+    const ready = dist >= しきい;
+    ptr.style.transform = `translate(-50%, ${Math.min(dist, しきい + 30) - 50}px)`;
+    ptr.style.opacity = String(Math.min(1, dist / 40));
+    ptr.classList.toggle('ready', ready);
+    ptr.querySelector('.ptr-text').textContent = ready ? '離すと更新' : '引っぱって更新';
+  }
+  function もどす() {
+    pulling = false; dist = 0;
+    ptr.style.transition = 'transform .2s, opacity .2s';
+    ptr.style.transform = 'translate(-50%, -50px)'; ptr.style.opacity = '0';
+    ptr.classList.remove('ready');
+    setTimeout(function () { ptr.style.transition = ''; }, 220);
+  }
+  document.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1 || appRefreshing) return;
+    if ((window.scrollY || document.documentElement.scrollTop || 0) > 0) return;
+    if (document.querySelector('.modal-bg.open')) return;
+    if (中で動かせる(e.target)) return;
+    startY = e.touches[0].clientY; pulling = true; dist = 0;
+  }, { passive: true });
+  document.addEventListener('touchmove', function (e) {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy <= 0 || (window.scrollY || 0) > 0) { if (dist) もどす(); else pulling = false; return; }
+    dist = dy / 2.5;
+    if (e.cancelable) e.preventDefault();   // 画面ごと引っぱられるのを止め、印だけを動かす
+    見せる();
+  }, { passive: false });
+  document.addEventListener('touchend', function () {
+    if (!pulling) return;
+    const go = dist >= しきい;
+    もどす();
+    if (go) refreshAppData();
+  }, { passive: true });
+  document.addEventListener('touchcancel', function () { if (pulling) もどす(); }, { passive: true });
+})();
 
 function renderBlogList(containerId, limit, filterType = null, filterCategory = '全て') {
   const el = document.getElementById(containerId);
