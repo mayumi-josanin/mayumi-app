@@ -3537,6 +3537,14 @@ function isCalendarPostpartumCareEvent(event) {
   return title.indexOf('訪問産後ケア') !== -1;
 }
 
+// 研修（院長の依頼 2026-10-09）: 休診・往診のように四角い「研修」で出す。カテゴリかイベント名に「研修」
+function isCalendarTrainingEvent(event) {
+  const category = getCalendarEventCategory(event);
+  if (category) return category.indexOf('研修') !== -1;
+  const title = String(event && event.title || '');
+  return title.indexOf('研修') !== -1;
+}
+
 function getCalendarSafeColor(colorValue, fallbackColor) {
   const color = String(colorValue || '').trim();
   if (/^#[0-9a-fA-F]{3,8}$/.test(color)) return color;
@@ -3549,8 +3557,11 @@ function buildCalendarDayMarkers(dayEvents) {
   const holidayEvents = dayEvents.filter(isCalendarHolidayEvent);
   const visitEvents = dayEvents.filter(isCalendarVisitEvent);
   const postpartumEvents = dayEvents.filter(isCalendarPostpartumCareEvent);
+  const trainingEvents = dayEvents.filter(function (event) {
+    return isCalendarTrainingEvent(event) && !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event) && !isCalendarPostpartumCareEvent(event);
+  });
   const normalEvents = dayEvents.filter(function (event) {
-    return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event) && !isCalendarPostpartumCareEvent(event);
+    return !isCalendarHolidayEvent(event) && !isCalendarVisitEvent(event) && !isCalendarPostpartumCareEvent(event) && !isCalendarTrainingEvent(event);
   });
 
   let html = '';
@@ -3568,6 +3579,10 @@ function buildCalendarDayMarkers(dayEvents) {
       const color = getCalendarSafeColor(ev.color, '#f48fb1');
       html += `<div class="cal-postpartum-tag" style="background:${color}">訪問</div>`;
     });
+  }
+  if (trainingEvents.length) {
+    const color = getCalendarSafeColor(trainingEvents[0].color, '#71e57e');
+    html += `<div class="cal-training-tag" style="background:${color}">研修</div>`;
   }
 
   if (normalEvents.length) {
