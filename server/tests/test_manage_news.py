@@ -294,3 +294,63 @@ def test_通知は下書きと公開開始前とチェック無しでは送ら�
 def test_お知らせ画像は置き場の外を読めない(client):
     assert client.get("/media/news/..%2F..%2Fsettings.py").status_code == 404
     assert client.get("/media/news/nothing.jpg").status_code == 404
+
+
+# ========== カレンダーにも登録する（2026-10-24） ==========
+
+
+def _カレンダー(**extra):
+    from apps.content.models import CalendarEvent
+
+    return list(CalendarEvent.objects.filter(**extra).order_by("event_on"))
+
+
+def test_イベントの公開投稿でカレンダーにも登録される(as_owner, categories):
+    from apps.content.models import Menu
+
+    Menu.objects.create(sheet_row=5, name="ベビーマッサージ", category="イベント")
+    r = as_owner.post("/manage/news/new/", _form(
+        calendar_register="on", calendar_dates=["2026-11-03", "2026-11-10"], calendar_menu="5",
+        linkUrl="https://example.com", linkButtonText="予約はこちら"), follow=True)
+    page = r.content.decode()
+    assert "カレンダーにも登録しました（11月3日・11月10日）" in page
+    cs = _カレンダー(title="マッサージ教室 おさらい会")
+    assert [c.event_on.isoformat() for c in cs] == ["2026-11-03", "2026-11-10"]
+    for c in cs:
+        assert c.category == "イベント" and c.color == "#4fc3f7" and c.detail == "9月14日 10:00〜11:30"
+        assert c.menu_row == 5 and c.published and c.link_url == "https://example.com"
+        # お知らせ一覧にはお知らせ側で載るので、カレンダー側は載せない
+        assert not c.notice_listed
+
+
+def test_下書き保存ではカレンダーに登録しない(as_owner, categories):
+    as_owner.post("/manage/news/new/", _form(status="非公開", calendar_register="on", calendar_dates=["2026-11-03"]))
+    assert _カレンダー() == []
+
+
+def test_チェックを外せばカレンダーに登録しない(as_owner, categories):
+    as_owner.post("/manage/news/new/", _form(calendar_dates=["2026-11-03"]))
+    assert _カレンダー() == []
+
+
+def test_イベント以外のカテゴリはカレンダーに登録しない(as_owner, categories):
+    as_owner.post("/manage/news/new/", _form(category="まゆみのつぶやき", calendar_register="on",
+                                              calendar_dates=["2026-11-03"]))
+    assert _カレンダー() == []
+
+
+def test_開催日が無ければ登録せず案内する(as_owner, categories):
+    r = as_owner.post("/manage/news/new/", _form(calendar_register="on"), follow=True)
+    assert "開催日が見つからなかったので、カレンダーには登録していません" in r.content.decode()
+    assert News.objects.filter(title="マッサージ教室 おさらい会").exists()
+    assert _カレンダー() == []
+
+
+def test_修正ではカレンダーに登録しない(as_owner, news):
+    as_owner.post(f"/manage/news/{news.sheet_row}/", _form(calendar_register="on", calendar_dates=["2026-11-03"]))
+    assert _カレンダー() == []
+
+
+def test_カレンダーの欄は新規の投稿にだけ出る(as_owner, news):
+    assert "カレンダーにも登録する" in as_owner.get("/manage/news/new/").content.decode()
+    assert "カレンダーにも登録する" not in as_owner.get(f"/manage/news/{news.sheet_row}/").content.decode()

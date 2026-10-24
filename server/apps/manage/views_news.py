@@ -18,16 +18,20 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.content.models import Category, News
-from apps.gasapi import admin_news
+from apps.gasapi import admin_calendar, admin_news
 from apps.gasapi.admin_news import _日時
 from apps.gasapi.views import _画像
 
 from . import images, push
 from .permissions import owner_required
+from .views_calendar import _メニュー候補
 
 # 旧管理アプリの「カテゴリ」select に最初から入っている候補。
 # カテゴリ管理に「お知らせ」「ブログ」の分類が1つも無いときだけ、これを出す。
 既定のカテゴリ = ["お知らせ", "ブログ", "休診情報", "イベント", "商品情報"]
+
+# カレンダーに載せるイベントの色。月の表の凡例「イ」と同じ水色（manage/style.css の .icon-event）。
+イベントの色 = "#4fc3f7"
 
 
 def _種別(kinds: dict, name: str) -> str:
@@ -137,6 +141,48 @@ def _お知らせ一覧へ反映(request, 答: dict, d: dict, row: int):
     admin_news.一覧掲載を変える({"rowIdx": row, "sheet": "BLOG", "status": "公開"})
 
 
+def _カレンダーにも(request, 答: dict, d: dict):
+    """イベントのお知らせを、カレンダーにも登録する（院長の希望 2026-10-24）。
+
+    **新規の「公開して投稿する」のときだけ。**お知らせとカレンダーの予定は結びつけない
+    （項目を増やさないため）。修正のたびに登録すると予定が二重にできるので、
+    あとの手直しはカレンダー側で行う。
+    開催日は画面が本文から読み取り、院長が確かめたものだけが dates で届く。
+    お知らせ一覧にはお知らせ側で載るので、カレンダー側は載せない（二重に出さない）。
+    """
+    if not request.POST.get("calendar_register") or d.get("status") != "公開":
+        return
+    if "イベント" not in (d.get("category") or ""):
+        return
+    dates = [x for x in request.POST.getlist("calendar_dates") if x.strip()]
+    if not dates:
+        messages.info(request,"開催日が見つからなかったので、カレンダーには登録していません。"
+                                  "カレンダー管理の「新しいイベントを追加する」から足してください。")
+        return
+    結果 = admin_calendar.足す({
+        "dates": dates,
+        "title": d["title"],
+        "category": "イベント",
+        "menuRowIdx": request.POST.get("calendar_menu") or 0,
+        "desc": d["body"],
+        "color": イベントの色,
+        "imageUrls": d["imageUrls"],
+        "status": "公開",
+        "publishStatus": "公開",
+        "noticeStatus": "非公開",
+        # お知らせと同じ時刻に出す（予約投稿なら、カレンダーもその時刻まで出ない）
+        "publishAt": d["publishAt"],
+        "linkUrl": d["linkUrl"],
+        "linkButtonText": d["linkButtonText"],
+    })
+    if 結果.get("status") == "ok":
+        並び = "・".join(f"{int(x[5:7])}月{int(x[8:10])}日" for x in sorted(dates))
+        messages.success(request, f"カレンダーにも登録しました（{並び}）。直すときはカレンダー管理から行ってください。")
+    else:
+        messages.error(request, "お知らせは投稿しましたが、カレンダーに登録できませんでした"
+                                f"（{結果.get('message') or '原因不明'}）。カレンダー管理から追加してください。")
+
+
 def _値(n: News) -> dict:
     """修正画面の初期値。日時は「更新日時」（無ければ投稿日）。旧アプリの editBlog と同じ。"""
     if n.updated_at:
@@ -170,6 +216,10 @@ def _画面(request, n, values, existing, notice_refresh: bool):
     return render(request, "manage/news_form.html", {
         "news": n, "values": values, "existing_images": existing,
         "category_groups": groups, "category_extra": extra, "notice_refresh": notice_refresh,
+        # カレンダーにも登録する欄は新規の投稿だけ（修正では出さない）
+        "calendar_menus": [] if n else _メニュー候補(),
+        "base_date": (values.get("date") or "")[:10] or timezone.localdate().isoformat(),
+        "posted_cal_dates": values.getlist("calendar_dates") if hasattr(values, "getlist") else [],
     })
 
 
@@ -181,6 +231,7 @@ def news_create(request):
         if 答.get("status") == "ok":
             messages.success(request, "お知らせを投稿しました！ 🎉")
             _お知らせ一覧へ反映(request, 答, d, 答["rowIdx"])
+            _カレンダーにも(request, 答, d)
             _通知(request, 答, d, "📝 " + (d["title"] or "新しい投稿"))
             return redirect("manage:news_list")
         messages.error(request, 答.get("message") or "投稿に失敗しました")

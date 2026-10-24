@@ -62,6 +62,41 @@
         </div>
         <textarea id="n-body" name="body" class="form-control" rows="5" placeholder="お知らせの内容を入力...">{{ values.body|default:'' }}</textarea>
       </div>
+      {% if not news %}
+      {# イベントのお知らせを、カレンダーにも登録する。新規の「公開して投稿する」のときだけ。あとの手直しはカレンダー側で。 #}
+      <div class="form-group" id="cal-register" hidden>
+        <div class="push-send-card">
+          <label class="push-send-card__top" for="n-cal">
+            <span class="push-send-card__icon">📅</span>
+            <span class="push-send-card__text">
+              <span class="push-send-card__heading">カレンダーにも登録する</span>
+              <span class="push-send-card__sub">タイトル・本文・画像をそのまま、イベント（水色）として載せます。</span>
+            </span>
+            <input type="checkbox" id="n-cal" name="calendar_register" aria-label="カレンダーにも登録する" {% if values.calendar_register or not values.title %}checked{% endif %}>
+          </label>
+          <div class="push-send-card__note">
+            <div class="form-group" style="margin:8px 0">
+              <label>開催日（本文から読み取りました。違う日は × で外してください）</label>
+              <div id="cal-dates" class="date-chips"></div>
+              <div class="sub" id="cal-found"></div>
+              <div class="inline-form" style="margin-top:6px">
+                <input id="cal-add" type="date" class="form-control" aria-label="開催日を足す">
+                <button type="button" class="btn btn-outline btn-sm" onclick="addCalDate()">足す</button>
+              </div>
+            </div>
+            <div class="form-group" style="margin:8px 0">
+              <label for="cal-menu">対象メニュー（任意）</label>
+              <select id="cal-menu" name="calendar_menu" class="form-control">
+                <option value="">選ばない</option>
+                {% for row, name in calendar_menus %}<option value="{{ row }}" {% if values.calendar_menu == row|stringformat:'s' %}selected{% endif %}>{{ name }}</option>{% endfor %}
+              </select>
+            </div>
+            <strong>「公開して投稿する」のときだけ登録します。</strong>下書き保存では登録しません。
+            カレンダーのお知らせ一覧には載せません（お知らせ側で載るため）。
+          </div>
+        </div>
+      </div>
+      {% endif %}
       <div class="form-group">
         <label for="n-at">公開開始日時（空欄ならすぐ公開）</label>
         <input id="n-at" name="publishAt" type="datetime-local" class="form-control" value="{{ values.publishAt|default:'' }}">
@@ -119,6 +154,100 @@
   <div class="card-body"><div class="news-preview-box" id="news-preview-body"></div></div>
 </div>
 
+{% if not news %}
+{{ base_date|json_script:"cal-base-date" }}
+{{ posted_cal_dates|json_script:"cal-posted-dates" }}
+<script>
+// 開催日を本文から読み取る（院長の希望 2026-10-24）。
+// 読み取りは間違えることがあるので、登録はせず候補として並べ、院長が見て確かめる。
+// 院長が × で外した日・足した日は覚えておき、本文を書き足しても元に戻さない。
+(function () {
+  var box = document.getElementById('cal-register');
+  var cat = document.getElementById('n-cat');
+  var body = document.getElementById('n-body');
+  var chips = document.getElementById('cal-dates');
+  var found = document.getElementById('cal-found');
+  // 投稿が弾かれて戻ったときは、送った日付をそのまま並べ直す
+  var 外した = {}, 読んだ = [];
+  var 足した = JSON.parse(document.getElementById('cal-posted-dates').textContent);
+
+  function 基準日() {
+    var v = (document.getElementById('n-date').value || '').slice(0, 10);
+    return v || JSON.parse(document.getElementById('cal-base-date').textContent);
+  }
+  function 二桁(n) { return (n < 10 ? '0' : '') + n; }
+  function 日付か(y, m, d) {
+    var t = new Date(y, m - 1, d);
+    return t.getFullYear() === y && t.getMonth() === m - 1 && t.getDate() === d;
+  }
+  // 年が無い日付は、投稿日から見て次に来るその日（10月に「1/10」なら来年の1月10日）
+  function 年を足す(m, d, 基) {
+    var y = +基.slice(0, 4);
+    var s = y + '-' + 二桁(m) + '-' + 二桁(d);
+    return s < 基 ? (y + 1) + '-' + 二桁(m) + '-' + 二桁(d) : s;
+  }
+  window.readEventDates = function (文) {
+    // 全角の数字・記号を半角に。タグ（太字・下線）は外す
+    文 = String(文 || '').replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+      .replace(/／/g, '/').replace(/<[^>]+>/g, ' ');
+    var 基 = 基準日(), 出 = [];
+    function 入れる(s) { if (s && 出.indexOf(s) === -1) 出.push(s); }
+    // 「2026年11月3日」「2026/11/3」「11月3日」「11/3」。続く「・10日」「、17日」も同じ月として拾う。
+    // 「11/3、11/10」の「、11」は次の日付の月なので、続きの日としては拾わない。
+    // 時刻（10:00）は「:」なので拾わない。「1/2量」のような数字も拾いうるので、院長が確かめる前提。
+    var 型 = /(?:(\d{4})\s*[年\/.\-]\s*)?(\d{1,2})\s*(?:月|\/)\s*(\d{1,2})\s*日?((?:\s*(?:\([^)]*\)|（[^）]*）))?(?:\s*[・、,，と&]\s*\d{1,2}(?!\s*[\/月\d])\s*日?(?:\s*(?:\([^)]*\)|（[^）]*）))?)*)/g;
+    var m;
+    while ((m = 型.exec(文))) {
+      var 月 = +m[2], 年 = m[1] ? +m[1] : 0;
+      var 日たち = [+m[3]];
+      (m[4] || '').replace(/[・、,，と&]\s*(\d{1,2})(?!\s*[\/月\d])/g, function (_, d) { 日たち.push(+d); });
+      日たち.forEach(function (日) {
+        var y = 年 || +基.slice(0, 4);
+        if (!日付か(y, 月, 日)) return;
+        入れる(年 ? 年 + '-' + 二桁(月) + '-' + 二桁(日) : 年を足す(月, 日, 基));
+      });
+    }
+    return 出;
+  };
+
+  function 並べる() {
+    var 全部 = 読んだ.filter(function (d) { return !外した[d]; });
+    足した.forEach(function (d) { if (全部.indexOf(d) === -1 && !外した[d]) 全部.push(d); });
+    全部.sort();
+    chips.innerHTML = 全部.map(function (d) {
+      // 年が投稿日と違うときは年も出す（「1/10」が来年になったと分かるように）
+      var 見出し = (d.slice(0, 4) !== 基準日().slice(0, 4) ? d.slice(0, 4) + '年' : '') + +d.slice(5, 7) + '月' + +d.slice(8, 10) + '日（' + '日月火水木金土'[new Date(d + 'T00:00').getDay()] + '）';
+      return '<span class="date-chip">' + 見出し + '<a href="#" data-d="' + d + '" aria-label="外す">×</a>'
+        + '<input type="hidden" name="calendar_dates" value="' + d + '"></span>';
+    }).join('');
+    found.textContent = 全部.length ? '' : '開催日が見つかりません。本文に「11月3日」のように書くか、下で足してください。';
+  }
+  chips.addEventListener('click', function (e) {
+    var d = e.target.getAttribute('data-d'); if (!d) return;
+    e.preventDefault();
+    外した[d] = true;
+    足した = 足した.filter(function (x) { return x !== d; });
+    並べる();
+  });
+  window.addCalDate = function () {
+    var v = document.getElementById('cal-add').value; if (!v) return;
+    delete 外した[v];
+    if (足した.indexOf(v) === -1) 足した.push(v);
+    並べる();
+  };
+  function 読み直す() {
+    box.hidden = (cat.value || '').indexOf('イベント') === -1;
+    読んだ = readEventDates(document.getElementById('n-title').value + '\n' + body.value);
+    並べる();
+  }
+  cat.addEventListener('change', 読み直す);
+  body.addEventListener('input', 読み直す);
+  document.getElementById('n-title').addEventListener('input', 読み直す);
+  document.getElementById('n-date').addEventListener('change', 読み直す);
+  読み直す();
+})();
+</script>
+{% endif %}
 <script>
 // 本文の太字・下線（旧管理アプリの applyTextStyle と同じ: <strong> / <u> で囲む）
 function wrapSel(id, open, close) {
