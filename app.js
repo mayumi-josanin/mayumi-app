@@ -7903,10 +7903,14 @@ function updateProfileUI() {
     document.getElementById('stampBanner'),
     document.getElementById('mypageBanner')
   ];
+  // ホームのいちばん上は、お客様が自分の画像を選んでいなければ院内の写真にする（院長の依頼 2026-11-03）。
+  // スタンプ・マイページの帯は今までどおり緑のまま。
+  const HOME_BANNER_DEFAULT = 'img/home-banner.jpg';
   banners.forEach(banner => {
     if (banner) {
-      if (_bannerData) {
-        banner.style.backgroundImage = `url(${_bannerData})`;
+      const image = _bannerData || (banner.id === 'homeBanner' ? HOME_BANNER_DEFAULT : '');
+      if (image) {
+        banner.style.backgroundImage = `url(${image})`;
         banner.style.backgroundSize = 'cover';
         banner.style.backgroundPosition = 'center';
         banner.classList.add('has-bg');
