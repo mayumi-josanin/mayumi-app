@@ -3042,6 +3042,29 @@ async function loadProducts() {
     }
   });
 
+  // カテゴリの見出しを、届いた商品の順（＝管理画面の商品管理で院長が決めた並び）に並べ直す（2026-11-03）。
+  // よもぎ茶・入浴剤などの見出しは index.html に順番が書き込まれているので、並べ直さないと変わらない。
+  // 商品の入っていない見出し（だしなど）は、並べ直した後ろに今までどおり残す。
+  const shopSectionForOrder = document.querySelector('#page-shop .main .section');
+  if (shopSectionForOrder) {
+    const orderedContainers = [];
+    PRODUCTS.forEach(function (product) {
+      const c = getOrCreateContainer(product.category);
+      if (c && orderedContainers.indexOf(c) === -1) orderedContainers.push(c);
+    });
+    const firstLabel = shopSectionForOrder.querySelector('.cat-label');
+    if (firstLabel && orderedContainers.length) {
+      const anchor = document.createComment('shop-order');
+      shopSectionForOrder.insertBefore(anchor, firstLabel);
+      orderedContainers.forEach(function (c) {
+        const label = c.previousElementSibling;
+        if (label && label.classList.contains('cat-label')) shopSectionForOrder.insertBefore(label, anchor);
+        shopSectionForOrder.insertBefore(c, anchor);
+      });
+      anchor.remove();
+    }
+  }
+
   updateCartUI();
 
   if (document.getElementById('page-notices').classList.contains('active')) {
