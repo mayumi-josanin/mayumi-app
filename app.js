@@ -3065,6 +3065,15 @@ async function loadProducts() {
     }
   }
 
+  // 商品が1つも入っていない見出しは出さない（院長の依頼 2026-11-03: 天然だし調味粉・冷え取りパットなど）。
+  // 商品が入れば、また出る。
+  document.querySelectorAll('#page-shop .shop-grid').forEach(function (grid) {
+    const label = grid.previousElementSibling;
+    const empty = grid.children.length === 0;
+    grid.style.display = empty ? 'none' : '';
+    if (label && label.classList.contains('cat-label')) label.style.display = empty ? 'none' : '';
+  });
+
   updateCartUI();
 
   if (document.getElementById('page-notices').classList.contains('active')) {
