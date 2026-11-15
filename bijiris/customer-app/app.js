@@ -17,7 +17,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v167";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v168";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 // 前回開いたときの中身。Apps Script は応答までに数秒かかるので、
@@ -704,24 +704,44 @@ function normalizeServerActiveTicketCard(value) {
     sheetNumber,
     round,
     ...(expiresOn ? { expiresOn } : {}),
+    // お支払いの確認待ち（2026-11-16）。サーバーは未払いのときだけ paid:false を送る
+    ...(value.paid === false ? { paid: false } : {}),
   };
 }
 
 // 回数券の有効期限（院長の依頼 2026-11-16）。6回券は追加した日から2か月・10回券は3か月。
 // 院長が顧客管理で延ばすことがある。30日を切ったら色を変え、過ぎたらそう書く（回数券は使えるまま）
-function renderTicketExpiry(card) {
+// いまのカードがサーバーのカードと同じときだけ、サーバーの期限・お支払いを使う
+function getServerCardFor(card) {
   const server = appState.serverTicketCard;
-  if (!card || !server?.expiresOn) return "";
-  if (normalizeText(server.plan) !== normalizeText(card.ticketPlan) || `${server.sheetNumber}枚目` !== card.ticketSheetLabel) return "";
-  if (card.ticketCount && card.currentRound >= card.ticketCount) return "";
+  if (!card || !server) return null;
+  if (normalizeText(server.plan) !== normalizeText(card.ticketPlan) || `${server.sheetNumber}枚目` !== card.ticketSheetLabel) return null;
+  return server;
+}
+
+function getTicketExpiryInfo(card) {
+  const server = getServerCardFor(card);
+  if (!server?.expiresOn) return null;
+  if (card.ticketCount && card.currentRound >= card.ticketCount) return null;
   const [y, m, d] = server.expiresOn.split("-").map(Number);
   const expires = new Date(y, m - 1, d);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const daysLeft = Math.round((expires - today) / 86400000);
-  const dateText = `${y}年${m}月${d}日`;
+  return { daysLeft: Math.round((expires - today) / 86400000), dateText: `${y}年${m}月${d}日` };
+}
+
+// **有効期限が切れた回数券は使えない**（院長 2026-11-16。延ばした期限も同じ。延ばせば使える）
+function isTicketCardExpired(card) {
+  const info = getTicketExpiryInfo(card);
+  return Boolean(info && info.daysLeft < 0);
+}
+
+function renderTicketExpiry(card) {
+  const info = getTicketExpiryInfo(card);
+  if (!info) return "";
+  const { daysLeft, dateText } = info;
   if (daysLeft < 0) {
-    return `<div class="ticket-expiry expired">有効期限 ${dateText}（有効期限が過ぎています。受付にご相談ください）</div>`;
+    return `<div class="ticket-expiry expired">有効期限 ${dateText}（有効期限が切れたため、この回数券はご利用いただけません。新しい回数券をお選びください）</div>`;
   }
   return `<div class="ticket-expiry ${daysLeft <= 30 ? "soon" : ""}">有効期限 ${dateText}（${daysLeft === 0 ? "今日まで" : `あと${daysLeft}日`}）</div>`;
 }
@@ -1673,10 +1693,14 @@ function computeSessionTicketPosition(ticketPlan) {
 // 計測時アンケート（回数券終了時）で押す仕様。
 // 戻り値: "ok" / "no-card"（カード無し）/ "complete"（満了）/ "final-measurement"（最後は計測時で）
 function ensureSessionTicketPositionSelection(surveyId) {
+  // 下書きに前の回数が残っていても、期限切れのカードでは進ませない
+  const currentCard = getActiveTicketCardState();
+  if (currentCard && isTicketCardExpired(currentCard)) return "expired";
   if (getSessionTicketRoundSelection(surveyId)) return "ok";
   const card = getActiveTicketCardState();
   if (!card || !card.ticketPlan || !card.ticketCount) return "no-card";
   if (card.currentRound >= card.ticketCount) return "complete";
+  if (isTicketCardExpired(card)) return "expired";
   if (card.currentRound >= card.ticketCount - 1) return "final-measurement";
   updateDraftValue(surveyId, SESSION_TICKET_PLAN_QUESTION_ID, card.ticketPlan);
   updateDraftValue(surveyId, SESSION_TICKET_SHEET_QUESTION_ID, card.ticketSheetLabel);
@@ -4063,20 +4087,25 @@ function refreshDraftStatusDisplay(surveyId) {
   }
 }
 
-function renderTicketCardNeededStep(survey, surveyId) {
+function renderTicketCardNeededStep(survey, surveyId, reason = "") {
+  const expired = reason === "expired";
   answerPanel.innerHTML = `
     ${renderPendingNotice()}
     <div class="section-head survey-toolbar">
       <div>
         <h2>${escapeHtml(survey.title)}</h2>
-        <p>回数券のスタンプカードがありません。</p>
+        <p>${expired ? "回数券の有効期限が切れています。" : "回数券のスタンプカードがありません。"}</p>
       </div>
       <button id="backToSessionTypeFromCardNeeded" class="ghost-button" type="button">施術内容を変更</button>
     </div>
     <div class="question-list">
       <div class="question-block">
-        <strong>先に回数券カードを追加してください</strong>
-        <p class="meta">ホーム画面の「新規カードを追加」から 6回券／10回券 を選んでカードを作成してください。作成後にこの施術後アンケートを回答すると、スタンプが1つ押されます。</p>
+        <strong>${expired ? "新しい回数券をお選びください" : "先に回数券カードを追加してください"}</strong>
+        <p class="meta">${
+          expired
+            ? "いまの回数券は有効期限が切れたため、ご利用いただけません。ホーム画面で 6回券／10回券 を選んで新しい回数券を追加してください（お支払いは受付でお願いします）。追加したあとにこの施術後アンケートを回答すると、スタンプが1つ押されます。"
+            : "ホーム画面の「新規カードを追加」から 6回券／10回券 を選んでカードを作成してください。作成後にこの施術後アンケートを回答すると、スタンプが1つ押されます。"
+        }</p>
         <button id="goHomeForTicketCard" class="primary-button" type="button">ホームでカードを追加する</button>
       </div>
     </div>
@@ -5133,7 +5162,7 @@ function renderAnswerPanel() {
   if (
     isSessionSurvey(survey) &&
     getSessionTypeSelection(surveyId) === "回数券" &&
-    !getSessionTicketRoundSelection(surveyId)
+    (!getSessionTicketRoundSelection(surveyId) || isTicketCardExpired(getActiveTicketCardState()))
   ) {
     if (hasCustomerSession() && appState.historyLoading) {
       answerPanel.innerHTML = `
@@ -5151,6 +5180,11 @@ function renderAnswerPanel() {
     }
     // 種類・何枚目・何回目は現在のカードから自動反映（お客様の入力は不要）
     const ticketFillStatus = ensureSessionTicketPositionSelection(surveyId);
+    // 有効期限が切れた回数券は、集計中でも通さない（院長 2026-11-16）
+    if (ticketFillStatus === "expired") {
+      renderTicketCardNeededStep(survey, surveyId, "expired");
+      return;
+    }
 
     // **集計中はここで止めない。**
     //
@@ -6308,6 +6342,11 @@ function renderHomeTicketStatus() {
       ${renderTicketStampList(activeTicketCard.ticketInfo)}
       ${renderTicketExpiry(activeTicketCard)}
       ${
+        getServerCardFor(activeTicketCard)?.paid === false
+          ? `<div class="ticket-expiry soon">お支払いの確認待ちです。お代は受付でお支払いください。</div>`
+          : ""
+      }
+      ${
         activeTicketCard.ticketCount
           ? `
             <div class="ticket-progress-card">
@@ -6325,7 +6364,8 @@ function renderHomeTicketStatus() {
         // 以前は「スタンプが全て埋まるまで」出さなかったが、受付で新しい回数券を
         // お買い上げになった時点で切り替えたい場面があり、お客様が進めなくなっていた。
         // ただ、うっかり押すと今の枚が締まってしまうので、埋まる前は折りたたんでおく。
-        activeTicketCard.ticketCount && activeTicketCard.currentRound >= activeTicketCard.ticketCount
+        (activeTicketCard.ticketCount && activeTicketCard.currentRound >= activeTicketCard.ticketCount) ||
+        isTicketCardExpired(activeTicketCard)
           ? addCardControl
           : `
             <details class="ticket-next-sheet-more">
@@ -6372,7 +6412,7 @@ async function addNewTicketCard(plan) {
       round: 0,
     };
     clearActiveTicketCardOverride();
-    showToast(`${normalizedPlan}の新しいカードを追加しました。`);
+    showToast(`${normalizedPlan}の新しいカードを追加しました。お支払いは受付でお願いします。`);
   } catch (error) {
     reportClientError("customer.addTicketCard", error, { plan: normalizedPlan, sheetNumber: nextSheetNumber });
     showToast(error.message || "カードを追加できませんでした。");
