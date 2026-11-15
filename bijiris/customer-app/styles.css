@@ -2303,3 +2303,15 @@ legend > span:first-child {
   color: #a8604f;
   font-weight: 700;
 }
+
+/* 施術内容のおすすめの目印（2026-11-16） */
+.selection-button.recommended {
+  border: 2px solid #a8604f;
+}
+.selection-button .recommended-mark {
+  display: block;
+  margin-top: 2px;
+  color: #a8604f;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}

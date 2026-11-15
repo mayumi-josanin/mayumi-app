@@ -17,7 +17,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v165";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v166";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 // 前回開いたときの中身。Apps Script は応答までに数秒かかるので、
@@ -1980,6 +1980,15 @@ function getCountedRoundToday(card) {
 
 function getExpectedAnswerFromHistory(question, surveyId) {
   const id = question?.id;
+  if (id === SESSION_TREATMENT_COUNT_QUESTION_ID) {
+    // 単発の施術回数: これまでの単発の回答の数＋1（院長の依頼 2026-11-16）
+    const done = getVisibleHistoryResponses().filter((response) => {
+      if (response.surveyId !== SESSION_SURVEY_ID || response.id === appState.editingResponseId) return false;
+      const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
+      return getAnswerValueFromQuestionIds(answerMap, [SESSION_TYPE_QUESTION_ID]) === "単発";
+    }).length;
+    return `${done + 1}回目`;
+  }
   if (id === MONITOR_ROUND_QUESTION_ID) {
     const done = getVisibleHistoryResponses().filter((response) => {
       if (response.surveyId !== MONITOR_SURVEY_ID || response.id === appState.editingResponseId) return false;
@@ -4083,9 +4092,24 @@ function renderTicketFinalMeasurementStep(survey, surveyId) {
   attachCommonButtons();
 }
 
+// 施術内容のおすすめ（院長の依頼 2026-11-16）。スタンプカードに回数が残っていれば回数券、
+// キャンペーンのカードが途中ならキャンペーン。ボタンは押すとすぐ次へ進むので、自動では選ばず目印と一言を出す
+function getRecommendedSessionType(options) {
+  const card = getActiveTicketCardState();
+  if (card && card.ticketPlan && card.ticketCount && card.currentRound < card.ticketCount && options.includes("回数券")) {
+    return { type: "回数券", detail: `${card.ticketPlan}・${card.ticketSheetLabel}・${card.currentRound + 1}回目` };
+  }
+  if (isCampaignStampEnabled() && options.includes("キャンペーン")) {
+    const visits = computeCampaignCards().current;
+    if (visits.length) return { type: "キャンペーン", detail: `${visits.length + 1}回目` };
+  }
+  return null;
+}
+
 function renderSessionTypeStep(survey, surveyId) {
   const sessionTypeQuestion = getSessionTypeQuestion(survey);
   const selectedType = getSessionTypeSelection(surveyId);
+  const recommended = appState.editingResponseId ? null : getRecommendedSessionType(sessionTypeQuestion.options || []);
   answerPanel.innerHTML = `
     ${renderPendingNotice()}
     <div class="section-head survey-toolbar">
@@ -4098,16 +4122,21 @@ function renderSessionTypeStep(survey, surveyId) {
     <div class="question-list">
       <div class="question-block">
         <strong>${escapeHtml(sessionTypeQuestion.label)}</strong>
+        ${
+          recommended
+            ? `<div class="question-caption">前回までの記録から、今日は「<strong>${escapeHtml(recommended.type)}</strong>」（${escapeHtml(recommended.detail)}）だと思います。違っていたら、ほかを選んでください。</div>`
+            : ""
+        }
         <div class="selection-grid">
           ${sessionTypeQuestion.options
             .map(
               (option) => `
                 <button
-                  class="selection-button ${selectedType === option ? "active" : ""}"
+                  class="selection-button ${selectedType === option ? "active" : ""} ${recommended?.type === option ? "recommended" : ""}"
                   type="button"
                   data-session-type-option="${escapeHtml(option)}"
                 >
-                  ${escapeHtml(option)}
+                  ${escapeHtml(option)}${recommended?.type === option ? `<span class="recommended-mark">前回までの記録から</span>` : ""}
                 </button>
               `,
             )
