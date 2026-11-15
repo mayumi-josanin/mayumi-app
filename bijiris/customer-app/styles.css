@@ -2304,14 +2304,14 @@ legend > span:first-child {
   font-weight: 700;
 }
 
-/* 施術内容のおすすめの目印（2026-11-16） */
-.selection-button.recommended {
-  border: 2px solid #a8604f;
-}
-.selection-button .recommended-mark {
-  display: block;
-  margin-top: 2px;
-  color: #a8604f;
-  font-size: var(--fs-xs);
+/* 回数券の有効期限（2026-11-16） */
+.ticket-expiry {
+  margin: 8px 0 4px;
+  color: var(--text-mid);
+  font-size: var(--fs-sm);
   font-weight: 700;
+}
+.ticket-expiry.soon,
+.ticket-expiry.expired {
+  color: #a8604f;
 }
