@@ -2289,3 +2289,11 @@ legend > span:first-child {
   padding: 10px 0;
   margin: -10px 0;
 }
+
+/* 分析シート（院長が「出す」にしたもの。2026-11-15） */
+.analysis-sheet-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.analysis-sheet-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 12px; }
+.analysis-sheet-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-weight: 600; }
+.analysis-sheet-actions { display: flex; gap: 8px; }
+.analysis-sheet-actions .secondary-button { text-decoration: none; }

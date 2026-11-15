@@ -370,6 +370,10 @@ const appState = {
   surveys: [],
   history: [],
   measurements: [],
+  // 院長が「出す」にした分析シート（2026-11-15）。見る口の URL は15分で切れるので、時刻も持つ
+  analysisSheets: [],
+  analysisSheetsLoadedAt: 0,
+  analysisSheetsError: "",
   bijirisPosts: [],
   publicInfo: {
     dataPolicyText: "",
@@ -2162,6 +2166,61 @@ function setPage(page) {
   if ((page === "history" || page === "home" || page === "measurements") && hasCustomerSession()) {
     void loadHistory();
   }
+  if (page === "measurements" && hasCustomerSession()) {
+    void loadAnalysisSheets();
+  }
+}
+
+// 院長が「出す」にした分析シートの一覧（2026-11-15）。見る口の URL はサーバーが15分だけ使えるように作るので、
+// 計測記録を開いたとき・更新を押したとき・開いたままなら10分ごとに取り直す。中身は端末に残さない。
+const ANALYSIS_SHEETS_REFRESH_MS = 10 * 60 * 1000;
+async function loadAnalysisSheets(force = false) {
+  if (!hasCustomerSession() || !api.getCustomerToken()) return;
+  if (!force && Date.now() - appState.analysisSheetsLoadedAt < 60 * 1000) return;
+  try {
+    const r = await api.request("/api/analysis-sheets");
+    appState.analysisSheets = Array.isArray(r && r.sheets) ? r.sheets : [];
+    appState.analysisSheetsError = "";
+    appState.analysisSheetsLoadedAt = Date.now();
+  } catch (error) {
+    appState.analysisSheetsError = "分析シートを読み込めませんでした。少し時間をおいて「更新」を押してください。";
+  }
+  renderMeasurements();
+}
+setInterval(() => {
+  const 計測を開いている = document.querySelector("#page-measurements.active");
+  if (計測を開いている && document.visibilityState === "visible" &&
+      Date.now() - appState.analysisSheetsLoadedAt > ANALYSIS_SHEETS_REFRESH_MS) {
+    void loadAnalysisSheets(true);
+  }
+}, 60 * 1000);
+
+function renderAnalysisSheets() {
+  if (appState.analysisSheetsError && !appState.analysisSheets.length) {
+    return `<article class="history-card"><strong>分析シート</strong><div class="empty">${escapeHtml(appState.analysisSheetsError)}</div></article>`;
+  }
+  if (!appState.analysisSheets.length) return "";
+  return `
+    <article class="history-card analysis-sheets">
+      <strong>分析シート</strong>
+      <div class="meta">まゆみ助産院がお作りした分析シートです。「見る」で開き、「保存する」で端末に保存できます。</div>
+      <ul class="analysis-sheet-list">
+        ${appState.analysisSheets.map((sheet) => `
+          <li class="analysis-sheet-item">
+            <div class="analysis-sheet-name">
+              <span aria-hidden="true">${sheet.isPdf ? "📄" : "🖼"}</span>
+              <span>${escapeHtml(sheet.title || "分析シート")}</span>
+              ${sheet.madeOn ? `<span class="meta">${escapeHtml(formatDateOnly(sheet.madeOn))}</span>` : ""}
+            </div>
+            <div class="analysis-sheet-actions">
+              <a class="secondary-button" href="${escapeHtml(sheet.url)}" target="_blank" rel="noopener">見る</a>
+              <a class="secondary-button" href="${escapeHtml(sheet.url)}?dl=1" rel="noopener">保存する</a>
+            </div>
+          </li>
+        `).join("")}
+      </ul>
+    </article>
+  `;
 }
 
 async function loadSurveys() {
@@ -6674,6 +6733,7 @@ function renderMeasurements() {
   measurementPanel.innerHTML = `
     <div class="measurement-section">
       ${renderMeasurementSummaryCards(allMeasurements)}
+      ${renderAnalysisSheets()}
       <article class="history-card">
         <div class="section-head">
           <div>
@@ -6983,6 +7043,7 @@ document.querySelector("#historyRefreshButton").addEventListener("click", () => 
 });
 measurementRefreshButton?.addEventListener("click", () => {
   void loadHistory();
+  void loadAnalysisSheets(true);
 });
 bijirisRefreshButton?.addEventListener("click", () => {
   void loadBijirisPosts();

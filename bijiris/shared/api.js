@@ -4,7 +4,7 @@ window.MayumiSurveyApi = (() => {
   const CLIENT_ID_STORAGE_KEY = "mayumi_survey_client_id";
   const CUSTOMER_TOKEN_STORAGE_KEY = "mayumi_bijiris_customer_token";
   // このアクションはお客様トークンが必須。付け忘れを防ぐため jsonp で自動的に付ける。
-  const CUSTOMER_TOKEN_ACTIONS = ["history", "photoData", "customerBootstrap"];
+  const CUSTOMER_TOKEN_ACTIONS = ["history", "photoData", "customerBootstrap", "analysisSheets"];
   const DEFAULT_PUBLIC_API_BASE = "https://mayumi-bijiris.onrender.com";
 
   function safeGetLocal(key) {
@@ -832,6 +832,11 @@ window.MayumiSurveyApi = (() => {
       // 認証情報（管理者は token、お客様は name + nameKana）を入れる。
       if (path === "/api/photo-data") {
         return jsonp(gasUrl, "photoData", options.query || {});
+      }
+
+      // 保存した分析シート（院長が「出す」にしたもの）の一覧と、15分だけ使える見る口（2026-11-15）
+      if (path === "/api/analysis-sheets") {
+        return jsonp(gasUrl, "analysisSheets", {});
       }
 
       // 入口の画面でログイン済みの方に、パスコードを聞かずに合鍵を渡す窓口。
