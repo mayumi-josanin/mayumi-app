@@ -17,7 +17,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v168";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v169";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 // 前回開いたときの中身。Apps Script は応答までに数秒かかるので、
@@ -6201,16 +6201,79 @@ function computeCampaignCards() {
   return { completedCount: completed.length, current };
 }
 
+// モニターのスタンプカード（院長の依頼 2026-11-16）。モニターアンケートの「施術後」に答えるたびに1つ押す。
+// 枠の数は「何回目のビジリスですか」の選択肢の数（院長が管理画面の 特典 で決める）。
+// いちばん新しい「開始時」から数える（次のモニターでは新しいカードになる）。
+function computeMonitorCard() {
+  const survey = appState.surveys.find((item) => item.id === MONITOR_SURVEY_ID);
+  const roundQuestion = survey?.questions?.find((question) => question.id === MONITOR_ROUND_QUESTION_ID);
+  const total = (roundQuestion?.options || []).filter((option) => /^\d+回目/.test(String(option))).length;
+  const events = getVisibleHistoryResponses()
+    .filter((response) => response.surveyId === MONITOR_SURVEY_ID)
+    .map((response) => {
+      const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
+      return { timing: getAnswerValueFromQuestionIds(answerMap, [MONITOR_TIMING_QUESTION_ID]), at: response.submittedAt };
+    })
+    .sort((a, b) => new Date(a.at) - new Date(b.at));
+  let started = false;
+  let visits = [];
+  let finished = false;
+  events.forEach((event) => {
+    if (event.timing.startsWith("開始時")) {
+      started = true;
+      visits = [];
+      finished = false;
+    } else if (event.timing.startsWith("施術後")) {
+      started = true;
+      visits.push(event.at);
+    } else if (event.timing.startsWith("総合")) {
+      finished = true;
+    }
+  });
+  if (!started) return null;
+  return { total: Math.max(total, visits.length), visits, finished };
+}
+
+function renderHomeMonitorCard() {
+  const card = computeMonitorCard();
+  if (!card) return "";
+  const stampDates = new Map();
+  card.visits.forEach((at, index) => stampDates.set(index + 1, at));
+  return `
+    <article class="ticket-home-card">
+      <div class="ticket-home-head">
+        <div>
+          <strong>モニター</strong>
+          <div class="meta">ビジリスのあとにモニターアンケート（施術後）へ答えると、スタンプが1つ押されます</div>
+        </div>
+        <span class="badge open">${escapeHtml(card.finished ? "完了" : `${card.visits.length}回目`)}</span>
+      </div>
+      <div class="ticket-progress-card">
+        <div class="ticket-progress-head">
+          <strong>モニターのスタンプカード</strong>
+          <span>${card.visits.length}${card.total ? ` / ${card.total}` : "回"}</span>
+        </div>
+        ${
+          card.total
+            ? renderTicketStampProgress(card.total, card.visits.length, stampDates)
+            : `<div class="meta">これからのモニターです。ビジリスのあとにアンケートに答えるとスタンプがたまります。</div>`
+        }
+      </div>
+    </article>
+  `;
+}
+
 function renderHomeCampaignStatus() {
   if (!homeCampaignStatus) return;
-  if (!isCampaignStampEnabled() || !hasCustomerSession() || appState.historyLoading || appState.historyLoadError) {
+  if (!hasCustomerSession() || appState.historyLoading || appState.historyLoadError) {
     homeCampaignStatus.innerHTML = "";
     return;
   }
+  const monitorHtml = renderHomeMonitorCard();
   const { completedCount, current } = computeCampaignCards();
   const currentVisits = current.length;
-  if (completedCount <= 0 && currentVisits <= 0) {
-    homeCampaignStatus.innerHTML = "";
+  if (!isCampaignStampEnabled() || (completedCount <= 0 && currentVisits <= 0)) {
+    homeCampaignStatus.innerHTML = monitorHtml;
     return;
   }
   const cardNumber = completedCount + 1;
@@ -6232,12 +6295,12 @@ function renderHomeCampaignStatus() {
           <span>${currentVisits}回</span>
         </div>
         ${
-          currentVisits > 0
-            ? renderTicketStampProgress(currentVisits, currentVisits, stampDates)
-            : `<div class="meta">これからのキャンペーンです。来店するとスタンプがたまります。</div>`
+          // 回数を決めないので、押した数＋次の来店の空き枠を1つ並べる（院長 2026-11-16）
+          renderTicketStampProgress(currentVisits + 1, currentVisits, stampDates)
         }
       </div>
     </article>
+    ${monitorHtml}
   `;
 }
 
