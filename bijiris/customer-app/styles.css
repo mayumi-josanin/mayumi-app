@@ -2297,3 +2297,9 @@ legend > span:first-child {
 .analysis-sheet-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-weight: 600; }
 .analysis-sheet-actions { display: flex; gap: 8px; }
 .analysis-sheet-actions .secondary-button { text-decoration: none; }
+
+/* 前回までの記録と違う答えのお知らせ（2026-11-15） */
+.question-caption.expected-answer-warn {
+  color: #a8604f;
+  font-weight: 700;
+}

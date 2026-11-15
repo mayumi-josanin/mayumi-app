@@ -17,7 +17,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v163";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v165";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 // 前回開いたときの中身。Apps Script は応答までに数秒かかるので、
@@ -1913,6 +1913,200 @@ function getSubmissionQuestionVisibility(question, answerMap, surveyId = appStat
   return isQuestionVisible(question, answerMap, surveyId);
 }
 
+// 計測時アンケートの「お悩み」2問（前回選んだお悩み・次に良くしたいお悩み）は、選択肢の頭の【まとまり】で
+// カテゴリに分け、押すと開く（院長の依頼 2026-11-15）。選んだ値は【】ごとの元の文字のまま送る。
+const GROUPED_OPTION_QUESTION_IDS = ["q_concern_focus", "q_measure_improve", "q_measure_improve_campaign"];
+
+function getOptionCategoryParts(option) {
+  const match = String(option || "").match(/^【([^】]+)】(.*)$/);
+  return match ? { group: match[1], text: match[2] } : null;
+}
+
+function getGroupedOptionCategories(question) {
+  const categories = [];
+  (question?.options || []).forEach((option) => {
+    const parts = getOptionCategoryParts(option);
+    if (!parts) return;
+    let category = categories.find((item) => item.group === parts.group);
+    if (!category) {
+      category = { id: `g${categories.length}`, group: parts.group, label: `【${parts.group}】`, options: [] };
+      categories.push(category);
+    }
+    category.options.push(option);
+  });
+  return categories;
+}
+
+function getConcernCategoriesFor(question) {
+  if (question?.id === SESSION_CONCERN_QUESTION_ID) return SESSION_CONCERN_CATEGORIES;
+  return getGroupedOptionCategories(question);
+}
+
+function isGroupedOptionQuestion(question) {
+  return (
+    question?.type === "checkbox" &&
+    GROUPED_OPTION_QUESTION_IDS.includes(question.id) &&
+    getGroupedOptionCategories(question).length > 0
+  );
+}
+
+// 前回までの記録から「回数券の種類・何枚目・何回目」を数えて、はじめから選んでおく＋違う答えならお知らせする
+// （院長の依頼 2026-11-15）。送信は止めない（新しい回数券を買った・受付で数え直した、など本当に変わっていることがあるため）。
+// 数える元はホームのスタンプカードと同じ（受付が直したもの → 前回の回答）。画面ごとに数え方を変えない。
+const MONITOR_SURVEY_ID = "survey_monitor";
+const MONITOR_TIMING_QUESTION_ID = "q_monitor_timing";
+const MONITOR_ROUND_QUESTION_ID = "q_monitor_session_round";
+
+function isSubmittedToday(response) {
+  if (!response?.submittedAt) return false;
+  const at = new Date(response.submittedAt);
+  const now = new Date();
+  return at.getFullYear() === now.getFullYear() && at.getMonth() === now.getMonth() && at.getDate() === now.getDate();
+}
+
+function getDraftText(surveyId, questionId) {
+  const value = getDraftValue(surveyId, questionId);
+  return normalizeText(Array.isArray(value) ? value[0] : value);
+}
+
+// 今日の施術後アンケートをもう送っていれば、その回はもう数えてある（同じ日の計測時アンケートで+1しない）
+function getCountedRoundToday(card) {
+  if (!card) return 0;
+  const latest = getTicketResponsesByPlanAndSheet(card.ticketPlan, card.ticketSheetLabel, {
+    excludeResponseId: appState.editingResponseId,
+  })[0];
+  return latest && latest.surveyId === SESSION_SURVEY_ID && isSubmittedToday(latest) ? card.currentRound : 0;
+}
+
+function getExpectedAnswerFromHistory(question, surveyId) {
+  const id = question?.id;
+  if (id === MONITOR_ROUND_QUESTION_ID) {
+    const done = getVisibleHistoryResponses().filter((response) => {
+      if (response.surveyId !== MONITOR_SURVEY_ID || response.id === appState.editingResponseId) return false;
+      const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
+      return getAnswerValueFromQuestionIds(answerMap, [MONITOR_TIMING_QUESTION_ID]).startsWith("施術後");
+    }).length;
+    return `${done + 1}回目`;
+  }
+  if (![MEASURE_TICKET_PLAN_QUESTION_ID, "q_measure_m_ticket_sheet", MEASURE_TREATMENT_COUNT_QUESTION_ID].includes(id)) return "";
+  const timing = getDraftText(surveyId, "q_measure_timing");
+  const type = getDraftText(surveyId, "q_measure_m_type");
+  const card = getActiveTicketCardState();
+  const isTicket = timing.includes("回数券終了") || (timing.includes("初回計測") && type === "回数券");
+  if (id === MEASURE_TICKET_PLAN_QUESTION_ID) return isTicket && card ? card.ticketPlan : "";
+  if (id === "q_measure_m_ticket_sheet") return isTicket && card ? card.ticketSheetLabel : "";
+  // 施術回数
+  if (timing.includes("回数券終了")) return card && card.ticketCount ? `${card.ticketCount}回目` : "";
+  if (isTicket) {
+    if (!card || normalizeText(card.ticketPlan) !== getDraftText(surveyId, MEASURE_TICKET_PLAN_QUESTION_ID)) return "";
+    const counted = getCountedRoundToday(card);
+    const round = counted || card.currentRound + 1;
+    return card.ticketCount && round > card.ticketCount ? "" : `${Math.max(1, round)}回目`;
+  }
+  if (timing.includes("キャンペーン終了") || (timing.includes("初回計測") && type === "キャンペーン")) {
+    const visits = computeCampaignCards().current;
+    const countedToday = visits.some((at) => isSubmittedToday({ submittedAt: at }));
+    return `${Math.max(1, visits.length + (countedToday ? 0 : 1))}回目`;
+  }
+  return "";
+}
+
+// 前回の計測で「次に良くしたい」と選んだお悩みを、今回の「前回選んだお悩み」に選んでおく
+// （お客様が覚えていないことがあるため。院長の依頼 2026-11-15）
+const CONCERN_FOCUS_QUESTION_ID = "q_concern_focus";
+const CONCERN_OTHER_TEXT_QUESTION_ID = "q_concern_other_text";
+
+function getPreviousImproveAnswer() {
+  const latest = getVisibleHistoryResponses()
+    .filter((response) => response.id !== appState.editingResponseId)
+    .map((response) => {
+      const answerMap = new Map((response.answers || []).map((answer) => [answer.questionId, answer]));
+      const answer = answerMap.get("q_measure_improve") || answerMap.get("q_measure_improve_campaign");
+      const values = (Array.isArray(answer?.value) ? answer.value : [answer?.value])
+        .map((value) => normalizeText(value))
+        .filter(Boolean)
+        // 2026-11-15 に「トイレ・もれ」を「トイレトラブル」に改めた。前の答えも今の選択肢で選べるように読みかえる
+        .map((value) => value.replace("【トイレ・もれ】", "【トイレトラブル】"));
+      const other = getAnswerValueFromQuestionIds(answerMap, ["q_measure_improve_other", "q_measure_improve_campaign_other"]);
+      return values.length ? { response, values, other } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.response.submittedAt) - new Date(a.response.submittedAt))[0];
+  return latest || null;
+}
+
+function prefillPreviousConcernFocus(question, surveyId, draft) {
+  if (question?.id !== CONCERN_FOCUS_QUESTION_ID) return null;
+  const previous = getPreviousImproveAnswer();
+  if (!previous) return null;
+  appState.prefilledAnswerKeys = appState.prefilledAnswerKeys || {};
+  const key = `${surveyId}:${question.id}`;
+  const current = Array.isArray(draft.values[question.id]) ? draft.values[question.id] : [];
+  const selectable = previous.values.filter((value) => (question.options || []).includes(value));
+  if (!appState.editingResponseId && !current.length && !appState.prefilledAnswerKeys[key] && selectable.length) {
+    draft.values[question.id] = selectable.slice();
+    if (selectable.includes("その他（自由記述）") && previous.other && !normalizeText(draft.values[CONCERN_OTHER_TEXT_QUESTION_ID])) {
+      draft.values[CONCERN_OTHER_TEXT_QUESTION_ID] = previous.other;
+    }
+    appState.prefilledAnswerKeys[key] = true;
+  }
+  return previous;
+}
+
+function renderPreviousConcernFocusNote(previous) {
+  if (!previous) return "";
+  const at = new Date(previous.response.submittedAt);
+  const date = Number.isNaN(at.getTime()) ? "前回" : `${at.getMonth() + 1}月${at.getDate()}日`;
+  const names = previous.values
+    .map((value) => (value === "その他（自由記述）" && previous.other ? `その他（${previous.other}）` : value.replace(/^【[^】]+】/, "")))
+    .join("、");
+  return `
+    <div class="question-caption expected-answer-note">
+      ${escapeHtml(date)}の計測で選んだお悩み：<strong>${escapeHtml(names)}</strong><br />
+      はじめから選んでいます。違っていたら選び直してください。
+    </div>
+  `;
+}
+
+// はじめて開いたときだけ選んでおく（お客様が選び直したら、それを残す）
+function prefillExpectedAnswer(question, surveyId, draft, options) {
+  if (appState.editingResponseId) return "";
+  const expected = getExpectedAnswerFromHistory(question, surveyId);
+  if (!expected || !options.includes(expected)) return "";
+  appState.prefilledAnswerKeys = appState.prefilledAnswerKeys || {};
+  const key = `${surveyId}:${question.id}`;
+  if (!normalizeText(draft.values[question.id]) && !appState.prefilledAnswerKeys[key]) {
+    draft.values[question.id] = expected;
+    appState.prefilledAnswerKeys[key] = true;
+  }
+  return expected;
+}
+
+function renderExpectedAnswerNote(question, expected, chosen) {
+  if (!expected) return "";
+  const what = question.id === MEASURE_TICKET_PLAN_QUESTION_ID ? "回数券の種類" : question.id === "q_measure_m_ticket_sheet" ? "何枚目" : "回数";
+  if (normalizeText(chosen) && normalizeText(chosen) !== expected) {
+    return `<div class="question-caption expected-answer-warn">前回までの記録では、${escapeHtml(what)}は「${escapeHtml(expected)}」です。お間違いないかご確認ください（違っていれば、そのまま送っていただいてかまいません）。</div>`;
+  }
+  return `<div class="question-caption">前回までの記録から「${escapeHtml(expected)}」を選んでいます。違っていたら選び直してください。</div>`;
+}
+
+// 計測時アンケートの「施術回数」は、選んだ回数券の種類までにする（6回券なら6回目まで。院長 2026-11-15）
+const MEASURE_TREATMENT_COUNT_QUESTION_ID = "q_measure_m_treatment_count";
+const MEASURE_TICKET_PLAN_QUESTION_ID = "q_measure_m_ticket_plan";
+
+function getChoiceOptionsForDraft(question, surveyId) {
+  const options = Array.isArray(question?.options) ? question.options : [];
+  if (question?.id !== MEASURE_TREATMENT_COUNT_QUESTION_ID) return options;
+  const plan = String(getDraftValue(surveyId, MEASURE_TICKET_PLAN_QUESTION_ID) || "");
+  const limit = Number((plan.match(/(\d+)回券/) || [])[1] || 0);
+  if (!limit) return options;
+  return options.filter((option) => {
+    const n = Number((String(option).match(/^(\d+)回目/) || [])[1] || 0);
+    return !n || n <= limit;
+  });
+}
+
 function getConcernCategoryStateKey(surveyId, questionId) {
   return `${surveyId}:${questionId}`;
 }
@@ -1921,22 +2115,22 @@ function getConcernCategoryStateKey(surveyId, questionId) {
 // まだ一度も触っていないときは、すでに選ばれている項目のあるカテゴリを開いておく
 // （下書きに戻ったときに、何を選んだのか見えないままにしないため）。
 // 「全部閉じた」状態と区別したいので、触ったかどうかは値の有無で見る。
-function getOpenConcernCategories(surveyId, questionId, selectedOptions = []) {
+function getOpenConcernCategories(surveyId, questionId, selectedOptions = [], categories = SESSION_CONCERN_CATEGORIES) {
   const key = getConcernCategoryStateKey(surveyId, questionId);
   const stored = appState.concernOpenCategoriesByQuestion[key];
   if (Array.isArray(stored)) {
-    return stored.filter((id) => SESSION_CONCERN_CATEGORIES.some((category) => category.id === id));
+    return stored.filter((id) => categories.some((category) => category.id === id));
   }
-  return SESSION_CONCERN_CATEGORIES.filter((category) =>
+  return categories.filter((category) =>
     category.options.some((option) => selectedOptions.includes(option)),
   ).map((category) => category.id);
 }
 
 // 同じカテゴリをもう一度押したら閉じる。
 // 閉じても選んだ内容は下書きに残る（消えると押し直すたびに選び直しになる）。
-function toggleConcernCategory(surveyId, questionId, categoryId, selectedOptions = []) {
+function toggleConcernCategory(surveyId, questionId, categoryId, selectedOptions = [], categories = SESSION_CONCERN_CATEGORIES) {
   const key = getConcernCategoryStateKey(surveyId, questionId);
-  const open = getOpenConcernCategories(surveyId, questionId, selectedOptions);
+  const open = getOpenConcernCategories(surveyId, questionId, selectedOptions, categories);
   appState.concernOpenCategoriesByQuestion[key] = open.includes(categoryId)
     ? open.filter((id) => id !== categoryId)
     : open.concat(categoryId);
@@ -2065,10 +2259,17 @@ function isQuestionVisible(question, answerMap, surveyId = appState.selectedSurv
     return typeValues.includes("単発");
   }
   // 計測時アンケート：従来の計測時項目（変化を感じたこと・改善したい部分）は初回計測時は非表示
-  if (question?.id === "q_measure_life_changes" || question?.id === "q_measure_improve") {
+  // 回数券終了時は施術回数を聞かない（6回券なら6回目・10回券なら10回目に決まっている。院長 2026-11-15）
+  if (question?.id === "q_measure_m_treatment_count") {
+    const timingValues = Array.isArray(answerMap["q_measure_timing"]) ? answerMap["q_measure_timing"] : [];
+    if (timingValues.some((v) => String(v).includes("回数券終了"))) return false;
+  }
+  // 前回選んだお悩み（q_concern_focus）も初回は出さない（まだ1回目。院長 2026-11-15）
+  if (question?.id === "q_measure_life_changes" || question?.id === "q_measure_improve" || question?.id === "q_concern_focus") {
     const timingValues = Array.isArray(answerMap["q_measure_timing"]) ? answerMap["q_measure_timing"] : [];
     const isMonitor = timingValues.some((v) => String(v).includes("初回計測") || String(v).includes("モニター"));
-    return !isMonitor;
+    if (isMonitor) return false;
+    // 初回でなければ、ふつうの表示条件も見る（次に良くしたいお悩みは回数券終了時とキャンペーン終了時で別の問い。2026-11-15）
   }
   if (surveyId === SESSION_SURVEY_ID && isLegacyBijirisSessionPhotoQuestion(question)) {
     return isBijirisSessionFinalPhotoVisible(answerMap);
@@ -4309,6 +4510,8 @@ function renderTicketStepRound(survey, surveyId) {
 function renderQuestion(question, index, surveyId) {
   const draft = getSurveyDraft(surveyId);
   const name = `question-${question.id}`;
+  // 前回選んだお悩みは、数える前に選んでおく（カテゴリの「○件選択中」と開き方に入るように）
+  const previousFocus = prefillPreviousConcernFocus(question, surveyId, draft);
   const selectedCheckboxValues = Array.isArray(draft.values[question.id]) ? draft.values[question.id] : [];
   const label = renderQuestionLabel(question, index, surveyId);
 
@@ -4342,11 +4545,19 @@ function renderQuestion(question, index, surveyId) {
   }
 
   if (question.type === "choice") {
+    const choiceOptions = getChoiceOptionsForDraft(question, surveyId);
+    // 回数券を6回券に選び直したときなど、今の選択肢に無い答えは残さない（10回目のまま送られないように）
+    const chosen = String(draft.values[question.id] || "");
+    if (chosen && !choiceOptions.includes(chosen) && question.options.includes(chosen)) {
+      draft.values[question.id] = "";
+    }
+    const expected = prefillExpectedAnswer(question, surveyId, draft, choiceOptions);
     return `
       <div class="question-block" data-question-wrap="${question.id}" role="group">
         <div class="question-legend">${label}</div>
+        ${renderExpectedAnswerNote(question, expected, draft.values[question.id])}
         <div class="choice-row">
-          ${question.options
+          ${choiceOptions
             .map(
               (option) => `
                 <label>
@@ -4363,6 +4574,73 @@ function renderQuestion(question, index, surveyId) {
 
   if (question.type === "checkbox") {
     const selected = new Set(selectedCheckboxValues);
+    if (isGroupedOptionQuestion(question)) {
+      const categories = getGroupedOptionCategories(question);
+      const openCategoryIds = getOpenConcernCategories(surveyId, question.id, selectedCheckboxValues, categories);
+      const looseOptions = question.options.filter((option) => !getOptionCategoryParts(option));
+      return `
+        <div class="question-block" data-question-wrap="${question.id}" role="group">
+          <div class="question-legend">${label}</div>
+          ${renderPreviousConcernFocusNote(previousFocus)}
+          <div class="question-caption">気になるカテゴリを押すと、お悩みが下に開きます。もう一度押すと閉じますが、選んだ内容は残ります。</div>
+          <div class="concern-category-list">
+            ${categories.map((category) => {
+              const isActive = openCategoryIds.includes(category.id);
+              const selectedCount = countSelectedInCategory(category, selectedCheckboxValues);
+              return `
+                <div class="concern-category-card ${isActive ? "active" : ""}">
+                  <button
+                    class="selection-button ${isActive ? "active" : ""}"
+                    type="button"
+                    aria-expanded="${isActive ? "true" : "false"}"
+                    data-concern-category="${escapeHtml(category.id)}"
+                    data-question-id="${question.id}"
+                  >
+                    <span class="concern-category-name">${escapeHtml(category.label)}</span>
+                    ${selectedCount ? `<span class="concern-category-count">${selectedCount}件選択中</span>` : ""}
+                  </button>
+                  ${
+                    isActive
+                      ? `
+                        <div class="checkbox-row concern-option-list">
+                          ${category.options
+                            .map(
+                              (option) => `
+                                <label>
+                                  <input type="checkbox" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${selected.has(option) ? "checked" : ""} />
+                                  <span class="option-text">${escapeHtml(getOptionCategoryParts(option).text)}</span>
+                                </label>
+                              `,
+                            )
+                            .join("")}
+                        </div>
+                      `
+                      : ""
+                  }
+                </div>
+              `;
+            }).join("")}
+          </div>
+          ${
+            looseOptions.length
+              ? `<div class="checkbox-row concern-option-list">
+                  ${looseOptions
+                    .map(
+                      (option) => `
+                        <label>
+                          <input type="checkbox" name="${name}" value="${escapeHtml(option)}" data-question-id="${question.id}" ${selected.has(option) ? "checked" : ""} />
+                          <span class="option-text">${escapeHtml(option)}</span>
+                        </label>
+                      `,
+                    )
+                    .join("")}
+                </div>`
+              : ""
+          }
+          ${openCategoryIds.length ? "" : `<div class="empty">カテゴリを押すと項目が開きます。</div>`}
+        </div>
+      `;
+    }
     if (question.id === SESSION_CONCERN_QUESTION_ID) {
       const openCategoryIds = getOpenConcernCategories(surveyId, question.id, selectedCheckboxValues);
       return `
@@ -4648,6 +4926,11 @@ function renderFormPanel(survey) {
   const surveyId = survey.id;
   const draft = getSurveyDraft(surveyId);
   const availability = getSurveyAvailability(survey);
+  // 前回選んだお悩みを先に選んでおく。続く「お悩みごとの質問」の出し分けがこの答えで決まるため
+  const focusQuestion = survey.questions.find((question) => question.id === CONCERN_FOCUS_QUESTION_ID);
+  if (focusQuestion && isQuestionVisible(focusQuestion, buildDraftAnswerMap(survey, draft), surveyId)) {
+    prefillPreviousConcernFocus(focusQuestion, surveyId, draft);
+  }
   const visibleQuestions = getVisibleQuestions(survey, draft);
   const renderableQuestions = visibleQuestions.filter((question) => !isInlineManagedTextareaQuestion(question));
   const progress = getProgress(survey, draft);
@@ -4920,7 +5203,8 @@ function attachAnswerFormHandlers(form, survey) {
       if (!questionId || !categoryId) return;
       const stored = getDraftValue(survey.id, questionId);
       const selected = Array.isArray(stored) ? stored : [];
-      toggleConcernCategory(survey.id, questionId, categoryId, selected);
+      const question = survey.questions.find((item) => item.id === questionId);
+      toggleConcernCategory(survey.id, questionId, categoryId, selected, getConcernCategoriesFor(question));
       renderAnswerPanel();
     });
   });
