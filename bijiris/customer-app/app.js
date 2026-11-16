@@ -17,7 +17,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v174";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v175";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 // 前回開いたときの中身。Apps Script は応答までに数秒かかるので、
@@ -6405,11 +6405,6 @@ function renderHomeTicketStatus() {
       </div>
       ${renderTicketStampList(activeTicketCard.ticketInfo)}
       ${renderTicketExpiry(activeTicketCard)}
-      ${
-        getServerCardFor(activeTicketCard)?.paid === false
-          ? `<div class="ticket-expiry soon">お支払いの確認待ちです。お代は受付でお支払いください。</div>`
-          : ""
-      }
       ${
         activeTicketCard.ticketCount
           ? `
