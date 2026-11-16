@@ -2381,3 +2381,12 @@ legend > span:first-child {
     linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 251, 246, 0.84)),
     url("img/stamp-card-bg.jpg?v=20261116-01") center / cover no-repeat;
 }
+
+/* まだ押していない枠の白い丸を外す（院長の依頼 2026-11-16）。ビジリスの絵だけを背景の写真の上に出す */
+.stamp-dot:not(.active) {
+  background: transparent;
+}
+/* 絵の画像そのものに白い丸い下地があるので、白を切り抜いた絵に替える（bijiris-stamp-cutout.png・256px） */
+.stamp-dot::before {
+  background-image: url("../shared/assets/bijiris-stamp-cutout.png?v=20261116-01");
+}
