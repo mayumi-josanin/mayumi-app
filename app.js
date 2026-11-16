@@ -1278,7 +1278,9 @@ function updateStampModalPresentation(isMilestone) {
       ? 'おめでとうございます。<br>このカードのガチャ結果は保存済みです。次のスタンプカードを始められます。'
       : 'おめでとうございます。<br>特典ガチャを回して、ごほうびを受け取ってください。')
     : 'おめでとうございます。<br>マイページの「スタンプ・特典履歴」で特典をご確認いただけます。';
-  icon.textContent = isMilestone ? '🎉' : '🌿';
+  // ふだんのスタンプは来院スタンプの絵（2026-11-16）。10個の節目は 🎉 のまま
+  if (isMilestone) icon.textContent = '🎉';
+  else icon.innerHTML = '<img src="img/visit-stamp.png?v=20261116-01" alt="" style="width:1.3em;height:1.3em;display:inline-block;vertical-align:middle">';
   icon.classList.toggle('milestone', !!isMilestone);
   if (actionBtn) {
     actionBtn.style.display = isMilestone ? 'block' : 'none';
@@ -2332,7 +2334,8 @@ function renderStampGrid(id, count) {
   for (let i = 0; i < 10; i++) {
     const cell = document.createElement('div');
     cell.className = 'stamp-cell ' + (i < count ? 'filled' : 'empty');
-    if (i < count) cell.textContent = '🌿';
+    // 押したマスは、手とハートの丸いスタンプの絵（院長の依頼 2026-11-16。前は 🌿）
+    if (i < count) cell.innerHTML = '<img class="stamp-cell-img" src="img/visit-stamp.png?v=20261116-01" alt="スタンプ">';
     grid.appendChild(cell);
   }
 }
