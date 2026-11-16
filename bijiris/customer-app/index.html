@@ -11,7 +11,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=20260928-01" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png?v=20260928-01" sizes="180x180" />
     <link rel="icon" href="./icons/icon-192.png?v=20260928-01" sizes="192x192" />
-    <link rel="stylesheet" href="./styles.css?v=20261116-10" />
+    <link rel="stylesheet" href="./styles.css?v=20261116-11" />
   </head>
   <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -83,10 +83,11 @@
           <div class="section-head">
             <div>
               <h2>アンケート</h2>
-              <p>回答するアンケートを選んでください。</p>
             </div>
             <button id="refreshButton" class="ghost-button" type="button">更新</button>
           </div>
+          <!-- 「更新」ボタンの横だと幅が足りず2行になっていたので、下の段に1行で（院長 2026-11-16） -->
+          <p class="section-lead-one-line">回答するアンケートを選んでください。</p>
           <div id="surveyList" class="survey-list"></div>
         </section>
 
@@ -159,8 +160,8 @@
 
     <script src="../default-surveys.js?v=20260928-01"></script>
     <script src="../shared/gas-config.js?v=20260417-13"></script>
-    <script src="../shared/api.js?v=20261116-10"></script>
+    <script src="../shared/api.js?v=20261116-11"></script>
     <script src="../shared/photo-loader.js?v=20260928-01"></script>
-    <script src="./app.js?v=20261116-10"></script>
+    <script src="./app.js?v=20261116-11"></script>
   </body>
 </html>

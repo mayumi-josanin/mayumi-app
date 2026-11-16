@@ -2391,3 +2391,12 @@ legend > span:first-child {
 .stamp-dot::before {
   background-image: url("../shared/assets/bijiris-stamp-cutout.png?v=20261116-01");
 }
+
+/* アンケート一覧の説明は1行で（2026-11-16）。せまい画面でも折り返さない大きさ */
+.section-lead-one-line {
+  margin: -4px 0 12px;
+  font-size: min(var(--fs-sm), 3.8vw);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
