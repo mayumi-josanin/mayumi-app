@@ -17,7 +17,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v170";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v171";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 // 前回開いたときの中身。Apps Script は応答までに数秒かかるので、
@@ -7486,6 +7486,93 @@ pushToggleButton?.addEventListener("click", () => {
 appUpdateButton?.addEventListener("click", () => {
   void runAppUpdate();
 });
+
+// ===== 画面のいちばん上で下に引っぱって離すと更新（院長の依頼 2026-11-16。まゆみ助産院アプリと同じ動き）=====
+// 更新するのは、その画面の「更新」ボタンと同じもの（アンケート・回答の履歴・計測の分析シート・豆知識）。
+// アプリそのものの入れ替え（上の「更新」）はしない。中で動かせる欄の中では動かさない。
+let pullRefreshing = false;
+
+async function refreshFromPull() {
+  if (pullRefreshing) return;
+  pullRefreshing = true;
+  showToast("更新しています…");
+  try {
+    const page = document.querySelector(".page.active")?.id || "";
+    const jobs = [loadSurveys()];
+    if (hasCustomerSession()) jobs.push(loadHistory());
+    if (page === "page-measurements") jobs.push(loadAnalysisSheets(true));
+    if (page === "page-bijiris") jobs.push(loadBijirisPosts());
+    await Promise.allSettled(jobs);
+    showToast("更新しました。");
+  } finally {
+    pullRefreshing = false;
+  }
+}
+
+(function setupPullRefresh() {
+  const ptr = document.createElement("div");
+  ptr.className = "ptr-indicator";
+  ptr.innerHTML = '<span class="ptr-icon">↓</span><span class="ptr-text">引っぱって更新</span>';
+  document.body.appendChild(ptr);
+  const threshold = 70; // これだけ引っぱったら（指の動きの 1/2.5）、離したときに更新
+  let startY = 0;
+  let pulling = false;
+  let dist = 0;
+
+  function insideScrollable(el) {
+    while (el && el !== document.body) {
+      if (el.scrollHeight > el.clientHeight + 2) {
+        const oy = getComputedStyle(el).overflowY;
+        if ((oy === "auto" || oy === "scroll") && el.scrollTop > 0) return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  }
+  function show() {
+    const ready = dist >= threshold;
+    ptr.style.transform = `translate(-50%, ${Math.min(dist, threshold + 30) - 50}px)`;
+    ptr.style.opacity = String(Math.min(1, dist / 40));
+    ptr.classList.toggle("ready", ready);
+    ptr.querySelector(".ptr-text").textContent = ready ? "離すと更新" : "引っぱって更新";
+  }
+  function reset() {
+    pulling = false;
+    dist = 0;
+    ptr.style.transition = "transform .2s, opacity .2s";
+    ptr.style.transform = "translate(-50%, -50px)";
+    ptr.style.opacity = "0";
+    ptr.classList.remove("ready");
+    setTimeout(() => { ptr.style.transition = ""; }, 220);
+  }
+  document.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1 || pullRefreshing) return;
+    if ((window.scrollY || document.documentElement.scrollTop || 0) > 0) return;
+    if (insideScrollable(e.target)) return;
+    startY = e.touches[0].clientY;
+    pulling = true;
+    dist = 0;
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy <= 0 || (window.scrollY || 0) > 0) {
+      if (dist) reset();
+      else pulling = false;
+      return;
+    }
+    dist = dy / 2.5;
+    if (e.cancelable) e.preventDefault(); // 画面ごと引っぱられるのを止め、印だけを動かす
+    show();
+  }, { passive: false });
+  document.addEventListener("touchend", () => {
+    if (!pulling) return;
+    const go = dist >= threshold;
+    reset();
+    if (go) void refreshFromPull();
+  }, { passive: true });
+  document.addEventListener("touchcancel", () => { if (pulling) reset(); }, { passive: true });
+})();
 
 setupInstall();
 setupAutoCacheMaintenance();
