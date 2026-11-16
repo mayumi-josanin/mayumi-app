@@ -2373,3 +2373,11 @@ legend > span:first-child {
   padding-top: 4px;
   font-size: 24px;
 }
+
+/* スタンプカードの背景に院内の写真を薄く（院長の依頼 2026-11-16）。
+   スタンプが読みにくくならないよう、白を重ねて薄めてから敷く */
+.ticket-progress-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 251, 246, 0.84)),
+    url("img/stamp-card-bg.jpg?v=20261116-01") center / cover no-repeat;
+}
