@@ -2382,9 +2382,10 @@ legend > span:first-child {
     url("img/stamp-card-bg.jpg?v=20261116-01") center / cover no-repeat;
 }
 
-/* まだ押していない枠の白い丸を外す（院長の依頼 2026-11-16）。ビジリスの絵だけを背景の写真の上に出す */
+/* まだ押していない枠の白い丸は、薄くする（院長 2026-11-16: いったん外したが「白はそこまで濃くならない程度で」付け直し）。
+   後ろの写真が少し透けて見えるくらい */
 .stamp-dot:not(.active) {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.5);
 }
 /* 絵の画像そのものに白い丸い下地があるので、白を切り抜いた絵に替える（bijiris-stamp-cutout.png・256px） */
 .stamp-dot::before {
