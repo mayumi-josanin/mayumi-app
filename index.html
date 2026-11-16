@@ -17,7 +17,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=Zen+Old+Mincho:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap"
     rel="stylesheet" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="style.css?v=20261116-stamp">
+  <link rel="stylesheet" href="style.css?v=20261116-roulette">
 
 </head>
 
@@ -142,7 +142,7 @@
             <div class="stamp-scan-note">受付のQRコードを読み取ってください</div>
           </div>
           <button id="stampNewCardBtn" class="btn primary" style="display:none; margin-top:16px; width:100%"
-            onclick="openRewardGachaModal()">🎯 特典ガチャを回す</button>
+            onclick="openRewardGachaModal()">🎯 特典ルーレットを回す</button>
         </div>
       </div>
 
@@ -705,7 +705,7 @@
         </div>
       </div>
       <button id="stampMilestoneActionBtn" class="btn primary" style="display:none; margin-bottom:10px;"
-        onclick="handleStampMilestoneAction()">🎯 特典ガチャを回す</button>
+        onclick="handleStampMilestoneAction()">🎯 特典ルーレットを回す</button>
       <button class="btn secondary" onclick="closeModal('stampModal')">閉じる</button>
     </div>
   </div>
@@ -714,33 +714,20 @@
     <div class="modal-sheet gacha-sheet" onclick="event.stopPropagation()">
       <div class="modal-handle"></div>
       <div class="gacha-header">
-        <div class="gacha-kicker">MAYUMI JOSANIN REWARD GACHA</div>
-        <div class="modal-title" style="text-align:center; padding-left:0;">特典ガチャ</div>
-        <p class="gacha-copy">10個達成おめでとうございます。<br>まゆみ助産院のごほうびガチャを回してください。</p>
+        <div class="gacha-kicker">MAYUMI JOSANIN REWARD ROULETTE</div>
+        <div class="modal-title" style="text-align:center; padding-left:0;">特典ルーレット</div>
+        <p class="gacha-copy">10個達成おめでとうございます。<br>まゆみ助産院のごほうびルーレットを回してください。</p>
       </div>
 
-      <div class="gacha-machine" id="rewardGachaMachine">
-        <div class="gacha-dropped-capsule" id="rewardGachaDroppedCapsule"></div>
-        <div class="gacha-top">
-          <div class="gacha-logo">ごほうび<br>ガチャ</div>
-          <div class="gacha-capsules" id="rewardGachaCapsules"></div>
-          <div class="gacha-gloss"></div>
-        </div>
-        <div class="gacha-body">
-          <div class="gacha-slot">
-            <div class="gacha-slot-window" id="rewardGachaSlotWindow"></div>
-          </div>
-          <div class="gacha-handle-wrap">
-            <button type="button" class="gacha-handle" id="rewardGachaHandleBtn" onclick="drawRewardGacha()"
-              aria-label="ガチャを回す">
-              <span class="gacha-handle-bar"></span>
-              <span class="gacha-handle-knob"></span>
-            </button>
-          </div>
-        </div>
+      <!-- ルーレット（院長の依頼 2026-11-16。前はカプセルのガチャ）。当たりはサーバーが決め、盤はそこで止まる -->
+      <div class="roulette-machine" id="rewardGachaMachine">
+        <div class="roulette-pointer" aria-hidden="true"></div>
+        <div class="roulette-wheel" id="rewardGachaCapsules"></div>
+        <div class="roulette-hub" aria-hidden="true">ごほうび</div>
       </div>
+      <div class="roulette-result-label" id="rewardGachaSlotWindow"></div>
 
-      <div class="gacha-status" id="rewardGachaStatus">ハンドルを回して、特典カプセルを受け取ってください。</div>
+      <div class="gacha-status" id="rewardGachaStatus">「スタート」で回して、好きなところで「ストップ」を押してください。</div>
 
       <div class="gacha-result" id="rewardGachaResult" style="display:none;">
         <div class="gacha-result-layout">
@@ -760,7 +747,7 @@
       </div>
 
       <div class="gacha-actions">
-        <button class="btn primary" id="rewardGachaDrawBtn" onclick="drawRewardGacha()">🎯 ガチャを回す</button>
+        <button class="btn primary" id="rewardGachaDrawBtn" onclick="drawRewardGacha()">🎯 スタート</button>
         <button class="btn primary" id="rewardGachaNextBtn" style="display:none;" onclick="startNewCard()">🌸
           新しいスタンプカードを取得</button>
       </div>
@@ -1011,7 +998,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-  <script src="app.js?v=20261116-stamp"></script>
+  <script src="app.js?v=20261116-roulette"></script>
 </body>
 
 </html>

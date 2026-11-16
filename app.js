@@ -1275,8 +1275,8 @@ function updateStampModalPresentation(isMilestone) {
   note.style.display = isMilestone ? 'block' : 'none';
   note.innerHTML = isMilestone
     ? (rewardDrawn
-      ? 'おめでとうございます。<br>このカードのガチャ結果は保存済みです。次のスタンプカードを始められます。'
-      : 'おめでとうございます。<br>特典ガチャを回して、ごほうびを受け取ってください。')
+      ? 'おめでとうございます。<br>このカードのルーレットの結果は保存済みです。次のスタンプカードを始められます。'
+      : 'おめでとうございます。<br>特典ルーレットを回して、ごほうびを受け取ってください。')
     : 'おめでとうございます。<br>マイページの「スタンプ・特典履歴」で特典をご確認いただけます。';
   // ふだんのスタンプは来院スタンプの絵（2026-11-16）。10個の節目は 🎉 のまま
   if (isMilestone) icon.textContent = '🎉';
@@ -1284,7 +1284,7 @@ function updateStampModalPresentation(isMilestone) {
   icon.classList.toggle('milestone', !!isMilestone);
   if (actionBtn) {
     actionBtn.style.display = isMilestone ? 'block' : 'none';
-    actionBtn.textContent = rewardDrawn ? '🌸 新しいスタンプカードを取得' : '🎯 特典ガチャを回す';
+    actionBtn.textContent = rewardDrawn ? '🌸 新しいスタンプカードを取得' : '🎯 特典ルーレットを回す';
   }
 }
 
@@ -2064,41 +2064,84 @@ function buildLocalGachaReward(prizeMeta) {
   }, 0);
 }
 
+// ルーレット盤の区切り（院長の依頼 2026-11-16）。区切りの大きさは当たりやすさ（weight）に合わせる。
+// 見た目と実際の当たりやすさがずれないように。当たりやすさがすべて 0 のときは同じ大きさ。
+function getRewardRouletteSegments() {
+  const pool = REWARD_GACHA_PRIZE_POOL;
+  const weights = pool.map(function (prize) { return Math.max(0, Number(prize.weight) || 0); });
+  const total = weights.reduce(function (a, b) { return a + b; }, 0);
+  let start = 0;
+  return pool.map(function (prize, i) {
+    const size = total > 0 ? (weights[i] / total) * 360 : 360 / pool.length;
+    const seg = { prize: prize, start: start, end: start + size };
+    start += size;
+    return seg;
+  }).filter(function (seg) { return seg.end - seg.start > 0.01; });
+}
+
 function renderRewardGachaCapsules(activePrizeKey) {
-  const container = document.getElementById('rewardGachaCapsules');
-  const slotWindow = document.getElementById('rewardGachaSlotWindow');
-  if (!container || !slotWindow) return;
-
-  const capsuleLayout = [
-    { left: '18px', top: '18px', prizeIdx: 0 },
-    { left: '86px', top: '26px', prizeIdx: 1 },
-    { left: '148px', top: '54px', prizeIdx: 2 },
-    { left: '34px', top: '90px', prizeIdx: 3 },
-    { left: '112px', top: '106px', prizeIdx: 1 },
-    { left: '170px', top: '122px', prizeIdx: 2 }
-  ];
-
-  container.innerHTML = capsuleLayout.map(function (capsule) {
-    const prize = REWARD_GACHA_PRIZE_POOL[capsule.prizeIdx % REWARD_GACHA_PRIZE_POOL.length];
-    const isActive = activePrizeKey && prize.key === activePrizeKey;
-    const boxShadow = isActive
-      ? '0 0 0 3px rgba(255,255,255,0.78), 0 12px 20px rgba(176, 121, 27, 0.28)'
-      : 'inset -5px -10px 0 rgba(0, 0, 0, 0.08), inset 6px 8px 0 rgba(255, 255, 255, 0.28), 0 8px 14px rgba(0, 0, 0, 0.1)';
-    return `
-      <div class="capsule" style="left:${capsule.left}; top:${capsule.top}; background:${prize.capsuleColor}; box-shadow:${boxShadow};">
-        <span class="capsule-content" aria-hidden="true">🎁</span>
-      </div>
-    `;
+  const wheel = document.getElementById('rewardGachaCapsules');
+  const label = document.getElementById('rewardGachaSlotWindow');
+  if (!wheel || !label) return;
+  const segments = getRewardRouletteSegments();
+  wheel.style.background = 'conic-gradient(' + segments.map(function (seg) {
+    return `${seg.prize.capsuleColor} ${seg.start}deg ${seg.end}deg`;
+  }).join(', ') + ')';
+  wheel.innerHTML = segments.map(function (seg) {
+    const mid = (seg.start + seg.end) / 2;
+    const isActive = activePrizeKey && seg.prize.key === activePrizeKey;
+    // 細すぎる区切り（20度未満）は字を小さく
+    const small = seg.end - seg.start < 20 ? ' small' : '';
+    return `<span class="roulette-label${small}${isActive ? ' active' : ''}" style="transform: rotate(${mid}deg) translateY(-72px); color:${seg.prize.accentColor};">${escapeHtml(seg.prize.rankLabel)}</span>`;
+  }).join('') + segments.map(function (seg) {
+    return `<span class="roulette-divider" style="transform: rotate(${seg.start}deg);"></span>`;
   }).join('');
 
   const slotPrize = activePrizeKey
-    ? (REWARD_GACHA_PRIZE_POOL.find(function (prize) { return prize.key === activePrizeKey; }) || REWARD_GACHA_PRIZE_POOL[0])
+    ? (REWARD_GACHA_PRIZE_POOL.find(function (prize) { return prize.key === activePrizeKey; }) || null)
     : null;
-  slotWindow.textContent = slotPrize ? slotPrize.rankLabel : '???';
-  slotWindow.style.color = slotPrize ? slotPrize.accentColor : '#8f7a61';
-  slotWindow.style.background = slotPrize
-    ? `linear-gradient(180deg, ${slotPrize.capsuleColor}, #fff7ea)`
-    : 'linear-gradient(180deg, #fff8f0, #f7efe5)';
+  label.textContent = slotPrize ? `${slotPrize.rankLabel}！` : '';
+  label.style.color = slotPrize ? slotPrize.accentColor : '';
+}
+
+// いま盤が何度回っているか（回っている途中の CSS の回転から読む）
+function getRewardRouletteAngle(wheel) {
+  const t = getComputedStyle(wheel).transform;
+  if (!t || t === 'none') return 0;
+  const m = t.match(/matrix\(([^)]+)\)/);
+  if (!m) return 0;
+  const v = m[1].split(',').map(Number);
+  const deg = Math.atan2(v[1], v[0]) * 180 / Math.PI;
+  return (deg + 360) % 360;
+}
+
+// 当たった特典の区切りの中で止める。上の▼が指すのは、盤の (360 - 回転) 度の場所
+function stopRewardRouletteAt(prizeKey) {
+  const wheel = document.getElementById('rewardGachaCapsules');
+  if (!wheel) return Promise.resolve();
+  const seg = getRewardRouletteSegments().find(function (s) { return s.prize.key === prizeKey; });
+  const current = getRewardRouletteAngle(wheel);
+  wheel.classList.remove('spinning');
+  wheel.style.transition = 'none';
+  wheel.style.transform = `rotate(${current}deg)`;
+  void wheel.offsetWidth; // いまの角度から続けて回すため、いったん描き直させる
+  let land = 0;
+  if (seg) {
+    // 区切りの端ぎりぎりで止まらないよう、まん中寄り（幅の 15%〜85%）のどこか
+    const width = seg.end - seg.start;
+    land = seg.start + width * (0.15 + Math.random() * 0.7);
+  }
+  const want = (360 - land) % 360;
+  const delta = ((want - current) % 360 + 360) % 360;
+  const target = current + 360 * 3 + delta;
+  return new Promise(function (resolve) {
+    let done = false;
+    const finish = function () { if (!done) { done = true; resolve(); } };
+    wheel.addEventListener('transitionend', finish, { once: true });
+    setTimeout(finish, 4200);
+    wheel.style.transition = 'transform 3.6s cubic-bezier(0.12, 0.6, 0.18, 1)';
+    wheel.style.transform = `rotate(${target}deg)`;
+  });
 }
 
 function showRewardGachaResult(prizeMeta, options) {
@@ -2168,8 +2211,8 @@ function showRewardGachaResult(prizeMeta, options) {
   if (handleBtn) handleBtn.disabled = true;
   if (status) {
     status.textContent = alreadyDrawn
-      ? 'このカードのガチャ結果は保存済みです。次のスタンプカードへ進めます。'
-      : 'ガチャ結果を保存しました。次のスタンプカードを始められます。';
+      ? 'このカードのルーレットの結果は保存済みです。次のスタンプカードへ進めます。'
+      : 'ルーレットの結果を保存しました。次のスタンプカードを始められます。';
   }
   if (machine) {
     machine.classList.remove('rolling');
@@ -2192,6 +2235,13 @@ function resetRewardGachaModal() {
   if (machine) {
     machine.classList.remove('rolling', 'result-ready');
   }
+  const rouletteWheel = document.getElementById('rewardGachaCapsules');
+  if (rouletteWheel && !rewardRouletteState) {
+    rouletteWheel.classList.remove('spinning');
+    rouletteWheel.style.transition = 'none';
+    rouletteWheel.style.transform = '';
+    if (drawBtn) drawBtn.textContent = '🎯 スタート';
+  }
   if (result) {
     result.style.display = 'none';
   }
@@ -2210,8 +2260,8 @@ function resetRewardGachaModal() {
   }
   if (status) {
     status.textContent = currentReward
-      ? 'このカードのガチャ結果は保存済みです。次のスタンプカードへ進めます。'
-      : 'ハンドルを回して、特典カプセルを受け取ってください。';
+      ? 'このカードのルーレットの結果は保存済みです。次のスタンプカードへ進めます。'
+      : '「スタート」で回して、好きなところで「ストップ」を押してください。';
   }
   renderRewardGachaCapsules(currentReward ? getRewardGachaPrizeMeta(currentReward.rewardName).key : '');
   if (currentReward) {
@@ -2353,8 +2403,8 @@ function updateStampUI() {
   let msg = rem > 0
     ? `あと${rem}回でプレゼント🎁`
     : (currentReward
-      ? '達成済み🎉 ガチャ結果を受け取りました。新しいカードを始められます。'
-      : '達成済み🎉 特典ガチャを回せます！');
+      ? '達成済み🎉 ルーレットの結果を受け取りました。新しいカードを始められます。'
+      : '達成済み🎉 特典ルーレットを回せます！');
 
   if (rem === 0) {
     const achievedAt = localStorage.getItem('mayumi_stamp_10_date');
@@ -2380,7 +2430,7 @@ function updateStampUI() {
   if (newCardBtn) {
     newCardBtn.style.display = stampCount >= 10 ? 'block' : 'none';
     if (stampCount >= 10) {
-      newCardBtn.textContent = currentReward ? '🌸 新しいスタンプカードを取得' : '🎯 特典ガチャを回す';
+      newCardBtn.textContent = currentReward ? '🌸 新しいスタンプカードを取得' : '🎯 特典ルーレットを回す';
       newCardBtn.onclick = currentReward ? startNewCard : openRewardGachaModal;
     }
   }
@@ -2399,7 +2449,7 @@ function addStamp() {
     return;
   }
   if (stampCount >= 10) {
-    showToast(hasCurrentCardReward() ? '達成済みです。新しいスタンプカードを始めてください。' : '達成済みです。特典ガチャを回してください。');
+    showToast(hasCurrentCardReward() ? '達成済みです。新しいスタンプカードを始めてください。' : '達成済みです。特典ルーレットを回してください。');
     return;
   }
 
@@ -2422,7 +2472,7 @@ function addStamp() {
   }
   updateStampModalPresentation(reachedMilestone);
   document.getElementById('stampPopMsg').textContent = reachedMilestone
-    ? 'ご来院ありがとうございます！10個達成です。特典ガチャを回せます。'
+    ? 'ご来院ありがとうございます！10個達成です。特典ルーレットを回せます。'
     : 'ご来院ありがとうございます！スタンプを1つ追加しました！';
   document.getElementById('stampPopCount').textContent = `現在 ${stampCount} / 10`;
 
@@ -2440,7 +2490,7 @@ function handleStampMilestoneAction() {
 
 async function openRewardGachaModal() {
   if (stampCount < 10) {
-    showToast('スタンプが10個たまると特典ガチャを回せます。');
+    showToast('スタンプが10個たまると特典ルーレットを回せます。');
     return;
   }
   await loadCurrentMonthlyReward();
@@ -2449,10 +2499,53 @@ async function openRewardGachaModal() {
   openModal('rewardGachaModal');
 }
 
+// ルーレットの状態: '' → 'spinning'（スタートを押した。ストップ待ち）→ 'stopping'（止まるのを待つ）
+let rewardRouletteState = '';
+let rewardRouletteRequest = null;
+
+// 当たりを決める（サーバー）。通じないときは、これまでどおり端末で決めて記録する
+async function requestRewardGachaResult() {
+  let res = null;
+  if (_profile && _profile.memberId) {
+    res = await postToGAS({
+      type: 'drawRewardGacha',
+      memberId: _profile.memberId
+    });
+  }
+
+  if (!res || res.status !== 'ok') {
+    const fallbackPrize = drawRewardGachaWeightedPrize();
+    const localReward = buildLocalGachaReward(fallbackPrize);
+    const nextStatus = getComparableRewardStatus({
+      stampCount: stampCount,
+      stampCardNum: stampCardNum,
+      rewards: [localReward].concat(normalizeRewardList(EARNED_REWARDS)),
+      lastStampDate: normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date') || ''),
+      lastStampAt: normalizeRewardDateTime(localStorage.getItem(LAST_STAMP_AT_STORAGE_KEY) || ''),
+      stampAchievedDate: normalizeRewardDateTime(localStorage.getItem('mayumi_stamp_10_date') || '')
+    });
+    applyRewardStatusLocally(nextStatus);
+    lastSyncedRewardStatus = nextStatus;
+    res = {
+      status: 'ok',
+      rewardStatus: nextStatus,
+      drawnReward: Object.assign({}, fallbackPrize)
+    };
+  } else if (res.rewardStatus) {
+    lastSyncedRewardStatus = getComparableRewardStatus(res.rewardStatus);
+    applyRewardStatusLocally(lastSyncedRewardStatus);
+  }
+  return res;
+}
+
+// 「スタート」と「ストップ」は同じボタン。
+// **当たりはスタートを押したときにサーバーが決める。**ストップを押す時点では結果は変わらない
+// （押し方で当たりを狙えると、管理画面で決めた当たりやすさが崩れるため）。盤はその特典の区切りで止まる。
 async function drawRewardGacha() {
+  if (rewardRouletteState === 'spinning') return stopRewardRoulette();
   if (isRewardGachaDrawing) return;
   if (stampCount < 10) {
-    showToast('スタンプが10個たまると特典ガチャを回せます。');
+    showToast('スタンプが10個たまると特典ルーレットを回せます。');
     return;
   }
 
@@ -2464,88 +2557,67 @@ async function drawRewardGacha() {
 
   const drawBtn = document.getElementById('rewardGachaDrawBtn');
   const closeBtn = document.getElementById('rewardGachaCloseBtn');
-  const handleBtn = document.getElementById('rewardGachaHandleBtn');
-  const machine = document.getElementById('rewardGachaMachine');
+  const wheel = document.getElementById('rewardGachaCapsules');
   const status = document.getElementById('rewardGachaStatus');
-  const dropCapsule = document.getElementById('rewardGachaDroppedCapsule');
-  const startedAt = Date.now();
 
   isRewardGachaDrawing = true;
-  if (drawBtn) drawBtn.disabled = true;
-  if (closeBtn) closeBtn.disabled = true;
-  if (handleBtn) handleBtn.disabled = true;
-  if (machine) machine.classList.add('rolling');
-  if (status) status.textContent = 'ガチャを回しています…';
+  rewardRouletteState = 'spinning';
   renderRewardGachaCapsules();
+  if (wheel) {
+    wheel.style.transition = 'none';
+    wheel.style.transform = '';
+    wheel.classList.add('spinning');
+  }
+  if (closeBtn) closeBtn.disabled = true;
+  if (status) status.textContent = '好きなところで「ストップ」を押してください。';
+  if (drawBtn) {
+    drawBtn.textContent = '✋ ストップ';
+    // 押してすぐ止められないよう、少しだけ回してからストップを押せるようにする
+    drawBtn.disabled = true;
+    setTimeout(function () { if (rewardRouletteState === 'spinning') drawBtn.disabled = false; }, 900);
+  }
+  rewardRouletteRequest = requestRewardGachaResult();
+  // 先に失敗が分かったら、回すのをやめて元に戻す
+  rewardRouletteRequest.catch(function (err) { failRewardRoulette(err); });
+}
 
+async function stopRewardRoulette() {
+  if (rewardRouletteState !== 'spinning') return;
+  rewardRouletteState = 'stopping';
+  const drawBtn = document.getElementById('rewardGachaDrawBtn');
+  const closeBtn = document.getElementById('rewardGachaCloseBtn');
+  const status = document.getElementById('rewardGachaStatus');
+  if (drawBtn) drawBtn.disabled = true;
+  if (status) status.textContent = 'ルーレットが止まります…';
   try {
-    let res = null;
-    if (_profile && _profile.memberId) {
-      res = await postToGAS({
-        type: 'drawRewardGacha',
-        memberId: _profile.memberId
-      });
-    }
-
-    if (!res || res.status !== 'ok') {
-      const fallbackPrize = drawRewardGachaWeightedPrize();
-      const localReward = buildLocalGachaReward(fallbackPrize);
-      const nextStatus = getComparableRewardStatus({
-        stampCount: stampCount,
-        stampCardNum: stampCardNum,
-        rewards: [localReward].concat(normalizeRewardList(EARNED_REWARDS)),
-        lastStampDate: normalizeStampDateKey(localStorage.getItem('mayumi_last_stamp_date') || ''),
-        lastStampAt: normalizeRewardDateTime(localStorage.getItem(LAST_STAMP_AT_STORAGE_KEY) || ''),
-        stampAchievedDate: normalizeRewardDateTime(localStorage.getItem('mayumi_stamp_10_date') || '')
-      });
-      applyRewardStatusLocally(nextStatus);
-      lastSyncedRewardStatus = nextStatus;
-      res = {
-        status: 'ok',
-        rewardStatus: nextStatus,
-        drawnReward: Object.assign({}, fallbackPrize)
-      };
-    } else if (res.rewardStatus) {
-      lastSyncedRewardStatus = getComparableRewardStatus(res.rewardStatus);
-      applyRewardStatusLocally(lastSyncedRewardStatus);
-    }
-
-    // 演出時間の確保 (最小1.2秒)
-    const elapsed = Date.now() - startedAt;
-    if (elapsed < 1200) {
-      await new Promise(function (resolve) { setTimeout(resolve, 1200 - elapsed); });
-    }
-
-    // 回転停止
-    if (machine) machine.classList.remove('rolling');
-    if (status) status.textContent = '特典が出てきます…';
-
+    const res = await rewardRouletteRequest;
     const drawnReward = (res && res.drawnReward) || getCurrentCardReward();
-    const prizeColor = drawnReward ? getRewardGachaPrizeMeta(drawnReward.rewardName).capsuleColor : '#d9c5a2';
-
-    // カプセル落下演出
-    if (dropCapsule) {
-      dropCapsule.style.background = prizeColor;
-      dropCapsule.classList.add('falling');
-      await new Promise(r => setTimeout(r, 600));
-      dropCapsule.classList.add('bouncing');
-      await new Promise(r => setTimeout(r, 400));
-    }
-
+    const prize = getRewardGachaPrizeMeta(drawnReward && drawnReward.rewardName ? drawnReward.rewardName : drawnReward);
+    await stopRewardRouletteAt(prize.key);
+    rewardRouletteState = '';
+    isRewardGachaDrawing = false;
     showRewardGachaResult(drawnReward, { alreadyDrawn: !!(res && res.alreadyDrawn) });
     triggerConfetti();
     if (closeBtn) closeBtn.disabled = false;
   } catch (err) {
-    console.log('drawRewardGacha error:', err);
-    showToast('特典ガチャの取得に失敗しました。');
-    if (machine) machine.classList.remove('rolling');
-    if (status) status.textContent = '通信に失敗しました。もう一度お試しください。';
-    if (drawBtn) drawBtn.disabled = false;
-    if (closeBtn) closeBtn.disabled = false;
-    if (handleBtn) handleBtn.disabled = false;
-  } finally {
-    isRewardGachaDrawing = false;
+    failRewardRoulette(err);
   }
+}
+
+function failRewardRoulette(err) {
+  if (!rewardRouletteState) return;
+  console.log('drawRewardGacha error:', err);
+  rewardRouletteState = '';
+  isRewardGachaDrawing = false;
+  const drawBtn = document.getElementById('rewardGachaDrawBtn');
+  const closeBtn = document.getElementById('rewardGachaCloseBtn');
+  const wheel = document.getElementById('rewardGachaCapsules');
+  const status = document.getElementById('rewardGachaStatus');
+  if (wheel) wheel.classList.remove('spinning');
+  showToast('特典ルーレットの結果を受け取れませんでした。');
+  if (status) status.textContent = '通信に失敗しました。もう一度「スタート」を押してください。';
+  if (drawBtn) { drawBtn.disabled = false; drawBtn.textContent = '🎯 スタート'; }
+  if (closeBtn) closeBtn.disabled = false;
 }
 
 async function startNewCard() {
@@ -2554,8 +2626,8 @@ async function startNewCard() {
     return;
   }
   if (!hasCurrentCardReward()) {
-    showAppAlert('新しいスタンプカードを始める前に、特典ガチャを回してください。', {
-      title: '特典ガチャのご案内',
+    showAppAlert('新しいスタンプカードを始める前に、特典ルーレットを回してください。', {
+      title: '特典ルーレットのご案内',
       confirmLabel: '閉じる'
     });
     return;
@@ -2593,7 +2665,7 @@ function renderEarnedRewards() {
   });
 
   if (!historyItems.length) {
-    container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">未使用のガチャ特典はありません</div>';
+    container.innerHTML = '<div style="text-align:center;font-size:13px;color:var(--text-light);padding:26px 0">未使用の特典はありません</div>';
     return;
   }
 
@@ -2781,7 +2853,7 @@ const SUPPORT_FAQ_FALLBACK = [
   { category: 'スタンプ', question: 'スタンプの集め方を知りたい', keywords: 'スタンプ,QR,QRコード,来院,カメラ', answer: 'ホーム画面の「📷 カメラを起動して読み取る」を押し、表示された案内でカメラを許可してから院内QRコードを読み取ってください。読み取りに成功するとスタンプが1つ追加されます。', priority: 110 },
   { category: 'スタンプ', question: 'スタンプは1日何回取得できますか？', keywords: 'スタンプ,1日,一日,何回,回数', answer: '来院スタンプは1日1回までです。同じ日に再度読み取ると、すでに取得済みの案内が表示されます。', priority: 108 },
   { category: 'トラブル', question: 'カメラが起動しないときはどうすればいいですか？', keywords: 'カメラ,起動しない,許可,権限,QR,読めない', answer: 'スタンプ取得時にカメラ許可の確認が出た場合は「許可」を選んでください。すでに拒否している場合は、表示される「設定を開く」から設定画面へ進み、iPhone や Android のカメラ許可をオンにしてから、もう一度「📷 カメラを起動して読み取る」を押してください。', priority: 106 },
-  { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。ガチャ後はホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。', priority: 104 },
+  { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ルーレットを回せます。結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。ルーレットのあとはホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。', priority: 104 },
   { category: 'スタンプ特典', question: '特典はどこで確認できますか？', keywords: '特典,どこ,確認,プレゼント,ガチャ', answer: '特典はマイページの「🎁 スタンプ・特典履歴」で確認できます。未使用の特典と受取期限を確認でき、使用した特典は履歴から表示されません。', priority: 102 },
   { category: 'スタンプ特典', question: '特典の有効期限を知りたい', keywords: '特典,期限,有効期限,いつまで', answer: '特典の受取期限は、スタンプ10個を達成した日から1か月です。期限はマイページの「🎁 スタンプ・特典履歴」に表示されます。', priority: 100 },
   { category: '通知', question: '通知をオン・オフにしたい', keywords: '通知,オン,オフ,push,プッシュ,許可', answer: 'マイページの「🔔 通知設定」からオン・オフを切り替えられます。アプリ内でオンにしても届かない場合は、iPhone や Android 本体側の通知許可もご確認ください。', priority: 98 },
@@ -2811,7 +2883,7 @@ const SUPPORT_APP_GUIDE = [
   { category: '更新', question: '最新情報への更新方法を知りたい', keywords: '更新,最新,再読み込み,リロード,refresh', answer: '画面上部の「🔄」ボタンを押すと、最新のお知らせ・商品・カレンダー・FAQ・スタンプ・特典履歴などを更新できます。', priority: 95 },
   { category: '更新', question: 'アップデートが必要と表示されたらどうすればいいですか？', keywords: 'アップデート,更新が必要,app store,最新版', answer: '起動時に「アップデートが必要です」と表示された場合は、案内に従って最新版へ更新してください。軽微な情報更新は「🔄」ボタンで反映できます。', priority: 94 },
   { category: '予約', question: '予約はアプリからできますか？', keywords: '予約,よやく,line,予約方法', answer: 'このアプリから予約確定はできません。予約や個別相談は公式LINEからご連絡ください。メニュー一覧では内容確認のみできます。', priority: 93 },
-  { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ガチャを回せます。ガチャ結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。', priority: 92 },
+  { category: 'スタンプ特典', question: 'スタンプが10個たまったらどうなりますか？', keywords: 'スタンプ,10個,達成,ガチャ,特典', answer: 'スタンプが10個たまると、ホーム画面から特典ルーレットを回せます。ルーレットの結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。', priority: 92 },
   { category: 'NEWS', question: 'まゆみのつぶやきってどこで見られますか？', keywords: 'つぶやき,NEWS,カテゴリ,告知,メッセージ', answer: '「まゆみのつぶやき」はNEWSページの右上のカテゴリ選択で「まゆみのつぶやき」を選ぶと表示されます。アプリ内で手軽に読める院長からの短いメッセージや、大切なお知らせが配信されます。', priority: 86 }
 ];
 
@@ -6196,8 +6268,8 @@ function getFeatureSupportReply(messageNorm) {
         topic,
         [
           '新しいスタンプカードの始め方です。',
-          '1. スタンプが10個たまると、ホーム画面に「🎯 特典ガチャを回す」が表示されます。',
-          '2. 特典ガチャを回すと、「🌸 新しいスタンプカードを取得」が表示されます。',
+          '1. スタンプが10個たまると、ホーム画面に「🎯 特典ルーレットを回す」が表示されます。',
+          '2. 特典ルーレットを回すと、「🌸 新しいスタンプカードを取得」が表示されます。',
           '3. そのボタンを押すと次のカードが始まり、スタンプが0個に戻ってカード番号が1つ進みます。'
         ],
         ['スタンプが10個たまったらどうなりますか？', 'スタンプ特典の使い方を知りたい']
@@ -6212,7 +6284,7 @@ function getFeatureSupportReply(messageNorm) {
             '1. カメラ権限が許可されているか。',
             '2. QRコードに汚れや傷がないか。',
             '3. その日のスタンプをすでに取得していないか。',
-            '4. 10個達成済みなら先に特典ガチャを回し、その後に新しいカードを始めてください。'
+            '4. 10個達成済みなら先に特典ルーレットを回し、その後に新しいカードを始めてください。'
           ]
           : [
             'スタンプ取得の手順です。',
@@ -6228,9 +6300,9 @@ function getFeatureSupportReply(messageNorm) {
       return buildFeatureSupportReply(
         topic,
         [
-          'スタンプが10個たまるとホーム画面から特典ガチャを回せます。',
-          'ガチャ結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。',
-          'ガチャ後は、ホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。'
+          'スタンプが10個たまるとホーム画面から特典ルーレットを回せます。',
+          'ルーレットの結果はマイページの「🎁 スタンプ・特典履歴」で確認できます。',
+          'ルーレットのあとは、ホーム画面の「🌸 新しいスタンプカードを取得」から次のカードを始められます。'
         ],
         ['スタンプ特典の使い方を知りたい', '新しいカードを始めるには？']
       );
@@ -6242,7 +6314,7 @@ function getFeatureSupportReply(messageNorm) {
         '1. スタンプはホーム画面で確認します。',
         '2. 院内QRコードを読むと1日1回まで追加されます。',
         `3. 現在のカードは${stampCardNum}枚目、スタンプは${stampCount}個です。`,
-        '4. 10個たまると特典ガチャを回せます。'
+        '4. 10個たまると特典ルーレットを回せます。'
       ],
       ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
     );
@@ -6268,13 +6340,13 @@ function getFeatureSupportReply(messageNorm) {
         topic,
         availableRewards.length
           ? [
-            `現在、未使用のガチャ特典が${availableRewards.length}件あります。`,
+            `現在、未使用の特典が${availableRewards.length}件あります。`,
             'マイページの「🎁 スタンプ・特典履歴」で確認できます。',
             '特典は達成当日から使用でき、使用すると履歴から表示されなくなります。'
           ]
           : [
             '現在、未使用の特典はありません。',
-            'スタンプが10個たまると特典ガチャを回せるようになり、結果がマイページに表示されます。'
+            'スタンプが10個たまると特典ルーレットを回せるようになり、結果がマイページに表示されます。'
           ],
         ['特典はどこで確認できますか？', 'スタンプの集め方を知りたい']
       );
@@ -6284,7 +6356,7 @@ function getFeatureSupportReply(messageNorm) {
       [
         'スタンプ特典の使い方です。',
         '1. マイページの「🎁 スタンプ・特典履歴」を開きます。',
-        '2. 未使用のガチャ特典を確認し、必要なら「使用する」を押します。',
+        '2. 未使用の特典を確認し、必要なら「使用する」を押します。',
         '3. 特典は達成当日から使用でき、使用すると履歴から表示されなくなります。',
         '4. 一度使用すると再使用できません。受け取りの際は受付へお声かけください。'
       ],
@@ -6445,11 +6517,11 @@ function getSupportStatusReply(messageNorm) {
           `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。10個達成済みです。`,
           hasCurrentCardReward()
             ? '次の流れ: 1. マイページの「スタンプ・特典履歴」を確認 2. 必要なら特典を使用 3. ホームの「新しいスタンプカードを取得」で次のカードを開始してください。'
-            : '次の流れ: 1. ホームの「特典ガチャを回す」でごほうびを受け取る 2. マイページの「スタンプ・特典履歴」で確認 3. ガチャ後に「新しいスタンプカードを取得」で次のカードを開始してください。',
+            : '次の流れ: 1. ホームの「特典ルーレットを回す」でごほうびを受け取る 2. マイページの「スタンプ・特典履歴」で確認 3. ルーレットのあとに「新しいスタンプカードを取得」で次のカードを開始してください。',
           '補足: 来院スタンプは1日1回までです。'
         ]
         : [
-          `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。あと${remain}個で特典ガチャを回せます。`,
+          `現在は${stampCardNum}枚目のカードでスタンプ${stampCount}個です。あと${remain}個で特典ルーレットを回せます。`,
           '追加方法: ホーム画面の「カメラを起動して読み取る」から院内QRコードを読み取ってください。',
           '補足: 来院スタンプは1日1回までです。'
         ],
@@ -6770,8 +6842,8 @@ function getBuiltInSupportReply(messageNorm) {
     return buildSupportReply(
       [
         '新しいスタンプカードの始め方です。',
-        '1. スタンプが10個たまると、ホームに「特典ガチャを回す」ボタンが表示されます。',
-        '2. 特典ガチャを回すと、「新しいスタンプカードを取得」ボタンが表示されます。',
+        '1. スタンプが10個たまると、ホームに「特典ルーレットを回す」ボタンが表示されます。',
+        '2. 特典ルーレットを回すと、「新しいスタンプカードを取得」ボタンが表示されます。',
         '3. そのボタンを押すと次のスタンプカードが始まります。'
       ],
       ['スタンプ特典の使い方を知りたい', 'スタンプの集め方を知りたい']
@@ -6783,7 +6855,7 @@ function getBuiltInSupportReply(messageNorm) {
       [
         'スタンプ特典の使い方です。',
         '1. マイページの「スタンプ・特典履歴」を開きます。',
-        '2. 未使用のガチャ特典を確認し、必要な場合は「使用する」を押します。',
+        '2. 未使用の特典を確認し、必要な場合は「使用する」を押します。',
         '3. 特典は達成当日から使用でき、使用すると履歴から表示されなくなります。',
         '4. 受取期限は獲得から1か月です。',
         '補足: 一度使用すると再度は使用できません。受け取りの際は受付へお声かけください'
@@ -6819,8 +6891,8 @@ function getBuiltInSupportReply(messageNorm) {
         'スタンプ機能のご案内です。',
         '1. スタンプはホーム画面で管理します。',
         '2. 院内QRコードを読むと1日1回まで追加されます。',
-        '3. 10個たまると特典ガチャを回せます。',
-        '4. ガチャ結果はマイページで確認できます。'
+        '3. 10個たまると特典ルーレットを回せます。',
+        '4. ルーレットの結果はマイページで確認できます。'
       ],
       ['スタンプの集め方を知りたい', 'スタンプ特典の使い方を知りたい']
     );
