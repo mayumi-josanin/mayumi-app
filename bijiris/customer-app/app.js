@@ -17,7 +17,7 @@ const BIJIRIS_NEW_BADGE_DAYS = 7;
 const BIJIRIS_HISTORY_LIMIT = 8;
 const APP_VERSION = "20260603-01";
 const CACHE_PREFIX = "mayumi-customer-survey-";
-const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v169";
+const ACTIVE_CACHE_NAME = "mayumi-customer-survey-v170";
 const AUTO_CACHE_MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_CACHE_MAINTENANCE_KEY = "mayumi_customer_cache_maintenance_at";
 // 前回開いたときの中身。Apps Script は応答までに数秒かかるので、
@@ -5984,12 +5984,12 @@ function getTicketProgressStampDates(ticketPlan, ticketSheetLabel, ticketCount) 
   return datesByRound;
 }
 
-function renderTicketStampProgress(ticketCount, currentRound, stampDates = new Map()) {
+function renderTicketStampProgress(ticketCount, currentRound, stampDates = new Map(), options = {}) {
   if (!ticketCount) return "";
   const normalizedCount = Math.max(0, Number(ticketCount) || 0);
   const normalizedRound = Math.max(0, Math.min(normalizedCount, Number(currentRound) || 0));
   return `
-    <div class="ticket-progress" data-ticket-count="${normalizedCount}">
+    <div class="ticket-progress ${options.columns === 3 ? "ticket-progress-3col" : ""}" data-ticket-count="${normalizedCount}">
       ${Array.from({ length: normalizedCount }, (_, index) => {
         const step = index + 1;
         const submittedAt = step <= normalizedRound ? stampDates.get(step) || "" : "";
@@ -6296,7 +6296,8 @@ function renderHomeCampaignStatus() {
         </div>
         ${
           // 回数を決めないので、押した数＋次の来店の空き枠を1つ並べる（院長 2026-11-16）
-          renderTicketStampProgress(currentVisits + 1, currentVisits, stampDates)
+          // 回数で列の数が変わるとスタンプが重なるので、6回券と同じ3列で増やしていく（院長 2026-11-16）
+          renderTicketStampProgress(currentVisits + 1, currentVisits, stampDates, { columns: 3 })
         }
       </div>
     </article>

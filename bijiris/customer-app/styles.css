@@ -1076,6 +1076,11 @@ textarea {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+/* キャンペーンは回数を決めないので、いつも3列で増やす（2026-11-16） */
+.ticket-progress.ticket-progress-3col {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .stamp-dot-cell {
   position: relative;
   display: grid;
