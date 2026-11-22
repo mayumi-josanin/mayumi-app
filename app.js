@@ -9339,6 +9339,7 @@ const RESERVATION_LINE_URL = 'https://lin.ee/o2XfGzp';
 // イベント・教室は、予約サイトで開催の回を選んで予約していただく（院長の依頼 2026-11-22）。
 // LINE の中で開く入口（LIFF）なので、お客様の LINE でそのままログインされる。予約サイトの一覧に
 // 「○月○日開催予定・予約受付中・予約する」が出る。
+const EVENT_BOOKING_ON_SITE = false;
 const RESERVATION_SITE_URL = 'https://liff.line.me/2011155691-7JvgSpyH/';
 
 function openEventReservation(event) {
@@ -9381,8 +9382,9 @@ function buildMenuNameBadgeMarkup(menu) {
 
 function buildMenuReservationButtonMarkup(menu) {
   if (!shouldShowMenuReservationButton(menu)) return '';
-  // イベントは予約サイトへ。施術などはこれまでどおり公式LINE
-  const handler = getMenuGroup(menu) === MENU_EVENT_CATEGORY ? 'openEventReservation(event)' : 'openReservationLine(event)';
+  // イベントを予約サイトへ進めるのは、院長が始めると決めてから（2026-11-22「予約システムに飛ぶのはまだ」）。
+  // それまでは全部公式LINE。始めるときは EVENT_BOOKING_ON_SITE を true にする
+  const handler = EVENT_BOOKING_ON_SITE && getMenuGroup(menu) === MENU_EVENT_CATEGORY ? 'openEventReservation(event)' : 'openReservationLine(event)';
   return `
                 <button type="button" class="menu-book-btn" onclick="${handler}">予約する</button>`;
 }
