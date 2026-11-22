@@ -9324,6 +9324,19 @@ function findNextMenuEventDate(menu) {
 // 予約は公式LINEで受け付ける。アプリからは確定できない。
 const RESERVATION_LINE_URL = 'https://lin.ee/o2XfGzp';
 
+// イベント・教室は、予約サイトで開催の回を選んで予約していただく（院長の依頼 2026-11-22）。
+// LINE の中で開く入口（LIFF）なので、お客様の LINE でそのままログインされる。予約サイトの一覧に
+// 「○月○日開催予定・予約受付中・予約する」が出る。
+const RESERVATION_SITE_URL = 'https://liff.line.me/2011155691-7JvgSpyH/';
+
+function openEventReservation(event) {
+  if (event) { event.stopPropagation(); event.preventDefault(); }
+  const opened = window.open(RESERVATION_SITE_URL, '_blank', 'noopener');
+  if (!opened) {
+    window.location.href = RESERVATION_SITE_URL;
+  }
+}
+
 function openReservationLine(event) {
   // カード全体が詳細を開くようになっているため、ボタンのタップを伝えない
   if (event) { event.stopPropagation(); event.preventDefault(); }
@@ -9356,8 +9369,10 @@ function buildMenuNameBadgeMarkup(menu) {
 
 function buildMenuReservationButtonMarkup(menu) {
   if (!shouldShowMenuReservationButton(menu)) return '';
+  // イベントは予約サイトへ。施術などはこれまでどおり公式LINE
+  const handler = getMenuGroup(menu) === MENU_EVENT_CATEGORY ? 'openEventReservation(event)' : 'openReservationLine(event)';
   return `
-                <button type="button" class="menu-book-btn" onclick="openReservationLine(event)">予約する</button>`;
+                <button type="button" class="menu-book-btn" onclick="${handler}">予約する</button>`;
 }
 
 // 受付中かどうかの判定は表示と絞り込みで共通にする。
