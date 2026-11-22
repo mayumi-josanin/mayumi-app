@@ -9308,17 +9308,29 @@ function getMenuGroup(menu) {
 // 管理画面のカレンダー登録で選ばれた「対象メニュー」で結び付ける。
 // メニュー名ではなく行番号を持つので、メニュー名を変えても紐づけは切れない。
 function findNextMenuEventDate(menu) {
+  const next = findNextMenuEvent(menu);
+  return next ? next.dateKey : '';
+}
+
+// これからの開催のうち、お見せする1回（2026-11-22）。
+// 予約システムとつながっている回は bookingState（open / full / closed）を持つ。受付中の回があればいちばん近い受付中の回、
+// 無ければいちばん近い回（その状態が「満席」「受付停止」として出る）。つながっていない回は受付中として扱う（これまでどおり）。
+function findNextMenuEvent(menu) {
   const menuRowIdx = Number(menu && menu.rowIdx || 0);
-  if (!menuRowIdx) return '';
+  if (!menuRowIdx) return null;
   const todayKey = formatCalendarDateKey(new Date());
-  let best = '';
+  let firstAny = null;
+  let firstOpen = null;
   (calendarData || []).forEach(function (event) {
     if (Number(event && event.menuRowIdx || 0) !== menuRowIdx) return;
     const dateKey = String(event && event.date || '').slice(0, 10);
     if (!dateKey || dateKey < todayKey) return;
-    if (!best || dateKey < best) best = dateKey;
+    const state = String(event && event.bookingState || '');
+    const item = { dateKey: dateKey, state: state };
+    if (!firstAny || dateKey < firstAny.dateKey) firstAny = item;
+    if ((state === '' || state === 'open') && (!firstOpen || dateKey < firstOpen.dateKey)) firstOpen = item;
   });
-  return best;
+  return firstOpen || firstAny;
 }
 
 // 予約は公式LINEで受け付ける。アプリからは確定できない。
@@ -9379,7 +9391,8 @@ function buildMenuReservationButtonMarkup(menu) {
 // イベントはカレンダーの予定があるかで決まり、通常メニューは管理画面の設定に従う。
 function isMenuAcceptingReservation(menu) {
   if (getMenuGroup(menu) === MENU_EVENT_CATEGORY) {
-    return !!findNextMenuEventDate(menu);
+    const next = findNextMenuEvent(menu);
+    return !!next && (next.state === '' || next.state === 'open');
   }
   return String(menu && menu.reservationStatus || '').trim() === '予約受付中';
 }
@@ -9388,19 +9401,22 @@ function isMenuAcceptingReservation(menu) {
 // 開催予定があれば「◯月◯日開催予定／予約受付中」、無ければ「予約対象外」。
 function buildMenuScheduleMarkup(menu) {
   if (getMenuGroup(menu) !== MENU_EVENT_CATEGORY) return '';
-  const dateKey = findNextMenuEventDate(menu);
-  if (!dateKey) {
+  const next = findNextMenuEvent(menu);
+  if (!next) {
     return `
               <div class="menu-schedule">
                 <span class="menu-schedule-status closed">予約対象外</span>
               </div>`;
   }
-  const parts = dateKey.split('-');
+  const parts = next.dateKey.split('-');
   const label = `${Number(parts[1])}月${Number(parts[2])}日開催予定`;
+  // 予約システムで止めた回は「受付停止」、定員になった回は「満席」（2026-11-22）
+  const statusText = next.state === 'full' ? '満席' : next.state === 'closed' ? '受付停止' : '予約受付中';
+  const statusClass = next.state === 'full' || next.state === 'closed' ? ' closed' : '';
   return `
               <div class="menu-schedule">
                 <span class="menu-schedule-date">${escapeHtml(label)}</span>
-                <span class="menu-schedule-status">予約受付中</span>
+                <span class="menu-schedule-status${statusClass}">${statusText}</span>
               </div>`;
 }
 
