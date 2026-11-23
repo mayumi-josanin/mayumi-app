@@ -9326,6 +9326,8 @@ function findNextMenuEvent(menu) {
     const dateKey = String(event && event.date || '').slice(0, 10);
     if (!dateKey || dateKey < todayKey) return;
     const state = String(event && event.bookingState || '');
+    // 締切を過ぎた回（2026-11-23）。お申し込みはもうできないので、次の開催として出さない
+    if (state === 'ended') return;
     const item = { dateKey: dateKey, state: state };
     if (!firstAny || dateKey < firstAny.dateKey) firstAny = item;
     if ((state === '' || state === 'open') && (!firstOpen || dateKey < firstOpen.dateKey)) firstOpen = item;
