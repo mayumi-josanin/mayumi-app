@@ -9393,8 +9393,15 @@ function buildMenuReservationButtonMarkup(menu) {
 
 // 受付中かどうかの判定は表示と絞り込みで共通にする。
 // イベントはカレンダーの予定があるかで決まり、通常メニューは管理画面の設定に従う。
+// 管理アプリで決めた予約受付ステータス（2026-11-24）。イベントでも「予約対象外」「満席」はこちらを優先する
+function getMenuReservationStatus(menu) {
+  return String(menu && menu.reservationStatus || '').trim();
+}
+
 function isMenuAcceptingReservation(menu) {
   if (getMenuGroup(menu) === MENU_EVENT_CATEGORY) {
+    const status = getMenuReservationStatus(menu);
+    if (status === '予約対象外' || status === '満席') return false;
     const next = findNextMenuEvent(menu);
     return !!next && (next.state === '' || next.state === 'open');
   }
@@ -9406,7 +9413,8 @@ function isMenuAcceptingReservation(menu) {
 function buildMenuScheduleMarkup(menu) {
   if (getMenuGroup(menu) !== MENU_EVENT_CATEGORY) return '';
   const next = findNextMenuEvent(menu);
-  if (!next) {
+  const fixedStatus = getMenuReservationStatus(menu);
+  if (!next || fixedStatus === '予約対象外') {
     return `
               <div class="menu-schedule">
                 <span class="menu-schedule-status closed">予約対象外</span>
@@ -9415,8 +9423,9 @@ function buildMenuScheduleMarkup(menu) {
   const parts = next.dateKey.split('-');
   const label = `${Number(parts[1])}月${Number(parts[2])}日開催予定`;
   // 予約システムで止めた回は「受付停止」、定員になった回は「満席」（2026-11-22）
-  const statusText = next.state === 'full' ? '満席' : next.state === 'closed' ? '受付停止' : '予約受付中';
-  const statusClass = next.state === 'full' || next.state === 'closed' ? ' closed' : '';
+  const isFull = next.state === 'full' || fixedStatus === '満席';
+  const statusText = isFull ? '満席' : next.state === 'closed' ? '受付停止' : '予約受付中';
+  const statusClass = isFull || next.state === 'closed' ? ' closed' : '';
   return `
               <div class="menu-schedule">
                 <span class="menu-schedule-date">${escapeHtml(label)}</span>
