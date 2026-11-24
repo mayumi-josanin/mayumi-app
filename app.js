@@ -9411,7 +9411,16 @@ function isMenuAcceptingReservation(menu) {
 // イベントの受付状況はカレンダーの予定から決まる。
 // 開催予定があれば「◯月◯日開催予定／予約受付中」、無ければ「予約対象外」。
 function buildMenuScheduleMarkup(menu) {
-  if (getMenuGroup(menu) !== MENU_EVENT_CATEGORY) return '';
+  if (getMenuGroup(menu) !== MENU_EVENT_CATEGORY) {
+    // 通常メニューは、管理アプリで決めた予約受付ステータスをそのまま出す（2026-11-24）
+    const status = getMenuReservationStatus(menu);
+    if (!status) return '';
+    const closed = status === '予約受付中' ? '' : ' closed';
+    return `
+              <div class="menu-schedule">
+                <span class="menu-schedule-status${closed}">${escapeHtml(status)}</span>
+              </div>`;
+  }
   const next = findNextMenuEvent(menu);
   const fixedStatus = getMenuReservationStatus(menu);
   if (!next || fixedStatus === '予約対象外') {
