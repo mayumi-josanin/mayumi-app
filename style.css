@@ -2288,14 +2288,16 @@
       width: 100%;
     }
 
+    /* 一覧の写真は正方形いっぱいに（2026-11-24。以前は全体を見せるため余白つきで縮めていた）。端は切れて真ん中が出る */
     .menu-list-thumb {
       width: 80px;
       height: 80px;
-      object-fit: contain;
+      object-fit: cover;
+      object-position: center;
       border-radius: 10px;
       flex-shrink: 0;
       background: var(--bg-gray);
-      padding: 6px;
+      padding: 0;
       box-sizing: border-box;
       display: block;
     }
